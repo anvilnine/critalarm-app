@@ -130,7 +130,7 @@ function authenticate(req) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const parsedUrl = url.parse(req.url, true);
+  const parsedUrl = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = parsedUrl.pathname;
   const method = req.method;
 
@@ -403,9 +403,9 @@ const server = http.createServer(async (req, res) => {
 
     // GET /v1/incidents
     if (method === 'GET' && pathname === '/v1/incidents') {
-      const limit = parseInt(parsedUrl.query.limit || '20', 10);
-      const stateFilter = parsedUrl.query.state;
-      const topicFilter = parsedUrl.query.topic;
+      const limit = parseInt(parsedUrl.searchParams.get('limit') || '20', 10);
+      const stateFilter = parsedUrl.searchParams.get('state');
+      const topicFilter = parsedUrl.searchParams.get('topic');
 
       const results = [];
       for (const inc of state.incidents.values()) {
@@ -523,7 +523,7 @@ const server = http.createServer(async (req, res) => {
       sendError(res, 401, 40101, 'unauthorized');
       return;
     }
-    const topicName = parsedUrl.query.topic;
+    const topicName = parsedUrl.searchParams.get('topic');
     if (!topicName || !state.topics.has(topicName)) {
       sendError(res, 404, 40401, 'topic not found');
       return;
@@ -592,7 +592,7 @@ const server = http.createServer(async (req, res) => {
   const pollMatch = pathname.match(/^\/([^/]+)\/json$/);
   if (method === 'GET' && pollMatch) {
     const topicName = pollMatch[1];
-    if (parsedUrl.query.poll !== '1') {
+    if (parsedUrl.searchParams.get('poll') !== '1') {
       sendError(res, 501, 50101, 'streaming not supported in v1');
       return;
     }
