@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+# Pre-commit: format + analyze the staged Dart files.
+# Install with: make hooks
+set -eu
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- '*.dart' \
+  | grep -v -E '\.g\.dart$|\.freezed\.dart$|\.gen\.dart$' || true)
+
+[ -z "$staged" ] && exit 0
+
+echo "pre-commit: checking format of staged Dart files..."
+# shellcheck disable=SC2086
+if ! fvm dart format --output=none --set-exit-if-changed $staged; then
+  echo ""
+  echo "pre-commit: unformatted files. Run 'make format' and re-stage."
+  exit 1
+fi
+
+echo "pre-commit: analyzing..."
+fvm flutter analyze

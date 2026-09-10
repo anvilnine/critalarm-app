@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="description"
+        content="Self-hostable, ntfy-compatible alarm that rings through Do Not Disturb until you acknowledge it.">
+  <meta name="theme-color" content="#FF5A00">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Crit Alarm">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!--
+    iOS PWA safe areas (flutter/flutter#84833): Flutter web sizes its view from
+    document.documentElement.clientHeight, which ignores viewport-fit=cover, so
+    the view gets pushed under the status bar / leaves a blank band. The fix
+    (per the issue's maintainer-linked comment) has three parts:
+      A) html sized to the layout viewport (100vh/100vw) — below.
+      B) flutter_bootstrap.js overrides clientHeight/clientWidth to
+         window.innerHeight/innerWidth so the Flutter view matches the visual
+         viewport. This also keeps the hit-test grid aligned with the real
+         pointer, superseding the old position:fixed;inset:0 body workaround —
+         so that hack is dropped here.
+    The background bands below show the app surface per theme during overscroll.
+  -->
+  <style>
+    html {
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      background: #F2EFE9;
+    }
+    body {
+      margin: 0;
+      background: #F2EFE9;
+    }
+    @media (prefers-color-scheme: dark) {
+      html, body {
+        background: #101112;
+      }
+    }
+  </style>
+
+  <!--
+    Warm the display face while the engine bootstraps: CanvasKit only fetches
+    fonts after FontManifest.json loads, so Anton titles/numerals otherwise
+    paint in a fallback face and reflow on first load.
+  -->
+  <link rel="preload" href="assets/assets/fonts/Anton-Regular.ttf" as="font" type="font/ttf" crossorigin>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Crit Alarm</title>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
