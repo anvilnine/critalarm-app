@@ -1,0 +1,22 @@
+{
+  "app": {
+    "title": "Crit Alarm"
+  },
+  "nav": {
+    "topics": "Topics",
+    "incidents": "Incidents",
+    "settings": "Settings"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "save": "Save",
+    "close": "Close"
+  },
+  "primer": {
+    "notNow": "Not now",
+    "notificationsTitle": "Let it wake you",
+    "notificationsBody": "Crit Alarm needs notifications to ring you when something critical breaks. Without this it cannot wake you.",
+    "notificationsAllow": "Allow notifications"
+  }
+}

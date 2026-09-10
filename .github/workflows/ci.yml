@@ -1,0 +1,83 @@
+name: CI
+
+# Docs-only changes skip CI entirely. Contract and rules updates should not
+# burn build minutes.
+# SECURITY: this repo is public, and the runner below is a self-hosted machine.
+# A `pull_request` trigger on a public repo lets any stranger run arbitrary code
+# on that machine by opening a PR. So CI runs on push to main only.
+#
+# To get PR checks back, either move this workflow to a GitHub-hosted runner, or
+# use `pull_request_target` with an explicit allow-list. Do not simply re-add
+# `pull_request` here.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Analyze, layer check, test
+    # Self-hosted runner on the M2 Mac Mini (zs-mac-mini--org-anvilnine).
+    # GitHub-hosted minutes are unavailable on this account, so CI runs on
+    # the free self-hosted runner instead.
+    runs-on: [self-hosted, macos, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read pinned Flutter version from .fvmrc
+        id: fvm
+        run: echo "version=$(jq -r .flutter .fvmrc)" >> "$GITHUB_OUTPUT"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ steps.fvm.outputs.version }}
+          channel: stable
+          cache: true
+
+      - name: Cache pub
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
+
+      # CI has no fvm; the pinned SDK above matches .fvmrc, so bare
+      # flutter/dart here is equivalent to fvm flutter/fvm dart locally.
+      - name: Pub get
+        run: flutter pub get
+
+      # Generated files are git-ignored, so CI regenerates everything fresh.
+      # locale_keys.g.dart comes from easy_localization's own generator, NOT
+      # build_runner. Skipping it breaks compilation of every LocaleKeys
+      # reference.
+      - name: Codegen
+        run: |
+          dart run build_runner build
+          dart run easy_localization:generate -S assets/translations -O lib/gen -o locale_keys.g.dart -f keys
+
+      # Skip generated files, matching tool/git-hooks/pre-commit. Some
+      # generators do not emit formatter-clean output, and generated files are
+      # regenerated fresh here, so the format check must not police them.
+      - name: Format check
+        run: |
+          find lib test -name '*.dart' \
+            ! -name '*.g.dart' ! -name '*.freezed.dart' ! -name '*.gen.dart' -print0 \
+            | xargs -0 dart format --output=none --set-exit-if-changed
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Layer check
+        run: sh tool/check_layers.sh
+
+      - name: Test
+        run: flutter test
+
+  # iOS and Android build jobs are not wired up yet. A5 and A2 add them once
+  # there is a signing identity and a push credential to build against.

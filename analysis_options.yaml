@@ -1,0 +1,15 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.gen.dart"
+  errors:
+    invalid_annotation_target: ignore # freezed + json_serializable
+
+linter:
+  rules:
+    # Docs-on-everything is noise for an app codebase; docs are required
+    # only where the code can't speak for itself.
+    public_member_api_docs: false
