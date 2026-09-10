@@ -1,0 +1,9 @@
+{
+  "name": "critalarm-mock-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "In-repo plain Node mock server for Crit Alarm contract testing",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
