@@ -7,8 +7,12 @@ import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
+import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_permissions_cubit.dart';
+import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -181,6 +185,10 @@ void main() {
       expect(getIt.isRegistered<TopicRepository>(), isTrue);
       expect(getIt.isRegistered<IncidentRepository>(), isTrue);
       expect(getIt.isRegistered<ServerRepository>(), isTrue);
+      expect(getIt.isRegistered<GetServerInfoUsecase>(), isTrue);
+      expect(getIt.isRegistered<TriggerTestAlarmUsecase>(), isTrue);
+      expect(getIt.isRegistered<OnboardingWelcomeCubit>(), isTrue);
+      expect(getIt.isRegistered<OnboardingPermissionsCubit>(), isTrue);
 
       final client = getIt<ApiClient>();
       expect(client, isA<MockApiClient>());
