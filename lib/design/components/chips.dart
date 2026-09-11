@@ -23,6 +23,36 @@ class AppPriorityChip extends StatelessWidget {
     super.key,
   });
 
+  const AppPriorityChip.critical({
+    this.isSelected = false,
+    this.onTap,
+    super.key,
+  }) : priority = PriorityLevel.critical;
+
+  const AppPriorityChip.high({
+    this.isSelected = false,
+    this.onTap,
+    super.key,
+  }) : priority = PriorityLevel.high;
+
+  const AppPriorityChip.defaultPriority({
+    this.isSelected = false,
+    this.onTap,
+    super.key,
+  }) : priority = PriorityLevel.defaultPriority;
+
+  const AppPriorityChip.low({
+    this.isSelected = false,
+    this.onTap,
+    super.key,
+  }) : priority = PriorityLevel.low;
+
+  const AppPriorityChip.min({
+    this.isSelected = false,
+    this.onTap,
+    super.key,
+  }) : priority = PriorityLevel.min;
+
   final PriorityLevel priority;
   final bool isSelected;
   final VoidCallback? onTap;
