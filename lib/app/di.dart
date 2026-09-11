@@ -16,6 +16,7 @@ import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_con
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/open_notification_settings_usecase.dart';
@@ -31,9 +32,14 @@ import 'package:critalarm/features/permissions/domain/repositories/device_permis
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
+import 'package:critalarm/features/settings/data/repositories/shared_prefs_privacy_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_theme_preference_repository.dart';
+import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/theme_preference_repository.dart';
+import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_theme_mode_usecase.dart';
+import 'package:critalarm/features/settings/domain/usecases/set_analytics_enabled_usecase.dart';
+import 'package:critalarm/features/settings/domain/usecases/set_crash_reporting_enabled_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_theme_mode_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
@@ -80,6 +86,9 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<ConnectionRepository>(
       () => SharedPrefsConnectionRepository(getIt<SharedPreferences>()),
     )
+    ..registerLazySingleton<PrivacyRepository>(
+      () => SharedPrefsPrivacyRepository(getIt<SharedPreferences>()),
+    )
     ..registerLazySingleton<NotificationPermissionRepository>(
       PlatformNotificationPermissionRepository.new,
     )
@@ -111,6 +120,18 @@ Future<void> configureDependencies() async {
     )
     ..registerLazySingleton(
       () => GetConnectionUsecase(getIt<ConnectionRepository>()),
+    )
+    ..registerLazySingleton(
+      () => ClearConnectionUsecase(getIt<ConnectionRepository>()),
+    )
+    ..registerLazySingleton(
+      () => GetPrivacySettingsUsecase(getIt<PrivacyRepository>()),
+    )
+    ..registerLazySingleton(
+      () => SetAnalyticsEnabledUsecase(getIt<PrivacyRepository>()),
+    )
+    ..registerLazySingleton(
+      () => SetCrashReportingEnabledUsecase(getIt<PrivacyRepository>()),
     )
     ..registerLazySingleton(
       () => GetThemeModeUsecase(getIt<ThemePreferenceRepository>()),
@@ -221,6 +242,13 @@ Future<void> configureDependencies() async {
     ..registerFactory(
       () => SettingsCubit(
         getIt<GetTopicsUsecase>(),
+        getConnectionUsecase: getIt<GetConnectionUsecase>(),
+        clearConnectionUsecase: getIt<ClearConnectionUsecase>(),
+        saveConnectionUsecase: getIt<SaveConnectionUsecase>(),
+        getPrivacySettingsUsecase: getIt<GetPrivacySettingsUsecase>(),
+        setAnalyticsEnabledUsecase: getIt<SetAnalyticsEnabledUsecase>(),
+        setCrashReportingEnabledUsecase:
+            getIt<SetCrashReportingEnabledUsecase>(),
       ),
     )
     ..registerFactory(

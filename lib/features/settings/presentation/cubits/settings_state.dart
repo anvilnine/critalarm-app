@@ -35,6 +35,12 @@ class SettingsState {
     this.criticalRingsQuietHours = true,
     this.escalationCallEnabled = false,
     this.serverUrl = 'api.critalarm.app',
+    this.adminToken,
+    this.isConnected = true,
+    this.analyticsEnabled = false,
+    this.crashReportingEnabled = false,
+    this.isDisconnecting = false,
+    this.isSavingConnection = false,
     this.topics = const [
       TopicPriorityItem(name: 'prod-db', priority: PriorityLevel.critical),
       TopicPriorityItem(name: 'nas-backup', priority: PriorityLevel.high),
@@ -52,6 +58,12 @@ class SettingsState {
   final bool criticalRingsQuietHours;
   final bool escalationCallEnabled;
   final String serverUrl;
+  final String? adminToken;
+  final bool isConnected;
+  final bool analyticsEnabled;
+  final bool crashReportingEnabled;
+  final bool isDisconnecting;
+  final bool isSavingConnection;
   final List<TopicPriorityItem> topics;
   final String? errorMessage;
 
@@ -61,6 +73,12 @@ class SettingsState {
     bool? criticalRingsQuietHours,
     bool? escalationCallEnabled,
     String? serverUrl,
+    String? adminToken,
+    bool? isConnected,
+    bool? analyticsEnabled,
+    bool? crashReportingEnabled,
+    bool? isDisconnecting,
+    bool? isSavingConnection,
     List<TopicPriorityItem>? topics,
     String? errorMessage,
     bool clearError = false,
@@ -73,6 +91,13 @@ class SettingsState {
       escalationCallEnabled:
           escalationCallEnabled ?? this.escalationCallEnabled,
       serverUrl: serverUrl ?? this.serverUrl,
+      adminToken: adminToken ?? this.adminToken,
+      isConnected: isConnected ?? this.isConnected,
+      analyticsEnabled: analyticsEnabled ?? this.analyticsEnabled,
+      crashReportingEnabled:
+          crashReportingEnabled ?? this.crashReportingEnabled,
+      isDisconnecting: isDisconnecting ?? this.isDisconnecting,
+      isSavingConnection: isSavingConnection ?? this.isSavingConnection,
       topics: topics ?? this.topics,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
@@ -88,6 +113,12 @@ class SettingsState {
           criticalRingsQuietHours == other.criticalRingsQuietHours &&
           escalationCallEnabled == other.escalationCallEnabled &&
           serverUrl == other.serverUrl &&
+          adminToken == other.adminToken &&
+          isConnected == other.isConnected &&
+          analyticsEnabled == other.analyticsEnabled &&
+          crashReportingEnabled == other.crashReportingEnabled &&
+          isDisconnecting == other.isDisconnecting &&
+          isSavingConnection == other.isSavingConnection &&
           listEquals(topics, other.topics) &&
           errorMessage == other.errorMessage;
 
@@ -98,6 +129,12 @@ class SettingsState {
     criticalRingsQuietHours,
     escalationCallEnabled,
     serverUrl,
+    adminToken,
+    isConnected,
+    analyticsEnabled,
+    crashReportingEnabled,
+    isDisconnecting,
+    isSavingConnection,
     Object.hashAll(topics),
     errorMessage,
   );
