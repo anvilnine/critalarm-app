@@ -1,5 +1,13 @@
+// Developer tool helper for loading fonts and capturing screenshots.
+// ignore_for_file: cascade_invocations
+// Developer tool testing mock setup.
+// ignore_for_file: invalid_use_of_visible_for_testing_member
+// Formatting tolerance in developer tool script.
+// ignore_for_file: lines_longer_than_80_chars, prefer_int_literals
+// Tool prints progress to stdout.
+// ignore_for_file: avoid_print, cast_nullable_to_non_nullable
+
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
