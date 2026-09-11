@@ -15,12 +15,13 @@ import 'package:http/testing.dart';
 class MockServer {
   MockServer({
     ServerInfo? serverInfo,
-  }) : serverInfo = serverInfo ??
-            const ServerInfo(
-              version: '0.1.0',
-              baseUrl: 'https://alerts.example.com',
-              relayUrl: 'https://relay.critalarm.app',
-            );
+  }) : serverInfo =
+           serverInfo ??
+           const ServerInfo(
+             version: '0.1.0',
+             baseUrl: 'https://alerts.example.com',
+             relayUrl: 'https://relay.critalarm.app',
+           );
 
   /// Server metadata returned by /v1/info.
   ServerInfo serverInfo;
@@ -105,8 +106,8 @@ class MockServer {
     final closedMsg = Message(
       id: 'm_calm_resolved_1',
       topic: 'prod-db',
-      time: now.subtract(const Duration(hours: 2)).millisecondsSinceEpoch ~/
-          1000,
+      time:
+          now.subtract(const Duration(hours: 2)).millisecondsSinceEpoch ~/ 1000,
       title: 'High CPU load',
       message: 'CPU load reached 98%, returned to normal',
       priority: 5,
@@ -158,7 +159,8 @@ class MockServer {
     final warningMsg = Message(
       id: 'm_worried_nas_1',
       topic: 'nas-backup',
-      time: now.subtract(const Duration(minutes: 10)).millisecondsSinceEpoch ~/
+      time:
+          now.subtract(const Duration(minutes: 10)).millisecondsSinceEpoch ~/
           1000,
       title: 'Backup finished with 2 warnings',
       message: 'rsync: 2 files vanished',
@@ -218,7 +220,7 @@ class MockServer {
         topic: 'prod-db',
         time:
             now.subtract(const Duration(seconds: 104)).millisecondsSinceEpoch ~/
-                1000,
+            1000,
         title: 'Primary database down',
         message: 'Repeat alarm: database still unresponsive',
         priority: 5,
@@ -230,7 +232,7 @@ class MockServer {
         topic: 'prod-db',
         time:
             now.subtract(const Duration(seconds: 74)).millisecondsSinceEpoch ~/
-                1000,
+            1000,
         title: 'Primary database down',
         message: 'Repeat alarm: database still unresponsive',
         priority: 5,
@@ -242,7 +244,7 @@ class MockServer {
         topic: 'prod-db',
         time:
             now.subtract(const Duration(seconds: 44)).millisecondsSinceEpoch ~/
-                1000,
+            1000,
         title: 'Primary database down',
         message: 'Repeat alarm: database still unresponsive',
         priority: 5,
@@ -633,7 +635,8 @@ class MockServer {
     }
 
     // Ensure topic exists
-    final existingTopic = _topics[topic] ??
+    final existingTopic =
+        _topics[topic] ??
         Topic(
           name: topic,
           createdAt: DateTime.now().toUtc(),
@@ -822,8 +825,9 @@ class MockServer {
       }
 
       // 3. /v1/topics/{name}/tokens
-      final tokensMatch =
-          RegExp(r'^/v1/topics/([^/]+)/tokens$').firstMatch(path);
+      final tokensMatch = RegExp(
+        r'^/v1/topics/([^/]+)/tokens$',
+      ).firstMatch(path);
       if (tokensMatch != null) {
         final topicName = Uri.decodeComponent(tokensMatch[1]!);
         if (method == 'POST') {
@@ -833,8 +837,9 @@ class MockServer {
       }
 
       // 4. /v1/topics/{name}/tokens/{token_id}
-      final deleteTokenMatch =
-          RegExp(r'^/v1/topics/([^/]+)/tokens/([^/]+)$').firstMatch(path);
+      final deleteTokenMatch = RegExp(
+        r'^/v1/topics/([^/]+)/tokens/([^/]+)$',
+      ).firstMatch(path);
       if (deleteTokenMatch != null && method == 'DELETE') {
         final topicName = Uri.decodeComponent(deleteTokenMatch[1]!);
         final tokenId = Uri.decodeComponent(deleteTokenMatch[2]!);
@@ -843,8 +848,7 @@ class MockServer {
       }
 
       // 5. /v1/topics/{name}
-      final topicDetailMatch =
-          RegExp(r'^/v1/topics/([^/]+)$').firstMatch(path);
+      final topicDetailMatch = RegExp(r'^/v1/topics/([^/]+)$').firstMatch(path);
       if (topicDetailMatch != null) {
         final topicName = Uri.decodeComponent(topicDetailMatch[1]!);
         if (method == 'PATCH') {
@@ -870,8 +874,11 @@ class MockServer {
         final limit = int.tryParse(query['limit'] ?? '');
         final state = query['state'];
         final topic = query['topic'];
-        final incidents =
-            getIncidents(limit: limit, state: state, topic: topic);
+        final incidents = getIncidents(
+          limit: limit,
+          state: state,
+          topic: topic,
+        );
         return _jsonResponse(incidents.map((i) => i.toJson()).toList(), 200);
       }
 
@@ -884,8 +891,9 @@ class MockServer {
       }
 
       // 8. /v1/incidents/{id}/close
-      final closeMatch =
-          RegExp(r'^/v1/incidents/([^/]+)/close$').firstMatch(path);
+      final closeMatch = RegExp(
+        r'^/v1/incidents/([^/]+)/close$',
+      ).firstMatch(path);
       if (closeMatch != null && method == 'POST') {
         final id = Uri.decodeComponent(closeMatch[1]!);
         final incident = closeIncident(id);
@@ -893,8 +901,9 @@ class MockServer {
       }
 
       // 9. /v1/incidents/{id}
-      final incidentDetailMatch =
-          RegExp(r'^/v1/incidents/([^/]+)$').firstMatch(path);
+      final incidentDetailMatch = RegExp(
+        r'^/v1/incidents/([^/]+)$',
+      ).firstMatch(path);
       if (incidentDetailMatch != null && method == 'GET') {
         final id = Uri.decodeComponent(incidentDetailMatch[1]!);
         final incident = getIncident(id);
@@ -925,8 +934,7 @@ class MockServer {
         final poll = int.tryParse(query['poll'] ?? '') ?? 0;
         final since = query['since'];
         final messages = pollMessages(topic, poll: poll, since: since);
-        final ndjson =
-            messages.map((m) => jsonEncode(m.toJson())).join('\n');
+        final ndjson = messages.map((m) => jsonEncode(m.toJson())).join('\n');
         return http.Response(
           ndjson.isEmpty ? '' : '$ndjson\n',
           200,
@@ -990,8 +998,7 @@ class MockServer {
 
         // JSON body check
         final contentType = request.headers['content-type'] ?? '';
-        if (contentType.contains('application/json') &&
-            bodyString.isNotEmpty) {
+        if (contentType.contains('application/json') && bodyString.isNotEmpty) {
           try {
             final jsonBody = jsonDecode(bodyString) as Map<String, dynamic>;
             if (jsonBody.containsKey('message')) {

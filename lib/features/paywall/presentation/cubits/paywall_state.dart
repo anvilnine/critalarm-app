@@ -24,8 +24,9 @@ class PaywallState {
     return PaywallState(
       status: status ?? this.status,
       isPro: isPro ?? this.isPro,
-      feedbackMessage:
-          clearFeedback ? null : (feedbackMessage ?? this.feedbackMessage),
+      feedbackMessage: clearFeedback
+          ? null
+          : (feedbackMessage ?? this.feedbackMessage),
     );
   }
 

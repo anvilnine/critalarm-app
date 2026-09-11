@@ -26,10 +26,9 @@ class GetIncidentsUsecase
   @override
   Future<AppResult<List<Incident>>> call([
     GetIncidentsParams params = const GetIncidentsParams(),
-  ]) =>
-      _repository.getIncidents(
-        limit: params.limit,
-        state: params.state,
-        topic: params.topic,
-      );
+  ]) => _repository.getIncidents(
+    limit: params.limit,
+    state: params.state,
+    topic: params.topic,
+  );
 }

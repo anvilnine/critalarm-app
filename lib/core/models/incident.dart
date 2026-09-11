@@ -35,15 +35,9 @@ abstract class Incident with _$Incident {
     required String id,
     required String topic,
     @Default(IncidentStates.open) String state,
-    @JsonKey(name: 'opened_at')
-    @NullableDateTimeConverter()
-    DateTime? openedAt,
-    @JsonKey(name: 'acked_at')
-    @NullableDateTimeConverter()
-    DateTime? ackedAt,
-    @JsonKey(name: 'closed_at')
-    @NullableDateTimeConverter()
-    DateTime? closedAt,
+    @JsonKey(name: 'opened_at') @NullableDateTimeConverter() DateTime? openedAt,
+    @JsonKey(name: 'acked_at') @NullableDateTimeConverter() DateTime? ackedAt,
+    @JsonKey(name: 'closed_at') @NullableDateTimeConverter() DateTime? closedAt,
     @JsonKey(name: 'last_message_at')
     @NullableDateTimeConverter()
     DateTime? lastMessageAt,

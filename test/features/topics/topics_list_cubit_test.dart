@@ -86,9 +86,8 @@ void main() {
         isA<TopicsListState>()
             .having((s) => s.status, 'status', TopicsListStatus.success)
             .having(
-              (s) => s.topics
-                  .firstWhere((t) => t.name == 'nas-backup')
-                  .faceState,
+              (s) =>
+                  s.topics.firstWhere((t) => t.name == 'nas-backup').faceState,
               'nas-backup faceState',
               FaceState.worried,
             ),

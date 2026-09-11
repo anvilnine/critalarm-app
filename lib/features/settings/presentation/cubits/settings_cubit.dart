@@ -27,9 +27,10 @@ class SettingsCubit extends Cubit<SettingsState> {
             'nas-backup' => PriorityLevel.high,
             'uptime-kuma' => PriorityLevel.defaultPriority,
             'home-ha' => PriorityLevel.low,
-            _ => t.critical
-                ? PriorityLevel.critical
-                : PriorityLevel.defaultPriority,
+            _ =>
+              t.critical
+                  ? PriorityLevel.critical
+                  : PriorityLevel.defaultPriority,
           };
           return TopicPriorityItem(name: t.name, priority: priority);
         }).toList();

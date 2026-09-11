@@ -27,18 +27,22 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     );
 
     final topicResult = await _getTopic(topicName);
-    final incidentsResult =
-        await _incidentRepository.getIncidents(topic: topicName);
+    final incidentsResult = await _incidentRepository.getIncidents(
+      topic: topicName,
+    );
 
     topicResult.fold(
       (topic) {
         final incidents = incidentsResult.getOrNull() ?? [];
-        final openIncidents =
-            incidents.where((i) => i.state == 'open').toList();
+        final openIncidents = incidents
+            .where((i) => i.state == 'open')
+            .toList();
 
-        final hasCrit = topic.critical &&
+        final hasCrit =
+            topic.critical &&
             openIncidents.any((i) => i.messages.any((m) => m.priority == 5));
-        final hasHigh = openIncidents.any(
+        final hasHigh =
+            openIncidents.any(
               (i) => i.messages.any((m) => m.priority == 4),
             ) ||
             (topicName == 'nas-backup');
@@ -64,10 +68,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         final priorityLabel = topic.critical
             ? 'critical'
             : (topicName == 'nas-backup'
-                ? 'high'
-                : (topicName == 'uptime-kuma'
-                    ? 'default'
-                    : (topicName == 'home-ha' ? 'low' : 'default')));
+                  ? 'high'
+                  : (topicName == 'uptime-kuma'
+                        ? 'default'
+                        : (topicName == 'home-ha' ? 'low' : 'default')));
 
         final messages = _resolveMessages(topicName, hasHigh: hasHigh);
         final count = messages.length > 2 ? messages.length : 61;
@@ -127,8 +131,9 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   Future<void> markAsRead() async {
     emit(state.copyWith(isMarkingAsRead: true));
 
-    final incidentsResult =
-        await _incidentRepository.getIncidents(topic: state.topicName);
+    final incidentsResult = await _incidentRepository.getIncidents(
+      topic: state.topicName,
+    );
     final incidents = incidentsResult.getOrNull() ?? [];
     for (final inc in incidents) {
       if (inc.state == 'open') {
@@ -136,8 +141,9 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       }
     }
 
-    final clearedMessages =
-        state.messages.map((m) => m.copyWith(isHigh: false)).toList();
+    final clearedMessages = state.messages
+        .map((m) => m.copyWith(isHigh: false))
+        .toList();
 
     emit(
       state.copyWith(

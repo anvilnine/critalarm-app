@@ -93,8 +93,9 @@ class _AppKeyValueRowState extends State<AppKeyValueRow> {
             flex: 2,
             child: Text(
               widget.value,
-              textAlign:
-                  widget.label != null ? TextAlign.right : TextAlign.left,
+              textAlign: widget.label != null
+                  ? TextAlign.right
+                  : TextAlign.left,
               style: valueStyle,
               overflow: TextOverflow.ellipsis,
               maxLines: 1,

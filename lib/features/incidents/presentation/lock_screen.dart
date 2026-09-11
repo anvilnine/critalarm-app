@@ -121,13 +121,14 @@ class _LockScreenView extends StatelessWidget {
                                         fit: BoxFit.scaleDown,
                                         child: Text(
                                           state.timeText,
-                                          style: AppTypography.display(
-                                            colors.onCanvas,
-                                            fontSize: 96,
-                                          ).copyWith(
-                                            letterSpacing: -0.05 * 96,
-                                            height: 0.9,
-                                          ),
+                                          style:
+                                              AppTypography.display(
+                                                colors.onCanvas,
+                                                fontSize: 96,
+                                              ).copyWith(
+                                                letterSpacing: -0.05 * 96,
+                                                height: 0.9,
+                                              ),
                                         ),
                                       ),
                                     ],
@@ -143,9 +144,11 @@ class _LockScreenView extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: [
-                                      for (int i = 0;
-                                          i < state.notifications.length;
-                                          i++) ...[
+                                      for (
+                                        int i = 0;
+                                        i < state.notifications.length;
+                                        i++
+                                      ) ...[
                                         if (i > 0) const SizedBox(height: 12),
                                         AppNotificationCard(
                                           topic: state.notifications[i].topic,
@@ -154,7 +157,8 @@ class _LockScreenView extends StatelessWidget {
                                           faceState:
                                               state.notifications[i].faceState,
                                           ringingPillText: state
-                                              .notifications[i].ringingPillText,
+                                              .notifications[i]
+                                              .ringingPillText,
                                           timeText:
                                               state.notifications[i].timeText,
                                           isCrit: state.notifications[i].isCrit,

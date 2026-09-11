@@ -117,73 +117,73 @@ class _AppListRowState extends State<AppListRow> {
               ),
               child: Row(
                 children: [
-              FaceWidget(
-                state: widget.faceState,
-                size: 40,
-                overrideFillColor: faceFill,
-                overrideStrokeColor: faceStroke,
-                overrideInkColor: faceInk,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+                  FaceWidget(
+                    state: widget.faceState,
+                    size: 40,
+                    overrideFillColor: faceFill,
+                    overrideStrokeColor: faceStroke,
+                    overrideInkColor: faceInk,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.name,
+                          style: TextStyle(
+                            fontFamily: AppTypography.fontMono,
+                            fontFamilyFallback: AppTypography.fontMonoFallbacks,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            color: nameColor,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.meta,
+                          style: TextStyle(
+                            fontFamily: AppTypography.fontBody,
+                            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                            fontSize: 12,
+                            color: metaColor,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (widget.trailing != null) ...[
+                    const SizedBox(width: 8),
+                    Flexible(
+                      flex: 0,
+                      child: widget.trailing!,
+                    ),
+                  ],
+                  if (widget.timeText != null) ...[
+                    const SizedBox(width: 8),
                     Text(
-                      widget.name,
+                      widget.timeText!,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                       style: TextStyle(
                         fontFamily: AppTypography.fontMono,
                         fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: nameColor,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.meta,
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontBody,
-                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
                         fontSize: 12,
                         color: metaColor,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ),
+                ],
               ),
-              if (widget.trailing != null) ...[
-                const SizedBox(width: 8),
-                Flexible(
-                  flex: 0,
-                  child: widget.trailing!,
-                ),
-              ],
-              if (widget.timeText != null) ...[
-                const SizedBox(width: 8),
-                Text(
-                  widget.timeText!,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontMono,
-                    fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                    fontSize: 12,
-                    color: metaColor,
-                  ),
-                ),
-              ],
-              ],
             ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

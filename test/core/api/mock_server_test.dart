@@ -392,8 +392,9 @@ void main() {
       final client = server.httpClient;
 
       // GET /v1/info
-      final infoRes =
-          await client.get(Uri.parse('https://alerts.example.com/v1/info'));
+      final infoRes = await client.get(
+        Uri.parse('https://alerts.example.com/v1/info'),
+      );
       expect(infoRes.statusCode, 200);
       final infoJson = jsonDecode(infoRes.body) as Map<String, dynamic>;
       expect(infoJson['name'], 'critalarm');
@@ -410,8 +411,9 @@ void main() {
       expect(topicJson['token'], isNotNull);
 
       // GET /v1/topics
-      final getTopicsRes =
-          await client.get(Uri.parse('https://alerts.example.com/v1/topics'));
+      final getTopicsRes = await client.get(
+        Uri.parse('https://alerts.example.com/v1/topics'),
+      );
       expect(getTopicsRes.statusCode, 200);
       final topicsList = jsonDecode(getTopicsRes.body) as List<dynamic>;
       expect(topicsList, hasLength(1));
@@ -430,8 +432,9 @@ void main() {
       expect(msgJson['incident_id'], isNotNull);
 
       // GET /v1/incidents
-      final incidentsRes = await client
-          .get(Uri.parse('https://alerts.example.com/v1/incidents'));
+      final incidentsRes = await client.get(
+        Uri.parse('https://alerts.example.com/v1/incidents'),
+      );
       expect(incidentsRes.statusCode, 200);
       final incidentsList = jsonDecode(incidentsRes.body) as List<dynamic>;
       expect(incidentsList, hasLength(1));

@@ -1,8 +1,8 @@
 import 'package:critalarm/design/gallery/gallery_screen.dart';
 import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
 import 'package:critalarm/features/incidents/presentation/lock_screen.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_connect_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
-import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/settings/presentation/settings_screen.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
@@ -16,6 +16,7 @@ abstract final class AppRoute {
   static const home = 'home';
   static const gallery = 'gallery';
   static const onboarding = 'onboarding';
+  static const onboardingConnect = 'onboardingConnect';
   static const onboardingPermissions = 'onboardingPermissions';
   static const topics = 'topics';
   static const topicDetail = 'topicDetail';
@@ -75,12 +76,17 @@ GoRouter buildRouter() => GoRouter(
     GoRoute(
       path: '/onboarding',
       name: AppRoute.onboarding,
-      builder: (context, state) => const OnboardingWelcomeScreen(),
+      builder: (context, state) => const OnboardingPermissionsScreen(),
+    ),
+    GoRoute(
+      path: '/onboarding/connect',
+      name: AppRoute.onboardingConnect,
+      builder: (context, state) => const OnboardingConnectScreen(),
     ),
     GoRoute(
       path: '/onboarding/permissions',
       name: AppRoute.onboardingPermissions,
-      builder: (context, state) => const OnboardingPermissionsScreen(),
+      builder: (context, state) => const OnboardingConnectScreen(),
     ),
     GoRoute(
       path: '/alarm',

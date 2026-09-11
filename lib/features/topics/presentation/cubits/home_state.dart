@@ -38,13 +38,13 @@ class HomeTopicItem {
 
   @override
   int get hashCode => Object.hash(
-        name,
-        meta,
-        priority,
-        faceState,
-        isCrit,
-        isQuiet,
-      );
+    name,
+    meta,
+    priority,
+    faceState,
+    isCrit,
+    isQuiet,
+  );
 }
 
 /// State for the Home screen.
@@ -106,12 +106,12 @@ class HomeState {
 
   @override
   int get hashCode => Object.hash(
-        status,
-        Object.hashAll(topicItems),
-        faceState,
-        word,
-        subText,
-        severity,
-        errorMessage,
-      );
+    status,
+    Object.hashAll(topicItems),
+    faceState,
+    word,
+    subText,
+    severity,
+    errorMessage,
+  );
 }

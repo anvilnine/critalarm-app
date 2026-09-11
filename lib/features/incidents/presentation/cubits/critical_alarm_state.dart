@@ -22,7 +22,8 @@ class CriticalAlarmState {
     this.word = 'CRITICAL',
     this.subtext = 'Ringing 2 min 14 s. Repeats every 30 s.',
     this.title = 'Primary database down',
-    this.body = 'pg_isready failed 3 times in 90 s. '
+    this.body =
+        'pg_isready failed 3 times in 90 s. '
         'Replica promoted to primary on db-2.',
     this.meta = 'uptime-kuma / 03:12:04 / postgres, db-1',
     this.severityMode = SeverityMode.crit,
@@ -87,8 +88,9 @@ class CriticalAlarmState {
       isAcknowledged: isAcknowledged ?? this.isAcknowledged,
       isAcknowledging: isAcknowledging ?? this.isAcknowledging,
       isSnoozed: isSnoozed ?? this.isSnoozed,
-      feedbackMessage:
-          clearFeedback ? null : (feedbackMessage ?? this.feedbackMessage),
+      feedbackMessage: clearFeedback
+          ? null
+          : (feedbackMessage ?? this.feedbackMessage),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
@@ -117,21 +119,21 @@ class CriticalAlarmState {
 
   @override
   int get hashCode => Object.hash(
-        status,
-        incident,
-        topic,
-        word,
-        subtext,
-        title,
-        body,
-        meta,
-        severityMode,
-        faceState,
-        isLive,
-        isAcknowledged,
-        isAcknowledging,
-        isSnoozed,
-        feedbackMessage,
-        errorMessage,
-      );
+    status,
+    incident,
+    topic,
+    word,
+    subtext,
+    title,
+    body,
+    meta,
+    severityMode,
+    faceState,
+    isLive,
+    isAcknowledged,
+    isAcknowledging,
+    isSnoozed,
+    feedbackMessage,
+    errorMessage,
+  );
 }

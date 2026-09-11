@@ -31,13 +31,12 @@ class _SettingsScreenContent extends StatelessWidget {
   const _SettingsScreenContent();
 
   Widget _buildPriorityChip(PriorityLevel priority) => switch (priority) {
-        PriorityLevel.critical => const AppPriorityChip.critical(),
-        PriorityLevel.high => const AppPriorityChip.high(),
-        PriorityLevel.defaultPriority =>
-          const AppPriorityChip.defaultPriority(),
-        PriorityLevel.low => const AppPriorityChip.low(),
-        PriorityLevel.min => const AppPriorityChip.min(),
-      };
+    PriorityLevel.critical => const AppPriorityChip.critical(),
+    PriorityLevel.high => const AppPriorityChip.high(),
+    PriorityLevel.defaultPriority => const AppPriorityChip.defaultPriority(),
+    PriorityLevel.low => const AppPriorityChip.low(),
+    PriorityLevel.min => const AppPriorityChip.min(),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -100,87 +99,89 @@ class _SettingsScreenContent extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const AppSectionHeader('Quiet hours'),
-                          AppToggleRow(
-                            title: '22:00 to 07:00',
-                            subtitle: 'default and low stay silent',
-                            value: state.quietHoursEnabled,
-                            onChanged: (val) =>
-                                cubit.toggleQuietHours(isEnabled: val),
-                          ),
-                          const SizedBox(height: 8),
-                          AppToggleRow(
-                            title: 'Critical rings through quiet hours',
-                            subtitle: 'and through the silent switch',
-                            value: state.criticalRingsQuietHours,
-                            onChanged: (val) => cubit
-                                .toggleCriticalRingsQuietHours(isEnabled: val),
-                          ),
-                          const SizedBox(height: 14),
-                          const AppSectionHeader('Escalation'),
-                          AppToggleRow(
-                            title: 'Call after 5 min',
-                            subtitle:
-                                'Repeats every 30 s first. +63 917 xxx 4821',
-                            value: state.escalationCallEnabled,
-                            onChanged: (val) =>
-                                cubit.toggleEscalationCall(isEnabled: val),
-                          ),
-                          const SizedBox(height: 14),
-                          const AppSectionHeader('Per-topic priority'),
-                          for (final topic in state.topics) ...[
-                            AppKeyValueRow(
-                              value: topic.name,
-                              trailing: _buildPriorityChip(topic.priority),
+                            AppToggleRow(
+                              title: '22:00 to 07:00',
+                              subtitle: 'default and low stay silent',
+                              value: state.quietHoursEnabled,
+                              onChanged: (val) =>
+                                  cubit.toggleQuietHours(isEnabled: val),
                             ),
                             const SizedBox(height: 8),
-                          ],
-                          const SizedBox(height: 6),
-                          const AppSectionHeader('Server & Account'),
-                          AppKeyValueRow(
-                            label: 'Server',
-                            value: state.serverUrl,
-                          ),
-                          const SizedBox(height: 12),
-                          const AppSectionHeader('Theme'),
-                          BlocBuilder<ThemeCubit, AppThemeMode>(
-                            builder: (context, themeMode) {
-                              return AppSegmentedControl<AppThemeMode>(
-                                items: AppThemeMode.values,
-                                selectedItem: themeMode,
-                                labelBuilder: (mode) => switch (mode) {
-                                  AppThemeMode.system => 'System',
-                                  AppThemeMode.light => 'Light',
-                                  AppThemeMode.dark => 'Dark',
-                                },
-                                onChanged: (mode) {
-                                  unawaited(
-                                    context.read<ThemeCubit>().setMode(mode),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          AppButton(
-                            label: 'Upgrade to Pro',
-                            isFullWidth: true,
-                            trailingIcon: AppGlyph(
-                              GlyphType.arrow,
-                              color: colors.onHighlight,
-                              size: 16,
+                            AppToggleRow(
+                              title: 'Critical rings through quiet hours',
+                              subtitle: 'and through the silent switch',
+                              value: state.criticalRingsQuietHours,
+                              onChanged: (val) =>
+                                  cubit.toggleCriticalRingsQuietHours(
+                                    isEnabled: val,
+                                  ),
                             ),
-                            onPressed: () => context.push('/paywall'),
-                          ),
-                        ],
+                            const SizedBox(height: 14),
+                            const AppSectionHeader('Escalation'),
+                            AppToggleRow(
+                              title: 'Call after 5 min',
+                              subtitle:
+                                  'Repeats every 30 s first. +63 917 xxx 4821',
+                              value: state.escalationCallEnabled,
+                              onChanged: (val) =>
+                                  cubit.toggleEscalationCall(isEnabled: val),
+                            ),
+                            const SizedBox(height: 14),
+                            const AppSectionHeader('Per-topic priority'),
+                            for (final topic in state.topics) ...[
+                              AppKeyValueRow(
+                                value: topic.name,
+                                trailing: _buildPriorityChip(topic.priority),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                            const SizedBox(height: 6),
+                            const AppSectionHeader('Server & Account'),
+                            AppKeyValueRow(
+                              label: 'Server',
+                              value: state.serverUrl,
+                            ),
+                            const SizedBox(height: 12),
+                            const AppSectionHeader('Theme'),
+                            BlocBuilder<ThemeCubit, AppThemeMode>(
+                              builder: (context, themeMode) {
+                                return AppSegmentedControl<AppThemeMode>(
+                                  items: AppThemeMode.values,
+                                  selectedItem: themeMode,
+                                  labelBuilder: (mode) => switch (mode) {
+                                    AppThemeMode.system => 'System',
+                                    AppThemeMode.light => 'Light',
+                                    AppThemeMode.dark => 'Dark',
+                                  },
+                                  onChanged: (mode) {
+                                    unawaited(
+                                      context.read<ThemeCubit>().setMode(mode),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            AppButton(
+                              label: 'Upgrade to Pro',
+                              isFullWidth: true,
+                              trailingIcon: AppGlyph(
+                                GlyphType.arrow,
+                                color: colors.onHighlight,
+                                size: 16,
+                              ),
+                              onPressed: () => context.push('/paywall'),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
+        );
       },
     );
   }

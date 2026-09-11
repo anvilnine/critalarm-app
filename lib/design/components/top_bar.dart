@@ -36,8 +36,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
         children: [
           if (leading != null) ...[
             leading!,
-            if (title != null || titleWidget != null)
-              const SizedBox(width: 12),
+            if (title != null || titleWidget != null) const SizedBox(width: 12),
           ],
           if (titleWidget != null)
             Expanded(

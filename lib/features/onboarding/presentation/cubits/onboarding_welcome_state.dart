@@ -41,9 +41,9 @@ class OnboardingWelcomeState {
 
   @override
   int get hashCode => Object.hash(
-        serverUrl,
-        isValidating,
-        errorMessage,
-        canNavigate,
-      );
+    serverUrl,
+    isValidating,
+    errorMessage,
+    canNavigate,
+  );
 }

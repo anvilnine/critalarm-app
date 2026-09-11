@@ -18,22 +18,25 @@ void main() {
   });
 
   group('OnboardingPermissionsCubit', () {
-    test('initial state has default topic prod-db and initial status',
-        () async {
-      final cubit = OnboardingPermissionsCubit(mockTriggerTestAlarm);
-      expect(cubit.state.status, OnboardingPermissionsStatus.initial);
-      expect(cubit.state.topic, 'prod-db');
-      expect(cubit.state.incidentId, isNull);
-      expect(cubit.state.errorMessage, isNull);
-      await cubit.close();
-    });
+    test(
+      'initial state has default topic prod-db and initial status',
+      () async {
+        final cubit = OnboardingPermissionsCubit(mockTriggerTestAlarm);
+        expect(cubit.state.status, OnboardingPermissionsStatus.initial);
+        expect(cubit.state.topic, 'prod-db');
+        expect(cubit.state.incidentId, isNull);
+        expect(cubit.state.errorMessage, isNull);
+        await cubit.close();
+      },
+    );
 
     blocTest<OnboardingPermissionsCubit, OnboardingPermissionsState>(
       'ringTestAlarm succeeds and emits ringing then success with '
       'incidentId',
       setUp: () {
-        when(() => mockTriggerTestAlarm('prod-db'))
-            .thenAnswer((_) async => 'inc_12345'.toSuccess());
+        when(
+          () => mockTriggerTestAlarm('prod-db'),
+        ).thenAnswer((_) async => 'inc_12345'.toSuccess());
       },
       build: () => OnboardingPermissionsCubit(mockTriggerTestAlarm),
       act: (cubit) => cubit.ringTestAlarm(),

@@ -9,8 +9,8 @@ class SeverityScope extends StatelessWidget {
     SeverityMode? severity,
     SeverityMode? mode,
     super.key,
-  })  : severity = mode ?? severity ?? SeverityMode.none,
-        mode = mode ?? severity ?? SeverityMode.none;
+  }) : severity = mode ?? severity ?? SeverityMode.none,
+       mode = mode ?? severity ?? SeverityMode.none;
 
   final SeverityMode severity;
   final SeverityMode mode;

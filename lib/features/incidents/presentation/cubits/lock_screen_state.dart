@@ -45,16 +45,16 @@ class LockNotificationItem {
 
   @override
   int get hashCode => Object.hash(
-        topic,
-        title,
-        body,
-        faceState,
-        timeText,
-        ringingPillText,
-        isCrit,
-        isQuiet,
-        incidentId,
-      );
+    topic,
+    title,
+    body,
+    faceState,
+    timeText,
+    ringingPillText,
+    isCrit,
+    isQuiet,
+    incidentId,
+  );
 }
 
 /// State for the LockScreen.
@@ -121,10 +121,10 @@ class LockScreenState {
 
   @override
   int get hashCode => Object.hash(
-        status,
-        dateText,
-        timeText,
-        Object.hashAll(notifications),
-        errorMessage,
-      );
+    status,
+    dateText,
+    timeText,
+    Object.hashAll(notifications),
+    errorMessage,
+  );
 }

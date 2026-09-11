@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// Cubit managing the Permissions onboarding screen and test alarm triggering.
 class OnboardingPermissionsCubit extends Cubit<OnboardingPermissionsState> {
   OnboardingPermissionsCubit(this._triggerTestAlarm)
-      : super(const OnboardingPermissionsState());
+    : super(const OnboardingPermissionsState());
 
   final TriggerTestAlarmUsecase _triggerTestAlarm;
 
