@@ -1,4 +1,6 @@
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,6 +8,8 @@ import 'package:go_router/go_router.dart';
 abstract final class AppRoute {
   static const home = 'home';
   static const gallery = 'gallery';
+  static const onboarding = 'onboarding';
+  static const onboardingPermissions = 'onboardingPermissions';
 }
 
 GoRouter buildRouter() => GoRouter(
@@ -17,9 +21,23 @@ GoRouter buildRouter() => GoRouter(
       builder: (context, state) => const _ShellPlaceholder(),
     ),
     GoRoute(
+      path: '/home',
+      redirect: (context, state) => '/',
+    ),
+    GoRoute(
       path: '/gallery',
       name: AppRoute.gallery,
       builder: (context, state) => const GalleryScreen(),
+    ),
+    GoRoute(
+      path: '/onboarding',
+      name: AppRoute.onboarding,
+      builder: (context, state) => const OnboardingWelcomeScreen(),
+    ),
+    GoRoute(
+      path: '/onboarding/permissions',
+      name: AppRoute.onboardingPermissions,
+      builder: (context, state) => const OnboardingPermissionsScreen(),
     ),
   ],
 );

@@ -3,8 +3,12 @@ import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
+import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_permissions_cubit.dart';
+import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_theme_preference_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/theme_preference_repository.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_theme_mode_usecase.dart';
@@ -47,10 +51,26 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton(
       () => SetThemeModeUsecase(getIt<ThemePreferenceRepository>()),
     )
+    ..registerLazySingleton(
+      () => GetServerInfoUsecase(getIt<ServerRepository>()),
+    )
+    ..registerLazySingleton(
+      () => TriggerTestAlarmUsecase(getIt<IncidentRepository>()),
+    )
     ..registerFactory(
       () => ThemeCubit(
         getIt<GetThemeModeUsecase>(),
         getIt<SetThemeModeUsecase>(),
+      ),
+    )
+    ..registerFactory(
+      () => OnboardingWelcomeCubit(
+        getIt<GetServerInfoUsecase>(),
+      ),
+    )
+    ..registerFactory(
+      () => OnboardingPermissionsCubit(
+        getIt<TriggerTestAlarmUsecase>(),
       ),
     );
 }
