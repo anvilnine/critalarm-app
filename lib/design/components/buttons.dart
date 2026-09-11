@@ -153,7 +153,13 @@ class _AppButtonState extends State<AppButton> {
           widget.icon!,
           const SizedBox(width: 8),
         ],
-        Text(widget.label, style: textStyle),
+        Flexible(
+          child: Text(
+            widget.label,
+            style: textStyle,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
         if (widget.trailingIcon != null) ...[
           const SizedBox(width: 8),
           widget.trailingIcon!,

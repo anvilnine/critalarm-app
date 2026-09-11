@@ -45,15 +45,18 @@ class AppBadge extends StatelessWidget {
             overrideInkColor: faceInk,
           ),
           const SizedBox(width: 8),
-          Text(
-            text,
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              fontFamilyFallback: AppTypography.fontBodyFallbacks,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: textColor,
-              height: 1,
+          Flexible(
+            child: Text(
+              text,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: textColor,
+                height: 1,
+              ),
             ),
           ),
         ],

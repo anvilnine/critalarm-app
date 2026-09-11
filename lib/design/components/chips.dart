@@ -141,16 +141,19 @@ class AppPriorityChip extends StatelessWidget {
             strokeWidth: isCrit ? 2.8 : 2.4,
           ),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: AppTypography.fontMono,
-              fontFamilyFallback: AppTypography.fontMonoFallbacks,
-              fontWeight: fontWeight,
-              fontSize: 12,
-              letterSpacing: 0.2,
-              color: fg,
-              height: 1,
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: AppTypography.fontMono,
+                fontFamilyFallback: AppTypography.fontMonoFallbacks,
+                fontWeight: fontWeight,
+                fontSize: 12,
+                letterSpacing: 0.2,
+                color: fg,
+                height: 1,
+              ),
             ),
           ),
         ],

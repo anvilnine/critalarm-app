@@ -136,21 +136,26 @@ class _GalleryScreenState extends State<GalleryScreen> {
             children: [
               const FaceWidget(state: FaceState.calm, size: 34),
               const SizedBox(width: 12),
-              Text(
-                'Crit Alarm Design System',
-                style: TextStyle(
-                  fontFamily: AppTypography.fontDisplay,
-                  fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 22,
-                  letterSpacing: -0.03 * 22,
-                  color: colors.onCanvas,
+              Flexible(
+                child: Text(
+                  'Crit Alarm Design System',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontDisplay,
+                    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 22,
+                    letterSpacing: -0.03 * 22,
+                    color: colors.onCanvas,
+                  ),
                 ),
               ),
             ],
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -200,7 +205,6 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
               InkWell(
                 onTap: () => setState(() => _isDark = !_isDark),
                 borderRadius: BorderRadius.circular(999),
@@ -416,35 +420,32 @@ class _GalleryScreenState extends State<GalleryScreen> {
             borderRadius: Radii.mdAll,
             boxShadow: AppShadows.lightSm,
           ),
-          child: Row(
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 '40px list row size: ',
                 style: AppTypography.mono(colors.ink3, fontSize: 13),
               ),
-              const SizedBox(width: 12),
               const FaceWidget(state: FaceState.calm, size: 40),
-              const SizedBox(width: 8),
               const FaceWidget(state: FaceState.watching, size: 40),
-              const SizedBox(width: 8),
               FaceWidget(
                 state: FaceState.worried,
                 size: 40,
                 overrideStrokeColor: colors.high,
               ),
-              const SizedBox(width: 8),
               FaceWidget(
                 state: FaceState.alarmed,
                 size: 40,
                 overrideStrokeColor: colors.crit,
               ),
-              const SizedBox(width: 8),
               FaceWidget(
                 state: FaceState.acked,
                 size: 40,
                 overrideStrokeColor: colors.cobalt,
               ),
-              const Spacer(),
               Text(
                 'stroke 10 / 200 viewBox',
                 style: AppTypography.mono(colors.ink3, fontSize: 12),
@@ -657,7 +658,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
             return Container(
               width: 240,
-              height: 150,
+              constraints: const BoxConstraints(minHeight: 150),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: s.color,
@@ -693,24 +694,29 @@ class _GalleryScreenState extends State<GalleryScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        s.hex,
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontMono,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: s.fg,
+                      Flexible(
+                        child: Text(
+                          s.hex,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppTypography.fontMono,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: s.fg,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '${ratio.toStringAsFixed(2)}:1 $grade',
                         style: TextStyle(
                           fontFamily: AppTypography.fontMono,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
                           color: s.fg,
                         ),
                       ),
@@ -830,23 +836,44 @@ class _GalleryScreenState extends State<GalleryScreen> {
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: colors.hairline)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          SizedBox(
-            width: 220,
-            child: Text(
-              spec,
-              style: TextStyle(
-                fontFamily: AppTypography.fontMono,
-                fontSize: 12,
-                color: colors.ink3,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 500) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  spec,
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontMono,
+                    fontSize: 12,
+                    color: colors.ink3,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                widget,
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              SizedBox(
+                width: 200,
+                child: Text(
+                  spec,
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontMono,
+                    fontSize: 12,
+                    color: colors.ink3,
+                  ),
+                ),
               ),
-            ),
-          ),
-          Expanded(child: widget),
-        ],
+              Expanded(child: widget),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1092,26 +1119,24 @@ class _GalleryScreenState extends State<GalleryScreen> {
               const SizedBox(height: 24),
               Text('Sizes', style: AppTypography.title(colors.ink)),
               const SizedBox(height: 14),
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   AppButton(
                     label: 'Small (36px)',
                     size: AppButtonSize.sm,
                     onPressed: () {},
                   ),
-                  const SizedBox(width: 12),
                   AppButton(
                     label: 'Medium (48px)',
                     onPressed: () {},
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: AppButton(
-                      label: 'Large (60px)',
-                      size: AppButtonSize.lg,
-                      isFullWidth: true,
-                      onPressed: () {},
-                    ),
+                  AppButton(
+                    label: 'Large (60px)',
+                    size: AppButtonSize.lg,
+                    onPressed: () {},
                   ),
                 ],
               ),
