@@ -60,7 +60,10 @@ class _OnboardingWelcomeViewState extends State<_OnboardingWelcomeView> {
       builder: (context, state) {
         final cubit = context.read<OnboardingWelcomeCubit>();
 
+        final bottomInset = MediaQuery.paddingOf(context).bottom;
+
         return Scaffold(
+          resizeToAvoidBottomInset: true,
           backgroundColor: colors.canvas,
           body: GhostField(
             shapeCount: 7,
@@ -69,9 +72,14 @@ class _OnboardingWelcomeViewState extends State<_OnboardingWelcomeView> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 480),
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.s5,
-                      vertical: Spacing.s6,
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    padding: EdgeInsets.fromLTRB(
+                      Spacing.s5,
+                      Spacing.s6,
+                      Spacing.s5,
+                      16 + bottomInset,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,16 +92,20 @@ class _OnboardingWelcomeViewState extends State<_OnboardingWelcomeView> {
                               size: 34,
                             ),
                             const SizedBox(width: Spacing.s3),
-                            Text(
-                              'Crit Alarm',
-                              style: TextStyle(
-                                fontFamily: AppTypography.fontDisplay,
-                                fontFamilyFallback:
-                                    AppTypography.fontDisplayFallbacks,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 22,
-                                letterSpacing: -0.03 * 22,
-                                color: colors.onCanvas,
+                            Expanded(
+                              child: Text(
+                                'Crit Alarm',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                style: TextStyle(
+                                  fontFamily: AppTypography.fontDisplay,
+                                  fontFamilyFallback:
+                                      AppTypography.fontDisplayFallbacks,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 22,
+                                  letterSpacing: -0.03 * 22,
+                                  color: colors.onCanvas,
+                                ),
                               ),
                             ),
                           ],
@@ -101,11 +113,15 @@ class _OnboardingWelcomeViewState extends State<_OnboardingWelcomeView> {
                         const SizedBox(height: Spacing.s7),
 
                         // Hero text
-                        Text(
-                          'Your server pages you.\nEven at 3am.',
-                          style: AppTypography.display(
-                            colors.onCanvas,
-                            fontSize: 40,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Your server pages you.\nEven at 3am.',
+                            style: AppTypography.display(
+                              colors.onCanvas,
+                              fontSize: 40,
+                            ),
                           ),
                         ),
                         const SizedBox(height: Spacing.s4),

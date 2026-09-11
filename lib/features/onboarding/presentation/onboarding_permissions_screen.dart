@@ -30,12 +30,14 @@ class _OnboardingPermissionsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return BlocBuilder<OnboardingPermissionsCubit, OnboardingPermissionsState>(
       builder: (context, state) {
         final cubit = context.read<OnboardingPermissionsCubit>();
 
         return Scaffold(
+          resizeToAvoidBottomInset: true,
           backgroundColor: colors.canvas,
           body: GhostField(
             seed: 99,
@@ -45,9 +47,14 @@ class _OnboardingPermissionsView extends StatelessWidget {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 480),
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.s5,
-                      vertical: Spacing.s6,
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    padding: EdgeInsets.fromLTRB(
+                      Spacing.s5,
+                      Spacing.s6,
+                      Spacing.s5,
+                      16 + bottomInset,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -67,12 +74,15 @@ class _OnboardingPermissionsView extends StatelessWidget {
                         const SizedBox(height: Spacing.s4),
 
                         // Headline
-                        Text(
-                          'Never miss a critical page',
-                          textAlign: TextAlign.center,
-                          style: AppTypography.headline(
-                            colors.onCanvas,
-                            fontSize: 32,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Never miss a critical page',
+                            textAlign: TextAlign.center,
+                            style: AppTypography.headline(
+                              colors.onCanvas,
+                              fontSize: 32,
+                            ),
                           ),
                         ),
                         const SizedBox(height: Spacing.s3),

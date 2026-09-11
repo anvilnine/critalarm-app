@@ -55,85 +55,84 @@ class _CriticalAlarmView extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  // Top bar with back button and optional
-                                  // ack toast
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 8,
+                                  AppTopBar(
+                                    leading: AppIconButton(
+                                      glyph: GlyphType.back,
+                                      ariaLabel: 'Back',
+                                      onPressed: () {
+                                        if (context.canPop()) {
+                                          context.pop();
+                                        } else {
+                                          context.go('/');
+                                        }
+                                      },
                                     ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        AppIconButton(
-                                          glyph: GlyphType.back,
-                                          ariaLabel: 'Back',
-                                          onPressed: () {
-                                            if (context.canPop()) {
-                                              context.pop();
-                                            } else {
-                                              context.go('/');
-                                            }
-                                          },
-                                        ),
-                                        if (state.isAcknowledged)
-                                          AppToast(
+                                    trailing: state.isAcknowledged
+                                        ? AppToast(
                                             variant: AppToastVariant.ack,
                                             message: state.feedbackMessage ??
                                                 'Acknowledged at 03:14 by Z',
-                                          ),
-                                      ],
-                                    ),
+                                          )
+                                        : null,
                                   ),
                                   const SizedBox(height: Spacing.s2),
 
                                   // Stage
                                   Padding(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
+                                      horizontal: 16,
                                     ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        SizedBox(
-                                          width: 264,
-                                          height: 264,
-                                          child: Stack(
-                                            alignment: Alignment.center,
-                                            clipBehavior: Clip.none,
-                                            children: [
-                                              if (!state.isAcknowledged)
-                                                const PulseRingWidget(
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: SizedBox(
+                                            width: 264,
+                                            height: 264,
+                                            child: Stack(
+                                              alignment: Alignment.center,
+                                              clipBehavior: Clip.none,
+                                              children: [
+                                                if (!state.isAcknowledged)
+                                                  const PulseRingWidget(
+                                                    size: 264,
+                                                  ),
+                                                FaceWidget(
+                                                  state: state.faceState,
                                                   size: 264,
+                                                  isLive: state.isLive,
                                                 ),
-                                              FaceWidget(
-                                                state: state.faceState,
-                                                size: 264,
-                                                isLive: state.isLive,
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(height: Spacing.s4),
-                                        Text(
-                                          state.word,
-                                          textAlign: TextAlign.center,
-                                          style: AppTypography.display(
-                                            colors.onCanvas,
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            state.word,
+                                            textAlign: TextAlign.center,
+                                            style: AppTypography.display(
+                                              colors.onCanvas,
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(height: Spacing.s2),
-                                        Text(
-                                          state.topic,
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontFamily: AppTypography.fontMono,
-                                            fontFamilyFallback: AppTypography
-                                                .fontMonoFallbacks,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 17,
-                                            color: colors.onCanvas,
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            state.topic,
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontFamily:
+                                                  AppTypography.fontMono,
+                                              fontFamilyFallback: AppTypography
+                                                  .fontMonoFallbacks,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 17,
+                                              color: colors.onCanvas,
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(height: Spacing.s2),
@@ -157,11 +156,11 @@ class _CriticalAlarmView extends StatelessWidget {
 
                                   // Floating AppSheet
                                   Padding(
-                                    padding: const EdgeInsets.fromLTRB(
+                                    padding: EdgeInsets.fromLTRB(
                                       16,
                                       Spacing.s4,
                                       16,
-                                      16,
+                                      16 + MediaQuery.paddingOf(context).bottom,
                                     ),
                                     child: AppSheet(
                                       child: Column(

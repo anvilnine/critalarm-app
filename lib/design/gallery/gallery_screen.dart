@@ -64,9 +64,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
               backgroundColor: colors.canvas,
               body: SafeArea(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 24,
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    24,
+                    20,
+                    24 + MediaQuery.paddingOf(context).bottom,
                   ),
                   child: Center(
                     child: ConstrainedBox(

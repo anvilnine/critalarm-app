@@ -195,8 +195,11 @@ class _AppButtonState extends State<AppButton> {
         child: AnimatedContainer(
           duration: AppDurations.quick,
           curve: AppCurves.easeSpring,
-          height: height,
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          constraints: BoxConstraints(minHeight: height),
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: 8,
+          ),
           decoration: decoration,
           alignment: Alignment.center,
           child: content,

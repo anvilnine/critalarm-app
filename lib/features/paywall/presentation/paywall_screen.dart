@@ -47,93 +47,113 @@ class _PaywallScreenContent extends StatelessWidget {
       },
       builder: (context, state) {
         final cubit = context.read<PaywallCubit>();
+        final bottomInset = MediaQuery.paddingOf(context).bottom;
 
         return Scaffold(
           backgroundColor: colors.canvas,
           body: GhostField(
-            child: SafeArea(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    AppTopBar(
-                      title: 'Crit Alarm Pro',
-                      leading: AppIconButton(
-                        glyph: GlyphType.back,
-                        ariaLabel: 'Back',
-                        onPressed: () {
-                          if (context.canPop()) {
-                            context.pop();
-                          } else {
-                            context.go('/');
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: Spacing.s2),
-                    const AppStage(
-                      faceState: FaceState.acked,
-                      faceSize: 140,
-                      word: 'Crit Alarm Pro',
-                      wordFontSize: 36,
-                      sub:
-                          'Never miss a 3am page. '
-                          'Full critical repeat loop and escalation.',
-                      padding: EdgeInsets.fromLTRB(24, Spacing.s2, 24, 0),
-                    ),
-                    const SizedBox(height: Spacing.s4),
-                    AppSheet(
-                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const AppFeatureBullet(
-                            text: 'Bypasses silent mode and Do Not Disturb',
-                            glyph: GlyphType.bell,
-                          ),
-                          const SizedBox(height: 12),
-                          const AppFeatureBullet(
-                            text: 'Repeats every 30 s until acknowledged',
-                            glyph: GlyphType.repeat,
-                          ),
-                          const SizedBox(height: 12),
-                          const AppFeatureBullet(
-                            text: 'Escalates to phone call after 5 minutes',
-                            glyph: GlyphType.arrow,
-                          ),
-                          const SizedBox(height: 12),
-                          const AppFeatureBullet(
-                            text: 'Unlimited critical topics',
-                          ),
-                          const SizedBox(height: 18),
-                          const AppNote(
-                            text:
-                                'Running on your own infrastructure? '
-                                'Self-hosted server includes all critical '
-                                'alerts 100% free.',
-                          ),
-                          const SizedBox(height: 20),
-                          AppButton(
-                            label: 'Upgrade to Pro',
-                            size: AppButtonSize.lg,
-                            isFullWidth: true,
-                            isLoading: state.status == PaywallStatus.loading &&
-                                state.feedbackMessage == null,
-                            onPressed: cubit.upgradeToPro,
-                          ),
-                          const SizedBox(height: 10),
-                          AppButton(
-                            label: 'Restore Purchases',
-                            variant: AppButtonVariant.ghost,
-                            isFullWidth: true,
-                            onPressed: cubit.restorePurchases,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
               ),
+              slivers: [
+                AppSliverTopBar(
+                  title: 'Crit Alarm Pro',
+                  leading: AppIconButton(
+                    glyph: GlyphType.back,
+                    ariaLabel: 'Back',
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/');
+                      }
+                    },
+                  ),
+                ),
+                const SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      SizedBox(height: Spacing.s2),
+                      AppStage(
+                        faceState: FaceState.acked,
+                        faceSize: 140,
+                        word: 'Crit Alarm Pro',
+                        wordFontSize: 36,
+                        sub:
+                            'Never miss a 3am page. '
+                            'Full critical repeat loop and escalation.',
+                        padding: EdgeInsets.fromLTRB(24, Spacing.s2, 24, 0),
+                      ),
+                      SizedBox(height: Spacing.s4),
+                    ],
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: SafeArea(
+                    top: false,
+                    bottom: false,
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        12,
+                        0,
+                        12,
+                        16 + bottomInset,
+                      ),
+                      child: AppSheet(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const AppFeatureBullet(
+                              text: 'Bypasses silent mode and Do Not Disturb',
+                              glyph: GlyphType.bell,
+                            ),
+                            const SizedBox(height: 12),
+                            const AppFeatureBullet(
+                              text: 'Repeats every 30 s until acknowledged',
+                              glyph: GlyphType.repeat,
+                            ),
+                            const SizedBox(height: 12),
+                            const AppFeatureBullet(
+                              text: 'Escalates to phone call after 5 minutes',
+                              glyph: GlyphType.arrow,
+                            ),
+                            const SizedBox(height: 12),
+                            const AppFeatureBullet(
+                              text: 'Unlimited critical topics',
+                            ),
+                            const SizedBox(height: 18),
+                            const AppNote(
+                              text:
+                                  'Running on your own infrastructure? '
+                                  'Self-hosted server includes all critical '
+                                  'alerts 100% free.',
+                            ),
+                            const SizedBox(height: 20),
+                            AppButton(
+                              label: 'Upgrade to Pro',
+                              size: AppButtonSize.lg,
+                              isFullWidth: true,
+                              isLoading:
+                                  state.status == PaywallStatus.loading &&
+                                      state.feedbackMessage == null,
+                              onPressed: cubit.upgradeToPro,
+                            ),
+                            const SizedBox(height: 10),
+                            AppButton(
+                              label: 'Restore Purchases',
+                              variant: AppButtonVariant.ghost,
+                              isFullWidth: true,
+                              onPressed: cubit.restorePurchases,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
