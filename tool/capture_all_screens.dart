@@ -58,7 +58,10 @@ Future<void> _loadFonts() async {
 
 void main() {
   setUpAll(() async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'server_url': 'api.critalarm.app',
+      'admin_token': 'adm_demo_token',
+    });
     await configureDependencies();
     await _loadFonts();
   });
