@@ -3,7 +3,13 @@ import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
+import 'package:critalarm/features/incidents/domain/usecases/close_incident_usecase.dart';
+import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecase.dart';
+import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
+import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
+import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cubit.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
@@ -67,6 +73,18 @@ Future<void> configureDependencies() async {
       () => TriggerTestAlarmUsecase(getIt<IncidentRepository>()),
     )
     ..registerLazySingleton(
+      () => GetIncidentsUsecase(getIt<IncidentRepository>()),
+    )
+    ..registerLazySingleton(
+      () => GetIncidentUsecase(getIt<IncidentRepository>()),
+    )
+    ..registerLazySingleton(
+      () => AcknowledgeIncidentUsecase(getIt<IncidentRepository>()),
+    )
+    ..registerLazySingleton(
+      () => CloseIncidentUsecase(getIt<IncidentRepository>()),
+    )
+    ..registerLazySingleton(
       () => GetTopicsUsecase(getIt<TopicRepository>()),
     )
     ..registerLazySingleton(
@@ -119,6 +137,19 @@ Future<void> configureDependencies() async {
     ..registerFactory(
       () => CreateTopicCubit(
         getIt<CreateTopicUsecase>(),
+      ),
+    )
+    ..registerFactory(
+      () => CriticalAlarmCubit(
+        getIt<GetIncidentUsecase>(),
+        getIt<GetIncidentsUsecase>(),
+        getIt<AcknowledgeIncidentUsecase>(),
+        getIt<CloseIncidentUsecase>(),
+      ),
+    )
+    ..registerFactory(
+      () => LockScreenCubit(
+        getIt<GetIncidentsUsecase>(),
       ),
     );
 }

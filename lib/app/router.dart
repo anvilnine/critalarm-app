@@ -1,4 +1,6 @@
-import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/gallery/gallery_screen.dart';
+import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
+import 'package:critalarm/features/incidents/presentation/lock_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
@@ -17,6 +19,9 @@ abstract final class AppRoute {
   static const topicDetail = 'topicDetail';
   static const createTopic = 'createTopic';
   static const settings = 'settings';
+  static const alarm = 'alarm';
+  static const incidentDetail = 'incidentDetail';
+  static const lockScreen = 'lockScreen';
 }
 
 GoRouter buildRouter() => GoRouter(
@@ -68,6 +73,24 @@ GoRouter buildRouter() => GoRouter(
       path: '/onboarding/permissions',
       name: AppRoute.onboardingPermissions,
       builder: (context, state) => const OnboardingPermissionsScreen(),
+    ),
+    GoRoute(
+      path: '/alarm',
+      name: AppRoute.alarm,
+      builder: (context, state) => const CriticalAlarmScreen(),
+    ),
+    GoRoute(
+      path: '/incidents/:id',
+      name: AppRoute.incidentDetail,
+      builder: (context, state) {
+        final id = state.pathParameters['id'];
+        return CriticalAlarmScreen(incidentId: id);
+      },
+    ),
+    GoRoute(
+      path: '/lockscreen',
+      name: AppRoute.lockScreen,
+      builder: (context, state) => const LockScreen(),
     ),
   ],
 );
