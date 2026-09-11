@@ -107,31 +107,37 @@ class AppStage extends StatelessWidget {
             ),
           if (word != null) ...[
             SizedBox(height: faceSize > 120 ? Spacing.s5 : Spacing.s3),
-            Text(
-              word!,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: AppTypography.fontDisplay,
-                fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                fontWeight: FontWeight.w800,
-                fontSize: resolvedFontSize,
-                letterSpacing: -0.04 * resolvedFontSize,
-                height: 1,
-                color: colors.onCanvas,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                word!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTypography.fontDisplay,
+                  fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+                  fontWeight: FontWeight.w800,
+                  fontSize: resolvedFontSize,
+                  letterSpacing: -0.04 * resolvedFontSize,
+                  height: 1,
+                  color: colors.onCanvas,
+                ),
               ),
             ),
           ],
           if (topicName != null) ...[
             const SizedBox(height: Spacing.s3),
-            Text(
-              topicName!,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: AppTypography.fontMono,
-                fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                fontWeight: FontWeight.w700,
-                fontSize: 17,
-                color: colors.onCanvas,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                topicName!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTypography.fontMono,
+                  fontFamilyFallback: AppTypography.fontMonoFallbacks,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 17,
+                  color: colors.onCanvas,
+                ),
               ),
             ),
           ],

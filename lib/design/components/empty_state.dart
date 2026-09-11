@@ -54,10 +54,13 @@ class AppEmptyState extends StatelessWidget {
               isLive: isLive,
             ),
             const SizedBox(height: Spacing.s4),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: AppTypography.headline(colors.onCanvas, fontSize: 30),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: AppTypography.headline(colors.onCanvas, fontSize: 30),
+              ),
             ),
             const SizedBox(height: Spacing.s2),
             ConstrainedBox(

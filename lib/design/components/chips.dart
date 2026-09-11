@@ -123,8 +123,8 @@ class AppPriorityChip extends StatelessWidget {
         : null;
 
     final chip = Container(
-      height: height,
-      padding: EdgeInsets.symmetric(horizontal: hPadding),
+      constraints: BoxConstraints(minHeight: height),
+      padding: EdgeInsets.symmetric(horizontal: hPadding, vertical: 2),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: Radii.fullAll,
@@ -145,6 +145,7 @@ class AppPriorityChip extends StatelessWidget {
             child: Text(
               label,
               overflow: TextOverflow.ellipsis,
+              maxLines: 1,
               style: TextStyle(
                 fontFamily: AppTypography.fontMono,
                 fontFamilyFallback: AppTypography.fontMonoFallbacks,
@@ -188,8 +189,8 @@ class AppTopicChip extends StatelessWidget {
     final colors = context.appColors;
 
     final chip = Container(
-      height: 26,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      constraints: const BoxConstraints(minHeight: 26),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: colors.cobaltTint,
         borderRadius: Radii.fullAll,
@@ -197,6 +198,8 @@ class AppTopicChip extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         text,
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
         style: TextStyle(
           fontFamily: AppTypography.fontMono,
           fontFamilyFallback: AppTypography.fontMonoFallbacks,

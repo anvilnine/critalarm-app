@@ -28,8 +28,8 @@ class AppBadge extends StatelessWidget {
     final faceInk = isDark ? colors.inkFixed : colors.ink;
 
     return Container(
-      height: 34,
-      padding: const EdgeInsets.only(left: 6, right: 14),
+      constraints: const BoxConstraints(minHeight: 34),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: colors.ink,
         borderRadius: Radii.fullAll,

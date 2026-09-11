@@ -40,99 +40,119 @@ class _TopicDetailScreenContent extends StatelessWidget {
       builder: (context, state) {
         final colors = context.appColors;
 
+        final bottomInset = MediaQuery.paddingOf(context).bottom;
+
         return SeverityScope(
           severity: state.severity,
           child: Scaffold(
             backgroundColor: colors.canvas,
             body: GhostField(
-              child: SafeArea(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      AppTopBar(
-                        leading: AppIconButton(
-                          glyph: GlyphType.back,
-                          ariaLabel: 'Back',
-                          onPressed: () {
-                            if (context.canPop()) {
-                              context.pop();
-                            } else {
-                              context.go('/');
-                            }
-                          },
-                        ),
-                        trailing: AppTopicChip(
-                          text: 'POST /t/${state.topicName}',
-                          onTap: () {
-                            unawaited(
-                              Clipboard.setData(
-                                ClipboardData(
-                                  text: 'POST /t/${state.topicName}',
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: Spacing.s3),
-                      AppStage(
-                        faceState: state.faceState,
-                        faceSize: 170,
-                        word: state.word,
-                        topicName: state.topicName,
-                        sub: state.subText,
-                      ),
-                      const SizedBox(height: Spacing.s4),
-                      AppSheet(
-                        margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (final msg in state.messages) ...[
-                              AppMessageCard(
-                                title: msg.title,
-                                timestamp: msg.timestamp,
-                                body: msg.body,
-                                source: msg.source,
-                                isHigh: msg.isHigh,
-                              ),
-                              const SizedBox(height: 10),
-                            ],
-                            const SizedBox(height: 4),
-                            AppToggleRow(
-                              title: 'Ring through silent mode',
-                              subtitle: 'Critical delivery',
-                              value: state.critical,
-                              onChanged: (val) {
-                                unawaited(
-                                  context
-                                      .read<TopicDetailCubit>()
-                                      .toggleCriticalDelivery(
-                                        isCritical: val,
-                                      ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            AppButton(
-                              label: 'Mark as read',
-                              variant: AppButtonVariant.ink,
-                              isFullWidth: true,
-                              isLoading: state.isMarkingAsRead,
-                              onPressed: () {
-                                unawaited(
-                                  context
-                                      .read<TopicDetailCubit>()
-                                      .markAsRead(),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
                 ),
+                slivers: [
+                  AppSliverTopBar(
+                    leading: AppIconButton(
+                      glyph: GlyphType.back,
+                      ariaLabel: 'Back',
+                      onPressed: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/');
+                        }
+                      },
+                    ),
+                    trailing: AppTopicChip(
+                      text: 'POST /t/${state.topicName}',
+                      onTap: () {
+                        unawaited(
+                          Clipboard.setData(
+                            ClipboardData(
+                              text: 'POST /t/${state.topicName}',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Column(
+                      children: [
+                        const SizedBox(height: Spacing.s3),
+                        AppStage(
+                          faceState: state.faceState,
+                          faceSize: 170,
+                          word: state.word,
+                          topicName: state.topicName,
+                          sub: state.subText,
+                        ),
+                        const SizedBox(height: Spacing.s4),
+                      ],
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: SafeArea(
+                      top: false,
+                      bottom: false,
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          12,
+                          0,
+                          12,
+                          16 + bottomInset,
+                        ),
+                        child: AppSheet(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final msg in state.messages) ...[
+                                AppMessageCard(
+                                  title: msg.title,
+                                  timestamp: msg.timestamp,
+                                  body: msg.body,
+                                  source: msg.source,
+                                  isHigh: msg.isHigh,
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                              const SizedBox(height: 4),
+                              AppToggleRow(
+                                title: 'Ring through silent mode',
+                                subtitle: 'Critical delivery',
+                                value: state.critical,
+                                onChanged: (val) {
+                                  unawaited(
+                                    context
+                                        .read<TopicDetailCubit>()
+                                        .toggleCriticalDelivery(
+                                          isCritical: val,
+                                        ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              AppButton(
+                                label: 'Mark as read',
+                                variant: AppButtonVariant.ink,
+                                isFullWidth: true,
+                                isLoading: state.isMarkingAsRead,
+                                onPressed: () {
+                                  unawaited(
+                                    context
+                                        .read<TopicDetailCubit>()
+                                        .markAsRead(),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

@@ -43,6 +43,8 @@ class _SettingsScreenContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) {
         final cubit = context.read<SettingsCubit>();
@@ -50,37 +52,54 @@ class _SettingsScreenContent extends StatelessWidget {
         return Scaffold(
           backgroundColor: colors.canvas,
           body: GhostField(
-            child: SafeArea(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    AppTopBar(
-                      title: 'Settings',
-                      leading: AppIconButton(
-                        glyph: GlyphType.back,
-                        ariaLabel: 'Back',
-                        onPressed: () {
-                          if (context.canPop()) {
-                            context.pop();
-                          } else {
-                            context.go('/');
-                          }
-                        },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              slivers: [
+                AppSliverTopBar(
+                  title: 'Settings',
+                  leading: AppIconButton(
+                    glyph: GlyphType.back,
+                    ariaLabel: 'Back',
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/');
+                      }
+                    },
+                  ),
+                ),
+                const SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      SizedBox(height: Spacing.s2),
+                      AppStage.horizontal(
+                        faceState: FaceState.acked,
+                        sub: 'Quiet hours on. Critical still rings.',
                       ),
-                    ),
-                    const SizedBox(height: Spacing.s2),
-                    const AppStage.horizontal(
-                      faceState: FaceState.acked,
-                      sub: 'Quiet hours on. Critical still rings.',
-                    ),
-                    const SizedBox(height: Spacing.s3),
-                    AppSheet(
-                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const AppSectionHeader('Quiet hours'),
+                      SizedBox(height: Spacing.s3),
+                    ],
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: SafeArea(
+                    top: false,
+                    bottom: false,
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        12,
+                        0,
+                        12,
+                        16 + bottomInset,
+                      ),
+                      child: AppSheet(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const AppSectionHeader('Quiet hours'),
                           AppToggleRow(
                             title: '22:00 to 07:00',
                             subtitle: 'default and low stay silent',
@@ -155,12 +174,13 @@ class _SettingsScreenContent extends StatelessWidget {
                         ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        );
+        ),
+      );
       },
     );
   }

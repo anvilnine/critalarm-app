@@ -95,14 +95,18 @@ class AppNotificationCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      topic,
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontMono,
-                        fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: colors.ink3,
+                    Flexible(
+                      child: Text(
+                        topic,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontMono,
+                          fontFamilyFallback: AppTypography.fontMonoFallbacks,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: colors.ink3,
+                        ),
                       ),
                     ),
                   ],
@@ -175,6 +179,8 @@ class AppNotificationCard extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               timeText!,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
               style: TextStyle(
                 fontFamily: AppTypography.fontMono,
                 fontFamilyFallback: AppTypography.fontMonoFallbacks,

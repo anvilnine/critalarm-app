@@ -158,13 +158,18 @@ class _AppListRowState extends State<AppListRow> {
                 ),
               ),
               if (widget.trailing != null) ...[
-                const SizedBox(width: 12),
-                widget.trailing!,
+                const SizedBox(width: 8),
+                Flexible(
+                  flex: 0,
+                  child: widget.trailing!,
+                ),
               ],
               if (widget.timeText != null) ...[
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Text(
                   widget.timeText!,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                   style: TextStyle(
                     fontFamily: AppTypography.fontMono,
                     fontFamilyFallback: AppTypography.fontMonoFallbacks,

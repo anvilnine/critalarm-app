@@ -73,17 +73,24 @@ class _AppKeyValueRowState extends State<AppKeyValueRow> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          if (widget.label != null)
-            Text(
-              widget.label!,
-              style: TextStyle(
-                fontFamily: AppTypography.fontBody,
-                fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                fontSize: 14,
-                color: colors.ink3,
+          if (widget.label != null) ...[
+            Flexible(
+              child: Text(
+                widget.label!,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                style: TextStyle(
+                  fontFamily: AppTypography.fontBody,
+                  fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                  fontSize: 14,
+                  color: colors.ink3,
+                ),
               ),
             ),
+            const SizedBox(width: 8),
+          ],
           Expanded(
+            flex: 2,
             child: Text(
               widget.value,
               textAlign:
@@ -95,30 +102,36 @@ class _AppKeyValueRowState extends State<AppKeyValueRow> {
           ),
           if (widget.trailing != null) ...[
             const SizedBox(width: 8),
-            widget.trailing!,
+            Flexible(
+              flex: 0,
+              child: widget.trailing!,
+            ),
           ] else if (widget.showCopyButton) ...[
             const SizedBox(width: 8),
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: _copyValue,
-                child: Container(
-                  height: 30,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: Radii.fullAll,
-                    border: Border.all(color: colors.hairline, width: 1.5),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _copied ? 'Copied' : 'Copy',
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: colors.ink,
+            Flexible(
+              flex: 0,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: _copyValue,
+                  child: Container(
+                    height: 30,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: Radii.fullAll,
+                      border: Border.all(color: colors.hairline, width: 1.5),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _copied ? 'Copied' : 'Copy',
+                      style: TextStyle(
+                        fontFamily: AppTypography.fontBody,
+                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colors.ink,
+                      ),
                     ),
                   ),
                 ),

@@ -53,41 +53,56 @@ class _CreateTopicScreenContent extends StatelessWidget {
         final name = state.name.isEmpty ? 'prod-db' : state.name;
         final token = state.createdToken ?? 'ca_live_7Hq2mN9xPz4wKd8';
 
+        final bottomInset = MediaQuery.paddingOf(context).bottom;
+
         return Scaffold(
+          resizeToAvoidBottomInset: true,
           backgroundColor: colors.canvas,
           body: GhostField(
-            child: SafeArea(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    AppTopBar(
-                      leading: AppIconButton(
-                        glyph: GlyphType.back,
-                        ariaLabel: 'Back',
-                        onPressed: () {
-                          if (context.canPop()) {
-                            context.pop();
-                          } else {
-                            context.go('/');
-                          }
-                        },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              slivers: [
+                AppSliverTopBar(
+                  leading: AppIconButton(
+                    glyph: GlyphType.back,
+                    ariaLabel: 'Back',
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/');
+                      }
+                    },
+                  ),
+                  title: 'New topic',
+                ),
+                const SliverToBoxAdapter(
+                  child: AppStage(
+                    faceState: FaceState.watching,
+                    faceSize: 110,
+                    isLive: true,
+                    padding: EdgeInsets.fromLTRB(24, Spacing.s3, 24, 0),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: SafeArea(
+                    top: false,
+                    bottom: false,
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        12,
+                        Spacing.s4,
+                        12,
+                        16 + bottomInset,
                       ),
-                      title: 'New topic',
-                    ),
-                    const AppStage(
-                      faceState: FaceState.watching,
-                      faceSize: 110,
-                      isLive: true,
-                      padding: EdgeInsets.fromLTRB(24, Spacing.s3, 24, 0),
-                    ),
-                    const SizedBox(height: Spacing.s4),
-                    AppSheet(
-                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                      border: Border.all(color: colors.hairline, width: 2),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
+                      child: AppSheet(
+                        border: Border.all(color: colors.hairline, width: 2),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                           AppTextField(
                             label: 'Name',
                             initialValue: state.name,
@@ -187,12 +202,13 @@ class _CreateTopicScreenContent extends StatelessWidget {
                         ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        );
+        ),
+      );
       },
     );
   }

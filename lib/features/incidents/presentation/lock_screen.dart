@@ -68,118 +68,136 @@ class _LockScreenView extends StatelessWidget {
 
                 // Foreground content
                 SafeArea(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Top bar with back button
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: BouncingScrollPhysics(),
                         ),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: AppIconButton(
-                            glyph: GlyphType.back,
-                            ariaLabel: 'Back to Home',
-                            onPressed: () {
-                              if (context.canPop()) {
-                                context.pop();
-                              } else {
-                                context.go('/');
-                              }
-                            },
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
                           ),
-                        ),
-                      ),
+                          child: IntrinsicHeight(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                AppTopBar(
+                                  leading: AppIconButton(
+                                    glyph: GlyphType.back,
+                                    ariaLabel: 'Back to Home',
+                                    onPressed: () {
+                                      if (context.canPop()) {
+                                        context.pop();
+                                      } else {
+                                        context.go('/');
+                                      }
+                                    },
+                                  ),
+                                ),
 
-                      // Clock section
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: Spacing.s4,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              state.dateText,
-                              style: TextStyle(
-                                fontFamily: AppTypography.fontBody,
-                                fontFamilyFallback:
-                                    AppTypography.fontBodyFallbacks,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
-                                color: colors.onCanvas,
-                              ),
-                            ),
-                            const SizedBox(height: Spacing.s1),
-                            Text(
-                              state.timeText,
-                              style: AppTypography.display(
-                                colors.onCanvas,
-                                fontSize: 96,
-                              ).copyWith(
-                                letterSpacing: -0.05 * 96,
-                                height: 0.9,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                                // Clock section
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: Spacing.s4,
+                                    horizontal: 16,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        state.dateText,
+                                        style: TextStyle(
+                                          fontFamily: AppTypography.fontBody,
+                                          fontFamilyFallback:
+                                              AppTypography.fontBodyFallbacks,
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w600,
+                                          color: colors.onCanvas,
+                                        ),
+                                      ),
+                                      const SizedBox(height: Spacing.s1),
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          state.timeText,
+                                          style: AppTypography.display(
+                                            colors.onCanvas,
+                                            fontSize: 96,
+                                          ).copyWith(
+                                            letterSpacing: -0.05 * 96,
+                                            height: 0.9,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
 
-                      // Notification cards stack
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              for (int i = 0;
-                                  i < state.notifications.length;
-                                  i++) ...[
-                                if (i > 0) const SizedBox(height: 12),
-                                AppNotificationCard(
-                                  topic: state.notifications[i].topic,
-                                  title: state.notifications[i].title,
-                                  body: state.notifications[i].body,
-                                  faceState: state.notifications[i].faceState,
-                                  ringingPillText:
-                                      state.notifications[i].ringingPillText,
-                                  timeText: state.notifications[i].timeText,
-                                  isCrit: state.notifications[i].isCrit,
-                                  isQuiet: state.notifications[i].isQuiet,
-                                  onTap: state.notifications[i].isCrit
-                                      ? () => context.push('/alarm')
-                                      : null,
+                                // Notification cards
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      for (int i = 0;
+                                          i < state.notifications.length;
+                                          i++) ...[
+                                        if (i > 0) const SizedBox(height: 12),
+                                        AppNotificationCard(
+                                          topic: state.notifications[i].topic,
+                                          title: state.notifications[i].title,
+                                          body: state.notifications[i].body,
+                                          faceState:
+                                              state.notifications[i].faceState,
+                                          ringingPillText: state
+                                              .notifications[i].ringingPillText,
+                                          timeText:
+                                              state.notifications[i].timeText,
+                                          isCrit: state.notifications[i].isCrit,
+                                          isQuiet:
+                                              state.notifications[i].isQuiet,
+                                          onTap: state.notifications[i].isCrit
+                                              ? () => context.push('/alarm')
+                                              : null,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+
+                                const Spacer(),
+
+                                // Dismiss / Open button to return to home
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                    16,
+                                    Spacing.s3,
+                                    16,
+                                    16 + MediaQuery.paddingOf(context).bottom,
+                                  ),
+                                  child: AppButton(
+                                    label: 'Open Crit Alarm',
+                                    variant: AppButtonVariant.ghost,
+                                    isFullWidth: true,
+                                    onPressed: () {
+                                      if (context.canPop()) {
+                                        context.pop();
+                                      } else {
+                                        context.go('/');
+                                      }
+                                    },
+                                  ),
                                 ),
                               ],
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-
-                      // Dismiss / Open button to return to home
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          16,
-                          Spacing.s3,
-                          16,
-                          Spacing.s4,
-                        ),
-                        child: AppButton(
-                          label: 'Open Crit Alarm',
-                          variant: AppButtonVariant.ghost,
-                          isFullWidth: true,
-                          onPressed: () {
-                            if (context.canPop()) {
-                              context.pop();
-                            } else {
-                              context.go('/');
-                            }
-                          },
-                        ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
               ],
