@@ -75,6 +75,7 @@ void main() {
     ('09_lock_screen', '/lockscreen', FaceState.alarmed),
     ('10_settings', '/settings', FaceState.acked),
     ('11_paywall_shell', '/paywall', FaceState.acked),
+    ('12_device_permissions', '/settings/permissions', FaceState.calm),
   ];
 
   for (final (filename, routePath, fixtureState) in screens) {
