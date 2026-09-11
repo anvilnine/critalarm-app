@@ -13,12 +13,14 @@ import 'package:firebase_remote_config/firebase_remote_config.dart';
 class FirebaseTelemetryGate implements TelemetryGate {
   FirebaseTelemetryGate({
     this.app,
+    this.options,
     this.analytics,
     this.crashlytics,
     this.remoteConfig,
   });
 
   final FirebaseApp? app;
+  final FirebaseOptions? options;
   FirebaseAnalytics? analytics;
   FirebaseCrashlytics? crashlytics;
   FirebaseRemoteConfig? remoteConfig;
@@ -44,7 +46,7 @@ class FirebaseTelemetryGate implements TelemetryGate {
     try {
       if (app == null && Firebase.apps.isEmpty) {
         try {
-          await Firebase.initializeApp();
+          await Firebase.initializeApp(options: options);
         } on Object catch (_) {
           // Safe initialization: missing config or test environment
         }

@@ -57,6 +57,7 @@ import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topics_list_cubit.dart';
+import 'package:critalarm/firebase_options.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -69,7 +70,14 @@ Future<void> configureDependencies() async {
   final prefs = await SharedPreferences.getInstance();
 
   if (!getIt.isRegistered<TelemetryGate>()) {
-    final telemetryGate = FirebaseTelemetryGate();
+    final options = () {
+      try {
+        return DefaultFirebaseOptions.currentPlatform;
+      } on Object catch (_) {
+        return null;
+      }
+    }();
+    final telemetryGate = FirebaseTelemetryGate(options: options);
     await telemetryGate.initialize();
     getIt.registerSingleton<TelemetryGate>(telemetryGate);
   }
