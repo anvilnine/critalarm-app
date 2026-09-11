@@ -15,26 +15,81 @@ class AppStage extends StatelessWidget {
     this.isLive = false,
     this.word,
     this.wordIsBig = false,
+    this.wordFontSize,
     this.topicName,
     this.sub,
     this.padding = const EdgeInsets.fromLTRB(24, Spacing.s4, 24, 0),
     this.faceWidget,
+    this.isHorizontal = false,
     super.key,
   });
+
+  /// Horizontal stage matching index.html Settings mockup:
+  /// 56px face aligned with subtext in a row.
+  const AppStage.horizontal({
+    required this.faceState,
+    this.faceSize = 56.0,
+    this.sub,
+    this.isLive = false,
+    this.padding = const EdgeInsets.fromLTRB(24, Spacing.s3, 24, 0),
+    this.faceWidget,
+    super.key,
+  })  : word = null,
+        wordIsBig = false,
+        wordFontSize = null,
+        topicName = null,
+        isHorizontal = true;
 
   final FaceState? faceState;
   final double faceSize;
   final bool isLive;
   final String? word;
   final bool wordIsBig;
+  final double? wordFontSize;
   final String? topicName;
   final String? sub;
   final EdgeInsetsGeometry padding;
   final Widget? faceWidget;
+  final bool isHorizontal;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+
+    if (isHorizontal) {
+      return Padding(
+        padding: padding,
+        child: Row(
+          children: [
+            if (faceWidget != null)
+              faceWidget!
+            else if (faceState != null)
+              FaceWidget(
+                state: faceState!,
+                size: faceSize,
+                isLive: isLive,
+              ),
+            if (sub != null) ...[
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  sub!,
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontBody,
+                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 15,
+                    color: colors.onCanvasMuted,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
+    final resolvedFontSize = wordFontSize ?? (wordIsBig ? 56.0 : 44.0);
 
     return Padding(
       padding: padding,
@@ -59,8 +114,8 @@ class AppStage extends StatelessWidget {
                 fontFamily: AppTypography.fontDisplay,
                 fontFamilyFallback: AppTypography.fontDisplayFallbacks,
                 fontWeight: FontWeight.w800,
-                fontSize: wordIsBig ? 56 : 44,
-                letterSpacing: -0.04 * (wordIsBig ? 56 : 44),
+                fontSize: resolvedFontSize,
+                letterSpacing: -0.04 * resolvedFontSize,
                 height: 1,
                 color: colors.onCanvas,
               ),

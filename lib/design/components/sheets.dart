@@ -1,6 +1,8 @@
+import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
+import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
 
 /// Floating bottom card/sheet container matching index.html .sheet.
@@ -35,6 +37,126 @@ class AppSheet extends StatelessWidget {
         border: border,
       ),
       child: child,
+    );
+  }
+}
+
+/// Section header used inside sheets matching index.html .sheet h4.
+class AppSectionHeader extends StatelessWidget {
+  const AppSectionHeader(
+    this.title, {
+    this.padding = const EdgeInsets.fromLTRB(4, 10, 4, 6),
+    super.key,
+  });
+
+  final String title;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Padding(
+      padding: padding,
+      child: Text(
+        title,
+        style: TextStyle(
+          fontFamily: AppTypography.fontBody,
+          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: colors.ink3,
+        ),
+      ),
+    );
+  }
+}
+
+/// Feature bullet row used on paywall/feature lists matching index.html .price li / .critband li.
+class AppFeatureBullet extends StatelessWidget {
+  const AppFeatureBullet({
+    required this.text,
+    this.glyph = GlyphType.check,
+    this.glyphColor,
+    super.key,
+  });
+
+  final String text;
+  final GlyphType glyph;
+  final Color? glyphColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final effectiveColor = glyphColor ?? colors.highlight;
+
+    return Row(
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: colors.cobaltTint,
+          ),
+          alignment: Alignment.center,
+          child: AppGlyph(
+            glyph,
+            size: 13,
+            color: effectiveColor,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontFamilyFallback: AppTypography.fontBodyFallbacks,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: colors.ink,
+              height: 1.3,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Note / callout container matching index.html .note and self-host mention.
+class AppNote extends StatelessWidget {
+  const AppNote({
+    required this.text,
+    this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    super.key,
+  });
+
+  final String text;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: colors.cream,
+        borderRadius: Radii.mdAll,
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontFamily: AppTypography.fontBody,
+          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          color: colors.ink2,
+          height: 1.4,
+        ),
+      ),
     );
   }
 }

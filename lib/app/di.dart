@@ -15,10 +15,12 @@ import 'package:critalarm/features/onboarding/domain/repositories/server_reposit
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_theme_preference_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/theme_preference_repository.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_theme_mode_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_theme_mode_usecase.dart';
+import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
@@ -151,5 +153,13 @@ Future<void> configureDependencies() async {
       () => LockScreenCubit(
         getIt<GetIncidentsUsecase>(),
       ),
+    )
+    ..registerFactory(
+      () => SettingsCubit(
+        getIt<GetTopicsUsecase>(),
+      ),
+    )
+    ..registerFactory(
+      PaywallCubit.new,
     );
 }
