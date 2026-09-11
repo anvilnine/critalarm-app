@@ -7,7 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// validation.
 class OnboardingWelcomeCubit extends Cubit<OnboardingWelcomeState> {
   OnboardingWelcomeCubit(this._getServerInfo)
-      : super(const OnboardingWelcomeState());
+    : super(const OnboardingWelcomeState());
 
   final GetServerInfoUsecase _getServerInfo;
 

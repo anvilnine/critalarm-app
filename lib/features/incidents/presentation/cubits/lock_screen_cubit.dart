@@ -23,8 +23,7 @@ class LockScreenCubit extends Cubit<LockScreenState> {
         final items = <LockNotificationItem>[];
         for (final inc in incidents) {
           final firstMsg = inc.messages.firstOrNull;
-          final isCrit = inc.isOpen &&
-              inc.messages.any((m) => m.priority == 5);
+          final isCrit = inc.isOpen && inc.messages.any((m) => m.priority == 5);
           final isQuiet = !isCrit && inc.isClosed;
 
           items.add(

@@ -42,8 +42,9 @@ class HomeCubit extends Cubit<HomeState> {
         }
 
         final incidents = incidentsResult.getOrNull() ?? [];
-        final openIncidents =
-            incidents.where((i) => i.state == 'open').toList();
+        final openIncidents = incidents
+            .where((i) => i.state == 'open')
+            .toList();
         final openIncidentIds = openIncidents.map((i) => i.id).toSet();
 
         final hasCriticalOpen = openIncidents.any(
@@ -52,8 +53,10 @@ class HomeCubit extends Cubit<HomeState> {
 
         final warningTopics = <String>{};
         for (final t in topics) {
-          final pollResult =
-              await _incidentRepository.pollMessages(t.name, poll: 1);
+          final pollResult = await _incidentRepository.pollMessages(
+            t.name,
+            poll: 1,
+          );
           final msgs = pollResult.getOrNull() ?? [];
           if (msgs.any(
             (m) =>
@@ -67,7 +70,8 @@ class HomeCubit extends Cubit<HomeState> {
           }
         }
 
-        final hasWarningOpen = openIncidents.any(
+        final hasWarningOpen =
+            openIncidents.any(
               (i) => i.messages.any((m) => m.priority == 4),
             ) ||
             warningTopics.isNotEmpty;
@@ -133,9 +137,7 @@ class HomeCubit extends Cubit<HomeState> {
     return topics.map((t) {
       if (t.name == 'prod-db') {
         final isOpenCrit = openIncidents.any(
-          (i) =>
-              i.topic == 'prod-db' &&
-              i.messages.any((m) => m.priority == 5),
+          (i) => i.topic == 'prod-db' && i.messages.any((m) => m.priority == 5),
         );
         return HomeTopicItem(
           name: t.name,
@@ -179,9 +181,7 @@ class HomeCubit extends Cubit<HomeState> {
       final hasWarning = warningTopics.contains(t.name);
       return HomeTopicItem(
         name: t.name,
-        meta: hasOpen
-            ? 'Alert active'
-            : (hasWarning ? '1 warning' : 'Quiet'),
+        meta: hasOpen ? 'Alert active' : (hasWarning ? '1 warning' : 'Quiet'),
         priority: t.critical
             ? PriorityLevel.critical
             : PriorityLevel.defaultPriority,

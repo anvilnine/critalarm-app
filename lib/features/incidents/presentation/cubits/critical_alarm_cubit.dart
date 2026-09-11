@@ -205,7 +205,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     final body = (firstMsg != null && firstMsg.message.isNotEmpty)
         ? firstMsg.message
         : 'pg_isready failed 3 times in 90 s. '
-            'Replica promoted to primary on db-2.';
+              'Replica promoted to primary on db-2.';
     final topic = incident.topic.isNotEmpty ? incident.topic : 'prod-db';
 
     if (incident.isAcked) {

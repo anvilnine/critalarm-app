@@ -56,73 +56,81 @@ void main() {
       expect(state.title, 'Primary database down');
     });
 
-    test('load with specific incidentId fetches and applies open incident',
-        () async {
-      await cubit.load(incidentId: 'inc_alarmed_proddb');
+    test(
+      'load with specific incidentId fetches and applies open incident',
+      () async {
+        await cubit.load(incidentId: 'inc_alarmed_proddb');
 
-      final state = cubit.state;
-      expect(state.status, CriticalAlarmStatus.ringing);
-      expect(state.topic, 'prod-db');
-      expect(state.title, 'Primary database down');
-      expect(state.severityMode, SeverityMode.crit);
-      expect(state.faceState, FaceState.alarmed);
-      expect(state.isLive, isTrue);
-      expect(state.isAcknowledged, isFalse);
-      expect(state.incident, isNotNull);
-      expect(state.incident!.id, 'inc_alarmed_proddb');
-    });
+        final state = cubit.state;
+        expect(state.status, CriticalAlarmStatus.ringing);
+        expect(state.topic, 'prod-db');
+        expect(state.title, 'Primary database down');
+        expect(state.severityMode, SeverityMode.crit);
+        expect(state.faceState, FaceState.alarmed);
+        expect(state.isLive, isTrue);
+        expect(state.isAcknowledged, isFalse);
+        expect(state.incident, isNotNull);
+        expect(state.incident!.id, 'inc_alarmed_proddb');
+      },
+    );
 
-    test('load without incidentId finds open critical incident from server',
-        () async {
-      await cubit.load();
+    test(
+      'load without incidentId finds open critical incident from server',
+      () async {
+        await cubit.load();
 
-      final state = cubit.state;
-      expect(state.status, CriticalAlarmStatus.ringing);
-      expect(state.topic, 'prod-db');
-      expect(state.severityMode, SeverityMode.crit);
-      expect(state.faceState, FaceState.alarmed);
-      expect(state.isLive, isTrue);
-    });
+        final state = cubit.state;
+        expect(state.status, CriticalAlarmStatus.ringing);
+        expect(state.topic, 'prod-db');
+        expect(state.severityMode, SeverityMode.crit);
+        expect(state.faceState, FaceState.alarmed);
+        expect(state.isLive, isTrue);
+      },
+    );
 
-    test('load with acknowledged incident applies acknowledged state',
-        () async {
-      server.seedAcked();
-      await cubit.load(incidentId: 'inc_acked_proddb');
+    test(
+      'load with acknowledged incident applies acknowledged state',
+      () async {
+        server.seedAcked();
+        await cubit.load(incidentId: 'inc_acked_proddb');
 
-      final state = cubit.state;
-      expect(state.status, CriticalAlarmStatus.acknowledged);
-      expect(state.severityMode, SeverityMode.ack);
-      expect(state.faceState, FaceState.acked);
-      expect(state.isLive, isFalse);
-      expect(state.isAcknowledged, isTrue);
-      expect(state.word, 'ACKNOWLEDGED');
-      expect(state.subtext, contains('Acknowledged at'));
-      expect(state.subtext, contains('by Z'));
-    });
+        final state = cubit.state;
+        expect(state.status, CriticalAlarmStatus.acknowledged);
+        expect(state.severityMode, SeverityMode.ack);
+        expect(state.faceState, FaceState.acked);
+        expect(state.isLive, isFalse);
+        expect(state.isAcknowledged, isTrue);
+        expect(state.word, 'ACKNOWLEDGED');
+        expect(state.subtext, contains('Acknowledged at'));
+        expect(state.subtext, contains('by Z'));
+      },
+    );
 
-    test('acknowledge transitions incident on mock server and updates state',
-        () async {
-      await cubit.load(incidentId: 'inc_alarmed_proddb');
-      expect(cubit.state.isAcknowledged, isFalse);
+    test(
+      'acknowledge transitions incident on mock server and updates state',
+      () async {
+        await cubit.load(incidentId: 'inc_alarmed_proddb');
+        expect(cubit.state.isAcknowledged, isFalse);
 
-      await cubit.acknowledge();
+        await cubit.acknowledge();
 
-      final state = cubit.state;
-      expect(state.status, CriticalAlarmStatus.acknowledged);
-      expect(state.isAcknowledged, isTrue);
-      expect(state.isAcknowledging, isFalse);
-      expect(state.severityMode, SeverityMode.ack);
-      expect(state.faceState, FaceState.acked);
-      expect(state.isLive, isFalse);
-      expect(state.word, 'ACKNOWLEDGED');
-      expect(state.subtext, contains('Acknowledged at'));
-      expect(state.subtext, contains('by Z'));
-      expect(state.feedbackMessage, contains('Acknowledged at'));
+        final state = cubit.state;
+        expect(state.status, CriticalAlarmStatus.acknowledged);
+        expect(state.isAcknowledged, isTrue);
+        expect(state.isAcknowledging, isFalse);
+        expect(state.severityMode, SeverityMode.ack);
+        expect(state.faceState, FaceState.acked);
+        expect(state.isLive, isFalse);
+        expect(state.word, 'ACKNOWLEDGED');
+        expect(state.subtext, contains('Acknowledged at'));
+        expect(state.subtext, contains('by Z'));
+        expect(state.feedbackMessage, contains('Acknowledged at'));
 
-      // Verify on mock server
-      final serverInc = server.getIncident('inc_alarmed_proddb');
-      expect(serverInc.isAcked, isTrue);
-    });
+        // Verify on mock server
+        final serverInc = server.getIncident('inc_alarmed_proddb');
+        expect(serverInc.isAcked, isTrue);
+      },
+    );
 
     test('acknowledge does nothing if already acknowledged', () async {
       await cubit.load(incidentId: 'inc_alarmed_proddb');
@@ -140,23 +148,25 @@ void main() {
       expect(cubit.state.feedbackMessage, 'Alarm snoozed for 10 min');
     });
 
-    test('closeIncident closes acknowledged incident and sets calm face',
-        () async {
-      await cubit.load(incidentId: 'inc_alarmed_proddb');
-      await cubit.acknowledge();
+    test(
+      'closeIncident closes acknowledged incident and sets calm face',
+      () async {
+        await cubit.load(incidentId: 'inc_alarmed_proddb');
+        await cubit.acknowledge();
 
-      await cubit.closeIncident();
+        await cubit.closeIncident();
 
-      final state = cubit.state;
-      expect(state.status, CriticalAlarmStatus.closed);
-      expect(state.word, 'CLOSED');
-      expect(state.faceState, FaceState.calm);
-      expect(state.severityMode, SeverityMode.none);
-      expect(state.isLive, isFalse);
+        final state = cubit.state;
+        expect(state.status, CriticalAlarmStatus.closed);
+        expect(state.word, 'CLOSED');
+        expect(state.faceState, FaceState.calm);
+        expect(state.severityMode, SeverityMode.none);
+        expect(state.isLive, isFalse);
 
-      // Verify on mock server
-      final serverInc = server.getIncident('inc_alarmed_proddb');
-      expect(serverInc.isClosed, isTrue);
-    });
+        // Verify on mock server
+        final serverInc = server.getIncident('inc_alarmed_proddb');
+        expect(serverInc.isClosed, isTrue);
+      },
+    );
   });
 }

@@ -52,33 +52,37 @@ void main() {
       expect(quietNotif.timeText, '02:04');
     });
 
-    test('load populates notifications from open incidents on server',
-        () async {
-      await cubit.load();
+    test(
+      'load populates notifications from open incidents on server',
+      () async {
+        await cubit.load();
 
-      final state = cubit.state;
-      expect(state.status, LockScreenStatus.success);
-      expect(state.notifications.isNotEmpty, isTrue);
+        final state = cubit.state;
+        expect(state.status, LockScreenStatus.success);
+        expect(state.notifications.isNotEmpty, isTrue);
 
-      final critItem = state.notifications.firstWhere((n) => n.isCrit);
-      expect(critItem.topic, 'prod-db');
-      expect(critItem.title, 'Primary database down');
-      expect(
-        critItem.ringingPillText,
-        'Ringing through silent mode. Tap to acknowledge.',
-      );
-    });
+        final critItem = state.notifications.firstWhere((n) => n.isCrit);
+        expect(critItem.topic, 'prod-db');
+        expect(critItem.title, 'Primary database down');
+        expect(
+          critItem.ringingPillText,
+          'Ringing through silent mode. Tap to acknowledge.',
+        );
+      },
+    );
 
-    test('load with empty incidents keeps default mockup notifications',
-        () async {
-      server.reset();
-      await cubit.load();
+    test(
+      'load with empty incidents keeps default mockup notifications',
+      () async {
+        server.reset();
+        await cubit.load();
 
-      final state = cubit.state;
-      expect(state.status, LockScreenStatus.success);
-      expect(state.notifications.length, 2);
-      expect(state.notifications.first.topic, 'prod-db');
-      expect(state.notifications.last.topic, 'nas-backup');
-    });
+        final state = cubit.state;
+        expect(state.status, LockScreenStatus.success);
+        expect(state.notifications.length, 2);
+        expect(state.notifications.first.topic, 'prod-db');
+        expect(state.notifications.last.topic, 'nas-backup');
+      },
+    );
   });
 }

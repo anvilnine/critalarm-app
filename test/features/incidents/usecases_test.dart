@@ -83,8 +83,7 @@ void main() {
 
   group('AcknowledgeIncidentUsecase', () {
     test('acknowledges open incident and transitions state to acked', () async {
-      final result =
-          await acknowledgeIncidentUsecase('inc_alarmed_proddb');
+      final result = await acknowledgeIncidentUsecase('inc_alarmed_proddb');
 
       expect(result.isSuccess(), isTrue);
       final incident = result.getOrNull()!;
@@ -98,8 +97,7 @@ void main() {
       await acknowledgeIncidentUsecase('inc_alarmed_proddb');
 
       // Second ack should fail with 409
-      final result =
-          await acknowledgeIncidentUsecase('inc_alarmed_proddb');
+      final result = await acknowledgeIncidentUsecase('inc_alarmed_proddb');
 
       expect(result.isError(), isTrue);
       final failure = result.exceptionOrNull()!;

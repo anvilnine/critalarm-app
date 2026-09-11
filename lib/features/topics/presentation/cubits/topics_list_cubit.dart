@@ -35,14 +35,17 @@ class TopicsListCubit extends Cubit<TopicsListState> {
         }
 
         final incidents = incidentsResult.getOrNull() ?? [];
-        final openIncidents =
-            incidents.where((i) => i.state == 'open').toList();
+        final openIncidents = incidents
+            .where((i) => i.state == 'open')
+            .toList();
         final openIncidentIds = openIncidents.map((i) => i.id).toSet();
 
         final warningTopics = <String>{};
         for (final t in topics) {
-          final pollResult =
-              await _incidentRepository.pollMessages(t.name, poll: 1);
+          final pollResult = await _incidentRepository.pollMessages(
+            t.name,
+            poll: 1,
+          );
           final msgs = pollResult.getOrNull() ?? [];
           if (msgs.any(
             (m) =>
@@ -63,8 +66,7 @@ class TopicsListCubit extends Cubit<TopicsListState> {
                 (t.critical || i.messages.any((m) => m.priority == 5)),
           );
           final isOpenHigh = openIncidents.any(
-            (i) =>
-                i.topic == t.name && i.messages.any((m) => m.priority == 4),
+            (i) => i.topic == t.name && i.messages.any((m) => m.priority == 4),
           );
 
           if (t.name == 'prod-db') {

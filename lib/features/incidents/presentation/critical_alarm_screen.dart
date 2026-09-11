@@ -70,7 +70,8 @@ class _CriticalAlarmView extends StatelessWidget {
                                     trailing: state.isAcknowledged
                                         ? AppToast(
                                             variant: AppToastVariant.ack,
-                                            message: state.feedbackMessage ??
+                                            message:
+                                                state.feedbackMessage ??
                                                 'Acknowledged at 03:14 by Z',
                                           )
                                         : null,
@@ -141,8 +142,8 @@ class _CriticalAlarmView extends StatelessWidget {
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
                                             fontFamily: AppTypography.fontBody,
-                                            fontFamilyFallback: AppTypography
-                                                .fontBodyFallbacks,
+                                            fontFamilyFallback:
+                                                AppTypography.fontBodyFallbacks,
                                             fontWeight: FontWeight.w600,
                                             fontSize: 15,
                                             color: colors.onCanvas,
@@ -225,7 +226,8 @@ class _CriticalAlarmView extends StatelessWidget {
                                                 unawaited(
                                                   context
                                                       .read<
-                                                          CriticalAlarmCubit>()
+                                                        CriticalAlarmCubit
+                                                      >()
                                                       .acknowledge(),
                                                 );
                                               }
@@ -240,8 +242,9 @@ class _CriticalAlarmView extends StatelessWidget {
                                               context
                                                   .read<CriticalAlarmCubit>()
                                                   .snooze();
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
                                                 const SnackBar(
                                                   content: Text(
                                                     'Alarm snoozed for 10 min',

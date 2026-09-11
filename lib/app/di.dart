@@ -11,8 +11,18 @@ import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cubit.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/platform_notification_permission_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_connection_repository.dart';
+import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
+import 'package:critalarm/features/onboarding/domain/repositories/notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/open_notification_settings_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/request_notification_permission_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
+import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
@@ -62,6 +72,28 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<ServerRepository>(
       () => InMemoryServerRepository(getIt<ApiClient>()),
     )
+    ..registerLazySingleton<ConnectionRepository>(
+      () => SharedPrefsConnectionRepository(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<NotificationPermissionRepository>(
+      PlatformNotificationPermissionRepository.new,
+    )
+    ..registerLazySingleton(
+      () => RequestNotificationPermissionUsecase(
+        getIt<NotificationPermissionRepository>(),
+      ),
+    )
+    ..registerLazySingleton(
+      () => OpenNotificationSettingsUsecase(
+        getIt<NotificationPermissionRepository>(),
+      ),
+    )
+    ..registerLazySingleton(
+      () => SaveConnectionUsecase(getIt<ConnectionRepository>()),
+    )
+    ..registerLazySingleton(
+      () => GetConnectionUsecase(getIt<ConnectionRepository>()),
+    )
     ..registerLazySingleton(
       () => GetThemeModeUsecase(getIt<ThemePreferenceRepository>()),
     )
@@ -100,6 +132,20 @@ Future<void> configureDependencies() async {
     )
     ..registerLazySingleton(
       () => DeleteTopicUsecase(getIt<TopicRepository>()),
+    )
+    ..registerFactory(
+      () => NotificationPermissionsCubit(
+        getIt<RequestNotificationPermissionUsecase>(),
+        getIt<OpenNotificationSettingsUsecase>(),
+      ),
+    )
+    ..registerFactoryParam<OnboardingConnectCubit, bool?, void>(
+      (initialConnected, _) => OnboardingConnectCubit(
+        getIt<GetServerInfoUsecase>(),
+        getIt<SaveConnectionUsecase>(),
+        getIt<TriggerTestAlarmUsecase>(),
+        initialConnected: initialConnected ?? false,
+      ),
     )
     ..registerFactory(
       () => ThemeCubit(

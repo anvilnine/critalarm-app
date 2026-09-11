@@ -9,8 +9,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_wel
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-class MockGetServerInfoUsecase extends Mock
-    implements GetServerInfoUsecase {}
+class MockGetServerInfoUsecase extends Mock implements GetServerInfoUsecase {}
 
 void main() {
   late MockGetServerInfoUsecase mockGetServerInfo;
@@ -77,8 +76,9 @@ void main() {
           baseUrl: 'https://api.critalarm.app',
           relayUrl: 'https://relay.critalarm.app',
         );
-        when(() => mockGetServerInfo(any()))
-            .thenAnswer((_) async => info.toSuccess());
+        when(
+          () => mockGetServerInfo(any()),
+        ).thenAnswer((_) async => info.toSuccess());
       },
       build: () => OnboardingWelcomeCubit(mockGetServerInfo),
       act: (cubit) => cubit.validateAndContinue(),
@@ -92,9 +92,10 @@ void main() {
       'validateAndContinue when server check fails emits error message',
       setUp: () {
         when(() => mockGetServerInfo(any())).thenAnswer(
-          (_) async =>
-              const Failure.api(statusCode: 502, message: 'Bad Gateway')
-                  .toFailure(),
+          (_) async => const Failure.api(
+            statusCode: 502,
+            message: 'Bad Gateway',
+          ).toFailure(),
         );
       },
       build: () => OnboardingWelcomeCubit(mockGetServerInfo),

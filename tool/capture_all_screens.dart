@@ -2,8 +2,7 @@
 // ignore_for_file: cascade_invocations
 // Developer tool testing mock setup.
 // ignore_for_file: invalid_use_of_visible_for_testing_member
-// Formatting tolerance in developer tool script.
-// ignore_for_file: lines_longer_than_80_chars, prefer_int_literals
+// ignore_for_file: prefer_int_literals
 // Tool prints progress to stdout.
 // ignore_for_file: avoid_print, cast_nullable_to_non_nullable
 
@@ -111,7 +110,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       await tester.runAsync(() async {
-        final boundary = repaintBoundaryKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+        final boundary =
+            repaintBoundaryKey.currentContext!.findRenderObject()
+                as RenderRepaintBoundary;
         final image = await boundary.toImage(pixelRatio: 2.0);
         final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
         final pngBytes = byteData!.buffer.asUint8List();

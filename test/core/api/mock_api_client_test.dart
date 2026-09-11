@@ -36,22 +36,24 @@ void main() {
       },
     );
 
-    test('test endpoint requires critical: true, returns 409 otherwise',
-        () async {
-      await client.createTopic(name: 'non-critical');
+    test(
+      'test endpoint requires critical: true, returns 409 otherwise',
+      () async {
+        await client.createTopic(name: 'non-critical');
 
-      expect(
-        () => client.triggerTest(topic: 'non-critical'),
-        throwsA(
-          isA<ApiException>().having((e) => e.statusCode, 'statusCode', 409),
-        ),
-      );
+        expect(
+          () => client.triggerTest(topic: 'non-critical'),
+          throwsA(
+            isA<ApiException>().having((e) => e.statusCode, 'statusCode', 409),
+          ),
+        );
 
-      // Now enable critical
-      await client.updateTopic('non-critical', critical: true);
-      final incidentId = await client.triggerTest(topic: 'non-critical');
-      expect(incidentId, startsWith('inc_'));
-    });
+        // Now enable critical
+        await client.updateTopic('non-critical', critical: true);
+        final incidentId = await client.triggerTest(topic: 'non-critical');
+        expect(incidentId, startsWith('inc_'));
+      },
+    );
 
     test('lifecycle state transitions: open -> acked -> closed', () async {
       await client.createTopic(name: 'ops', critical: true);

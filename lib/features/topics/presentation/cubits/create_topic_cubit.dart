@@ -28,8 +28,9 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     emit(
       state.copyWith(
         isCritical: isCritical,
-        defaultPriority:
-            isCritical ? PriorityLevel.critical : state.defaultPriority,
+        defaultPriority: isCritical
+            ? PriorityLevel.critical
+            : state.defaultPriority,
         clearError: true,
       ),
     );

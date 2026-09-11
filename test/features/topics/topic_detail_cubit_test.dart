@@ -91,8 +91,11 @@ void main() {
         isA<TopicDetailState>()
             .having((s) => s.status, 'status', TopicDetailStatus.success)
             .having((s) => s.critical, 'initial critical', isFalse),
-        isA<TopicDetailState>()
-            .having((s) => s.isUpdatingCritical, 'updating', isTrue),
+        isA<TopicDetailState>().having(
+          (s) => s.isUpdatingCritical,
+          'updating',
+          isTrue,
+        ),
         isA<TopicDetailState>()
             .having((s) => s.isUpdatingCritical, 'updated', isFalse)
             .having((s) => s.critical, 'critical toggled to true', isTrue),
@@ -119,8 +122,11 @@ void main() {
         isA<TopicDetailState>()
             .having((s) => s.status, 'status', TopicDetailStatus.success)
             .having((s) => s.severity, 'initial severity', SeverityMode.high),
-        isA<TopicDetailState>()
-            .having((s) => s.isMarkingAsRead, 'marking', isTrue),
+        isA<TopicDetailState>().having(
+          (s) => s.isMarkingAsRead,
+          'marking',
+          isTrue,
+        ),
         isA<TopicDetailState>()
             .having((s) => s.isMarkingAsRead, 'marked', isFalse)
             .having((s) => s.severity, 'cleared severity', SeverityMode.none)

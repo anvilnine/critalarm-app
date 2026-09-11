@@ -137,7 +137,7 @@ class _PaywallScreenContent extends StatelessWidget {
                               isFullWidth: true,
                               isLoading:
                                   state.status == PaywallStatus.loading &&
-                                      state.feedbackMessage == null,
+                                  state.feedbackMessage == null,
                               onPressed: cubit.upgradeToPro,
                             ),
                             const SizedBox(height: 10),

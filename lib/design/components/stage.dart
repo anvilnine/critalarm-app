@@ -34,11 +34,11 @@ class AppStage extends StatelessWidget {
     this.padding = const EdgeInsets.fromLTRB(24, Spacing.s3, 24, 0),
     this.faceWidget,
     super.key,
-  })  : word = null,
-        wordIsBig = false,
-        wordFontSize = null,
-        topicName = null,
-        isHorizontal = true;
+  }) : word = null,
+       wordIsBig = false,
+       wordFontSize = null,
+       topicName = null,
+       isHorizontal = true;
 
   final FaceState? faceState;
   final double faceSize;

@@ -93,12 +93,12 @@ class SettingsState {
 
   @override
   int get hashCode => Object.hash(
-        status,
-        quietHoursEnabled,
-        criticalRingsQuietHours,
-        escalationCallEnabled,
-        serverUrl,
-        Object.hashAll(topics),
-        errorMessage,
-      );
+    status,
+    quietHoursEnabled,
+    criticalRingsQuietHours,
+    escalationCallEnabled,
+    serverUrl,
+    Object.hashAll(topics),
+    errorMessage,
+  );
 }

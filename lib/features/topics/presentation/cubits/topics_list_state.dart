@@ -37,13 +37,13 @@ class TopicsListItem {
 
   @override
   int get hashCode => Object.hash(
-        name,
-        meta,
-        priority,
-        faceState,
-        isCrit,
-        isQuiet,
-      );
+    name,
+    meta,
+    priority,
+    faceState,
+    isCrit,
+    isQuiet,
+  );
 }
 
 @immutable
@@ -84,8 +84,8 @@ class TopicsListState {
 
   @override
   int get hashCode => Object.hash(
-        status,
-        Object.hashAll(topics),
-        errorMessage,
-      );
+    status,
+    Object.hashAll(topics),
+    errorMessage,
+  );
 }

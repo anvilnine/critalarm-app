@@ -103,112 +103,111 @@ class _CreateTopicScreenContent extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                          AppTextField(
-                            label: 'Name',
-                            initialValue: state.name,
-                            placeholder: 'prod-db',
-                            helperText:
-                                'Lowercase, digits, hyphens. '
-                                'This becomes the URL.',
-                            errorText: state.errorMessage,
-                            onChanged: cubit.nameChanged,
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            'Default priority',
-                            style: TextStyle(
-                              fontFamily: AppTypography.fontBody,
-                              fontFamilyFallback:
-                                  AppTypography.fontBodyFallbacks,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: colors.ink3,
+                            AppTextField(
+                              label: 'Name',
+                              initialValue: state.name,
+                              placeholder: 'prod-db',
+                              helperText:
+                                  'Lowercase, digits, hyphens. '
+                                  'This becomes the URL.',
+                              errorText: state.errorMessage,
+                              onChanged: cubit.nameChanged,
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: [
-                              for (final p in [
-                                PriorityLevel.min,
-                                PriorityLevel.low,
-                                PriorityLevel.defaultPriority,
-                                PriorityLevel.high,
-                                PriorityLevel.critical,
-                              ])
-                                AppPriorityChip(
-                                  priority: p,
-                                  isSelected: state.defaultPriority == p,
-                                  onTap: () => cubit.priorityChanged(p),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          AppToggleRow(
-                            title: 'Ring through silent mode',
-                            subtitle:
-                                'Repeats every 30 s until acknowledged',
-                            value: state.isCritical,
-                            onChanged: (val) {
-                              cubit.criticalToggled(isCritical: val);
-                            },
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            'Generated',
-                            style: TextStyle(
-                              fontFamily: AppTypography.fontBody,
-                              fontFamilyFallback:
-                                  AppTypography.fontBodyFallbacks,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: colors.ink3,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          AppKeyValueRow(
-                            value: 'https://api.critalarm.app/t/$name',
-                            showCopyButton: true,
-                          ),
-                          const SizedBox(height: 8),
-                          AppKeyValueRow(
-                            value: token,
-                            showCopyButton: true,
-                          ),
-                          if (state.createdToken != null) ...[
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 14),
                             Text(
-                              'Save this token now. '
-                              'It will not be shown again.',
+                              'Default priority',
                               style: TextStyle(
                                 fontFamily: AppTypography.fontBody,
                                 fontFamilyFallback:
                                     AppTypography.fontBodyFallbacks,
-                                fontSize: 12,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: colors.ink3,
                               ),
                             ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                for (final p in [
+                                  PriorityLevel.min,
+                                  PriorityLevel.low,
+                                  PriorityLevel.defaultPriority,
+                                  PriorityLevel.high,
+                                  PriorityLevel.critical,
+                                ])
+                                  AppPriorityChip(
+                                    priority: p,
+                                    isSelected: state.defaultPriority == p,
+                                    onTap: () => cubit.priorityChanged(p),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            AppToggleRow(
+                              title: 'Ring through silent mode',
+                              subtitle: 'Repeats every 30 s until acknowledged',
+                              value: state.isCritical,
+                              onChanged: (val) {
+                                cubit.criticalToggled(isCritical: val);
+                              },
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              'Generated',
+                              style: TextStyle(
+                                fontFamily: AppTypography.fontBody,
+                                fontFamilyFallback:
+                                    AppTypography.fontBodyFallbacks,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: colors.ink3,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            AppKeyValueRow(
+                              value: 'https://api.critalarm.app/t/$name',
+                              showCopyButton: true,
+                            ),
+                            const SizedBox(height: 8),
+                            AppKeyValueRow(
+                              value: token,
+                              showCopyButton: true,
+                            ),
+                            if (state.createdToken != null) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                'Save this token now. '
+                                'It will not be shown again.',
+                                style: TextStyle(
+                                  fontFamily: AppTypography.fontBody,
+                                  fontFamilyFallback:
+                                      AppTypography.fontBodyFallbacks,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: colors.ink3,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 16),
+                            AppButton(
+                              label: 'Create topic',
+                              isFullWidth: true,
+                              isLoading:
+                                  state.status == CreateTopicStatus.submitting,
+                              onPressed: cubit.createTopic,
+                            ),
                           ],
-                          const SizedBox(height: 16),
-                          AppButton(
-                            label: 'Create topic',
-                            isFullWidth: true,
-                            isLoading:
-                                state.status == CreateTopicStatus.submitting,
-                            onPressed: cubit.createTopic,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
+        );
       },
     );
   }

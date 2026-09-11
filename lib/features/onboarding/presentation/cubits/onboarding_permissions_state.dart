@@ -35,10 +35,8 @@ class OnboardingPermissionsState {
   }) {
     return OnboardingPermissionsState(
       status: status ?? this.status,
-      incidentId:
-          clearIncidentId ? null : (incidentId ?? this.incidentId),
-      errorMessage:
-          clearError ? null : (errorMessage ?? this.errorMessage),
+      incidentId: clearIncidentId ? null : (incidentId ?? this.incidentId),
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       topic: topic ?? this.topic,
     );
   }
@@ -55,9 +53,9 @@ class OnboardingPermissionsState {
 
   @override
   int get hashCode => Object.hash(
-        status,
-        incidentId,
-        errorMessage,
-        topic,
-      );
+    status,
+    incidentId,
+    errorMessage,
+    topic,
+  );
 }

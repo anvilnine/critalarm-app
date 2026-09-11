@@ -64,12 +64,12 @@ class CreateTopicState {
 
   @override
   int get hashCode => Object.hash(
-        status,
-        name,
-        defaultPriority,
-        isCritical,
-        createdToken,
-        createdTopic,
-        errorMessage,
-      );
+    status,
+    name,
+    defaultPriority,
+    isCritical,
+    createdToken,
+    createdTopic,
+    errorMessage,
+  );
 }

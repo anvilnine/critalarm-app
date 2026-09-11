@@ -149,30 +149,38 @@ void main() {
           await tester.pump(const Duration(milliseconds: 300));
 
           await tester.runAsync(() async {
-            final boundary = repaintBoundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+            final boundary =
+                repaintBoundaryKey.currentContext?.findRenderObject()
+                    as RenderRepaintBoundary?;
             if (boundary == null) {
               print('Could not find boundary for $filename in $configName');
               return;
             }
             final image = await boundary.toImage(pixelRatio: 2.0);
-            final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+            final byteData = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
             final pngBytes = byteData!.buffer.asUint8List();
 
             final file = File('$folder/$filename.png');
             await file.parent.create(recursive: true);
             await file.writeAsBytes(pngBytes);
-            print('[$configName] Captured $filename (${pngBytes.length} bytes) -> ${file.path}');
+            print(
+              '[$configName] Captured $filename (${pngBytes.length} bytes) -> ${file.path}',
+            );
           });
 
           // Verify no RenderFlex or layout errors occurred
-          final renderFlexErrors = caughtErrors.where((e) =>
-            e.exceptionAsString().contains('RenderFlex overflowed') ||
-            e.exceptionAsString().contains('A RenderFlex overflowed'),
+          final renderFlexErrors = caughtErrors.where(
+            (e) =>
+                e.exceptionAsString().contains('RenderFlex overflowed') ||
+                e.exceptionAsString().contains('A RenderFlex overflowed'),
           );
           expect(
             renderFlexErrors,
             isEmpty,
-            reason: 'Expected 0 RenderFlex overflows for $filename under $configName, but got: $renderFlexErrors',
+            reason:
+                'Expected 0 RenderFlex overflows for $filename under $configName, but got: $renderFlexErrors',
           );
         } finally {
           FlutterError.onError = oldHandler;

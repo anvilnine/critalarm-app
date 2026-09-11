@@ -50,12 +50,12 @@ class TopicDetailMessageItem {
 
   @override
   int get hashCode => Object.hash(
-        title,
-        timestamp,
-        body,
-        source,
-        isHigh,
-      );
+    title,
+    timestamp,
+    body,
+    source,
+    isHigh,
+  );
 }
 
 /// State for the TopicDetailScreen.
@@ -138,16 +138,16 @@ class TopicDetailState {
 
   @override
   int get hashCode => Object.hash(
-        status,
-        topicName,
-        critical,
-        severity,
-        faceState,
-        word,
-        subText,
-        Object.hashAll(messages),
-        errorMessage,
-        isUpdatingCritical,
-        isMarkingAsRead,
-      );
+    status,
+    topicName,
+    critical,
+    severity,
+    faceState,
+    word,
+    subText,
+    Object.hashAll(messages),
+    errorMessage,
+    isUpdatingCritical,
+    isMarkingAsRead,
+  );
 }
