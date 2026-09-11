@@ -1,8 +1,17 @@
+import 'package:critalarm/core/api/api_client.dart';
+import 'package:critalarm/core/api/mock_api_client.dart';
+import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
+import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_theme_preference_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/theme_preference_repository.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_theme_mode_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_theme_mode_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
+import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,8 +24,22 @@ Future<void> configureDependencies() async {
   final prefs = await SharedPreferences.getInstance();
   getIt
     ..registerSingleton<SharedPreferences>(prefs)
+    ..registerLazySingleton<MockServer>(MockServer.new)
+    ..registerLazySingleton<MockApiClient>(
+      () => MockApiClient(getIt<MockServer>()),
+    )
+    ..registerLazySingleton<ApiClient>(getIt.get<MockApiClient>)
     ..registerLazySingleton<ThemePreferenceRepository>(
       () => SharedPrefsThemePreferenceRepository(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<TopicRepository>(
+      () => InMemoryTopicRepository(getIt<ApiClient>()),
+    )
+    ..registerLazySingleton<IncidentRepository>(
+      () => InMemoryIncidentRepository(getIt<ApiClient>()),
+    )
+    ..registerLazySingleton<ServerRepository>(
+      () => InMemoryServerRepository(getIt<ApiClient>()),
     )
     ..registerLazySingleton(
       () => GetThemeModeUsecase(getIt<ThemePreferenceRepository>()),
