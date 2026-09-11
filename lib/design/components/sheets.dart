@@ -11,6 +11,7 @@ class AppSheet extends StatelessWidget {
     this.padding = const EdgeInsets.fromLTRB(16, 18, 16, 16),
     this.margin,
     this.color,
+    this.border,
     super.key,
   });
 
@@ -18,6 +19,7 @@ class AppSheet extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry? margin;
   final Color? color;
+  final BoxBorder? border;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +32,7 @@ class AppSheet extends StatelessWidget {
         color: color ?? colors.surface,
         borderRadius: Radii.xlAll,
         boxShadow: AppShadows.lg,
+        border: border,
       ),
       child: child,
     );

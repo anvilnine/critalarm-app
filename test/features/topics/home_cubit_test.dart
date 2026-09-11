@@ -1,0 +1,146 @@
+import 'package:bloc_test/bloc_test.dart';
+import 'package:critalarm/core/api/mock_api_client.dart';
+import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/design/components/chips.dart';
+import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
+import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
+import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
+import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
+import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  late MockServer server;
+  late MockApiClient apiClient;
+  late TopicRepository topicRepo;
+  late IncidentRepository incidentRepo;
+  late GetTopicsUsecase getTopicsUsecase;
+
+  setUp(() {
+    server = MockServer();
+    apiClient = MockApiClient(server);
+    topicRepo = InMemoryTopicRepository(apiClient);
+    incidentRepo = InMemoryIncidentRepository(apiClient);
+    getTopicsUsecase = GetTopicsUsecase(topicRepo);
+  });
+
+  group('HomeCubit', () {
+    test('initial state has calm face and default all clear', () {
+      final cubit = HomeCubit(getTopicsUsecase, incidentRepo);
+      expect(cubit.state.status, HomeStatus.initial);
+      expect(cubit.state.faceState, FaceState.calm);
+      expect(cubit.state.word, 'All clear');
+      expect(cubit.state.severity, SeverityMode.none);
+    });
+
+    blocTest<HomeCubit, HomeState>(
+      'calm fixture: emits calm face, All clear, 4 topics',
+      setUp: () => server.seedCalm(),
+      build: () => HomeCubit(getTopicsUsecase, incidentRepo),
+      act: (cubit) => cubit.load(),
+      expect: () => [
+        const HomeState(status: HomeStatus.loading),
+        isA<HomeState>()
+            .having((s) => s.status, 'status', HomeStatus.success)
+            .having((s) => s.faceState, 'faceState', FaceState.calm)
+            .having((s) => s.word, 'word', 'All clear')
+            .having((s) => s.severity, 'severity', SeverityMode.none)
+            .having((s) => s.topicItems.length, 'topics length', 4)
+            .having(
+              (s) => s.topicItems[0].name,
+              'first topic',
+              'prod-db',
+            )
+            .having(
+              (s) => s.topicItems[0].priority,
+              'prod-db priority',
+              PriorityLevel.critical,
+            )
+            .having(
+              (s) => s.topicItems[1].name,
+              'second topic',
+              'nas-backup',
+            )
+            .having(
+              (s) => s.topicItems[1].priority,
+              'nas-backup priority',
+              PriorityLevel.high,
+            )
+            .having(
+              (s) => s.topicItems[2].name,
+              'third topic',
+              'uptime-kuma',
+            )
+            .having(
+              (s) => s.topicItems[2].priority,
+              'uptime-kuma priority',
+              PriorityLevel.defaultPriority,
+            )
+            .having(
+              (s) => s.topicItems[3].name,
+              'fourth topic',
+              'home-ha',
+            )
+            .having(
+              (s) => s.topicItems[3].isQuiet,
+              'home-ha isQuiet',
+              isTrue,
+            ),
+      ],
+    );
+
+    blocTest<HomeCubit, HomeState>(
+      'worried fixture: emits worried face, 1 warning, severity high',
+      setUp: () => server.seedWorried(),
+      build: () => HomeCubit(getTopicsUsecase, incidentRepo),
+      act: (cubit) => cubit.load(),
+      expect: () => [
+        const HomeState(status: HomeStatus.loading),
+        isA<HomeState>()
+            .having((s) => s.status, 'status', HomeStatus.success)
+            .having((s) => s.faceState, 'faceState', FaceState.worried)
+            .having((s) => s.word, 'word', '1 warning')
+            .having((s) => s.severity, 'severity', SeverityMode.high),
+      ],
+    );
+
+    blocTest<HomeCubit, HomeState>(
+      'alarmed fixture: emits alarmed face, CRITICAL, severity crit',
+      setUp: () => server.seedAlarmed(),
+      build: () => HomeCubit(getTopicsUsecase, incidentRepo),
+      act: (cubit) => cubit.load(),
+      expect: () => [
+        const HomeState(status: HomeStatus.loading),
+        isA<HomeState>()
+            .having((s) => s.status, 'status', HomeStatus.success)
+            .having((s) => s.faceState, 'faceState', FaceState.alarmed)
+            .having((s) => s.word, 'word', 'CRITICAL')
+            .having((s) => s.severity, 'severity', SeverityMode.crit)
+            .having(
+              (s) => s.topicItems.firstWhere((t) => t.name == 'prod-db').isCrit,
+              'prod-db isCrit',
+              isTrue,
+            ),
+      ],
+    );
+
+    blocTest<HomeCubit, HomeState>(
+      'empty/watching fixture: emits watching face, No topics yet',
+      setUp: () => server.seedWatching(),
+      build: () => HomeCubit(getTopicsUsecase, incidentRepo),
+      act: (cubit) => cubit.load(),
+      expect: () => [
+        const HomeState(status: HomeStatus.loading),
+        isA<HomeState>()
+            .having((s) => s.status, 'status', HomeStatus.success)
+            .having((s) => s.faceState, 'faceState', FaceState.watching)
+            .having((s) => s.word, 'word', 'No topics yet')
+            .having((s) => s.topicItems.isEmpty, 'topics empty', isTrue),
+      ],
+    );
+  });
+}
