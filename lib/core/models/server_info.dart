@@ -7,6 +7,8 @@ abstract final class ServerModes {
   static const selfhosted = 'selfhosted';
   static const relay = 'relay';
   static const hosted = 'hosted';
+
+  static const List<String> validModes = [selfhosted, relay, hosted];
 }
 
 /// Metadata describing the server instance and its operational mode.

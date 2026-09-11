@@ -13,12 +13,17 @@ import 'package:go_router/go_router.dart';
 /// USE_FULL_SCREEN_INTENT permissions, requests them, and handles the denial
 /// path cleanly with [AppEmptyState].
 class OnboardingPermissionsScreen extends StatelessWidget {
-  const OnboardingPermissionsScreen({super.key});
+  const OnboardingPermissionsScreen({
+    super.key,
+    this.initialStep = NotificationPermissionStep.initial,
+  });
+
+  final NotificationPermissionStep initialStep;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => getIt<NotificationPermissionsCubit>(),
+      create: (_) => getIt<NotificationPermissionsCubit>(param1: initialStep),
       child: const _OnboardingPermissionsView(),
     );
   }

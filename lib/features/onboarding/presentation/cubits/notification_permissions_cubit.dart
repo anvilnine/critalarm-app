@@ -9,8 +9,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   NotificationPermissionsCubit(
     this._requestPermission,
-    this._openSettings,
-  ) : super(const NotificationPermissionsState());
+    this._openSettings, {
+    NotificationPermissionStep initialStep = NotificationPermissionStep.initial,
+  }) : super(NotificationPermissionsState(step: initialStep));
 
   final RequestNotificationPermissionUsecase _requestPermission;
   final OpenNotificationSettingsUsecase _openSettings;

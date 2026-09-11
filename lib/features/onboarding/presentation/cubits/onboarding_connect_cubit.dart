@@ -1,3 +1,4 @@
+import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
@@ -68,13 +69,8 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     emit(state.copyWith(clearQrNotice: true));
   }
 
-  static bool isSemverCompatible(String version) {
-    final trimmed = version.trim();
-    final match = RegExp(r'^v?(\d+)\.').firstMatch(trimmed);
-    if (match == null) return false;
-    final major = int.tryParse(match.group(1)!);
-    return major == 0;
-  }
+  static bool isSemverCompatible(String version) =>
+      ServerInfoValidation.isSemverCompatible(version);
 
   Future<void> connect() async {
     final trimmedUrl = state.serverUrl.trim();
@@ -87,10 +83,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
       return;
     }
 
-    final uri = Uri.tryParse(trimmedUrl);
-    if (uri == null ||
-        (uri.scheme != 'http' && uri.scheme != 'https') ||
-        uri.host.isEmpty) {
+    if (!ServerInfoValidation.isValidServerUrl(trimmedUrl)) {
       emit(
         state.copyWith(
           serverUrlError: 'Enter a valid URL (e.g. https://api.critalarm.app)',
