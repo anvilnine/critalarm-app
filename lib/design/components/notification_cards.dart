@@ -19,6 +19,7 @@ class AppNotificationCard extends StatelessWidget {
     this.ringingPillText,
     this.isCrit = false,
     this.isQuiet = false,
+    this.onTap,
     super.key,
   });
 
@@ -30,6 +31,7 @@ class AppNotificationCard extends StatelessWidget {
   final String? ringingPillText;
   final bool isCrit;
   final bool isQuiet;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -185,9 +187,14 @@ class AppNotificationCard extends StatelessWidget {
       ),
     );
 
-    if (isQuiet) {
-      return Opacity(opacity: 0.9, child: card);
+    final content = isQuiet ? Opacity(opacity: 0.9, child: card) : card;
+    if (onTap != null) {
+      return GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: content,
+      );
     }
-    return card;
+    return content;
   }
 }

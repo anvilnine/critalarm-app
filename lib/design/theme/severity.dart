@@ -5,12 +5,15 @@ import 'package:flutter/material.dart';
 /// for a [SeverityMode].
 class SeverityScope extends StatelessWidget {
   const SeverityScope({
-    required this.severity,
     required this.child,
+    SeverityMode? severity,
+    SeverityMode? mode,
     super.key,
-  });
+  })  : severity = mode ?? severity ?? SeverityMode.none,
+        mode = mode ?? severity ?? SeverityMode.none;
 
   final SeverityMode severity;
+  final SeverityMode mode;
   final Widget child;
 
   @override
