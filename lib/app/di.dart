@@ -1,6 +1,7 @@
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
@@ -29,6 +30,14 @@ import 'package:critalarm/features/onboarding/presentation/cubits/notification_p
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
+import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
+import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
+import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
+import 'package:critalarm/features/paywall/domain/usecases/check_pro_entitlement_usecase.dart';
+import 'package:critalarm/features/paywall/domain/usecases/get_customer_info_usecase.dart';
+import 'package:critalarm/features/paywall/domain/usecases/get_offerings_usecase.dart';
+import 'package:critalarm/features/paywall/domain/usecases/purchase_package_usecase.dart';
+import 'package:critalarm/features/paywall/domain/usecases/restore_purchases_usecase.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
 import 'package:critalarm/features/permissions/data/repositories/platform_device_permissions_repository.dart';
 import 'package:critalarm/features/permissions/domain/repositories/device_permissions_repository.dart';
@@ -82,6 +91,18 @@ Future<void> configureDependencies() async {
     getIt.registerSingleton<TelemetryGate>(telemetryGate);
   }
 
+  if (!getIt.isRegistered<RevenueCatService>()) {
+    final revenueCatService = RevenueCatService();
+    try {
+      if (Env.revenueCatApiKey.isNotEmpty) {
+        await revenueCatService.initialize(apiKey: Env.revenueCatApiKey);
+      }
+    } on Object catch (_) {
+      // Ignored for tests or unsupported environments
+    }
+    getIt.registerSingleton<RevenueCatService>(revenueCatService);
+  }
+
   getIt
     ..registerSingleton<SharedPreferences>(prefs)
     ..registerLazySingleton<MockServer>(() => MockServer()..seedCalm())
@@ -112,6 +133,9 @@ Future<void> configureDependencies() async {
     )
     ..registerLazySingleton<DevicePermissionsRepository>(
       PlatformDevicePermissionsRepository.new,
+    )
+    ..registerLazySingleton<SubscriptionRepository>(
+      () => RevenueCatSubscriptionRepository(getIt<RevenueCatService>()),
     )
     ..registerLazySingleton(
       () => GetDevicePermissionsUsecase(
@@ -189,6 +213,21 @@ Future<void> configureDependencies() async {
     )
     ..registerLazySingleton(
       () => DeleteTopicUsecase(getIt<TopicRepository>()),
+    )
+    ..registerLazySingleton(
+      () => CheckProEntitlementUsecase(getIt<SubscriptionRepository>()),
+    )
+    ..registerLazySingleton(
+      () => GetOfferingsUsecase(getIt<SubscriptionRepository>()),
+    )
+    ..registerLazySingleton(
+      () => PurchasePackageUsecase(getIt<SubscriptionRepository>()),
+    )
+    ..registerLazySingleton(
+      () => RestorePurchasesUsecase(getIt<SubscriptionRepository>()),
+    )
+    ..registerLazySingleton(
+      () => GetCustomerInfoUsecase(getIt<SubscriptionRepository>()),
     )
     ..registerFactoryParam<
       NotificationPermissionsCubit,
@@ -288,6 +327,12 @@ Future<void> configureDependencies() async {
         telemetryGate: getIt.isRegistered<TelemetryGate>()
             ? getIt<TelemetryGate>()
             : null,
+        checkProEntitlementUsecase: getIt<CheckProEntitlementUsecase>(),
+        getOfferingsUsecase: getIt<GetOfferingsUsecase>(),
+        purchasePackageUsecase: getIt<PurchasePackageUsecase>(),
+        restorePurchasesUsecase: getIt<RestorePurchasesUsecase>(),
+        getCustomerInfoUsecase: getIt<GetCustomerInfoUsecase>(),
+        subscriptionRepository: getIt<SubscriptionRepository>(),
       ),
     );
 }
