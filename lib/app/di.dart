@@ -26,6 +26,11 @@ import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_con
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
+import 'package:critalarm/features/permissions/data/repositories/platform_device_permissions_repository.dart';
+import 'package:critalarm/features/permissions/domain/repositories/device_permissions_repository.dart';
+import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
+import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
+import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_theme_preference_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/theme_preference_repository.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_theme_mode_usecase.dart';
@@ -77,6 +82,19 @@ Future<void> configureDependencies() async {
     )
     ..registerLazySingleton<NotificationPermissionRepository>(
       PlatformNotificationPermissionRepository.new,
+    )
+    ..registerLazySingleton<DevicePermissionsRepository>(
+      PlatformDevicePermissionsRepository.new,
+    )
+    ..registerLazySingleton(
+      () => GetDevicePermissionsUsecase(
+        getIt<DevicePermissionsRepository>(),
+      ),
+    )
+    ..registerLazySingleton(
+      () => OpenPermissionSettingsUsecase(
+        getIt<DevicePermissionsRepository>(),
+      ),
     )
     ..registerLazySingleton(
       () => RequestNotificationPermissionUsecase(
@@ -203,6 +221,12 @@ Future<void> configureDependencies() async {
     ..registerFactory(
       () => SettingsCubit(
         getIt<GetTopicsUsecase>(),
+      ),
+    )
+    ..registerFactory(
+      () => DevicePermissionsCubit(
+        getIt<GetDevicePermissionsUsecase>(),
+        getIt<OpenPermissionSettingsUsecase>(),
       ),
     )
     ..registerFactory(

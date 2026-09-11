@@ -142,6 +142,19 @@ class _SettingsScreenContent extends StatelessWidget {
                               value: state.serverUrl,
                             ),
                             const SizedBox(height: 12),
+                            const AppSectionHeader('Device permissions'),
+                            AppListRow(
+                              name: 'Device permissions',
+                              meta: 'Notifications, lock screen, battery',
+                              trailing: AppGlyph(
+                                GlyphType.arrow,
+                                color: colors.ink3,
+                                size: 16,
+                              ),
+                              onTap: () =>
+                                  context.push('/settings/permissions'),
+                            ),
+                            const SizedBox(height: 12),
                             const AppSectionHeader('Theme'),
                             BlocBuilder<ThemeCubit, AppThemeMode>(
                               builder: (context, themeMode) {

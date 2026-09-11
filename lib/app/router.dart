@@ -4,6 +4,7 @@ import 'package:critalarm/features/incidents/presentation/lock_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_connect_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
+import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
 import 'package:critalarm/features/settings/presentation/settings_screen.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
@@ -22,6 +23,7 @@ abstract final class AppRoute {
   static const topicDetail = 'topicDetail';
   static const createTopic = 'createTopic';
   static const settings = 'settings';
+  static const devicePermissions = 'devicePermissions';
   static const paywall = 'paywall';
   static const alarm = 'alarm';
   static const incidentDetail = 'incidentDetail';
@@ -62,6 +64,11 @@ GoRouter buildRouter() => GoRouter(
       path: '/settings',
       name: AppRoute.settings,
       builder: (context, state) => const SettingsScreen(),
+    ),
+    GoRoute(
+      path: '/settings/permissions',
+      name: AppRoute.devicePermissions,
+      builder: (context, state) => const DevicePermissionsScreen(),
     ),
     GoRoute(
       path: '/paywall',
