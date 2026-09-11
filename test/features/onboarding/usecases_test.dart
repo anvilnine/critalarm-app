@@ -4,7 +4,6 @@ import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
-import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_connection_repository.dart';
@@ -12,7 +11,6 @@ import 'package:critalarm/features/onboarding/domain/entities/notification_permi
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/notification_permission_repository.dart';
-import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/open_notification_settings_usecase.dart';
@@ -160,21 +158,28 @@ void main() {
       expect(info.version, '0.1.0');
     });
 
-    test('TriggerTestAlarmUsecase successfully triggers test alarm on critical topic', () async {
-      final result = await triggerTestAlarmUsecase('prod-db');
+    test(
+      'TriggerTestAlarmUsecase successfully triggers test alarm on '
+      'critical topic',
+      () async {
+        final result = await triggerTestAlarmUsecase('prod-db');
 
-      expect(result.isSuccess(), isTrue);
-      final incidentId = result.getOrNull()!;
-      expect(incidentId, startsWith('inc_'));
-    });
+        expect(result.isSuccess(), isTrue);
+        final incidentId = result.getOrNull()!;
+        expect(incidentId, startsWith('inc_'));
+      },
+    );
 
-    test('TriggerTestAlarmUsecase returns 409 failure when topic is not critical', () async {
-      final result = await triggerTestAlarmUsecase('nas-backup');
+    test(
+      'TriggerTestAlarmUsecase returns 409 failure when topic is not critical',
+      () async {
+        final result = await triggerTestAlarmUsecase('nas-backup');
 
-      expect(result.isError(), isTrue);
-      final failure = result.exceptionOrNull()!;
-      expect(failure, isA<ApiFailure>());
-      expect((failure as ApiFailure).statusCode, 409);
-    });
+        expect(result.isError(), isTrue);
+        final failure = result.exceptionOrNull()!;
+        expect(failure, isA<ApiFailure>());
+        expect((failure as ApiFailure).statusCode, 409);
+      },
+    );
   });
 }
