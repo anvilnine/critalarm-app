@@ -14,14 +14,19 @@ import 'package:go_router/go_router.dart';
 
 /// SettingsScreen matching docs/design-system/index.html mobile mockup.
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({
+    super.key,
+    this.forceDisconnected = false,
+  });
+
+  final bool forceDisconnected;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) {
         final cubit = getIt<SettingsCubit>();
-        unawaited(cubit.load());
+        unawaited(cubit.load(forceDisconnected: forceDisconnected));
         return cubit;
       },
       child: const _SettingsScreenContent(),

@@ -57,6 +57,11 @@ class DevicePermissionsState {
   bool get hasIssues =>
       permissions.any((p) => p.status != DevicePermissionStatus.granted);
 
+  bool get hasDenied =>
+      permissions.any((p) => p.status == DevicePermissionStatus.denied);
+
+  List<DevicePermissionItem> get items => permissions;
+
   DevicePermissionItem? permissionByType(DevicePermissionType type) {
     for (final p in permissions) {
       if (p.type == type) return p;

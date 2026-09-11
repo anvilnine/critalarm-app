@@ -43,11 +43,18 @@ class SettingsCubit extends Cubit<SettingsState> {
   bool get isPaywallEnabled => telemetryGate?.isPaywallEnabled ?? false;
   bool get paywallEnabled => isPaywallEnabled;
 
-  Future<void> load() async {
+  Future<void> load({bool forceDisconnected = false}) async {
     emit(state.copyWith(status: SettingsStatus.loading));
 
-    // Load server connection if available
-    if (getConnectionUsecase != null) {
+    if (forceDisconnected) {
+      emit(
+        state.copyWith(
+          isConnected: false,
+          serverUrl: '',
+          adminToken: '',
+        ),
+      );
+    } else if (getConnectionUsecase != null) {
       final connResult = await getConnectionUsecase!(const NoParams());
       connResult.fold(
         (conn) {

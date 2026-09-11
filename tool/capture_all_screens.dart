@@ -79,6 +79,8 @@ void main() {
     ('10_settings', '/settings', FaceState.acked),
     ('11_paywall_shell', '/paywall', FaceState.acked),
     ('12_device_permissions', '/settings/permissions', FaceState.calm),
+    ('13_permission_denial', '/onboarding/denied', FaceState.worried),
+    ('14_server_disconnected', '/settings/disconnected', FaceState.calm),
   ];
 
   for (final (filename, routePath, fixtureState) in screens) {

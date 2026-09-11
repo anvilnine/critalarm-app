@@ -25,6 +25,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/open_notification_
 import 'package:critalarm/features/onboarding/domain/usecases/request_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
+import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
@@ -181,10 +182,15 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton(
       () => DeleteTopicUsecase(getIt<TopicRepository>()),
     )
-    ..registerFactory(
-      () => NotificationPermissionsCubit(
+    ..registerFactoryParam<
+      NotificationPermissionsCubit,
+      NotificationPermissionStep?,
+      void
+    >(
+      (initialStep, _) => NotificationPermissionsCubit(
         getIt<RequestNotificationPermissionUsecase>(),
         getIt<OpenNotificationSettingsUsecase>(),
+        initialStep: initialStep ?? NotificationPermissionStep.initial,
       ),
     )
     ..registerFactoryParam<OnboardingConnectCubit, bool?, void>(
