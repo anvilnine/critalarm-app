@@ -36,6 +36,28 @@ make sync-contract  # refresh docs/api.md from critalarm-server
 - `docs/design-system/` is the look the app has to implement. `lib/design_system/`
   does not implement it yet.
 
+## Firebase Setup & Privacy Architecture
+
+The app uses official Firebase plugins for Analytics, Crashlytics, and Remote Config (`firebase_core`, `firebase_analytics`, `firebase_crashlytics`, and `firebase_remote_config`).
+
+### Configuration Files
+
+Firebase configuration files are intentionally gitignored and must never be committed to the repository:
+
+- **Android**: Place `google-services.json` in `android/app/google-services.json`
+- **iOS**: Place `GoogleService-Info.plist` in `ios/Runner/GoogleService-Info.plist`
+
+If these configuration files are absent (e.g. during local tests or CI builds), the telemetry subsystem initializes gracefully into a safe, disabled state without crashing.
+
+### Strict Opt-In Privacy & Telemetry Policy
+
+Telemetry collection is strictly opt-in:
+
+- **Disabled by default**: Analytics and Crashlytics collection are explicitly disabled at startup before any events or metrics can be transmitted (`setAnalyticsCollectionEnabled(false)` and `setCrashlyticsCollectionEnabled(false)`).
+- **Explicit user consent**: Telemetry collection is only enabled when the user explicitly toggles Analytics or Crash Reporting ON in **Settings > Privacy**.
+- **Instant disable & purge**: Toggling Analytics OFF immediately halts collection and invokes `resetAnalyticsData()` to purge cached client-side analytics identifiers.
+- **Remote Config defaults**: Remote Config runs with a 1-hour fetch interval (`minimumFetchInterval: const Duration(hours: 1)`) and safe typed defaults (`paywall_enabled: false`).
+
 ## Security
 
 No push credential, keystore or store key belongs in this repo. Report anything

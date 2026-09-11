@@ -13,61 +13,69 @@ void main() {
   });
 
   group('SharedPrefsPrivacyRepository', () {
-    test('defaults to false for both analytics and crash reporting when unset',
-        () async {
-      final result = await repository.getPrivacySettings();
+    test(
+      'defaults to false for both analytics and crash reporting when unset',
+      () async {
+        final result = await repository.getPrivacySettings();
 
-      expect(result.isSuccess(), isTrue);
-      result.fold(
-        (settings) {
-          expect(settings.analyticsEnabled, isFalse);
-          expect(settings.crashReportingEnabled, isFalse);
-        },
-        (failure) => fail('Expected success, got $failure'),
-      );
-    });
-
-    test('setAnalyticsEnabled persists true and false in SharedPreferences',
-        () async {
-      final setResult = await repository.setAnalyticsEnabled(enabled: true);
-      expect(setResult.isSuccess(), isTrue);
-      expect(prefs.getBool('privacy_analytics_enabled'), isTrue);
-
-      final getResult = await repository.getPrivacySettings();
-      expect(getResult.getOrNull()?.analyticsEnabled, isTrue);
-
-      final setFalseResult =
-          await repository.setAnalyticsEnabled(enabled: false);
-      expect(setFalseResult.isSuccess(), isTrue);
-      expect(prefs.getBool('privacy_analytics_enabled'), isFalse);
-      expect(
-        (await repository.getPrivacySettings()).getOrNull()?.analyticsEnabled,
-        isFalse,
-      );
-    });
+        expect(result.isSuccess(), isTrue);
+        result.fold(
+          (settings) {
+            expect(settings.analyticsEnabled, isFalse);
+            expect(settings.crashReportingEnabled, isFalse);
+          },
+          (failure) => fail('Expected success, got $failure'),
+        );
+      },
+    );
 
     test(
-        'setCrashReportingEnabled persists true and false in SharedPreferences',
-        () async {
-      final setResult =
-          await repository.setCrashReportingEnabled(enabled: true);
-      expect(setResult.isSuccess(), isTrue);
-      expect(prefs.getBool('privacy_crashlytics_enabled'), isTrue);
+      'setAnalyticsEnabled persists true and false in SharedPreferences',
+      () async {
+        final setResult = await repository.setAnalyticsEnabled(enabled: true);
+        expect(setResult.isSuccess(), isTrue);
+        expect(prefs.getBool('privacy_analytics_enabled'), isTrue);
 
-      final getResult = await repository.getPrivacySettings();
-      expect(getResult.getOrNull()?.crashReportingEnabled, isTrue);
+        final getResult = await repository.getPrivacySettings();
+        expect(getResult.getOrNull()?.analyticsEnabled, isTrue);
 
-      final setFalseResult =
-          await repository.setCrashReportingEnabled(enabled: false);
-      expect(setFalseResult.isSuccess(), isTrue);
-      expect(prefs.getBool('privacy_crashlytics_enabled'), isFalse);
-      expect(
-        (await repository.getPrivacySettings())
-            .getOrNull()
-            ?.crashReportingEnabled,
-        isFalse,
-      );
-    });
+        final setFalseResult = await repository.setAnalyticsEnabled(
+          enabled: false,
+        );
+        expect(setFalseResult.isSuccess(), isTrue);
+        expect(prefs.getBool('privacy_analytics_enabled'), isFalse);
+        expect(
+          (await repository.getPrivacySettings()).getOrNull()?.analyticsEnabled,
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'setCrashReportingEnabled persists true and false in SharedPreferences',
+      () async {
+        final setResult = await repository.setCrashReportingEnabled(
+          enabled: true,
+        );
+        expect(setResult.isSuccess(), isTrue);
+        expect(prefs.getBool('privacy_crashlytics_enabled'), isTrue);
+
+        final getResult = await repository.getPrivacySettings();
+        expect(getResult.getOrNull()?.crashReportingEnabled, isTrue);
+
+        final setFalseResult = await repository.setCrashReportingEnabled(
+          enabled: false,
+        );
+        expect(setFalseResult.isSuccess(), isTrue);
+        expect(prefs.getBool('privacy_crashlytics_enabled'), isFalse);
+        expect(
+          (await repository.getPrivacySettings())
+              .getOrNull()
+              ?.crashReportingEnabled,
+          isFalse,
+        );
+      },
+    );
 
     test('independent toggles do not overwrite each other', () async {
       await repository.setAnalyticsEnabled(enabled: true);

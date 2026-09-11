@@ -3,6 +3,7 @@ import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/result/result.dart';
+import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
@@ -27,6 +28,8 @@ class MockConnectionRepository extends Mock implements ConnectionRepository {}
 
 class MockPrivacyRepository extends Mock implements PrivacyRepository {}
 
+class MockTelemetryGate extends Mock implements TelemetryGate {}
+
 void main() {
   late MockServer server;
   late MockApiClient apiClient;
@@ -40,6 +43,7 @@ void main() {
   late GetPrivacySettingsUsecase getPrivacySettingsUsecase;
   late SetAnalyticsEnabledUsecase setAnalyticsEnabledUsecase;
   late SetCrashReportingEnabledUsecase setCrashReportingEnabledUsecase;
+  late MockTelemetryGate telemetryGate;
 
   setUpAll(() {
     registerFallbackValue(const NoParams());
@@ -55,14 +59,16 @@ void main() {
     getTopicsUsecase = GetTopicsUsecase(topicRepo);
     connectionRepo = MockConnectionRepository();
     privacyRepo = MockPrivacyRepository();
+    telemetryGate = MockTelemetryGate();
 
     getConnectionUsecase = GetConnectionUsecase(connectionRepo);
     clearConnectionUsecase = ClearConnectionUsecase(connectionRepo);
     saveConnectionUsecase = SaveConnectionUsecase(connectionRepo);
     getPrivacySettingsUsecase = GetPrivacySettingsUsecase(privacyRepo);
     setAnalyticsEnabledUsecase = SetAnalyticsEnabledUsecase(privacyRepo);
-    setCrashReportingEnabledUsecase =
-        SetCrashReportingEnabledUsecase(privacyRepo);
+    setCrashReportingEnabledUsecase = SetCrashReportingEnabledUsecase(
+      privacyRepo,
+    );
   });
 
   group('SettingsCubit', () {
@@ -172,8 +178,11 @@ void main() {
               'crashReportingEnabled',
               isTrue,
             ),
-        isA<SettingsState>()
-            .having((s) => s.status, 'status', SettingsStatus.success),
+        isA<SettingsState>().having(
+          (s) => s.status,
+          'status',
+          SettingsStatus.success,
+        ),
       ],
     );
 
@@ -194,10 +203,16 @@ void main() {
       act: (cubit) => cubit.load(),
       expect: () => [
         const SettingsState(status: SettingsStatus.loading),
-        isA<SettingsState>()
-            .having((s) => s.isConnected, 'isConnected', isFalse),
-        isA<SettingsState>()
-            .having((s) => s.status, 'status', SettingsStatus.success),
+        isA<SettingsState>().having(
+          (s) => s.isConnected,
+          'isConnected',
+          isFalse,
+        ),
+        isA<SettingsState>().having(
+          (s) => s.status,
+          'status',
+          SettingsStatus.success,
+        ),
       ],
     );
 
@@ -249,16 +264,93 @@ void main() {
         ),
       ],
       verify: (_) {
-        verify(() => privacyRepo.setCrashReportingEnabled(enabled: true))
-            .called(1);
+        verify(
+          () => privacyRepo.setCrashReportingEnabled(enabled: true),
+        ).called(1);
       },
     );
 
     blocTest<SettingsCubit, SettingsState>(
+      'toggleAnalytics calls telemetryGate immediately when provided',
+      setUp: () {
+        when(
+          () => privacyRepo.setAnalyticsEnabled(
+            enabled: any(named: 'enabled'),
+          ),
+        ).thenAnswer((_) async => unit.toSuccess());
+        when(
+          () => telemetryGate.setAnalyticsEnabled(any()),
+        ).thenAnswer((_) async {});
+      },
+      build: () => SettingsCubit(
+        getTopicsUsecase,
+        setAnalyticsEnabledUsecase: setAnalyticsEnabledUsecase,
+        telemetryGate: telemetryGate,
+      ),
+      act: (cubit) => cubit.toggleAnalytics(isEnabled: true),
+      expect: () => [
+        isA<SettingsState>().having(
+          (s) => s.analyticsEnabled,
+          'analyticsEnabled',
+          isTrue,
+        ),
+      ],
+      verify: (_) {
+        verify(() => telemetryGate.setAnalyticsEnabled(true)).called(1);
+        verify(() => privacyRepo.setAnalyticsEnabled(enabled: true)).called(1);
+      },
+    );
+
+    blocTest<SettingsCubit, SettingsState>(
+      'toggleCrashReporting calls telemetryGate immediately when provided',
+      setUp: () {
+        when(
+          () => privacyRepo.setCrashReportingEnabled(
+            enabled: any(named: 'enabled'),
+          ),
+        ).thenAnswer((_) async => unit.toSuccess());
+        when(
+          () => telemetryGate.setCrashlyticsEnabled(any()),
+        ).thenAnswer((_) async {});
+      },
+      build: () => SettingsCubit(
+        getTopicsUsecase,
+        setCrashReportingEnabledUsecase: setCrashReportingEnabledUsecase,
+        telemetryGate: telemetryGate,
+      ),
+      act: (cubit) => cubit.toggleCrashReporting(isEnabled: true),
+      expect: () => [
+        isA<SettingsState>().having(
+          (s) => s.crashReportingEnabled,
+          'crashReportingEnabled',
+          isTrue,
+        ),
+      ],
+      verify: (_) {
+        verify(() => telemetryGate.setCrashlyticsEnabled(true)).called(1);
+        verify(
+          () => privacyRepo.setCrashReportingEnabled(enabled: true),
+        ).called(1);
+      },
+    );
+
+    test('isPaywallEnabled and paywallEnabled delegate to telemetryGate', () {
+      when(() => telemetryGate.isPaywallEnabled).thenReturn(true);
+      final cubit = SettingsCubit(
+        getTopicsUsecase,
+        telemetryGate: telemetryGate,
+      );
+
+      expect(cubit.isPaywallEnabled, isTrue);
+      expect(cubit.paywallEnabled, isTrue);
+    });
+
+    blocTest<SettingsCubit, SettingsState>(
       'disconnectServer clears connection from repository and updates state',
       setUp: () {
-        when(() => connectionRepo.clearConnection())
-            .thenAnswer((_) async => unit.toSuccess());
+        when(
+          () => connectionRepo.clearConnection(),
+        ).thenAnswer((_) async => unit.toSuccess());
       },
       build: () => SettingsCubit(
         getTopicsUsecase,
@@ -285,8 +377,9 @@ void main() {
     blocTest<SettingsCubit, SettingsState>(
       'saveConnection updates connection in repository and state',
       setUp: () {
-        when(() => connectionRepo.saveConnection(any()))
-            .thenAnswer((_) async => unit.toSuccess());
+        when(
+          () => connectionRepo.saveConnection(any()),
+        ).thenAnswer((_) async => unit.toSuccess());
       },
       build: () => SettingsCubit(
         getTopicsUsecase,

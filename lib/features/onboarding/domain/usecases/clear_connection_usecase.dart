@@ -9,6 +9,5 @@ class ClearConnectionUsecase implements UseCase<NoParams, Unit> {
   final ConnectionRepository _repository;
 
   @override
-  Future<AppResult<Unit>> call(NoParams input) =>
-      _repository.clearConnection();
+  Future<AppResult<Unit>> call(NoParams input) => _repository.clearConnection();
 }
