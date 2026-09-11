@@ -1,10 +1,10 @@
 /// Design-system widget catalog. One import for feature code; every export
 /// carries a one-line API summary. Check here before building new UI.
-///
-/// PLACEHOLDER NAMES: `mat_panel` and `tape_label` are working titles. The
-/// shapes are what these are for; the names and colours are not settled. A0
-/// renames them and repoints them at docs/design-system/.
 library;
+
+/// Re-exports from Crit Alarm Design System.
+export 'package:critalarm/design/components/components.dart';
+export 'package:critalarm/design/faces/faces.dart';
 
 /// Centralized haptics (capture/success/destructive/done/selection).
 export '../haptics.dart';
