@@ -58,10 +58,11 @@ ThemeData _buildTheme(AppColors colors, Brightness brightness) {
     textTheme: textTheme,
     dividerTheme: DividerThemeData(color: colors.hairline, thickness: 1),
     appBarTheme: AppBarTheme(
-      backgroundColor: colors.canvas,
+      backgroundColor: Colors.transparent,
       foregroundColor: colors.onCanvas,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
+      scrolledUnderElevation: 0,
       titleTextStyle: AppTypography.title(colors.onCanvas),
     ),
     cardTheme: CardThemeData(
