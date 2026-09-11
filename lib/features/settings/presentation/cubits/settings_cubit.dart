@@ -1,3 +1,4 @@
+import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
@@ -25,6 +26,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     this.setAnalyticsEnabledUsecase,
     this.setCrashReportingEnabledUsecase,
     this.privacyRepository,
+    this.telemetryGate,
   }) : super(const SettingsState());
 
   final GetTopicsUsecase _getTopicsUsecase;
@@ -36,6 +38,10 @@ class SettingsCubit extends Cubit<SettingsState> {
   final SetAnalyticsEnabledUsecase? setAnalyticsEnabledUsecase;
   final SetCrashReportingEnabledUsecase? setCrashReportingEnabledUsecase;
   final PrivacyRepository? privacyRepository;
+  final TelemetryGate? telemetryGate;
+
+  bool get isPaywallEnabled => telemetryGate?.isPaywallEnabled ?? false;
+  bool get paywallEnabled => isPaywallEnabled;
 
   Future<void> load() async {
     emit(state.copyWith(status: SettingsStatus.loading));
@@ -78,29 +84,41 @@ class SettingsCubit extends Cubit<SettingsState> {
     // Load privacy settings if available
     if (getPrivacySettingsUsecase != null) {
       final privacyResult = await getPrivacySettingsUsecase!(const NoParams());
-      privacyResult.fold(
-        (privacy) {
+      await privacyResult.fold(
+        (privacy) async {
           emit(
             state.copyWith(
               analyticsEnabled: privacy.analyticsEnabled,
               crashReportingEnabled: privacy.crashReportingEnabled,
             ),
           );
+          if (privacy.analyticsEnabled) {
+            await telemetryGate?.setAnalyticsEnabled(true);
+          }
+          if (privacy.crashReportingEnabled) {
+            await telemetryGate?.setCrashlyticsEnabled(true);
+          }
         },
-        (_) {},
+        (_) async {},
       );
     } else if (privacyRepository != null) {
       final privacyResult = await privacyRepository!.getPrivacySettings();
-      privacyResult.fold(
-        (privacy) {
+      await privacyResult.fold(
+        (privacy) async {
           emit(
             state.copyWith(
               analyticsEnabled: privacy.analyticsEnabled,
               crashReportingEnabled: privacy.crashReportingEnabled,
             ),
           );
+          if (privacy.analyticsEnabled) {
+            await telemetryGate?.setAnalyticsEnabled(true);
+          }
+          if (privacy.crashReportingEnabled) {
+            await telemetryGate?.setCrashlyticsEnabled(true);
+          }
         },
-        (_) {},
+        (_) async {},
       );
     }
 
@@ -163,6 +181,7 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   Future<void> toggleAnalytics({required bool isEnabled}) async {
     emit(state.copyWith(analyticsEnabled: isEnabled));
+    await telemetryGate?.setAnalyticsEnabled(isEnabled);
     if (setAnalyticsEnabledUsecase != null) {
       await setAnalyticsEnabledUsecase!(isEnabled);
     } else if (privacyRepository != null) {
@@ -172,6 +191,7 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   Future<void> toggleCrashReporting({required bool isEnabled}) async {
     emit(state.copyWith(crashReportingEnabled: isEnabled));
+    await telemetryGate?.setCrashlyticsEnabled(isEnabled);
     if (setCrashReportingEnabledUsecase != null) {
       await setCrashReportingEnabledUsecase!(isEnabled);
     } else if (privacyRepository != null) {

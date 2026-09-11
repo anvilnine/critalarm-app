@@ -22,8 +22,9 @@ void main() {
       const expected = PrivacySettings(
         analyticsEnabled: true,
       );
-      when(() => repository.getPrivacySettings())
-          .thenAnswer((_) async => expected.toSuccess());
+      when(
+        () => repository.getPrivacySettings(),
+      ).thenAnswer((_) async => expected.toSuccess());
 
       final usecase = GetPrivacySettingsUsecase(repository);
       final result = await usecase(const NoParams());
@@ -33,8 +34,9 @@ void main() {
     });
 
     test('SetAnalyticsEnabledUsecase delegates to repository', () async {
-      when(() => repository.setAnalyticsEnabled(enabled: any(named: 'enabled')))
-          .thenAnswer((_) async => unit.toSuccess());
+      when(
+        () => repository.setAnalyticsEnabled(enabled: any(named: 'enabled')),
+      ).thenAnswer((_) async => unit.toSuccess());
 
       final usecase = SetAnalyticsEnabledUsecase(repository);
       final result = await usecase(true);
@@ -54,8 +56,9 @@ void main() {
       final result = await usecase(true);
 
       expect(result.isSuccess(), isTrue);
-      verify(() => repository.setCrashReportingEnabled(enabled: true))
-          .called(1);
+      verify(
+        () => repository.setCrashReportingEnabled(enabled: true),
+      ).called(1);
     });
   });
 }

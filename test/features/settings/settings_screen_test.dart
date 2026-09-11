@@ -32,70 +32,76 @@ void main() {
 
   group('SettingsScreen', () {
     testWidgets(
-        'displays Device permissions row and reaches /settings/permissions',
-        (tester) async {
-      tester.view.physicalSize = const Size(390 * 2, 844 * 2);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(tester.view.reset);
+      'displays Device permissions row and reaches /settings/permissions',
+      (tester) async {
+        tester.view.physicalSize = const Size(390 * 2, 844 * 2);
+        tester.view.devicePixelRatio = 2.0;
+        addTearDown(tester.view.reset);
 
-      getIt<MockServer>().seedCalm();
+        getIt<MockServer>().seedCalm();
 
-      final router = buildRouter();
-      await tester.pumpWidget(buildTestApp(router));
+        final router = buildRouter();
+        await tester.pumpWidget(buildTestApp(router));
 
-      router.go('/settings');
-      await tester.pumpAndSettle();
+        router.go('/settings');
+        await tester.pumpAndSettle();
 
-      expect(find.text('Settings'), findsOneWidget);
-      // Header and row name
-      expect(find.text('Device permissions'), findsNWidgets(2));
-      expect(find.text('Notifications, lock screen, battery'), findsOneWidget);
+        expect(find.text('Settings'), findsOneWidget);
+        // Header and row name
+        expect(find.text('Device permissions'), findsNWidgets(2));
+        expect(
+          find.text('Notifications, lock screen, battery'),
+          findsOneWidget,
+        );
 
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -350));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Notifications, lock screen, battery'));
-      await tester.pumpAndSettle();
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -350));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Notifications, lock screen, battery'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Critical Alarm Capabilities'), findsOneWidget);
-    });
+        expect(find.text('Critical Alarm Capabilities'), findsOneWidget);
+      },
+    );
 
     testWidgets(
-        'displays connected server card with Edit and Disconnect buttons',
-        (tester) async {
-      tester.view.physicalSize = const Size(390 * 2, 844 * 2);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(tester.view.reset);
+      'displays connected server card with Edit and Disconnect buttons',
+      (tester) async {
+        tester.view.physicalSize = const Size(390 * 2, 844 * 2);
+        tester.view.devicePixelRatio = 2.0;
+        addTearDown(tester.view.reset);
 
-      // Save a connection so Settings loads connected state
-      await getIt<SaveConnectionUsecase>()(
-        const ServerConnection(
-          serverUrl: 'https://alerts.anvilnine.com',
-          adminToken: 'admin_test_token',
-        ),
-      );
+        // Save a connection so Settings loads connected state
+        await getIt<SaveConnectionUsecase>()(
+          const ServerConnection(
+            serverUrl: 'https://alerts.anvilnine.com',
+            adminToken: 'admin_test_token',
+          ),
+        );
 
-      getIt<MockServer>().seedCalm();
+        getIt<MockServer>().seedCalm();
 
-      final router = buildRouter();
-      await tester.pumpWidget(buildTestApp(router));
+        final router = buildRouter();
+        await tester.pumpWidget(buildTestApp(router));
 
-      router.go('/settings');
-      await tester.pumpAndSettle();
+        router.go('/settings');
+        await tester.pumpAndSettle();
 
-      // Scroll to server connection section
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -250));
-      await tester.pumpAndSettle();
+        // Scroll to server connection section
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -250));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Server connection'), findsOneWidget);
-      expect(find.text('Connected'), findsOneWidget);
-      expect(find.text('Self-hosted'), findsOneWidget);
-      expect(find.text('https://alerts.anvilnine.com'), findsOneWidget);
-      expect(find.text('Edit'), findsOneWidget);
-      expect(find.text('Disconnect'), findsOneWidget);
-    });
+        expect(find.text('Server connection'), findsOneWidget);
+        expect(find.text('Connected'), findsOneWidget);
+        expect(find.text('Self-hosted'), findsOneWidget);
+        expect(find.text('https://alerts.anvilnine.com'), findsOneWidget);
+        expect(find.text('Edit'), findsOneWidget);
+        expect(find.text('Disconnect'), findsOneWidget);
+      },
+    );
 
-    testWidgets('tapping Edit opens edit server connection bottom sheet',
-        (tester) async {
+    testWidgets('tapping Edit opens edit server connection bottom sheet', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(390 * 2, 844 * 2);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(tester.view.reset);
@@ -131,8 +137,7 @@ void main() {
       expect(find.text('Edit server connection'), findsNothing);
     });
 
-    testWidgets(
-        'tapping Disconnect asks confirmation, clears connection, and '
+    testWidgets('tapping Disconnect asks confirmation, clears connection, and '
         'shows disconnected state', (tester) async {
       tester.view.physicalSize = const Size(390 * 2, 844 * 2);
       tester.view.devicePixelRatio = 2.0;
@@ -186,8 +191,7 @@ void main() {
       expect(find.text('Connect your server'), findsOneWidget);
     });
 
-    testWidgets(
-        'displays Privacy section with opt-in toggles OFF by default '
+    testWidgets('displays Privacy section with opt-in toggles OFF by default '
         'and 1-line explanations', (tester) async {
       tester.view.physicalSize = const Size(390 * 2, 844 * 2);
       tester.view.devicePixelRatio = 2.0;
@@ -251,58 +255,61 @@ void main() {
       await tester.tap(analyticsSwitchFinder);
       await tester.pumpAndSettle();
 
-      final updatedAnalytics =
-          (await privacyRepo.getPrivacySettings()).getOrNull();
+      final updatedAnalytics = (await privacyRepo.getPrivacySettings())
+          .getOrNull();
       expect(updatedAnalytics?.analyticsEnabled, isTrue);
 
       // Toggle crash reporting switch
       await tester.tap(crashSwitchFinder);
       await tester.pumpAndSettle();
 
-      final updatedCrash =
-          (await privacyRepo.getPrivacySettings()).getOrNull();
+      final updatedCrash = (await privacyRepo.getPrivacySettings()).getOrNull();
       expect(updatedCrash?.crashReportingEnabled, isTrue);
     });
 
     testWidgets(
-        'displays About section with version, GPL-3.0 license, and links',
-        (tester) async {
-      tester.view.physicalSize = const Size(390 * 2, 844 * 2);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(tester.view.reset);
+      'displays About section with version, GPL-3.0 license, and links',
+      (tester) async {
+        tester.view.physicalSize = const Size(390 * 2, 844 * 2);
+        tester.view.devicePixelRatio = 2.0;
+        addTearDown(tester.view.reset);
 
-      final router = buildRouter();
-      await tester.pumpWidget(buildTestApp(router));
+        final router = buildRouter();
+        await tester.pumpWidget(buildTestApp(router));
 
-      router.go('/settings');
-      await tester.pumpAndSettle();
+        router.go('/settings');
+        await tester.pumpAndSettle();
 
-      // Scroll to About section
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -1200));
-      await tester.pumpAndSettle();
+        // Scroll to About section
+        await tester.drag(
+          find.byType(CustomScrollView),
+          const Offset(0, -1200),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('About'), findsOneWidget);
-      expect(find.text('Version'), findsOneWidget);
-      expect(find.text('v$appVersion'), findsOneWidget);
-      expect(find.text('License'), findsOneWidget);
-      expect(find.text('GPL-3.0 License'), findsOneWidget);
-      expect(find.text('Documentation'), findsOneWidget);
-      expect(find.text('https://docs.critalarm.app'), findsOneWidget);
-      expect(find.text('GitHub'), findsOneWidget);
-      expect(
-        find.text('https://github.com/critalarm/critalarm'),
-        findsOneWidget,
-      );
-      expect(find.text('Issue Tracker'), findsOneWidget);
-      expect(
-        find.text('https://github.com/critalarm/critalarm/issues'),
-        findsOneWidget,
-      );
+        expect(find.text('About'), findsOneWidget);
+        expect(find.text('Version'), findsOneWidget);
+        expect(find.text('v$appVersion'), findsOneWidget);
+        expect(find.text('License'), findsOneWidget);
+        expect(find.text('GPL-3.0 License'), findsOneWidget);
+        expect(find.text('Documentation'), findsOneWidget);
+        expect(find.text('https://docs.critalarm.app'), findsOneWidget);
+        expect(find.text('GitHub'), findsOneWidget);
+        expect(
+          find.text('https://github.com/critalarm/critalarm'),
+          findsOneWidget,
+        );
+        expect(find.text('Issue Tracker'), findsOneWidget);
+        expect(
+          find.text('https://github.com/critalarm/critalarm/issues'),
+          findsOneWidget,
+        );
 
-      // Tapping a link copies it
-      await tester.tap(find.text('Documentation'));
-      await tester.pumpAndSettle();
-      expect(find.text('Copied https://docs.critalarm.app'), findsOneWidget);
-    });
+        // Tapping a link copies it
+        await tester.tap(find.text('Documentation'));
+        await tester.pumpAndSettle();
+        expect(find.text('Copied https://docs.critalarm.app'), findsOneWidget);
+      },
+    );
   });
 }

@@ -118,8 +118,7 @@ class _SettingsScreenContent extends StatelessWidget {
         backgroundColor: Colors.transparent,
         builder: (sheetContext) {
           final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
-          final viewInsetsBottom =
-              MediaQuery.viewInsetsOf(sheetContext).bottom;
+          final viewInsetsBottom = MediaQuery.viewInsetsOf(sheetContext).bottom;
 
           return SafeArea(
             top: false,

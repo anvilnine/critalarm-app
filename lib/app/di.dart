@@ -1,6 +1,8 @@
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
+import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
@@ -64,6 +66,13 @@ final GetIt getIt = GetIt.instance;
 /// land so a missing dependency is obvious from where the call sits.
 Future<void> configureDependencies() async {
   final prefs = await SharedPreferences.getInstance();
+
+  if (!getIt.isRegistered<TelemetryGate>()) {
+    final telemetryGate = FirebaseTelemetryGate();
+    await telemetryGate.initialize();
+    getIt.registerSingleton<TelemetryGate>(telemetryGate);
+  }
+
   getIt
     ..registerSingleton<SharedPreferences>(prefs)
     ..registerLazySingleton<MockServer>(() => MockServer()..seedCalm())
@@ -249,6 +258,9 @@ Future<void> configureDependencies() async {
         setAnalyticsEnabledUsecase: getIt<SetAnalyticsEnabledUsecase>(),
         setCrashReportingEnabledUsecase:
             getIt<SetCrashReportingEnabledUsecase>(),
+        telemetryGate: getIt.isRegistered<TelemetryGate>()
+            ? getIt<TelemetryGate>()
+            : null,
       ),
     )
     ..registerFactory(
@@ -258,6 +270,10 @@ Future<void> configureDependencies() async {
       ),
     )
     ..registerFactory(
-      PaywallCubit.new,
+      () => PaywallCubit(
+        telemetryGate: getIt.isRegistered<TelemetryGate>()
+            ? getIt<TelemetryGate>()
+            : null,
+      ),
     );
 }

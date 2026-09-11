@@ -9,16 +9,19 @@ class PaywallState {
     this.status = PaywallStatus.initial,
     this.isPro = false,
     this.feedbackMessage,
+    this.paywallEnabled = false,
   });
 
   final PaywallStatus status;
   final bool isPro;
   final String? feedbackMessage;
+  final bool paywallEnabled;
 
   PaywallState copyWith({
     PaywallStatus? status,
     bool? isPro,
     String? feedbackMessage,
+    bool? paywallEnabled,
     bool clearFeedback = false,
   }) {
     return PaywallState(
@@ -27,6 +30,7 @@ class PaywallState {
       feedbackMessage: clearFeedback
           ? null
           : (feedbackMessage ?? this.feedbackMessage),
+      paywallEnabled: paywallEnabled ?? this.paywallEnabled,
     );
   }
 
@@ -37,8 +41,14 @@ class PaywallState {
           runtimeType == other.runtimeType &&
           status == other.status &&
           isPro == other.isPro &&
-          feedbackMessage == other.feedbackMessage;
+          feedbackMessage == other.feedbackMessage &&
+          paywallEnabled == other.paywallEnabled;
 
   @override
-  int get hashCode => Object.hash(status, isPro, feedbackMessage);
+  int get hashCode => Object.hash(
+    status,
+    isPro,
+    feedbackMessage,
+    paywallEnabled,
+  );
 }

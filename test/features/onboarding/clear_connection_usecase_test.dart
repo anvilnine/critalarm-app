@@ -16,8 +16,9 @@ void main() {
 
   group('ClearConnectionUsecase', () {
     test('delegates clearConnection to repository', () async {
-      when(() => repository.clearConnection())
-          .thenAnswer((_) async => unit.toSuccess());
+      when(
+        () => repository.clearConnection(),
+      ).thenAnswer((_) async => unit.toSuccess());
 
       final usecase = ClearConnectionUsecase(repository);
       final result = await usecase(const NoParams());
