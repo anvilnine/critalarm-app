@@ -16,6 +16,15 @@ import 'package:critalarm/features/settings/domain/usecases/set_theme_mode_useca
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
+import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
+import 'package:critalarm/features/topics/domain/usecases/delete_topic_usecase.dart';
+import 'package:critalarm/features/topics/domain/usecases/get_topic_usecase.dart';
+import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
+import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
+import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topics_list_cubit.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,7 +37,7 @@ Future<void> configureDependencies() async {
   final prefs = await SharedPreferences.getInstance();
   getIt
     ..registerSingleton<SharedPreferences>(prefs)
-    ..registerLazySingleton<MockServer>(MockServer.new)
+    ..registerLazySingleton<MockServer>(() => MockServer()..seedCalm())
     ..registerLazySingleton<MockApiClient>(
       () => MockApiClient(getIt<MockServer>()),
     )
@@ -57,6 +66,21 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton(
       () => TriggerTestAlarmUsecase(getIt<IncidentRepository>()),
     )
+    ..registerLazySingleton(
+      () => GetTopicsUsecase(getIt<TopicRepository>()),
+    )
+    ..registerLazySingleton(
+      () => GetTopicUsecase(getIt<TopicRepository>()),
+    )
+    ..registerLazySingleton(
+      () => CreateTopicUsecase(getIt<TopicRepository>()),
+    )
+    ..registerLazySingleton(
+      () => UpdateTopicUsecase(getIt<TopicRepository>()),
+    )
+    ..registerLazySingleton(
+      () => DeleteTopicUsecase(getIt<TopicRepository>()),
+    )
     ..registerFactory(
       () => ThemeCubit(
         getIt<GetThemeModeUsecase>(),
@@ -71,6 +95,30 @@ Future<void> configureDependencies() async {
     ..registerFactory(
       () => OnboardingPermissionsCubit(
         getIt<TriggerTestAlarmUsecase>(),
+      ),
+    )
+    ..registerFactory(
+      () => HomeCubit(
+        getIt<GetTopicsUsecase>(),
+        getIt<IncidentRepository>(),
+      ),
+    )
+    ..registerFactory(
+      () => TopicsListCubit(
+        getIt<GetTopicsUsecase>(),
+        getIt<IncidentRepository>(),
+      ),
+    )
+    ..registerFactory(
+      () => TopicDetailCubit(
+        getIt<GetTopicUsecase>(),
+        getIt<UpdateTopicUsecase>(),
+        getIt<IncidentRepository>(),
+      ),
+    )
+    ..registerFactory(
+      () => CreateTopicCubit(
+        getIt<CreateTopicUsecase>(),
       ),
     );
 }

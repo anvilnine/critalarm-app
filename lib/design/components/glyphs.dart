@@ -13,6 +13,7 @@ enum GlyphType {
   back,
   gear,
   copy,
+  plus,
 }
 
 /// Vector glyph icon painted according to index.html on a 24x24 viewBox.
@@ -206,6 +207,15 @@ class _GlyphPainter extends CustomPainter {
           ..lineTo(8, 16);
         canvas.drawRRect(r1, strokePaint);
         canvas.drawPath(r2, strokePaint);
+
+      case GlyphType.plus:
+        // M12 5v14M5 12h14
+        final path = Path()
+          ..moveTo(12, 5)
+          ..lineTo(12, 19)
+          ..moveTo(5, 12)
+          ..lineTo(19, 12);
+        canvas.drawPath(path, strokePaint);
     }
 
     canvas.restore();

@@ -1,3 +1,4 @@
+import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
@@ -223,6 +224,107 @@ class _AppButtonState extends State<AppButton> {
           child: widget.isFullWidth
               ? SizedBox(width: double.infinity, child: buttonCore)
               : buttonCore,
+        ),
+      ),
+    );
+  }
+}
+
+/// Circular icon button (40x40) matching index.html .phone .bar .ib.
+class AppIconButton extends StatefulWidget {
+  const AppIconButton({
+    required this.glyph,
+    this.onPressed,
+    this.ariaLabel,
+    this.size = 40.0,
+    this.glyphSize = 18.0,
+    this.color,
+    super.key,
+  });
+
+  final GlyphType glyph;
+  final VoidCallback? onPressed;
+  final String? ariaLabel;
+  final double size;
+  final double glyphSize;
+  final Color? color;
+
+  @override
+  State<AppIconButton> createState() => _AppIconButtonState();
+}
+
+class _AppIconButtonState extends State<AppIconButton> {
+  bool _isHovered = false;
+  bool _isActive = false;
+
+  bool get _isEnabled => widget.onPressed != null;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final fg = widget.color ?? colors.onCanvas;
+
+    final bg = _isActive
+        ? colors.canvasGhostStrong
+        : (_isHovered ? colors.canvasGhost : Colors.transparent);
+
+    final scale = _isActive ? 0.95 : 1.0;
+
+    Widget button = AnimatedScale(
+      duration: AppDurations.quick,
+      curve: AppCurves.easeSpring,
+      scale: scale,
+      child: AnimatedContainer(
+        duration: AppDurations.quick,
+        curve: AppCurves.easeSpring,
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: bg,
+          border: Border.all(color: fg, width: 2),
+        ),
+        alignment: Alignment.center,
+        child: AppGlyph(
+          widget.glyph,
+          size: widget.glyphSize,
+          color: fg,
+        ),
+      ),
+    );
+
+    if (widget.ariaLabel != null) {
+      button = Semantics(
+        label: widget.ariaLabel,
+        button: true,
+        child: button,
+      );
+    }
+
+    return Opacity(
+      opacity: _isEnabled ? 1.0 : 0.45,
+      child: MouseRegion(
+        cursor: _isEnabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        onEnter: (_) {
+          if (_isEnabled) setState(() => _isHovered = true);
+        },
+        onExit: (_) {
+          if (_isEnabled) setState(() => _isHovered = false);
+        },
+        child: GestureDetector(
+          onTapDown: (_) {
+            if (_isEnabled) setState(() => _isActive = true);
+          },
+          onTapUp: (_) {
+            if (_isEnabled) setState(() => _isActive = false);
+          },
+          onTapCancel: () {
+            if (_isEnabled) setState(() => _isActive = false);
+          },
+          onTap: _isEnabled ? widget.onPressed : null,
+          child: button,
         ),
       ),
     );
