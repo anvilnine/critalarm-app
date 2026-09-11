@@ -111,7 +111,7 @@ class AppSliverTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final bg = backgroundColor ?? colors.canvas;
+    final bg = backgroundColor ?? Colors.transparent;
 
     return SliverAppBar(
       pinned: pinned,
@@ -119,6 +119,9 @@ class AppSliverTopBar extends StatelessWidget {
       backgroundColor: bg,
       elevation: 0,
       scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      forceMaterialTransparency: true,
       automaticallyImplyLeading: false,
       collapsedHeight: collapsedHeight,
       expandedHeight: expandedHeight,
