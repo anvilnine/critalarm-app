@@ -33,8 +33,8 @@ abstract final class AppRoute {
   static const lockScreen = 'lockScreen';
 }
 
-GoRouter buildRouter() => GoRouter(
-  initialLocation: '/',
+GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
+  initialLocation: initialLocation,
   routes: [
     GoRoute(
       path: '/',

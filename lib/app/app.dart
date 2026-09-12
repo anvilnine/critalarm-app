@@ -13,14 +13,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 class CritAlarmApp extends StatefulWidget {
-  const CritAlarmApp({super.key});
+  const CritAlarmApp({required this.initialLocation, super.key});
+
+  final String initialLocation;
 
   @override
   State<CritAlarmApp> createState() => _CritAlarmAppState();
 }
 
 class _CritAlarmAppState extends State<CritAlarmApp> {
-  late final GoRouter _router = buildRouter();
+  late final GoRouter _router = buildRouter(
+    initialLocation: widget.initialLocation,
+  );
 
   @override
   Widget build(BuildContext context) {
