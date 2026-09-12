@@ -1564,13 +1564,6 @@ class _GalleryScreenState extends State<GalleryScreen> {
                         isFullWidth: true,
                         onPressed: () {},
                       ),
-                      const SizedBox(height: 10),
-                      AppButton(
-                        label: 'Snooze 10 min',
-                        variant: AppButtonVariant.ghost,
-                        isFullWidth: true,
-                        onPressed: () {},
-                      ),
                     ],
                   ),
                 ),
