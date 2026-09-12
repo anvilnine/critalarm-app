@@ -6,7 +6,7 @@
     "scope": ".",
     "display": "standalone",
     "background_color": "#101112",
-    "theme_color": "#FF5A00",
+    "theme_color": "#FF8A1F",
     "description": "Self-hostable, ntfy-compatible alarm that rings through Do Not Disturb until you acknowledge it.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
