@@ -35,6 +35,6 @@
   "actions": [
     {"name": "Stop routes to ack", "trigger": "stop", "incident_id": "inc/a b", "action": "ack", "path": "/v1/incidents/inc%2Fa%20b/ack"},
     {"name": "Acknowledge routes to close", "trigger": "acknowledge", "incident_id": "incident-2", "action": "close", "path": "/v1/incidents/incident-2/close"},
-    {"name": "unknown action rejected", "trigger": "snooze", "incident_id": "incident-3", "action": null, "path": null}
+    {"name": "unknown action rejected", "trigger": "unsupported", "incident_id": "incident-3", "action": null, "path": null}
   ]
 }
