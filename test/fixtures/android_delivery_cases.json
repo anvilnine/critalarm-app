@@ -1,0 +1,40 @@
+{
+  "payloads": [
+    {
+      "name": "open with optional display text",
+      "data": {"incident_id": "inc-1", "server": "https://alerts.example.com", "kind": "open", "priority": "5", "title": "Database down", "body": "Primary is unavailable"},
+      "valid": true
+    },
+    {
+      "name": "repeat without display text",
+      "data": {"incident_id": "inc-2", "server": "http://10.0.2.2:3000", "kind": "repeat", "priority": "4"},
+      "valid": true
+    },
+    {
+      "name": "reopen",
+      "data": {"incident_id": "inc-3", "server": "https://alerts.example.com", "kind": "reopen", "priority": "3"},
+      "valid": true
+    },
+    {
+      "name": "p4",
+      "data": {"incident_id": "inc-4", "server": "https://alerts.example.com", "kind": "p4", "priority": "1"},
+      "valid": true
+    },
+    {
+      "name": "unknown fields do not create state semantics",
+      "data": {"incident_id": "inc-5", "server": "https://alerts.example.com", "kind": "open", "priority": "2", "state": "closed", "state_timestamp": "2099-01-01T00:00:00Z"},
+      "valid": true
+    },
+    {"name": "missing incident", "data": {"server": "https://alerts.example.com", "kind": "open", "priority": "5"}, "valid": false},
+    {"name": "invalid server", "data": {"incident_id": "inc-6", "server": "javascript:alert(1)", "kind": "open", "priority": "5"}, "valid": false},
+    {"name": "unknown kind", "data": {"incident_id": "inc-7", "server": "https://alerts.example.com", "kind": "closed", "priority": "5"}, "valid": false},
+    {"name": "missing priority", "data": {"incident_id": "inc-8", "server": "https://alerts.example.com", "kind": "open"}, "valid": false},
+    {"name": "invalid priority", "data": {"incident_id": "inc-9", "server": "https://alerts.example.com", "kind": "open", "priority": "urgent"}, "valid": false},
+    {"name": "out of range priority", "data": {"incident_id": "inc-10", "server": "https://alerts.example.com", "kind": "open", "priority": "6"}, "valid": false}
+  ],
+  "actions": [
+    {"name": "Stop routes to ack", "trigger": "stop", "incident_id": "inc/a b", "action": "ack", "path": "/v1/incidents/inc%2Fa%20b/ack"},
+    {"name": "Acknowledge routes to close", "trigger": "acknowledge", "incident_id": "incident-2", "action": "close", "path": "/v1/incidents/incident-2/close"},
+    {"name": "unknown action rejected", "trigger": "snooze", "incident_id": "incident-3", "action": null, "path": null}
+  ]
+}
