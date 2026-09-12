@@ -7,7 +7,7 @@ import 'package:critalarm/core/models/topic.dart';
 /// Contract for communicating with a Crit Alarm server.
 abstract interface class ApiClient {
   /// GET /v1/info
-  Future<ServerInfo> getServerInfo();
+  Future<ServerInfo> getServerInfo([Uri? candidateBaseUri]);
 
   /// GET /v1/topics
   Future<List<Topic>> getTopics();

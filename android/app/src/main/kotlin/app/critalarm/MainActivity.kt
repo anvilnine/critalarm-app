@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -127,8 +128,50 @@ class MainActivity : FlutterFragmentActivity() {
                         result.success(true)
                     }
                 }
+                "checkExactAlarms" -> result.success(
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                        getSystemService(android.app.AlarmManager::class.java).canScheduleExactAlarms(),
+                )
+                "checkPromotedNotifications" -> result.success(
+                    Build.VERSION.SDK_INT < 36 ||
+                        getSystemService(NotificationManager::class.java).canPostPromotedNotifications(),
+                )
+                "checkDndAccess" -> result.success(
+                    getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted,
+                )
+                "openExactAlarmsSettings" -> {
+                    startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply { data = Uri.parse("package:$packageName") })
+                    result.success(true)
+                }
+                "openPromotedNotificationsSettings" -> {
+                    startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS).apply { data = Uri.parse("package:$packageName") })
+                    result.success(true)
+                }
+                "openDndSettings" -> {
+                    startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        val alarmLaunch = intent.getStringExtra(EXTRA_ALARM_INCIDENT_ID) != null
+        if (alarmLaunch && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        }
+        super.onCreate(savedInstanceState)
+    }
+
+    override fun getInitialRoute(): String? {
+        val incidentId = intent.getStringExtra(EXTRA_ALARM_INCIDENT_ID)
+            ?: return super.getInitialRoute()
+        return "/incidents/${Uri.encode(incidentId)}"
+    }
+
+    companion object {
+        const val EXTRA_ALARM_INCIDENT_ID = "alarm_incident_id"
     }
 }

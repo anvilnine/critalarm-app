@@ -233,26 +233,6 @@ class _CriticalAlarmView extends StatelessWidget {
                                               }
                                             },
                                           ),
-                                          const SizedBox(height: Spacing.s2),
-                                          AppButton(
-                                            label: 'Snooze 10 min',
-                                            variant: AppButtonVariant.ghost,
-                                            isFullWidth: true,
-                                            onPressed: () {
-                                              context
-                                                  .read<CriticalAlarmCubit>()
-                                                  .snooze();
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Alarm snoozed for 10 min',
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
                                         ],
                                       ),
                                     ),

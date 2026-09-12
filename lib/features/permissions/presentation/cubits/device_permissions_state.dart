@@ -52,7 +52,9 @@ class DevicePermissionsState {
 
   bool get allGranted =>
       permissions.isNotEmpty &&
-      permissions.every((p) => p.status == DevicePermissionStatus.granted);
+      permissions
+          .where((p) => p.affectsReadiness)
+          .every((p) => p.status == DevicePermissionStatus.granted);
 
   bool get hasIssues =>
       permissions.any((p) => p.status != DevicePermissionStatus.granted);
