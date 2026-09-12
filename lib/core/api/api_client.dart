@@ -81,4 +81,10 @@ abstract interface class ApiClient {
   Future<DeviceRegistrationResponse> registerDevice(
     DeviceRegistration registration,
   );
+
+  /// PATCH /relay/v1/devices/{device_id}
+  Future<DeviceRegistrationResponse> refreshDevice(
+    DeviceRegistration registration,
+    String deviceToken,
+  );
 }
