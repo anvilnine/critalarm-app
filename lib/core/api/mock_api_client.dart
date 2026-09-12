@@ -124,4 +124,10 @@ class MockApiClient implements ApiClient {
   ) async {
     return server.registerDevice(registration);
   }
+
+  @override
+  Future<DeviceRegistrationResponse> refreshDevice(
+    DeviceRegistration registration,
+    String deviceToken,
+  ) async => server.registerDevice(registration);
 }

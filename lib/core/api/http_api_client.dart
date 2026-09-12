@@ -252,6 +252,29 @@ final class HttpApiClient implements ApiClient {
   }
 
   @override
+  Future<DeviceRegistrationResponse> refreshDevice(
+    DeviceRegistration registration,
+    String deviceToken,
+  ) async {
+    final session = await _sessions.read();
+    if (session == null) throw StateError('No API session configured');
+    final uri = _rawUri(
+      session.relayUri,
+      '/relay/v1/devices/${Uri.encodeComponent(registration.deviceId)}',
+      null,
+    );
+    final response = await _send(
+      'PATCH',
+      uri,
+      auth: deviceToken,
+      body: registration.toJson(),
+    );
+    return DeviceRegistrationResponse.fromJson(
+      _json(response) as Map<String, dynamic>,
+    );
+  }
+
+  @override
   Future<Message> publishMessage(
     String topic, {
     String? message,

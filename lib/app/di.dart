@@ -4,7 +4,10 @@ import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/env/env.dart';
+import 'package:critalarm/core/push/firebase_push_token_provider.dart';
+import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
@@ -27,6 +30,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_u
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/open_notification_settings_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/request_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
@@ -116,6 +120,12 @@ Future<void> configureDependencies({
     ..registerLazySingleton<ApiSessionStore>(
       () => SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
     )
+    ..registerLazySingleton<DeviceIdentityStore>(
+      () => DeviceIdentityStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<PushTokenProvider>(
+      FirebasePushTokenProvider.new,
+    )
     ..registerLazySingleton<MockServer>(() => MockServer()..seedCalm())
     ..registerLazySingleton<MockApiClient>(
       () => MockApiClient(getIt<MockServer>()),
@@ -177,6 +187,13 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton(
       () => SaveConnectionUsecase(getIt<ConnectionRepository>()),
+    )
+    ..registerLazySingleton(
+      () => RegisterDeviceUsecase(
+        getIt<ApiClient>(),
+        getIt<DeviceIdentityStore>(),
+        getIt<PushTokenProvider>(),
+      ),
     )
     ..registerLazySingleton(
       () => GetConnectionUsecase(getIt<ConnectionRepository>()),
