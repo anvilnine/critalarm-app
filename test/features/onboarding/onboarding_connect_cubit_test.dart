@@ -5,6 +5,7 @@ import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
@@ -16,12 +17,16 @@ class MockGetServerInfoUsecase extends Mock implements GetServerInfoUsecase {}
 
 class MockSaveConnectionUsecase extends Mock implements SaveConnectionUsecase {}
 
+class MockCompleteOnboardingUsecase extends Mock
+    implements CompleteOnboardingUsecase {}
+
 class MockTriggerTestAlarmUsecase extends Mock
     implements TriggerTestAlarmUsecase {}
 
 void main() {
   late MockGetServerInfoUsecase mockGetServerInfo;
   late MockSaveConnectionUsecase mockSaveConnection;
+  late MockCompleteOnboardingUsecase mockCompleteOnboarding;
   late MockTriggerTestAlarmUsecase mockTriggerTestAlarm;
 
   setUpAll(() {
@@ -34,6 +39,7 @@ void main() {
   setUp(() {
     mockGetServerInfo = MockGetServerInfoUsecase();
     mockSaveConnection = MockSaveConnectionUsecase();
+    mockCompleteOnboarding = MockCompleteOnboardingUsecase();
     mockTriggerTestAlarm = MockTriggerTestAlarmUsecase();
   });
 
@@ -387,6 +393,46 @@ void main() {
           testAlarmStatus: TestAlarmStatus.failure,
           errorMessage: 'Server error',
         ),
+      ],
+    );
+
+    blocTest<OnboardingConnectCubit, OnboardingConnectState>(
+      'navigateToHome marks onboarding complete before requesting navigation',
+      setUp: () {
+        when(() => mockCompleteOnboarding(any())).thenAnswer(
+          (_) async => unit.toSuccess(),
+        );
+      },
+      build: () => OnboardingConnectCubit(
+        mockGetServerInfo,
+        mockSaveConnection,
+        mockTriggerTestAlarm,
+        completeOnboarding: mockCompleteOnboarding,
+      ),
+      act: (cubit) => cubit.navigateToHome(),
+      expect: () => [const OnboardingConnectState(canNavigateToHome: true)],
+      verify: (_) {
+        verify(() => mockCompleteOnboarding(any())).called(1);
+      },
+    );
+
+    blocTest<OnboardingConnectCubit, OnboardingConnectState>(
+      'navigateToHome reports completion failure without navigation',
+      setUp: () {
+        when(() => mockCompleteOnboarding(any())).thenAnswer(
+          (_) async =>
+              const Failure.unexpected(message: 'Could not save').toFailure(),
+        );
+      },
+      build: () => OnboardingConnectCubit(
+        mockGetServerInfo,
+        mockSaveConnection,
+        mockTriggerTestAlarm,
+        completeOnboarding: mockCompleteOnboarding,
+      ),
+      act: (cubit) => cubit.navigateToHome(),
+      expect: () => [
+        const OnboardingConnectState(errorMessage: 'Could not save'),
       ],
     );
 

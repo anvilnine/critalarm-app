@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
@@ -476,6 +477,18 @@ class _SettingsScreenContent extends StatelessWidget {
                               ),
                               onTap: () =>
                                   context.push('/settings/permissions'),
+                            ),
+                            const SizedBox(height: 8),
+                            AppListRow(
+                              name: 'Redo onboarding',
+                              meta: 'Review permissions and server setup',
+                              trailing: AppGlyph(
+                                GlyphType.arrow,
+                                color: colors.ink3,
+                                size: 16,
+                              ),
+                              onTap: () =>
+                                  context.pushNamed(AppRoute.onboarding),
                             ),
                             const SizedBox(height: 14),
                             const AppSectionHeader('Theme'),
