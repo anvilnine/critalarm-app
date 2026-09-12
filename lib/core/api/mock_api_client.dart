@@ -13,7 +13,8 @@ class MockApiClient implements ApiClient {
   final MockServer server;
 
   @override
-  Future<ServerInfo> getServerInfo() async => server.getInfo();
+  Future<ServerInfo> getServerInfo([Uri? candidateBaseUri]) async =>
+      server.getInfo();
 
   @override
   Future<List<Topic>> getTopics() async => server.getTopics();

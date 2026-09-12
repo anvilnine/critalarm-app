@@ -11,6 +11,7 @@ class DevicePermissionItem {
     required this.description,
     required this.status,
     required this.canFix,
+    this.affectsReadiness = true,
   });
 
   final DevicePermissionType type;
@@ -18,6 +19,7 @@ class DevicePermissionItem {
   final String description;
   final DevicePermissionStatus status;
   final bool canFix;
+  final bool affectsReadiness;
 
   DevicePermissionItem copyWith({
     DevicePermissionType? type,
@@ -25,6 +27,7 @@ class DevicePermissionItem {
     String? description,
     DevicePermissionStatus? status,
     bool? canFix,
+    bool? affectsReadiness,
   }) {
     return DevicePermissionItem(
       type: type ?? this.type,
@@ -32,6 +35,7 @@ class DevicePermissionItem {
       description: description ?? this.description,
       status: status ?? this.status,
       canFix: canFix ?? this.canFix,
+      affectsReadiness: affectsReadiness ?? this.affectsReadiness,
     );
   }
 
@@ -44,8 +48,10 @@ class DevicePermissionItem {
           title == other.title &&
           description == other.description &&
           status == other.status &&
-          canFix == other.canFix;
+          canFix == other.canFix &&
+          affectsReadiness == other.affectsReadiness;
 
   @override
-  int get hashCode => Object.hash(type, title, description, status, canFix);
+  int get hashCode =>
+      Object.hash(type, title, description, status, canFix, affectsReadiness);
 }

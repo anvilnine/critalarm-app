@@ -4,13 +4,16 @@ class ApiException implements Exception {
     required this.statusCode,
     required this.message,
     this.code,
+    this.cap,
   });
 
   final int statusCode;
   final String message;
   final int? code;
+  final String? cap;
 
   @override
   String toString() =>
-      'ApiException(statusCode: $statusCode, message: $message, code: $code)';
+      'ApiException(statusCode: $statusCode, message: $message, code: $code, '
+      'cap: $cap)';
 }

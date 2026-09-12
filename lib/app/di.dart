@@ -1,7 +1,11 @@
+import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
+import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/env/env.dart';
+import 'package:critalarm/core/storage/api_session_store.dart';
+import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
@@ -68,6 +72,7 @@ import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit
 import 'package:critalarm/features/topics/presentation/cubits/topics_list_cubit.dart';
 import 'package:critalarm/firebase_options.dart';
 import 'package:get_it/get_it.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 final GetIt getIt = GetIt.instance;
@@ -75,7 +80,10 @@ final GetIt getIt = GetIt.instance;
 /// Composition root. Registration order is: platform singletons, then
 /// repositories, then usecases, then cubits. Keep it in that order as features
 /// land so a missing dependency is obvious from where the call sits.
-Future<void> configureDependencies() async {
+Future<void> configureDependencies({
+  bool useMockApi = buildUsesMockApi,
+  http.Client? httpClient,
+}) async {
   final prefs = await SharedPreferences.getInstance();
 
   if (!getIt.isRegistered<TelemetryGate>()) {
@@ -105,11 +113,21 @@ Future<void> configureDependencies() async {
 
   getIt
     ..registerSingleton<SharedPreferences>(prefs)
+    ..registerLazySingleton<ApiSessionStore>(
+      () => SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
+    )
     ..registerLazySingleton<MockServer>(() => MockServer()..seedCalm())
     ..registerLazySingleton<MockApiClient>(
       () => MockApiClient(getIt<MockServer>()),
     )
-    ..registerLazySingleton<ApiClient>(getIt.get<MockApiClient>)
+    ..registerLazySingleton<ApiClient>(
+      () => useMockApi
+          ? getIt<MockApiClient>()
+          : HttpApiClient(
+              httpClient ?? http.Client(),
+              getIt<ApiSessionStore>(),
+            ),
+    )
     ..registerLazySingleton<ThemePreferenceRepository>(
       () => SharedPrefsThemePreferenceRepository(getIt<SharedPreferences>()),
     )

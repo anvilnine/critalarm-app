@@ -166,15 +166,6 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     );
   }
 
-  void snooze([Duration duration = const Duration(minutes: 10)]) {
-    emit(
-      state.copyWith(
-        isSnoozed: true,
-        feedbackMessage: 'Alarm snoozed for ${duration.inMinutes} min',
-      ),
-    );
-  }
-
   Future<void> closeIncident() async {
     final incidentId = state.incident?.id;
     if (incidentId == null) return;

@@ -31,7 +31,6 @@ class CriticalAlarmState {
     this.isLive = true,
     this.isAcknowledged = false,
     this.isAcknowledging = false,
-    this.isSnoozed = false,
     this.feedbackMessage,
     this.errorMessage,
   });
@@ -49,7 +48,6 @@ class CriticalAlarmState {
   final bool isLive;
   final bool isAcknowledged;
   final bool isAcknowledging;
-  final bool isSnoozed;
   final String? feedbackMessage;
   final String? errorMessage;
 
@@ -67,7 +65,6 @@ class CriticalAlarmState {
     bool? isLive,
     bool? isAcknowledged,
     bool? isAcknowledging,
-    bool? isSnoozed,
     String? feedbackMessage,
     String? errorMessage,
     bool clearError = false,
@@ -87,7 +84,6 @@ class CriticalAlarmState {
       isLive: isLive ?? this.isLive,
       isAcknowledged: isAcknowledged ?? this.isAcknowledged,
       isAcknowledging: isAcknowledging ?? this.isAcknowledging,
-      isSnoozed: isSnoozed ?? this.isSnoozed,
       feedbackMessage: clearFeedback
           ? null
           : (feedbackMessage ?? this.feedbackMessage),
@@ -113,7 +109,6 @@ class CriticalAlarmState {
           isLive == other.isLive &&
           isAcknowledged == other.isAcknowledged &&
           isAcknowledging == other.isAcknowledging &&
-          isSnoozed == other.isSnoozed &&
           feedbackMessage == other.feedbackMessage &&
           errorMessage == other.errorMessage;
 
@@ -132,7 +127,6 @@ class CriticalAlarmState {
     isLive,
     isAcknowledged,
     isAcknowledging,
-    isSnoozed,
     feedbackMessage,
     errorMessage,
   );

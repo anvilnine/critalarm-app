@@ -141,13 +141,6 @@ void main() {
       expect(cubit.state, equals(firstAckState));
     });
 
-    test('snooze sets isSnoozed and feedbackMessage', () {
-      cubit.snooze();
-
-      expect(cubit.state.isSnoozed, isTrue);
-      expect(cubit.state.feedbackMessage, 'Alarm snoozed for 10 min');
-    });
-
     test(
       'closeIncident closes acknowledged incident and sets calm face',
       () async {
