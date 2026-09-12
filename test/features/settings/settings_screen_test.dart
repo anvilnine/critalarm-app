@@ -260,6 +260,11 @@ void main() {
       expect(updatedAnalytics?.analyticsEnabled, isTrue);
 
       // Toggle crash reporting switch
+      await tester.drag(
+        find.byType(CustomScrollView),
+        const Offset(0, -400),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(crashSwitchFinder);
       await tester.pumpAndSettle();
 
