@@ -1,3 +1,4 @@
+import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
@@ -211,6 +212,12 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton(
       () => CompleteOnboardingUsecase(getIt<OnboardingProgressRepository>()),
+    )
+    ..registerLazySingleton(
+      () => InitialRouteResolver(
+        getIt<GetConnectionUsecase>(),
+        getIt<GetOnboardingCompletedUsecase>(),
+      ),
     )
     ..registerLazySingleton(
       () => ClearConnectionUsecase(getIt<ConnectionRepository>()),

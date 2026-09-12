@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/app.dart';
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
 import 'package:critalarm/gen/assets.gen.dart';
@@ -31,6 +32,7 @@ Future<void> main() async {
   _registerFontLicenses();
   await EasyLocalization.ensureInitialized();
   await configureDependencies();
+  final initialLocation = await getIt<InitialRouteResolver>()();
   if (!buildUsesMockApi) {
     unawaited(() async {
       try {
@@ -46,7 +48,7 @@ Future<void> main() async {
       supportedLocales: const [Locale('en')],
       fallbackLocale: const Locale('en'),
       path: Assets.translations.path,
-      child: const CritAlarmApp(),
+      child: CritAlarmApp(initialLocation: initialLocation),
     ),
   );
 }
