@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:critalarm/app/app.dart';
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/api/api_build_mode.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
 import 'package:critalarm/gen/assets.gen.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -27,6 +31,15 @@ Future<void> main() async {
   _registerFontLicenses();
   await EasyLocalization.ensureInitialized();
   await configureDependencies();
+  if (!buildUsesMockApi) {
+    unawaited(() async {
+      try {
+        await getIt<RegisterDeviceUsecase>().call(appVersion: '0.1.0');
+      } on Object {
+        // Registration retries on next launch or token refresh.
+      }
+    }());
+  }
 
   runApp(
     EasyLocalization(
