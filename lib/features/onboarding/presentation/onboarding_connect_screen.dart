@@ -430,7 +430,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
           label: 'Go to Dashboard',
           size: AppButtonSize.lg,
           isFullWidth: true,
-          onPressed: () => context.go('/'),
+          onPressed: cubit.navigateToHome,
         ),
         const SizedBox(height: Spacing.s3),
 

@@ -2,6 +2,7 @@ import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
@@ -14,6 +15,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     this._getServerInfo,
     this._saveConnection,
     this._triggerTestAlarm, {
+    this.completeOnboarding,
     bool initialConnected = false,
   }) : super(
          OnboardingConnectState(
@@ -25,6 +27,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
 
   final GetServerInfoUsecase _getServerInfo;
   final SaveConnectionUsecase _saveConnection;
+  final CompleteOnboardingUsecase? completeOnboarding;
   final TriggerTestAlarmUsecase _triggerTestAlarm;
 
   void serverUrlChanged(String url) {
@@ -195,8 +198,15 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     );
   }
 
-  void navigateToHome() {
-    emit(state.copyWith(canNavigateToHome: true));
+  Future<void> navigateToHome() async {
+    final completion = completeOnboarding;
+    if (completion == null) return;
+
+    final result = await completion(const NoParams());
+    result.fold(
+      (_) => emit(state.copyWith(canNavigateToHome: true)),
+      (failure) => emit(state.copyWith(errorMessage: failure.message)),
+    );
   }
 
   void navigationHandled() {

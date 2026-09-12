@@ -301,6 +301,7 @@ Future<void> configureDependencies({
         getIt<GetServerInfoUsecase>(),
         getIt<SaveConnectionUsecase>(),
         getIt<TriggerTestAlarmUsecase>(),
+        completeOnboarding: getIt<CompleteOnboardingUsecase>(),
         initialConnected: initialConnected ?? false,
       ),
     )
