@@ -23,11 +23,15 @@ import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cub
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/platform_notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_connection_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/notification_permission_repository.dart';
+import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/open_notification_settings_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
@@ -153,6 +157,9 @@ Future<void> configureDependencies({
     ..registerLazySingleton<ConnectionRepository>(
       () => SharedPrefsConnectionRepository(getIt<SharedPreferences>()),
     )
+    ..registerLazySingleton<OnboardingProgressRepository>(
+      () => SharedPrefsOnboardingProgressRepository(getIt<SharedPreferences>()),
+    )
     ..registerLazySingleton<PrivacyRepository>(
       () => SharedPrefsPrivacyRepository(getIt<SharedPreferences>()),
     )
@@ -197,6 +204,13 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton(
       () => GetConnectionUsecase(getIt<ConnectionRepository>()),
+    )
+    ..registerLazySingleton(
+      () =>
+          GetOnboardingCompletedUsecase(getIt<OnboardingProgressRepository>()),
+    )
+    ..registerLazySingleton(
+      () => CompleteOnboardingUsecase(getIt<OnboardingProgressRepository>()),
     )
     ..registerLazySingleton(
       () => ClearConnectionUsecase(getIt<ConnectionRepository>()),
