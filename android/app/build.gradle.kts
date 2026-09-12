@@ -54,4 +54,10 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("androidx.core:core-ktx:1.17.0")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("com.google.code.gson:gson:2.13.2")
 }
