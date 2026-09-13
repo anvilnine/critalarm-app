@@ -1,0 +1,18 @@
+{
+  "Simulator Target Bundle": "app.critalarm",
+  "aps": {
+    "alert": {
+      "title": "Database down",
+      "body": "db01 is unreachable from every region, page the on-call"
+    },
+    "sound": "default",
+    "interruption-level": "critical",
+    "content-available": 1,
+    "mutable-content": 1,
+    "category": "INCIDENT"
+  },
+  "incident_id": "inc_alarmed_proddb",
+  "server": "http://127.0.0.1:8787",
+  "topic": "prod-db",
+  "kind": "open"
+}
