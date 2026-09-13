@@ -195,7 +195,10 @@ class _OnboardingPermissionsView extends StatelessWidget {
           ),
           bottomNavigationBar: SafeArea(
             top: false,
-            child: Center(
+            // heightFactor keeps the bar as tall as its child. A plain Center
+            // would expand and swallow the body above it.
+            child: Align(
+              heightFactor: 1,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 480),
                 child: Padding(
