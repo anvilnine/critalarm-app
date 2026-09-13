@@ -1,6 +1,8 @@
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing the Welcome onboarding screen state and server URL
@@ -26,7 +28,8 @@ class OnboardingWelcomeCubit extends Cubit<OnboardingWelcomeState> {
     if (trimmed.isEmpty) {
       emit(
         state.copyWith(
-          errorMessage: 'Server URL cannot be empty',
+          errorMessage: LocaleKeys.onboarding_welcome_server_url_error_empty
+              .tr(),
           canNavigate: false,
         ),
       );
@@ -39,7 +42,8 @@ class OnboardingWelcomeCubit extends Cubit<OnboardingWelcomeState> {
         uri.host.isEmpty) {
       emit(
         state.copyWith(
-          errorMessage: 'Enter a valid URL (e.g. https://api.critalarm.app)',
+          errorMessage: LocaleKeys.onboarding_welcome_server_url_error_invalid
+              .tr(),
           canNavigate: false,
         ),
       );

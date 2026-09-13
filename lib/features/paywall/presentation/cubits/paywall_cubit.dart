@@ -10,6 +10,8 @@ import 'package:critalarm/features/paywall/domain/usecases/get_offerings_usecase
 import 'package:critalarm/features/paywall/domain/usecases/purchase_package_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/restore_purchases_usecase.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
@@ -153,8 +155,8 @@ class PaywallCubit extends Cubit<PaywallState> {
               isPro: isPro,
               customerInfo: customerInfo,
               feedbackMessage: isPro
-                  ? 'Upgraded to Crit Alarm Pro'
-                  : 'Purchase completed',
+                  ? LocaleKeys.paywall_feedback_upgraded.tr()
+                  : LocaleKeys.paywall_feedback_purchase_completed.tr(),
             ),
           );
         },
@@ -180,7 +182,7 @@ class PaywallCubit extends Cubit<PaywallState> {
       state.copyWith(
         status: PaywallStatus.success,
         isPro: true,
-        feedbackMessage: 'Upgraded to Crit Alarm Pro',
+        feedbackMessage: LocaleKeys.paywall_feedback_upgraded.tr(),
       ),
     );
   }
@@ -209,8 +211,8 @@ class PaywallCubit extends Cubit<PaywallState> {
               isPro: isPro,
               customerInfo: customerInfo,
               feedbackMessage: isPro
-                  ? 'Crit Alarm Pro restored successfully'
-                  : 'No active Pro subscriptions found to restore',
+                  ? LocaleKeys.paywall_feedback_restored.tr()
+                  : LocaleKeys.paywall_feedback_no_active_restored.tr(),
             ),
           );
         },
@@ -230,7 +232,7 @@ class PaywallCubit extends Cubit<PaywallState> {
     emit(
       state.copyWith(
         status: PaywallStatus.success,
-        feedbackMessage: 'Purchases restored successfully',
+        feedbackMessage: LocaleKeys.paywall_feedback_purchases_restored.tr(),
       ),
     );
   }
@@ -302,7 +304,7 @@ class PaywallCubit extends Cubit<PaywallState> {
     if (failure is ConflictFailure && failure.message != null) {
       return failure.message!;
     }
-    return 'Subscription operation failed. Please try again.';
+    return LocaleKeys.paywall_error_subscription_failed.tr();
   }
 
   void clearFeedback() {

@@ -4,6 +4,8 @@ import 'package:critalarm/features/incidents/domain/repositories/incident_reposi
 import 'package:critalarm/features/topics/domain/usecases/get_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state for TopicDetailScreen.
@@ -54,15 +56,15 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         if (hasCrit) {
           severity = SeverityMode.crit;
           face = FaceState.alarmed;
-          word = 'CRITICAL';
+          word = LocaleKeys.topic_detail_stage_word_critical.tr();
         } else if (hasHigh) {
           severity = SeverityMode.high;
           face = FaceState.worried;
-          word = '1 warning';
+          word = LocaleKeys.topic_detail_stage_word_warning.tr();
         } else {
           severity = SeverityMode.none;
           face = FaceState.calm;
-          word = 'All clear';
+          word = LocaleKeys.topic_detail_stage_word_clear.tr();
         }
 
         final priorityLabel = topic.critical
@@ -75,7 +77,12 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
 
         final messages = _resolveMessages(topicName, hasHigh: hasHigh);
         final count = messages.length > 2 ? messages.length : 61;
-        final subText = 'Default priority $priorityLabel. $count messages.';
+        final subText = LocaleKeys.topic_detail_stage_sub.tr(
+          namedArgs: {
+            'priority': priorityLabel,
+            'count': count.toString(),
+          },
+        );
 
         emit(
           state.copyWith(
@@ -150,7 +157,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         isMarkingAsRead: false,
         severity: SeverityMode.none,
         faceState: FaceState.calm,
-        word: 'All clear',
+        word: LocaleKeys.topic_detail_stage_word_clear.tr(),
         messages: clearedMessages,
       ),
     );

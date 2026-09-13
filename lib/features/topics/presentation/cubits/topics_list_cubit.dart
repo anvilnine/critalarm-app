@@ -4,6 +4,8 @@ import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topics_list_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state for TopicsListScreen.
@@ -72,7 +74,9 @@ class TopicsListCubit extends Cubit<TopicsListState> {
           if (t.name == 'prod-db') {
             return TopicsListItem(
               name: t.name,
-              meta: isOpenCrit ? 'Ringing 2 min 14 s' : 'Quiet for 6 h',
+              meta: isOpenCrit
+                  ? LocaleKeys.topics_list_meta_ringing_crit.tr()
+                  : LocaleKeys.topics_list_meta_quiet_6h.tr(),
               priority: PriorityLevel.critical,
               faceState: isOpenCrit ? FaceState.alarmed : FaceState.calm,
               isCrit: isOpenCrit,
@@ -84,8 +88,8 @@ class TopicsListCubit extends Cubit<TopicsListState> {
             return TopicsListItem(
               name: t.name,
               meta: hasWarning
-                  ? 'Finished 02:04, 2 warnings'
-                  : 'Finished 02:00, 412 GB',
+                  ? LocaleKeys.topics_list_meta_finished_warnings.tr()
+                  : LocaleKeys.topics_list_meta_finished_size.tr(),
               priority: PriorityLevel.high,
               faceState: hasWarning ? FaceState.worried : FaceState.calm,
             );
@@ -94,7 +98,7 @@ class TopicsListCubit extends Cubit<TopicsListState> {
           if (t.name == 'uptime-kuma') {
             return TopicsListItem(
               name: t.name,
-              meta: '3 today',
+              meta: LocaleKeys.topics_list_meta_today.tr(),
               priority: PriorityLevel.defaultPriority,
             );
           }
@@ -102,7 +106,7 @@ class TopicsListCubit extends Cubit<TopicsListState> {
           if (t.name == 'home-ha') {
             return TopicsListItem(
               name: t.name,
-              meta: 'Yesterday 18:40',
+              meta: LocaleKeys.topics_list_meta_yesterday.tr(),
               priority: PriorityLevel.low,
               isQuiet: true,
             );
@@ -125,8 +129,10 @@ class TopicsListCubit extends Cubit<TopicsListState> {
           return TopicsListItem(
             name: t.name,
             meta: isOpenCrit
-                ? 'Ringing'
-                : (isOpenHigh || hasWarning ? '1 warning' : 'Quiet'),
+                ? LocaleKeys.topics_list_meta_ringing.tr()
+                : (isOpenHigh || hasWarning
+                      ? LocaleKeys.topics_list_meta_warning.tr()
+                      : LocaleKeys.topics_list_meta_quiet.tr()),
             priority: priority,
             faceState: face,
             isCrit: isOpenCrit,

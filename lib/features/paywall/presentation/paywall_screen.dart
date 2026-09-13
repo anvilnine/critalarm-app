@@ -4,6 +4,8 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -79,10 +81,10 @@ class _PaywallScreenContent extends StatelessWidget {
               ),
               slivers: [
                 AppSliverTopBar(
-                  title: 'Crit Alarm Pro',
+                  title: LocaleKeys.paywall_title.tr(),
                   leading: AppIconButton(
                     glyph: GlyphType.back,
-                    ariaLabel: 'Back',
+                    ariaLabel: LocaleKeys.paywall_back_aria_label.tr(),
                     onPressed: () {
                       if (context.canPop()) {
                         context.pop();
@@ -101,13 +103,13 @@ class _PaywallScreenContent extends StatelessWidget {
                             ? FaceState.calm
                             : FaceState.acked,
                         faceSize: 140,
-                        word: state.isPro ? 'Pro Active' : 'Crit Alarm Pro',
+                        word: state.isPro
+                            ? LocaleKeys.paywall_stage_word_pro_active.tr()
+                            : LocaleKeys.paywall_stage_word_pro.tr(),
                         wordFontSize: 36,
                         sub: state.isPro
-                            ? 'Your device is fully protected. '
-                                  'Unlimited critical alarms unlocked.'
-                            : 'Never miss a 3am page. '
-                                  'Full repeat loop and escalation.',
+                            ? LocaleKeys.paywall_stage_sub_pro_active.tr()
+                            : LocaleKeys.paywall_stage_sub_pro.tr(),
                         padding: const EdgeInsets.fromLTRB(
                           24,
                           Spacing.s2,
@@ -135,30 +137,30 @@ class _PaywallScreenContent extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const AppFeatureBullet(
-                              text: 'Bypasses silent mode and Do Not Disturb',
+                            AppFeatureBullet(
+                              text: LocaleKeys.paywall_feature_rings_until_ack
+                                  .tr(),
                               glyph: GlyphType.bell,
                             ),
                             const SizedBox(height: 12),
-                            const AppFeatureBullet(
-                              text: 'Repeats every 30 s until acknowledged',
+                            AppFeatureBullet(
+                              text: LocaleKeys.paywall_feature_repeat_loop.tr(),
                               glyph: GlyphType.repeat,
                             ),
                             const SizedBox(height: 12),
-                            const AppFeatureBullet(
-                              text: 'Escalates to phone call after 5 minutes',
+                            AppFeatureBullet(
+                              text: LocaleKeys.paywall_feature_escalate_call
+                                  .tr(),
                               glyph: GlyphType.arrow,
                             ),
                             const SizedBox(height: 12),
-                            const AppFeatureBullet(
-                              text: 'Unlimited critical topics',
+                            AppFeatureBullet(
+                              text: LocaleKeys.paywall_feature_unlimited_topics
+                                  .tr(),
                             ),
                             const SizedBox(height: 18),
-                            const AppNote(
-                              text:
-                                  'Running on your own infrastructure? '
-                                  'Self-hosted server includes all critical '
-                                  'alerts 100% free.',
+                            AppNote(
+                              text: LocaleKeys.paywall_self_hosted_note.tr(),
                             ),
                             const SizedBox(height: 20),
                             if (state.isPro) ...[
@@ -175,7 +177,7 @@ class _PaywallScreenContent extends StatelessWidget {
                                 child: Column(
                                   children: [
                                     Text(
-                                      'Crit Alarm Pro is Active',
+                                      LocaleKeys.paywall_active_title.tr(),
                                       style: TextStyle(
                                         color: colors.ink,
                                         fontWeight: FontWeight.bold,
@@ -184,7 +186,7 @@ class _PaywallScreenContent extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      'Thank you for supporting Crit Alarm!',
+                                      LocaleKeys.paywall_active_subtitle.tr(),
                                       style: TextStyle(
                                         color: colors.ink2,
                                         fontSize: 14,
@@ -195,14 +197,16 @@ class _PaywallScreenContent extends StatelessWidget {
                               ),
                               const SizedBox(height: 16),
                               AppButton(
-                                label: 'Manage Subscription',
+                                label: LocaleKeys
+                                    .paywall_manage_subscription_button
+                                    .tr(),
                                 size: AppButtonSize.lg,
                                 isFullWidth: true,
                                 onPressed: cubit.presentCustomerCenter,
                               ),
                             ] else ...[
                               Text(
-                                'Select Plan',
+                                LocaleKeys.paywall_select_plan_header.tr(),
                                 style: TextStyle(
                                   color: colors.ink,
                                   fontWeight: FontWeight.w600,
@@ -212,12 +216,14 @@ class _PaywallScreenContent extends StatelessWidget {
                               const SizedBox(height: 10),
                               _TierCard(
                                 tier: SubscriptionTier.yearly,
-                                title: 'Yearly',
-                                badge: 'Best Value',
+                                title: LocaleKeys.paywall_tier_yearly.tr(),
+                                badge: LocaleKeys.paywall_badge_best_value.tr(),
                                 priceDescription: _getPriceString(
                                   state,
                                   SubscriptionTier.yearly,
-                                  fallback: r'$19.99 / year',
+                                  fallback: LocaleKeys.paywall_price_yearly.tr(
+                                    namedArgs: {'price': r'$19.99'},
+                                  ),
                                 ),
                                 isSelected:
                                     state.selectedTier ==
@@ -228,11 +234,13 @@ class _PaywallScreenContent extends StatelessWidget {
                               const SizedBox(height: 8),
                               _TierCard(
                                 tier: SubscriptionTier.monthly,
-                                title: 'Monthly',
+                                title: LocaleKeys.paywall_tier_monthly.tr(),
                                 priceDescription: _getPriceString(
                                   state,
                                   SubscriptionTier.monthly,
-                                  fallback: r'$2.99 / month',
+                                  fallback: LocaleKeys.paywall_price_monthly.tr(
+                                    namedArgs: {'price': r'$2.99'},
+                                  ),
                                 ),
                                 isSelected:
                                     state.selectedTier ==
@@ -243,11 +251,14 @@ class _PaywallScreenContent extends StatelessWidget {
                               const SizedBox(height: 8),
                               _TierCard(
                                 tier: SubscriptionTier.lifetime,
-                                title: 'Lifetime',
+                                title: LocaleKeys.paywall_tier_lifetime.tr(),
                                 priceDescription: _getPriceString(
                                   state,
                                   SubscriptionTier.lifetime,
-                                  fallback: r'$49.99 one-time',
+                                  fallback: LocaleKeys.paywall_price_lifetime
+                                      .tr(
+                                        namedArgs: {'price': r'$49.99'},
+                                      ),
                                 ),
                                 isSelected:
                                     state.selectedTier ==
@@ -258,9 +269,11 @@ class _PaywallScreenContent extends StatelessWidget {
                               ),
                               const SizedBox(height: 20),
                               AppButton(
-                                label:
-                                    'Upgrade to Pro '
-                                    '(${state.selectedTier.displayName})',
+                                label: LocaleKeys.paywall_upgrade_button.tr(
+                                  namedArgs: {
+                                    'tier': state.selectedTier.displayName,
+                                  },
+                                ),
                                 size: AppButtonSize.lg,
                                 isFullWidth: true,
                                 isLoading:
@@ -269,7 +282,8 @@ class _PaywallScreenContent extends StatelessWidget {
                               ),
                               const SizedBox(height: 10),
                               AppButton(
-                                label: 'Present RevenueCat Paywall',
+                                label: LocaleKeys.paywall_present_paywall_button
+                                    .tr(),
                                 variant: AppButtonVariant.ghost,
                                 isFullWidth: true,
                                 onPressed: cubit.presentNativePaywall,
@@ -277,7 +291,8 @@ class _PaywallScreenContent extends StatelessWidget {
                             ],
                             const SizedBox(height: 10),
                             AppButton(
-                              label: 'Restore Purchases',
+                              label: LocaleKeys.paywall_restore_purchases_button
+                                  .tr(),
                               variant: AppButtonVariant.ghost,
                               isFullWidth: true,
                               isLoading:
@@ -309,13 +324,25 @@ class _PaywallScreenContent extends StatelessWidget {
       switch (tier) {
         case SubscriptionTier.yearly:
           final p = currentOffering.annual;
-          if (p != null) return '${p.storeProduct.priceString} / year';
+          if (p != null) {
+            return LocaleKeys.paywall_price_yearly.tr(
+              namedArgs: {'price': p.storeProduct.priceString},
+            );
+          }
         case SubscriptionTier.monthly:
           final p = currentOffering.monthly;
-          if (p != null) return '${p.storeProduct.priceString} / month';
+          if (p != null) {
+            return LocaleKeys.paywall_price_monthly.tr(
+              namedArgs: {'price': p.storeProduct.priceString},
+            );
+          }
         case SubscriptionTier.lifetime:
           final p = currentOffering.lifetime;
-          if (p != null) return '${p.storeProduct.priceString} one-time';
+          if (p != null) {
+            return LocaleKeys.paywall_price_lifetime.tr(
+              namedArgs: {'price': p.storeProduct.priceString},
+            );
+          }
       }
     }
     return fallback;

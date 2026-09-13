@@ -2,6 +2,8 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -143,7 +145,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
             const SizedBox(width: Spacing.s3),
             Expanded(
               child: Text(
-                'Crit Alarm',
+                LocaleKeys.app_title.tr(),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
                 style: TextStyle(
@@ -165,7 +167,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
           child: Text(
-            'Connect your server',
+            LocaleKeys.onboarding_connect_title.tr(),
             style: AppTypography.display(
               colors.onCanvas,
               fontSize: 34,
@@ -176,8 +178,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
 
         // Subtitle
         Text(
-          'One HTTP endpoint per topic. Point your scripts, cron, or '
-          'monitoring tools at Crit Alarm.',
+          LocaleKeys.onboarding_connect_subtitle.tr(),
           style: AppTypography.lead(
             colors.onCanvasMuted,
             fontSize: 16,
@@ -187,12 +188,10 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
 
         // Server URL input
         AppTextField(
-          label: 'SERVER URL',
+          label: LocaleKeys.onboarding_connect_url_label.tr(),
           controller: _urlController,
           placeholder: 'https://api.critalarm.app',
-          helperText:
-              'Defaults to https://api.critalarm.app. Change this if '
-              'you run your own instance.',
+          helperText: LocaleKeys.onboarding_connect_url_helper.tr(),
           errorText: state.serverUrlError,
           onChanged: cubit.serverUrlChanged,
           onSubmitted: (_) => cubit.connect(),
@@ -204,7 +203,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
           children: [
             Expanded(
               child: Text(
-                'ADMIN TOKEN',
+                LocaleKeys.onboarding_connect_admin_token_label.tr(),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
                 style: AppTypography.small(colors.onCanvas).copyWith(
@@ -215,7 +214,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
             const SizedBox(width: 8),
             // Paste button
             AppButton(
-              label: 'Paste',
+              label: LocaleKeys.onboarding_connect_paste_button.tr(),
               size: AppButtonSize.sm,
               variant: AppButtonVariant.paper,
               icon: AppGlyph(
@@ -228,7 +227,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
             const SizedBox(width: 8),
             // Stubbed Scan QR button
             Semantics(
-              label: 'Scan QR code',
+              label: LocaleKeys.onboarding_connect_scan_qr_semantic_label.tr(),
               button: true,
               child: GestureDetector(
                 onTap: cubit.scanQrTapped,
@@ -255,7 +254,8 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
         const SizedBox(height: 6),
         AppTextField(
           controller: _tokenController,
-          placeholder: 'ad_...',
+          placeholder: LocaleKeys.onboarding_connect_admin_token_placeholder
+              .tr(),
           errorText: state.adminTokenError,
           onChanged: cubit.adminTokenChanged,
           onSubmitted: (_) => cubit.connect(),
@@ -292,7 +292,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Crit Alarm Cloud',
+                      LocaleKeys.onboarding_connect_cloud_title.tr(),
                       style: TextStyle(
                         fontFamily: AppTypography.fontDisplay,
                         fontFamilyFallback: AppTypography.fontDisplayFallbacks,
@@ -302,18 +302,19 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
                       ),
                     ),
                   ),
-                  const AppBadge(text: 'Soon'),
+                  AppBadge(
+                    text: LocaleKeys.onboarding_connect_cloud_badge.tr(),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
               Text(
-                'Hosted sign-in coming soon. For now, enter your self-hosted '
-                'server URL and admin token above.',
+                LocaleKeys.onboarding_connect_cloud_description.tr(),
                 style: AppTypography.body(colors.ink2, fontSize: 13),
               ),
               const SizedBox(height: 12),
-              const AppButton(
-                label: 'Sign in with Crit Alarm Cloud',
+              AppButton(
+                label: LocaleKeys.onboarding_connect_cloud_button.tr(),
                 variant: AppButtonVariant.paper,
                 isFullWidth: true,
               ),
@@ -324,7 +325,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
 
         // Connect button
         AppButton(
-          label: 'Connect',
+          label: LocaleKeys.onboarding_connect_connect_button.tr(),
           size: AppButtonSize.lg,
           isFullWidth: true,
           isLoading: state.isConnecting,
@@ -347,7 +348,9 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
         // Connection status pill badge
         Center(
           child: AppBadge(
-            text: 'Connected: ${state.serverUrl}',
+            text: LocaleKeys.onboarding_connect_connected_status.tr(
+              namedArgs: {'serverUrl': state.serverUrl},
+            ),
           ),
         ),
         const SizedBox(height: Spacing.s5),
@@ -370,7 +373,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
         FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
-            'Never miss a critical page',
+            LocaleKeys.onboarding_connect_ring_title.tr(),
             textAlign: TextAlign.center,
             style: AppTypography.headline(
               colors.onCanvas,
@@ -382,10 +385,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
 
         // Body explaining Critical Alerts
         Text(
-          'Critical Alerts play through your silent switch and '
-          'Do Not Disturb. When your server triggers a '
-          'priority-5 page, Crit Alarm rings continuously '
-          'until you acknowledge it.',
+          LocaleKeys.onboarding_connect_ring_body.tr(),
           textAlign: TextAlign.center,
           style: AppTypography.body(colors.onCanvasMuted),
         ),
@@ -393,7 +393,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
 
         // "Ring me now" test button
         AppButton(
-          label: 'Ring me now',
+          label: LocaleKeys.onboarding_connect_ring_button.tr(),
           variant: AppButtonVariant.ink,
           isFullWidth: true,
           isLoading: state.isRinging,
@@ -409,17 +409,20 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
                 ? AppToast(
                     key: const ValueKey('ring-success-toast'),
                     variant: AppToastVariant.crit,
-                    message: 'Test alarm sent to',
+                    message: LocaleKeys.onboarding_connect_ring_toast_sent.tr(),
                     boldText: state.topic,
                     boldTextSuffix: state.incidentId != null
-                        ? '• Ringing now (${state.incidentId})'
-                        : '• Ringing now',
+                        ? LocaleKeys
+                              .onboarding_connect_ring_toast_ringing_with_id
+                              .tr(namedArgs: {'incidentId': state.incidentId!})
+                        : LocaleKeys.onboarding_connect_ring_toast_ringing.tr(),
                   )
                 : AppToast(
                     key: const ValueKey('ring-error-toast'),
                     faceState: FaceState.worried,
                     message:
-                        state.errorMessage ?? 'Failed to trigger test alarm',
+                        state.errorMessage ??
+                        LocaleKeys.onboarding_connect_ring_toast_failed.tr(),
                   ),
           ),
         ],
@@ -427,7 +430,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
 
         // Primary button "Go to Dashboard" / "Continue to App"
         AppButton(
-          label: 'Go to Dashboard',
+          label: LocaleKeys.onboarding_connect_dashboard_button.tr(),
           size: AppButtonSize.lg,
           isFullWidth: true,
           onPressed: cubit.navigateToHome,
@@ -436,7 +439,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
 
         // Option to edit / change connection
         AppButton(
-          label: 'Change server',
+          label: LocaleKeys.onboarding_connect_change_server_button.tr(),
           variant: AppButtonVariant.ghost,
           size: AppButtonSize.sm,
           onPressed: cubit.editConnection,

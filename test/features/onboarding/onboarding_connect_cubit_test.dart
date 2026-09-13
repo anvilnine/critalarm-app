@@ -120,7 +120,7 @@ void main() {
       act: (cubit) => cubit.scanQrTapped(),
       expect: () => [
         const OnboardingConnectState(
-          qrNotice: 'QR scanner placeholder - paste token instead',
+          qrNotice: 'Scanning is not ready yet. Paste the token instead.',
         ),
       ],
     );
@@ -248,7 +248,7 @@ void main() {
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.failure,
           errorMessage:
-              'Server version 1.2.0 is incompatible. Crit Alarm requires v0.x.',
+              'This app needs a v0.x server. Yours is 1.2.0.',
         ),
       ],
     );
@@ -283,8 +283,7 @@ void main() {
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.failure,
           errorMessage:
-              'Server version custom-build-xyz is incompatible. '
-              'Crit Alarm requires v0.x.',
+              'This app needs a v0.x server. Yours is custom-build-xyz.',
         ),
       ],
     );

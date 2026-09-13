@@ -8,6 +8,8 @@ import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecas
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/update_incident_badge_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing CriticalAlarmScreen state.
@@ -113,7 +115,9 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       (updatedIncident) {
         final ackedTime = updatedIncident.ackedAt ?? DateTime.now();
         final timeStr = _formatTime(ackedTime);
-        final ackMsg = 'Acknowledged at $timeStr by Z';
+        final ackMsg = LocaleKeys.critical_alarm_acknowledged_message.tr(
+          namedArgs: {'time': timeStr},
+        );
 
         emit(
           state.copyWith(
@@ -124,7 +128,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
             severityMode: SeverityMode.ack,
             faceState: FaceState.acked,
             isLive: false,
-            word: 'ACKNOWLEDGED',
+            word: LocaleKeys.critical_alarm_stage_word_acknowledged.tr(),
             subtext: ackMsg,
             feedbackMessage: ackMsg,
             clearError: true,
@@ -134,7 +138,9 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       (failure) {
         final isConflict = failure is ApiFailure && failure.statusCode == 409;
         final timeStr = _formatTime(DateTime.now());
-        final ackMsg = 'Acknowledged at $timeStr by Z';
+        final ackMsg = LocaleKeys.critical_alarm_acknowledged_message.tr(
+          namedArgs: {'time': timeStr},
+        );
 
         if (isConflict) {
           emit(
@@ -145,7 +151,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
               severityMode: SeverityMode.ack,
               faceState: FaceState.acked,
               isLive: false,
-              word: 'ACKNOWLEDGED',
+              word: LocaleKeys.critical_alarm_stage_word_acknowledged.tr(),
               subtext: ackMsg,
               feedbackMessage: ackMsg,
               clearError: true,
@@ -161,7 +167,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
               severityMode: SeverityMode.ack,
               faceState: FaceState.acked,
               isLive: false,
-              word: 'ACKNOWLEDGED',
+              word: LocaleKeys.critical_alarm_stage_word_acknowledged.tr(),
               subtext: ackMsg,
               feedbackMessage: ackMsg,
               errorMessage: failure.message,
@@ -184,7 +190,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
           state.copyWith(
             status: CriticalAlarmStatus.closed,
             incident: closedIncident,
-            word: 'CLOSED',
+            word: LocaleKeys.critical_alarm_stage_word_closed.tr(),
             severityMode: SeverityMode.none,
             faceState: FaceState.calm,
             isLive: false,
@@ -200,18 +206,20 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
 
   void _applyIncident(Incident incident) {
     final firstMsg = incident.messages.firstOrNull;
-    final title = firstMsg?.title ?? 'Primary database down';
+    final title =
+        firstMsg?.title ?? LocaleKeys.critical_alarm_fallback_title.tr();
     final body = (firstMsg != null && firstMsg.message.isNotEmpty)
         ? firstMsg.message
-        : 'pg_isready failed 3 times in 90 s. '
-              'Replica promoted to primary on db-2.';
+        : LocaleKeys.critical_alarm_fallback_body.tr();
     final topic = incident.topic.isNotEmpty ? incident.topic : 'prod-db';
 
     if (incident.isAcked) {
       final ackedTime = incident.ackedAt != null
           ? _formatTime(incident.ackedAt!)
           : '03:14';
-      final ackMsg = 'Acknowledged at $ackedTime by Z';
+      final ackMsg = LocaleKeys.critical_alarm_acknowledged_message.tr(
+        namedArgs: {'time': ackedTime},
+      );
 
       emit(
         state.copyWith(
@@ -220,7 +228,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
           topic: topic,
           title: title,
           body: body,
-          word: 'ACKNOWLEDGED',
+          word: LocaleKeys.critical_alarm_stage_word_acknowledged.tr(),
           subtext: ackMsg,
           feedbackMessage: ackMsg,
           severityMode: SeverityMode.ack,
@@ -238,7 +246,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
           topic: topic,
           title: title,
           body: body,
-          word: 'CLOSED',
+          word: LocaleKeys.critical_alarm_stage_word_closed.tr(),
           severityMode: SeverityMode.none,
           faceState: FaceState.calm,
           isLive: false,
@@ -253,8 +261,8 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
           topic: topic,
           title: title,
           body: body,
-          word: 'CRITICAL',
-          subtext: 'Ringing 2 min 14 s. Repeats every 30 s.',
+          word: LocaleKeys.critical_alarm_stage_word_critical.tr(),
+          subtext: LocaleKeys.critical_alarm_stage_sub_ringing.tr(),
           severityMode: SeverityMode.crit,
           faceState: FaceState.alarmed,
           isLive: true,

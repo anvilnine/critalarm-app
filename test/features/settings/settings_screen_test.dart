@@ -59,7 +59,7 @@ void main() {
         await tester.tap(find.text('Notifications, lock screen, battery'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Critical Alarm Capabilities'), findsOneWidget);
+        expect(find.text('What Crit Alarm needs'), findsOneWidget);
       },
     );
 
@@ -166,8 +166,7 @@ void main() {
       expect(find.text('Disconnect server?'), findsOneWidget);
       expect(
         find.text(
-          'Are you sure you want to disconnect? You will stop receiving '
-          'critical alarms until you reconnect.',
+          'You will stop receiving pages until you connect again.',
         ),
         findsOneWidget,
       );
@@ -216,16 +215,14 @@ void main() {
       expect(find.text('Share anonymous usage analytics'), findsOneWidget);
       expect(
         find.text(
-          'Shares anonymous feature usage and screen views to improve '
-          'app stability.',
+          'Which screens you open. No topic names, no message content.',
         ),
         findsOneWidget,
       );
       expect(find.text('Send crash reports'), findsOneWidget);
       expect(
         find.text(
-          'Sends anonymized stack traces and device info when an '
-          'unexpected error occurs.',
+          'What the app was doing when it crashed, plus your device model.',
         ),
         findsOneWidget,
       );
@@ -296,7 +293,7 @@ void main() {
         expect(find.text('Version'), findsOneWidget);
         expect(find.text('v$appVersion'), findsOneWidget);
         expect(find.text('License'), findsOneWidget);
-        expect(find.text('GPL-3.0 License'), findsOneWidget);
+        expect(find.text('GPL-3.0'), findsOneWidget);
         expect(find.text('Documentation'), findsOneWidget);
         expect(find.text('https://docs.critalarm.app'), findsOneWidget);
         expect(find.text('GitHub'), findsOneWidget);

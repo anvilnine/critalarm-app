@@ -1,3 +1,5 @@
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// Subscription tiers offered by Crit Alarm.
@@ -18,11 +20,11 @@ enum SubscriptionTier {
   String get displayName {
     switch (this) {
       case SubscriptionTier.lifetime:
-        return 'Lifetime';
+        return LocaleKeys.paywall_tier_lifetime.tr();
       case SubscriptionTier.yearly:
-        return 'Yearly';
+        return LocaleKeys.paywall_tier_yearly.tr();
       case SubscriptionTier.monthly:
-        return 'Monthly';
+        return LocaleKeys.paywall_tier_monthly.tr();
     }
   }
 

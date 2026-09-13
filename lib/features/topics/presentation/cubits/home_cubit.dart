@@ -9,6 +9,8 @@ import 'package:critalarm/features/incidents/domain/repositories/incident_reposi
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state for HomeScreen.
@@ -47,8 +49,8 @@ class HomeCubit extends Cubit<HomeState> {
               status: HomeStatus.success,
               topicItems: const [],
               faceState: FaceState.watching,
-              word: 'No topics yet',
-              subText: 'Create a topic to get started.',
+              word: LocaleKeys.home_stage_word_no_topics.tr(),
+              subText: LocaleKeys.home_stage_sub_no_topics.tr(),
               severity: SeverityMode.none,
             ),
           );
@@ -100,21 +102,27 @@ class HomeCubit extends Cubit<HomeState> {
 
         if (hasCriticalOpen) {
           faceState = FaceState.alarmed;
-          word = 'CRITICAL';
+          word = LocaleKeys.home_stage_word_critical.tr();
           final crit = openIncidents.firstWhere(
             (i) => i.messages.any((m) => m.priority == 5),
           );
-          subText = '${crit.topic} ringing. Repeats every 30 s.';
+          subText = LocaleKeys.home_stage_sub_critical.tr(
+            namedArgs: {'topic': crit.topic},
+          );
           severity = SeverityMode.crit;
         } else if (hasWarningOpen) {
           faceState = FaceState.worried;
-          word = '1 warning';
-          subText = '${topics.length} topics. 1 warning.';
+          word = LocaleKeys.home_stage_word_warning.tr();
+          subText = LocaleKeys.home_stage_sub_warning.tr(
+            namedArgs: {'count': topics.length.toString()},
+          );
           severity = SeverityMode.high;
         } else {
           faceState = FaceState.calm;
-          word = 'All clear';
-          subText = '${topics.length} topics. Last alert 06:12, acknowledged.';
+          word = LocaleKeys.home_stage_word_clear.tr();
+          subText = LocaleKeys.home_stage_sub_clear.tr(
+            namedArgs: {'count': topics.length.toString()},
+          );
           severity = SeverityMode.none;
         }
 
@@ -158,7 +166,9 @@ class HomeCubit extends Cubit<HomeState> {
         );
         return HomeTopicItem(
           name: t.name,
-          meta: isOpenCrit ? 'Ringing 2 min 14 s' : 'Quiet for 6 h',
+          meta: isOpenCrit
+              ? LocaleKeys.home_meta_ringing_crit.tr()
+              : LocaleKeys.home_meta_quiet_6h.tr(),
           priority: PriorityLevel.critical,
           faceState: isOpenCrit ? FaceState.alarmed : FaceState.calm,
           isCrit: isOpenCrit,
@@ -170,8 +180,8 @@ class HomeCubit extends Cubit<HomeState> {
         return HomeTopicItem(
           name: t.name,
           meta: isWorried
-              ? 'Finished 02:04, 2 warnings'
-              : 'Finished 02:00, 412 GB',
+              ? LocaleKeys.home_meta_finished_warnings.tr()
+              : LocaleKeys.home_meta_finished_size.tr(),
           priority: PriorityLevel.high,
           faceState: isWorried ? FaceState.worried : FaceState.calm,
         );
@@ -180,7 +190,7 @@ class HomeCubit extends Cubit<HomeState> {
       if (t.name == 'uptime-kuma') {
         return HomeTopicItem(
           name: t.name,
-          meta: '3 today',
+          meta: LocaleKeys.home_meta_today.tr(),
           priority: PriorityLevel.defaultPriority,
         );
       }
@@ -188,7 +198,7 @@ class HomeCubit extends Cubit<HomeState> {
       if (t.name == 'home-ha') {
         return HomeTopicItem(
           name: t.name,
-          meta: 'Yesterday 18:40',
+          meta: LocaleKeys.home_meta_yesterday.tr(),
           priority: PriorityLevel.low,
           isQuiet: true,
         );
@@ -198,7 +208,11 @@ class HomeCubit extends Cubit<HomeState> {
       final hasWarning = warningTopics.contains(t.name);
       return HomeTopicItem(
         name: t.name,
-        meta: hasOpen ? 'Alert active' : (hasWarning ? '1 warning' : 'Quiet'),
+        meta: hasOpen
+            ? LocaleKeys.home_meta_alert_active.tr()
+            : (hasWarning
+                  ? LocaleKeys.home_meta_warning.tr()
+                  : LocaleKeys.home_meta_quiet.tr()),
         priority: t.critical
             ? PriorityLevel.critical
             : PriorityLevel.defaultPriority,

@@ -6,6 +6,8 @@ import 'package:critalarm/features/permissions/domain/entities/device_permission
 import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -75,10 +77,11 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
               ),
               slivers: [
                 AppSliverTopBar(
-                  title: 'Device Permissions',
+                  title: LocaleKeys.device_permissions_title.tr(),
                   leading: AppIconButton(
                     glyph: GlyphType.back,
-                    ariaLabel: 'Back',
+                    ariaLabel: LocaleKeys.device_permissions_back_aria_label
+                        .tr(),
                     onPressed: () {
                       if (context.canPop()) {
                         context.pop();
@@ -89,7 +92,8 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
                   ),
                   trailing: AppIconButton(
                     glyph: GlyphType.repeat,
-                    ariaLabel: 'Refresh',
+                    ariaLabel: LocaleKeys.device_permissions_refresh_aria_label
+                        .tr(),
                     onPressed: () => unawaited(cubit.refresh()),
                   ),
                 ),
@@ -102,10 +106,11 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
                             ? FaceState.calm
                             : FaceState.alarmed,
                         sub: state.allGranted
-                            ? 'All permissions active. '
-                                  'Ready to wake you at 3am.'
-                            : 'Permissions required for '
-                                  'alarm delivery through DND.',
+                            ? LocaleKeys
+                                  .device_permissions_stage_sub_all_granted
+                                  .tr()
+                            : LocaleKeys.device_permissions_stage_sub_required
+                                  .tr(),
                       ),
                       const SizedBox(height: Spacing.s3),
                     ],
@@ -127,8 +132,9 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const AppSectionHeader(
-                              'Critical Alarm Capabilities',
+                            AppSectionHeader(
+                              LocaleKeys.device_permissions_capabilities_header
+                                  .tr(),
                             ),
                             for (
                               var i = 0;
@@ -144,12 +150,8 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
                               ),
                             ],
                             const SizedBox(height: 16),
-                            const AppNote(
-                              text:
-                                  'Crit Alarm relies on direct system level '
-                                  'access so critical alerts break through '
-                                  'silent switches, lock screens, and battery '
-                                  'restrictions.',
+                            AppNote(
+                              text: LocaleKeys.device_permissions_note.tr(),
                             ),
                           ],
                         ),
@@ -229,7 +231,7 @@ class _PermissionCard extends StatelessWidget {
           const SizedBox(height: 12),
           if (item.canFix)
             AppButton(
-              label: 'Fix in Settings',
+              label: LocaleKeys.device_permissions_fix_button.tr(),
               size: AppButtonSize.sm,
               isFullWidth: true,
               trailingIcon: AppGlyph(
@@ -256,10 +258,10 @@ class _PermissionCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Permission granted',
-                    style: TextStyle(
+                    LocaleKeys.device_permissions_status_granted.tr(),
+                    style: const TextStyle(
                       fontFamily: AppTypography.fontBody,
                       fontFamilyFallback: AppTypography.fontBodyFallbacks,
                       fontSize: 13,
@@ -289,7 +291,7 @@ class _PermissionStatusBadge extends StatelessWidget {
 
     final (label, faceState, bg, fg, border) = switch (status) {
       DevicePermissionStatus.granted => (
-        'Granted',
+        LocaleKeys.device_permissions_badge_granted.tr(),
         FaceState.calm,
         isDark ? const Color(0xFF1B381E) : const Color(0xFFE8F5E9),
         isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32),
@@ -299,21 +301,21 @@ class _PermissionStatusBadge extends StatelessWidget {
         ),
       ),
       DevicePermissionStatus.denied => (
-        'Denied',
+        LocaleKeys.device_permissions_badge_denied.tr(),
         FaceState.alarmed,
         colors.critTint,
         colors.crit,
         Border.all(color: colors.crit, width: 1.5),
       ),
       DevicePermissionStatus.restricted => (
-        'Restricted',
+        LocaleKeys.device_permissions_badge_restricted.tr(),
         FaceState.worried,
         colors.yellow.withValues(alpha: 0.3),
         colors.high,
         Border.all(color: colors.high, width: 1.5),
       ),
       DevicePermissionStatus.notDetermined => (
-        'Not Set',
+        LocaleKeys.device_permissions_badge_not_set.tr(),
         FaceState.watching,
         colors.ash,
         colors.ink2,

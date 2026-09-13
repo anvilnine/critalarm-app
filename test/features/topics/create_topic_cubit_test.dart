@@ -80,7 +80,7 @@ void main() {
       expect: () => [
         const CreateTopicState(
           name: '   ',
-          errorMessage: 'Topic name cannot be empty',
+          errorMessage: 'Give the topic a name.',
         ),
       ],
     );
@@ -94,7 +94,7 @@ void main() {
         const CreateTopicState(
           name: 'invalid name!',
           errorMessage:
-              'Invalid name. Use 1-64 lowercase, digits, and hyphens.',
+              'Use 1 to 64 lowercase letters, digits and hyphens. Try prod-db.',
         ),
       ],
     );

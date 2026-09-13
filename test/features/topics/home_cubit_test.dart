@@ -29,11 +29,12 @@ void main() {
   });
 
   group('HomeCubit', () {
-    test('initial state has calm face and default all clear', () {
+    test('initial state has calm face and no stage word yet', () {
       final cubit = HomeCubit(getTopicsUsecase, incidentRepo);
       expect(cubit.state.status, HomeStatus.initial);
       expect(cubit.state.faceState, FaceState.calm);
-      expect(cubit.state.word, 'All clear');
+      // The stage word is written by load(), so it is blank until then.
+      expect(cubit.state.word, '');
       expect(cubit.state.severity, SeverityMode.none);
     });
 

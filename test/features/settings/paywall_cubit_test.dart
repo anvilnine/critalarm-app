@@ -48,7 +48,7 @@ void main() {
         const PaywallState(status: PaywallStatus.loading),
         const PaywallState(
           status: PaywallStatus.success,
-          feedbackMessage: 'Purchases restored successfully',
+          feedbackMessage: 'Purchases restored.',
         ),
       ],
     );

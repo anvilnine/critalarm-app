@@ -102,7 +102,7 @@ void main() {
         await tester.pumpWidget(buildTestWidget());
         await tester.pumpAndSettle();
 
-        expect(find.text('Device Permissions'), findsOneWidget);
+        expect(find.text('Device permissions'), findsOneWidget);
         expect(find.text('Notifications'), findsOneWidget);
         expect(find.text('Full-screen intent'), findsOneWidget);
         expect(find.text('Battery optimization exemption'), findsOneWidget);

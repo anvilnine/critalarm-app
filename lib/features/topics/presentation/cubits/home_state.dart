@@ -54,8 +54,8 @@ class HomeState {
     this.status = HomeStatus.initial,
     this.topicItems = const [],
     this.faceState = FaceState.calm,
-    this.word = 'All clear',
-    this.subText = '4 topics. Last alert 06:12, acknowledged.',
+    this.word = '',
+    this.subText = '',
     this.severity = SeverityMode.none,
     this.errorMessage,
   });

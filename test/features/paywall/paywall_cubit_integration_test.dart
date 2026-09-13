@@ -139,7 +139,7 @@ void main() {
           (s) =>
               s.status == PaywallStatus.success &&
               s.isPro &&
-              s.feedbackMessage == 'Crit Alarm Pro restored successfully',
+              s.feedbackMessage == 'Crit Alarm Pro restored.',
         ),
       ],
     );
