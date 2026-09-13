@@ -1,20 +1,35 @@
+import 'dart:ui';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 
+/// Routes a tapped notification can ask for. Anything else from the platform is
+/// ignored, so a stray route name cannot drop the user somewhere odd.
+bool isPushDeepLink(String? location) =>
+    location != null &&
+    (location.startsWith('/incidents/') || location.startsWith('/topics/'));
+
 String initialLocationFor({
   required bool hasServerConnection,
   required bool hasCompletedOnboarding,
-}) => !hasServerConnection && !hasCompletedOnboarding ? '/onboarding' : '/';
+  String? deepLink,
+}) {
+  // A tapped notification wins: the user asked for that screen by name.
+  final ready = hasServerConnection || hasCompletedOnboarding;
+  if (ready && isPushDeepLink(deepLink)) return deepLink!;
+  return !hasServerConnection && !hasCompletedOnboarding ? '/onboarding' : '/';
+}
 
 class InitialRouteResolver {
   const InitialRouteResolver(
     this._getConnection,
-    this._getOnboardingCompleted,
-  );
+    this._getOnboardingCompleted, {
+    String Function()? platformRoute,
+  }) : _platformRoute = platformRoute ?? _defaultPlatformRoute;
 
   final GetConnectionUsecase _getConnection;
   final GetOnboardingCompletedUsecase _getOnboardingCompleted;
+  final String Function() _platformRoute;
 
   Future<String> call() async {
     final connection = await _getConnection(const NoParams());
@@ -23,6 +38,10 @@ class InitialRouteResolver {
     return initialLocationFor(
       hasServerConnection: connection.isSuccess(),
       hasCompletedOnboarding: completed.getOrNull() ?? false,
+      deepLink: _platformRoute(),
     );
   }
+
+  static String _defaultPlatformRoute() =>
+      PlatformDispatcher.instance.defaultRouteName;
 }

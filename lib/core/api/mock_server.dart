@@ -33,6 +33,11 @@ class MockServer {
 
   int _counter = 1000;
 
+  /// Makes `GET /v1/incidents/{id}` answer 503, so the app's fallback path can
+  /// be exercised. api.md §5.1 and §5.2 leave the title and body out under
+  /// `relay_content: none`, and this is what a failed fetch of them looks like.
+  bool failIncidentFetch = false;
+
   static final RegExp _topicRegex = RegExp(r'^[-_A-Za-z0-9]{1,64}$');
 
   String _nextId(String prefix) => '${prefix}_${++_counter}';
@@ -45,11 +50,70 @@ class MockServer {
     _messages.clear();
     _devices.clear();
     _counter = 1000;
+    failIncidentFetch = false;
   }
 
   // ---------------------------------------------------------------------------
   // Fixtures
   // ---------------------------------------------------------------------------
+
+  /// One message at every priority on `topic`, oldest first.
+  ///
+  /// api.md §1.7 sends each of these down a different path: 1-3 are stored and
+  /// polled, 4 is forwarded as a high message, and 5 opens an incident when the
+  /// topic is critical. The topic is created critical so priority 5 does.
+  List<Message> seedPriorityLadder({String topic = 'prod'}) {
+    if (!_topics.containsKey(topic)) {
+      createTopic(name: topic, critical: true);
+    }
+    return [
+      publishMessage(topic, title: 'Min', message: 'min priority', priority: 1),
+      publishMessage(topic, title: 'Low', message: 'low priority', priority: 2),
+      publishMessage(
+        topic,
+        title: 'Default',
+        message: 'default priority',
+        tags: const ['warning'],
+      ),
+      publishMessage(
+        topic,
+        title: 'High',
+        message: 'high priority, no incident',
+        priority: 4,
+        tags: const ['fire', 'db01'],
+      ),
+      publishMessage(
+        topic,
+        title: 'Database down',
+        message: 'db01 is unreachable from every region, page the on-call',
+        priority: 5,
+        tags: const ['rotating_light', 'db01'],
+        click: 'https://status.example.com/db01',
+      ),
+    ];
+  }
+
+  /// The FCM `data` map (api.md §5.2) the relay would send for [message].
+  ///
+  /// Priority 1-3 is never forwarded, so those answer null.
+  Map<String, String>? pushPayloadFor(
+    Message message, {
+    String kind = 'open',
+    bool relayContentFull = false,
+  }) {
+    if (message.priority <= 3) return null;
+    final isIncident = message.incidentId != null;
+    return {
+      if (isIncident) 'incident_id': message.incidentId!,
+      'server': serverInfo.baseUrl,
+      'kind': isIncident ? kind : 'p4',
+      'priority': '${message.priority}',
+      if (relayContentFull) ...{
+        'title': message.title ?? message.topic,
+        'body': message.message,
+      },
+    };
+  }
 
   /// Load a pre-configured fixture corresponding to a [FaceState].
   void loadFixture(FaceState state) {
@@ -510,6 +574,12 @@ class MockServer {
 
   /// GET /v1/incidents/{id}
   Incident getIncident(String id) {
+    if (failIncidentFetch) {
+      throw const ApiException(
+        statusCode: 503,
+        message: 'incident fetch unavailable',
+      );
+    }
     final incident = _incidents[id];
     if (incident == null) {
       throw const ApiException(
@@ -745,11 +815,10 @@ class MockServer {
       if (sinceTs != null) {
         items = items.where((m) => m.time >= sinceTs).toList();
       } else {
-        // Message ID lookup
+        // Message ID lookup. Everything after that id, which is nothing at
+        // all when the caller already has the newest message.
         final idx = items.indexWhere((m) => m.id == since);
-        if (idx != -1 && idx + 1 < items.length) {
-          items = items.sublist(idx + 1);
-        }
+        if (idx != -1) items = items.sublist(idx + 1);
       }
     }
 

@@ -10,6 +10,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import app.critalarm.notifications.NotificationChannels
 import io.flutter.plugin.common.MethodChannel
 
 // FlutterFragmentActivity, not FlutterActivity: flutter_local_notifications
@@ -157,6 +158,9 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // First launch is where the four channels come from. Creating one that
+        // already exists changes nothing, so this is safe to run every time.
+        NotificationChannels.ensureCreated(this)
         val alarmLaunch = intent.getStringExtra(EXTRA_ALARM_INCIDENT_ID) != null
         if (alarmLaunch && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
@@ -165,13 +169,23 @@ class MainActivity : FlutterFragmentActivity() {
         super.onCreate(savedInstanceState)
     }
 
+    /**
+     * A tapped notification opens the incident it belongs to. A priority 1-3
+     * message has no incident (api.md §1.7), so its notification carries the
+     * topic and opens that instead.
+     */
     override fun getInitialRoute(): String? {
         val incidentId = intent.getStringExtra(EXTRA_ALARM_INCIDENT_ID)
-            ?: return super.getInitialRoute()
-        return "/incidents/${Uri.encode(incidentId)}"
+            ?: intent.getStringExtra(EXTRA_INCIDENT_ID)
+        if (incidentId != null) return "/incidents/${Uri.encode(incidentId)}"
+        val topic = intent.getStringExtra(EXTRA_TOPIC)
+        if (topic != null) return "/topics/${Uri.encode(topic)}"
+        return super.getInitialRoute()
     }
 
     companion object {
         const val EXTRA_ALARM_INCIDENT_ID = "alarm_incident_id"
+        const val EXTRA_INCIDENT_ID = "incident_id"
+        const val EXTRA_TOPIC = "topic"
     }
 }

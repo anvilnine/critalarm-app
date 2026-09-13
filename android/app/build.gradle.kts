@@ -60,4 +60,7 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.google.code.gson:gson:2.13.2")
+    // android.jar's org.json is a stub that throws. The real one lets the
+    // incident-content parser be tested off-device.
+    testImplementation("org.json:json:20250517")
 }

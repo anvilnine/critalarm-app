@@ -19,6 +19,9 @@ abstract interface class TelemetryGate {
   // ignore: avoid_positional_boolean_parameters
   Future<void> setCrashlyticsEnabled(bool enabled);
 
+  /// Records one analytics event. Dropped unless the user opted in.
+  Future<void> logEvent(String name, [Map<String, Object?>? parameters]);
+
   /// Whether the paywall feature is enabled via Remote Config.
   bool get paywallEnabled;
 
@@ -44,4 +47,10 @@ class NoopTelemetryGate implements TelemetryGate {
 
   @override
   Future<void> setCrashlyticsEnabled(bool enabled) async {}
+
+  @override
+  Future<void> logEvent(
+    String name, [
+    Map<String, Object?>? parameters,
+  ]) async {}
 }

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_state.dart';
@@ -13,11 +14,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 class HomeCubit extends Cubit<HomeState> {
   HomeCubit(
     this._getTopics,
-    this._incidentRepository,
-  ) : super(const HomeState());
+    this._incidentRepository, [
+    this._messageSync,
+  ]) : super(const HomeState());
 
   final GetTopicsUsecase _getTopics;
   final IncidentRepository _incidentRepository;
+
+  /// Catches up on priority 1-3, which push never delivers (api.md 1.7).
+  final MessageSyncService? _messageSync;
+
+  /// Pull-to-refresh. Same work as opening the screen, including the poll.
+  Future<void> refresh() => load();
 
   Future<void> load() async {
     emit(state.copyWith(status: HomeStatus.loading));
@@ -40,6 +48,8 @@ class HomeCubit extends Cubit<HomeState> {
           );
           return;
         }
+
+        await _messageSync?.syncAll(topics.map((t) => t.name));
 
         final incidents = incidentsResult.getOrNull() ?? [];
         final openIncidents = incidents

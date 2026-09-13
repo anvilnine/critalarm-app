@@ -135,6 +135,24 @@ class FirebaseTelemetryGate implements TelemetryGate {
   }
 
   @override
+  Future<void> logEvent(String name, [Map<String, Object?>? parameters]) async {
+    if (!_analyticsEnabled) return;
+    try {
+      await analytics?.logEvent(
+        name: name,
+        parameters: parameters == null
+            ? null
+            : {
+                for (final entry in parameters.entries)
+                  if (entry.value != null) entry.key: entry.value!,
+              },
+      );
+    } on Object catch (_) {
+      // Analytics is best-effort; a failed send never breaks the alarm path.
+    }
+  }
+
+  @override
   bool get paywallEnabled {
     try {
       return remoteConfig?.getBool(paywallEnabledKey) ?? false;
