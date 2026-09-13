@@ -37,7 +37,6 @@ class _OnboardingPermissionsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return BlocConsumer<
       NotificationPermissionsCubit,
@@ -58,6 +57,9 @@ class _OnboardingPermissionsView extends StatelessWidget {
             .tr();
         final requiredHeader = LocaleKeys.onboarding_permissions_required_header
             .tr();
+        final continueWithoutText = LocaleKeys
+            .onboarding_permissions_continue_without_button
+            .tr();
 
         return Scaffold(
           resizeToAvoidBottomInset: true,
@@ -72,11 +74,11 @@ class _OnboardingPermissionsView extends StatelessWidget {
                     physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics(),
                     ),
-                    padding: EdgeInsets.fromLTRB(
+                    padding: const EdgeInsets.fromLTRB(
                       Spacing.s5,
                       Spacing.s6,
                       Spacing.s5,
-                      16 + bottomInset,
+                      16,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,24 +121,7 @@ class _OnboardingPermissionsView extends StatelessWidget {
                             description: LocaleKeys
                                 .onboarding_permissions_denied_description
                                 .tr(),
-                            buttonLabel: LocaleKeys
-                                .onboarding_permissions_denied_open_settings
-                                .tr(),
-                            onButtonPressed: cubit.openSettings,
-                          ),
-                          const SizedBox(height: Spacing.s5),
-
-                          // Action to continue anyway with permissions denied
-                          AppButton(
-                            label: LocaleKeys
-                                .onboarding_permissions_denied_continue
-                                .tr(),
-                            variant: AppButtonVariant.ghost,
-                            isFullWidth: true,
-                            onPressed: () {
-                              cubit.continueAnyway();
-                              context.go('/onboarding/connect');
-                            },
+                            buttonLabel: null,
                           ),
                         ] else ...[
                           // Center alarmed face and pill badge
@@ -200,32 +185,69 @@ class _OnboardingPermissionsView extends StatelessWidget {
                               ],
                             ),
                           ),
-                          const SizedBox(height: Spacing.s6),
-
-                          // Request button
-                          AppButton(
-                            label: LocaleKeys
-                                .onboarding_permissions_enable_button
-                                .tr(),
-                            size: AppButtonSize.lg,
-                            isFullWidth: true,
-                            isLoading: state.isRequesting,
-                            onPressed: cubit.requestPermissions,
-                          ),
-                          const SizedBox(height: Spacing.s3),
-
-                          // Skip / continue anyway button
-                          AppButton(
-                            label: LocaleKeys
-                                .onboarding_permissions_continue_without_button
-                                .tr(),
-                            variant: AppButtonVariant.ghost,
-                            isFullWidth: true,
-                            onPressed: () => context.go('/onboarding/connect'),
-                          ),
                         ],
                       ],
                     ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Spacing.s5,
+                    12,
+                    Spacing.s5,
+                    12,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: state.isDenied
+                        ? [
+                            AppButton(
+                              label: LocaleKeys
+                                  .onboarding_permissions_denied_open_settings
+                                  .tr(),
+                              isFullWidth: true,
+                              onPressed: cubit.openSettings,
+                            ),
+                            const SizedBox(height: Spacing.s3),
+                            AppButton(
+                              label: LocaleKeys
+                                  .onboarding_permissions_denied_continue
+                                  .tr(),
+                              variant: AppButtonVariant.ghost,
+                              isFullWidth: true,
+                              onPressed: () {
+                                cubit.continueAnyway();
+                                context.go('/onboarding/connect');
+                              },
+                            ),
+                          ]
+                        : [
+                            AppButton(
+                              label: LocaleKeys
+                                  .onboarding_permissions_enable_button
+                                  .tr(),
+                              size: AppButtonSize.lg,
+                              isFullWidth: true,
+                              isLoading: state.isRequesting,
+                              onPressed: cubit.requestPermissions,
+                            ),
+                            const SizedBox(height: Spacing.s3),
+                            AppButton(
+                              label: continueWithoutText,
+                              variant: AppButtonVariant.ghost,
+                              isFullWidth: true,
+                              onPressed: () =>
+                                  context.go('/onboarding/connect'),
+                            ),
+                          ],
                   ),
                 ),
               ),

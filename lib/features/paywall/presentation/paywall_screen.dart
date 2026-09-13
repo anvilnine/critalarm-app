@@ -70,7 +70,6 @@ class _PaywallScreenContent extends StatelessWidget {
       },
       builder: (context, state) {
         final cubit = context.read<PaywallCubit>();
-        final bottomInset = MediaQuery.paddingOf(context).bottom;
 
         return Scaffold(
           backgroundColor: colors.canvas,
@@ -126,11 +125,11 @@ class _PaywallScreenContent extends StatelessWidget {
                     top: false,
                     bottom: false,
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(
+                      padding: const EdgeInsets.fromLTRB(
                         12,
                         0,
                         12,
-                        16 + bottomInset,
+                        16,
                       ),
                       child: AppSheet(
                         child: Column(
@@ -195,15 +194,6 @@ class _PaywallScreenContent extends StatelessWidget {
                                   ],
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                              AppButton(
-                                label: LocaleKeys
-                                    .paywall_manage_subscription_button
-                                    .tr(),
-                                size: AppButtonSize.lg,
-                                isFullWidth: true,
-                                onPressed: cubit.presentCustomerCenter,
-                              ),
                             ] else ...[
                               Text(
                                 LocaleKeys.paywall_select_plan_header.tr(),
@@ -267,20 +257,7 @@ class _PaywallScreenContent extends StatelessWidget {
                                   SubscriptionTier.lifetime,
                                 ),
                               ),
-                              const SizedBox(height: 20),
-                              AppButton(
-                                label: LocaleKeys.paywall_upgrade_button.tr(
-                                  namedArgs: {
-                                    'tier': state.selectedTier.displayName,
-                                  },
-                                ),
-                                size: AppButtonSize.lg,
-                                isFullWidth: true,
-                                isLoading:
-                                    state.status == PaywallStatus.loading,
-                                onPressed: cubit.upgradeToPro,
-                              ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 12),
                               AppButton(
                                 label: LocaleKeys.paywall_present_paywall_button
                                     .tr(),
@@ -289,17 +266,6 @@ class _PaywallScreenContent extends StatelessWidget {
                                 onPressed: cubit.presentNativePaywall,
                               ),
                             ],
-                            const SizedBox(height: 10),
-                            AppButton(
-                              label: LocaleKeys.paywall_restore_purchases_button
-                                  .tr(),
-                              variant: AppButtonVariant.ghost,
-                              isFullWidth: true,
-                              isLoading:
-                                  state.status == PaywallStatus.loading &&
-                                  state.feedbackMessage == null,
-                              onPressed: cubit.restorePurchases,
-                            ),
                           ],
                         ),
                       ),
@@ -307,6 +273,55 @@ class _PaywallScreenContent extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.s5,
+                12,
+                Spacing.s5,
+                12,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (state.isPro)
+                    AppButton(
+                      label: LocaleKeys
+                          .paywall_manage_subscription_button
+                          .tr(),
+                      size: AppButtonSize.lg,
+                      isFullWidth: true,
+                      onPressed: cubit.presentCustomerCenter,
+                    )
+                  else
+                    AppButton(
+                      label: LocaleKeys.paywall_upgrade_button.tr(
+                        namedArgs: {
+                          'tier': state.selectedTier.displayName,
+                        },
+                      ),
+                      size: AppButtonSize.lg,
+                      isFullWidth: true,
+                      isLoading:
+                          state.status == PaywallStatus.loading,
+                      onPressed: cubit.upgradeToPro,
+                    ),
+                  const SizedBox(height: 10),
+                  AppButton(
+                    label: LocaleKeys.paywall_restore_purchases_button
+                        .tr(),
+                    variant: AppButtonVariant.ghost,
+                    isFullWidth: true,
+                    isLoading:
+                        state.status == PaywallStatus.loading &&
+                        state.feedbackMessage == null,
+                    onPressed: cubit.restorePurchases,
+                  ),
+                ],
+              ),
             ),
           ),
         );

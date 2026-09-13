@@ -130,6 +130,7 @@ class AppSliverTopBar extends StatelessWidget {
       title: Padding(
         padding: padding,
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             if (leading != null) ...[
               leading!,
@@ -161,15 +162,12 @@ class AppSliverTopBar extends StatelessWidget {
                     ),
                   ),
                 ),
-              )
-            else
-              const Spacer(),
+              ),
             if (trailing != null) ...[
               const SizedBox(width: 8),
-              Flexible(
-                flex: 0,
-                child: trailing!,
-              ),
+              // Loose fit, so a long trailing widget (the endpoint chip) gives
+              // up width and ellipsises instead of overflowing the bar.
+              Flexible(child: trailing!),
             ],
           ],
         ),

@@ -78,7 +78,6 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return BlocConsumer<OnboardingConnectCubit, OnboardingConnectState>(
       listenWhen: (prev, curr) =>
@@ -104,15 +103,65 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
                     physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics(),
                     ),
-                    padding: EdgeInsets.fromLTRB(
+                    padding: const EdgeInsets.fromLTRB(
                       Spacing.s5,
                       Spacing.s6,
                       Spacing.s5,
-                      16 + bottomInset,
+                      16,
                     ),
                     child: state.isConnected
                         ? _buildRingMeNowState(context, state, cubit)
                         : _buildConnectForm(context, state, cubit),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Spacing.s5,
+                    12,
+                    Spacing.s5,
+                    12,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: state.isConnected
+                        ? [
+                            AppButton(
+                              label: LocaleKeys
+                                  .onboarding_connect_dashboard_button
+                                  .tr(),
+                              size: AppButtonSize.lg,
+                              isFullWidth: true,
+                              onPressed: cubit.navigateToHome,
+                            ),
+                            const SizedBox(height: Spacing.s3),
+                            AppButton(
+                              label: LocaleKeys
+                                  .onboarding_connect_change_server_button
+                                  .tr(),
+                              variant: AppButtonVariant.ghost,
+                              size: AppButtonSize.sm,
+                              onPressed: cubit.editConnection,
+                            ),
+                          ]
+                        : [
+                            AppButton(
+                              label: LocaleKeys
+                                  .onboarding_connect_connect_button
+                                  .tr(),
+                              size: AppButtonSize.lg,
+                              isFullWidth: true,
+                              isLoading: state.isConnecting,
+                              onPressed: cubit.connect,
+                            ),
+                          ],
                   ),
                 ),
               ),
@@ -321,16 +370,6 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
             ],
           ),
         ),
-        const SizedBox(height: Spacing.s6),
-
-        // Connect button
-        AppButton(
-          label: LocaleKeys.onboarding_connect_connect_button.tr(),
-          size: AppButtonSize.lg,
-          isFullWidth: true,
-          isLoading: state.isConnecting,
-          onPressed: cubit.connect,
-        ),
       ],
     );
   }
@@ -426,24 +465,6 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
                   ),
           ),
         ],
-        const SizedBox(height: Spacing.s6),
-
-        // Primary button "Go to Dashboard" / "Continue to App"
-        AppButton(
-          label: LocaleKeys.onboarding_connect_dashboard_button.tr(),
-          size: AppButtonSize.lg,
-          isFullWidth: true,
-          onPressed: cubit.navigateToHome,
-        ),
-        const SizedBox(height: Spacing.s3),
-
-        // Option to edit / change connection
-        AppButton(
-          label: LocaleKeys.onboarding_connect_change_server_button.tr(),
-          variant: AppButtonVariant.ghost,
-          size: AppButtonSize.sm,
-          onPressed: cubit.editConnection,
-        ),
       ],
     );
   }
