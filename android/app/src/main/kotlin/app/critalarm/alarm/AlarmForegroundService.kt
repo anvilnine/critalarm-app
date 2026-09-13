@@ -24,11 +24,16 @@ class AlarmForegroundService : Service() {
                 stopSelf(startId)
                 return START_NOT_STICKY
             }
+        // Only an incident rings, and an incident always has an id.
+        val incidentId = payload.incidentId ?: run {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
         startForeground(
-            AlarmNotificationFactory.notificationId(payload.incidentId),
+            AlarmNotificationFactory.notificationId(incidentId),
             AlarmNotificationFactory.create(this, payload),
         )
-        Log.i("CritAlarmAlarm", "alarm_service_started incident_id=${payload.incidentId}")
+        Log.i("CritAlarmAlarm", "alarm_service_started incident_id=$incidentId")
         if (wakeLock?.isHeld != true) {
             wakeLock = getSystemService(PowerManager::class.java)
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "critalarm:alarm")
@@ -53,7 +58,7 @@ class AlarmForegroundService : Service() {
 
         fun startIntent(context: Context, payload: FcmIncidentPayload) =
             Intent(context, AlarmForegroundService::class.java).apply {
-                putExtra("incident_id", payload.incidentId)
+                payload.incidentId?.let { putExtra("incident_id", it) }
                 putExtra("server", payload.server.toString())
                 putExtra("kind", payload.kind.wireValue)
                 putExtra("priority", payload.priority.toString())

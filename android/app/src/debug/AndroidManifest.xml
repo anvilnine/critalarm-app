@@ -4,4 +4,36 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Debug only: a throwaway test server runs on plain HTTP. Release
+         builds keep Android's default, which is cleartext off. -->
+    <application android:usesCleartextTraffic="true">
+        <!-- Debug only. Lets `adb shell am broadcast` push a made-up payload
+             through the real routing code, so the channels can be checked on a
+             device without a live relay. Never present in a release build. -->
+        <receiver
+            android:name="app.critalarm.devtools.DevActionReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="app.critalarm.debug.ACTION"/>
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name="app.critalarm.devtools.DevSessionReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="app.critalarm.debug.SESSION"/>
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name="app.critalarm.devtools.DevPushReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="app.critalarm.debug.PUSH"/>
+            </intent-filter>
+        </receiver>
+    </application>
 </manifest>

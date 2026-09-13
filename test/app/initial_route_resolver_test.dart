@@ -45,6 +45,53 @@ void main() {
       );
     });
 
+    test('a tapped incident notification opens that incident', () {
+      expect(
+        initialLocationFor(
+          hasServerConnection: true,
+          hasCompletedOnboarding: true,
+          deepLink: '/incidents/inc_1',
+        ),
+        '/incidents/inc_1',
+      );
+    });
+
+    test('a tapped topic notification opens that topic', () {
+      expect(
+        initialLocationFor(
+          hasServerConnection: true,
+          hasCompletedOnboarding: false,
+          deepLink: '/topics/prod',
+        ),
+        '/topics/prod',
+      );
+    });
+
+    test('onboarding still wins before there is a server', () {
+      expect(
+        initialLocationFor(
+          hasServerConnection: false,
+          hasCompletedOnboarding: false,
+          deepLink: '/incidents/inc_1',
+        ),
+        '/onboarding',
+      );
+    });
+
+    test('a route that is not a push deep link is ignored', () {
+      for (final route in ['/', '/settings', 'nonsense', null]) {
+        expect(
+          initialLocationFor(
+            hasServerConnection: true,
+            hasCompletedOnboarding: true,
+            deepLink: route,
+          ),
+          '/',
+          reason: route ?? 'null',
+        );
+      }
+    });
+
     test('opens home with connection and completed onboarding', () {
       expect(
         initialLocationFor(
@@ -76,6 +123,7 @@ void main() {
       final location = await InitialRouteResolver(
         getConnection,
         getOnboardingCompleted,
+        platformRoute: () => '/',
       )();
 
       expect(location, '/onboarding');
@@ -95,9 +143,18 @@ void main() {
       final location = await InitialRouteResolver(
         getConnection,
         getOnboardingCompleted,
+        platformRoute: () => '/',
       )();
 
       expect(location, '/');
+
+      final deepLinked = await InitialRouteResolver(
+        getConnection,
+        getOnboardingCompleted,
+        platformRoute: () => '/incidents/inc_1',
+      )();
+
+      expect(deepLinked, '/incidents/inc_1');
     });
   });
 }

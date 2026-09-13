@@ -1,4 +1,5 @@
 import 'package:critalarm/app/initial_route_resolver.dart';
+import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
@@ -6,12 +7,16 @@ import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/push/firebase_push_token_provider.dart';
+import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
+import 'package:critalarm/core/sync/message_sync_service.dart';
+import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
+import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
@@ -31,6 +36,7 @@ import 'package:critalarm/features/onboarding/domain/repositories/onboarding_pro
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
@@ -204,6 +210,28 @@ Future<void> configureDependencies({
       ),
     )
     ..registerLazySingleton(
+      () => DeviceTokenRegistry(
+        prefs: getIt<SharedPreferences>(),
+        register: getIt<RegisterDeviceUsecase>(),
+        tokens: getIt<PushTokenProvider>(),
+        appVersion: appVersion,
+      ),
+    )
+    ..registerLazySingleton(() => PushAnalytics(getIt<TelemetryGate>()))
+    ..registerLazySingleton(
+      () => PushEventDrain(getIt<SharedPreferences>(), getIt<TelemetryGate>()),
+    )
+    ..registerLazySingleton(
+      () => AckQueue(
+        getIt<SharedPreferences>(),
+        getIt<ApiClient>(),
+        analytics: getIt<PushAnalytics>(),
+      ),
+    )
+    ..registerLazySingleton(
+      () => MessageSyncService(getIt<SharedPreferences>(), getIt<ApiClient>()),
+    )
+    ..registerLazySingleton(
       () => GetConnectionUsecase(getIt<ConnectionRepository>()),
     )
     ..registerLazySingleton(
@@ -325,6 +353,7 @@ Future<void> configureDependencies({
       () => HomeCubit(
         getIt<GetTopicsUsecase>(),
         getIt<IncidentRepository>(),
+        getIt<MessageSyncService>(),
       ),
     )
     ..registerFactory(
