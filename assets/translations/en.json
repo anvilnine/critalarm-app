@@ -106,7 +106,7 @@
   "topic_detail": {
     "back_aria_label": "Back",
     "critical_toggle_title": "Ring me for this topic",
-    "critical_toggle_subtitle": "Off by default. Turn it on and a critical page repeats every 30 s until you acknowledge it.",
+    "critical_toggle_subtitle": "Off by default. Turn it on to repeat every 30 s until you acknowledge.",
     "mark_as_read_button": "Mark as read",
     "stage_word_critical": "CRITICAL",
     "stage_word_warning": "1 warning",
@@ -121,7 +121,7 @@
     "name_helper": "Lowercase, digits, hyphens. This becomes the URL.",
     "priority_label": "Default priority",
     "critical_toggle_title": "Ring me for this topic",
-    "critical_toggle_subtitle": "Off by default. Turn it on and a critical page repeats every 30 s until you acknowledge it.",
+    "critical_toggle_subtitle": "Off by default. Turn it on to repeat every 30 s until you acknowledge.",
     "generated_label": "Generated",
     "token_warning": "Save this token now. It will not be shown again.",
     "create_button": "Create topic",
