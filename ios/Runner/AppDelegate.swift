@@ -1,6 +1,9 @@
 import Flutter
 import UIKit
 import UserNotifications
+#if canImport(AlarmKit)
+import AlarmKit
+#endif
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -9,6 +12,8 @@ import UserNotifications
   static let ackAction = "ACK"
 
   private var pushChannel: FlutterMethodChannel?
+  private var alarmChannel: FlutterMethodChannel?
+  private var alarmUpdatesTask: Task<Void, Never>?
 
   /// Held until Dart asks for it, which can be after APNs has already
   /// answered.
@@ -31,6 +36,11 @@ import UserNotifications
 
     let started = super.application(application, didFinishLaunchingWithOptions: launchOptions)
 
+    #if DEBUG
+    // SPIKE ONLY. Removed once the onboarding permissions screen owns this.
+    if #available(iOS 26.0, *) { Task { await IncidentAlarmScheduler.requestAuthorization() } }
+    #endif
+    startAlarmAndActivityStreams()
     registerIncidentCategory()
     // The engine owns the delegate by default. Take it back so the ACK action
     // and the in-app banner land here.
@@ -61,6 +71,12 @@ import UserNotifications
       }
     }
     pushChannel = push
+
+    let alarm = FlutterMethodChannel(name: "app.critalarm/alarm", binaryMessenger: messenger)
+    alarm.setMethodCallHandler { [weak self] call, result in
+      self?.handleAlarmCall(call, result: result)
+    }
+    alarmChannel = alarm
 
     let credentials = FlutterMethodChannel(
       name: "app.critalarm/nse_credentials",
@@ -95,6 +111,11 @@ import UserNotifications
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
     let token = deviceToken.map { String(format: "%02x", $0) }.joined()
     NSLog("CritAlarm: apns_token_registered length=%d", token.count)
+    #if DEBUG
+    // Needed to aim a real push at this handset. Debug only: the token is
+    // what lets anyone with the relay's key ring this device.
+    NSLog("CritAlarm: apns_token=%@", token)
+    #endif
     apnsToken = token
     pushChannel?.invokeMethod("onApnsToken", arguments: token)
   }
@@ -186,5 +207,206 @@ import UserNotifications
     pendingTap = nil
     pendingAck = nil
     return pending
+  }
+
+  // MARK: - Alarm and Live Activity
+
+  /// Both streams start on every launch: `alarmUpdates` keeps the coordinator's
+  /// idea of a live alarm honest, and the activity streams pick up the
+  /// push-to-start token and any card the relay started while the app was away.
+  private func startAlarmAndActivityStreams() {
+    if #available(iOS 16.2, *) {
+      IncidentActivityCoordinator.shared.start()
+      IncidentActivityCoordinator.shared.onTokenCaptured = { [weak self] kind, token, incidentId in
+        var payload: [String: Any] = ["kind": kind.rawValue, "token": token]
+        if let incidentId { payload["incident_id"] = incidentId }
+        self?.alarmChannel?.invokeMethod("onActivityToken", arguments: payload)
+      }
+    }
+    #if canImport(AlarmKit)
+    if #available(iOS 26.0, *) {
+      alarmUpdatesTask?.cancel()
+      alarmUpdatesTask = IncidentAlarmScheduler.observeAlarmUpdates()
+    }
+    #endif
+  }
+
+  private func handleAlarmCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    let args = call.arguments as? [String: Any] ?? [:]
+    switch call.method {
+    case "authorizationStatus":
+      result(alarmAuthorizationName())
+
+    case "requestAuthorization":
+      #if canImport(AlarmKit)
+      if #available(iOS 26.0, *) {
+        Task {
+          _ = await IncidentAlarmScheduler.requestAuthorization()
+          await MainActor.run { result(self.alarmAuthorizationName()) }
+        }
+        return
+      }
+      #endif
+      result("unsupported")
+
+    case "scheduleAlarm":
+      guard let incidentId = args["incident_id"] as? String else {
+        result(FlutterError(code: "bad_args", message: "incident_id required", details: nil))
+        return
+      }
+      scheduleAlarm(
+        incidentId: incidentId,
+        topic: args["topic"] as? String ?? "",
+        server: args["server"] as? String ?? "",
+        title: args["title"] as? String ?? "Crit Alarm",
+        sound: args["sound"] as? String
+      ) { ok in result(ok) }
+
+    case "cancelAlarm":
+      guard let incidentId = args["incident_id"] as? String else {
+        result(FlutterError(code: "bad_args", message: "incident_id required", details: nil))
+        return
+      }
+      #if canImport(AlarmKit)
+      if #available(iOS 26.0, *) {
+        Task {
+          await IncidentAlarmScheduler.cancel(incidentId: incidentId)
+          if #available(iOS 16.2, *) {
+            await IncidentActivityCoordinator.shared.end(incidentId: incidentId, finalState: .closed)
+          }
+          await MainActor.run { result(true) }
+        }
+        return
+      }
+      #endif
+      result(false)
+
+    case "startLocalActivity":
+      guard #available(iOS 16.2, *), let incidentId = args["incident_id"] as? String else {
+        result(false)
+        return
+      }
+      let started = IncidentActivityCoordinator.shared.startLocalActivity(
+        incidentId: incidentId,
+        topic: args["topic"] as? String ?? "",
+        server: args["server"] as? String ?? "",
+        title: args["title"] as? String ?? "Crit Alarm",
+        state: IncidentActivityState(rawValue: args["state"] as? String ?? "open") ?? .open
+      )
+      result(started)
+
+    case "endActivity":
+      guard #available(iOS 16.2, *), let incidentId = args["incident_id"] as? String else {
+        result(false)
+        return
+      }
+      let state = IncidentActivityState(rawValue: args["state"] as? String ?? "closed") ?? .closed
+      IncidentActivityCoordinator.shared.end(incidentId: incidentId, finalState: state)
+      result(true)
+
+    case "showingIncidentIds":
+      guard #available(iOS 16.2, *) else { result([String]()); return }
+      result(IncidentActivityCoordinator.shared.showingIncidentIds())
+
+    case "takePendingActivityTokens":
+      guard #available(iOS 16.2, *) else { result([[String: Any]]()); return }
+      result(IncidentActivityCoordinator.shared.takePendingTokens())
+
+    case "pushToStartReady":
+      result(UserDefaults.standard.bool(forKey: "flutter.live_activity_push_to_start_ready"))
+
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func alarmAuthorizationName() -> String {
+    #if canImport(AlarmKit)
+    if #available(iOS 26.0, *) {
+      switch IncidentAlarmScheduler.authorization {
+      case .authorized: return "authorized"
+      case .denied: return "denied"
+      case .notDetermined: return "notDetermined"
+      @unknown default: return "notDetermined"
+      }
+    }
+    #endif
+    return "unsupported"
+  }
+
+  private func scheduleAlarm(
+    incidentId: String,
+    topic: String,
+    server: String,
+    title: String,
+    sound: String?,
+    completion: @escaping (Bool) -> Void
+  ) {
+    #if canImport(AlarmKit)
+    if #available(iOS 26.0, *) {
+      Task {
+        let ok = await IncidentAlarmScheduler.schedule(
+          incidentId: incidentId, topic: topic, server: server, title: title, sound: sound
+        )
+        await MainActor.run {
+          if ok {
+            self.alarmChannel?.invokeMethod("onAlarmScheduled", arguments: incidentId)
+          }
+          completion(ok)
+        }
+      }
+      return
+    }
+    #endif
+    NSLog("CritAlarmAlarm: alarm_not_scheduled reason=alarmkit_unavailable incident_id=%@", incidentId)
+    completion(false)
+  }
+
+  /// The path-2 trigger. A push with `content-available: 1` wakes the app here
+  /// with no UI, and the alarm is scheduled from the main process.
+  ///
+  /// Which of this and the extension actually does the scheduling is decided by
+  /// `AlarmTriggerPath` (docs/specs/remote-alarm-ios-spike.md). Both are wired;
+  /// the losing one logs and returns.
+  override func application(
+    _ application: UIApplication,
+    didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    guard let push = IncidentPush(payload: userInfo) else {
+      completionHandler(.noData)
+      return
+    }
+    NSLog(
+      "CritAlarm: background_push kind=%@ priority=%d incident_id=%@",
+      push.kind.rawValue, push.priority, push.incidentId ?? "-"
+    )
+
+    guard let incidentId = push.incidentId else {
+      completionHandler(.noData)
+      return
+    }
+
+    // A push that says the incident is done cancels the alarm and ends the card.
+    if push.kind == .p4 {
+      completionHandler(.noData)
+      return
+    }
+
+    guard AlarmTriggerPath.chosen == .appBackgroundPush else {
+      NSLog("CritAlarm: background_push_ignored reason=extension_owns_scheduling")
+      completionHandler(.noData)
+      return
+    }
+
+    scheduleAlarm(
+      incidentId: incidentId,
+      topic: userInfo["topic"] as? String ?? "",
+      server: push.server.absoluteString,
+      title: push.title ?? "Crit Alarm",
+      sound: userInfo["sound"] as? String
+    ) { ok in
+      completionHandler(ok ? .newData : .noData)
+    }
   }
 }

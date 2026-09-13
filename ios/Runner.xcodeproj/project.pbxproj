@@ -9,40 +9,69 @@
 /* Begin PBXBuildFile section */
 		05BDDBA0157A3EE529FEC613 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E03D7BEA0BF5A60A3DCFDC3 /* NotificationService.swift */; };
 		0617CFB82831F64DAE3C6E36 /* PushEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B43861F26AA39D52CC432E /* PushEventLog.swift */; };
+		0632154549508956E8E82937 /* AlarmTriggerPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */; };
+		0667D9BC1041B885CED760AE /* IncidentActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */; };
+		0CC17DA6DCACE81402DAB0A4 /* IncidentAlarmAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */; };
 		0D184790693B92A167F3BAAD /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
+		0E04C12CE8C8FB55A85CBFBD /* IncidentAlarmScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1152E565D4F08BE1BD9C5C4 /* IncidentAlarmScheduler.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
+		2BD028D86FA247C95D50E172 /* CritAlarmActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 95753DAD60ADE7A8BC9ABFC6 /* CritAlarmActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		33626C563A1CD562EF06E44B /* content-none.apns in Resources */ = {isa = PBXBuildFile; fileRef = D87297CA8D80B89C76E0382B /* content-none.apns */; };
+		356C4B6EB2F3C77BF0302A49 /* AlarmTriggerPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */; };
 		36122E51C399B0584985D46D /* PushEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B43861F26AA39D52CC432E /* PushEventLog.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
+		417DD9FCF00F687DBD202688 /* IncidentAlarmScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1152E565D4F08BE1BD9C5C4 /* IncidentAlarmScheduler.swift */; };
+		5073401426B1F19765FDAE5F /* IncidentIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */; };
 		522BFE16F4DDA83E81723EBE /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
 		5387ED3388595C04D2B93590 /* p5.apns in Resources */ = {isa = PBXBuildFile; fileRef = C3F562DA2F44EAB6B928F6EB /* p5.apns */; };
 		6CFAE537A5AD36D290371A7B /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
+		6E372DAD65DA145D7B0F7BF5 /* IncidentAlarmScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1152E565D4F08BE1BD9C5C4 /* IncidentAlarmScheduler.swift */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
+		7B23EC697E2DF0158A56C801 /* IncidentActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */; };
 		7F680D71222AB12712DD1B2B /* IncidentContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F706A2A4516835A56FA2F295 /* IncidentContent.swift */; };
+		813000DE811E6C46E4681595 /* IncidentActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */; };
+		84353DF6B9FF22B8BB32717B /* CritAlarmActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27BE1B266C87A73BE64F5093 /* CritAlarmActivityBundle.swift */; };
 		84AF5F3AB18085F4710FD0A8 /* IncidentContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F706A2A4516835A56FA2F295 /* IncidentContent.swift */; };
 		873108CBF1F3961B5574601E /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
 		8E54AF6FE4F7800B18856841 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = EEF761159A37EFC1340BACF6 /* GoogleService-Info.plist */; };
+		901DE32449E09CDC90C0829D /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
+		945DB746556DD27941C8DA6F /* IncidentAlarmScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1152E565D4F08BE1BD9C5C4 /* IncidentAlarmScheduler.swift */; };
+		976B23E5DF5FDE6959EA0BDA /* AlarmTriggerPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		9D78FA391E6A115F041E23D0 /* IncidentIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */; };
 		9DF7AE06CF79C15046128835 /* NotificationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */; };
+		A1497E3050226B8FD2727E0E /* IncidentIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */; };
+		A3A92D32093F03668C763709 /* IncidentAlarmAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */; };
 		A436826ED21EEF1AB1E6333E /* NtfyEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */; };
+		A5BB28153649D3FD00B5FF5A /* AlarmActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8CD8DDE3EBA196FC51BFDDE /* AlarmActivityWidget.swift */; };
+		A93DE8C5BF97C64AEB9101C2 /* IncidentActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88FF122110739F2C4E9B4941 /* IncidentActivityWidget.swift */; };
 		B82753055D3DA46E0D865B9A /* CritAlarmNSE.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B48FF43F18021E4A198D5CC1 /* CritAlarmNSE.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B8508035E7616B526E6B2F6B /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 593DA1142F90062F7FE99B54 /* Pods_Runner.framework */; };
 		B943C66DEA85CFE559E1B67C /* NtfyEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */; };
+		BA319A4AD1C672C67B0FB5E6 /* IncidentAlarmAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */; };
+		BABE51D86ECDA0FCAC490506 /* IncidentAlarmAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */; };
 		BE4704C5DA9B9A1CAC9CBCAC /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E03D7BEA0BF5A60A3DCFDC3 /* NotificationService.swift */; };
 		C63EE7878B06FA3AE8C95D9D /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D67F82837113861230B142A /* Pods_RunnerTests.framework */; };
 		C680A45AFEDCDE12BB4C0417 /* NtfyEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */; };
+		C7813969644D094F58A29C4D /* IncidentActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */; };
 		C827D752D015968E3C46FD3E /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
+		CF1F6744B717A05554FDAF49 /* FaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 459470031D166B3CA2B80886 /* FaceView.swift */; };
 		CF2A62EB3F4FB523CF9334A7 /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
+		CF8B5F6F7F90CEDBD6A3E5A6 /* alarm.caf in Resources */ = {isa = PBXBuildFile; fileRef = 56422C7C20CDE71116711FD1 /* alarm.caf */; };
 		D183068650726122FB4BED45 /* PushDeliveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */; };
+		D1D0455B373B068D9BE01B47 /* IncidentIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */; };
 		D5AA1E2175BB98EC72D83577 /* p4.apns in Resources */ = {isa = PBXBuildFile; fileRef = F4C3109ABCF417BB50CBFEBB /* p4.apns */; };
+		D88DFA6CED8914FC4D107BEA /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 798CCEC30ED822B6D363FB7E /* Foundation.framework */; };
 		E8500162759DEE4214490819 /* PushEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B43861F26AA39D52CC432E /* PushEventLog.swift */; };
 		EBDDE7E06FD4B4CE2BC6A67E /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
+		ED2803F0D04A5E547665D02A /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
 		ED7D55E31FECA295DFAC93C5 /* IncidentContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F706A2A4516835A56FA2F295 /* IncidentContent.swift */; };
+		F6BAA4FB61319AC1D2D1ADA7 /* AlarmTriggerPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */; };
 		FC678E988BB03EB22189B384 /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
 		FCC5FE50E2B32C65DAE754E8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 798CCEC30ED822B6D363FB7E /* Foundation.framework */; };
 		FD773139A83FCEC454AD6252 /* p3.apns in Resources */ = {isa = PBXBuildFile; fileRef = ACCD930E3ED1D741B0A061A9 /* p3.apns */; };
@@ -62,6 +91,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 05734ECE5496AD88F886B6DE;
 			remoteInfo = CritAlarmNSE;
+		};
+		BCA8FC9E0A77CEA2C77BF6F2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D86D592251E086420ADFCB9C;
+			remoteInfo = CritAlarmActivity;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -83,6 +119,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				B82753055D3DA46E0D865B9A /* CritAlarmNSE.appex in Embed Foundation Extensions */,
+				2BD028D86FA247C95D50E172 /* CritAlarmActivity.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -90,15 +127,20 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentAlarmAttributes.swift; sourceTree = "<group>"; };
 		0343E94C6B3165806974A529 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
+		0729842DADC1254D34F8C509 /* CritAlarmActivity.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = CritAlarmActivity.entitlements; sourceTree = "<group>"; };
 		1105D7A93BBCCB9025CD65A0 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushDeliveryTests.swift; sourceTree = "<group>"; };
+		27BE1B266C87A73BE64F5093 /* CritAlarmActivityBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CritAlarmActivityBundle.swift; sourceTree = "<group>"; };
 		2D67F82837113861230B142A /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
+		459470031D166B3CA2B80886 /* FaceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FaceView.swift; sourceTree = "<group>"; };
+		56422C7C20CDE71116711FD1 /* alarm.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = alarm.caf; sourceTree = "<group>"; };
 		593DA1142F90062F7FE99B54 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -108,6 +150,10 @@
 		798CCEC30ED822B6D363FB7E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		7E03D7BEA0BF5A60A3DCFDC3 /* NotificationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		88FF122110739F2C4E9B4941 /* IncidentActivityWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentActivityWidget.swift; sourceTree = "<group>"; };
+		8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentIntents.swift; sourceTree = "<group>"; };
+		94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentActivityCoordinator.swift; sourceTree = "<group>"; };
+		95753DAD60ADE7A8BC9ABFC6 /* CritAlarmActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CritAlarmActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
 		97C146EE1CF9000F007C117D /* Runner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runner.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -115,6 +161,7 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmTriggerPath.swift; sourceTree = "<group>"; };
 		A001835E63EC097B270CFC7B /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		A471C6FA0F15B4693AAA2990 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NtfyEmoji.swift; sourceTree = "<group>"; };
@@ -123,6 +170,7 @@
 		B48FF43F18021E4A198D5CC1 /* CritAlarmNSE.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CritAlarmNSE.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentPush.swift; sourceTree = "<group>"; };
 		BDF158218E2B9B0CE3E2A09B /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C1152E565D4F08BE1BD9C5C4 /* IncidentAlarmScheduler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentAlarmScheduler.swift; sourceTree = "<group>"; };
 		C3F562DA2F44EAB6B928F6EB /* p5.apns */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = p5.apns; sourceTree = "<group>"; };
 		C73C2069E310F8EB7801AF18 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		CC2DCCA88B5EE553B0939AE7 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
@@ -132,8 +180,10 @@
 		E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AckQueueStore.swift; sourceTree = "<group>"; };
 		EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Flutter/Extension.xcconfig; sourceTree = "<group>"; };
 		EEF761159A37EFC1340BACF6 /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Runner/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		F183319FE83F2E039E0C88D3 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F4C3109ABCF417BB50CBFEBB /* p4.apns */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = p4.apns; sourceTree = "<group>"; };
 		F706A2A4516835A56FA2F295 /* IncidentContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentContent.swift; sourceTree = "<group>"; };
+		F8CD8DDE3EBA196FC51BFDDE /* AlarmActivityWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmActivityWidget.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -142,6 +192,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				C63EE7878B06FA3AE8C95D9D /* Pods_RunnerTests.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2251A154A02C292055922263 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D88DFA6CED8914FC4D107BEA /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -178,6 +236,15 @@
 			path = Pods;
 			sourceTree = "<group>";
 		};
+		31FF5AB17D8F6EADAC2E31EA /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				56422C7C20CDE71116711FD1 /* alarm.caf */,
+			);
+			name = Sounds;
+			path = Sounds;
+			sourceTree = "<group>";
+		};
 		331C8082294A63A400263BE5 /* RunnerTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -198,6 +265,20 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		4B90B0C6490AC04095D98CE2 /* CritAlarmActivity */ = {
+			isa = PBXGroup;
+			children = (
+				F8CD8DDE3EBA196FC51BFDDE /* AlarmActivityWidget.swift */,
+				27BE1B266C87A73BE64F5093 /* CritAlarmActivityBundle.swift */,
+				459470031D166B3CA2B80886 /* FaceView.swift */,
+				88FF122110739F2C4E9B4941 /* IncidentActivityWidget.swift */,
+				F183319FE83F2E039E0C88D3 /* Info.plist */,
+				0729842DADC1254D34F8C509 /* CritAlarmActivity.entitlements */,
+			);
+			name = CritAlarmActivity;
+			path = CritAlarmActivity;
+			sourceTree = SOURCE_ROOT;
+		};
 		5ED00C79B2D21DD4043FAFBF /* iOS */ = {
 			isa = PBXGroup;
 			children = (
@@ -214,6 +295,7 @@
 				B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */,
 				F706A2A4516835A56FA2F295 /* IncidentContent.swift */,
 				E1B43861F26AA39D52CC432E /* PushEventLog.swift */,
+				9886D275E53BA770B3EB7666 /* Alarm */,
 			);
 			name = Shared;
 			path = Shared;
@@ -245,6 +327,7 @@
 				6985D8F09F70FDA837FD21F0 /* Shared */,
 				A2AC5B24027214B8FCBD0F33 /* CritAlarmNSE */,
 				D766E60CE6801CFC5001ED33 /* PushFixtures */,
+				4B90B0C6490AC04095D98CE2 /* CritAlarmActivity */,
 			);
 			sourceTree = "<group>";
 		};
@@ -254,6 +337,7 @@
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 				B48FF43F18021E4A198D5CC1 /* CritAlarmNSE.appex */,
+				95753DAD60ADE7A8BC9ABFC6 /* CritAlarmActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -271,8 +355,22 @@
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */,
+				31FF5AB17D8F6EADAC2E31EA /* Sounds */,
 			);
 			path = Runner;
+			sourceTree = "<group>";
+		};
+		9886D275E53BA770B3EB7666 /* Alarm */ = {
+			isa = PBXGroup;
+			children = (
+				94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */,
+				0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */,
+				C1152E565D4F08BE1BD9C5C4 /* IncidentAlarmScheduler.swift */,
+				8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */,
+				9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */,
+			);
+			name = Alarm;
+			path = Alarm;
 			sourceTree = "<group>";
 		};
 		A2AC5B24027214B8FCBD0F33 /* CritAlarmNSE */ = {
@@ -355,6 +453,7 @@
 			);
 			dependencies = (
 				2D7C50090C08C0F32E2DDCE5 /* PBXTargetDependency */,
+				4BF7889A263BCA5B3DA9CD0D /* PBXTargetDependency */,
 			);
 			name = Runner;
 			packageProductDependencies = (
@@ -363,6 +462,23 @@
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
+		};
+		D86D592251E086420ADFCB9C /* CritAlarmActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5DAC28EF00695246D806B488 /* Build configuration list for PBXNativeTarget "CritAlarmActivity" */;
+			buildPhases = (
+				E08A1AA3B3C22998776ABFEA /* Sources */,
+				2251A154A02C292055922263 /* Frameworks */,
+				4B78C254668B714FFF051457 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CritAlarmActivity;
+			productName = CritAlarmActivity;
+			productReference = 95753DAD60ADE7A8BC9ABFC6 /* CritAlarmActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -429,6 +545,7 @@
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 				05734ECE5496AD88F886B6DE /* CritAlarmNSE */,
+				D86D592251E086420ADFCB9C /* CritAlarmActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -445,6 +562,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4B78C254668B714FFF051457 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		97C146EC1CF9000F007C117D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -454,6 +578,7 @@
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
 				8E54AF6FE4F7800B18856841 /* GoogleService-Info.plist in Resources */,
+				CF8B5F6F7F90CEDBD6A3E5A6 /* alarm.caf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -577,6 +702,11 @@
 				6CFAE537A5AD36D290371A7B /* IncidentPush.swift in Sources */,
 				84AF5F3AB18085F4710FD0A8 /* IncidentContent.swift in Sources */,
 				36122E51C399B0584985D46D /* PushEventLog.swift in Sources */,
+				7B23EC697E2DF0158A56C801 /* IncidentActivityCoordinator.swift in Sources */,
+				A3A92D32093F03668C763709 /* IncidentAlarmAttributes.swift in Sources */,
+				6E372DAD65DA145D7B0F7BF5 /* IncidentAlarmScheduler.swift in Sources */,
+				A1497E3050226B8FD2727E0E /* IncidentIntents.swift in Sources */,
+				F6BAA4FB61319AC1D2D1ADA7 /* AlarmTriggerPath.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -593,6 +723,11 @@
 				EBDDE7E06FD4B4CE2BC6A67E /* IncidentPush.swift in Sources */,
 				ED7D55E31FECA295DFAC93C5 /* IncidentContent.swift in Sources */,
 				0617CFB82831F64DAE3C6E36 /* PushEventLog.swift in Sources */,
+				0667D9BC1041B885CED760AE /* IncidentActivityCoordinator.swift in Sources */,
+				0CC17DA6DCACE81402DAB0A4 /* IncidentAlarmAttributes.swift in Sources */,
+				945DB746556DD27941C8DA6F /* IncidentAlarmScheduler.swift in Sources */,
+				5073401426B1F19765FDAE5F /* IncidentIntents.swift in Sources */,
+				0632154549508956E8E82937 /* AlarmTriggerPath.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -606,6 +741,29 @@
 				C827D752D015968E3C46FD3E /* IncidentPush.swift in Sources */,
 				7F680D71222AB12712DD1B2B /* IncidentContent.swift in Sources */,
 				E8500162759DEE4214490819 /* PushEventLog.swift in Sources */,
+				C7813969644D094F58A29C4D /* IncidentActivityCoordinator.swift in Sources */,
+				BA319A4AD1C672C67B0FB5E6 /* IncidentAlarmAttributes.swift in Sources */,
+				417DD9FCF00F687DBD202688 /* IncidentAlarmScheduler.swift in Sources */,
+				D1D0455B373B068D9BE01B47 /* IncidentIntents.swift in Sources */,
+				901DE32449E09CDC90C0829D /* AckQueueStore.swift in Sources */,
+				976B23E5DF5FDE6959EA0BDA /* AlarmTriggerPath.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E08A1AA3B3C22998776ABFEA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A5BB28153649D3FD00B5FF5A /* AlarmActivityWidget.swift in Sources */,
+				84353DF6B9FF22B8BB32717B /* CritAlarmActivityBundle.swift in Sources */,
+				CF1F6744B717A05554FDAF49 /* FaceView.swift in Sources */,
+				A93DE8C5BF97C64AEB9101C2 /* IncidentActivityWidget.swift in Sources */,
+				813000DE811E6C46E4681595 /* IncidentActivityCoordinator.swift in Sources */,
+				BABE51D86ECDA0FCAC490506 /* IncidentAlarmAttributes.swift in Sources */,
+				0E04C12CE8C8FB55A85CBFBD /* IncidentAlarmScheduler.swift in Sources */,
+				9D78FA391E6A115F041E23D0 /* IncidentIntents.swift in Sources */,
+				ED2803F0D04A5E547665D02A /* AckQueueStore.swift in Sources */,
+				356C4B6EB2F3C77BF0302A49 /* AlarmTriggerPath.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -622,6 +780,12 @@
 			isa = PBXTargetDependency;
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
+		};
+		4BF7889A263BCA5B3DA9CD0D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = CritAlarmActivity;
+			target = D86D592251E086420ADFCB9C /* CritAlarmActivity */;
+			targetProxy = BCA8FC9E0A77CEA2C77BF6F2 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -662,6 +826,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -796,6 +961,33 @@
 			};
 			name = Profile;
 		};
+		5ABDCAD4CF76000F11FF293E /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = CritAlarmActivity/CritAlarmActivity.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = N358LNAWS2;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CritAlarmActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.CritAlarmActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Profile;
+		};
 		5FE842979ED74CB6CA887F53 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */;
@@ -813,6 +1005,59 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		71E8BBDC036EA1DEE064EFC3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = CritAlarmActivity/CritAlarmActivity.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = N358LNAWS2;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CritAlarmActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.CritAlarmActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		79433A94C06309CE232B2487 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = CritAlarmActivity/CritAlarmActivity.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = N358LNAWS2;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CritAlarmActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.CritAlarmActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
@@ -948,6 +1193,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -1021,6 +1267,16 @@
 				5FE842979ED74CB6CA887F53 /* Release */,
 				1975D97944473FC99642AEAD /* Debug */,
 				C5480033E11DD857CF0045AD /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5DAC28EF00695246D806B488 /* Build configuration list for PBXNativeTarget "CritAlarmActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				79433A94C06309CE232B2487 /* Release */,
+				71E8BBDC036EA1DEE064EFC3 /* Debug */,
+				5ABDCAD4CF76000F11FF293E /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -1,4 +1,7 @@
 import UserNotifications
+#if canImport(AlarmKit)
+import AlarmKit
+#endif
 
 /// Turns a `relay_content: none` push into the real thing.
 ///
@@ -37,6 +40,11 @@ final class NotificationService: UNNotificationServiceExtension {
             push.kind.rawValue, push.priority, push.incidentId ?? "-",
             push.needsContentFetch ? "yes" : "no"
         )
+
+        // SPIKE (docs/specs/remote-alarm-ios-spike.md): can a Notification
+        // Service Extension schedule an AlarmKit alarm? Everything else in
+        // Part A hangs off the answer.
+        scheduleAlarmSpike(push)
 
         // The fetch has to finish inside the budget or the placeholder wins.
         let timeout = DispatchWorkItem { [weak self] in
@@ -99,5 +107,34 @@ final class NotificationService: UNNotificationServiceExtension {
 
         NSLog("CritAlarmNSE delivered title=%@", content.title)
         handler(content)
+    }
+
+    /// Spike only. Calls the same scheduler the app would, from inside the
+    /// extension, and logs whatever comes back.
+    private func scheduleAlarmSpike(_ push: IncidentPush) {
+        guard push.priority >= 5, let incidentId = push.incidentId else { return }
+        #if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            let state = IncidentAlarmScheduler.authorization
+            NSLog("CritAlarmSPIKE nse_alarmkit_reachable authorization=%@", "\(state)")
+            Task {
+                let ok = await IncidentAlarmScheduler.schedule(
+                    incidentId: "\(incidentId)-nse-spike",
+                    topic: push.title ?? "spike",
+                    server: push.server.absoluteString,
+                    title: push.title ?? "Crit Alarm spike"
+                )
+                NSLog(
+                    "CritAlarmSPIKE nse_schedule_result ok=%@ alarm_id=%@",
+                    ok ? "yes" : "no",
+                    IncidentAlarmScheduler.alarmId(for: "\(incidentId)-nse-spike").uuidString
+                )
+            }
+        } else {
+            NSLog("CritAlarmSPIKE nse_alarmkit_unavailable os_too_old")
+        }
+        #else
+        NSLog("CritAlarmSPIKE nse_alarmkit_not_linked")
+        #endif
     }
 }
