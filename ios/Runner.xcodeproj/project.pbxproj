@@ -7,18 +7,45 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		05BDDBA0157A3EE529FEC613 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E03D7BEA0BF5A60A3DCFDC3 /* NotificationService.swift */; };
+		0617CFB82831F64DAE3C6E36 /* PushEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B43861F26AA39D52CC432E /* PushEventLog.swift */; };
+		0D184790693B92A167F3BAAD /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
+		33626C563A1CD562EF06E44B /* content-none.apns in Resources */ = {isa = PBXBuildFile; fileRef = D87297CA8D80B89C76E0382B /* content-none.apns */; };
+		36122E51C399B0584985D46D /* PushEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B43861F26AA39D52CC432E /* PushEventLog.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
+		522BFE16F4DDA83E81723EBE /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
+		5387ED3388595C04D2B93590 /* p5.apns in Resources */ = {isa = PBXBuildFile; fileRef = C3F562DA2F44EAB6B928F6EB /* p5.apns */; };
+		6CFAE537A5AD36D290371A7B /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
+		7F680D71222AB12712DD1B2B /* IncidentContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F706A2A4516835A56FA2F295 /* IncidentContent.swift */; };
+		84AF5F3AB18085F4710FD0A8 /* IncidentContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F706A2A4516835A56FA2F295 /* IncidentContent.swift */; };
+		873108CBF1F3961B5574601E /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
 		8E54AF6FE4F7800B18856841 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = EEF761159A37EFC1340BACF6 /* GoogleService-Info.plist */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		9DF7AE06CF79C15046128835 /* NotificationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */; };
+		A436826ED21EEF1AB1E6333E /* NtfyEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */; };
+		B82753055D3DA46E0D865B9A /* CritAlarmNSE.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B48FF43F18021E4A198D5CC1 /* CritAlarmNSE.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B8508035E7616B526E6B2F6B /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 593DA1142F90062F7FE99B54 /* Pods_Runner.framework */; };
+		B943C66DEA85CFE559E1B67C /* NtfyEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */; };
+		BE4704C5DA9B9A1CAC9CBCAC /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E03D7BEA0BF5A60A3DCFDC3 /* NotificationService.swift */; };
 		C63EE7878B06FA3AE8C95D9D /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D67F82837113861230B142A /* Pods_RunnerTests.framework */; };
+		C680A45AFEDCDE12BB4C0417 /* NtfyEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */; };
+		C827D752D015968E3C46FD3E /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
+		CF2A62EB3F4FB523CF9334A7 /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
+		D183068650726122FB4BED45 /* PushDeliveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */; };
+		D5AA1E2175BB98EC72D83577 /* p4.apns in Resources */ = {isa = PBXBuildFile; fileRef = F4C3109ABCF417BB50CBFEBB /* p4.apns */; };
+		E8500162759DEE4214490819 /* PushEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B43861F26AA39D52CC432E /* PushEventLog.swift */; };
+		EBDDE7E06FD4B4CE2BC6A67E /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
+		ED7D55E31FECA295DFAC93C5 /* IncidentContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F706A2A4516835A56FA2F295 /* IncidentContent.swift */; };
+		FC678E988BB03EB22189B384 /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
+		FCC5FE50E2B32C65DAE754E8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 798CCEC30ED822B6D363FB7E /* Foundation.framework */; };
+		FD773139A83FCEC454AD6252 /* p3.apns in Resources */ = {isa = PBXBuildFile; fileRef = ACCD930E3ED1D741B0A061A9 /* p3.apns */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -28,6 +55,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
+		};
+		6409452E10ACDD036D4D37E2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 05734ECE5496AD88F886B6DE;
+			remoteInfo = CritAlarmNSE;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -42,6 +76,17 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B0672B11E2BE0E9A0EFF8B6B /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B82753055D3DA46E0D865B9A /* CritAlarmNSE.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -49,6 +94,7 @@
 		1105D7A93BBCCB9025CD65A0 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
+		1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushDeliveryTests.swift; sourceTree = "<group>"; };
 		2D67F82837113861230B142A /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -58,7 +104,10 @@
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
+		78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationServiceTests.swift; sourceTree = "<group>"; };
+		798CCEC30ED822B6D363FB7E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
+		7E03D7BEA0BF5A60A3DCFDC3 /* NotificationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
 		97C146EE1CF9000F007C117D /* Runner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runner.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -68,9 +117,23 @@
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A001835E63EC097B270CFC7B /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		A471C6FA0F15B4693AAA2990 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
+		AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NtfyEmoji.swift; sourceTree = "<group>"; };
+		ACCD930E3ED1D741B0A061A9 /* p3.apns */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = p3.apns; sourceTree = "<group>"; };
+		B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NseCredentials.swift; sourceTree = "<group>"; };
+		B48FF43F18021E4A198D5CC1 /* CritAlarmNSE.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CritAlarmNSE.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentPush.swift; sourceTree = "<group>"; };
+		BDF158218E2B9B0CE3E2A09B /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C3F562DA2F44EAB6B928F6EB /* p5.apns */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = p5.apns; sourceTree = "<group>"; };
 		C73C2069E310F8EB7801AF18 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		CC2DCCA88B5EE553B0939AE7 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
+		D4A55D581404C4B5C1339CF8 /* CritAlarmNSE.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = CritAlarmNSE.entitlements; sourceTree = "<group>"; };
+		D87297CA8D80B89C76E0382B /* content-none.apns */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = "content-none.apns"; sourceTree = "<group>"; };
+		E1B43861F26AA39D52CC432E /* PushEventLog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushEventLog.swift; sourceTree = "<group>"; };
+		E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AckQueueStore.swift; sourceTree = "<group>"; };
+		EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Flutter/Extension.xcconfig; sourceTree = "<group>"; };
 		EEF761159A37EFC1340BACF6 /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Runner/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		F4C3109ABCF417BB50CBFEBB /* p4.apns */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = p4.apns; sourceTree = "<group>"; };
+		F706A2A4516835A56FA2F295 /* IncidentContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentContent.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -88,6 +151,14 @@
 			files = (
 				78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */,
 				B8508035E7616B526E6B2F6B /* Pods_Runner.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F942527B03F361B877215965 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCC5FE50E2B32C65DAE754E8 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -111,6 +182,8 @@
 			isa = PBXGroup;
 			children = (
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
+				78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */,
+				1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */,
 			);
 			path = RunnerTests;
 			sourceTree = "<group>";
@@ -120,8 +193,30 @@
 			children = (
 				593DA1142F90062F7FE99B54 /* Pods_Runner.framework */,
 				2D67F82837113861230B142A /* Pods_RunnerTests.framework */,
+				5ED00C79B2D21DD4043FAFBF /* iOS */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		5ED00C79B2D21DD4043FAFBF /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				798CCEC30ED822B6D363FB7E /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		6985D8F09F70FDA837FD21F0 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */,
+				AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */,
+				B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */,
+				F706A2A4516835A56FA2F295 /* IncidentContent.swift */,
+				E1B43861F26AA39D52CC432E /* PushEventLog.swift */,
+			);
+			name = Shared;
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		9740EEB11CF90186004384FC /* Flutter */ = {
@@ -132,6 +227,7 @@
 				9740EEB21CF90195004384FC /* Debug.xcconfig */,
 				7AFA3C8E1D35360C0083082E /* Release.xcconfig */,
 				9740EEB31CF90195004384FC /* Generated.xcconfig */,
+				EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */,
 			);
 			name = Flutter;
 			sourceTree = "<group>";
@@ -146,6 +242,9 @@
 				0E74CCA51819F6C432F2180C /* Pods */,
 				49914E63F0C3345318D1394D /* Frameworks */,
 				EEF761159A37EFC1340BACF6 /* GoogleService-Info.plist */,
+				6985D8F09F70FDA837FD21F0 /* Shared */,
+				A2AC5B24027214B8FCBD0F33 /* CritAlarmNSE */,
+				D766E60CE6801CFC5001ED33 /* PushFixtures */,
 			);
 			sourceTree = "<group>";
 		};
@@ -154,6 +253,7 @@
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
+				B48FF43F18021E4A198D5CC1 /* CritAlarmNSE.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -170,13 +270,54 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
+				E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */,
 			);
 			path = Runner;
+			sourceTree = "<group>";
+		};
+		A2AC5B24027214B8FCBD0F33 /* CritAlarmNSE */ = {
+			isa = PBXGroup;
+			children = (
+				7E03D7BEA0BF5A60A3DCFDC3 /* NotificationService.swift */,
+				BDF158218E2B9B0CE3E2A09B /* Info.plist */,
+				D4A55D581404C4B5C1339CF8 /* CritAlarmNSE.entitlements */,
+			);
+			name = CritAlarmNSE;
+			path = CritAlarmNSE;
+			sourceTree = "<group>";
+		};
+		D766E60CE6801CFC5001ED33 /* PushFixtures */ = {
+			isa = PBXGroup;
+			children = (
+				ACCD930E3ED1D741B0A061A9 /* p3.apns */,
+				F4C3109ABCF417BB50CBFEBB /* p4.apns */,
+				C3F562DA2F44EAB6B928F6EB /* p5.apns */,
+				D87297CA8D80B89C76E0382B /* content-none.apns */,
+			);
+			name = PushFixtures;
+			path = ../scripts/push;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		05734ECE5496AD88F886B6DE /* CritAlarmNSE */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 33AEE4C5B228DF034677545D /* Build configuration list for PBXNativeTarget "CritAlarmNSE" */;
+			buildPhases = (
+				D1A76A8600F2CCAD9C020801 /* Sources */,
+				F942527B03F361B877215965 /* Frameworks */,
+				B2CEF310B550A3689B8C25F3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CritAlarmNSE;
+			productName = CritAlarmNSE;
+			productReference = B48FF43F18021E4A198D5CC1 /* CritAlarmNSE.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		331C8080294A63A400263BE5 /* RunnerTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 331C8087294A63A400263BE5 /* Build configuration list for PBXNativeTarget "RunnerTests" */;
@@ -205,6 +346,7 @@
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
+				B0672B11E2BE0E9A0EFF8B6B /* Embed Foundation Extensions */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				88B6C9EF2F37794465B78B94 /* FlutterFire: "flutterfire upload-crashlytics-symbols" */,
@@ -212,6 +354,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				2D7C50090C08C0F32E2DDCE5 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			packageProductDependencies = (
@@ -231,6 +374,18 @@
 				LastUpgradeCheck = 1510;
 				ORGANIZATIONNAME = "";
 				TargetAttributes = {
+					05734ECE5496AD88F886B6DE = {
+						CreatedOnToolsVersion = 15.1;
+						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+							com.apple.Keychain = {
+								enabled = 1;
+							};
+						};
+					};
 					331C8080294A63A400263BE5 = {
 						CreatedOnToolsVersion = 14.0;
 						TestTargetID = 97C146ED1CF9000F007C117D;
@@ -238,6 +393,20 @@
 					97C146ED1CF9000F007C117D = {
 						CreatedOnToolsVersion = 7.3.1;
 						LastSwiftMigration = 1100;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+							com.apple.BackgroundModes = {
+								enabled = 1;
+							};
+							com.apple.Keychain = {
+								enabled = 1;
+							};
+							com.apple.Push = {
+								enabled = 1;
+							};
+						};
 					};
 				};
 			};
@@ -259,6 +428,7 @@
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
+				05734ECE5496AD88F886B6DE /* CritAlarmNSE */,
 			);
 		};
 /* End PBXProject section */
@@ -268,6 +438,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD773139A83FCEC454AD6252 /* p3.apns in Resources */,
+				D5AA1E2175BB98EC72D83577 /* p4.apns in Resources */,
+				5387ED3388595C04D2B93590 /* p5.apns in Resources */,
+				33626C563A1CD562EF06E44B /* content-none.apns in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -280,6 +454,13 @@
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
 				8E54AF6FE4F7800B18856841 /* GoogleService-Info.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B2CEF310B550A3689B8C25F3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -387,6 +568,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */,
+				9DF7AE06CF79C15046128835 /* NotificationServiceTests.swift in Sources */,
+				D183068650726122FB4BED45 /* PushDeliveryTests.swift in Sources */,
+				05BDDBA0157A3EE529FEC613 /* NotificationService.swift in Sources */,
+				0D184790693B92A167F3BAAD /* AckQueueStore.swift in Sources */,
+				522BFE16F4DDA83E81723EBE /* NseCredentials.swift in Sources */,
+				B943C66DEA85CFE559E1B67C /* NtfyEmoji.swift in Sources */,
+				6CFAE537A5AD36D290371A7B /* IncidentPush.swift in Sources */,
+				84AF5F3AB18085F4710FD0A8 /* IncidentContent.swift in Sources */,
+				36122E51C399B0584985D46D /* PushEventLog.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -397,12 +587,37 @@
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
+				CF2A62EB3F4FB523CF9334A7 /* AckQueueStore.swift in Sources */,
+				FC678E988BB03EB22189B384 /* NseCredentials.swift in Sources */,
+				C680A45AFEDCDE12BB4C0417 /* NtfyEmoji.swift in Sources */,
+				EBDDE7E06FD4B4CE2BC6A67E /* IncidentPush.swift in Sources */,
+				ED7D55E31FECA295DFAC93C5 /* IncidentContent.swift in Sources */,
+				0617CFB82831F64DAE3C6E36 /* PushEventLog.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1A76A8600F2CCAD9C020801 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BE4704C5DA9B9A1CAC9CBCAC /* NotificationService.swift in Sources */,
+				873108CBF1F3961B5574601E /* NseCredentials.swift in Sources */,
+				A436826ED21EEF1AB1E6333E /* NtfyEmoji.swift in Sources */,
+				C827D752D015968E3C46FD3E /* IncidentPush.swift in Sources */,
+				7F680D71222AB12712DD1B2B /* IncidentContent.swift in Sources */,
+				E8500162759DEE4214490819 /* PushEventLog.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2D7C50090C08C0F32E2DDCE5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = CritAlarmNSE;
+			target = 05734ECE5496AD88F886B6DE /* CritAlarmNSE */;
+			targetProxy = 6409452E10ACDD036D4D37E2 /* PBXContainerItemProxy */;
+		};
 		331C8086294A63A400263BE5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 97C146ED1CF9000F007C117D /* Runner */;
@@ -430,6 +645,28 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		1975D97944473FC99642AEAD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = CritAlarmNSE/CritAlarmNSE.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = N358LNAWS2;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CritAlarmNSE/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.CritAlarmNSE;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		249021D3217E4FDB00AE95B9 /* Profile */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -493,6 +730,7 @@
 				DEVELOPMENT_TEAM = N358LNAWS2;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -513,6 +751,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -531,6 +770,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -547,6 +787,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -554,6 +795,29 @@
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
 			};
 			name = Profile;
+		};
+		5FE842979ED74CB6CA887F53 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = CritAlarmNSE/CritAlarmNSE.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = N358LNAWS2;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CritAlarmNSE/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.CritAlarmNSE;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
 		};
 		97C147031CF9000F007C117D /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -677,6 +941,7 @@
 				DEVELOPMENT_TEAM = N358LNAWS2;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -701,6 +966,7 @@
 				DEVELOPMENT_TEAM = N358LNAWS2;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -713,6 +979,29 @@
 			};
 			name = Release;
 		};
+		C5480033E11DD857CF0045AD /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = CritAlarmNSE/CritAlarmNSE.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = N358LNAWS2;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CritAlarmNSE/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.CritAlarmNSE;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Profile;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -722,6 +1011,16 @@
 				331C8088294A63A400263BE5 /* Debug */,
 				331C8089294A63A400263BE5 /* Release */,
 				331C808A294A63A400263BE5 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		33AEE4C5B228DF034677545D /* Build configuration list for PBXNativeTarget "CritAlarmNSE" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5FE842979ED74CB6CA887F53 /* Release */,
+				1975D97944473FC99642AEAD /* Debug */,
+				C5480033E11DD857CF0045AD /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

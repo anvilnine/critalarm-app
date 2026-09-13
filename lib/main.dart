@@ -5,6 +5,7 @@ import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
+import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
@@ -36,7 +37,18 @@ Future<void> main() async {
   _registerFontLicenses();
   await EasyLocalization.ensureInitialized();
   await configureDependencies();
-  final initialLocation = await getIt<InitialRouteResolver>()();
+  // The iOS ACK action runs with no engine and writes straight to the queue
+  // Dart drains. Listen before asking for the backlog, or the one waiting from
+  // a cold launch is missed.
+  final pushHost = getIt<PushHost>();
+  pushHost.queuedAcks.listen((_) => unawaited(getIt<AckQueue>().flush()));
+
+  // A notification tapped while the app was closed opens its own screen. iOS
+  // hands that route over on a channel; Android sets the platform route name.
+  final tappedRoute = await pushHost.takePendingRoute();
+  final initialLocation = await getIt<InitialRouteResolver>()(
+    deepLink: tappedRoute,
+  );
   // The gate starts with collection off every launch, so the saved choice has
   // to be put back before anything is reported.
   final privacy = await getIt<GetPrivacySettingsUsecase>()(const NoParams());

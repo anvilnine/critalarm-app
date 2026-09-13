@@ -1,3 +1,4 @@
+import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/components/chips.dart';
@@ -16,6 +17,7 @@ class HomeCubit extends Cubit<HomeState> {
     this._getTopics,
     this._incidentRepository, [
     this._messageSync,
+    this._badge,
   ]) : super(const HomeState());
 
   final GetTopicsUsecase _getTopics;
@@ -23,6 +25,10 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// Catches up on priority 1-3, which push never delivers (api.md 1.7).
   final MessageSyncService? _messageSync;
+
+  /// The app icon shows how many incidents are open. Optional so a test can
+  /// build the cubit without a platform channel behind it.
+  final AppBadge? _badge;
 
   /// Pull-to-refresh. Same work as opening the screen, including the poll.
   Future<void> refresh() => load();
@@ -56,6 +62,7 @@ class HomeCubit extends Cubit<HomeState> {
             .where((i) => i.state == 'open')
             .toList();
         final openIncidentIds = openIncidents.map((i) => i.id).toSet();
+        await _badge?.setCount(openIncidents.length);
 
         final hasCriticalOpen = openIncidents.any(
           (i) => i.messages.any((m) => m.priority == 5),

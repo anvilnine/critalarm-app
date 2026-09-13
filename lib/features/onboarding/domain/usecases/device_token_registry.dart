@@ -20,6 +20,11 @@ final class DeviceTokenRegistry {
   static const lastTokenKey = 'relay_push_token';
   static const lastVersionKey = 'relay_app_version';
 
+  /// Which push service the registered token came from. iOS registers an APNs
+  /// token and Android an FCM one, so a build that switches kinds has to
+  /// register again even when nothing else moved.
+  static const lastKindKey = 'relay_push_token_kind';
+
   /// Where the native FCM service leaves a token that arrived while Dart was
   /// not running. Written by `CritAlarmMessagingService.onNewToken`.
   static const pendingNativeTokenKey = 'flutter.pending_push_token';
@@ -61,9 +66,11 @@ final class DeviceTokenRegistry {
     }
     if (resolved.isEmpty) return false;
 
+    final kind = tokens.kind.name;
     final unchanged =
         prefs.getString(lastTokenKey) == resolved &&
-        prefs.getString(lastVersionKey) == appVersion;
+        prefs.getString(lastVersionKey) == appVersion &&
+        prefs.getString(lastKindKey) == kind;
     if (unchanged) return false;
 
     try {
@@ -73,6 +80,7 @@ final class DeviceTokenRegistry {
     }
     await prefs.setString(lastTokenKey, resolved);
     await prefs.setString(lastVersionKey, appVersion);
+    await prefs.setString(lastKindKey, kind);
     await prefs.remove(pendingNativeTokenKey);
     return true;
   }

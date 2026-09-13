@@ -8,6 +8,9 @@ final class FirebasePushTokenProvider implements PushTokenProvider {
   final FirebaseMessaging _messaging;
 
   @override
+  PushTokenKind get kind => PushTokenKind.fcm;
+
+  @override
   Future<String> getToken() async =>
       (await _messaging.getToken()) ??
       (throw StateError('FCM token unavailable'));

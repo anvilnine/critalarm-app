@@ -6,6 +6,7 @@ import 'package:critalarm/features/incidents/domain/usecases/acknowledge_inciden
 import 'package:critalarm/features/incidents/domain/usecases/close_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
+import 'package:critalarm/features/incidents/domain/usecases/update_incident_badge_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -15,13 +16,18 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     this._getIncident,
     this._getIncidents,
     this._acknowledgeIncident,
-    this._closeIncident,
-  ) : super(const CriticalAlarmState());
+    this._closeIncident, [
+    this._updateBadge,
+  ]) : super(const CriticalAlarmState());
 
   final GetIncidentUsecase _getIncident;
   final GetIncidentsUsecase _getIncidents;
   final AcknowledgeIncidentUsecase _acknowledgeIncident;
   final CloseIncidentUsecase _closeIncident;
+
+  /// Keeps the app icon showing how many incidents are still open. Optional so
+  /// a test can build the cubit without a platform channel behind it.
+  final UpdateIncidentBadgeUsecase? _updateBadge;
 
   Future<void> load({String? incidentId}) async {
     emit(state.copyWith(status: CriticalAlarmStatus.loading));
@@ -164,6 +170,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         }
       },
     );
+    await _updateBadge?.call();
   }
 
   Future<void> closeIncident() async {
@@ -188,6 +195,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         emit(state.copyWith(errorMessage: failure.message));
       },
     );
+    await _updateBadge?.call();
   }
 
   void _applyIncident(Incident incident) {
