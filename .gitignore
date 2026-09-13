@@ -83,6 +83,7 @@ google-services.json
 GoogleService-Info.plist
 *service-account*.json
 firebase-adminsdk*.json
+scripts/push/apns.env
 
 # Environment
 .env
@@ -99,3 +100,7 @@ firebase-adminsdk*.json
 # fvm: the flutter_sdk symlink points at a local absolute path
 .fvm/flutter_sdk
 .fvm/versions
+
+# Session-scoped agent scratch. Never committed.
+.superpowers/
+docs/superpowers/
