@@ -124,19 +124,28 @@ class _TopicDetailScreenContent extends StatelessWidget {
                                 title: LocaleKeys
                                     .topic_detail_critical_toggle_title
                                     .tr(),
-                                subtitle: LocaleKeys
-                                    .topic_detail_critical_toggle_subtitle
-                                    .tr(),
+                                subtitle: state.canEditCritical
+                                    ? LocaleKeys
+                                          .topic_detail_critical_toggle_subtitle
+                                          .tr()
+                                    : LocaleKeys
+                                          .topic_detail_critical_needs_alarm
+                                          .tr(),
                                 value: state.critical,
-                                onChanged: (val) {
-                                  unawaited(
-                                    context
-                                        .read<TopicDetailCubit>()
-                                        .toggleCriticalDelivery(
-                                          isCritical: val,
-                                        ),
-                                  );
-                                },
+                                // No alarm permission, no critical delivery:
+                                // the push would arrive as a plain
+                                // notification and never ring.
+                                onChanged: state.canEditCritical
+                                    ? (val) {
+                                        unawaited(
+                                          context
+                                              .read<TopicDetailCubit>()
+                                              .toggleCriticalDelivery(
+                                                isCritical: val,
+                                              ),
+                                        );
+                                      }
+                                    : null,
                               ),
                               const SizedBox(height: 12),
                               AppButton(

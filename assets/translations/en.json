@@ -65,7 +65,15 @@
     "post_notifications": "Notifications, so a page can reach you.",
     "full_screen_intent": "Full-screen alerts, so a critical page wakes the screen.",
     "enable_button": "Enable notifications",
-    "continue_without_button": "Continue without permissions"
+    "continue_without_button": "Continue without permissions",
+    "alarm_row_title": "Alarms",
+    "alarm_row_granted": "On. Critical alerts can ring through silent mode.",
+    "alarm_row_denied": "Off. Critical alerts will only show a notification.",
+    "alarm_row_pending": "Not asked yet.",
+    "alarm_row_unsupported": "Needs iOS 26 or newer.",
+    "card_row_title": "Lock screen card",
+    "card_row_granted": "On. Incidents show a card you can acknowledge.",
+    "card_row_pending": "Not ready yet."
   },
   "home": {
     "title": "Crit Alarm",
@@ -117,7 +125,8 @@
     "stage_word_critical": "CRITICAL",
     "stage_word_warning": "1 warning",
     "stage_word_clear": "All clear",
-    "stage_sub": "Default priority {priority}. {count} messages."
+    "stage_sub": "Default priority {priority}. {count} messages.",
+    "critical_needs_alarm": "Turn on Alarms in Settings first. Without it a critical alert arrives as a quiet notification."
   },
   "create_topic": {
     "title": "New topic",

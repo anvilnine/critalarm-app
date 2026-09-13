@@ -1,3 +1,4 @@
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/open_notification_settings_usecase.dart';
@@ -10,11 +11,20 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   NotificationPermissionsCubit(
     this._requestPermission,
     this._openSettings, {
+    this.alarm,
     NotificationPermissionStep initialStep = NotificationPermissionStep.initial,
   }) : super(NotificationPermissionsState(step: initialStep));
 
   final RequestNotificationPermissionUsecase _requestPermission;
   final OpenNotificationSettingsUsecase _openSettings;
+
+  /// Null off iOS, and in tests that only care about the notification step.
+  final AlarmHost? alarm;
+
+  /// The incident id the onboarding card uses. Not a real incident: it exists
+  /// so the Allow prompt for Live Activities happens here rather than the
+  /// first time the relay tries a remote start.
+  static const onboardingIncidentId = 'inc_onboarding';
 
   /// Requests notification (POST_NOTIFICATIONS) and full screen intent
   /// (USE_FULL_SCREEN_INTENT) permissions.
@@ -28,9 +38,11 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     );
 
     final result = await _requestPermission(const NoParams());
+    var granted = false;
     result.fold(
       (status) {
         if (status == NotificationPermissionStatus.granted) {
+          granted = true;
           emit(
             state.copyWith(
               step: NotificationPermissionStep.granted,
@@ -58,6 +70,37 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
         );
       },
     );
+
+    if (granted) await requestAlarmAndActivity();
+  }
+
+  /// The two iOS prompts that follow the notification one.
+  ///
+  /// AlarmKit is what lets a critical topic ring through silent mode and a
+  /// Focus. The local Live Activity is only there to make the system ask
+  /// Allow, because no update token is issued until the user has.
+  Future<void> requestAlarmAndActivity() async {
+    final alarm = this.alarm;
+    if (alarm == null) return;
+
+    final authorization = await alarm.requestAuthorization();
+    emit(state.copyWith(alarm: authorization));
+
+    final started = await alarm.startLocalActivity(
+      incidentId: onboardingIncidentId,
+      topic: 'setup',
+      server: '',
+      title: 'Crit Alarm is ready',
+      state: 'acked',
+    );
+    emit(state.copyWith(liveActivityStarted: started));
+  }
+
+  /// Reads the alarm state back without prompting, for the status row.
+  Future<void> refreshAlarmAuthorization() async {
+    final alarm = this.alarm;
+    if (alarm == null) return;
+    emit(state.copyWith(alarm: await alarm.authorizationStatus()));
   }
 
   /// Opens the system app notification settings.

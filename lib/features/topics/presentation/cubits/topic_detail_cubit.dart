@@ -1,3 +1,4 @@
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
@@ -13,12 +14,16 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   TopicDetailCubit(
     this._getTopic,
     this._updateTopic,
-    this._incidentRepository,
-  ) : super(const TopicDetailState());
+    this._incidentRepository, {
+    this.alarm,
+  }) : super(const TopicDetailState());
 
   final GetTopicUsecase _getTopic;
   final UpdateTopicUsecase _updateTopic;
   final IncidentRepository _incidentRepository;
+
+  /// Null off iOS, where there is no AlarmKit and nothing to gate on.
+  final AlarmHost? alarm;
 
   Future<void> load(String topicName) async {
     emit(
@@ -27,6 +32,11 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         topicName: topicName,
       ),
     );
+
+    final authorization = await alarm?.authorizationStatus();
+    if (authorization != null) {
+      emit(state.copyWith(alarm: authorization));
+    }
 
     final topicResult = await _getTopic(topicName);
     final incidentsResult = await _incidentRepository.getIncidents(

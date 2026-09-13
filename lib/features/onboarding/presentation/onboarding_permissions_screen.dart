@@ -1,4 +1,5 @@
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
@@ -59,6 +60,11 @@ class _OnboardingPermissionsView extends StatelessWidget {
             .tr();
         final continueWithoutText = LocaleKeys
             .onboarding_permissions_continue_without_button
+            .tr();
+        final cardTitle = LocaleKeys.onboarding_permissions_card_row_title
+            .tr();
+        final cardOn = LocaleKeys.onboarding_permissions_card_row_granted.tr();
+        final cardPending = LocaleKeys.onboarding_permissions_card_row_pending
             .tr();
 
         return Scaffold(
@@ -182,6 +188,23 @@ class _OnboardingPermissionsView extends StatelessWidget {
                                   text: fullScreenIntentText,
                                   glyph: GlyphType.arrow,
                                 ),
+                                if (state.alarm !=
+                                    AlarmAuthorization.unsupported) ...[
+                                  const SizedBox(height: 12),
+                                  AppKeyValueRow(
+                                    label: LocaleKeys
+                                        .onboarding_permissions_alarm_row_title
+                                        .tr(),
+                                    value: _alarmRowValue(state.alarm),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  AppKeyValueRow(
+                                    label: cardTitle,
+                                    value: state.liveActivityStarted
+                                        ? cardOn
+                                        : cardPending,
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -261,3 +284,16 @@ class _OnboardingPermissionsView extends StatelessWidget {
     );
   }
 }
+
+/// The alarm row reads back what the system said, so a denial is visible here
+/// and not only later on the topic's toggle.
+String _alarmRowValue(AlarmAuthorization alarm) => switch (alarm) {
+  AlarmAuthorization.authorized =>
+    LocaleKeys.onboarding_permissions_alarm_row_granted.tr(),
+  AlarmAuthorization.denied =>
+    LocaleKeys.onboarding_permissions_alarm_row_denied.tr(),
+  AlarmAuthorization.notDetermined =>
+    LocaleKeys.onboarding_permissions_alarm_row_pending.tr(),
+  AlarmAuthorization.unsupported =>
+    LocaleKeys.onboarding_permissions_alarm_row_unsupported.tr(),
+};
