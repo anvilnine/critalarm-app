@@ -1,0 +1,22 @@
+{
+  "Simulator Target Bundle": "app.critalarm",
+  "aps": {
+    "timestamp": 0,
+    "event": "start",
+    "content-state": {
+      "state": "acked",
+      "title": "Database down",
+      "opened_at": "2026-09-13T15:04:05Z"
+    },
+    "attributes-type": "CritAlarmIncidentAttributes",
+    "attributes": {
+      "incident_id": "inc_alarmed_proddb",
+      "topic": "prod-db",
+      "server": "http://127.0.0.1:8787"
+    },
+    "alert": {
+      "title": "Database down",
+      "body": "Tap Acknowledge when you are at your desk"
+    }
+  }
+}

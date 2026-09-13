@@ -1,0 +1,13 @@
+{
+  "Simulator Target Bundle": "app.critalarm",
+  "aps": {
+    "timestamp": 0,
+    "event": "end",
+    "dismissal-date": 0,
+    "content-state": {
+      "state": "closed",
+      "title": "Database down",
+      "opened_at": "2026-09-13T15:04:05Z"
+    }
+  }
+}

@@ -1,7 +1,9 @@
 # Push fixtures
 
-Four APNs payloads, one per delivery class in api.md §1.7, plus a wrapper
-around `xcrun simctl push` and an HTTP front door for the mock server.
+Eight APNs payloads, plus a wrapper around `xcrun simctl push` and an HTTP
+front door for the mock server. Five are alert pushes, one per delivery class
+in api.md §1.7 plus the alarm trigger. Three are Live Activity pushes for the
+acknowledge card.
 
 | File | What it is | What the app does |
 |---|---|---|
@@ -9,6 +11,15 @@ around `xcrun simctl push` and an HTTP front door for the mock server.
 | `p4.apns` | Priority 4, and priority 5 on a topic that is not critical. No incident id (api.md §4.1). | Banner at `time-sensitive`, no ACK action. |
 | `p5.apns` | Priority 5 on a critical topic, `relay_content: full`. Real text inline, no `mutable-content`. | `critical` level, category `INCIDENT` with the ACK action. |
 | `content-none.apns` | The same push with `relay_content: none`: placeholder text plus `mutable-content: 1`. | The extension fetches `GET /v1/incidents/{id}` and swaps in the real title and body. |
+| `alarm.apns` | The Part A trigger: priority 5 with `content-available: 1` as well as `mutable-content: 1`. | Wakes the app in the background, which schedules an AlarmKit alarm three seconds out. See `docs/specs/remote-alarm-ios-spike.md` for why the app and not the extension. |
+| `la-start.apns` | `apns-push-type: liveactivity`, `event: start`. Goes to the push-to-start token. | Puts the acknowledge card on the lock screen with no app running. |
+| `la-update.apns` | `event: update`. Goes to that card's own update token. | Changes the state and title on the card already showing. |
+| `la-end.apns` | `event: end`. Same token. | Takes the card down. |
+
+The three `la-*` files need `APNS_LA_START_TOKEN` and `APNS_LA_UPDATE_TOKEN` in
+`apns.env`. Both are printed by a debug build on launch and when a card starts.
+The shape of these three is not in api.md yet; see
+`docs/specs/remote-alarm-ios-blocked.md`.
 
 All four point at `inc_alarmed_proddb` or `prod-db`, which is what
 `mock_server.dart` serves.

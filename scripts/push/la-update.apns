@@ -1,0 +1,12 @@
+{
+  "Simulator Target Bundle": "app.critalarm",
+  "aps": {
+    "timestamp": 0,
+    "event": "update",
+    "content-state": {
+      "state": "acked",
+      "title": "Database down, on-call is awake",
+      "opened_at": "2026-09-13T15:04:05Z"
+    }
+  }
+}
