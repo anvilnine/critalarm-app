@@ -87,4 +87,22 @@ abstract interface class ApiClient {
     DeviceRegistration registration,
     String deviceToken,
   );
+
+  /// POST /relay/v1/devices/{device_id}/tokens
+  ///
+  /// Hands the relay a Live Activity token. [kind] is `la_start` for the
+  /// push-to-start token, which is one per install and lets the relay put a
+  /// card up with no app running, or `la_update` for a token that belongs to
+  /// one card and lets the relay update or end it. `la_update` carries the
+  /// [incidentId] it belongs to; `la_start` does not.
+  ///
+  /// NOTE: api.md does not carry this route yet. See
+  /// docs/specs/remote-alarm-ios-blocked.md.
+  Future<void> uploadActivityToken({
+    required String deviceId,
+    required String deviceToken,
+    required String kind,
+    required String token,
+    String? incidentId,
+  });
 }

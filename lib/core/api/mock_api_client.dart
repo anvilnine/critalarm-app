@@ -125,6 +125,26 @@ class MockApiClient implements ApiClient {
     return server.registerDevice(registration);
   }
 
+  /// Every token the app has handed over, newest last. The diagnostics test
+  /// reads this instead of a real relay.
+  final List<Map<String, String?>> activityTokens = [];
+
+  @override
+  Future<void> uploadActivityToken({
+    required String deviceId,
+    required String deviceToken,
+    required String kind,
+    required String token,
+    String? incidentId,
+  }) async {
+    activityTokens.add({
+      'device_id': deviceId,
+      'kind': kind,
+      'token': token,
+      'incident_id': incidentId,
+    });
+  }
+
   @override
   Future<DeviceRegistrationResponse> refreshDevice(
     DeviceRegistration registration,
