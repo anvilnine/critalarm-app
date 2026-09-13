@@ -92,3 +92,85 @@ is the live trigger. It returns early when the chosen path is not
   launch with "Test Store API key used in Release build". That is why this was
   run as a debug build with the tooling attached, and it means the "app fully
   killed" case is still untested.
+
+---
+
+# Spike 2: where AlarmKit will read a sound from
+
+Answer: bundle only, not yet confirmed on the handset.
+
+(Deliberately not a second `Verdict:` line. `AlarmTriggerPath.fromSpike` reads
+the first one in this file and would trip over another.)
+
+Run on 2026-09-14, same handset and toolchain as the spike above. This one was
+prompted by the sound library: eight bundled sounds plus anything the user
+imports, and none of them can ring unless AlarmKit can find the file.
+
+## The question
+
+`AlarmManager.AlarmConfiguration.timer(...)` takes
+`sound: ActivityKit.AlertConfiguration.AlertSound`, and the only way to name a
+file is `.named(_ name: String)`. From the iOS 26.4 SDK:
+
+```
+// ActivityKit.framework/.../arm64e-apple-ios.swiftinterface:439
+public struct AlertSound : Swift.Equatable, Swift.Sendable {
+  public static var `default`: ActivityKit.AlertConfiguration.AlertSound { get }
+  public static func named(_ name: Swift.String) -> ActivityKit.AlertConfiguration.AlertSound
+}
+```
+
+A bare name, no URL and no bundle argument. So the system resolves it, and the
+question is where it looks. Two candidates, the same two `UNNotificationSound`
+uses: the app bundle, and `Library/Sounds` inside the app container.
+
+This matters because Flutter assets are in **neither**. They live inside
+`App.framework/flutter_assets/`, which is a nested bundle. `Library/Sounds` is
+the only place this app can put a file at runtime, so if AlarmKit will not read
+from there, no sound in the picker can ever ring an AlarmKit alarm, bundled or
+imported.
+
+## What was measured
+
+The SDK signature above is read straight off the installed iOS 26.4 SDK, so
+that part is certain. What is not certain is the resolution order, because
+AlarmKit logs nothing about which file it picked, and `AlarmManager.schedule`
+does not throw on a name that resolves to nothing: it accepts the string and
+the alarm rings with the system default. That means the on-device run cannot
+tell "read my file from Library/Sounds" apart from "fell back to the default"
+from logs alone. Confirming it needs an ear on the handset, or a recording.
+
+Be precise about what that leaves. It is not known that `Library/Sounds` fails.
+It is known that nothing observed so far shows it working, and that the one
+sound confirmed to ring on this device (`alarm.caf`) is a compiled-in bundle
+resource added to the Runner target.
+
+## What the code does about it
+
+`AlarmSoundPolicy.librarySoundsRingAlarm` in `ios/Runner/AppDelegate.swift` is
+the single switch, and it is `false`. While it is false:
+
+- The picker shows "Notifications only" under every sound on iOS and prints one
+  line of explanation at the top of the screen.
+- AlarmKit keeps ringing the bundled `alarm.caf`.
+- `UNNotificationSound(named:)` still uses the picked sound, which does work
+  from `Library/Sounds`, so the choice is not cosmetic: it changes what a
+  time-sensitive push sounds like.
+
+Flip that one constant to `true` when somebody confirms it by ear, and the
+picker, the alarm and the explanation line all change together.
+
+## How to settle it
+
+Put a distinctive sound (the submarine dive horn, not a beep) in
+`Library/Sounds` only, schedule an alarm with `.named("submarine_dive_horn.caf")`,
+and listen. Horn means `Library/Sounds` works. The stock iOS alarm tone means it
+does not. One run, one ear, no ambiguity.
+
+## Why the bundled sounds are converted to caf
+
+`UNNotificationSound` reads Linear PCM, MA4, µLaw and aLaw inside aiff, wav or
+caf. It does not read mp3. The eight bundled sounds ship as mp3 (the format
+`docs/specs/remote-alarm.md` calls for on iOS), so `SoundLibrary.prepare` in
+`AppDelegate.swift` decodes each one to 16-bit PCM in a caf and writes it to
+`Library/Sounds` on launch. The same conversion runs on an imported file.

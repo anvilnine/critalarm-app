@@ -54,7 +54,13 @@ void main() {
           findsOneWidget,
         );
 
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, -350));
+        // The alarm sound section sits above this row, so how far it is down
+        // the page moves whenever settings grows. Scroll to it by name.
+        await tester.scrollUntilVisible(
+          find.text('Notifications, lock screen, battery'),
+          -120,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.text('Notifications, lock screen, battery'));
         await tester.pumpAndSettle();

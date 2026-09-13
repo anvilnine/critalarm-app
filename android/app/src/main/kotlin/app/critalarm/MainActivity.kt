@@ -11,6 +11,7 @@ import android.provider.Settings
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import app.critalarm.notifications.NotificationChannels
+import app.critalarm.sound.SoundChannel
 import io.flutter.plugin.common.MethodChannel
 
 // FlutterFragmentActivity, not FlutterActivity: flutter_local_notifications
@@ -18,9 +19,14 @@ import io.flutter.plugin.common.MethodChannel
 // A2's full-screen alarm intent lands on this class.
 class MainActivity : FlutterFragmentActivity() {
     private val SETTINGS_CHANNEL = "app.critalarm/settings"
+    private var soundChannel: SoundChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        val sounds = SoundChannel(applicationContext)
+        soundChannel = sounds
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SoundChannel.NAME)
+            .setMethodCallHandler(sounds::handle)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SETTINGS_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "openNotificationSettings" -> {
@@ -155,6 +161,12 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    override fun onStop() {
+        // Leaving the picker on screen must not leave a preview ringing.
+        soundChannel?.stopPreview()
+        super.onStop()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

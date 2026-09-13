@@ -484,6 +484,22 @@ class _SettingsScreenContent extends StatelessWidget {
                             _buildServerCard(context, cubit, state),
                             const SizedBox(height: 14),
                             AppSectionHeader(
+                              LocaleKeys.settings_alarm_sound_header.tr(),
+                            ),
+                            AppListRow(
+                              name: LocaleKeys.settings_alarm_sound_row_title
+                                  .tr(),
+                              meta: LocaleKeys.settings_alarm_sound_row_subtitle
+                                  .tr(),
+                              trailing: AppGlyph(
+                                GlyphType.arrow,
+                                color: colors.ink3,
+                                size: 16,
+                              ),
+                              onTap: () => context.push('/settings/sounds'),
+                            ),
+                            const SizedBox(height: 14),
+                            AppSectionHeader(
                               LocaleKeys.settings_device_permissions_header
                                   .tr(),
                             ),
