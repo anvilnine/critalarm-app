@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>CritAlarmNSE</string>
+	<string>Crit Alarm</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -20,23 +20,10 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<!-- The extension fetches the incident from the user's own server,
-		     which on a home network is a private host reached over plain
-		     HTTP. Same exception the app carries; arbitrary loads stays off,
-		     so public HTTP is still blocked. -->
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
-	<key>CritAlarmKeychainGroup</key>
-	<string>$(DEVELOPMENT_TEAM).app.critalarm</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionPointIdentifier</key>
-		<string>com.apple.usernotifications.service</string>
-		<key>NSExtensionPrincipalClass</key>
-		<string>$(PRODUCT_MODULE_NAME).NotificationService</string>
+		<string>com.apple.widgetkit-extension</string>
 	</dict>
 </dict>
 </plist>
