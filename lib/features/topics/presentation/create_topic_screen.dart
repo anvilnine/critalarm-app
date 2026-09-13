@@ -55,8 +55,6 @@ class _CreateTopicScreenContent extends StatelessWidget {
         final name = state.name.isEmpty ? 'prod-db' : state.name;
         final token = state.createdToken ?? 'ca_live_7Hq2mN9xPz4wKd8';
 
-        final bottomInset = MediaQuery.paddingOf(context).bottom;
-
         return Scaffold(
           resizeToAvoidBottomInset: true,
           backgroundColor: colors.canvas,
@@ -93,11 +91,11 @@ class _CreateTopicScreenContent extends StatelessWidget {
                     top: false,
                     bottom: false,
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(
+                      padding: const EdgeInsets.fromLTRB(
                         12,
                         Spacing.s4,
                         12,
-                        16 + bottomInset,
+                        16,
                       ),
                       child: AppSheet(
                         border: Border.all(color: colors.hairline, width: 2),
@@ -196,14 +194,6 @@ class _CreateTopicScreenContent extends StatelessWidget {
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 16),
-                            AppButton(
-                              label: LocaleKeys.create_topic_create_button.tr(),
-                              isFullWidth: true,
-                              isLoading:
-                                  state.status == CreateTopicStatus.submitting,
-                              onPressed: cubit.createTopic,
-                            ),
                           ],
                         ),
                       ),
@@ -211,6 +201,29 @@ class _CreateTopicScreenContent extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.s5,
+                12,
+                Spacing.s5,
+                12,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppButton(
+                    label: LocaleKeys.create_topic_create_button.tr(),
+                    isFullWidth: true,
+                    isLoading:
+                        state.status == CreateTopicStatus.submitting,
+                    onPressed: cubit.createTopic,
+                  ),
+                ],
+              ),
             ),
           ),
         );

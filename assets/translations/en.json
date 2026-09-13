@@ -75,8 +75,14 @@
     "stage_sub_no_topics": "Create one, then point a script, cron job or monitor at its endpoint.",
     "stage_word_critical": "CRITICAL",
     "stage_sub_critical": "{topic} ringing. Repeats every 30 s.",
-    "stage_word_warning": "1 warning",
-    "stage_sub_warning": "{count} topics. 1 warning.",
+    "stage_word_warning": {
+      "one": "{} warning",
+      "other": "{} warnings"
+    },
+    "stage_sub_warning": {
+      "one": "{count} topics. 1 warning.",
+      "other": "{count} topics. {warnings} warnings."
+    },
     "stage_word_clear": "All clear",
     "stage_sub_clear": "{count} topics. Last alert 06:12, acknowledged.",
     "meta_ringing_crit": "Ringing 2 min 14 s",
@@ -268,4 +274,3 @@
     "save_crash_reporting_preference": "Could not save crash reporting preference"
   }
 }
-

@@ -112,9 +112,14 @@ class HomeCubit extends Cubit<HomeState> {
           severity = SeverityMode.crit;
         } else if (hasWarningOpen) {
           faceState = FaceState.worried;
-          word = LocaleKeys.home_stage_word_warning.tr();
-          subText = LocaleKeys.home_stage_sub_warning.tr(
-            namedArgs: {'count': topics.length.toString()},
+          final warningCount = warningTopics.length;
+          word = LocaleKeys.home_stage_word_warning.plural(warningCount);
+          subText = LocaleKeys.home_stage_sub_warning.plural(
+            warningCount,
+            namedArgs: {
+              'count': topics.length.toString(),
+              'warnings': warningCount.toString(),
+            },
           );
           severity = SeverityMode.high;
         } else {
