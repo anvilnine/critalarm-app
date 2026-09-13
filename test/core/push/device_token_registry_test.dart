@@ -46,10 +46,13 @@ class _RecordingApi implements ApiClient {
 }
 
 class _FakeTokens implements PushTokenProvider {
-  _FakeTokens(this.token);
+  _FakeTokens(this.token, {this.kind = PushTokenKind.fcm});
 
   String token;
   final _rotations = StreamController<String>.broadcast();
+
+  @override
+  final PushTokenKind kind;
 
   @override
   Future<String> getToken() async => token;
@@ -105,6 +108,24 @@ void main() {
   test('ios sends ios as the platform kind', () async {
     await build(platform: 'ios').syncToken(null);
     expect(api.registrations.single.platform, 'ios');
+  });
+
+  test('an apns token is recorded as an apns token', () async {
+    tokens = _FakeTokens('apns-token-1', kind: PushTokenKind.apns);
+    await build(platform: 'ios').syncToken(null);
+
+    expect(api.registrations.single.pushToken, 'apns-token-1');
+    expect(prefs.getString(DeviceTokenRegistry.lastKindKey), 'apns');
+  });
+
+  test('the same string from a different service registers again', () async {
+    await build().syncToken(null);
+    expect(api.registrations, hasLength(1));
+
+    tokens = _FakeTokens('fcm-token-1', kind: PushTokenKind.apns);
+    expect(await build(platform: 'ios').syncToken(null), isTrue);
+    expect(api.refreshes, hasLength(1));
+    expect(prefs.getString(DeviceTokenRegistry.lastKindKey), 'apns');
   });
 
   test('a second launch with the same token makes no call', () async {

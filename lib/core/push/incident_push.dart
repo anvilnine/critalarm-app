@@ -35,6 +35,7 @@ final class IncidentPush {
     this.incidentId,
     this.title,
     this.body,
+    this.mutableContent = false,
   });
 
   /// Null only for a `p4` forward: api.md §4.1 sends no incident id for those.
@@ -55,9 +56,18 @@ final class IncidentPush {
   /// Present only when the topic runs `relay_content: full`.
   final String? body;
 
+  /// `aps.mutable-content: 1`, which api.md §5.1 sets on APNs only when the
+  /// text in `aps.alert` is a placeholder. `relay_content: full` drops it.
+  /// FCM has no matching key, so it stays false there.
+  final bool mutableContent;
+
   /// True when the relay stripped the content and the app has to fetch it
   /// with `GET /v1/incidents/{id}`.
-  bool get needsContentFetch => title == null && body == null;
+  ///
+  /// On APNs the placeholder text is always in `aps.alert`, so the flag is
+  /// what says the text is a placeholder. On FCM there is no text at all.
+  bool get needsContentFetch =>
+      mutableContent || (title == null && body == null);
 
   /// This push opens or continues an incident, so the alarm path owns it.
   bool get isIncident => kind != IncidentPushKind.p4 && incidentId != null;
@@ -76,12 +86,15 @@ final class IncidentPush {
   /// APNs payload, api.md §5.1. `incident_id`, `server` and `kind` sit at the
   /// top level next to `aps`; the display text lives inside `aps.alert`, and
   /// there is no `priority` key, so it comes from [IncidentPushKind].
+  /// `aps.mutable-content: 1` marks that text as a placeholder.
   static IncidentPush? fromApnsPayload(Map<String, dynamic> payload) {
     final aps = payload['aps'];
     final alert = aps is Map ? aps['alert'] : null;
     final title = alert is Map ? alert['title'] : null;
     final body = alert is Map ? alert['body'] : null;
+    final mutable = aps is Map && aps['mutable-content'] == 1;
     return _parse(
+      mutableContent: mutable,
       incidentId: payload['incident_id'] as String?,
       server: payload['server'] as String?,
       kind: payload['kind'] as String?,
@@ -100,6 +113,7 @@ final class IncidentPush {
     required bool requirePriority,
     required String? title,
     required String? body,
+    bool mutableContent = false,
   }) {
     final parsedKind = IncidentPushKind.tryParse(kind);
     if (parsedKind == null) return null;
@@ -125,6 +139,7 @@ final class IncidentPush {
       priority: resolvedPriority,
       title: (title ?? '').isEmpty ? null : title,
       body: (body ?? '').isEmpty ? null : body,
+      mutableContent: mutableContent,
     );
   }
 }

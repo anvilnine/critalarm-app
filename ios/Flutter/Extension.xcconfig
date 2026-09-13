@@ -1,0 +1,8 @@
+// Base config for the CritAlarmNSE target.
+//
+// The extension's version has to match the app's or the install is rejected.
+// Generated.xcconfig is where Flutter writes FLUTTER_BUILD_NAME and
+// FLUTTER_BUILD_NUMBER, so the extension reads them from the same place the
+// app does. Nothing here is Runner-specific: the pod and framework settings
+// stay out on purpose.
+#include "Generated.xcconfig"

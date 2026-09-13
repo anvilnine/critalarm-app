@@ -31,14 +31,17 @@ class InitialRouteResolver {
   final GetOnboardingCompletedUsecase _getOnboardingCompleted;
   final String Function() _platformRoute;
 
-  Future<String> call() async {
+  /// [deepLink] is the route a tapped notification asked for. iOS hands it
+  /// over on a channel rather than through the platform route name, so it can
+  /// be passed in; Android sets the platform route and passes nothing.
+  Future<String> call({String? deepLink}) async {
     final connection = await _getConnection(const NoParams());
     final completed = await _getOnboardingCompleted(const NoParams());
 
     return initialLocationFor(
       hasServerConnection: connection.isSuccess(),
       hasCompletedOnboarding: completed.getOrNull() ?? false,
-      deepLink: _platformRoute(),
+      deepLink: deepLink ?? _platformRoute(),
     );
   }
 

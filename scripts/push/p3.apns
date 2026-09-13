@@ -1,0 +1,12 @@
+{
+  "Simulator Target Bundle": "app.critalarm",
+  "aps": {
+    "alert": {
+      "title": "uptime-kuma",
+      "body": "42 monitors checked, all up"
+    },
+    "sound": "default",
+    "interruption-level": "active"
+  },
+  "topic": "uptime-kuma"
+}

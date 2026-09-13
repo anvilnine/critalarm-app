@@ -149,11 +149,12 @@ void main() {
       String? incidentId = 'inc_9a8b7c',
       String? title,
       String? body,
+      bool mutableContent = true,
     }) => {
       'aps': {
         'alert': {'title': ?title, 'body': ?body},
         'interruption-level': 'critical',
-        'mutable-content': 1,
+        if (mutableContent) 'mutable-content': 1,
         'category': 'INCIDENT',
       },
       'incident_id': ?incidentId,
@@ -194,6 +195,27 @@ void main() {
         expect(push.priority, kind.impliedPriority);
       });
     }
+
+    test('mutable-content marks the alert text as a placeholder', () {
+      final push = IncidentPush.fromApnsPayload(
+        payload(title: 'Crit Alarm', body: 'Critical alert on prod'),
+      )!;
+      expect(push.mutableContent, isTrue);
+      expect(push.needsContentFetch, isTrue);
+    });
+
+    test('relay_content full drops mutable-content and keeps its text', () {
+      final push = IncidentPush.fromApnsPayload(
+        payload(
+          title: 'Database down',
+          body: 'db01 is unreachable',
+          mutableContent: false,
+        ),
+      )!;
+      expect(push.mutableContent, isFalse);
+      expect(push.needsContentFetch, isFalse);
+      expect(push.title, 'Database down');
+    });
 
     test('an unknown kind is rejected', () {
       expect(IncidentPush.fromApnsPayload(payload(kind: 'closed')), isNull);

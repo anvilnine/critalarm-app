@@ -1,0 +1,14 @@
+{
+  "Simulator Target Bundle": "app.critalarm",
+  "aps": {
+    "alert": {
+      "title": "Crit Alarm",
+      "body": "High priority alert on prod-db, open to see details"
+    },
+    "sound": "default",
+    "interruption-level": "time-sensitive",
+    "mutable-content": 1
+  },
+  "server": "http://127.0.0.1:8787",
+  "kind": "p4"
+}

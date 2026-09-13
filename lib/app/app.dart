@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
@@ -25,6 +26,24 @@ class _CritAlarmAppState extends State<CritAlarmApp> {
   late final GoRouter _router = buildRouter(
     initialLocation: widget.initialLocation,
   );
+
+  StreamSubscription<String>? _deepLinks;
+
+  @override
+  void initState() {
+    super.initState();
+    // A notification tapped while the app is already running does not go
+    // through the initial route, so the platform hands the route over here.
+    if (getIt.isRegistered<PushHost>()) {
+      _deepLinks = getIt<PushHost>().deepLinks.listen(_router.go);
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_deepLinks?.cancel());
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -6,11 +6,16 @@ import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/env/env.dart';
+import 'package:critalarm/core/notifications/app_badge.dart';
+import 'package:critalarm/core/push/apns_push_token_provider.dart';
 import 'package:critalarm/core/push/firebase_push_token_provider.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
+import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
+import 'package:critalarm/core/storage/mirrored_api_session_store.dart';
+import 'package:critalarm/core/storage/nse_credential_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
@@ -24,6 +29,7 @@ import 'package:critalarm/features/incidents/domain/usecases/close_incident_usec
 import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
+import 'package:critalarm/features/incidents/domain/usecases/update_incident_badge_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cubit.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
@@ -86,6 +92,7 @@ import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topics_list_cubit.dart';
 import 'package:critalarm/firebase_options.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -128,14 +135,26 @@ Future<void> configureDependencies({
 
   getIt
     ..registerSingleton<SharedPreferences>(prefs)
+    ..registerLazySingleton<PushHost>(PushHost.new)
+    ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
+    ..registerLazySingleton<AppBadge>(() => AppBadge(getIt<PushHost>()))
+    // The iOS extension reads the server and the management token out of the
+    // keychain, so every session write has to land there too.
     ..registerLazySingleton<ApiSessionStore>(
-      () => SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
+      () => MirroredApiSessionStore(
+        SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
+        getIt<NseCredentialStore>(),
+      ),
     )
     ..registerLazySingleton<DeviceIdentityStore>(
       () => DeviceIdentityStore(getIt<SharedPreferences>()),
     )
+    // api.md §5.1 has the relay pushing to APNs itself, so iOS registers the
+    // raw APNs token. Android registers the FCM one (§5.2).
     ..registerLazySingleton<PushTokenProvider>(
-      FirebasePushTokenProvider.new,
+      () => defaultTargetPlatform == TargetPlatform.iOS
+          ? ApnsPushTokenProvider(getIt<PushHost>())
+          : FirebasePushTokenProvider(),
     )
     ..registerLazySingleton<MockServer>(() => MockServer()..seedCalm())
     ..registerLazySingleton<MockApiClient>(
@@ -275,6 +294,12 @@ Future<void> configureDependencies({
       () => GetIncidentsUsecase(getIt<IncidentRepository>()),
     )
     ..registerLazySingleton(
+      () => UpdateIncidentBadgeUsecase(
+        getIt<IncidentRepository>(),
+        getIt<AppBadge>(),
+      ),
+    )
+    ..registerLazySingleton(
       () => GetIncidentUsecase(getIt<IncidentRepository>()),
     )
     ..registerLazySingleton(
@@ -354,6 +379,7 @@ Future<void> configureDependencies({
         getIt<GetTopicsUsecase>(),
         getIt<IncidentRepository>(),
         getIt<MessageSyncService>(),
+        getIt<AppBadge>(),
       ),
     )
     ..registerFactory(
@@ -380,6 +406,7 @@ Future<void> configureDependencies({
         getIt<GetIncidentsUsecase>(),
         getIt<AcknowledgeIncidentUsecase>(),
         getIt<CloseIncidentUsecase>(),
+        getIt<UpdateIncidentBadgeUsecase>(),
       ),
     )
     ..registerFactory(
