@@ -4,6 +4,8 @@ import 'package:critalarm/features/permissions/domain/entities/device_permission
 import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/permissions/domain/repositories/device_permissions_repository.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -21,15 +23,6 @@ class PlatformDevicePermissionsRepository
 
   final FlutterLocalNotificationsPlugin _plugin;
   final MethodChannel _channel;
-
-  static const _notificationsDescription =
-      'Allows Crit Alarm to deliver alert banners and play sound.';
-  static const _fullScreenIntentDescription =
-      'Allows critical alerts to turn on and display over the lock screen '
-      'even when phone is sleeping.';
-  static const _batteryOptimizationDescription =
-      'Prevents Android from killing background alarm sync and delayed '
-      'delivery.';
 
   @override
   Future<AppResult<List<DevicePermissionItem>>> getPermissions() async {
@@ -60,22 +53,32 @@ class PlatformDevicePermissionsRepository
       final items = [
         DevicePermissionItem(
           type: DevicePermissionType.notifications,
-          title: 'Notifications',
-          description: _notificationsDescription,
+          title: LocaleKeys.device_permissions_item_notifications_title.tr(),
+          description:
+              LocaleKeys.device_permissions_item_notifications_description.tr(),
           status: notifsStatus,
           canFix: notifsStatus != DevicePermissionStatus.granted,
         ),
         DevicePermissionItem(
           type: DevicePermissionType.fullScreenIntent,
-          title: 'Full-screen intent',
-          description: _fullScreenIntentDescription,
+          title:
+              LocaleKeys.device_permissions_item_full_screen_intent_title.tr(),
+          description:
+              LocaleKeys
+                  .device_permissions_item_full_screen_intent_description
+                  .tr(),
           status: fsiStatus,
           canFix: fsiStatus != DevicePermissionStatus.granted,
         ),
         DevicePermissionItem(
           type: DevicePermissionType.batteryOptimization,
-          title: 'Battery optimization exemption',
-          description: _batteryOptimizationDescription,
+          title:
+              LocaleKeys.device_permissions_item_battery_optimization_title
+                  .tr(),
+          description:
+              LocaleKeys
+                  .device_permissions_item_battery_optimization_description
+                  .tr(),
           status: batteryStatus,
           canFix: batteryStatus != DevicePermissionStatus.granted,
         ),

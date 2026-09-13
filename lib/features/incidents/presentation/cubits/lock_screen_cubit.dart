@@ -1,6 +1,8 @@
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state for LockScreen.
@@ -29,13 +31,17 @@ class LockScreenCubit extends Cubit<LockScreenState> {
           items.add(
             LockNotificationItem(
               topic: inc.topic,
-              title: firstMsg?.title ?? 'Incident ${inc.id}',
+              title:
+                  firstMsg?.title ??
+                  LocaleKeys.lock_screen_incident_title.tr(
+                    namedArgs: {'id': inc.id},
+                  ),
               body: firstMsg?.message ?? '',
               faceState: isCrit ? FaceState.alarmed : FaceState.calm,
               ringingPillText: isCrit
-                  ? 'Ringing through silent mode. Tap to acknowledge.'
+                  ? LocaleKeys.lock_screen_ringing_pill.tr()
                   : null,
-              timeText: isCrit ? 'now' : '02:04',
+              timeText: isCrit ? LocaleKeys.lock_screen_time_now.tr() : '02:04',
               isCrit: isCrit,
               isQuiet: isQuiet,
               incidentId: inc.id,

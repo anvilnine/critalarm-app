@@ -1,6 +1,8 @@
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state and topic creation on CreateTopicScreen.
@@ -39,15 +41,18 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   Future<void> createTopic() async {
     final trimmedName = state.name.trim();
     if (trimmedName.isEmpty) {
-      emit(state.copyWith(errorMessage: 'Topic name cannot be empty'));
+      emit(
+        state.copyWith(
+          errorMessage: LocaleKeys.create_topic_name_error_empty.tr(),
+        ),
+      );
       return;
     }
 
     if (!_topicRegex.hasMatch(trimmedName)) {
       emit(
         state.copyWith(
-          errorMessage:
-              'Invalid name. Use 1-64 lowercase, digits, and hyphens.',
+          errorMessage: LocaleKeys.create_topic_name_error_invalid.tr(),
         ),
       );
       return;

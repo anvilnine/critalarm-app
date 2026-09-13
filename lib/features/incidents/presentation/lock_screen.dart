@@ -4,6 +4,8 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -85,7 +87,9 @@ class _LockScreenView extends StatelessWidget {
                                 AppTopBar(
                                   leading: AppIconButton(
                                     glyph: GlyphType.back,
-                                    ariaLabel: 'Back to Home',
+                                    ariaLabel: LocaleKeys
+                                        .lock_screen_back_aria_label
+                                        .tr(),
                                     onPressed: () {
                                       if (context.canPop()) {
                                         context.pop();
@@ -184,7 +188,8 @@ class _LockScreenView extends StatelessWidget {
                                     16 + MediaQuery.paddingOf(context).bottom,
                                   ),
                                   child: AppButton(
-                                    label: 'Open Crit Alarm',
+                                    label: LocaleKeys.lock_screen_open_button
+                                        .tr(),
                                     variant: AppButtonVariant.ghost,
                                     isFullWidth: true,
                                     onPressed: () {

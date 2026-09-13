@@ -1,6 +1,8 @@
 import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 
 enum DevicePermissionsCubitStatus { initial, loading, success, failure }
@@ -10,41 +12,47 @@ enum DevicePermissionsCubitStatus { initial, loading, success, failure }
 class DevicePermissionsState {
   const DevicePermissionsState({
     this.status = DevicePermissionsCubitStatus.initial,
-    this.permissions = defaultPermissions,
+    List<DevicePermissionItem>? permissions,
     this.errorMessage,
-  });
+    // Backing field is private while constructor parameter is public.
+    // ignore: prefer_initializing_formals
+  }) : _permissions = permissions;
 
   final DevicePermissionsCubitStatus status;
-  final List<DevicePermissionItem> permissions;
+  final List<DevicePermissionItem>? _permissions;
   final String? errorMessage;
 
-  static const defaultPermissions = [
+  static List<DevicePermissionItem> get defaultPermissions => [
     DevicePermissionItem(
       type: DevicePermissionType.notifications,
-      title: 'Notifications',
-      description: 'Allows Crit Alarm to deliver alert banners and play sound.',
+      title: LocaleKeys.device_permissions_item_notifications_title.tr(),
+      description: LocaleKeys.device_permissions_item_notifications_description
+          .tr(),
       status: DevicePermissionStatus.notDetermined,
       canFix: true,
     ),
     DevicePermissionItem(
       type: DevicePermissionType.fullScreenIntent,
-      title: 'Full-screen intent',
-      description:
-          'Allows critical alerts to turn on and display over the lock screen '
-          'even when phone is sleeping.',
+      title: LocaleKeys.device_permissions_item_full_screen_intent_title.tr(),
+      description: LocaleKeys
+          .device_permissions_item_full_screen_intent_description
+          .tr(),
       status: DevicePermissionStatus.notDetermined,
       canFix: true,
     ),
     DevicePermissionItem(
       type: DevicePermissionType.batteryOptimization,
-      title: 'Battery optimization exemption',
-      description:
-          'Prevents Android from killing background alarm sync and delayed '
-          'delivery.',
+      title: LocaleKeys.device_permissions_item_battery_optimization_title.tr(),
+      description: LocaleKeys
+          .device_permissions_item_battery_optimization_description
+          .tr(),
       status: DevicePermissionStatus.notDetermined,
       canFix: true,
     ),
   ];
+
+  List<DevicePermissionItem> get permissions =>
+      _permissions ?? defaultPermissions;
 
   bool get isLoading => status == DevicePermissionsCubitStatus.loading;
   bool get isSuccess => status == DevicePermissionsCubitStatus.success;

@@ -68,7 +68,7 @@ class TopicDetailState {
     this.critical = false,
     this.severity = SeverityMode.none,
     this.faceState = FaceState.calm,
-    this.word = 'All clear',
+    this.word = '',
     this.subText = '',
     this.messages = const [],
     this.errorMessage,

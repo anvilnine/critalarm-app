@@ -4,6 +4,8 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -39,6 +41,13 @@ class _CriticalAlarmView extends StatelessWidget {
           child: Builder(
             builder: (context) {
               final colors = context.appColors;
+              final ackFallback = LocaleKeys.critical_alarm_acknowledged_message
+                  .tr(
+                    namedArgs: {'time': '03:14'},
+                  );
+              final actionLabel = state.isAcknowledged
+                  ? LocaleKeys.critical_alarm_dismiss_button.tr()
+                  : LocaleKeys.critical_alarm_acknowledge_button.tr();
 
               return Scaffold(
                 backgroundColor: colors.canvas,
@@ -58,7 +67,9 @@ class _CriticalAlarmView extends StatelessWidget {
                                   AppTopBar(
                                     leading: AppIconButton(
                                       glyph: GlyphType.back,
-                                      ariaLabel: 'Back',
+                                      ariaLabel: LocaleKeys
+                                          .critical_alarm_back_aria_label
+                                          .tr(),
                                       onPressed: () {
                                         if (context.canPop()) {
                                           context.pop();
@@ -72,7 +83,7 @@ class _CriticalAlarmView extends StatelessWidget {
                                             variant: AppToastVariant.ack,
                                             message:
                                                 state.feedbackMessage ??
-                                                'Acknowledged at 03:14 by Z',
+                                                ackFallback,
                                           )
                                         : null,
                                   ),
@@ -209,9 +220,7 @@ class _CriticalAlarmView extends StatelessWidget {
                                           ),
                                           const SizedBox(height: Spacing.s4),
                                           AppButton(
-                                            label: state.isAcknowledged
-                                                ? 'Dismiss'
-                                                : 'Acknowledge',
+                                            label: actionLabel,
                                             size: AppButtonSize.lg,
                                             isFullWidth: true,
                                             isLoading: state.isAcknowledging,

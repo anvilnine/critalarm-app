@@ -4,6 +4,8 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -55,7 +57,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
                   AppSliverTopBar(
                     leading: AppIconButton(
                       glyph: GlyphType.back,
-                      ariaLabel: 'Back',
+                      ariaLabel: LocaleKeys.topic_detail_back_aria_label.tr(),
                       onPressed: () {
                         if (context.canPop()) {
                           context.pop();
@@ -119,8 +121,12 @@ class _TopicDetailScreenContent extends StatelessWidget {
                               ],
                               const SizedBox(height: 4),
                               AppToggleRow(
-                                title: 'Ring through silent mode',
-                                subtitle: 'Critical delivery',
+                                title: LocaleKeys
+                                    .topic_detail_critical_toggle_title
+                                    .tr(),
+                                subtitle: LocaleKeys
+                                    .topic_detail_critical_toggle_subtitle
+                                    .tr(),
                                 value: state.critical,
                                 onChanged: (val) {
                                   unawaited(
@@ -134,7 +140,9 @@ class _TopicDetailScreenContent extends StatelessWidget {
                               ),
                               const SizedBox(height: 12),
                               AppButton(
-                                label: 'Mark as read',
+                                label: LocaleKeys
+                                    .topic_detail_mark_as_read_button
+                                    .tr(),
                                 variant: AppButtonVariant.ink,
                                 isFullWidth: true,
                                 isLoading: state.isMarkingAsRead,

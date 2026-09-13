@@ -6,6 +6,8 @@ import 'package:critalarm/features/onboarding/domain/usecases/complete_onboardin
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing Screen 2: server connection, admin token input, compatibility
@@ -63,7 +65,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   void scanQrTapped() {
     emit(
       state.copyWith(
-        qrNotice: 'QR scanner placeholder - paste token instead',
+        qrNotice: LocaleKeys.onboarding_connect_qr_notice.tr(),
       ),
     );
   }
@@ -80,7 +82,8 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     if (trimmedUrl.isEmpty) {
       emit(
         state.copyWith(
-          serverUrlError: 'Server URL cannot be empty',
+          serverUrlError: LocaleKeys.onboarding_connect_server_url_error_empty
+              .tr(),
         ),
       );
       return;
@@ -89,7 +92,8 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     if (!ServerInfoValidation.isValidServerUrl(trimmedUrl)) {
       emit(
         state.copyWith(
-          serverUrlError: 'Enter a valid URL (e.g. https://api.critalarm.app)',
+          serverUrlError: LocaleKeys.onboarding_connect_server_url_error_invalid
+              .tr(),
         ),
       );
       return;
@@ -99,7 +103,8 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     if (trimmedToken.isEmpty) {
       emit(
         state.copyWith(
-          adminTokenError: 'Admin token cannot be empty',
+          adminTokenError: LocaleKeys.onboarding_connect_admin_token_error_empty
+              .tr(),
         ),
       );
       return;
@@ -121,9 +126,8 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
           emit(
             state.copyWith(
               status: OnboardingConnectStatus.failure,
-              errorMessage:
-                  'Server version ${info.version} is incompatible. '
-                  'Crit Alarm requires v0.x.',
+              errorMessage: LocaleKeys.onboarding_connect_version_incompatible
+                  .tr(namedArgs: {'version': info.version}),
             ),
           );
           return;

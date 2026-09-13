@@ -2,6 +2,8 @@ import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/settings/domain/entities/privacy_settings.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// SharedPreferences implementation of [PrivacyRepository].
@@ -34,8 +36,8 @@ class SharedPrefsPrivacyRepository implements PrivacyRepository {
     try {
       final saved = await _prefs.setBool(_keyAnalytics, enabled);
       if (!saved) {
-        return const Failure.unexpected(
-          message: 'Could not save analytics preference',
+        return Failure.unexpected(
+          message: LocaleKeys.storage_errors_save_analytics_preference.tr(),
         ).toFailure();
       }
       return unit.toSuccess();
@@ -51,8 +53,9 @@ class SharedPrefsPrivacyRepository implements PrivacyRepository {
     try {
       final saved = await _prefs.setBool(_keyCrashlytics, enabled);
       if (!saved) {
-        return const Failure.unexpected(
-          message: 'Could not save crash reporting preference',
+        return Failure.unexpected(
+          message:
+              LocaleKeys.storage_errors_save_crash_reporting_preference.tr(),
         ).toFailure();
       }
       return unit.toSuccess();

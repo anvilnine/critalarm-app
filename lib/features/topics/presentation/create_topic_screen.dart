@@ -2,6 +2,8 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -37,7 +39,7 @@ class _CreateTopicScreenContent extends StatelessWidget {
               duration: const Duration(seconds: 3),
               content: Center(
                 child: AppToast(
-                  message: 'Topic created',
+                  message: LocaleKeys.create_topic_toast_created.tr(),
                   boldText: state.name,
                 ),
               ),
@@ -67,7 +69,7 @@ class _CreateTopicScreenContent extends StatelessWidget {
                 AppSliverTopBar(
                   leading: AppIconButton(
                     glyph: GlyphType.back,
-                    ariaLabel: 'Back',
+                    ariaLabel: LocaleKeys.create_topic_back_aria_label.tr(),
                     onPressed: () {
                       if (context.canPop()) {
                         context.pop();
@@ -76,7 +78,7 @@ class _CreateTopicScreenContent extends StatelessWidget {
                       }
                     },
                   ),
-                  title: 'New topic',
+                  title: LocaleKeys.create_topic_title.tr(),
                 ),
                 const SliverToBoxAdapter(
                   child: AppStage(
@@ -104,18 +106,19 @@ class _CreateTopicScreenContent extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             AppTextField(
-                              label: 'Name',
+                              label: LocaleKeys.create_topic_name_label.tr(),
                               initialValue: state.name,
-                              placeholder: 'prod-db',
-                              helperText:
-                                  'Lowercase, digits, hyphens. '
-                                  'This becomes the URL.',
+                              placeholder: LocaleKeys
+                                  .create_topic_name_placeholder
+                                  .tr(),
+                              helperText: LocaleKeys.create_topic_name_helper
+                                  .tr(),
                               errorText: state.errorMessage,
                               onChanged: cubit.nameChanged,
                             ),
                             const SizedBox(height: 14),
                             Text(
-                              'Default priority',
+                              LocaleKeys.create_topic_priority_label.tr(),
                               style: TextStyle(
                                 fontFamily: AppTypography.fontBody,
                                 fontFamilyFallback:
@@ -146,8 +149,12 @@ class _CreateTopicScreenContent extends StatelessWidget {
                             ),
                             const SizedBox(height: 14),
                             AppToggleRow(
-                              title: 'Ring through silent mode',
-                              subtitle: 'Repeats every 30 s until acknowledged',
+                              title: LocaleKeys
+                                  .create_topic_critical_toggle_title
+                                  .tr(),
+                              subtitle: LocaleKeys
+                                  .create_topic_critical_toggle_subtitle
+                                  .tr(),
                               value: state.isCritical,
                               onChanged: (val) {
                                 cubit.criticalToggled(isCritical: val);
@@ -155,7 +162,7 @@ class _CreateTopicScreenContent extends StatelessWidget {
                             ),
                             const SizedBox(height: 14),
                             Text(
-                              'Generated',
+                              LocaleKeys.create_topic_generated_label.tr(),
                               style: TextStyle(
                                 fontFamily: AppTypography.fontBody,
                                 fontFamilyFallback:
@@ -178,8 +185,7 @@ class _CreateTopicScreenContent extends StatelessWidget {
                             if (state.createdToken != null) ...[
                               const SizedBox(height: 6),
                               Text(
-                                'Save this token now. '
-                                'It will not be shown again.',
+                                LocaleKeys.create_topic_token_warning.tr(),
                                 style: TextStyle(
                                   fontFamily: AppTypography.fontBody,
                                   fontFamilyFallback:
@@ -192,7 +198,7 @@ class _CreateTopicScreenContent extends StatelessWidget {
                             ],
                             const SizedBox(height: 16),
                             AppButton(
-                              label: 'Create topic',
+                              label: LocaleKeys.create_topic_create_button.tr(),
                               isFullWidth: true,
                               isLoading:
                                   state.status == CreateTopicStatus.submitting,

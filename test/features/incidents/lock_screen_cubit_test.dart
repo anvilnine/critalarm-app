@@ -40,7 +40,7 @@ void main() {
       expect(critNotif.title, 'Primary database down');
       expect(
         critNotif.ringingPillText,
-        'Ringing through silent mode. Tap to acknowledge.',
+        'Ringing. Tap to acknowledge.',
       );
       expect(critNotif.timeText, 'now');
 
@@ -66,7 +66,7 @@ void main() {
         expect(critItem.title, 'Primary database down');
         expect(
           critItem.ringingPillText,
-          'Ringing through silent mode. Tap to acknowledge.',
+          'Ringing. Tap to acknowledge.',
         );
       },
     );

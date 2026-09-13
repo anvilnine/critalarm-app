@@ -3,6 +3,8 @@ import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
@@ -82,31 +84,33 @@ class RevenueCatSubscriptionRepository implements SubscriptionRepository {
       final code = PurchasesErrorHelper.getErrorCode(e);
       switch (code) {
         case PurchasesErrorCode.purchaseCancelledError:
-          return const Failure.unexpected(message: 'Purchase was cancelled.');
+          return Failure.unexpected(
+            message: LocaleKeys.purchase_errors_purchase_cancelled.tr(),
+          );
         case PurchasesErrorCode.purchaseNotAllowedError:
-          return const Failure.unsupported(
-            message: 'Purchases are not allowed on this device or account.',
+          return Failure.unsupported(
+            message: LocaleKeys.purchase_errors_purchase_not_allowed.tr(),
           );
         case PurchasesErrorCode.paymentPendingError:
-          return const Failure.unexpected(
-            message: 'Payment is pending authorization.',
+          return Failure.unexpected(
+            message: LocaleKeys.purchase_errors_payment_pending.tr(),
           );
         case PurchasesErrorCode.productAlreadyPurchasedError:
-          return const Failure.conflict(
-            message: 'This subscription is already active.',
+          return Failure.conflict(
+            message:
+                LocaleKeys.purchase_errors_product_already_purchased.tr(),
           );
         case PurchasesErrorCode.networkError:
-          return const Failure.unexpected(
-            message:
-                'Network error. Please check your connection and try again.',
+          return Failure.unexpected(
+            message: LocaleKeys.purchase_errors_network_error.tr(),
           );
         case PurchasesErrorCode.invalidCredentialsError:
           return const Failure.unauthorized(
             message: 'Invalid RevenueCat API key or configuration.',
           );
         case PurchasesErrorCode.storeProblemError:
-          return const Failure.unexpected(
-            message: 'The store encountered an error processing your request.',
+          return Failure.unexpected(
+            message: LocaleKeys.purchase_errors_store_problem.tr(),
           );
         case PurchasesErrorCode.unknownError:
         case PurchasesErrorCode.purchaseInvalidError:

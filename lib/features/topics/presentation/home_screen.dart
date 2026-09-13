@@ -4,6 +4,8 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -49,10 +51,10 @@ class _HomeScreenContent extends StatelessWidget {
                   ),
                   slivers: [
                     AppSliverTopBar(
-                      title: 'Crit Alarm',
+                      title: LocaleKeys.home_title.tr(),
                       trailing: AppIconButton(
                         glyph: GlyphType.gear,
-                        ariaLabel: 'Settings',
+                        ariaLabel: LocaleKeys.home_settings_aria_label.tr(),
                         onPressed: () => context.push('/settings'),
                       ),
                     ),
@@ -107,7 +109,8 @@ class _HomeScreenContent extends StatelessWidget {
                                   ],
                                   const SizedBox(height: 4),
                                   AppButton(
-                                    label: 'New topic',
+                                    label: LocaleKeys.home_new_topic_button
+                                        .tr(),
                                     isFullWidth: true,
                                     onPressed: () =>
                                         context.push('/topics/new'),

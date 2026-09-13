@@ -8,6 +8,8 @@ import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart'
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -57,7 +59,7 @@ class _SettingsScreenContent extends StatelessWidget {
         backgroundColor: colors.surface,
         shape: const RoundedRectangleBorder(borderRadius: Radii.lgAll),
         title: Text(
-          'Disconnect server?',
+          LocaleKeys.settings_disconnect_dialog_title.tr(),
           style: TextStyle(
             fontFamily: AppTypography.fontDisplay,
             fontFamilyFallback: AppTypography.fontDisplayFallbacks,
@@ -67,8 +69,7 @@ class _SettingsScreenContent extends StatelessWidget {
           ),
         ),
         content: Text(
-          'Are you sure you want to disconnect? You will stop receiving '
-          'critical alarms until you reconnect.',
+          LocaleKeys.settings_disconnect_dialog_content.tr(),
           style: TextStyle(
             fontFamily: AppTypography.fontBody,
             fontFamilyFallback: AppTypography.fontBodyFallbacks,
@@ -80,7 +81,7 @@ class _SettingsScreenContent extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text(
-              'Cancel',
+              LocaleKeys.common_cancel.tr(),
               style: TextStyle(
                 fontFamily: AppTypography.fontBody,
                 color: colors.ink3,
@@ -91,7 +92,7 @@ class _SettingsScreenContent extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text(
-              'Disconnect',
+              LocaleKeys.settings_disconnect_dialog_confirm.tr(),
               style: TextStyle(
                 fontFamily: AppTypography.fontBody,
                 color: colors.crit,
@@ -144,7 +145,7 @@ class _SettingsScreenContent extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            'Edit server connection',
+                            LocaleKeys.settings_edit_server_title.tr(),
                             style: TextStyle(
                               fontFamily: AppTypography.fontDisplay,
                               fontFamilyFallback:
@@ -159,29 +160,30 @@ class _SettingsScreenContent extends StatelessWidget {
                           glyph: GlyphType.back,
                           size: 32,
                           glyphSize: 14,
-                          ariaLabel: 'Close',
+                          ariaLabel: LocaleKeys.common_close.tr(),
                           onPressed: () => Navigator.of(sheetContext).pop(),
                         ),
                       ],
                     ),
                     const SizedBox(height: 14),
                     AppTextField(
-                      label: 'SERVER URL',
+                      label: LocaleKeys.settings_server_url_label.tr(),
                       controller: urlController,
                       placeholder: 'https://api.critalarm.app',
                     ),
                     const SizedBox(height: 12),
                     AppTextField(
-                      label: 'ADMIN TOKEN',
+                      label: LocaleKeys.settings_admin_token_label.tr(),
                       controller: tokenController,
-                      placeholder: 'ad_...',
+                      placeholder: LocaleKeys.settings_admin_token_placeholder
+                          .tr(),
                     ),
                     const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
                           child: AppButton(
-                            label: 'Cancel',
+                            label: LocaleKeys.common_cancel.tr(),
                             variant: AppButtonVariant.ghost,
                             onPressed: () => Navigator.of(sheetContext).pop(),
                           ),
@@ -189,7 +191,7 @@ class _SettingsScreenContent extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: AppButton(
-                            label: 'Save',
+                            label: LocaleKeys.common_save.tr(),
                             onPressed: () {
                               final newUrl = urlController.text.trim();
                               final newToken = tokenController.text.trim();
@@ -246,7 +248,7 @@ class _SettingsScreenContent extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Connected',
+                  LocaleKeys.settings_server_status_connected.tr(),
                   style: TextStyle(
                     fontFamily: AppTypography.fontBody,
                     fontFamilyFallback: AppTypography.fontBodyFallbacks,
@@ -257,7 +259,7 @@ class _SettingsScreenContent extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  'Self-hosted',
+                  LocaleKeys.settings_server_self_hosted.tr(),
                   style: TextStyle(
                     fontFamily: AppTypography.fontBody,
                     fontFamilyFallback: AppTypography.fontBodyFallbacks,
@@ -287,7 +289,7 @@ class _SettingsScreenContent extends StatelessWidget {
               children: [
                 Expanded(
                   child: AppButton(
-                    label: 'Edit',
+                    label: LocaleKeys.settings_server_edit_button.tr(),
                     size: AppButtonSize.sm,
                     variant: AppButtonVariant.paper,
                     onPressed: () =>
@@ -297,7 +299,7 @@ class _SettingsScreenContent extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: AppButton(
-                    label: 'Disconnect',
+                    label: LocaleKeys.settings_server_disconnect_button.tr(),
                     size: AppButtonSize.sm,
                     variant: AppButtonVariant.ghost,
                     isLoading: state.isDisconnecting,
@@ -332,7 +334,7 @@ class _SettingsScreenContent extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                'Disconnected',
+                LocaleKeys.settings_server_status_disconnected.tr(),
                 style: TextStyle(
                   fontFamily: AppTypography.fontBody,
                   fontFamilyFallback: AppTypography.fontBodyFallbacks,
@@ -345,8 +347,7 @@ class _SettingsScreenContent extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'No server connected. Connect to a server to receive '
-            'critical alerts.',
+            LocaleKeys.settings_server_disconnected_description.tr(),
             style: TextStyle(
               fontFamily: AppTypography.fontBody,
               fontFamilyFallback: AppTypography.fontBodyFallbacks,
@@ -356,7 +357,7 @@ class _SettingsScreenContent extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           AppButton(
-            label: 'Connect server',
+            label: LocaleKeys.settings_server_connect_button.tr(),
             size: AppButtonSize.sm,
             isFullWidth: true,
             onPressed: () => context.push('/onboarding/connect'),
@@ -384,10 +385,10 @@ class _SettingsScreenContent extends StatelessWidget {
               ),
               slivers: [
                 AppSliverTopBar(
-                  title: 'Settings',
+                  title: LocaleKeys.settings_title.tr(),
                   leading: AppIconButton(
                     glyph: GlyphType.back,
-                    ariaLabel: 'Back',
+                    ariaLabel: LocaleKeys.settings_back_aria_label.tr(),
                     onPressed: () {
                       if (context.canPop()) {
                         context.pop();
@@ -397,15 +398,15 @@ class _SettingsScreenContent extends StatelessWidget {
                     },
                   ),
                 ),
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Column(
                     children: [
-                      SizedBox(height: Spacing.s2),
+                      const SizedBox(height: Spacing.s2),
                       AppStage.horizontal(
                         faceState: FaceState.acked,
-                        sub: 'Quiet hours on. Critical still rings.',
+                        sub: LocaleKeys.settings_stage_sub.tr(),
                       ),
-                      SizedBox(height: Spacing.s3),
+                      const SizedBox(height: Spacing.s3),
                     ],
                   ),
                 ),
@@ -425,18 +426,25 @@ class _SettingsScreenContent extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const AppSectionHeader('Quiet hours'),
+                            AppSectionHeader(
+                              LocaleKeys.settings_quiet_hours_label.tr(),
+                            ),
                             AppToggleRow(
-                              title: '22:00 to 07:00',
-                              subtitle: 'default and low stay silent',
+                              title: LocaleKeys.settings_quiet_hours_schedule
+                                  .tr(),
+                              subtitle: LocaleKeys.settings_quiet_hours_subtitle
+                                  .tr(),
                               value: state.quietHoursEnabled,
                               onChanged: (val) =>
                                   cubit.toggleQuietHours(isEnabled: val),
                             ),
                             const SizedBox(height: 8),
                             AppToggleRow(
-                              title: 'Critical rings through quiet hours',
-                              subtitle: 'and through the silent switch',
+                              title: LocaleKeys.settings_critical_rings_title
+                                  .tr(),
+                              subtitle: LocaleKeys
+                                  .settings_critical_rings_subtitle
+                                  .tr(),
                               value: state.criticalRingsQuietHours,
                               onChanged: (val) =>
                                   cubit.toggleCriticalRingsQuietHours(
@@ -444,17 +452,24 @@ class _SettingsScreenContent extends StatelessWidget {
                                   ),
                             ),
                             const SizedBox(height: 14),
-                            const AppSectionHeader('Escalation'),
+                            AppSectionHeader(
+                              LocaleKeys.settings_escalation_header.tr(),
+                            ),
                             AppToggleRow(
-                              title: 'Call after 5 min',
-                              subtitle:
-                                  'Repeats every 30 s first. +63 917 xxx 4821',
+                              title: LocaleKeys.settings_escalation_call_title
+                                  .tr(),
+                              subtitle: LocaleKeys
+                                  .settings_escalation_call_subtitle
+                                  .tr(),
                               value: state.escalationCallEnabled,
                               onChanged: (val) =>
                                   cubit.toggleEscalationCall(isEnabled: val),
                             ),
                             const SizedBox(height: 14),
-                            const AppSectionHeader('Per-topic priority'),
+                            AppSectionHeader(
+                              LocaleKeys.settings_per_topic_priority_header
+                                  .tr(),
+                            ),
                             for (final topic in state.topics) ...[
                               AppKeyValueRow(
                                 value: topic.name,
@@ -463,13 +478,22 @@ class _SettingsScreenContent extends StatelessWidget {
                               const SizedBox(height: 8),
                             ],
                             const SizedBox(height: 6),
-                            const AppSectionHeader('Server connection'),
+                            AppSectionHeader(
+                              LocaleKeys.settings_server_connection_header.tr(),
+                            ),
                             _buildServerCard(context, cubit, state),
                             const SizedBox(height: 14),
-                            const AppSectionHeader('Device permissions'),
+                            AppSectionHeader(
+                              LocaleKeys.settings_device_permissions_header
+                                  .tr(),
+                            ),
                             AppListRow(
-                              name: 'Device permissions',
-                              meta: 'Notifications, lock screen, battery',
+                              name: LocaleKeys
+                                  .settings_device_permissions_row_title
+                                  .tr(),
+                              meta: LocaleKeys
+                                  .settings_device_permissions_row_subtitle
+                                  .tr(),
                               trailing: AppGlyph(
                                 GlyphType.arrow,
                                 color: colors.ink3,
@@ -480,8 +504,10 @@ class _SettingsScreenContent extends StatelessWidget {
                             ),
                             const SizedBox(height: 8),
                             AppListRow(
-                              name: 'Redo onboarding',
-                              meta: 'Review permissions and server setup',
+                              name: LocaleKeys.settings_redo_onboarding_title
+                                  .tr(),
+                              meta: LocaleKeys.settings_redo_onboarding_subtitle
+                                  .tr(),
                               trailing: AppGlyph(
                                 GlyphType.arrow,
                                 color: colors.ink3,
@@ -491,16 +517,21 @@ class _SettingsScreenContent extends StatelessWidget {
                                   context.pushNamed(AppRoute.onboarding),
                             ),
                             const SizedBox(height: 14),
-                            const AppSectionHeader('Theme'),
+                            AppSectionHeader(
+                              LocaleKeys.settings_theme_header.tr(),
+                            ),
                             BlocBuilder<ThemeCubit, AppThemeMode>(
                               builder: (context, themeMode) {
                                 return AppSegmentedControl<AppThemeMode>(
                                   items: AppThemeMode.values,
                                   selectedItem: themeMode,
                                   labelBuilder: (mode) => switch (mode) {
-                                    AppThemeMode.system => 'System',
-                                    AppThemeMode.light => 'Light',
-                                    AppThemeMode.dark => 'Dark',
+                                    AppThemeMode.system =>
+                                      LocaleKeys.settings_theme_system.tr(),
+                                    AppThemeMode.light =>
+                                      LocaleKeys.settings_theme_light.tr(),
+                                    AppThemeMode.dark =>
+                                      LocaleKeys.settings_theme_dark.tr(),
                                   },
                                   onChanged: (mode) {
                                     unawaited(
@@ -511,57 +542,67 @@ class _SettingsScreenContent extends StatelessWidget {
                               },
                             ),
                             const SizedBox(height: 14),
-                            const AppSectionHeader('Privacy'),
+                            AppSectionHeader(
+                              LocaleKeys.settings_privacy_header.tr(),
+                            ),
                             AppToggleRow(
-                              title: 'Share anonymous usage analytics',
-                              subtitle:
-                                  'Shares anonymous feature usage and screen '
-                                  'views to improve app stability.',
+                              title: LocaleKeys.settings_analytics_title.tr(),
+                              subtitle: LocaleKeys.settings_analytics_subtitle
+                                  .tr(),
                               value: state.analyticsEnabled,
                               onChanged: (val) =>
                                   cubit.toggleAnalytics(isEnabled: val),
                             ),
                             const SizedBox(height: 8),
                             AppToggleRow(
-                              title: 'Send crash reports',
-                              subtitle:
-                                  'Sends anonymized stack traces and device '
-                                  'info when an unexpected error occurs.',
+                              title: LocaleKeys.settings_crash_reports_title
+                                  .tr(),
+                              subtitle: LocaleKeys
+                                  .settings_crash_reports_subtitle
+                                  .tr(),
                               value: state.crashReportingEnabled,
                               onChanged: (val) =>
                                   cubit.toggleCrashReporting(isEnabled: val),
                             ),
                             const SizedBox(height: 14),
-                            const AppSectionHeader('About'),
-                            const AppKeyValueRow(
-                              label: 'Version',
+                            AppSectionHeader(
+                              LocaleKeys.settings_about_header.tr(),
+                            ),
+                            AppKeyValueRow(
+                              label: LocaleKeys.settings_about_version_label
+                                  .tr(),
                               value: 'v$appVersion',
                             ),
                             const SizedBox(height: 8),
-                            const AppKeyValueRow(
-                              label: 'License',
-                              value: 'GPL-3.0 License',
+                            AppKeyValueRow(
+                              label: LocaleKeys.settings_about_license_label
+                                  .tr(),
+                              value: LocaleKeys.settings_about_license_value
+                                  .tr(),
                               isMono: false,
                             ),
                             const SizedBox(height: 8),
-                            const _AboutLinkRow(
-                              label: 'Documentation',
+                            _AboutLinkRow(
+                              label: LocaleKeys.settings_about_docs_label.tr(),
                               url: 'https://docs.critalarm.app',
                             ),
                             const SizedBox(height: 8),
-                            const _AboutLinkRow(
-                              label: 'GitHub',
+                            _AboutLinkRow(
+                              label: LocaleKeys.settings_about_github_label
+                                  .tr(),
                               url: 'https://github.com/critalarm/critalarm',
                             ),
                             const SizedBox(height: 8),
-                            const _AboutLinkRow(
-                              label: 'Issue Tracker',
+                            _AboutLinkRow(
+                              label: LocaleKeys.settings_about_issues_label
+                                  .tr(),
                               url:
                                   'https://github.com/critalarm/critalarm/issues',
                             ),
                             const SizedBox(height: 16),
                             AppButton(
-                              label: 'Upgrade to Pro',
+                              label: LocaleKeys.settings_upgrade_to_pro_button
+                                  .tr(),
                               isFullWidth: true,
                               trailingIcon: AppGlyph(
                                 GlyphType.arrow,
@@ -606,7 +647,9 @@ class _AboutLinkRow extends StatelessWidget {
           unawaited(Clipboard.setData(ClipboardData(text: url)));
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Copied $url'),
+              content: Text(
+                LocaleKeys.settings_copied_toast.tr(namedArgs: {'url': url}),
+              ),
               duration: const Duration(seconds: 2),
             ),
           );

@@ -4,6 +4,8 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topics_list_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topics_list_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -47,7 +49,7 @@ class _TopicsListScreenContent extends StatelessWidget {
                 AppSliverTopBar(
                   leading: AppIconButton(
                     glyph: GlyphType.back,
-                    ariaLabel: 'Back',
+                    ariaLabel: LocaleKeys.topics_list_back_aria_label.tr(),
                     onPressed: () {
                       if (context.canPop()) {
                         context.pop();
@@ -56,10 +58,10 @@ class _TopicsListScreenContent extends StatelessWidget {
                       }
                     },
                   ),
-                  title: 'Topics',
+                  title: LocaleKeys.topics_list_title.tr(),
                   trailing: AppIconButton(
                     glyph: GlyphType.plus,
-                    ariaLabel: 'New topic',
+                    ariaLabel: LocaleKeys.topics_list_new_topic_aria_label.tr(),
                     onPressed: () => context.push('/topics/new'),
                   ),
                 ),

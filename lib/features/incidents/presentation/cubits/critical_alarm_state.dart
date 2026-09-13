@@ -19,8 +19,8 @@ class CriticalAlarmState {
     this.status = CriticalAlarmStatus.initial,
     this.incident,
     this.topic = 'prod-db',
-    this.word = 'CRITICAL',
-    this.subtext = 'Ringing 2 min 14 s. Repeats every 30 s.',
+    this.word = '',
+    this.subtext = '',
     this.title = 'Primary database down',
     this.body =
         'pg_isready failed 3 times in 90 s. '

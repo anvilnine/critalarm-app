@@ -2,6 +2,8 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -48,6 +50,14 @@ class _OnboardingPermissionsView extends StatelessWidget {
       },
       builder: (context, state) {
         final cubit = context.read<NotificationPermissionsCubit>();
+        final postNotificationsText = LocaleKeys
+            .onboarding_permissions_post_notifications
+            .tr();
+        final fullScreenIntentText = LocaleKeys
+            .onboarding_permissions_full_screen_intent
+            .tr();
+        final requiredHeader = LocaleKeys.onboarding_permissions_required_header
+            .tr();
 
         return Scaffold(
           resizeToAvoidBottomInset: true,
@@ -81,7 +91,7 @@ class _OnboardingPermissionsView extends StatelessWidget {
                             const SizedBox(width: Spacing.s3),
                             Expanded(
                               child: Text(
-                                'Crit Alarm',
+                                LocaleKeys.app_title.tr(),
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
                                 style: TextStyle(
@@ -103,18 +113,24 @@ class _OnboardingPermissionsView extends StatelessWidget {
                           // Denial path: clearly states what won't work
                           AppEmptyState(
                             faceState: FaceState.worried,
-                            title: 'Notifications disabled',
-                            description:
-                                "Critical alerts won't wake the screen, and "
-                                'notifications will be silent or missing.',
-                            buttonLabel: 'Open Settings',
+                            title: LocaleKeys
+                                .onboarding_permissions_denied_title
+                                .tr(),
+                            description: LocaleKeys
+                                .onboarding_permissions_denied_description
+                                .tr(),
+                            buttonLabel: LocaleKeys
+                                .onboarding_permissions_denied_open_settings
+                                .tr(),
                             onButtonPressed: cubit.openSettings,
                           ),
                           const SizedBox(height: Spacing.s5),
 
                           // Action to continue anyway with permissions denied
                           AppButton(
-                            label: 'Continue anyway',
+                            label: LocaleKeys
+                                .onboarding_permissions_denied_continue
+                                .tr(),
                             variant: AppButtonVariant.ghost,
                             isFullWidth: true,
                             onPressed: () {
@@ -132,9 +148,10 @@ class _OnboardingPermissionsView extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: Spacing.s4),
-                          const Center(
+                          Center(
                             child: AppBadge(
-                              text: 'Rings through silent & DND',
+                              text: LocaleKeys.onboarding_permissions_badge
+                                  .tr(),
                               faceState: FaceState.alarmed,
                             ),
                           ),
@@ -145,7 +162,7 @@ class _OnboardingPermissionsView extends StatelessWidget {
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'Your server pages you.\nEven at 3am.',
+                              LocaleKeys.onboarding_permissions_title.tr(),
                               style: AppTypography.display(
                                 colors.onCanvas,
                                 fontSize: 36,
@@ -156,10 +173,7 @@ class _OnboardingPermissionsView extends StatelessWidget {
 
                           // Explains what Crit Alarm does
                           Text(
-                            'Crit Alarm wakes your screen and rings '
-                            'continuously until acknowledged, bypassing your '
-                            'silent switch and Do Not Disturb when critical '
-                            'incidents occur.',
+                            LocaleKeys.onboarding_permissions_subtitle.tr(),
                             style: AppTypography.lead(
                               colors.onCanvasMuted,
                               fontSize: 16,
@@ -168,25 +182,19 @@ class _OnboardingPermissionsView extends StatelessWidget {
                           const SizedBox(height: Spacing.s5),
 
                           // Explains Android 13+ and Android 14+ permissions
-                          const AppSheet(
+                          AppSheet(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                AppSectionHeader('REQUIRED PERMISSIONS'),
-                                SizedBox(height: 4),
+                                AppSectionHeader(requiredHeader),
+                                const SizedBox(height: 4),
                                 AppFeatureBullet(
-                                  text:
-                                      'Android 13+ POST_NOTIFICATIONS: '
-                                      'alerts you immediately when a '
-                                      'service goes down.',
+                                  text: postNotificationsText,
                                   glyph: GlyphType.bell,
                                 ),
-                                SizedBox(height: 12),
+                                const SizedBox(height: 12),
                                 AppFeatureBullet(
-                                  text:
-                                      'Android 14+ USE_FULL_SCREEN_INTENT: '
-                                      'wakes the display for urgent '
-                                      'priority-5 emergencies.',
+                                  text: fullScreenIntentText,
                                   glyph: GlyphType.arrow,
                                 ),
                               ],
@@ -196,7 +204,9 @@ class _OnboardingPermissionsView extends StatelessWidget {
 
                           // Request button
                           AppButton(
-                            label: 'Enable notifications',
+                            label: LocaleKeys
+                                .onboarding_permissions_enable_button
+                                .tr(),
                             size: AppButtonSize.lg,
                             isFullWidth: true,
                             isLoading: state.isRequesting,
@@ -206,7 +216,9 @@ class _OnboardingPermissionsView extends StatelessWidget {
 
                           // Skip / continue anyway button
                           AppButton(
-                            label: 'Continue without permissions',
+                            label: LocaleKeys
+                                .onboarding_permissions_continue_without_button
+                                .tr(),
                             variant: AppButtonVariant.ghost,
                             isFullWidth: true,
                             onPressed: () => context.go('/onboarding/connect'),
