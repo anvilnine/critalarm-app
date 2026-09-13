@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// The server URL and management token, kept where the iOS Notification
@@ -26,10 +27,16 @@ final class NseCredentialStore {
   Future<void> _invoke(String method, [Object? arguments]) async {
     try {
       await channel.invokeMethod<void>(method, arguments);
+      // Whether the extension has credentials is the difference between it
+      // fetching the real text and showing the placeholder, and nothing else
+      // reports it. The token is not logged.
+      if (kDebugMode) debugPrint('CritAlarm: nse_credentials_$method ok');
     } on MissingPluginException {
-      return;
-    } on PlatformException {
-      return;
+      if (kDebugMode) debugPrint('CritAlarm: nse_credentials_$method skipped');
+    } on PlatformException catch (error) {
+      if (kDebugMode) {
+        debugPrint('CritAlarm: nse_credentials_$method failed ${error.code}');
+      }
     }
   }
 }
