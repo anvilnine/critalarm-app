@@ -1,5 +1,8 @@
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
+import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
+import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
@@ -14,7 +17,6 @@ import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
-import 'package:critalarm/core/storage/mirrored_api_session_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
@@ -33,6 +35,7 @@ import 'package:critalarm/features/incidents/domain/usecases/update_incident_bad
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cubit.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/keychain_mirror_connection_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/platform_notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_connection_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
@@ -138,13 +141,8 @@ Future<void> configureDependencies({
     ..registerLazySingleton<PushHost>(PushHost.new)
     ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
     ..registerLazySingleton<AppBadge>(() => AppBadge(getIt<PushHost>()))
-    // The iOS extension reads the server and the management token out of the
-    // keychain, so every session write has to land there too.
     ..registerLazySingleton<ApiSessionStore>(
-      () => MirroredApiSessionStore(
-        SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
-        getIt<NseCredentialStore>(),
-      ),
+      () => SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
     )
     ..registerLazySingleton<DeviceIdentityStore>(
       () => DeviceIdentityStore(getIt<SharedPreferences>()),
@@ -180,8 +178,13 @@ Future<void> configureDependencies({
     ..registerLazySingleton<ServerRepository>(
       () => InMemoryServerRepository(getIt<ApiClient>()),
     )
+    // The iOS extension reads the server and the token out of the keychain,
+    // so saving a connection has to land there too.
     ..registerLazySingleton<ConnectionRepository>(
-      () => SharedPrefsConnectionRepository(getIt<SharedPreferences>()),
+      () => KeychainMirrorConnectionRepository(
+        SharedPrefsConnectionRepository(getIt<SharedPreferences>()),
+        getIt<NseCredentialStore>(),
+      ),
     )
     ..registerLazySingleton<OnboardingProgressRepository>(
       () => SharedPrefsOnboardingProgressRepository(getIt<SharedPreferences>()),
@@ -234,6 +237,22 @@ Future<void> configureDependencies({
         register: getIt<RegisterDeviceUsecase>(),
         tokens: getIt<PushTokenProvider>(),
         appVersion: appVersion,
+      ),
+    )
+    ..registerLazySingleton<AlarmHost>(AlarmHost.new)
+    ..registerLazySingleton(
+      () => LiveActivityTokenRegistry(
+        prefs: getIt<SharedPreferences>(),
+        api: getIt<ApiClient>(),
+        identity: getIt<DeviceIdentityStore>(),
+        host: getIt<AlarmHost>(),
+      ),
+    )
+    ..registerLazySingleton(
+      () => IncidentAlarmController(
+        host: getIt<AlarmHost>(),
+        api: getIt<ApiClient>(),
+        tokens: getIt<LiveActivityTokenRegistry>(),
       ),
     )
     ..registerLazySingleton(() => PushAnalytics(getIt<TelemetryGate>()))
@@ -346,6 +365,7 @@ Future<void> configureDependencies({
       (initialStep, _) => NotificationPermissionsCubit(
         getIt<RequestNotificationPermissionUsecase>(),
         getIt<OpenNotificationSettingsUsecase>(),
+        alarm: getIt<AlarmHost>(),
         initialStep: initialStep ?? NotificationPermissionStep.initial,
       ),
     )
@@ -393,6 +413,7 @@ Future<void> configureDependencies({
         getIt<GetTopicUsecase>(),
         getIt<UpdateTopicUsecase>(),
         getIt<IncidentRepository>(),
+        alarm: getIt<AlarmHost>(),
       ),
     )
     ..registerFactory(

@@ -3,6 +3,8 @@ import 'package:critalarm/app/app.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
+import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
+import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
@@ -43,6 +45,13 @@ Future<void> main() async {
   final pushHost = getIt<PushHost>();
   pushHost.queuedAcks.listen((_) => unawaited(getIt<AckQueue>().flush()));
 
+  if (kDebugMode) {
+    // Needed to aim a real APNs push at this handset. `flutter run` prints
+    // this; the matching NSLog in AppDelegate only shows up in Xcode.
+    final apnsToken = await pushHost.apnsToken();
+    if (apnsToken != null) debugPrint('CritAlarm: apns_token=$apnsToken');
+  }
+
   // A notification tapped while the app was closed opens its own screen. iOS
   // hands that route over on a channel; Android sets the platform route name.
   final tappedRoute = await pushHost.takePendingRoute();
@@ -66,7 +75,17 @@ Future<void> main() async {
     // api.md §4.2: register on launch, and again whenever the push token
     // rotates. Failures are retried on the next launch.
     unawaited(getIt<DeviceTokenRegistry>().start());
+
+    // The Live Activity tokens go up the same way. A push-to-start token that
+    // never arrives shows as "not ready" and is asked for again next launch.
+    unawaited(getIt<LiveActivityTokenRegistry>().start());
   }
+
+  // The server is the truth on launch: any card still up for an incident it
+  // has finished with comes down, and any alarm still set for one stops.
+  final alarms = getIt<IncidentAlarmController>();
+  unawaited(alarms.start());
+  unawaited(alarms.reconcile());
 
   runApp(
     EasyLocalization(
