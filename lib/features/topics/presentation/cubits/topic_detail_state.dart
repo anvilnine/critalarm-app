@@ -1,3 +1,4 @@
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:flutter/foundation.dart';
@@ -66,6 +67,7 @@ class TopicDetailState {
     this.status = TopicDetailStatus.initial,
     this.topicName = '',
     this.critical = false,
+    this.alarm = AlarmAuthorization.notDetermined,
     this.severity = SeverityMode.none,
     this.faceState = FaceState.calm,
     this.word = '',
@@ -81,6 +83,16 @@ class TopicDetailState {
 
   /// Critical delivery / Ring through silent mode. MUST DEFAULT TO FALSE.
   final bool critical;
+
+  /// Whether iOS lets the app set alarms. Critical delivery needs one, so the
+  /// toggle is turned off and explained when this is denied.
+  final AlarmAuthorization alarm;
+
+  /// api.md §3.1 keeps `critical` off by default, and it can only be switched
+  /// on where an alarm can actually ring.
+  bool get canEditCritical =>
+      alarm == AlarmAuthorization.authorized ||
+      alarm == AlarmAuthorization.unsupported;
   final SeverityMode severity;
   final FaceState faceState;
   final String word;
@@ -94,6 +106,7 @@ class TopicDetailState {
     TopicDetailStatus? status,
     String? topicName,
     bool? critical,
+    AlarmAuthorization? alarm,
     SeverityMode? severity,
     FaceState? faceState,
     String? word,
@@ -108,6 +121,7 @@ class TopicDetailState {
       status: status ?? this.status,
       topicName: topicName ?? this.topicName,
       critical: critical ?? this.critical,
+      alarm: alarm ?? this.alarm,
       severity: severity ?? this.severity,
       faceState: faceState ?? this.faceState,
       word: word ?? this.word,
@@ -127,6 +141,7 @@ class TopicDetailState {
           status == other.status &&
           topicName == other.topicName &&
           critical == other.critical &&
+          alarm == other.alarm &&
           severity == other.severity &&
           faceState == other.faceState &&
           word == other.word &&
@@ -141,6 +156,7 @@ class TopicDetailState {
     status,
     topicName,
     critical,
+    alarm,
     severity,
     faceState,
     word,
