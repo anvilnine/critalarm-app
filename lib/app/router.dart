@@ -7,6 +7,7 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_permission
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
 import 'package:critalarm/features/settings/presentation/settings_screen.dart';
+import 'package:critalarm/features/settings/presentation/sound_picker_screen.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
@@ -27,6 +28,7 @@ abstract final class AppRoute {
   static const settings = 'settings';
   static const settingsDisconnected = 'settingsDisconnected';
   static const devicePermissions = 'devicePermissions';
+  static const soundPicker = 'soundPicker';
   static const paywall = 'paywall';
   static const alarm = 'alarm';
   static const incidentDetail = 'incidentDetail';
@@ -78,6 +80,18 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       builder: (context, state) => const SettingsScreen(
         forceDisconnected: true,
       ),
+    ),
+    // One screen, two jobs. No `topic` sets the default sound; `?topic=<name>`
+    // sets that topic only. Neither ever reaches the server.
+    GoRoute(
+      path: '/settings/sounds',
+      name: AppRoute.soundPicker,
+      builder: (context, state) {
+        final topic = state.uri.queryParameters['topic'];
+        return SoundPickerScreen(
+          topicName: topic != null && topic.isNotEmpty ? topic : null,
+        );
+      },
     ),
     GoRoute(
       path: '/settings/permissions',

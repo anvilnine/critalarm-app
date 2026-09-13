@@ -8,6 +8,8 @@ import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
+import 'package:critalarm/core/sound/bundled_sounds.dart';
+import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
@@ -44,6 +46,15 @@ Future<void> main() async {
   // a cold launch is missed.
   final pushHost = getIt<PushHost>();
   pushHost.queuedAcks.listen((_) => unawaited(getIt<AckQueue>().flush()));
+
+  // iOS reads alarm and notification sounds by name out of the app bundle or
+  // Library/Sounds, and Flutter assets are in neither. This copies the eight
+  // bundled sounds somewhere the OS can find them. Android does nothing here.
+  unawaited(
+    getIt<SoundHost>().prepareBundledSounds(
+      BundledSounds.catalogue(platform: defaultTargetPlatform),
+    ),
+  );
 
   if (kDebugMode) {
     // Needed to aim a real APNs push at this handset. `flutter run` prints

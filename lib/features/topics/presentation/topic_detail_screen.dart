@@ -147,6 +147,24 @@ class _TopicDetailScreenContent extends StatelessWidget {
                                       }
                                     : null,
                               ),
+                              const SizedBox(height: 10),
+                              // Per-topic sound. Stored on the device only,
+                              // so it is not part of the topic the server
+                              // knows about.
+                              AppListRow(
+                                name: LocaleKeys.topic_detail_sound_row_title
+                                    .tr(),
+                                meta: LocaleKeys.topic_detail_sound_row_default
+                                    .tr(),
+                                trailing: AppGlyph(
+                                  GlyphType.arrow,
+                                  color: context.appColors.ink3,
+                                  size: 16,
+                                ),
+                                onTap: () => context.push(
+                                  '/settings/sounds?topic=${state.topicName}',
+                                ),
+                              ),
                               const SizedBox(height: 12),
                               AppButton(
                                 label: LocaleKeys

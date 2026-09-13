@@ -15,6 +15,7 @@ import 'package:critalarm/core/push/firebase_push_token_provider.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
+import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
@@ -72,16 +73,23 @@ import 'package:critalarm/features/permissions/domain/repositories/device_permis
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
+import 'package:critalarm/features/settings/data/repositories/shared_prefs_alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_privacy_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_theme_preference_repository.dart';
+import 'package:critalarm/features/settings/data/services/sound_file_picker.dart';
+import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
+import 'package:critalarm/features/settings/domain/repositories/sound_file_picker.dart';
 import 'package:critalarm/features/settings/domain/repositories/theme_preference_repository.dart';
+import 'package:critalarm/features/settings/domain/usecases/delete_user_sound_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_theme_mode_usecase.dart';
+import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_analytics_enabled_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_crash_reporting_enabled_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_theme_mode_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
+import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
@@ -95,6 +103,7 @@ import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topics_list_cubit.dart';
 import 'package:critalarm/firebase_options.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
@@ -192,6 +201,11 @@ Future<void> configureDependencies({
     ..registerLazySingleton<PrivacyRepository>(
       () => SharedPrefsPrivacyRepository(getIt<SharedPreferences>()),
     )
+    ..registerLazySingleton<AlarmSoundRepository>(
+      () => SharedPrefsAlarmSoundRepository(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<SoundHost>(SoundHost.new)
+    ..registerLazySingleton<SoundFilePicker>(PlatformSoundFilePicker.new)
     ..registerLazySingleton<NotificationPermissionRepository>(
       PlatformNotificationPermissionRepository.new,
     )
@@ -302,6 +316,18 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton(
       () => SetThemeModeUsecase(getIt<ThemePreferenceRepository>()),
+    )
+    ..registerLazySingleton(
+      () => ImportSoundUsecase(
+        getIt<AlarmSoundRepository>(),
+        getIt<SoundHost>(),
+      ),
+    )
+    ..registerLazySingleton(
+      () => DeleteUserSoundUsecase(
+        getIt<AlarmSoundRepository>(),
+        getIt<SoundHost>(),
+      ),
     )
     ..registerLazySingleton(
       () => GetServerInfoUsecase(getIt<ServerRepository>()),
@@ -448,6 +474,16 @@ Future<void> configureDependencies({
         telemetryGate: getIt.isRegistered<TelemetryGate>()
             ? getIt<TelemetryGate>()
             : null,
+      ),
+    )
+    ..registerFactory(
+      () => SoundPickerCubit(
+        getIt<AlarmSoundRepository>(),
+        getIt<SoundHost>(),
+        getIt<ImportSoundUsecase>(),
+        getIt<DeleteUserSoundUsecase>(),
+        getIt<SoundFilePicker>(),
+        nameOf: (id) => 'sound_library.names.$id'.tr(),
       ),
     )
     ..registerFactory(

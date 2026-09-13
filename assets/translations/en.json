@@ -11,7 +11,8 @@
     "cancel": "Cancel",
     "retry": "Retry",
     "save": "Save",
-    "close": "Close"
+    "close": "Close",
+    "back": "Back"
   },
   "primer": {
     "notNow": "Not now",
@@ -126,7 +127,9 @@
     "stage_word_warning": "1 warning",
     "stage_word_clear": "All clear",
     "stage_sub": "Default priority {priority}. {count} messages.",
-    "critical_needs_alarm": "Turn on Alarms in Settings first. Without it a critical alert arrives as a quiet notification."
+    "critical_needs_alarm": "Turn on Alarms in Settings first. Without it a critical alert arrives as a quiet notification.",
+    "sound_row_title": "Alarm sound",
+    "sound_row_default": "Using the default"
   },
   "create_topic": {
     "title": "New topic",
@@ -213,7 +216,10 @@
     "about_github_label": "GitHub",
     "about_issues_label": "Issue Tracker",
     "upgrade_to_pro_button": "Upgrade to Pro",
-    "copied_toast": "Copied {url}"
+    "copied_toast": "Copied {url}",
+    "alarm_sound_header": "Alarm sound",
+    "alarm_sound_row_title": "Default alarm sound",
+    "alarm_sound_row_subtitle": "Rings for every topic that has not picked its own"
   },
   "device_permissions": {
     "title": "Device permissions",
@@ -281,5 +287,36 @@
     "save_theme_preference": "Could not save theme preference",
     "save_analytics_preference": "Could not save analytics preference",
     "save_crash_reporting_preference": "Could not save crash reporting preference"
+  },
+  "sound_library": {
+    "names": {
+      "classic_siren": "Classic siren",
+      "pulsing_klaxon": "Pulsing klaxon",
+      "marimba_escalator": "Marimba escalator",
+      "soft_to_loud_ramp": "Soft to loud ramp",
+      "pager_beep": "Pager beep",
+      "submarine_dive_horn": "Submarine dive horn",
+      "rising_synth_sweep": "Rising synth sweep",
+      "plain_loud_beep": "Plain loud beep"
+    }
+  },
+  "sound_picker": {
+    "title_default": "Alarm sound",
+    "title_topic": "Sound for {topic}",
+    "bundled_header": "Bundled",
+    "user_header": "Your sounds",
+    "user_empty": "Nothing here yet. Add a sound from your files.",
+    "add_own": "Add your own",
+    "delete": "Delete",
+    "play_aria_label": "Play preview",
+    "stop_aria_label": "Stop preview",
+    "topic_hint": "This topic only. Topics with no sound of their own use the default.",
+    "notifications_only": "Your own sounds play for notifications on iOS. The alarm uses a bundled sound.",
+    "row_notifications_only": "Notifications only",
+    "error_too_long": "That file is longer than 60 seconds.",
+    "error_too_large": "That file is bigger than 5 MB.",
+    "error_unsupported": "That file type will not play as an alarm.",
+    "error_unreadable": "That file could not be read.",
+    "error_copy_failed": "The file could not be saved. Try again."
   }
 }

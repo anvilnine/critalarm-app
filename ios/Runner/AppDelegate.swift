@@ -1,3 +1,4 @@
+import AVFoundation
 import Flutter
 import UIKit
 import UserNotifications
@@ -13,6 +14,7 @@ import AlarmKit
 
   private var pushChannel: FlutterMethodChannel?
   private var alarmChannel: FlutterMethodChannel?
+  private var soundChannel: FlutterMethodChannel?
   private var alarmUpdatesTask: Task<Void, Never>?
 
   /// Held until Dart asks for it, which can be after APNs has already
@@ -71,6 +73,8 @@ import AlarmKit
       }
     }
     pushChannel = push
+
+    soundChannel = attachSoundChannel(messenger: messenger)
 
     let alarm = FlutterMethodChannel(name: "app.critalarm/alarm", binaryMessenger: messenger)
     alarm.setMethodCallHandler { [weak self] call, result in
@@ -409,4 +413,280 @@ import AlarmKit
       completionHandler(ok ? .newData : .noData)
     }
   }
+}
+
+// MARK: - Sound library
+
+/// The native half of the sound picker.
+///
+/// iOS has no alarm audio stream. Both the alarm API and the notification API
+/// take a file *name* and look for it in two places: the app bundle, and
+/// `Library/Sounds`. Flutter assets live inside `App.framework`, which is
+/// neither, so every bundled sound is copied out to `Library/Sounds` on launch
+/// and referenced by name from then on.
+///
+/// `UNNotificationSound` reads caf, wav and aiff only, never mp3, so the copy
+/// is also a conversion.
+enum SoundLibrary {
+  static let group = "group.app.critalarm"
+  static let selectedSoundKey = "selected_sound_name"
+
+  /// `Library/Sounds`, created if it is not there yet.
+  static var soundsDirectory: URL? {
+    guard let library = FileManager.default.urls(
+      for: .libraryDirectory, in: .userDomainMask
+    ).first else { return nil }
+    let directory = library.appendingPathComponent("Sounds", isDirectory: true)
+    try? FileManager.default.createDirectory(
+      at: directory, withIntermediateDirectories: true
+    )
+    return directory
+  }
+
+  /// Turns `assets/sounds/pager_beep.mp3` into a real file inside the bundle.
+  static func bundleURL(forFlutterAsset asset: String) -> URL? {
+    let key = FlutterDartProject.lookupKey(forAsset: asset)
+    guard let path = Bundle.main.path(forResource: key, ofType: nil) else { return nil }
+    return URL(fileURLWithPath: path)
+  }
+
+  /// Copies the eight bundled sounds into `Library/Sounds` as caf.
+  ///
+  /// Cheap to call on every launch: a file already there is left alone.
+  @discardableResult
+  static func prepare(assets: [String]) -> Bool {
+    guard let directory = soundsDirectory else { return false }
+    var allDone = true
+    for asset in assets {
+      let name = (asset as NSString).lastPathComponent
+      let id = (name as NSString).deletingPathExtension
+      let destination = directory.appendingPathComponent("\(id).caf")
+      if FileManager.default.fileExists(atPath: destination.path) { continue }
+      guard let source = bundleURL(forFlutterAsset: asset),
+            convertToCAF(source: source, destination: destination) else {
+        NSLog("CritAlarmSound: prepare_failed asset=%@", asset)
+        allDone = false
+        continue
+      }
+    }
+    NSLog("CritAlarmSound: prepared count=%d ok=%@", assets.count, "\(allDone)")
+    return allDone
+  }
+
+  /// Decodes anything AVFoundation can read and writes 16-bit PCM in a caf.
+  static func convertToCAF(source: URL, destination: URL) -> Bool {
+    let asset = AVURLAsset(url: source)
+    guard let track = asset.tracks(withMediaType: .audio).first,
+          let reader = try? AVAssetReader(asset: asset),
+          let writer = try? AVAssetWriter(outputURL: destination, fileType: .caf)
+    else { return false }
+
+    let readSettings: [String: Any] = [
+      AVFormatIDKey: kAudioFormatLinearPCM,
+      AVLinearPCMBitDepthKey: 16,
+      AVLinearPCMIsFloatKey: false,
+      AVLinearPCMIsBigEndianKey: false,
+      AVLinearPCMIsNonInterleaved: false,
+    ]
+    let output = AVAssetReaderTrackOutput(track: track, outputSettings: readSettings)
+    let writeSettings: [String: Any] = [
+      AVFormatIDKey: kAudioFormatLinearPCM,
+      AVSampleRateKey: 44100,
+      AVNumberOfChannelsKey: 1,
+      AVLinearPCMBitDepthKey: 16,
+      AVLinearPCMIsFloatKey: false,
+      AVLinearPCMIsBigEndianKey: false,
+      AVLinearPCMIsNonInterleaved: false,
+    ]
+    let input = AVAssetWriterInput(mediaType: .audio, outputSettings: writeSettings)
+    input.expectsMediaDataInRealTime = false
+    guard reader.canAdd(output), writer.canAdd(input) else { return false }
+    reader.add(output)
+    writer.add(input)
+
+    guard writer.startWriting() else { return false }
+    writer.startSession(atSourceTime: .zero)
+    reader.startReading()
+
+    let queue = DispatchQueue(label: "app.critalarm.sound.convert")
+    let done = DispatchSemaphore(value: 0)
+    input.requestMediaDataWhenReady(on: queue) {
+      while input.isReadyForMoreMediaData {
+        if let buffer = output.copyNextSampleBuffer() {
+          input.append(buffer)
+        } else {
+          input.markAsFinished()
+          writer.finishWriting { done.signal() }
+          return
+        }
+      }
+    }
+    _ = done.wait(timeout: .now() + 30)
+    let ok = writer.status == .completed
+    if !ok { try? FileManager.default.removeItem(at: destination) }
+    return ok
+  }
+
+  /// Length in whole milliseconds. Zero when nothing could read the file.
+  static func durationMs(of url: URL) -> Int {
+    let seconds = CMTimeGetSeconds(AVURLAsset(url: url).duration)
+    guard seconds.isFinite, seconds > 0 else { return 0 }
+    return Int(seconds * 1000)
+  }
+
+  /// Copies a file the user picked into `Library/Sounds` as caf, under [id].
+  static func importSound(source: URL, id: String) -> [String: Any]? {
+    guard let directory = soundsDirectory else { return nil }
+    let destination = directory.appendingPathComponent("\(id).caf")
+    try? FileManager.default.removeItem(at: destination)
+    guard convertToCAF(source: source, destination: destination) else {
+      NSLog("CritAlarmSound: import_failed id=%@", id)
+      return nil
+    }
+    let ms = durationMs(of: destination)
+    guard ms > 0 else {
+      try? FileManager.default.removeItem(at: destination)
+      return nil
+    }
+    NSLog("CritAlarmSound: sound_imported id=%@ path=%@ duration_ms=%d", id, destination.path, ms)
+    return ["path": destination.path, "duration_ms": ms]
+  }
+
+  /// The file name the alarm and notification APIs are handed.
+  static func fileName(forSoundId id: String) -> String { "\(id).caf" }
+
+  /// Whether a name resolves to a file this app can point an API at.
+  static func exists(fileName: String) -> Bool {
+    guard let directory = soundsDirectory else { return false }
+    return FileManager.default.fileExists(
+      atPath: directory.appendingPathComponent(fileName).path
+    )
+  }
+
+  /// Which sound rings, read the same way Dart wrote it.
+  ///
+  /// `shared_preferences` on iOS writes into the standard user defaults with a
+  /// `flutter.` prefix.
+  static func soundId(forTopic topic: String?) -> String {
+    let defaults = UserDefaults.standard
+    let fallback = defaults.string(forKey: "flutter.alarm_sound_default") ?? "classic_siren"
+    guard let topic, !topic.isEmpty,
+          let raw = defaults.string(forKey: "flutter.alarm_sound_per_topic"),
+          let data = raw.data(using: .utf8),
+          let map = try? JSONSerialization.jsonObject(with: data) as? [String: String],
+          let picked = map[topic], !picked.isEmpty
+    else { return fallback }
+    return picked
+  }
+
+  /// The name for the alarm and for `UNNotificationSound`, or nil to leave the
+  /// system default alone because the file is not there.
+  static func resolvedFileName(forTopic topic: String?) -> String? {
+    let name = fileName(forSoundId: soundId(forTopic: topic))
+    return exists(fileName: name) ? name : nil
+  }
+
+  /// Hands the notification extension the current choice. The extension runs
+  /// in its own process and cannot read the app's defaults, so it reads this.
+  static func publishToExtension(topic: String?) {
+    guard let shared = UserDefaults(suiteName: group) else { return }
+    shared.set(resolvedFileName(forTopic: topic), forKey: selectedSoundKey)
+  }
+}
+
+/// Plays one sound in the picker.
+///
+/// `.playback` rather than `.ambient`, so a preview is audible with the ring
+/// switch on silent, which is the point of an alarm sound.
+final class SoundPreviewPlayer: NSObject, AVAudioPlayerDelegate {
+  static let shared = SoundPreviewPlayer()
+
+  private var player: AVAudioPlayer?
+
+  func start(url: URL) -> Bool {
+    stop()
+    do {
+      try AVAudioSession.sharedInstance().setCategory(.playback, options: [.duckOthers])
+      try AVAudioSession.sharedInstance().setActive(true)
+      let player = try AVAudioPlayer(contentsOf: url)
+      player.delegate = self
+      // One pass. The picker is not the alarm.
+      player.numberOfLoops = 0
+      player.prepareToPlay()
+      self.player = player
+      return player.play()
+    } catch {
+      NSLog("CritAlarmSound: preview_failed url=%@ error=%@", url.path, "\(error)")
+      return false
+    }
+  }
+
+  func stop() {
+    player?.stop()
+    player = nil
+    try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+  }
+
+  func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+    stop()
+  }
+}
+
+extension AppDelegate {
+  /// Wires `app.critalarm/sound`. Called from the engine setup.
+  func attachSoundChannel(messenger: FlutterBinaryMessenger) -> FlutterMethodChannel {
+    let channel = FlutterMethodChannel(name: "app.critalarm/sound", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      let args = call.arguments as? [String: Any] ?? [:]
+      switch call.method {
+      case "capabilities":
+        result([
+          // Answered by the measurement in
+          // docs/specs/remote-alarm-ios-spike.md.
+          "user_sounds_ring_alarm": AlarmSoundPolicy.librarySoundsRingAlarm,
+          "bundled_sounds_ring_alarm": AlarmSoundPolicy.librarySoundsRingAlarm,
+        ])
+      case "prepareBundledSounds":
+        let assets = args["assets"] as? [String] ?? []
+        result(SoundLibrary.prepare(assets: assets))
+      case "startPreview":
+        guard let path = args["path"] as? String else { result(false); return }
+        let isAsset = args["is_asset"] as? Bool ?? false
+        let url = isAsset
+          ? SoundLibrary.bundleURL(forFlutterAsset: path)
+          : URL(fileURLWithPath: path)
+        guard let url else { result(false); return }
+        result(SoundPreviewPlayer.shared.start(url: url))
+      case "stopPreview":
+        SoundPreviewPlayer.shared.stop()
+        result(true)
+      case "probeDuration":
+        guard let path = args["path"] as? String else { result(0); return }
+        result(SoundLibrary.durationMs(of: URL(fileURLWithPath: path)))
+      case "importSound":
+        guard let source = args["source_path"] as? String,
+              let id = args["id"] as? String else { result(nil); return }
+        result(SoundLibrary.importSound(source: URL(fileURLWithPath: source), id: id))
+      case "deleteSound":
+        guard let path = args["path"] as? String else { result(false); return }
+        result((try? FileManager.default.removeItem(atPath: path)) != nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+    return channel
+  }
+}
+
+/// What the spike found out about where AlarmKit will read a sound from.
+///
+/// One flag, one place, so flipping the answer flips the picker, the alarm and
+/// the "notifications only" line together.
+enum AlarmSoundPolicy {
+  /// True when `AlertConfiguration.AlertSound.named(_:)` resolves a file in
+  /// `Library/Sounds`. False means only a compiled-in bundle resource rings,
+  /// and every picked sound is a notification sound only.
+  ///
+  /// Measured on device. See docs/specs/remote-alarm-ios-spike.md.
+  static let librarySoundsRingAlarm = false
 }
