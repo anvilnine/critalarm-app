@@ -275,6 +275,33 @@ final class HttpApiClient implements ApiClient {
   }
 
   @override
+  Future<void> uploadActivityToken({
+    required String deviceId,
+    required String deviceToken,
+    required String kind,
+    required String token,
+    String? incidentId,
+  }) async {
+    final session = await _sessions.read();
+    if (session == null) throw StateError('No API session configured');
+    final uri = _rawUri(
+      session.relayUri,
+      '/relay/v1/devices/${Uri.encodeComponent(deviceId)}/tokens',
+      null,
+    );
+    await _send(
+      'POST',
+      uri,
+      auth: deviceToken,
+      body: {
+        'kind': kind,
+        'token': token,
+        'incident_id': ?incidentId,
+      },
+    );
+  }
+
+  @override
   Future<Message> publishMessage(
     String topic, {
     String? message,
