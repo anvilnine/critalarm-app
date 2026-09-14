@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/core/paywall/dev_pro_switch.dart';
+import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -86,10 +88,11 @@ class _SettingsScreenContent extends StatelessWidget {
     );
   }
 
-  Widget _buildPlanRow(BuildContext context) {
+  Widget _buildPlanRow(BuildContext context, {required bool isPro}) {
     final colors = context.appColors;
-    // SettingsState carries no subscription or topic count yet, so the plan
-    // reads as the free tier until it does.
+    // SettingsState carries no topic count yet, so these stand in. The tier
+    // comes from the store, or from the developer switch below in builds made
+    // with --dart-define=SKIP_PAYWALL=true.
     const topicsUsed = 4;
     const topicsLimit = 5;
 
@@ -107,7 +110,9 @@ class _SettingsScreenContent extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  LocaleKeys.settings_plan_free.tr(),
+                  isPro
+                      ? LocaleKeys.settings_plan_pro.tr()
+                      : LocaleKeys.settings_plan_free.tr(),
                   style: TextStyle(
                     fontFamily: AppTypography.fontBody,
                     fontFamilyFallback: AppTypography.fontBodyFallbacks,
@@ -134,15 +139,17 @@ class _SettingsScreenContent extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          AppButton(
-            label: LocaleKeys.settings_upgrade_button.tr(),
-            size: AppButtonSize.sm,
-            onPressed: () {
-              AppHaptics.capture();
-              unawaited(context.push('/paywall'));
-            },
-          ),
+          if (!isPro) ...[
+            const SizedBox(width: 8),
+            AppButton(
+              label: LocaleKeys.settings_upgrade_button.tr(),
+              size: AppButtonSize.sm,
+              onPressed: () {
+                AppHaptics.capture();
+                unawaited(context.push('/paywall'));
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -678,7 +685,15 @@ class _SettingsScreenContent extends StatelessWidget {
                       AppSectionHeader(
                         LocaleKeys.settings_plan_header.tr(),
                       ),
-                      _buildPlanRow(context),
+                      if (buildSkipsPaywall)
+                        ValueListenableBuilder<bool>(
+                          valueListenable: getIt<DevProSwitch>(),
+                          builder: (context, isPro, _) =>
+                              _buildPlanRow(context, isPro: isPro),
+                        )
+                      else
+                        _buildPlanRow(context, isPro: false),
+                      if (buildSkipsPaywall) const _DeveloperSection(),
                     ],
                   ),
                 ),
@@ -687,6 +702,34 @@ class _SettingsScreenContent extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Extra Settings section for builds made with
+/// --dart-define=SKIP_PAYWALL=true. Lets whoever is testing the build move
+/// between the free and Pro states without a store purchase.
+class _DeveloperSection extends StatelessWidget {
+  const _DeveloperSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final proSwitch = getIt<DevProSwitch>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 14),
+        AppSectionHeader(LocaleKeys.settings_developer_header.tr()),
+        ValueListenableBuilder<bool>(
+          valueListenable: proSwitch,
+          builder: (context, isPro, _) => AppToggleRow(
+            title: LocaleKeys.settings_developer_pro_title.tr(),
+            subtitle: LocaleKeys.settings_developer_pro_subtitle.tr(),
+            value: isPro,
+            onChanged: (val) => unawaited(proSwitch.setPro(isPro: val)),
+          ),
+        ),
+      ],
     );
   }
 }

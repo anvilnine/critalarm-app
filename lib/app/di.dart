@@ -11,6 +11,7 @@ import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
+import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/push/apns_push_token_provider.dart';
 import 'package:critalarm/core/push/firebase_push_token_provider.dart';
@@ -62,7 +63,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/notification_p
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
-import 'package:critalarm/features/paywall/data/repositories/in_memory_subscription_repository.dart';
+import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
@@ -135,6 +136,10 @@ Future<void> configureDependencies({
     final telemetryGate = FirebaseTelemetryGate(options: options);
     await telemetryGate.initialize();
     getIt.registerSingleton<TelemetryGate>(telemetryGate);
+  }
+
+  if (buildSkipsPaywall && !getIt.isRegistered<DevProSwitch>()) {
+    getIt.registerSingleton<DevProSwitch>(DevProSwitch(prefs));
   }
 
   if (!getIt.isRegistered<RevenueCatService>()) {
@@ -218,7 +223,7 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton<SubscriptionRepository>(
       () => buildSkipsPaywall
-          ? InMemorySubscriptionRepository()
+          ? DevSubscriptionRepository(getIt<DevProSwitch>())
           : RevenueCatSubscriptionRepository(getIt<RevenueCatService>()),
     )
     ..registerLazySingleton(
