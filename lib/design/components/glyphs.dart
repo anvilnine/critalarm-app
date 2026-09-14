@@ -19,6 +19,8 @@ enum GlyphType {
   close,
   chevron,
   wifi,
+  list,
+  clock,
 }
 
 /// Vector glyph icon painted according to index.html on a 24x24 viewBox.
@@ -270,6 +272,26 @@ class _GlyphPainter extends CustomPainter {
           );
         }
         canvas.drawCircle(const Offset(12, 18), 1.4, fillPaint);
+
+      case GlyphType.list:
+        // M4 6h16M4 12h16M4 18h16
+        final path = Path()
+          ..moveTo(4, 6)
+          ..lineTo(20, 6)
+          ..moveTo(4, 12)
+          ..lineTo(20, 12)
+          ..moveTo(4, 18)
+          ..lineTo(20, 18);
+        canvas.drawPath(path, strokePaint);
+
+      case GlyphType.clock:
+        // circle cx 12 cy 12 r 9, then the two hands
+        canvas.drawCircle(const Offset(12, 12), 9, strokePaint);
+        final hands = Path()
+          ..moveTo(12, 7)
+          ..lineTo(12, 12)
+          ..lineTo(15, 14);
+        canvas.drawPath(hands, strokePaint);
     }
 
     canvas.restore();

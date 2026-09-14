@@ -1,5 +1,6 @@
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
@@ -55,6 +56,7 @@ class AppStage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final isShort = AppSize.of(context).isShort;
 
     if (isHorizontal) {
       return Padding(
@@ -91,6 +93,51 @@ class AppStage extends StatelessWidget {
 
     final resolvedFontSize = wordFontSize ?? (wordIsBig ? 56.0 : 44.0);
 
+    if (isShort) {
+      // A short display has no room to stand the face above the words,
+      // so the face sits beside them instead.
+      return Padding(
+        padding: padding,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (faceWidget != null)
+              faceWidget!
+            else if (faceState != null)
+              FaceWidget(
+                state: faceState!,
+                size: faceSize.clamp(0.0, 96.0),
+                isLive: isLive,
+              ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (word != null) ...[
+                    _buildWord(
+                      colors,
+                      resolvedFontSize * 0.7,
+                      TextAlign.left,
+                    ),
+                  ],
+                  if (topicName != null) ...[
+                    const SizedBox(height: Spacing.s3),
+                    _buildTopicName(colors, TextAlign.left),
+                  ],
+                  if (sub != null) ...[
+                    const SizedBox(height: Spacing.s2),
+                    _buildSub(colors, TextAlign.left),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: padding,
       child: Column(
@@ -107,55 +154,67 @@ class AppStage extends StatelessWidget {
             ),
           if (word != null) ...[
             SizedBox(height: faceSize > 120 ? Spacing.s5 : Spacing.s3),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                word!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: AppTypography.fontDisplay,
-                  fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                  fontWeight: FontWeight.w800,
-                  fontSize: resolvedFontSize,
-                  letterSpacing: -0.04 * resolvedFontSize,
-                  height: 1,
-                  color: colors.onCanvas,
-                ),
-              ),
-            ),
+            _buildWord(colors, resolvedFontSize, TextAlign.center),
           ],
           if (topicName != null) ...[
             const SizedBox(height: Spacing.s3),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                topicName!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: AppTypography.fontMono,
-                  fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 17,
-                  color: colors.onCanvas,
-                ),
-              ),
-            ),
+            _buildTopicName(colors, TextAlign.center),
           ],
           if (sub != null) ...[
             const SizedBox(height: Spacing.s2),
-            Text(
-              sub!,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: AppTypography.fontBody,
-                fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                fontWeight: FontWeight.w500,
-                fontSize: 15,
-                color: colors.onCanvasMuted,
-              ),
-            ),
+            _buildSub(colors, TextAlign.center),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildWord(AppColors colors, double fontSize, TextAlign align) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        word!,
+        textAlign: align,
+        style: TextStyle(
+          fontFamily: AppTypography.fontDisplay,
+          fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+          fontWeight: FontWeight.w800,
+          fontSize: fontSize,
+          letterSpacing: -0.04 * fontSize,
+          height: 1,
+          color: colors.onCanvas,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopicName(AppColors colors, TextAlign align) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        topicName!,
+        textAlign: align,
+        style: TextStyle(
+          fontFamily: AppTypography.fontMono,
+          fontFamilyFallback: AppTypography.fontMonoFallbacks,
+          fontWeight: FontWeight.w700,
+          fontSize: 17,
+          color: colors.onCanvas,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSub(AppColors colors, TextAlign align) {
+    return Text(
+      sub!,
+      textAlign: align,
+      style: TextStyle(
+        fontFamily: AppTypography.fontBody,
+        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+        fontWeight: FontWeight.w500,
+        fontSize: 15,
+        color: colors.onCanvasMuted,
       ),
     );
   }
