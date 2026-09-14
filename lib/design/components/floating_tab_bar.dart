@@ -43,9 +43,17 @@ class AppFloatingTabBar extends StatelessWidget {
   /// Bar height on its own, before any bottom inset.
   static const double height = 56;
 
+  /// Gap between the bottom edge of the display and the bottom of the bar,
+  /// on top of the view's own bottom inset.
+  static const double edgeGap = 22;
+
   /// What a screen should leave free at the bottom of its scroll view so the
   /// last row clears the bar. Add the view's own bottom inset on top.
   static const double contentGap = height + 28;
+
+  /// How tall the fade behind the bar is, so its top edge lands on the top of
+  /// the bar and never above it. Add the view's own bottom inset on top.
+  static const double fadeHeight = height + edgeGap;
 
   final List<AppTabItem> items;
   final int currentIndex;
