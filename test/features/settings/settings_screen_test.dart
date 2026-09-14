@@ -9,6 +9,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/save_connection_us
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -32,7 +33,8 @@ void main() {
 
   group('SettingsScreen', () {
     testWidgets(
-      'displays Device permissions row and reaches /settings/permissions',
+      'lists the rows that lead to each sub screen, and Health reaches '
+      '/settings/permissions',
       (tester) async {
         tester.view.physicalSize = const Size(390 * 2, 844 * 2);
         tester.view.devicePixelRatio = 2.0;
@@ -47,26 +49,24 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Settings'), findsOneWidget);
-        // Header and row name
-        expect(find.text('Device permissions'), findsNWidgets(2));
-        expect(
-          find.text('Notifications, lock screen, battery'),
-          findsOneWidget,
-        );
-
-        // The alarm sound section sits above this row, so how far it is down
-        // the page moves whenever settings grows. Scroll to it by name.
-        await tester.scrollUntilVisible(
-          find.text('Notifications, lock screen, battery'),
-          -120,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Notifications, lock screen, battery'));
-        await tester.pumpAndSettle();
-
-        // The permissions screen is now titled Health.
         expect(find.text('Health'), findsOneWidget);
+        expect(find.text('Alarms'), findsOneWidget);
+        expect(find.text('Server'), findsOneWidget);
+        expect(find.text('Privacy'), findsOneWidget);
+        expect(find.text('About'), findsOneWidget);
+        expect(find.text('Redo onboarding'), findsOneWidget);
+
+        // Both of these were dropped: priority is a per-message header, not a
+        // topic setting, and Health already leads to permissions.
+        expect(find.text('Per-topic priority'), findsNothing);
+        expect(find.text('Device permissions'), findsNothing);
+
+        await tester.tap(find.text('Health'));
+        await tester.pumpAndSettle();
+
+        // The permissions screen is titled Health and lists the permissions.
+        expect(find.text('Health'), findsOneWidget);
+        expect(find.text('Device permissions'), findsOneWidget);
       },
     );
 
@@ -77,7 +77,7 @@ void main() {
         tester.view.devicePixelRatio = 2.0;
         addTearDown(tester.view.reset);
 
-        // Save a connection so Settings loads connected state
+        // Save a connection so the server screen loads connected state
         await getIt<SaveConnectionUsecase>()(
           const ServerConnection(
             serverUrl: 'https://alerts.anvilnine.com',
@@ -90,16 +90,7 @@ void main() {
         final router = buildRouter();
         await tester.pumpWidget(buildTestApp(router));
 
-        router.go('/settings');
-        await tester.pumpAndSettle();
-
-        // Settings grows and reorders, so scroll to the section by name
-        // instead of by a fixed offset.
-        await tester.scrollUntilVisible(
-          find.text('Server connection'),
-          -120,
-          scrollable: find.byType(Scrollable).first,
-        );
+        router.go('/settings/server');
         await tester.pumpAndSettle();
 
         expect(find.text('Server connection'), findsOneWidget);
@@ -128,16 +119,7 @@ void main() {
       final router = buildRouter();
       await tester.pumpWidget(buildTestApp(router));
 
-      router.go('/settings');
-      await tester.pumpAndSettle();
-
-      // Settings grows and reorders, so scroll by name, not by a fixed
-      // offset.
-      await tester.scrollUntilVisible(
-        find.text('Server connection'),
-        -120,
-        scrollable: find.byType(Scrollable).first,
-      );
+      router.go('/settings/server');
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Edit'));
@@ -171,16 +153,7 @@ void main() {
       final router = buildRouter();
       await tester.pumpWidget(buildTestApp(router));
 
-      router.go('/settings');
-      await tester.pumpAndSettle();
-
-      // Settings grows and reorders, so scroll by name, not by a fixed
-      // offset.
-      await tester.scrollUntilVisible(
-        find.text('Server connection'),
-        -120,
-        scrollable: find.byType(Scrollable).first,
-      );
+      router.go('/settings/server');
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Disconnect'));
@@ -214,7 +187,7 @@ void main() {
       expect(find.text('Connect your server'), findsOneWidget);
     });
 
-    testWidgets('displays Privacy section with opt-in toggles OFF by default '
+    testWidgets('privacy screen shows opt-in toggles OFF by default '
         'and 1-line explanations', (tester) async {
       tester.view.physicalSize = const Size(390 * 2, 844 * 2);
       tester.view.devicePixelRatio = 2.0;
@@ -228,16 +201,7 @@ void main() {
       final router = buildRouter();
       await tester.pumpWidget(buildTestApp(router));
 
-      router.go('/settings');
-      await tester.pumpAndSettle();
-
-      // Settings grows and reorders, so scroll by name, not by a fixed
-      // offset.
-      await tester.scrollUntilVisible(
-        find.text('Privacy'),
-        -120,
-        scrollable: find.byType(Scrollable).first,
-      );
+      router.go('/settings/privacy');
       await tester.pumpAndSettle();
 
       expect(find.text('Privacy'), findsOneWidget);
@@ -286,11 +250,6 @@ void main() {
       expect(updatedAnalytics?.analyticsEnabled, isTrue);
 
       // Toggle crash reporting switch
-      await tester.drag(
-        find.byType(CustomScrollView),
-        const Offset(0, -400),
-      );
-      await tester.pumpAndSettle();
       await tester.tap(crashSwitchFinder);
       await tester.pumpAndSettle();
 
@@ -299,23 +258,39 @@ void main() {
     });
 
     testWidgets(
-      'displays About section with version, GPL-3.0 license, and links',
+      'about screen shows version, GPL-3.0 license, and links',
       (tester) async {
         tester.view.physicalSize = const Size(390 * 2, 844 * 2);
         tester.view.devicePixelRatio = 2.0;
         addTearDown(tester.view.reset);
 
+        // No url_launcher plugin answers under flutter_test, so stand in for
+        // it: `launched` is what the platform reports back.
+        var launched = true;
+        final launchedUrls = <String>[];
+        const launcherChannel = MethodChannel(
+          'plugins.flutter.io/url_launcher',
+        );
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(launcherChannel, (call) async {
+              if (call.method == 'launch') {
+                launchedUrls.add(
+                  (call.arguments as Map<Object?, Object?>)['url']! as String,
+                );
+              }
+              return launched;
+            });
+        addTearDown(
+          () => TestDefaultBinaryMessengerBinding
+              .instance
+              .defaultBinaryMessenger
+              .setMockMethodCallHandler(launcherChannel, null),
+        );
+
         final router = buildRouter();
         await tester.pumpWidget(buildTestApp(router));
 
-        router.go('/settings');
-        await tester.pumpAndSettle();
-
-        // Scroll to About section
-        await tester.drag(
-          find.byType(CustomScrollView),
-          const Offset(0, -1200),
-        );
+        router.go('/settings/about');
         await tester.pumpAndSettle();
 
         expect(find.text('About'), findsOneWidget);
@@ -336,17 +311,30 @@ void main() {
           findsOneWidget,
         );
 
-        // Tapping a link copies it. Scroll it clear of the floating tab bar
-        // first.
-        await tester.scrollUntilVisible(
-          find.text('Issue Tracker'),
-          -120,
-          scrollable: find.byType(Scrollable).first,
-        );
+        // The browser opened, so nothing is copied and no toast appears.
+        launched = true;
+        await tester.tap(find.text('Documentation'));
         await tester.pumpAndSettle();
+        expect(find.textContaining('Copied '), findsNothing);
+        expect(launchedUrls, ['https://docs.critalarm.app']);
+
+        // The browser refused, so the row copies the link instead.
+        launched = false;
         await tester.tap(find.text('Documentation'));
         await tester.pumpAndSettle();
         expect(find.text('Copied https://docs.critalarm.app'), findsOneWidget);
+
+        // Let that toast time out, so the next one is the one on screen.
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpAndSettle();
+
+        // A long press copies whether or not the browser opened.
+        await tester.longPress(find.text('GitHub'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Copied https://github.com/critalarm/critalarm'),
+          findsOneWidget,
+        );
       },
     );
   });

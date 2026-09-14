@@ -1,4 +1,3 @@
-import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
@@ -6,14 +5,8 @@ import 'package:critalarm/features/settings/data/repositories/shared_prefs_priva
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_theme_preference_repository.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
-import 'package:critalarm/features/topics/domain/entities/topic.dart';
-import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
-import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-class MockTopicRepository extends Mock implements TopicRepository {}
 
 void main() {
   group('SharedPrefsPrivacyRepository Store Logic', () {
@@ -195,17 +188,6 @@ void main() {
   });
 
   group('SettingsCubit Connection Store Integration & isConnected Flag', () {
-    late MockTopicRepository mockTopicRepo;
-    late GetTopicsUsecase getTopicsUsecase;
-
-    setUp(() {
-      mockTopicRepo = MockTopicRepository();
-      getTopicsUsecase = GetTopicsUsecase(mockTopicRepo);
-      when(() => mockTopicRepo.getTopics()).thenAnswer(
-        (_) async => <Topic>[].toSuccess(),
-      );
-    });
-
     test(
       'load() with no connection stored sets isConnected to false',
       () async {
@@ -215,7 +197,6 @@ void main() {
         final privacyRepo = SharedPrefsPrivacyRepository(prefs);
 
         final cubit = SettingsCubit(
-          getTopicsUsecase,
           connectionRepository: connRepo,
           privacyRepository: privacyRepo,
           telemetryGate: const NoopTelemetryGate(),
@@ -244,7 +225,6 @@ void main() {
         final privacyRepo = SharedPrefsPrivacyRepository(prefs);
 
         final cubit = SettingsCubit(
-          getTopicsUsecase,
           connectionRepository: connRepo,
           privacyRepository: privacyRepo,
           telemetryGate: const NoopTelemetryGate(),
@@ -268,7 +248,6 @@ void main() {
         final privacyRepo = SharedPrefsPrivacyRepository(prefs);
 
         final cubit = SettingsCubit(
-          getTopicsUsecase,
           connectionRepository: connRepo,
           privacyRepository: privacyRepo,
           telemetryGate: const NoopTelemetryGate(),
@@ -304,7 +283,6 @@ void main() {
         final privacyRepo = SharedPrefsPrivacyRepository(prefs);
 
         final cubit = SettingsCubit(
-          getTopicsUsecase,
           connectionRepository: connRepo,
           privacyRepository: privacyRepo,
           telemetryGate: const NoopTelemetryGate(),
@@ -343,7 +321,6 @@ void main() {
         final privacyRepo = SharedPrefsPrivacyRepository(prefs);
 
         final cubit = SettingsCubit(
-          getTopicsUsecase,
           connectionRepository: connRepo,
           privacyRepository: privacyRepo,
           telemetryGate: const NoopTelemetryGate(),
