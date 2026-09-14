@@ -70,7 +70,7 @@ class LockScreenState {
         title: 'Primary database down',
         body: 'pg_isready failed 3 times in 90 s. Replica promoted on db-2.',
         faceState: FaceState.alarmed,
-        ringingPillText: 'Ringing. Tap to acknowledge.',
+        ringingPillText: 'Ringing through silent mode. Tap to acknowledge.',
         timeText: 'now',
         isCrit: true,
       ),

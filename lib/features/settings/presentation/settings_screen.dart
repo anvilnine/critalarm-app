@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
@@ -47,6 +48,105 @@ class _SettingsScreenContent extends StatelessWidget {
     PriorityLevel.low => const AppPriorityChip.low(),
     PriorityLevel.min => const AppPriorityChip.min(),
   };
+
+  Widget _buildHealthIssuesChip(BuildContext context, int issueCount) {
+    final colors = context.appColors;
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 26),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      decoration: BoxDecoration(
+        color: colors.high,
+        borderRadius: Radii.fullAll,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppGlyph(
+            GlyphType.up,
+            size: 12,
+            color: colors.inkFixed,
+            strokeWidth: 2.4,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            LocaleKeys.settings_health_badge_issues.plural(issueCount),
+            style: TextStyle(
+              fontFamily: AppTypography.fontMono,
+              fontFamilyFallback: AppTypography.fontMonoFallbacks,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              letterSpacing: 0.2,
+              color: colors.inkFixed,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanRow(BuildContext context) {
+    final colors = context.appColors;
+    // SettingsState carries no subscription or topic count yet, so the plan
+    // reads as the free tier until it does.
+    const topicsUsed = 4;
+    const topicsLimit = 5;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.cream,
+        borderRadius: Radii.mdAll,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  LocaleKeys.settings_plan_free.tr(),
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontBody,
+                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colors.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  LocaleKeys.settings_plan_topics_used.tr(
+                    namedArgs: {
+                      'used': '$topicsUsed',
+                      'limit': '$topicsLimit',
+                    },
+                  ),
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontBody,
+                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                    fontSize: 12,
+                    color: colors.ink3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          AppButton(
+            label: LocaleKeys.settings_upgrade_button.tr(),
+            size: AppButtonSize.sm,
+            onPressed: () {
+              AppHaptics.capture();
+              unawaited(context.push('/paywall'));
+            },
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _confirmDisconnect(
     BuildContext context,
@@ -105,6 +205,7 @@ class _SettingsScreenContent extends StatelessWidget {
     );
 
     if (confirmed == true) {
+      AppHaptics.destructive();
       await cubit.disconnectServer();
     }
   }
@@ -121,6 +222,9 @@ class _SettingsScreenContent extends StatelessWidget {
     unawaited(
       showModalBottomSheet<void>(
         context: context,
+        // Same reason as the dialog: the sheet must sit above the floating
+        // tab bar, which the shell draws over every branch screen.
+        useRootNavigator: true,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (sheetContext) {
@@ -292,8 +396,10 @@ class _SettingsScreenContent extends StatelessWidget {
                     label: LocaleKeys.settings_server_edit_button.tr(),
                     size: AppButtonSize.sm,
                     variant: AppButtonVariant.paper,
-                    onPressed: () =>
-                        _showEditServerSheet(context, cubit, state),
+                    onPressed: () {
+                      AppHaptics.capture();
+                      _showEditServerSheet(context, cubit, state);
+                    },
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -369,273 +475,216 @@ class _SettingsScreenContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) {
+        final colors = context.appColors;
         final cubit = context.read<SettingsCubit>();
 
-        return Scaffold(
-          backgroundColor: colors.canvas,
-          body: GhostField(
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              slivers: [
-                AppSliverTopBar(
-                  title: LocaleKeys.settings_title.tr(),
-                  leading: AppIconButton(
-                    glyph: GlyphType.back,
-                    ariaLabel: LocaleKeys.settings_back_aria_label.tr(),
-                    onPressed: () {
-                      if (context.canPop()) {
-                        context.pop();
-                      } else {
-                        context.go('/');
-                      }
-                    },
+        return AppScreenScaffold(
+          topBar: AppTopBar(title: LocaleKeys.settings_title.tr()),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  const SizedBox(height: Spacing.s2),
+                  AppStage.horizontal(
+                    faceState: FaceState.acked,
+                    sub: LocaleKeys.settings_stage_sub.tr(),
                   ),
-                ),
-                SliverToBoxAdapter(
+                  const SizedBox(height: Spacing.s3),
+                ],
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                child: AppSheet(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const SizedBox(height: Spacing.s2),
-                      AppStage.horizontal(
-                        faceState: FaceState.acked,
-                        sub: LocaleKeys.settings_stage_sub.tr(),
+                      AppListRow(
+                        name: LocaleKeys.settings_health_row_title.tr(),
+                        meta: LocaleKeys.settings_health_row_subtitle_issue
+                            .tr(),
+                        faceState: FaceState.worried,
+                        trailing: _buildHealthIssuesChip(context, 1),
+                        onTap: () => context.push('/settings/permissions'),
                       ),
-                      const SizedBox(height: Spacing.s3),
+                      const SizedBox(height: 14),
+                      AppSectionHeader(
+                        LocaleKeys.settings_alarms_header.tr(),
+                      ),
+                      AppListRow(
+                        name: LocaleKeys.settings_alarm_sound_row_title.tr(),
+                        meta: LocaleKeys.settings_alarm_sound_row_subtitle.tr(),
+                        trailing: AppGlyph(
+                          GlyphType.arrow,
+                          color: colors.ink3,
+                          size: 16,
+                        ),
+                        onTap: () => context.push('/settings/sounds'),
+                      ),
+                      const SizedBox(height: 8),
+                      AppToggleRow(
+                        title: LocaleKeys.settings_quiet_hours_label.tr(),
+                        subtitle: LocaleKeys.settings_quiet_hours_subtitle.tr(),
+                        value: state.quietHoursEnabled,
+                        onChanged: (val) =>
+                            cubit.toggleQuietHours(isEnabled: val),
+                      ),
+                      const SizedBox(height: 8),
+                      AppToggleRow(
+                        title: LocaleKeys.settings_critical_rings_title.tr(),
+                        subtitle: LocaleKeys.settings_critical_rings_subtitle
+                            .tr(),
+                        value: state.criticalRingsQuietHours,
+                        onChanged: (val) => cubit.toggleCriticalRingsQuietHours(
+                          isEnabled: val,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      AppSectionHeader(
+                        LocaleKeys.settings_escalation_header.tr(),
+                      ),
+                      AppToggleRow(
+                        title: LocaleKeys.settings_escalation_call_title.tr(),
+                        subtitle: LocaleKeys.settings_escalation_call_subtitle
+                            .tr(),
+                        value: state.escalationCallEnabled,
+                        onChanged: (val) =>
+                            cubit.toggleEscalationCall(isEnabled: val),
+                      ),
+                      const SizedBox(height: 14),
+                      AppSectionHeader(
+                        LocaleKeys.settings_per_topic_priority_header.tr(),
+                      ),
+                      for (final topic in state.topics) ...[
+                        AppKeyValueRow(
+                          value: topic.name,
+                          trailing: _buildPriorityChip(topic.priority),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      const SizedBox(height: 6),
+                      AppSectionHeader(
+                        LocaleKeys.settings_server_connection_header.tr(),
+                      ),
+                      _buildServerCard(context, cubit, state),
+                      const SizedBox(height: 14),
+                      AppSectionHeader(
+                        LocaleKeys.settings_device_permissions_header.tr(),
+                      ),
+                      AppListRow(
+                        name: LocaleKeys.settings_device_permissions_row_title
+                            .tr(),
+                        meta: LocaleKeys
+                            .settings_device_permissions_row_subtitle
+                            .tr(),
+                        trailing: AppGlyph(
+                          GlyphType.arrow,
+                          color: colors.ink3,
+                          size: 16,
+                        ),
+                        onTap: () => context.push('/settings/permissions'),
+                      ),
+                      const SizedBox(height: 8),
+                      AppListRow(
+                        name: LocaleKeys.settings_redo_onboarding_title.tr(),
+                        meta: LocaleKeys.settings_redo_onboarding_subtitle.tr(),
+                        trailing: AppGlyph(
+                          GlyphType.arrow,
+                          color: colors.ink3,
+                          size: 16,
+                        ),
+                        onTap: () => context.pushNamed(AppRoute.onboarding),
+                      ),
+                      const SizedBox(height: 14),
+                      AppSectionHeader(
+                        LocaleKeys.settings_app_header.tr(),
+                      ),
+                      BlocBuilder<ThemeCubit, AppThemeMode>(
+                        builder: (context, themeMode) {
+                          return AppSegmentedControl<AppThemeMode>(
+                            items: AppThemeMode.values,
+                            selectedItem: themeMode,
+                            labelBuilder: (mode) => switch (mode) {
+                              AppThemeMode.system =>
+                                LocaleKeys.settings_theme_system.tr(),
+                              AppThemeMode.light =>
+                                LocaleKeys.settings_theme_light.tr(),
+                              AppThemeMode.dark =>
+                                LocaleKeys.settings_theme_dark.tr(),
+                            },
+                            onChanged: (mode) {
+                              AppHaptics.selection();
+                              unawaited(
+                                context.read<ThemeCubit>().setMode(mode),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      AppSectionHeader(
+                        LocaleKeys.settings_privacy_header.tr(),
+                      ),
+                      AppToggleRow(
+                        title: LocaleKeys.settings_analytics_title.tr(),
+                        subtitle: LocaleKeys.settings_analytics_subtitle.tr(),
+                        value: state.analyticsEnabled,
+                        onChanged: (val) =>
+                            cubit.toggleAnalytics(isEnabled: val),
+                      ),
+                      const SizedBox(height: 8),
+                      AppToggleRow(
+                        title: LocaleKeys.settings_crash_reports_title.tr(),
+                        subtitle: LocaleKeys.settings_crash_reports_subtitle
+                            .tr(),
+                        value: state.crashReportingEnabled,
+                        onChanged: (val) =>
+                            cubit.toggleCrashReporting(isEnabled: val),
+                      ),
+                      const SizedBox(height: 14),
+                      AppSectionHeader(
+                        LocaleKeys.settings_about_header.tr(),
+                      ),
+                      AppKeyValueRow(
+                        label: LocaleKeys.settings_about_version_label.tr(),
+                        value: 'v$appVersion',
+                      ),
+                      const SizedBox(height: 8),
+                      AppKeyValueRow(
+                        label: LocaleKeys.settings_about_license_label.tr(),
+                        value: LocaleKeys.settings_about_license_value.tr(),
+                        isMono: false,
+                      ),
+                      const SizedBox(height: 8),
+                      _AboutLinkRow(
+                        label: LocaleKeys.settings_about_docs_label.tr(),
+                        url: 'https://docs.critalarm.app',
+                      ),
+                      const SizedBox(height: 8),
+                      _AboutLinkRow(
+                        label: LocaleKeys.settings_about_github_label.tr(),
+                        url: 'https://github.com/critalarm/critalarm',
+                      ),
+                      const SizedBox(height: 8),
+                      _AboutLinkRow(
+                        label: LocaleKeys.settings_about_issues_label.tr(),
+                        url: 'https://github.com/critalarm/critalarm/issues',
+                      ),
+                      const SizedBox(height: 14),
+                      AppSectionHeader(
+                        LocaleKeys.settings_plan_header.tr(),
+                      ),
+                      _buildPlanRow(context),
                     ],
                   ),
                 ),
-                SliverToBoxAdapter(
-                  child: SafeArea(
-                    top: false,
-                    bottom: false,
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        12,
-                        0,
-                        12,
-                        16 + bottomInset,
-                      ),
-                      child: AppSheet(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppSectionHeader(
-                              LocaleKeys.settings_quiet_hours_label.tr(),
-                            ),
-                            AppToggleRow(
-                              title: LocaleKeys.settings_quiet_hours_schedule
-                                  .tr(),
-                              subtitle: LocaleKeys.settings_quiet_hours_subtitle
-                                  .tr(),
-                              value: state.quietHoursEnabled,
-                              onChanged: (val) =>
-                                  cubit.toggleQuietHours(isEnabled: val),
-                            ),
-                            const SizedBox(height: 8),
-                            AppToggleRow(
-                              title: LocaleKeys.settings_critical_rings_title
-                                  .tr(),
-                              subtitle: LocaleKeys
-                                  .settings_critical_rings_subtitle
-                                  .tr(),
-                              value: state.criticalRingsQuietHours,
-                              onChanged: (val) =>
-                                  cubit.toggleCriticalRingsQuietHours(
-                                    isEnabled: val,
-                                  ),
-                            ),
-                            const SizedBox(height: 14),
-                            AppSectionHeader(
-                              LocaleKeys.settings_escalation_header.tr(),
-                            ),
-                            AppToggleRow(
-                              title: LocaleKeys.settings_escalation_call_title
-                                  .tr(),
-                              subtitle: LocaleKeys
-                                  .settings_escalation_call_subtitle
-                                  .tr(),
-                              value: state.escalationCallEnabled,
-                              onChanged: (val) =>
-                                  cubit.toggleEscalationCall(isEnabled: val),
-                            ),
-                            const SizedBox(height: 14),
-                            AppSectionHeader(
-                              LocaleKeys.settings_per_topic_priority_header
-                                  .tr(),
-                            ),
-                            for (final topic in state.topics) ...[
-                              AppKeyValueRow(
-                                value: topic.name,
-                                trailing: _buildPriorityChip(topic.priority),
-                              ),
-                              const SizedBox(height: 8),
-                            ],
-                            const SizedBox(height: 6),
-                            AppSectionHeader(
-                              LocaleKeys.settings_server_connection_header.tr(),
-                            ),
-                            _buildServerCard(context, cubit, state),
-                            const SizedBox(height: 14),
-                            AppSectionHeader(
-                              LocaleKeys.settings_alarm_sound_header.tr(),
-                            ),
-                            AppListRow(
-                              name: LocaleKeys.settings_alarm_sound_row_title
-                                  .tr(),
-                              meta: LocaleKeys.settings_alarm_sound_row_subtitle
-                                  .tr(),
-                              trailing: AppGlyph(
-                                GlyphType.arrow,
-                                color: colors.ink3,
-                                size: 16,
-                              ),
-                              onTap: () => context.push('/settings/sounds'),
-                            ),
-                            const SizedBox(height: 14),
-                            AppSectionHeader(
-                              LocaleKeys.settings_device_permissions_header
-                                  .tr(),
-                            ),
-                            AppListRow(
-                              name: LocaleKeys
-                                  .settings_device_permissions_row_title
-                                  .tr(),
-                              meta: LocaleKeys
-                                  .settings_device_permissions_row_subtitle
-                                  .tr(),
-                              trailing: AppGlyph(
-                                GlyphType.arrow,
-                                color: colors.ink3,
-                                size: 16,
-                              ),
-                              onTap: () =>
-                                  context.push('/settings/permissions'),
-                            ),
-                            const SizedBox(height: 8),
-                            AppListRow(
-                              name: LocaleKeys.settings_redo_onboarding_title
-                                  .tr(),
-                              meta: LocaleKeys.settings_redo_onboarding_subtitle
-                                  .tr(),
-                              trailing: AppGlyph(
-                                GlyphType.arrow,
-                                color: colors.ink3,
-                                size: 16,
-                              ),
-                              onTap: () =>
-                                  context.pushNamed(AppRoute.onboarding),
-                            ),
-                            const SizedBox(height: 14),
-                            AppSectionHeader(
-                              LocaleKeys.settings_theme_header.tr(),
-                            ),
-                            BlocBuilder<ThemeCubit, AppThemeMode>(
-                              builder: (context, themeMode) {
-                                return AppSegmentedControl<AppThemeMode>(
-                                  items: AppThemeMode.values,
-                                  selectedItem: themeMode,
-                                  labelBuilder: (mode) => switch (mode) {
-                                    AppThemeMode.system =>
-                                      LocaleKeys.settings_theme_system.tr(),
-                                    AppThemeMode.light =>
-                                      LocaleKeys.settings_theme_light.tr(),
-                                    AppThemeMode.dark =>
-                                      LocaleKeys.settings_theme_dark.tr(),
-                                  },
-                                  onChanged: (mode) {
-                                    unawaited(
-                                      context.read<ThemeCubit>().setMode(mode),
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            AppSectionHeader(
-                              LocaleKeys.settings_privacy_header.tr(),
-                            ),
-                            AppToggleRow(
-                              title: LocaleKeys.settings_analytics_title.tr(),
-                              subtitle: LocaleKeys.settings_analytics_subtitle
-                                  .tr(),
-                              value: state.analyticsEnabled,
-                              onChanged: (val) =>
-                                  cubit.toggleAnalytics(isEnabled: val),
-                            ),
-                            const SizedBox(height: 8),
-                            AppToggleRow(
-                              title: LocaleKeys.settings_crash_reports_title
-                                  .tr(),
-                              subtitle: LocaleKeys
-                                  .settings_crash_reports_subtitle
-                                  .tr(),
-                              value: state.crashReportingEnabled,
-                              onChanged: (val) =>
-                                  cubit.toggleCrashReporting(isEnabled: val),
-                            ),
-                            const SizedBox(height: 14),
-                            AppSectionHeader(
-                              LocaleKeys.settings_about_header.tr(),
-                            ),
-                            AppKeyValueRow(
-                              label: LocaleKeys.settings_about_version_label
-                                  .tr(),
-                              value: 'v$appVersion',
-                            ),
-                            const SizedBox(height: 8),
-                            AppKeyValueRow(
-                              label: LocaleKeys.settings_about_license_label
-                                  .tr(),
-                              value: LocaleKeys.settings_about_license_value
-                                  .tr(),
-                              isMono: false,
-                            ),
-                            const SizedBox(height: 8),
-                            _AboutLinkRow(
-                              label: LocaleKeys.settings_about_docs_label.tr(),
-                              url: 'https://docs.critalarm.app',
-                            ),
-                            const SizedBox(height: 8),
-                            _AboutLinkRow(
-                              label: LocaleKeys.settings_about_github_label
-                                  .tr(),
-                              url: 'https://github.com/critalarm/critalarm',
-                            ),
-                            const SizedBox(height: 8),
-                            _AboutLinkRow(
-                              label: LocaleKeys.settings_about_issues_label
-                                  .tr(),
-                              url:
-                                  'https://github.com/critalarm/critalarm/issues',
-                            ),
-                            const SizedBox(height: 16),
-                            AppButton(
-                              label: LocaleKeys.settings_upgrade_to_pro_button
-                                  .tr(),
-                              isFullWidth: true,
-                              trailingIcon: AppGlyph(
-                                GlyphType.arrow,
-                                color: colors.onHighlight,
-                                size: 16,
-                              ),
-                              onPressed: () => context.push('/paywall'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         );
       },
     );

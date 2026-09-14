@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -40,156 +41,130 @@ class _TopicDetailScreenContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<TopicDetailCubit, TopicDetailState>(
       builder: (context, state) {
-        final colors = context.appColors;
-
-        final bottomInset = MediaQuery.paddingOf(context).bottom;
-
         return SeverityScope(
           severity: state.severity,
-          child: Scaffold(
-            backgroundColor: colors.canvas,
-            body: GhostField(
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
+          child: AppScreenScaffold(
+            topBar: AppTopBar(
+              leading: AppIconButton(
+                glyph: GlyphType.back,
+                ariaLabel: LocaleKeys.topic_detail_back_aria_label.tr(),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/');
+                  }
+                },
+              ),
+              trailing: AppTopicChip(
+                text: 'POST /t/${state.topicName}',
+                onTap: () {
+                  unawaited(
+                    Clipboard.setData(
+                      ClipboardData(
+                        text: 'POST /t/${state.topicName}',
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    const SizedBox(height: Spacing.s3),
+                    AppStage(
+                      faceState: state.faceState,
+                      faceSize: 170,
+                      word: state.word,
+                      topicName: state.topicName,
+                      sub: state.subText,
+                    ),
+                    const SizedBox(height: Spacing.s4),
+                  ],
                 ),
-                slivers: [
-                  AppSliverTopBar(
-                    leading: AppIconButton(
-                      glyph: GlyphType.back,
-                      ariaLabel: LocaleKeys.topic_detail_back_aria_label.tr(),
-                      onPressed: () {
-                        if (context.canPop()) {
-                          context.pop();
-                        } else {
-                          context.go('/');
-                        }
-                      },
-                    ),
-                    trailing: AppTopicChip(
-                      text: 'POST /t/${state.topicName}',
-                      onTap: () {
-                        unawaited(
-                          Clipboard.setData(
-                            ClipboardData(
-                              text: 'POST /t/${state.topicName}',
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  SliverToBoxAdapter(
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  child: AppSheet(
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const SizedBox(height: Spacing.s3),
-                        AppStage(
-                          faceState: state.faceState,
-                          faceSize: 170,
-                          word: state.word,
-                          topicName: state.topicName,
-                          sub: state.subText,
-                        ),
-                        const SizedBox(height: Spacing.s4),
-                      ],
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: SafeArea(
-                      top: false,
-                      bottom: false,
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          12,
-                          0,
-                          12,
-                          16 + bottomInset,
-                        ),
-                        child: AppSheet(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              for (final msg in state.messages) ...[
-                                AppMessageCard(
-                                  title: msg.title,
-                                  timestamp: msg.timestamp,
-                                  body: msg.body,
-                                  source: msg.source,
-                                  isHigh: msg.isHigh,
-                                ),
-                                const SizedBox(height: 10),
-                              ],
-                              const SizedBox(height: 4),
-                              AppToggleRow(
-                                title: LocaleKeys
-                                    .topic_detail_critical_toggle_title
+                        AppToggleRow(
+                          title: LocaleKeys.topic_detail_critical_toggle_title
+                              .tr(),
+                          subtitle: state.canEditCritical
+                              ? LocaleKeys.topic_detail_critical_toggle_subtitle
+                                    .tr()
+                              : LocaleKeys.topic_detail_critical_needs_alarm
                                     .tr(),
-                                subtitle: state.canEditCritical
-                                    ? LocaleKeys
-                                          .topic_detail_critical_toggle_subtitle
-                                          .tr()
-                                    : LocaleKeys
-                                          .topic_detail_critical_needs_alarm
-                                          .tr(),
-                                value: state.critical,
-                                // No alarm permission, no critical delivery:
-                                // the push would arrive as a plain
-                                // notification and never ring.
-                                onChanged: state.canEditCritical
-                                    ? (val) {
-                                        unawaited(
-                                          context
-                                              .read<TopicDetailCubit>()
-                                              .toggleCriticalDelivery(
-                                                isCritical: val,
-                                              ),
-                                        );
-                                      }
-                                    : null,
-                              ),
-                              const SizedBox(height: 10),
-                              // Per-topic sound. Stored on the device only,
-                              // so it is not part of the topic the server
-                              // knows about.
-                              AppListRow(
-                                name: LocaleKeys.topic_detail_sound_row_title
-                                    .tr(),
-                                meta: LocaleKeys.topic_detail_sound_row_default
-                                    .tr(),
-                                trailing: AppGlyph(
-                                  GlyphType.arrow,
-                                  color: context.appColors.ink3,
-                                  size: 16,
-                                ),
-                                onTap: () => context.push(
-                                  '/settings/sounds?topic=${state.topicName}',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              AppButton(
-                                label: LocaleKeys
-                                    .topic_detail_mark_as_read_button
-                                    .tr(),
-                                variant: AppButtonVariant.ink,
-                                isFullWidth: true,
-                                isLoading: state.isMarkingAsRead,
-                                onPressed: () {
+                          value: state.critical,
+                          // No alarm permission, no critical delivery: the
+                          // push would arrive as a plain notification and
+                          // never ring.
+                          onChanged: state.canEditCritical
+                              ? (val) {
+                                  AppHaptics.selection();
                                   unawaited(
                                     context
                                         .read<TopicDetailCubit>()
-                                        .markAsRead(),
+                                        .toggleCriticalDelivery(
+                                          isCritical: val,
+                                        ),
                                   );
-                                },
-                              ),
-                            ],
+                                }
+                              : null,
+                        ),
+                        const SizedBox(height: 10),
+                        // Per-topic sound. Stored on the device only, so it
+                        // is not part of the topic the server knows about.
+                        AppListRow(
+                          name: LocaleKeys.topic_detail_sound_row_title.tr(),
+                          meta: LocaleKeys.topic_detail_sound_row_default.tr(),
+                          trailing: AppGlyph(
+                            GlyphType.arrow,
+                            color: context.appColors.ink3,
+                            size: 16,
+                          ),
+                          onTap: () => context.push(
+                            '/settings/sounds?topic=${state.topicName}',
                           ),
                         ),
-                      ),
+                        AppSectionHeader(
+                          LocaleKeys.topic_detail_messages_header.tr(),
+                        ),
+                        for (final msg in state.messages) ...[
+                          AppMessageCard(
+                            title: msg.title,
+                            timestamp: msg.timestamp,
+                            body: msg.body,
+                            source: msg.source,
+                            isHigh: msg.isHigh,
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        const SizedBox(height: 4),
+                        AppButton(
+                          label: LocaleKeys.topic_detail_mark_as_read_button
+                              .tr(),
+                          variant: AppButtonVariant.ink,
+                          isFullWidth: true,
+                          isLoading: state.isMarkingAsRead,
+                          onPressed: () {
+                            AppHaptics.capture();
+                            unawaited(
+                              context.read<TopicDetailCubit>().markAsRead(),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         );
       },

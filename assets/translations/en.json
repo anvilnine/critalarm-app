@@ -5,7 +5,9 @@
   "nav": {
     "topics": "Topics",
     "incidents": "Incidents",
-    "settings": "Settings"
+    "settings": "Settings",
+    "history": "History",
+    "new_topic": "New topic"
   },
   "common": {
     "cancel": "Cancel",
@@ -116,12 +118,29 @@
     "meta_yesterday": "Yesterday 18:40",
     "meta_ringing": "Ringing",
     "meta_warning": "1 warning",
-    "meta_quiet": "Quiet"
+    "meta_quiet": "Quiet",
+    "search_aria_label": "Search topics"
+  },
+  "history": {
+    "title": "History",
+    "filter_aria_label": "Filter history",
+    "summary": {
+      "one": "1 alarm in 30 days. Longest ring {longest}.",
+      "other": "{} alarms in 30 days. Longest ring {longest}."
+    },
+    "summary_empty": "No alarms in the last 30 days.",
+    "empty_title": "Nothing has rung yet",
+    "empty_body": "Alarms you acknowledge show up here with how long they rang.",
+    "day_today": "Today, {date}",
+    "meta_acknowledged": "Rang {duration}. Acknowledged.",
+    "meta_resolved": "Rang {duration}. Resolved when the check passed.",
+    "meta_expired": "Rang {duration}. Stopped on its own.",
+    "meta_open": "Ringing {duration}."
   },
   "topic_detail": {
     "back_aria_label": "Back",
-    "critical_toggle_title": "Ring me for this topic",
-    "critical_toggle_subtitle": "Off by default. Turn it on to repeat every 30 s until you acknowledge.",
+    "critical_toggle_title": "Critical delivery",
+    "critical_toggle_subtitle": "Rings through silent mode and Do Not Disturb",
     "mark_as_read_button": "Mark as read",
     "stage_word_critical": "CRITICAL",
     "stage_word_warning": "1 warning",
@@ -129,23 +148,26 @@
     "stage_sub": "Default priority {priority}. {count} messages.",
     "critical_needs_alarm": "Turn on Alarms in Settings first. Without it a critical alert arrives as a quiet notification.",
     "sound_row_title": "Alarm sound",
-    "sound_row_default": "Using the default"
+    "sound_row_default": "Using the default",
+    "messages_header": "Messages"
   },
   "create_topic": {
     "title": "New topic",
     "back_aria_label": "Back",
     "name_label": "Name",
     "name_placeholder": "prod-db",
-    "name_helper": "Lowercase, digits, hyphens. This becomes the URL.",
+    "name_helper": "Lowercase, digits and hyphens.",
     "priority_label": "Default priority",
-    "critical_toggle_title": "Ring me for this topic",
-    "critical_toggle_subtitle": "Off by default. Turn it on to repeat every 30 s until you acknowledge.",
-    "generated_label": "Generated",
-    "token_warning": "Save this token now. It will not be shown again.",
+    "critical_toggle_title": "Critical delivery",
+    "critical_toggle_subtitle": "Rings through silent mode and Do Not Disturb",
+    "generated_label": "Endpoint and token",
+    "token_warning": "The token is shown once. Save it now.",
     "create_button": "Create topic",
     "toast_created": "Topic created",
     "name_error_empty": "Give the topic a name.",
-    "name_error_invalid": "Use 1 to 64 lowercase letters, digits and hyphens. Try prod-db."
+    "name_error_invalid": "Use 1 to 64 lowercase letters, digits and hyphens. Try prod-db.",
+    "cancel_aria_label": "Cancel",
+    "copy_button": "Copy"
   },
   "critical_alarm": {
     "back_aria_label": "Back",
@@ -157,13 +179,21 @@
     "stage_sub_ringing": "Ringing 2 min 14 s. Repeats every 30 s.",
     "acknowledged_message": "Acknowledged at {time}",
     "fallback_title": "Primary database down",
-    "fallback_body": "pg_isready failed 3 times in 90 s. Replica promoted to primary on db-2."
+    "fallback_body": "pg_isready failed 3 times in 90 s. Replica promoted to primary on db-2.",
+    "snooze_button": "Snooze 10 min",
+    "acked_title": "Acknowledged",
+    "acked_sub": "Rang for {duration}.",
+    "started_label": "Started",
+    "acknowledged_label": "Acknowledged",
+    "source_label": "Source",
+    "open_topic_button": "Open {topic}",
+    "back_to_topics_button": "Back to topics"
   },
   "lock_screen": {
     "back_aria_label": "Back",
     "open_button": "Open Crit Alarm",
     "incident_title": "Incident {id}",
-    "ringing_pill": "Ringing. Tap to acknowledge.",
+    "ringing_pill": "Ringing through silent mode. Tap to acknowledge.",
     "time_now": "now"
   },
   "settings": {
@@ -186,7 +216,7 @@
     "server_connect_button": "Connect server",
     "quiet_hours_label": "Quiet hours",
     "quiet_hours_schedule": "22:00 to 07:00",
-    "quiet_hours_subtitle": "default and low stay silent",
+    "quiet_hours_subtitle": "22:00 to 07:00. Critical still rings.",
     "critical_rings_title": "Critical rings through quiet hours",
     "critical_rings_subtitle": "and repeats until you acknowledge",
     "escalation_header": "Escalation",
@@ -218,11 +248,27 @@
     "upgrade_to_pro_button": "Upgrade to Pro",
     "copied_toast": "Copied {url}",
     "alarm_sound_header": "Alarm sound",
-    "alarm_sound_row_title": "Default alarm sound",
-    "alarm_sound_row_subtitle": "Rings for every topic that has not picked its own"
+    "alarm_sound_row_title": "Default sound",
+    "alarm_sound_row_subtitle": "Rings for every topic that has not picked its own",
+    "health_row_title": "Health",
+    "health_row_subtitle_ok": "Everything needed to ring is on",
+    "health_row_subtitle_issue": "Full screen alarms are off",
+    "health_badge_issues": {
+      "one": "1 issue",
+      "other": "{} issues"
+    },
+    "alarms_header": "Alarms",
+    "app_header": "App",
+    "server_header": "Server",
+    "plan_header": "Plan",
+    "plan_free": "Free",
+    "plan_pro": "Pro",
+    "plan_topics_used": "{used} of {limit} topics used",
+    "upgrade_button": "Upgrade",
+    "stage_sub_connected": "Connected to {host} since {date}."
   },
   "device_permissions": {
-    "title": "Device permissions",
+    "title": "Health",
     "back_aria_label": "Back",
     "refresh_aria_label": "Refresh",
     "stage_sub_all_granted": "All set. Ready to wake you at 3am.",
@@ -230,9 +276,9 @@
     "capabilities_header": "What Crit Alarm needs",
     "item_notifications_title": "Notifications",
     "item_notifications_description": "Off means no page reaches you.",
-    "item_full_screen_intent_title": "Full-screen intent",
+    "item_full_screen_intent_title": "Full screen alarms",
     "item_full_screen_intent_description": "Off means a critical page will not wake the screen.",
-    "item_battery_optimization_title": "Run in the background",
+    "item_battery_optimization_title": "Battery",
     "item_battery_optimization_description": "Off means pages can arrive late.",
     "note": "",
     "fix_button": "Fix in Settings",
@@ -240,7 +286,19 @@
     "badge_granted": "Granted",
     "badge_denied": "Denied",
     "badge_restricted": "Restricted",
-    "badge_not_set": "Not set"
+    "badge_not_set": "Not set",
+    "permissions_header": "Device permissions",
+    "stage_sub_full_screen_off": "Full screen alarms are disabled. Alarms will vibrate only.",
+    "badge_allowed": "allowed",
+    "badge_unrestricted": "unrestricted",
+    "badge_reachable": "reachable",
+    "badge_unreachable": "unreachable",
+    "item_full_screen_intent_off_since": "Off since {date}",
+    "turn_on_button": "Turn on",
+    "server_header": "Server connection",
+    "checked_label": "Checked",
+    "last_delivery_label": "Last delivery",
+    "test_alarm_button": "Send a test alarm"
   },
   "paywall": {
     "title": "Crit Alarm Pro",
@@ -303,10 +361,10 @@
   "sound_picker": {
     "title_default": "Alarm sound",
     "title_topic": "Sound for {topic}",
-    "bundled_header": "Bundled",
-    "user_header": "Your sounds",
+    "bundled_header": "Built in",
+    "user_header": "Imported",
     "user_empty": "Nothing here yet. Add a sound from your files.",
-    "add_own": "Add your own",
+    "add_own": "Import a sound",
     "delete": "Delete",
     "play_aria_label": "Play preview",
     "stop_aria_label": "Stop preview",
@@ -317,6 +375,8 @@
     "error_too_large": "That file is bigger than 5 MB.",
     "error_unsupported": "That file type will not play as an alarm.",
     "error_unreadable": "That file could not be read.",
-    "error_copy_failed": "The file could not be saved. Try again."
+    "error_copy_failed": "The file could not be saved. Try again.",
+    "use_button": "Use {name}",
+    "badge_playing": "playing"
   }
 }

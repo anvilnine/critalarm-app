@@ -34,98 +34,66 @@ class _HomeScreenContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<HomeCubit, HomeState>(
       builder: (context, state) {
-        final colors = context.appColors;
-
-        final bottomInset = MediaQuery.paddingOf(context).bottom;
-
         return SeverityScope(
           severity: state.severity,
-          child: Scaffold(
-            backgroundColor: colors.canvas,
-            body: GhostField(
-              child: RefreshIndicator(
-                onRefresh: () => context.read<HomeCubit>().refresh(),
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: BouncingScrollPhysics(),
-                  ),
-                  slivers: [
-                    AppSliverTopBar(
-                      title: LocaleKeys.home_title.tr(),
-                      trailing: AppIconButton(
-                        glyph: GlyphType.gear,
-                        ariaLabel: LocaleKeys.home_settings_aria_label.tr(),
-                        onPressed: () => context.push('/settings'),
-                      ),
+          child: AppScreenScaffold(
+            onRefresh: () => context.read<HomeCubit>().refresh(),
+            topBar: AppTopBar(
+              title: LocaleKeys.topics_list_title.tr(),
+              trailing: AppIconButton(
+                glyph: GlyphType.search,
+                ariaLabel: LocaleKeys.topics_list_search_aria_label.tr(),
+                onPressed: () {},
+              ),
+            ),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    const SizedBox(height: Spacing.s3),
+                    AppStage(
+                      faceState: state.faceState,
+                      word: state.word,
+                      sub: state.subText,
                     ),
-                    SliverToBoxAdapter(
-                      child: Column(
-                        children: [
-                          const SizedBox(height: Spacing.s3),
-                          AppStage(
-                            faceState: state.faceState,
-                            word: state.word,
-                            sub: state.subText,
-                          ),
-                          const SizedBox(height: Spacing.s4),
-                        ],
-                      ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: SafeArea(
-                        top: false,
-                        bottom: false,
-                        child: Padding(
-                          padding: EdgeInsets.fromLTRB(
-                            12,
-                            0,
-                            12,
-                            16 + bottomInset,
-                          ),
-                          child: AppSheet(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (state.topicItems.isEmpty) ...[
-                                  AppEmptyState(
-                                    onButtonPressed: () =>
-                                        context.push('/topics/new'),
-                                  ),
-                                ] else ...[
-                                  for (final topic in state.topicItems) ...[
-                                    AppListRow(
-                                      name: topic.name,
-                                      meta: topic.meta,
-                                      faceState: topic.faceState,
-                                      isCrit: topic.isCrit,
-                                      isQuiet: topic.isQuiet,
-                                      trailing: AppPriorityChip(
-                                        priority: topic.priority,
-                                      ),
-                                      onTap: () =>
-                                          context.push('/topics/${topic.name}'),
-                                    ),
-                                    const SizedBox(height: 10),
-                                  ],
-                                  const SizedBox(height: 4),
-                                  AppButton(
-                                    label: LocaleKeys.home_new_topic_button
-                                        .tr(),
-                                    isFullWidth: true,
-                                    onPressed: () =>
-                                        context.push('/topics/new'),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                    const SizedBox(height: Spacing.s4),
                   ],
                 ),
               ),
-            ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  child: AppSheet(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (state.topicItems.isEmpty) ...[
+                          AppEmptyState(
+                            onButtonPressed: () => context.push('/topics/new'),
+                          ),
+                        ] else ...[
+                          for (final topic in state.topicItems) ...[
+                            AppListRow(
+                              name: topic.name,
+                              meta: topic.meta,
+                              faceState: topic.faceState,
+                              isCrit: topic.isCrit,
+                              isQuiet: topic.isQuiet,
+                              trailing: AppPriorityChip(
+                                priority: topic.priority,
+                              ),
+                              onTap: () =>
+                                  context.push('/topics/${topic.name}'),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },

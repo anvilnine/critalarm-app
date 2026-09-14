@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -68,8 +69,13 @@ class _LockScreenView extends StatelessWidget {
                   ),
                 ),
 
-                // Foreground content
-                SafeArea(
+                // Foreground content. Only the top is padded for the status
+                // bar and back button; the bottom is left open so the
+                // notification stack scrolls edge to edge with no clamp.
+                Padding(
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.paddingOf(context).top,
+                  ),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       return SingleChildScrollView(
@@ -169,7 +175,12 @@ class _LockScreenView extends StatelessWidget {
                                           isQuiet:
                                               state.notifications[i].isQuiet,
                                           onTap: state.notifications[i].isCrit
-                                              ? () => context.push('/alarm')
+                                              ? () {
+                                                  AppHaptics.capture();
+                                                  unawaited(
+                                                    context.push('/alarm'),
+                                                  );
+                                                }
                                               : null,
                                         ),
                                       ],

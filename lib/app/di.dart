@@ -1,4 +1,5 @@
 import 'package:critalarm/app/initial_route_resolver.dart';
+import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
@@ -25,6 +26,7 @@ import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/version/app_version.dart';
+import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
@@ -426,6 +428,16 @@ Future<void> configureDependencies({
         getIt<IncidentRepository>(),
         getIt<MessageSyncService>(),
         getIt<AppBadge>(),
+      ),
+    )
+    ..registerFactory(
+      () => ShellCubit(
+        getIt<GetDevicePermissionsUsecase>(),
+      ),
+    )
+    ..registerFactory(
+      () => HistoryCubit(
+        getIt<GetIncidentsUsecase>(),
       ),
     )
     ..registerFactory(
