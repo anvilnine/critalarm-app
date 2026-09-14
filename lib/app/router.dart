@@ -66,8 +66,14 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
               name: AppRoute.home,
               builder: (context, state) => const HomeScreen(),
               routes: [
+                // A topic covers the display the same way creating one does,
+                // so it draws on the root navigator and the tab bar goes with
+                // it. Keeping it nested leaves the Topics list underneath, so
+                // back returns to the list instead of leaving the app, and
+                // History can push the same path.
                 GoRoute(
                   path: 'topics/:name',
+                  parentNavigatorKey: _rootKey,
                   name: AppRoute.topicDetail,
                   builder: (context, state) {
                     final name = state.pathParameters['name'] ?? '';
