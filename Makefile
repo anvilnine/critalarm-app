@@ -1,4 +1,4 @@
-.PHONY: gen l10n test run analyze format quality check-layers doctor hooks sync-contract
+.PHONY: gen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release build-release-apk build-release-ios
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -45,3 +45,16 @@ doctor:
 	fvm dart run build_runner build
 	fvm flutter analyze
 	sh tool/check_layers.sh
+
+# Release build for UI work on a device. Skips RevenueCat, so the test API key
+# cannot pop the "Wrong API Key" dialog that closes the app.
+# Pass a device with DEVICE=<id>, e.g. make run-release DEVICE=R5CXB30NDRV
+run-release:
+	fvm flutter run --release --dart-define=SKIP_PAYWALL=true $(if $(DEVICE),-d $(DEVICE),)
+
+# Same flag, for an installable artifact instead of an attached run.
+build-release-apk:
+	fvm flutter build apk --release --dart-define=SKIP_PAYWALL=true
+
+build-release-ios:
+	fvm flutter build ios --release --dart-define=SKIP_PAYWALL=true
