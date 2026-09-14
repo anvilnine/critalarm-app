@@ -92,6 +92,10 @@ class _SettingsScreenContent extends StatelessWidget {
     return AppListRow(
       name: title,
       meta: subtitle,
+      // No face. A face reports how something is doing, and these rows only
+      // open another screen. The Health row above keeps one because it does
+      // report something.
+      faceState: null,
       trailing: AppGlyph(
         GlyphType.arrow,
         color: context.appColors.ink3,
@@ -278,6 +282,7 @@ class _SettingsScreenContent extends StatelessWidget {
                       AppListRow(
                         name: LocaleKeys.settings_redo_onboarding_title.tr(),
                         meta: LocaleKeys.settings_redo_onboarding_subtitle.tr(),
+                        faceState: null,
                         trailing: AppGlyph(
                           GlyphType.arrow,
                           color: colors.ink3,
