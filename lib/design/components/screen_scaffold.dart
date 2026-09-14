@@ -142,7 +142,6 @@ class AppScreenScaffold extends StatelessWidget {
               edge: ScrollFadeEdge.bottom,
               height: padding.bottom + AppFloatingTabBar.fadeHeight,
               color: canvas,
-              strength: 0.5,
             ),
           ),
         if (topBar != null)

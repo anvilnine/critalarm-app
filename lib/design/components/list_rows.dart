@@ -27,7 +27,10 @@ class AppListRow extends StatefulWidget {
 
   final String name;
   final String meta;
-  final FaceState faceState;
+
+  /// Null draws no face at all. A face says something about the state of a
+  /// thing, so a row that only opens another screen does not get one.
+  final FaceState? faceState;
   final Color? faceStrokeColor;
   final Widget? trailing;
   final String? timeText;
@@ -126,14 +129,16 @@ class _AppListRowState extends State<AppListRow> {
               ),
               child: Row(
                 children: [
-                  FaceWidget(
-                    state: widget.faceState,
-                    size: 40,
-                    overrideFillColor: faceFill,
-                    overrideStrokeColor: faceStroke,
-                    overrideInkColor: faceInk,
-                  ),
-                  const SizedBox(width: 14),
+                  if (widget.faceState != null) ...[
+                    FaceWidget(
+                      state: widget.faceState!,
+                      size: 40,
+                      overrideFillColor: faceFill,
+                      overrideStrokeColor: faceStroke,
+                      overrideInkColor: faceInk,
+                    ),
+                    const SizedBox(width: 14),
+                  ],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

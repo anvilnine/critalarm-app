@@ -65,6 +65,7 @@ class _AlarmSettingsView extends StatelessWidget {
                       AppListRow(
                         name: LocaleKeys.settings_alarm_sound_row_title.tr(),
                         meta: LocaleKeys.settings_alarm_sound_row_subtitle.tr(),
+                        faceState: null,
                         trailing: AppGlyph(
                           GlyphType.arrow,
                           color: colors.ink3,
