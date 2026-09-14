@@ -18,14 +18,30 @@ class $AssetsFontsGen {
   /// File path: assets/fonts/Archivo-OFL.txt
   String get archivoOFL => 'assets/fonts/Archivo-OFL.txt';
 
+  /// File path: assets/fonts/BricolageGrotesque-OFL.txt
+  String get bricolageGrotesqueOFL => 'assets/fonts/BricolageGrotesque-OFL.txt';
+
   /// File path: assets/fonts/IBMPlexMono-OFL.txt
   String get iBMPlexMonoOFL => 'assets/fonts/IBMPlexMono-OFL.txt';
+
+  /// File path: assets/fonts/InstrumentSans-OFL.txt
+  String get instrumentSansOFL => 'assets/fonts/InstrumentSans-OFL.txt';
+
+  /// File path: assets/fonts/JetBrainsMono-OFL.txt
+  String get jetBrainsMonoOFL => 'assets/fonts/JetBrainsMono-OFL.txt';
 
   /// Directory path: assets/fonts
   String get path => 'assets/fonts';
 
   /// List of all assets
-  List<String> get values => [antonOFL, archivoOFL, iBMPlexMonoOFL];
+  List<String> get values => [
+    antonOFL,
+    archivoOFL,
+    bricolageGrotesqueOFL,
+    iBMPlexMonoOFL,
+    instrumentSansOFL,
+    jetBrainsMonoOFL,
+  ];
 }
 
 class $AssetsSoundsGen {

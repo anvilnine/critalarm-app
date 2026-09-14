@@ -153,8 +153,9 @@ class _TabSlot extends StatelessWidget {
                           fontFamilyFallback:
                               AppTypography.fontDisplayFallbacks,
                           fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                          letterSpacing: 0.88,
+                          fontSize: 12,
+                          letterSpacing: 0.6,
+                          height: 1.1,
                           color: fg,
                         ),
                       ),
