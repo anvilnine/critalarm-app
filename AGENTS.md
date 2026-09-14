@@ -83,6 +83,14 @@ Each feature is `data/domain/presentation`, and `tool/check_layers.sh` enforces
 the direction: core must not import features, domain must not import data or
 presentation. Today only `features/settings` exists, holding the theme slice.
 
+**This app also builds for web.** The dashboard is this codebase run through
+`flutter build web` (ARCHITECTURE §2). Four rules keep that cheap:
+
+- Ask the capabilities service (`canRegisterPush`, `canRunAlarm`, `canImportSounds`, `canComposeMessages`), never `kIsWeb` or `Platform.isIOS` inline; it answers per platform, so web gets no push, no alarm, yes compose.
+- A screen that exists on one platform only is its own route gated by a capability, never a widget hidden behind a boolean: the message composer is web only, the permissions screen is mobile only.
+- Shared widgets take no platform-specific dependencies.
+- Layout breakpoints come from the design system, never from the platform.
+
 **Where the docs are.**
 
 - `docs/api.md` and `docs/ARCHITECTURE.md` are **generated copies**. Do not edit
