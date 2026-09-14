@@ -1,6 +1,7 @@
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/scroll_fade.dart';
 import 'package:critalarm/design/faces/ghost_field.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:flutter/material.dart';
 
@@ -51,6 +52,9 @@ class AppScreenScaffold extends StatelessWidget {
     final colors = context.appColors;
     final padding = MediaQuery.paddingOf(context);
     final canvas = backgroundColor ?? colors.canvas;
+    final size = AppSize.of(context);
+    // A long row is hard to read, the eye has to travel, so cap the column.
+    final gutter = size.sideGutter;
 
     final topInset = padding.top + (topBar == null ? 0 : topBarHeight);
     var bottomInset = padding.bottom + 16;
@@ -63,7 +67,10 @@ class AppScreenScaffold extends StatelessWidget {
       ),
       slivers: [
         SliverPadding(padding: EdgeInsets.only(top: topInset)),
-        ...slivers,
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: gutter),
+          sliver: SliverMainAxisGroup(slivers: slivers),
+        ),
         SliverPadding(padding: EdgeInsets.only(top: bottomInset)),
       ],
     );
@@ -95,7 +102,10 @@ class AppScreenScaffold extends StatelessWidget {
                 ),
                 SafeArea(
                   bottom: false,
-                  child: SizedBox(height: topBarHeight, child: topBar),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: gutter),
+                    child: SizedBox(height: topBarHeight, child: topBar),
+                  ),
                 ),
               ],
             ),
@@ -117,7 +127,14 @@ class AppScreenScaffold extends StatelessWidget {
                   top: false,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    child: bottomBar,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: AppSize.contentMaxWidth,
+                        ),
+                        child: bottomBar,
+                      ),
+                    ),
                   ),
                 ),
               ],

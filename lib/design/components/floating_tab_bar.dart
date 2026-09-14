@@ -12,10 +12,15 @@ import 'package:flutter/material.dart';
 class AppTabItem {
   const AppTabItem({
     required this.label,
+    required this.glyph,
     this.showFlag = false,
   });
 
   final String label;
+
+  /// Shown instead of the label on a narrow display. The label still carries
+  /// the accessibility name in every mode.
+  final GlyphType glyph;
 
   /// A red dot on the tab. One dot, one meaning: a permission is missing and
   /// the app will not ring.
@@ -31,6 +36,7 @@ class AppFloatingTabBar extends StatelessWidget {
     required this.onSelect,
     required this.onCompose,
     this.composeLabel,
+    this.iconsOnly = false,
     super.key,
   });
 
@@ -46,6 +52,10 @@ class AppFloatingTabBar extends StatelessWidget {
   final ValueChanged<int> onSelect;
   final VoidCallback onCompose;
   final String? composeLabel;
+
+  /// Draw glyphs instead of word labels. For a Galaxy Fold cover screen and
+  /// anything else too narrow to spell out three tab names.
+  final bool iconsOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +82,7 @@ class AppFloatingTabBar extends StatelessWidget {
               _TabSlot(
                 item: items[i],
                 isCurrent: i == currentIndex,
+                iconsOnly: iconsOnly,
                 onTap: () {
                   if (i == currentIndex) return;
                   AppHaptics.selection();
@@ -93,11 +104,13 @@ class _TabSlot extends StatelessWidget {
     required this.item,
     required this.isCurrent,
     required this.onTap,
+    this.iconsOnly = false,
   });
 
   final AppTabItem item;
   final bool isCurrent;
   final VoidCallback onTap;
+  final bool iconsOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +128,7 @@ class _TabSlot extends StatelessWidget {
           duration: AppDurations.quick,
           curve: AppCurves.easeSpring,
           constraints: const BoxConstraints(minHeight: 44),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          padding: EdgeInsets.symmetric(horizontal: iconsOnly ? 0 : 14),
           decoration: BoxDecoration(
             color: isCurrent ? colors.yellow : Colors.transparent,
             borderRadius: Radii.fullAll,
@@ -125,23 +138,31 @@ class _TabSlot extends StatelessWidget {
             alignment: Alignment.center,
             children: [
               Center(
-                child: Text(
-                  item.label.toUpperCase(),
-                  maxLines: 1,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontDisplay,
-                    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
-                    letterSpacing: 0.88,
-                    color: fg,
-                  ),
-                ),
+                child: iconsOnly
+                    ? SizedBox(
+                        width: 44,
+                        child: Center(
+                          child: AppGlyph(item.glyph, size: 20, color: fg),
+                        ),
+                      )
+                    : Text(
+                        item.label.toUpperCase(),
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontDisplay,
+                          fontFamilyFallback:
+                              AppTypography.fontDisplayFallbacks,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          letterSpacing: 0.88,
+                          color: fg,
+                        ),
+                      ),
               ),
               if (item.showFlag)
                 Positioned(
                   top: 4,
-                  right: -6,
+                  right: iconsOnly ? 2 : -6,
                   child: Container(
                     width: 9,
                     height: 9,

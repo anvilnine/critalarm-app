@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
+import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/scroll_fade.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -48,6 +50,7 @@ class _AppShellContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final size = AppSize.of(context);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return BlocBuilder<ShellCubit, int>(
@@ -80,11 +83,19 @@ class _AppShellContent extends StatelessWidget {
                     fit: BoxFit.scaleDown,
                     child: AppFloatingTabBar(
                       currentIndex: navigationShell.currentIndex,
+                      iconsOnly: size.isNarrow,
                       items: [
-                        AppTabItem(label: LocaleKeys.nav_topics.tr()),
-                        AppTabItem(label: LocaleKeys.nav_history.tr()),
+                        AppTabItem(
+                          label: LocaleKeys.nav_topics.tr(),
+                          glyph: GlyphType.list,
+                        ),
+                        AppTabItem(
+                          label: LocaleKeys.nav_history.tr(),
+                          glyph: GlyphType.clock,
+                        ),
                         AppTabItem(
                           label: LocaleKeys.nav_settings.tr(),
+                          glyph: GlyphType.gear,
                           showFlag: missingPermissions > 0,
                         ),
                       ],
