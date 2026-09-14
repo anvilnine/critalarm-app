@@ -17,6 +17,15 @@ class FontFamily {
   /// Font family: Archivo
   static const String archivo = 'Archivo';
 
+  /// Font family: Bricolage Grotesque
+  static const String bricolageGrotesque = 'Bricolage Grotesque';
+
   /// Font family: IBMPlexMono
   static const String iBMPlexMono = 'IBMPlexMono';
+
+  /// Font family: Instrument Sans
+  static const String instrumentSans = 'Instrument Sans';
+
+  /// Font family: JetBrains Mono
+  static const String jetBrainsMono = 'JetBrains Mono';
 }

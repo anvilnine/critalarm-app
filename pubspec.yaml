@@ -54,13 +54,47 @@ flutter:
     - assets/fonts/Anton-OFL.txt
     - assets/fonts/Archivo-OFL.txt
     - assets/fonts/IBMPlexMono-OFL.txt
-  # PLACEHOLDER FACES. docs/design-system/NOTES.md calls for
-  # Bricolage Grotesque 800 (display),
-  # Instrument Sans 400-600 (body) and JetBrains Mono (machine strings). A0
-  # swaps the files and the family constants in
-  # lib/design_system/tokens/typography.dart. The wiring below is the part
-  # worth keeping.
+    - assets/fonts/BricolageGrotesque-OFL.txt
+    - assets/fonts/InstrumentSans-OFL.txt
+    - assets/fonts/JetBrainsMono-OFL.txt
+  # The three faces docs/design-system/NOTES.md calls for. Anton, Archivo and
+  # IBMPlexMono stay registered below as the fallback chain in
+  # lib/design/tokens/typography.dart.
+  #
+  # All three are static per-weight instances cut from the upstream variable
+  # fonts with fonttools varLib.instancer, same as Archivo. Only the weights
+  # the app actually asks for are cut, so the bundle stays small.
+  #
+  # Bricolage Grotesque carries an optical size axis, which a static file has
+  # to pin. Flutter cannot vary it by font size the way the web build does, so
+  # each weight is pinned at the size it is used at: 800 is the hero and the
+  # section headlines (36 px and up) so it takes opsz=72, 700 is card titles
+  # and tab labels (11 to 20 px) so it takes opsz=14.
   fonts:
+    - family: Bricolage Grotesque
+      fonts:
+        - asset: assets/fonts/BricolageGrotesque-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/BricolageGrotesque-ExtraBold.ttf
+          weight: 800
+    - family: Instrument Sans
+      fonts:
+        - asset: assets/fonts/InstrumentSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/InstrumentSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/InstrumentSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/InstrumentSans-Bold.ttf
+          weight: 700
+    - family: JetBrains Mono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/JetBrainsMono-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/JetBrainsMono-Bold.ttf
+          weight: 700
     - family: Anton
       fonts:
         - asset: assets/fonts/Anton-Regular.ttf
