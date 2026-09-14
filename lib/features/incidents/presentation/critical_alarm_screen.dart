@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -66,6 +67,74 @@ class _RingingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = AppSize.of(context);
+    final isWide = size.isExpanded || size.isShort;
+
+    final bottomBar = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 48,
+          child: AppButton(
+            label: LocaleKeys.critical_alarm_acknowledge_button.tr(),
+            isFullWidth: true,
+            isLoading: state.isAcknowledging,
+            onPressed: () {
+              unawaited(context.read<CriticalAlarmCubit>().acknowledge());
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 48,
+          child: AppButton(
+            label: LocaleKeys.critical_alarm_snooze_button.tr(),
+            variant: AppButtonVariant.ghost,
+            isFullWidth: true,
+            // Snooze has no cubit method yet, so the press only confirms
+            // itself with a haptic until one exists.
+            onPressed: AppHaptics.capture,
+          ),
+        ),
+      ],
+    );
+
+    if (isWide) {
+      return AppScreenScaffold(
+        hasTabBar: false,
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Row(
+              children: [
+                _face(300),
+                const SizedBox(width: 40),
+                Expanded(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _word(TextAlign.left),
+                        const SizedBox(height: Spacing.s2),
+                        _topic(TextAlign.left),
+                        const SizedBox(height: Spacing.s2),
+                        _subtext(TextAlign.left),
+                        const SizedBox(height: Spacing.s4),
+                        _detailSheet(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        bottomBar: bottomBar,
+      );
+    }
+
     return AppScreenScaffold(
       hasTabBar: false,
       slivers: [
@@ -75,61 +144,13 @@ class _RingingScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: SizedBox(
-                    width: 264,
-                    height: 264,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      clipBehavior: Clip.none,
-                      children: [
-                        const PulseRingWidget(size: 264),
-                        FaceWidget(
-                          state: state.faceState,
-                          size: 264,
-                          isLive: state.isLive,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                _face(264),
                 const SizedBox(height: Spacing.s4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    state.word,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.display(colors.onCanvas),
-                  ),
-                ),
+                _word(TextAlign.center),
                 const SizedBox(height: Spacing.s2),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    state.topic,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontMono,
-                      fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 17,
-                      color: colors.onCanvas,
-                    ),
-                  ),
-                ),
+                _topic(TextAlign.center),
                 const SizedBox(height: Spacing.s2),
-                Text(
-                  state.subtext,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    color: colors.onCanvas,
-                  ),
-                ),
+                _subtext(TextAlign.center),
               ],
             ),
           ),
@@ -137,73 +158,114 @@ class _RingingScreen extends StatelessWidget {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, Spacing.s4, 16, 16),
-            child: AppSheet(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    state.title,
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontDisplay,
-                      fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 22,
-                      color: colors.ink,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    state.body,
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontSize: 14,
-                      color: colors.ink2,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    state.meta,
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontMono,
-                      fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                      fontSize: 12,
-                      color: colors.ink3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: _detailSheet(),
           ),
         ),
       ],
-      bottomBar: Column(
+      bottomBar: bottomBar,
+    );
+  }
+
+  Widget _face(double faceSize) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: SizedBox(
+        width: faceSize,
+        height: faceSize,
+        child: Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            PulseRingWidget(size: faceSize),
+            FaceWidget(
+              state: state.faceState,
+              size: faceSize,
+              isLive: state.isLive,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _word(TextAlign align) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        state.word,
+        textAlign: align,
+        style: AppTypography.display(colors.onCanvas),
+      ),
+    );
+  }
+
+  Widget _topic(TextAlign align) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        state.topic,
+        textAlign: align,
+        style: TextStyle(
+          fontFamily: AppTypography.fontMono,
+          fontFamilyFallback: AppTypography.fontMonoFallbacks,
+          fontWeight: FontWeight.w700,
+          fontSize: 17,
+          color: colors.onCanvas,
+        ),
+      ),
+    );
+  }
+
+  Widget _subtext(TextAlign align) {
+    return Text(
+      state.subtext,
+      textAlign: align,
+      style: TextStyle(
+        fontFamily: AppTypography.fontBody,
+        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+        fontWeight: FontWeight.w600,
+        fontSize: 15,
+        color: colors.onCanvas,
+      ),
+    );
+  }
+
+  Widget _detailSheet() {
+    return AppSheet(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: 48,
-            child: AppButton(
-              label: LocaleKeys.critical_alarm_acknowledge_button.tr(),
-              isFullWidth: true,
-              isLoading: state.isAcknowledging,
-              onPressed: () {
-                unawaited(context.read<CriticalAlarmCubit>().acknowledge());
-              },
+          Text(
+            state.title,
+            style: TextStyle(
+              fontFamily: AppTypography.fontDisplay,
+              fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+              fontWeight: FontWeight.w700,
+              fontSize: 22,
+              color: colors.ink,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            state.body,
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontFamilyFallback: AppTypography.fontBodyFallbacks,
+              fontSize: 14,
+              color: colors.ink2,
+              height: 1.4,
             ),
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            height: 48,
-            child: AppButton(
-              label: LocaleKeys.critical_alarm_snooze_button.tr(),
-              variant: AppButtonVariant.ghost,
-              isFullWidth: true,
-              // Snooze has no cubit method yet, so the press only confirms
-              // itself with a haptic until one exists.
-              onPressed: AppHaptics.capture,
+          Text(
+            state.meta,
+            style: TextStyle(
+              fontFamily: AppTypography.fontMono,
+              fontFamilyFallback: AppTypography.fontMonoFallbacks,
+              fontSize: 12,
+              color: colors.ink3,
             ),
           ),
         ],
@@ -232,6 +294,80 @@ class _AcknowledgedScreen extends StatelessWidget {
         ? _formatClock(startedAt)
         : '03:12:04';
     final ackedLabel = ackedAt != null ? _formatClock(ackedAt) : '03:14:22';
+    final ackedSub = LocaleKeys.critical_alarm_acked_sub.tr(
+      namedArgs: {'duration': _formatRingDuration(ringDuration)},
+    );
+
+    final size = AppSize.of(context);
+    final isWide = size.isExpanded || size.isShort;
+
+    final bottomBar = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 48,
+          child: AppButton(
+            label: LocaleKeys.critical_alarm_open_topic_button.tr(
+              namedArgs: {'topic': state.topic},
+            ),
+            isFullWidth: true,
+            onPressed: () {
+              AppHaptics.capture();
+              context.go('/topics/${state.topic}');
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 48,
+          child: AppButton(
+            label: LocaleKeys.critical_alarm_back_to_topics_button.tr(),
+            variant: AppButtonVariant.ghost,
+            isFullWidth: true,
+            onPressed: () {
+              AppHaptics.capture();
+              context.go('/');
+            },
+          ),
+        ),
+      ],
+    );
+
+    if (isWide) {
+      return AppScreenScaffold(
+        hasTabBar: false,
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Row(
+              children: [
+                FaceWidget(state: state.faceState, size: 260),
+                const SizedBox(width: 40),
+                Expanded(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _title(TextAlign.left),
+                        const SizedBox(height: Spacing.s2),
+                        _topic(TextAlign.left),
+                        const SizedBox(height: Spacing.s2),
+                        _sub(TextAlign.left, ackedSub),
+                        const SizedBox(height: Spacing.s4),
+                        _detailSheet(startedLabel, ackedLabel),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        bottomBar: bottomBar,
+      );
+    }
 
     return AppScreenScaffold(
       hasTabBar: false,
@@ -244,45 +380,11 @@ class _AcknowledgedScreen extends StatelessWidget {
               children: [
                 FaceWidget(state: state.faceState, size: 224),
                 const SizedBox(height: Spacing.s4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    LocaleKeys.critical_alarm_acked_title.tr(),
-                    textAlign: TextAlign.center,
-                    style: AppTypography.display(colors.onCanvas),
-                  ),
-                ),
+                _title(TextAlign.center),
                 const SizedBox(height: Spacing.s2),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    state.topic,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontMono,
-                      fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 17,
-                      color: colors.onCanvas,
-                    ),
-                  ),
-                ),
+                _topic(TextAlign.center),
                 const SizedBox(height: Spacing.s2),
-                Text(
-                  LocaleKeys.critical_alarm_acked_sub.tr(
-                    namedArgs: {
-                      'duration': _formatRingDuration(ringDuration),
-                    },
-                  ),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    color: colors.onCanvas,
-                  ),
-                ),
+                _sub(TextAlign.center, ackedSub),
               ],
             ),
           ),
@@ -290,59 +392,75 @@ class _AcknowledgedScreen extends StatelessWidget {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, Spacing.s4, 16, 16),
-            child: AppSheet(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  AppKeyValueRow(
-                    label: LocaleKeys.critical_alarm_started_label.tr(),
-                    value: startedLabel,
-                  ),
-                  const SizedBox(height: 8),
-                  AppKeyValueRow(
-                    label: LocaleKeys.critical_alarm_acknowledged_label.tr(),
-                    value: ackedLabel,
-                  ),
-                  const SizedBox(height: 8),
-                  AppKeyValueRow(
-                    label: LocaleKeys.critical_alarm_source_label.tr(),
-                    value: state.meta,
-                  ),
-                ],
-              ),
-            ),
+            child: _detailSheet(startedLabel, ackedLabel),
           ),
         ),
       ],
-      bottomBar: Column(
+      bottomBar: bottomBar,
+    );
+  }
+
+  Widget _title(TextAlign align) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        LocaleKeys.critical_alarm_acked_title.tr(),
+        textAlign: align,
+        style: AppTypography.display(colors.onCanvas),
+      ),
+    );
+  }
+
+  Widget _topic(TextAlign align) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        state.topic,
+        textAlign: align,
+        style: TextStyle(
+          fontFamily: AppTypography.fontMono,
+          fontFamilyFallback: AppTypography.fontMonoFallbacks,
+          fontWeight: FontWeight.w700,
+          fontSize: 17,
+          color: colors.onCanvas,
+        ),
+      ),
+    );
+  }
+
+  Widget _sub(TextAlign align, String text) {
+    return Text(
+      text,
+      textAlign: align,
+      style: TextStyle(
+        fontFamily: AppTypography.fontBody,
+        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+        fontWeight: FontWeight.w600,
+        fontSize: 15,
+        color: colors.onCanvas,
+      ),
+    );
+  }
+
+  Widget _detailSheet(String startedLabel, String ackedLabel) {
+    return AppSheet(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: 48,
-            child: AppButton(
-              label: LocaleKeys.critical_alarm_open_topic_button.tr(
-                namedArgs: {'topic': state.topic},
-              ),
-              isFullWidth: true,
-              onPressed: () {
-                AppHaptics.capture();
-                context.go('/topics/${state.topic}');
-              },
-            ),
+          AppKeyValueRow(
+            label: LocaleKeys.critical_alarm_started_label.tr(),
+            value: startedLabel,
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            height: 48,
-            child: AppButton(
-              label: LocaleKeys.critical_alarm_back_to_topics_button.tr(),
-              variant: AppButtonVariant.ghost,
-              isFullWidth: true,
-              onPressed: () {
-                AppHaptics.capture();
-                context.go('/');
-              },
-            ),
+          AppKeyValueRow(
+            label: LocaleKeys.critical_alarm_acknowledged_label.tr(),
+            value: ackedLabel,
+          ),
+          const SizedBox(height: 8),
+          AppKeyValueRow(
+            label: LocaleKeys.critical_alarm_source_label.tr(),
+            value: state.meta,
           ),
         ],
       ),

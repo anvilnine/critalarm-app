@@ -13,6 +13,7 @@ export 'key_value_rows.dart';
 export 'ladder_rows.dart';
 export 'list_rows.dart';
 export 'message_cards.dart';
+export 'nav_rail.dart';
 export 'notification_cards.dart';
 export 'radios.dart';
 export 'screen_scaffold.dart';

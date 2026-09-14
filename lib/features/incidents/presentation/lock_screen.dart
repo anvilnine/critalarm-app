@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -34,6 +35,8 @@ class _LockScreenView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final size = AppSize.of(context);
+    final isWide = size.isExpanded || size.isShort;
 
     return BlocBuilder<LockScreenCubit, LockScreenState>(
       builder: (context, state) {
@@ -106,87 +109,55 @@ class _LockScreenView extends StatelessWidget {
                                   ),
                                 ),
 
-                                // Clock section
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: Spacing.s4,
-                                    horizontal: 16,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        state.dateText,
-                                        style: TextStyle(
-                                          fontFamily: AppTypography.fontBody,
-                                          fontFamilyFallback:
-                                              AppTypography.fontBodyFallbacks,
-                                          fontSize: 17,
-                                          fontWeight: FontWeight.w600,
-                                          color: colors.onCanvas,
+                                if (isWide)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      Spacing.s4,
+                                      16,
+                                      0,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: _clockBlock(
+                                            state,
+                                            colors,
+                                            CrossAxisAlignment.start,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: Spacing.s1),
-                                      FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: Text(
-                                          state.timeText,
-                                          style:
-                                              AppTypography.display(
-                                                colors.onCanvas,
-                                                fontSize: 96,
-                                              ).copyWith(
-                                                letterSpacing: -0.05 * 96,
-                                                height: 0.9,
-                                              ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                // Notification cards
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      for (
-                                        int i = 0;
-                                        i < state.notifications.length;
-                                        i++
-                                      ) ...[
-                                        if (i > 0) const SizedBox(height: 12),
-                                        AppNotificationCard(
-                                          topic: state.notifications[i].topic,
-                                          title: state.notifications[i].title,
-                                          body: state.notifications[i].body,
-                                          faceState:
-                                              state.notifications[i].faceState,
-                                          ringingPillText: state
-                                              .notifications[i]
-                                              .ringingPillText,
-                                          timeText:
-                                              state.notifications[i].timeText,
-                                          isCrit: state.notifications[i].isCrit,
-                                          isQuiet:
-                                              state.notifications[i].isQuiet,
-                                          onTap: state.notifications[i].isCrit
-                                              ? () {
-                                                  AppHaptics.capture();
-                                                  unawaited(
-                                                    context.push('/alarm'),
-                                                  );
-                                                }
-                                              : null,
+                                        const SizedBox(width: 40),
+                                        Expanded(
+                                          child: _notificationCards(
+                                            state,
+                                            context,
+                                          ),
                                         ),
                                       ],
-                                    ],
+                                    ),
+                                  )
+                                else ...[
+                                  // Clock section
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: Spacing.s4,
+                                      horizontal: 16,
+                                    ),
+                                    child: _clockBlock(
+                                      state,
+                                      colors,
+                                      CrossAxisAlignment.center,
+                                    ),
                                   ),
-                                ),
+
+                                  // Notification cards
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                    ),
+                                    child: _notificationCards(state, context),
+                                  ),
+                                ],
 
                                 const Spacer(),
 
@@ -227,4 +198,65 @@ class _LockScreenView extends StatelessWidget {
       },
     );
   }
+}
+
+Widget _clockBlock(
+  LockScreenState state,
+  AppColors colors,
+  CrossAxisAlignment align,
+) {
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: align,
+    children: [
+      Text(
+        state.dateText,
+        style: TextStyle(
+          fontFamily: AppTypography.fontBody,
+          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: colors.onCanvas,
+        ),
+      ),
+      const SizedBox(height: Spacing.s1),
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          state.timeText,
+          style: AppTypography.display(
+            colors.onCanvas,
+            fontSize: 96,
+          ).copyWith(letterSpacing: -0.05 * 96, height: 0.9),
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _notificationCards(LockScreenState state, BuildContext context) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (int i = 0; i < state.notifications.length; i++) ...[
+        if (i > 0) const SizedBox(height: 12),
+        AppNotificationCard(
+          topic: state.notifications[i].topic,
+          title: state.notifications[i].title,
+          body: state.notifications[i].body,
+          faceState: state.notifications[i].faceState,
+          ringingPillText: state.notifications[i].ringingPillText,
+          timeText: state.notifications[i].timeText,
+          isCrit: state.notifications[i].isCrit,
+          isQuiet: state.notifications[i].isQuiet,
+          onTap: state.notifications[i].isCrit
+              ? () {
+                  AppHaptics.capture();
+                  unawaited(context.push('/alarm'));
+                }
+              : null,
+        ),
+      ],
+    ],
+  );
 }

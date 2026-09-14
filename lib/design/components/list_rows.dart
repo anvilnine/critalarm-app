@@ -20,6 +20,7 @@ class AppListRow extends StatefulWidget {
     this.timeText,
     this.isCrit = false,
     this.isQuiet = false,
+    this.isSelected = false,
     this.onTap,
     super.key,
   });
@@ -32,6 +33,11 @@ class AppListRow extends StatefulWidget {
   final String? timeText;
   final bool isCrit;
   final bool isQuiet;
+
+  /// True when this row is the one showing in the detail pane beside the
+  /// list. Only two pane displays ever set it.
+  final bool isSelected;
+
   final VoidCallback? onTap;
 
   @override
@@ -114,6 +120,9 @@ class _AppListRowState extends State<AppListRow> {
                 color: bg,
                 borderRadius: Radii.mdAll,
                 boxShadow: shadows,
+                border: widget.isSelected
+                    ? Border.all(color: colors.highlight, width: 2.5)
+                    : null,
               ),
               child: Row(
                 children: [
