@@ -163,7 +163,6 @@
     "name_label": "Name",
     "name_placeholder": "prod-db",
     "name_helper": "Lowercase, digits and hyphens.",
-    "priority_label": "Default priority",
     "critical_toggle_title": "Critical delivery",
     "critical_toggle_subtitle": "Rings through silent mode and Do Not Disturb",
     "generated_label": "Endpoint and token",
@@ -173,7 +172,7 @@
     "name_error_empty": "Give the topic a name.",
     "name_error_invalid": "Use 1 to 64 lowercase letters, digits and hyphens. Try prod-db.",
     "cancel_aria_label": "Cancel",
-    "copy_button": "Copy"
+    "share_button": "Share"
   },
   "critical_alarm": {
     "back_aria_label": "Back",

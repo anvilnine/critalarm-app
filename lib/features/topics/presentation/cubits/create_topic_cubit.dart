@@ -1,4 +1,3 @@
-import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -16,23 +15,10 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     emit(state.copyWith(name: name, clearError: true));
   }
 
-  void priorityChanged(PriorityLevel priority) {
-    emit(
-      state.copyWith(
-        defaultPriority: priority,
-        isCritical: priority == PriorityLevel.critical,
-        clearError: true,
-      ),
-    );
-  }
-
   void criticalToggled({required bool isCritical}) {
     emit(
       state.copyWith(
         isCritical: isCritical,
-        defaultPriority: isCritical
-            ? PriorityLevel.critical
-            : state.defaultPriority,
         clearError: true,
       ),
     );
