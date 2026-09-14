@@ -250,69 +250,72 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
         ),
         const SizedBox(height: Spacing.s5),
 
-        // Admin Token section with Paste and Scan QR buttons
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                LocaleKeys.onboarding_connect_admin_token_label.tr(),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-                style: AppTypography.small(colors.onCanvas).copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Paste button
-            AppButton(
-              label: LocaleKeys.onboarding_connect_paste_button.tr(),
-              size: AppButtonSize.sm,
-              variant: AppButtonVariant.paper,
-              icon: AppGlyph(
-                GlyphType.copy,
-                size: 13,
-                color: colors.ink,
-              ),
-              onPressed: _handlePaste,
-            ),
-            const SizedBox(width: 8),
-            // Stubbed Scan QR button
-            Semantics(
-              label: LocaleKeys.onboarding_connect_scan_qr_semantic_label.tr(),
-              button: true,
-              child: GestureDetector(
-                onTap: cubit.scanQrTapped,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: colors.surface,
-                    border: Border.all(color: colors.onCanvas, width: 2),
-                    boxShadow: AppShadows.lightSm,
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.qr_code_scanner_rounded,
-                    size: 18,
-                    color: colors.ink,
+        if (state.requiresAdminToken) ...[
+          // Admin Token section with Paste and Scan QR buttons
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  LocaleKeys.onboarding_connect_admin_token_label.tr(),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: AppTypography.small(colors.onCanvas).copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        AppTextField(
-          controller: _tokenController,
-          placeholder: LocaleKeys.onboarding_connect_admin_token_placeholder
-              .tr(),
-          errorText: state.adminTokenError,
-          onChanged: cubit.adminTokenChanged,
-          onSubmitted: (_) => cubit.connect(),
-        ),
-        const SizedBox(height: Spacing.s4),
+              const SizedBox(width: 8),
+              // Paste button
+              AppButton(
+                label: LocaleKeys.onboarding_connect_paste_button.tr(),
+                size: AppButtonSize.sm,
+                variant: AppButtonVariant.paper,
+                icon: AppGlyph(
+                  GlyphType.copy,
+                  size: 13,
+                  color: colors.ink,
+                ),
+                onPressed: _handlePaste,
+              ),
+              const SizedBox(width: 8),
+              // Stubbed Scan QR button
+              Semantics(
+                label: LocaleKeys.onboarding_connect_scan_qr_semantic_label
+                    .tr(),
+                button: true,
+                child: GestureDetector(
+                  onTap: cubit.scanQrTapped,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colors.surface,
+                      border: Border.all(color: colors.onCanvas, width: 2),
+                      boxShadow: AppShadows.lightSm,
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.qr_code_scanner_rounded,
+                      size: 18,
+                      color: colors.ink,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          AppTextField(
+            controller: _tokenController,
+            placeholder: LocaleKeys.onboarding_connect_admin_token_placeholder
+                .tr(),
+            errorText: state.adminTokenError,
+            onChanged: cubit.adminTokenChanged,
+            onSubmitted: (_) => cubit.connect(),
+          ),
+          const SizedBox(height: Spacing.s4),
+        ],
 
         // Non-blocking notifications / error toasts
         if (qrNotice != null) ...[

@@ -51,6 +51,7 @@ import 'package:critalarm/features/onboarding/domain/repositories/server_reposit
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
@@ -142,11 +143,16 @@ Future<void> configureDependencies({
     getIt.registerSingleton<DevProSwitch>(DevProSwitch(prefs));
   }
 
+  final identityStore = DeviceIdentityStore.forPlatform(prefs);
+
   if (!getIt.isRegistered<RevenueCatService>()) {
     final revenueCatService = RevenueCatService();
     try {
       if (!buildSkipsPaywall && Env.revenueCatApiKey.isNotEmpty) {
-        await revenueCatService.initialize(apiKey: Env.revenueCatApiKey);
+        await revenueCatService.initialize(
+          apiKey: Env.revenueCatApiKey,
+          appUserId: (await identityStore.readOrCreate()).accountId,
+        );
       }
     } on Object catch (_) {
       // Ignored for tests or unsupported environments
@@ -163,7 +169,7 @@ Future<void> configureDependencies({
       () => SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
     )
     ..registerLazySingleton<DeviceIdentityStore>(
-      () => DeviceIdentityStore(getIt<SharedPreferences>()),
+      () => identityStore,
     )
     // api.md §5.1 has the relay pushing to APNs itself, so iOS registers the
     // raw APNs token. Android registers the FCM one (§5.2).
@@ -254,6 +260,14 @@ Future<void> configureDependencies({
         getIt<ApiClient>(),
         getIt<DeviceIdentityStore>(),
         getIt<PushTokenProvider>(),
+        identifyAccount: getIt<RevenueCatService>().identifyAccount,
+      ),
+    )
+    ..registerLazySingleton(
+      () => EstablishApiSessionUsecase(
+        getIt<ApiSessionStore>(),
+        getIt<RegisterDeviceUsecase>(),
+        getIt<DeviceIdentityStore>(),
       ),
     )
     ..registerLazySingleton(
@@ -412,6 +426,7 @@ Future<void> configureDependencies({
         getIt<SaveConnectionUsecase>(),
         getIt<TriggerTestAlarmUsecase>(),
         completeOnboarding: getIt<CompleteOnboardingUsecase>(),
+        establishSession: getIt<EstablishApiSessionUsecase>(),
         initialConnected: initialConnected ?? false,
       ),
     )
@@ -523,6 +538,11 @@ Future<void> configureDependencies({
         restorePurchasesUsecase: getIt<RestorePurchasesUsecase>(),
         getCustomerInfoUsecase: getIt<GetCustomerInfoUsecase>(),
         subscriptionRepository: getIt<SubscriptionRepository>(),
+        refreshRegistration: () async {
+          if (buildSkipsPaywall) return;
+          await getIt<RevenueCatService>().invalidateCustomerInfoCache();
+          await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
+        },
       ),
     );
 }

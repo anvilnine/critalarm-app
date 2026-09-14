@@ -20,6 +20,7 @@ import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 class PaywallCubit extends Cubit<PaywallState> {
   PaywallCubit({
     this.telemetryGate,
+    this.refreshRegistration,
     this.checkProEntitlementUsecase,
     this.getOfferingsUsecase,
     this.purchasePackageUsecase,
@@ -37,6 +38,7 @@ class PaywallCubit extends Cubit<PaywallState> {
     }
   }
 
+  final Future<void> Function()? refreshRegistration;
   final TelemetryGate? telemetryGate;
   final CheckProEntitlementUsecase? checkProEntitlementUsecase;
   final GetOfferingsUsecase? getOfferingsUsecase;
@@ -144,8 +146,9 @@ class PaywallCubit extends Cubit<PaywallState> {
     if (purchasePackageUsecase != null && targetPackage != null) {
       final result = await purchasePackageUsecase!(targetPackage);
 
-      result.fold(
-        (customerInfo) {
+      await result.fold(
+        (customerInfo) async {
+          await _refreshRegistration();
           final entitlement =
               customerInfo.entitlements.all[SubscriptionTier.proEntitlement];
           final isPro = entitlement?.isActive ?? false;
@@ -200,8 +203,9 @@ class PaywallCubit extends Cubit<PaywallState> {
     if (restorePurchasesUsecase != null) {
       final result = await restorePurchasesUsecase!(const NoParams());
 
-      result.fold(
-        (customerInfo) {
+      await result.fold(
+        (customerInfo) async {
+          await _refreshRegistration();
           final entitlement =
               customerInfo.entitlements.all[SubscriptionTier.proEntitlement];
           final isPro = entitlement?.isActive ?? false;
@@ -237,6 +241,14 @@ class PaywallCubit extends Cubit<PaywallState> {
     );
   }
 
+  Future<void> _refreshRegistration() async {
+    try {
+      await refreshRegistration?.call();
+    } on Object catch (error) {
+      emit(state.copyWith(errorMessage: error.toString()));
+    }
+  }
+
   /// Presents the native RevenueCat Paywall UI.
   Future<PaywallResult> presentNativePaywall({Offering? offering}) async {
     final result = await RevenueCatUI.presentPaywall(
@@ -245,6 +257,7 @@ class PaywallCubit extends Cubit<PaywallState> {
     );
 
     if (result == PaywallResult.purchased || result == PaywallResult.restored) {
+      await _refreshRegistration();
       await loadSubscriptionData();
     }
     return result;
@@ -253,7 +266,10 @@ class PaywallCubit extends Cubit<PaywallState> {
   /// Presents the native RevenueCat Customer Center UI.
   Future<void> presentCustomerCenter() async {
     await RevenueCatUI.presentCustomerCenter(
-      onRestoreCompleted: _onCustomerInfoUpdated,
+      onRestoreCompleted: (info) async {
+        await _refreshRegistration();
+        _onCustomerInfoUpdated(info);
+      },
     );
   }
 

@@ -1,4 +1,3 @@
-import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -52,7 +51,7 @@ class OnboardingWelcomeCubit extends Cubit<OnboardingWelcomeState> {
 
     emit(state.copyWith(isValidating: true, clearError: true));
 
-    final result = await _getServerInfo(const NoParams());
+    final result = await _getServerInfo(uri);
     result.fold(
       (info) {
         emit(

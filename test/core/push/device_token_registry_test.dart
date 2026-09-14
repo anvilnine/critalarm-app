@@ -16,8 +16,9 @@ class _RecordingApi implements ApiClient {
 
   @override
   Future<DeviceRegistrationResponse> registerDevice(
-    DeviceRegistration registration,
-  ) async {
+    DeviceRegistration registration, {
+    Uri? relayUri,
+  }) async {
     if (fail) throw Exception('relay unreachable');
     registrations.add(registration);
     return const DeviceRegistrationResponse(
@@ -30,8 +31,9 @@ class _RecordingApi implements ApiClient {
   @override
   Future<DeviceRegistrationResponse> refreshDevice(
     DeviceRegistration registration,
-    String deviceToken,
-  ) async {
+    String deviceToken, {
+    Uri? relayUri,
+  }) async {
     if (fail) throw Exception('relay unreachable');
     refreshes.add((registration, deviceToken));
     return const DeviceRegistrationResponse(

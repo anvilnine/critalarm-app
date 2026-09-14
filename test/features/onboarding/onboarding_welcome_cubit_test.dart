@@ -15,6 +15,7 @@ void main() {
   late MockGetServerInfoUsecase mockGetServerInfo;
 
   setUpAll(() {
+    registerFallbackValue(Uri.parse('https://api.critalarm.app'));
     registerFallbackValue(const NoParams());
   });
 

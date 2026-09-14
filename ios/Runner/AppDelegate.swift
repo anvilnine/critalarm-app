@@ -1,5 +1,6 @@
 import AVFoundation
 import Flutter
+import Security
 import UIKit
 import UserNotifications
 #if canImport(AlarmKit)
@@ -81,6 +82,13 @@ import AlarmKit
       self?.handleAlarmCall(call, result: result)
     }
     alarmChannel = alarm
+
+    let identity = FlutterMethodChannel(
+      name: "app.critalarm/device_identity", binaryMessenger: messenger
+    )
+    identity.setMethodCallHandler { call, result in
+      DeviceIdentityKeychain.handle(call, result: result)
+    }
 
     let credentials = FlutterMethodChannel(
       name: "app.critalarm/nse_credentials",
@@ -689,4 +697,55 @@ enum AlarmSoundPolicy {
   ///
   /// Measured on device. See docs/specs/remote-alarm-ios-spike.md.
   static let librarySoundsRingAlarm = false
+}
+
+/// Identity is synchronized as one item; updates never delete the old secret.
+enum DeviceIdentityKeychain {
+  static func handle(_ call: FlutterMethodCall, result: FlutterResult) {
+    var query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: "app.critalarm.device_identity",
+      kSecAttrAccount as String: "identity",
+      kSecAttrSynchronizable as String: true,
+    ]
+    if let group = NseCredentials.accessGroup {
+      query[kSecAttrAccessGroup as String] = group
+    }
+    switch call.method {
+    case "read":
+      query[kSecReturnData as String] = true
+      query[kSecMatchLimit as String] = kSecMatchLimitOne
+      var item: CFTypeRef?
+      let status = SecItemCopyMatching(query as CFDictionary, &item)
+      if status == errSecItemNotFound { result(nil); return }
+      guard status == errSecSuccess, let data = item as? Data,
+            let value = String(data: data, encoding: .utf8) else {
+        result(FlutterError(code: "keychain_read", message: "Identity read failed", details: status))
+        return
+      }
+      result(value)
+    case "write":
+      guard let value = call.arguments as? String,
+            let data = value.data(using: .utf8) else {
+        result(FlutterError(code: "bad_args", message: "Identity required", details: nil))
+        return
+      }
+      let attributes: [String: Any] = [
+        kSecValueData as String: data,
+        kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+      ]
+      var status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+      if status == errSecItemNotFound {
+        query.merge(attributes) { _, new in new }
+        status = SecItemAdd(query as CFDictionary, nil)
+      }
+      guard status == errSecSuccess else {
+        result(FlutterError(code: "keychain_write", message: "Identity write failed", details: status))
+        return
+      }
+      result(nil)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
 }

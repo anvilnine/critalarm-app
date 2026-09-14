@@ -4,12 +4,12 @@ import 'package:critalarm/features/onboarding/domain/entities/server_info.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
 
 /// Usecase to fetch server information and validate connectivity.
-class GetServerInfoUsecase implements UseCase<NoParams, ServerInfo> {
+class GetServerInfoUsecase implements UseCase<Uri, ServerInfo> {
   const GetServerInfoUsecase(this._repository);
 
   final ServerRepository _repository;
 
   @override
-  Future<AppResult<ServerInfo>> call(NoParams input) =>
-      _repository.getServerInfo();
+  Future<AppResult<ServerInfo>> call(Uri input) =>
+      _repository.getServerInfo(input);
 }

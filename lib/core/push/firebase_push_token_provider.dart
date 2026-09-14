@@ -3,9 +3,14 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 final class FirebasePushTokenProvider implements PushTokenProvider {
   FirebasePushTokenProvider([FirebaseMessaging? messaging])
-    : _messaging = messaging ?? FirebaseMessaging.instance;
+    : _injected = messaging;
 
-  final FirebaseMessaging _messaging;
+  final FirebaseMessaging? _injected;
+
+  // Resolved on first use, not in the constructor. Creating this provider must
+  // not need Firebase to be up, because the dependency graph builds it long
+  // before anything asks for a token.
+  FirebaseMessaging get _messaging => _injected ?? FirebaseMessaging.instance;
 
   @override
   PushTokenKind get kind => PushTokenKind.fcm;

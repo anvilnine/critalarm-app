@@ -240,11 +240,12 @@ final class HttpApiClient implements ApiClient {
 
   @override
   Future<DeviceRegistrationResponse> registerDevice(
-    DeviceRegistration registration,
-  ) async {
-    final session = await _sessions.read();
-    if (session == null) throw StateError('No API session configured');
-    final uri = _rawPath(session.relayUri, 'relay/v1/devices');
+    DeviceRegistration registration, {
+    Uri? relayUri,
+  }) async {
+    final base = relayUri ?? (await _sessions.read())?.relayUri;
+    if (base == null) throw StateError('No API session configured');
+    final uri = _rawPath(base, 'relay/v1/devices');
     final response = await _send('POST', uri, body: registration.toJson());
     return DeviceRegistrationResponse.fromJson(
       _json(response) as Map<String, dynamic>,
@@ -254,14 +255,14 @@ final class HttpApiClient implements ApiClient {
   @override
   Future<DeviceRegistrationResponse> refreshDevice(
     DeviceRegistration registration,
-    String deviceToken,
-  ) async {
-    final session = await _sessions.read();
-    if (session == null) throw StateError('No API session configured');
-    final uri = _rawUri(
-      session.relayUri,
-      '/relay/v1/devices/${Uri.encodeComponent(registration.deviceId)}',
-      null,
+    String deviceToken, {
+    Uri? relayUri,
+  }) async {
+    final base = relayUri ?? (await _sessions.read())?.relayUri;
+    if (base == null) throw StateError('No API session configured');
+    final uri = _rawPath(
+      base,
+      'relay/v1/devices/${Uri.encodeComponent(registration.deviceId)}',
     );
     final response = await _send(
       'PATCH',

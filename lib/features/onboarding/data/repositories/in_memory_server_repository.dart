@@ -13,9 +13,9 @@ class InMemoryServerRepository implements ServerRepository {
   final ApiClient _client;
 
   @override
-  Future<AppResult<ServerInfo>> getServerInfo() async {
+  Future<AppResult<ServerInfo>> getServerInfo([Uri? candidateBaseUri]) async {
     try {
-      final info = await _client.getServerInfo();
+      final info = await _client.getServerInfo(candidateBaseUri);
       return info.toSuccess();
     } on ApiException catch (e) {
       return Failure.api(

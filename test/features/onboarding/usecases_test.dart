@@ -150,7 +150,9 @@ void main() {
     });
 
     test('GetServerInfoUsecase returns ServerInfo on success', () async {
-      final result = await getServerInfoUsecase(const NoParams());
+      final result = await getServerInfoUsecase(
+        Uri.parse('https://api.critalarm.app'),
+      );
 
       expect(result.isSuccess(), isTrue);
       final info = result.getOrNull()!;

@@ -1,8 +1,10 @@
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
@@ -17,6 +19,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     this._getServerInfo,
     this._saveConnection,
     this._triggerTestAlarm, {
+    required this.establishSession,
     this.completeOnboarding,
     bool initialConnected = false,
   }) : super(
@@ -27,6 +30,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
          ),
        );
 
+  final EstablishApiSessionUsecase establishSession;
   final GetServerInfoUsecase _getServerInfo;
   final SaveConnectionUsecase _saveConnection;
   final CompleteOnboardingUsecase? completeOnboarding;
@@ -36,6 +40,8 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     emit(
       state.copyWith(
         serverUrl: url,
+        requiresAdminToken: false,
+        clearAdminTokenError: true,
         clearServerUrlError: true,
         clearErrorMessage: true,
       ),
@@ -100,16 +106,6 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     }
 
     final trimmedToken = state.adminToken.trim();
-    if (trimmedToken.isEmpty) {
-      emit(
-        state.copyWith(
-          adminTokenError: LocaleKeys.onboarding_connect_admin_token_error_empty
-              .tr(),
-        ),
-      );
-      return;
-    }
-
     emit(
       state.copyWith(
         status: OnboardingConnectStatus.connecting,
@@ -119,7 +115,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
       ),
     );
 
-    final result = await _getServerInfo(const NoParams());
+    final result = await _getServerInfo(Uri.parse(trimmedUrl));
     await result.fold(
       (info) async {
         if (!isSemverCompatible(info.version)) {
@@ -133,20 +129,49 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
           return;
         }
 
-        // Semver is compatible (major == 0). Store connection.
-        await _saveConnection(
-          ServerConnection(
-            serverUrl: trimmedUrl,
-            adminToken: trimmedToken,
-          ),
-        );
-
-        emit(
-          state.copyWith(
-            status: OnboardingConnectStatus.connected,
-            clearErrorMessage: true,
-          ),
-        );
+        final mode = ServerMode.fromWireValue(info.mode);
+        if (mode == ServerMode.selfhosted && trimmedToken.isEmpty) {
+          emit(
+            state.copyWith(
+              status: OnboardingConnectStatus.idle,
+              requiresAdminToken: true,
+              adminTokenError: LocaleKeys
+                  .onboarding_connect_admin_token_error_empty
+                  .tr(),
+            ),
+          );
+          return;
+        }
+        try {
+          final session = await establishSession.call(info, trimmedToken);
+          final saved = await _saveConnection(
+            ServerConnection(
+              serverUrl: info.baseUrl,
+              adminToken: session.managementCredential,
+            ),
+          );
+          saved.fold(
+            (_) => emit(
+              state.copyWith(
+                status: OnboardingConnectStatus.connected,
+                clearErrorMessage: true,
+              ),
+            ),
+            (failure) => emit(
+              state.copyWith(
+                status: OnboardingConnectStatus.failure,
+                errorMessage: failure.message,
+              ),
+            ),
+          );
+        } on Object catch (error) {
+          emit(
+            state.copyWith(
+              status: OnboardingConnectStatus.failure,
+              errorMessage: error.toString(),
+            ),
+          );
+        }
       },
       (failure) async {
         emit(

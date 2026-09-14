@@ -120,8 +120,9 @@ class MockApiClient implements ApiClient {
 
   @override
   Future<DeviceRegistrationResponse> registerDevice(
-    DeviceRegistration registration,
-  ) async {
+    DeviceRegistration registration, {
+    Uri? relayUri,
+  }) async {
     return server.registerDevice(registration);
   }
 
@@ -148,6 +149,7 @@ class MockApiClient implements ApiClient {
   @override
   Future<DeviceRegistrationResponse> refreshDevice(
     DeviceRegistration registration,
-    String deviceToken,
-  ) async => server.registerDevice(registration);
+    String deviceToken, {
+    Uri? relayUri,
+  }) async => server.registerDevice(registration);
 }

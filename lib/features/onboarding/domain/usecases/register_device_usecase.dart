@@ -14,8 +14,10 @@ final class RegisterDeviceUsecase {
     this._identity,
     this._tokens, {
     String Function()? platform,
+    this.identifyAccount,
   }) : _platform = platform ?? defaultPushPlatform;
 
+  final Future<void> Function(String)? identifyAccount;
   final ApiClient _api;
   final DeviceIdentityStore _identity;
   final PushTokenProvider _tokens;
@@ -24,6 +26,7 @@ final class RegisterDeviceUsecase {
   Future<DeviceRegistrationResponse> call({
     required String appVersion,
     String? pushToken,
+    Uri? relayUri,
   }) async {
     final identity = await _identity.readOrCreate();
     final registration = DeviceRegistration(
@@ -35,15 +38,22 @@ final class RegisterDeviceUsecase {
     // api.md §4.2: the first call mints the device token, later calls PATCH the
     // same device id with the new push token. Re-POSTing would answer 401.
     final response = identity.deviceToken == null
-        ? await _api.registerDevice(registration)
-        : await _api.refreshDevice(registration, identity.deviceToken!);
+        ? await _api.registerDevice(registration, relayUri: relayUri)
+        : await _api.refreshDevice(
+            registration,
+            identity.deviceToken!,
+            relayUri: relayUri,
+          );
     final token = response.deviceToken ?? identity.deviceToken;
-    if (token == null) throw StateError('Registration omitted device token');
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Registration omitted device token');
+    }
     await _identity.saveRegistration(
       deviceToken: token,
       accountId: response.accountId,
       tier: response.tier,
     );
+    await identifyAccount?.call(response.accountId);
     return response;
   }
 }
