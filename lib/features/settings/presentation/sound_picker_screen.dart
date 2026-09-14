@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design_system/widgets/section_card.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_state.dart';
@@ -51,10 +52,16 @@ class _SoundPickerView extends StatelessWidget {
     _ => LocaleKeys.sound_picker_error_copy_failed.tr(),
   };
 
+  static AlarmSound? selectedSound(SoundPickerState state) {
+    for (final sound in [...state.bundled, ...state.userSounds]) {
+      if (sound.id == state.selectedSoundId) return sound;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return BlocConsumer<SoundPickerCubit, SoundPickerState>(
       listenWhen: (was, now) => now.errorCode != null && was.errorCode == null,
@@ -68,118 +75,137 @@ class _SoundPickerView extends StatelessWidget {
       },
       builder: (context, state) {
         final cubit = context.read<SoundPickerCubit>();
-        return Scaffold(
-          backgroundColor: colors.canvas,
-          body: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
+        final selectedName = selectedSound(state)?.name ?? '';
+        return AppScreenScaffold(
+          topBar: AppTopBar(
+            leading: AppIconButton(
+              glyph: GlyphType.back,
+              ariaLabel: LocaleKeys.common_back.tr(),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/settings');
+                }
+              },
             ),
-            slivers: [
-              AppSliverTopBar(
-                title: state.isPerTopic
-                    ? LocaleKeys.sound_picker_title_topic.tr(
-                        namedArgs: {'topic': state.topicName!},
+            title: LocaleKeys.sound_picker_title_default.tr(),
+            trailing: state.isPerTopic
+                ? AppTopicChip(text: state.topicName!)
+                : null,
+          ),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                child: state.isLoading
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: CircularProgressIndicator(),
+                        ),
                       )
-                    : LocaleKeys.sound_picker_title_default.tr(),
-                leading: AppIconButton(
-                  glyph: GlyphType.back,
-                  ariaLabel: LocaleKeys.common_back.tr(),
-                  onPressed: () {
-                    if (context.canPop()) {
-                      context.pop();
-                    } else {
-                      context.go('/settings');
-                    }
-                  },
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(12, 4, 12, 16 + bottomInset),
-                  child: state.isLoading
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32),
-                            child: CircularProgressIndicator(),
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _Hint(state: state),
+                          const SizedBox(height: Spacing.s2),
+                          SectionCard(
+                            title: LocaleKeys.sound_picker_bundled_header.tr(),
+                            child: Column(
+                              children: [
+                                for (final sound in state.bundled)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: _SoundRow(
+                                      sound: sound,
+                                      state: state,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _Hint(state: state),
-                            const SizedBox(height: Spacing.s2),
-                            SectionCard(
-                              title: LocaleKeys.sound_picker_bundled_header
-                                  .tr(),
-                              child: Column(
-                                children: [
-                                  for (final sound in state.bundled)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
+                          const SizedBox(height: Spacing.s3),
+                          SectionCard(
+                            title: LocaleKeys.sound_picker_user_header.tr(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (state.userSounds.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Text(
+                                      LocaleKeys.sound_picker_user_empty.tr(),
+                                      style: TextStyle(
+                                        fontFamily: AppTypography.fontBody,
+                                        fontFamilyFallback:
+                                            AppTypography.fontBodyFallbacks,
+                                        fontSize: 13,
+                                        color: colors.ink3,
+                                      ),
+                                    ),
+                                  ),
+                                for (final sound in state.userSounds)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Dismissible(
+                                      key: ValueKey(sound.id),
+                                      direction: DismissDirection.endToStart,
+                                      background: _DeleteBackground(
+                                        color: colors.crit,
+                                      ),
+                                      onDismissed: (_) {
+                                        AppHaptics.destructive();
+                                        unawaited(
+                                          cubit.deleteUserSound(sound.id),
+                                        );
+                                      },
                                       child: _SoundRow(
                                         sound: sound,
                                         state: state,
                                       ),
                                     ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: Spacing.s3),
-                            SectionCard(
-                              title: LocaleKeys.sound_picker_user_header.tr(),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  if (state.userSounds.isEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: Text(
-                                        LocaleKeys.sound_picker_user_empty.tr(),
-                                        style: TextStyle(
-                                          fontFamily: AppTypography.fontBody,
-                                          fontFamilyFallback:
-                                              AppTypography.fontBodyFallbacks,
-                                          fontSize: 13,
-                                          color: colors.ink3,
-                                        ),
-                                      ),
-                                    ),
-                                  for (final sound in state.userSounds)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: Dismissible(
-                                        key: ValueKey(sound.id),
-                                        direction: DismissDirection.endToStart,
-                                        background: _DeleteBackground(
-                                          color: colors.crit,
-                                        ),
-                                        onDismissed: (_) => unawaited(
-                                          cubit.deleteUserSound(sound.id),
-                                        ),
-                                        child: _SoundRow(
-                                          sound: sound,
-                                          state: state,
-                                        ),
-                                      ),
-                                    ),
-                                  const SizedBox(height: 4),
-                                  AppButton(
-                                    label: LocaleKeys.sound_picker_add_own.tr(),
-                                    variant: AppButtonVariant.ghost,
-                                    isFullWidth: true,
-                                    onPressed: state.isImporting
-                                        ? null
-                                        : () => unawaited(cubit.importSound()),
                                   ),
-                                ],
-                              ),
+                                const SizedBox(height: 4),
+                                AppButton(
+                                  label: LocaleKeys.sound_picker_add_own.tr(),
+                                  variant: AppButtonVariant.ghost,
+                                  isFullWidth: true,
+                                  icon: AppGlyph(
+                                    GlyphType.plus,
+                                    size: 16,
+                                    color: colors.onCanvas,
+                                  ),
+                                  onPressed: state.isImporting
+                                      ? null
+                                      : () {
+                                          AppHaptics.capture();
+                                          unawaited(cubit.importSound());
+                                        },
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                ),
+                          ),
+                          const SizedBox(height: Spacing.s3),
+                          AppButton(
+                            label: LocaleKeys.sound_picker_use_button.tr(
+                              namedArgs: {'name': selectedName},
+                            ),
+                            isFullWidth: true,
+                            onPressed: () {
+                              AppHaptics.success();
+                              if (context.canPop()) {
+                                context.pop();
+                              } else {
+                                context.go('/settings');
+                              }
+                            },
+                          ),
+                        ],
+                      ),
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
@@ -247,11 +273,26 @@ class _SoundRow extends StatelessWidget {
           ? LocaleKeys.sound_picker_row_notifications_only.tr()
           : null,
       selected: state.selectedSoundId == sound.id,
-      leading: _PreviewButton(
-        isPlaying: isPreviewing,
-        onPressed: () => unawaited(cubit.togglePreview(sound)),
+      leading: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _PreviewButton(
+            isPlaying: isPreviewing,
+            onPressed: () {
+              AppHaptics.selection();
+              unawaited(cubit.togglePreview(sound));
+            },
+          ),
+          if (isPreviewing) ...[
+            const SizedBox(height: 6),
+            const _PlayingBadge(),
+          ],
+        ],
       ),
-      onTap: () => unawaited(cubit.select(sound.id)),
+      onTap: () {
+        AppHaptics.selection();
+        unawaited(cubit.select(sound.id));
+      },
     );
   }
 }
@@ -286,6 +327,41 @@ class _PreviewButton extends StatelessWidget {
             color: isPlaying ? colors.surface : colors.ink,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Chip next to the sound row that is currently previewing.
+class _PlayingBadge extends StatelessWidget {
+  const _PlayingBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: colors.highlight,
+        borderRadius: Radii.fullAll,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppGlyph(GlyphType.check, size: 11, color: colors.onHighlight),
+          const SizedBox(width: 4),
+          Text(
+            LocaleKeys.sound_picker_badge_playing.tr(),
+            style: TextStyle(
+              fontFamily: AppTypography.fontMono,
+              fontFamilyFallback: AppTypography.fontMonoFallbacks,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: colors.onHighlight,
+              height: 1,
+            ),
+          ),
+        ],
       ),
     );
   }

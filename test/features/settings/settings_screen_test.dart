@@ -65,7 +65,8 @@ void main() {
         await tester.tap(find.text('Notifications, lock screen, battery'));
         await tester.pumpAndSettle();
 
-        expect(find.text('What Crit Alarm needs'), findsOneWidget);
+        // The permissions screen is now titled Health.
+        expect(find.text('Health'), findsOneWidget);
       },
     );
 
@@ -92,8 +93,13 @@ void main() {
         router.go('/settings');
         await tester.pumpAndSettle();
 
-        // Scroll to server connection section
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, -250));
+        // Settings grows and reorders, so scroll to the section by name
+        // instead of by a fixed offset.
+        await tester.scrollUntilVisible(
+          find.text('Server connection'),
+          -120,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester.pumpAndSettle();
 
         expect(find.text('Server connection'), findsOneWidget);
@@ -125,7 +131,13 @@ void main() {
       router.go('/settings');
       await tester.pumpAndSettle();
 
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -250));
+      // Settings grows and reorders, so scroll by name, not by a fixed
+      // offset.
+      await tester.scrollUntilVisible(
+        find.text('Server connection'),
+        -120,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Edit'));
@@ -162,7 +174,13 @@ void main() {
       router.go('/settings');
       await tester.pumpAndSettle();
 
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -250));
+      // Settings grows and reorders, so scroll by name, not by a fixed
+      // offset.
+      await tester.scrollUntilVisible(
+        find.text('Server connection'),
+        -120,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Disconnect'));
@@ -213,8 +231,13 @@ void main() {
       router.go('/settings');
       await tester.pumpAndSettle();
 
-      // Scroll down to Privacy section
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -750));
+      // Settings grows and reorders, so scroll by name, not by a fixed
+      // offset.
+      await tester.scrollUntilVisible(
+        find.text('Privacy'),
+        -120,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Privacy'), findsOneWidget);
@@ -313,7 +336,14 @@ void main() {
           findsOneWidget,
         );
 
-        // Tapping a link copies it
+        // Tapping a link copies it. Scroll it clear of the floating tab bar
+        // first.
+        await tester.scrollUntilVisible(
+          find.text('Issue Tracker'),
+          -120,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Documentation'));
         await tester.pumpAndSettle();
         expect(find.text('Copied https://docs.critalarm.app'), findsOneWidget);

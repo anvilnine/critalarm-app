@@ -97,55 +97,51 @@ void main() {
 
   group('DevicePermissionsScreen', () {
     testWidgets(
-      'renders all 3 permissions with title, description, and badges',
+      'renders the Health screen with one row per permission',
       (tester) async {
         await tester.pumpWidget(buildTestWidget());
         await tester.pumpAndSettle();
 
+        // The screen is titled Health, and the permission list sits under
+        // its own header.
+        expect(find.text('Health'), findsOneWidget);
         expect(find.text('Device permissions'), findsOneWidget);
+
         expect(find.text('Notifications'), findsOneWidget);
         expect(find.text('Full-screen intent'), findsOneWidget);
         expect(find.text('Battery optimization exemption'), findsOneWidget);
 
-        expect(
-          find.text(
-            'Allows Crit Alarm to deliver alert banners and play sound.',
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.text(
-            'Allows critical alerts to turn on and display over the '
-            'lock screen even when phone is sleeping.',
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.text(
-            'Prevents Android from killing background alarm sync and delayed '
-            'delivery.',
-          ),
-          findsOneWidget,
-        );
-
-        expect(find.text('Granted'), findsOneWidget);
-        expect(find.text('Denied'), findsOneWidget);
-        expect(find.text('Restricted'), findsOneWidget);
-        expect(find.text('Fix in Settings'), findsNWidgets(2));
-        expect(find.text('Permission granted'), findsOneWidget);
+        // Granted reads as a chip. The two that are off each offer a way in.
+        expect(find.text('allowed'), findsOneWidget);
+        expect(find.text('Turn on'), findsNWidgets(2));
+        expect(find.text('Off since 12 September'), findsNWidgets(2));
       },
     );
 
     testWidgets(
-      'tapping Fix in Settings calls openPermissionSettings usecase',
+      'the server connection block names the host and the last delivery',
       (tester) async {
         await tester.pumpWidget(buildTestWidget());
         await tester.pumpAndSettle();
 
-        final fixButtons = find.text('Fix in Settings');
-        expect(fixButtons, findsNWidgets(2));
+        expect(find.text('Server connection'), findsOneWidget);
+        expect(find.text('reachable'), findsOneWidget);
+        expect(find.text('Checked'), findsOneWidget);
+        expect(find.text('Last delivery'), findsOneWidget);
+        expect(find.text('Send a test alarm'), findsOneWidget);
+      },
+    );
 
-        await tester.tap(fixButtons.first);
+    testWidgets(
+      'tapping Turn on calls openPermissionSettings usecase',
+      (tester) async {
+        await tester.pumpWidget(buildTestWidget());
+        await tester.pumpAndSettle();
+
+        final turnOnButtons = find.text('Turn on');
+        expect(turnOnButtons, findsNWidgets(2));
+
+        await tester.tap(turnOnButtons.first);
         await tester.pumpAndSettle();
 
         verify(

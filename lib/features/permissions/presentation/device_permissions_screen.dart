@@ -2,8 +2,9 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
-import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
+import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -59,295 +60,245 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
     }
   }
 
+  // Placeholder server data. The cubit does not report a server connection
+  // yet, so these stand in for the real host, check time and last delivery
+  // until that data exists.
+  static const _placeholderHost = 'api.critalarm.app';
+  static const _placeholderCheckedAt = '09:45:02';
+  static const _placeholderDeliveryTopic = 'prod-db';
+  static const _placeholderDeliveryTiming = '03:12:04, 1.2 s';
+
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-
     return BlocBuilder<DevicePermissionsCubit, DevicePermissionsState>(
       builder: (context, state) {
         final cubit = context.read<DevicePermissionsCubit>();
 
-        return Scaffold(
-          backgroundColor: colors.canvas,
-          body: GhostField(
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
+        final fullScreenItem = state.permissionByType(
+          DevicePermissionType.fullScreenIntent,
+        );
+        final fullScreenOff =
+            fullScreenItem != null && !fullScreenItem.status.isGranted;
+
+        final stageFace = state.allGranted
+            ? FaceState.calm
+            : fullScreenOff
+            ? FaceState.worried
+            : FaceState.alarmed;
+        final stageSub = fullScreenOff
+            ? LocaleKeys.device_permissions_stage_sub_full_screen_off.tr()
+            : state.allGranted
+            ? LocaleKeys.device_permissions_stage_sub_all_granted.tr()
+            : LocaleKeys.device_permissions_stage_sub_required.tr();
+
+        return AppScreenScaffold(
+          onRefresh: cubit.refresh,
+          topBar: AppTopBar(
+            title: LocaleKeys.device_permissions_title.tr(),
+            leading: AppIconButton(
+              glyph: GlyphType.back,
+              ariaLabel: LocaleKeys.device_permissions_back_aria_label.tr(),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/settings');
+                }
+              },
+            ),
+          ),
+          slivers: [
+            SliverToBoxAdapter(
+              child: AppStage.horizontal(
+                faceState: stageFace,
+                sub: stageSub,
               ),
-              slivers: [
-                AppSliverTopBar(
-                  title: LocaleKeys.device_permissions_title.tr(),
-                  leading: AppIconButton(
-                    glyph: GlyphType.back,
-                    ariaLabel: LocaleKeys.device_permissions_back_aria_label
-                        .tr(),
-                    onPressed: () {
-                      if (context.canPop()) {
-                        context.pop();
-                      } else {
-                        context.go('/settings');
-                      }
-                    },
-                  ),
-                  trailing: AppIconButton(
-                    glyph: GlyphType.repeat,
-                    ariaLabel: LocaleKeys.device_permissions_refresh_aria_label
-                        .tr(),
-                    onPressed: () => unawaited(cubit.refresh()),
-                  ),
-                ),
-                SliverToBoxAdapter(
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, Spacing.s3, 12, 16),
+                child: AppSheet(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const SizedBox(height: Spacing.s2),
-                      AppStage.horizontal(
-                        faceState: state.allGranted
-                            ? FaceState.calm
-                            : FaceState.alarmed,
-                        sub: state.allGranted
-                            ? LocaleKeys
-                                  .device_permissions_stage_sub_all_granted
-                                  .tr()
-                            : LocaleKeys.device_permissions_stage_sub_required
-                                  .tr(),
+                      AppSectionHeader(
+                        LocaleKeys.device_permissions_permissions_header.tr(),
                       ),
-                      const SizedBox(height: Spacing.s3),
+                      for (final item in state.permissions) ...[
+                        _PermissionRow(
+                          item: item,
+                          onTurnOn: () {
+                            AppHaptics.capture();
+                            unawaited(cubit.openSettings(item.type));
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      const SizedBox(height: 8),
+                      AppSectionHeader(
+                        LocaleKeys.device_permissions_server_header.tr(),
+                      ),
+                      AppKeyValueRow(
+                        value: _placeholderHost,
+                        trailing: _LowChip(
+                          label: LocaleKeys.device_permissions_badge_reachable
+                              .tr(),
+                          glyph: GlyphType.wifi,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      AppKeyValueRow(
+                        label: LocaleKeys.device_permissions_checked_label.tr(),
+                        value: _placeholderCheckedAt,
+                      ),
+                      const SizedBox(height: 8),
+                      AppKeyValueRow(
+                        label: LocaleKeys.device_permissions_last_delivery_label
+                            .tr(),
+                        value:
+                            '$_placeholderDeliveryTopic, '
+                            '$_placeholderDeliveryTiming',
+                      ),
+                      const SizedBox(height: 16),
+                      AppButton(
+                        label: LocaleKeys.device_permissions_test_alarm_button
+                            .tr(),
+                        variant: AppButtonVariant.ghost,
+                        isFullWidth: true,
+                        onPressed: AppHaptics.capture,
+                      ),
                     ],
                   ),
                 ),
-                SliverToBoxAdapter(
-                  child: SafeArea(
-                    top: false,
-                    bottom: false,
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        12,
-                        0,
-                        12,
-                        16 + bottomInset,
-                      ),
-                      child: AppSheet(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppSectionHeader(
-                              LocaleKeys.device_permissions_capabilities_header
-                                  .tr(),
-                            ),
-                            for (
-                              var i = 0;
-                              i < state.permissions.length;
-                              i++
-                            ) ...[
-                              if (i > 0) const SizedBox(height: 12),
-                              _PermissionCard(
-                                item: state.permissions[i],
-                                onFix: () => unawaited(
-                                  cubit.openSettings(state.permissions[i].type),
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 16),
-                            AppNote(
-                              text: LocaleKeys.device_permissions_note.tr(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         );
       },
     );
   }
 }
 
-class _PermissionCard extends StatelessWidget {
-  const _PermissionCard({
+/// One row under "Device permissions": a granted permission shows its name
+/// and a status chip, an off permission shows its off-since line and a
+/// "Turn on" button, matching index.html .kv and .row.
+class _PermissionRow extends StatelessWidget {
+  const _PermissionRow({
     required this.item,
-    required this.onFix,
+    required this.onTurnOn,
   });
 
   final DevicePermissionItem item;
-  final VoidCallback onFix;
+  final VoidCallback onTurnOn;
+
+  // Placeholder date. DevicePermissionItem does not carry the date a
+  // permission was turned off, so this stands in until it does.
+  static const _placeholderOffSinceDate = '12 September';
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.cream,
-        borderRadius: Radii.lgAll,
-        border: Border.all(
-          color: item.status.isGranted
-              ? colors.hairline
-              : colors.crit.withValues(alpha: 0.35),
-          width: 1.5,
+    if (!item.status.isGranted) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: colors.cream,
+          borderRadius: Radii.mdAll,
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  item.title,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontDisplay,
-                    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.01 * 16,
-                    color: colors.ink,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              _PermissionStatusBadge(status: item.status),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            item.description,
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              fontFamilyFallback: AppTypography.fontBodyFallbacks,
-              fontSize: 13,
-              color: colors.ink2,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (item.canFix)
-            AppButton(
-              label: LocaleKeys.device_permissions_fix_button.tr(),
-              size: AppButtonSize.sm,
-              isFullWidth: true,
-              trailingIcon: AppGlyph(
-                GlyphType.arrow,
-                color: colors.onHighlight,
-              ),
-              onPressed: onFix,
-            )
-          else
-            Row(
-              children: [
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFF2E7D32),
-                  ),
-                  alignment: Alignment.center,
-                  child: const AppGlyph(
-                    GlyphType.check,
-                    size: 12,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    LocaleKeys.device_permissions_status_granted.tr(),
-                    style: const TextStyle(
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.title,
+                    style: TextStyle(
                       fontFamily: AppTypography.fontBody,
                       fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF2E7D32),
+                      fontSize: 14,
+                      color: colors.ink,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    LocaleKeys
+                        .device_permissions_item_full_screen_intent_off_since
+                        .tr(namedArgs: {'date': _placeholderOffSinceDate}),
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontBody,
+                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                      fontSize: 12,
+                      color: colors.ink3,
+                    ),
+                  ),
+                ],
+              ),
             ),
-        ],
-      ),
+            const SizedBox(width: 8),
+            AppButton(
+              label: LocaleKeys.device_permissions_turn_on_button.tr(),
+              size: AppButtonSize.sm,
+              onPressed: onTurnOn,
+            ),
+          ],
+        ),
+      );
+    }
+
+    final chipLabel = item.type == DevicePermissionType.batteryOptimization
+        ? LocaleKeys.device_permissions_badge_unrestricted.tr()
+        : LocaleKeys.device_permissions_badge_allowed.tr();
+
+    return AppKeyValueRow(
+      value: item.title,
+      isMono: false,
+      trailing: _LowChip(label: chipLabel, glyph: GlyphType.check),
     );
   }
 }
 
-/// Status badge: Granted in green/calm, Denied in red/alarmed, Restricted in yellow/warning.
-class _PermissionStatusBadge extends StatelessWidget {
-  const _PermissionStatusBadge({required this.status});
+/// Small pill matching index.html .chip.chip-low: quiet ash background,
+/// used for a permission or server status that needs no attention.
+class _LowChip extends StatelessWidget {
+  const _LowChip({
+    required this.label,
+    required this.glyph,
+  });
 
-  final DevicePermissionStatus status;
+  final String label;
+  final GlyphType glyph;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final (label, faceState, bg, fg, border) = switch (status) {
-      DevicePermissionStatus.granted => (
-        LocaleKeys.device_permissions_badge_granted.tr(),
-        FaceState.calm,
-        isDark ? const Color(0xFF1B381E) : const Color(0xFFE8F5E9),
-        isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32),
-        Border.all(
-          color: isDark ? const Color(0xFF2E7D32) : const Color(0xFFA5D6A7),
-          width: 1.5,
-        ),
-      ),
-      DevicePermissionStatus.denied => (
-        LocaleKeys.device_permissions_badge_denied.tr(),
-        FaceState.alarmed,
-        colors.critTint,
-        colors.crit,
-        Border.all(color: colors.crit, width: 1.5),
-      ),
-      DevicePermissionStatus.restricted => (
-        LocaleKeys.device_permissions_badge_restricted.tr(),
-        FaceState.worried,
-        colors.yellow.withValues(alpha: 0.3),
-        colors.high,
-        Border.all(color: colors.high, width: 1.5),
-      ),
-      DevicePermissionStatus.notDetermined => (
-        LocaleKeys.device_permissions_badge_not_set.tr(),
-        FaceState.watching,
-        colors.ash,
-        colors.ink2,
-        Border.all(color: colors.hairline, width: 1.5),
-      ),
-    };
 
     return Container(
-      constraints: const BoxConstraints(minHeight: 28),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      constraints: const BoxConstraints(minHeight: 26),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       decoration: BoxDecoration(
-        color: bg,
+        color: colors.ash,
         borderRadius: Radii.fullAll,
-        border: border,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          FaceWidget(
-            state: faceState,
-            size: 18,
-          ),
-          const SizedBox(width: 5),
+          AppGlyph(glyph, size: 12, color: colors.ink2, strokeWidth: 2.4),
+          const SizedBox(width: 6),
           Text(
             label,
             style: TextStyle(
               fontFamily: AppTypography.fontMono,
               fontFamilyFallback: AppTypography.fontMonoFallbacks,
-              fontWeight: FontWeight.w700,
-              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              fontSize: 12,
               letterSpacing: 0.2,
-              color: fg,
+              color: colors.ink2,
+              height: 1,
             ),
           ),
         ],

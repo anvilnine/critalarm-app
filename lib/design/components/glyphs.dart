@@ -14,6 +14,11 @@ enum GlyphType {
   gear,
   copy,
   plus,
+  search,
+  filter,
+  close,
+  chevron,
+  wifi,
 }
 
 /// Vector glyph icon painted according to index.html on a 24x24 viewBox.
@@ -216,6 +221,55 @@ class _GlyphPainter extends CustomPainter {
           ..moveTo(5, 12)
           ..lineTo(19, 12);
         canvas.drawPath(path, strokePaint);
+
+      case GlyphType.search:
+        // circle cx 11 cy 11 r 7, then the handle down to 21 21
+        canvas.drawCircle(const Offset(11, 11), 7, strokePaint);
+        final handle = Path()
+          ..moveTo(16, 16)
+          ..lineTo(21, 21);
+        canvas.drawPath(handle, strokePaint);
+
+      case GlyphType.filter:
+        // M4 6h16M7 12h10M10 18h4
+        final path = Path()
+          ..moveTo(4, 6)
+          ..lineTo(20, 6)
+          ..moveTo(7, 12)
+          ..lineTo(17, 12)
+          ..moveTo(10, 18)
+          ..lineTo(14, 18);
+        canvas.drawPath(path, strokePaint);
+
+      case GlyphType.close:
+        // M6 6l12 12M18 6L6 18
+        final path = Path()
+          ..moveTo(6, 6)
+          ..lineTo(18, 18)
+          ..moveTo(18, 6)
+          ..lineTo(6, 18);
+        canvas.drawPath(path, strokePaint);
+
+      case GlyphType.chevron:
+        // M9 5l7 7-7 7
+        final path = Path()
+          ..moveTo(9, 5)
+          ..lineTo(16, 12)
+          ..lineTo(9, 19);
+        canvas.drawPath(path, strokePaint);
+
+      case GlyphType.wifi:
+        // three arcs widening upward, one dot on the baseline
+        for (final r in [4.0, 8.0, 12.0]) {
+          canvas.drawArc(
+            Rect.fromCircle(center: const Offset(12, 18), radius: r),
+            3.9270,
+            1.5708,
+            false,
+            strokePaint,
+          );
+        }
+        canvas.drawCircle(const Offset(12, 18), 1.4, fillPaint);
     }
 
     canvas.restore();
