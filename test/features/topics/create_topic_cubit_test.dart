@@ -1,7 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
-import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
@@ -24,12 +23,10 @@ void main() {
 
   group('CreateTopicCubit', () {
     test(
-      'initial state has default name, default priority, and '
-      'isCritical is FALSE',
+      'initial state has an empty name and isCritical is FALSE',
       () {
         final cubit = CreateTopicCubit(createTopicUsecase);
-        expect(cubit.state.name, 'prod-db');
-        expect(cubit.state.defaultPriority, PriorityLevel.defaultPriority);
+        expect(cubit.state.name, '');
         expect(
           cubit.state.isCritical,
           isFalse,
@@ -49,26 +46,11 @@ void main() {
     );
 
     blocTest<CreateTopicCubit, CreateTopicState>(
-      'priorityChanged updates priority and syncs isCritical if critical',
-      build: () => CreateTopicCubit(createTopicUsecase),
-      act: (cubit) => cubit.priorityChanged(PriorityLevel.critical),
-      expect: () => [
-        const CreateTopicState(
-          defaultPriority: PriorityLevel.critical,
-          isCritical: true,
-        ),
-      ],
-    );
-
-    blocTest<CreateTopicCubit, CreateTopicState>(
       'criticalToggled toggles isCritical state',
       build: () => CreateTopicCubit(createTopicUsecase),
       act: (cubit) => cubit.criticalToggled(isCritical: true),
       expect: () => [
-        const CreateTopicState(
-          isCritical: true,
-          defaultPriority: PriorityLevel.critical,
-        ),
+        const CreateTopicState(isCritical: true),
       ],
     );
 

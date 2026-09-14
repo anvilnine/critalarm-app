@@ -1,4 +1,3 @@
-import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:flutter/foundation.dart';
 
@@ -10,8 +9,7 @@ enum CreateTopicStatus { initial, submitting, success, failure }
 class CreateTopicState {
   const CreateTopicState({
     this.status = CreateTopicStatus.initial,
-    this.name = 'prod-db',
-    this.defaultPriority = PriorityLevel.defaultPriority,
+    this.name = '',
     this.isCritical = false,
     this.createdToken,
     this.createdTopic,
@@ -20,7 +18,6 @@ class CreateTopicState {
 
   final CreateTopicStatus status;
   final String name;
-  final PriorityLevel defaultPriority;
 
   /// Critical delivery / Ring through silent mode. MUST DEFAULT TO FALSE.
   final bool isCritical;
@@ -31,7 +28,6 @@ class CreateTopicState {
   CreateTopicState copyWith({
     CreateTopicStatus? status,
     String? name,
-    PriorityLevel? defaultPriority,
     bool? isCritical,
     String? createdToken,
     Topic? createdTopic,
@@ -41,7 +37,6 @@ class CreateTopicState {
     return CreateTopicState(
       status: status ?? this.status,
       name: name ?? this.name,
-      defaultPriority: defaultPriority ?? this.defaultPriority,
       isCritical: isCritical ?? this.isCritical,
       createdToken: createdToken ?? this.createdToken,
       createdTopic: createdTopic ?? this.createdTopic,
@@ -56,7 +51,6 @@ class CreateTopicState {
           runtimeType == other.runtimeType &&
           status == other.status &&
           name == other.name &&
-          defaultPriority == other.defaultPriority &&
           isCritical == other.isCritical &&
           createdToken == other.createdToken &&
           createdTopic == other.createdTopic &&
@@ -66,7 +60,6 @@ class CreateTopicState {
   int get hashCode => Object.hash(
     status,
     name,
-    defaultPriority,
     isCritical,
     createdToken,
     createdTopic,

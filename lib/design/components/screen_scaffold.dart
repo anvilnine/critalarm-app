@@ -25,6 +25,7 @@ class AppScreenScaffold extends StatelessWidget {
     this.scrollController,
     this.backgroundColor,
     this.withGhosts = true,
+    this.resizeForKeyboard = false,
     super.key,
   });
 
@@ -52,6 +53,12 @@ class AppScreenScaffold extends StatelessWidget {
   final ScrollController? scrollController;
   final Color? backgroundColor;
   final bool withGhosts;
+
+  /// True on a screen with text fields, so the body shrinks for the soft
+  /// keyboard and the field being typed into stays in view. The Scaffold takes
+  /// the keyboard height off the body on its own, so the scroll view needs no
+  /// inset of its own on top of that.
+  final bool resizeForKeyboard;
 
   /// Height of the top bar itself, before the status bar inset.
   static const double topBarHeight = 56;
@@ -207,7 +214,7 @@ class AppScreenScaffold extends StatelessWidget {
       backgroundColor: canvas,
       extendBody: true,
       extendBodyBehindAppBar: true,
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: resizeForKeyboard,
       body: body,
     );
   }
