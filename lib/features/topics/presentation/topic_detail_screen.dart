@@ -51,7 +51,10 @@ class _TopicDetailScreenContent extends StatelessWidget {
         return SeverityScope(
           severity: state.severity,
           child: AppScreenScaffold(
-            hasTabBar: !isPane,
+            // Pushed, this screen covers the display and the tab bar goes with
+            // it. As a pane it never had one. Either way there is no bar to
+            // leave room for.
+            hasTabBar: false,
             withGhosts: !isPane,
             backgroundColor: isPane ? context.appColors.surface : null,
             topBar: AppTopBar(
