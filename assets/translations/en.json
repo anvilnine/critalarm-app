@@ -271,7 +271,10 @@
     "plan_pro": "Pro",
     "plan_topics_used": "{used} of {limit} topics used",
     "upgrade_button": "Upgrade",
-    "stage_sub_connected": "Connected to {host} since {date}."
+    "stage_sub_connected": "Connected to {host} since {date}.",
+    "developer_header": "Developer options",
+    "developer_pro_title": "Pro plan",
+    "developer_pro_subtitle": "Unlock Pro features"
   },
   "device_permissions": {
     "title": "Health",
