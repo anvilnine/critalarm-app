@@ -104,7 +104,9 @@
     "meta_yesterday": "Yesterday 18:40",
     "meta_alert_active": "Alert active",
     "meta_warning": "1 warning",
-    "meta_quiet": "Quiet"
+    "meta_quiet": "Quiet",
+    "detail_empty_title": "No topic selected",
+    "detail_empty_body": "Pick a topic to see its details."
   },
   "topics_list": {
     "back_aria_label": "Back",
@@ -135,7 +137,11 @@
     "meta_acknowledged": "Rang {duration}. Acknowledged.",
     "meta_resolved": "Rang {duration}. Resolved when the check passed.",
     "meta_expired": "Rang {duration}. Stopped on its own.",
-    "meta_open": "Ringing {duration}."
+    "meta_open": "Ringing {duration}.",
+    "detail_empty_title": "No incident selected",
+    "detail_empty_body": "Pick an incident to see its details.",
+    "detail_started_label": "Started",
+    "detail_ring_label": "Rang for"
   },
   "topic_detail": {
     "back_aria_label": "Back",

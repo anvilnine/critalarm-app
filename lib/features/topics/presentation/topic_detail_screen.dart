@@ -16,10 +16,15 @@ import 'package:go_router/go_router.dart';
 class TopicDetailScreen extends StatelessWidget {
   const TopicDetailScreen({
     required this.topicName,
+    this.isPane = false,
     super.key,
   });
 
   final String topicName;
+
+  /// True when this screen is drawn inside a detail pane rather than pushed
+  /// as its own page.
+  final bool isPane;
 
   @override
   Widget build(BuildContext context) {
@@ -29,13 +34,15 @@ class TopicDetailScreen extends StatelessWidget {
         unawaited(cubit.load(topicName));
         return cubit;
       },
-      child: const _TopicDetailScreenContent(),
+      child: _TopicDetailScreenContent(isPane: isPane),
     );
   }
 }
 
 class _TopicDetailScreenContent extends StatelessWidget {
-  const _TopicDetailScreenContent();
+  const _TopicDetailScreenContent({required this.isPane});
+
+  final bool isPane;
 
   @override
   Widget build(BuildContext context) {
@@ -44,18 +51,23 @@ class _TopicDetailScreenContent extends StatelessWidget {
         return SeverityScope(
           severity: state.severity,
           child: AppScreenScaffold(
+            hasTabBar: !isPane,
+            withGhosts: !isPane,
+            backgroundColor: isPane ? context.appColors.surface : null,
             topBar: AppTopBar(
-              leading: AppIconButton(
-                glyph: GlyphType.back,
-                ariaLabel: LocaleKeys.topic_detail_back_aria_label.tr(),
-                onPressed: () {
-                  if (context.canPop()) {
-                    context.pop();
-                  } else {
-                    context.go('/');
-                  }
-                },
-              ),
+              leading: isPane
+                  ? null
+                  : AppIconButton(
+                      glyph: GlyphType.back,
+                      ariaLabel: LocaleKeys.topic_detail_back_aria_label.tr(),
+                      onPressed: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/');
+                        }
+                      },
+                    ),
               trailing: AppTopicChip(
                 text: 'POST /t/${state.topicName}',
                 onTap: () {

@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
+import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -27,11 +30,20 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _HomeScreenContent extends StatelessWidget {
+class _HomeScreenContent extends StatefulWidget {
   const _HomeScreenContent();
 
   @override
+  State<_HomeScreenContent> createState() => _HomeScreenContentState();
+}
+
+class _HomeScreenContentState extends State<_HomeScreenContent> {
+  String? _selectedTopic;
+
+  @override
   Widget build(BuildContext context) {
+    final size = AppSize.of(context);
+
     return BlocBuilder<HomeCubit, HomeState>(
       builder: (context, state) {
         return SeverityScope(
@@ -46,6 +58,19 @@ class _HomeScreenContent extends StatelessWidget {
                 onPressed: () {},
               ),
             ),
+            detail: state.topicItems.isEmpty
+                ? null
+                : (_selectedTopic == null
+                      ? AppEmptyState(
+                          title: LocaleKeys.home_detail_empty_title.tr(),
+                          description: LocaleKeys.home_detail_empty_body.tr(),
+                          buttonLabel: null,
+                        )
+                      : TopicDetailScreen(
+                          key: ValueKey(_selectedTopic),
+                          topicName: _selectedTopic!,
+                          isPane: true,
+                        )),
             slivers: [
               SliverToBoxAdapter(
                 child: Column(
@@ -76,14 +101,27 @@ class _HomeScreenContent extends StatelessWidget {
                             AppListRow(
                               name: topic.name,
                               meta: topic.meta,
+                              isSelected:
+                                  size.isExpanded &&
+                                  topic.name == _selectedTopic,
                               faceState: topic.faceState,
                               isCrit: topic.isCrit,
                               isQuiet: topic.isQuiet,
                               trailing: AppPriorityChip(
                                 priority: topic.priority,
                               ),
-                              onTap: () =>
-                                  context.push('/topics/${topic.name}'),
+                              onTap: () {
+                                if (size.isExpanded) {
+                                  AppHaptics.selection();
+                                  setState(
+                                    () => _selectedTopic = topic.name,
+                                  );
+                                } else {
+                                  unawaited(
+                                    context.push('/topics/${topic.name}'),
+                                  );
+                                }
+                              },
                             ),
                             const SizedBox(height: 10),
                           ],

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
@@ -29,11 +31,20 @@ class HistoryScreen extends StatelessWidget {
   }
 }
 
-class _HistoryScreenContent extends StatelessWidget {
+class _HistoryScreenContent extends StatefulWidget {
   const _HistoryScreenContent();
 
   @override
+  State<_HistoryScreenContent> createState() => _HistoryScreenContentState();
+}
+
+class _HistoryScreenContentState extends State<_HistoryScreenContent> {
+  HistoryEntry? _selected;
+
+  @override
   Widget build(BuildContext context) {
+    final size = AppSize.of(context);
+
     return BlocBuilder<HistoryCubit, HistoryState>(
       builder: (context, state) {
         final longest = state.longestRing;
@@ -55,6 +66,18 @@ class _HistoryScreenContent extends StatelessWidget {
               onPressed: () {},
             ),
           ),
+          detail: state.isEmpty
+              ? null
+              : _selected == null
+              ? AppEmptyState(
+                  title: LocaleKeys.history_detail_empty_title.tr(),
+                  description: LocaleKeys.history_detail_empty_body.tr(),
+                  buttonLabel: null,
+                )
+              : _IncidentDetail(
+                  key: ValueKey(_selected?.id),
+                  entry: _selected!,
+                ),
           slivers: [
             SliverToBoxAdapter(
               child: AppStage.horizontal(
@@ -90,12 +113,22 @@ class _HistoryScreenContent extends StatelessWidget {
                             AppListRow(
                               name: entry.topic,
                               meta: _metaText(entry),
+                              isSelected:
+                                  size.isExpanded && entry.id == _selected?.id,
                               faceState: entry.faceState,
                               timeText: DateFormat.Hm().format(
                                 entry.startedAt,
                               ),
-                              onTap: () =>
-                                  context.push('/topics/${entry.topic}'),
+                              onTap: () {
+                                if (size.isExpanded) {
+                                  AppHaptics.selection();
+                                  setState(() => _selected = entry);
+                                } else {
+                                  unawaited(
+                                    context.push('/topics/${entry.topic}'),
+                                  );
+                                }
+                              },
                             ),
                             const SizedBox(height: 10),
                           ],
@@ -108,6 +141,45 @@ class _HistoryScreenContent extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// The right pane on an expanded display: one picked incident, full detail.
+class _IncidentDetail extends StatelessWidget {
+  const _IncidentDetail({required this.entry, super.key});
+
+  final HistoryEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FaceWidget(state: entry.faceState, size: 96),
+          const SizedBox(height: Spacing.s4),
+          Text(
+            entry.topic,
+            style: AppTypography.monoBold(colors.ink, fontSize: 22),
+          ),
+          const SizedBox(height: Spacing.s2),
+          Text(_metaText(entry), style: AppTypography.small(colors.ink3)),
+          const SizedBox(height: Spacing.s4),
+          AppKeyValueRow(
+            label: LocaleKeys.history_detail_started_label.tr(),
+            value: DateFormat.Hm().format(entry.startedAt),
+          ),
+          const SizedBox(height: 10),
+          AppKeyValueRow(
+            label: LocaleKeys.history_detail_ring_label.tr(),
+            value: _formatRingDuration(entry.ringDuration ?? Duration.zero),
+          ),
+        ],
+      ),
     );
   }
 }

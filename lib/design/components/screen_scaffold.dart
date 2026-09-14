@@ -1,8 +1,11 @@
 import 'package:critalarm/design/components/floating_tab_bar.dart';
+import 'package:critalarm/design/components/nav_rail.dart';
 import 'package:critalarm/design/components/scroll_fade.dart';
 import 'package:critalarm/design/faces/ghost_field.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/design/tokens/radii.dart';
+import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:flutter/material.dart';
 
 /// The standard Crit Alarm screen: one scroll view that runs from the very top
@@ -18,6 +21,7 @@ class AppScreenScaffold extends StatelessWidget {
     this.bottomBar,
     this.onRefresh,
     this.hasTabBar = true,
+    this.detail,
     this.scrollController,
     this.backgroundColor,
     this.withGhosts = true,
@@ -40,6 +44,11 @@ class AppScreenScaffold extends StatelessWidget {
   /// it below the last row.
   final bool hasTabBar;
 
+  /// The second pane, shown only on an expanded display. On anything smaller
+  /// the screen opens the same content as its own page instead, so this is
+  /// ignored rather than stacked below the list.
+  final Widget? detail;
+
   final ScrollController? scrollController;
   final Color? backgroundColor;
   final bool withGhosts;
@@ -47,18 +56,44 @@ class AppScreenScaffold extends StatelessWidget {
   /// Height of the top bar itself, before the status bar inset.
   static const double topBarHeight = 56;
 
+  /// How wide the list pane gets when two panes are showing. It keeps a
+  /// readable column without starving the detail beside it.
+  static double listPaneWidth(double available) =>
+      (available * 0.38).clamp(340.0, 460.0);
+
   @override
   Widget build(BuildContext context) {
+    // Width comes from the box this scaffold was given, not from the display,
+    // so a screen nested inside a detail pane measures its own pane.
+    return LayoutBuilder(
+      builder: (context, constraints) => _build(context, constraints.maxWidth),
+    );
+  }
+
+  Widget _build(BuildContext context, double boxWidth) {
     final colors = context.appColors;
     final padding = MediaQuery.paddingOf(context);
     final canvas = backgroundColor ?? colors.canvas;
     final size = AppSize.of(context);
+    final twoPane = size.isExpanded && detail != null;
+
+    // On an expanded display the tab bar stands up as a rail on the left, so
+    // the screen keeps clear of it sideways instead of above the bottom edge.
+    final railGap = size.isExpanded && hasTabBar ? AppNavRail.contentGap : 0.0;
+    final available = boxWidth - railGap;
+
     // A long row is hard to read, the eye has to travel, so cap the column.
-    final gutter = size.sideGutter;
+    // Two panes have already narrowed it, so they need no gutter of their own.
+    final paneWidth = twoPane ? listPaneWidth(available) : available;
+    final gutter = twoPane || paneWidth <= AppSize.contentMaxWidth
+        ? 0.0
+        : (paneWidth - AppSize.contentMaxWidth) / 2;
 
     final topInset = padding.top + (topBar == null ? 0 : topBarHeight);
     var bottomInset = padding.bottom + 16;
-    if (hasTabBar) bottomInset += AppFloatingTabBar.contentGap;
+    if (hasTabBar && !size.isExpanded) {
+      bottomInset += AppFloatingTabBar.contentGap;
+    }
 
     Widget list = CustomScrollView(
       controller: scrollController,
@@ -143,6 +178,23 @@ class AppScreenScaffold extends StatelessWidget {
       ],
     );
 
+    if (twoPane) {
+      body = Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(width: paneWidth, child: body),
+          Expanded(child: AppDetailPane(child: detail!)),
+        ],
+      );
+    }
+
+    if (railGap > 0) {
+      body = Padding(
+        padding: EdgeInsets.only(left: railGap),
+        child: body,
+      );
+    }
+
     if (withGhosts) body = GhostField(child: body);
 
     return Scaffold(
@@ -151,6 +203,34 @@ class AppScreenScaffold extends StatelessWidget {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: false,
       body: body,
+    );
+  }
+}
+
+/// The second pane on an expanded display. It is a raised surface that runs
+/// to the bottom edge, so the list beside it keeps the canvas.
+class AppDetailPane extends StatelessWidget {
+  const AppDetailPane({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final top = MediaQuery.paddingOf(context).top;
+
+    return Container(
+      margin: EdgeInsets.only(top: top + 14, left: 8),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(Radii.xl),
+        ),
+        boxShadow: AppShadows.shadowLg(isDark: isDark),
+      ),
+      child: child,
     );
   }
 }

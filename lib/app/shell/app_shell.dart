@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/nav_rail.dart';
 import 'package:critalarm/design/components/scroll_fade.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -55,6 +56,46 @@ class _AppShellContent extends StatelessWidget {
 
     return BlocBuilder<ShellCubit, int>(
       builder: (context, missingPermissions) {
+        final items = [
+          AppTabItem(
+            label: LocaleKeys.nav_topics.tr(),
+            glyph: GlyphType.list,
+          ),
+          AppTabItem(
+            label: LocaleKeys.nav_history.tr(),
+            glyph: GlyphType.clock,
+          ),
+          AppTabItem(
+            label: LocaleKeys.nav_settings.tr(),
+            glyph: GlyphType.gear,
+            showFlag: missingPermissions > 0,
+          ),
+        ];
+
+        // Wide enough for two panes, so the bar stands up on the left and
+        // leaves the panes the full height of the display.
+        if (size.isExpanded) {
+          return Stack(
+            children: [
+              Positioned.fill(child: navigationShell),
+              Positioned(
+                left: AppNavRail.edgeInset,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: AppNavRail(
+                    currentIndex: navigationShell.currentIndex,
+                    items: items,
+                    onSelect: (index) => _goBranch(context, index),
+                    composeLabel: LocaleKeys.nav_new_topic.tr(),
+                    onCompose: () => context.pushNamed('createTopic'),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
         return Stack(
           children: [
             Positioned.fill(child: navigationShell),
@@ -84,21 +125,7 @@ class _AppShellContent extends StatelessWidget {
                     child: AppFloatingTabBar(
                       currentIndex: navigationShell.currentIndex,
                       iconsOnly: size.isNarrow,
-                      items: [
-                        AppTabItem(
-                          label: LocaleKeys.nav_topics.tr(),
-                          glyph: GlyphType.list,
-                        ),
-                        AppTabItem(
-                          label: LocaleKeys.nav_history.tr(),
-                          glyph: GlyphType.clock,
-                        ),
-                        AppTabItem(
-                          label: LocaleKeys.nav_settings.tr(),
-                          glyph: GlyphType.gear,
-                          showFlag: missingPermissions > 0,
-                        ),
-                      ],
+                      items: items,
                       onSelect: (index) => _goBranch(context, index),
                       composeLabel: LocaleKeys.nav_new_topic.tr(),
                       onCompose: () => context.pushNamed('createTopic'),

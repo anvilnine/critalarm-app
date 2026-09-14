@@ -45,4 +45,36 @@ void main() {
       AppSize.contentMaxWidth,
     );
   });
+
+  testWidgets('a phone hides the detail pane', (tester) async {
+    await pumpWithDetail(tester, const Size(402, 874));
+    expect(find.byKey(const Key('detail')), findsNothing);
+  });
+
+  testWidgets('an iPad on its side shows the detail pane', (tester) async {
+    await pumpWithDetail(tester, const Size(1210, 834));
+    expect(find.byKey(const Key('detail')), findsOneWidget);
+  });
+}
+
+/// Pumps the scaffold on a display of [size] with a detail pane supplied.
+Future<void> pumpWithDetail(WidgetTester tester, Size size) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: buildLightTheme(),
+      home: const AppScreenScaffold(
+        hasTabBar: false,
+        withGhosts: false,
+        detail: SizedBox(key: Key('detail')),
+        slivers: [
+          SliverToBoxAdapter(child: SizedBox(height: 60, key: Key('row'))),
+        ],
+      ),
+    ),
+  );
+  await tester.pump();
 }
