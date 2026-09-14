@@ -7,6 +7,29 @@ class RevenueCatService {
   RevenueCatService();
 
   bool _isConfigured = false;
+  String? _accountId;
+  Future<void> _login = Future<void>.value();
+
+  Future<void> identifyAccount(String accountId) async {
+    _accountId = accountId;
+    if (!_isConfigured) return;
+    final previous = _login;
+    _login = () async {
+      try {
+        await previous;
+      } on Object catch (_) {
+        // A later registration retries a failed login.
+      }
+      await logIn(accountId);
+    }();
+    await _login;
+  }
+
+  Future<void> invalidateCustomerInfoCache() async {
+    _ensureConfigured();
+    await Purchases.invalidateCustomerInfoCache();
+  }
+
   final _customerInfoStreamController =
       StreamController<CustomerInfo>.broadcast();
 
@@ -23,6 +46,7 @@ class RevenueCatService {
     String? appUserId,
   }) async {
     if (_isConfigured) return;
+    _accountId ??= appUserId;
 
     if (kDebugMode) {
       await Purchases.setLogLevel(LogLevel.debug);
@@ -30,10 +54,13 @@ class RevenueCatService {
       await Purchases.setLogLevel(LogLevel.info);
     }
 
-    final configuration = PurchasesConfiguration(apiKey)..appUserID = appUserId;
+    final configuration = PurchasesConfiguration(apiKey)
+      ..appUserID = _accountId;
 
     await Purchases.configure(configuration);
     _isConfigured = true;
+    final accountId = _accountId;
+    if (accountId != null) await identifyAccount(accountId);
 
     Purchases.addCustomerInfoUpdateListener((customerInfo) {
       if (!_customerInfoStreamController.isClosed) {
@@ -57,6 +84,10 @@ class RevenueCatService {
   /// Executes purchase for a package using modern [PurchaseParams].
   Future<CustomerInfo> purchasePackage(Package package) async {
     _ensureConfigured();
+    await _login;
+    if (_accountId == null) {
+      throw StateError('No RevenueCat account configured');
+    }
     final result = await Purchases.purchase(PurchaseParams.package(package));
     return result.customerInfo;
   }
@@ -64,6 +95,10 @@ class RevenueCatService {
   /// Restores previous transactions.
   Future<CustomerInfo> restorePurchases() async {
     _ensureConfigured();
+    await _login;
+    if (_accountId == null) {
+      throw StateError('No RevenueCat account configured');
+    }
     return Purchases.restorePurchases();
   }
 

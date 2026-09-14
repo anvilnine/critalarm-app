@@ -79,14 +79,16 @@ abstract interface class ApiClient {
 
   /// POST /relay/v1/devices
   Future<DeviceRegistrationResponse> registerDevice(
-    DeviceRegistration registration,
-  );
+    DeviceRegistration registration, {
+    Uri? relayUri,
+  });
 
   /// PATCH /relay/v1/devices/{device_id}
   Future<DeviceRegistrationResponse> refreshDevice(
     DeviceRegistration registration,
-    String deviceToken,
-  );
+    String deviceToken, {
+    Uri? relayUri,
+  });
 
   /// POST /relay/v1/devices/{device_id}/tokens
   ///

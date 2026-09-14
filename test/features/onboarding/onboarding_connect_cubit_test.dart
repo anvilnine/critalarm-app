@@ -1,4 +1,5 @@
 import 'package:bloc_test/bloc_test.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/result/result.dart';
@@ -6,6 +7,7 @@ import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
@@ -23,13 +25,24 @@ class MockCompleteOnboardingUsecase extends Mock
 class MockTriggerTestAlarmUsecase extends Mock
     implements TriggerTestAlarmUsecase {}
 
+class MockEstablishSession extends Mock implements EstablishApiSessionUsecase {}
+
 void main() {
+  late MockEstablishSession mockEstablishSession;
   late MockGetServerInfoUsecase mockGetServerInfo;
   late MockSaveConnectionUsecase mockSaveConnection;
   late MockCompleteOnboardingUsecase mockCompleteOnboarding;
   late MockTriggerTestAlarmUsecase mockTriggerTestAlarm;
 
   setUpAll(() {
+    registerFallbackValue(Uri.parse('https://api.critalarm.app'));
+    registerFallbackValue(
+      const ServerInfo(
+        version: '0.1.0',
+        baseUrl: 'https://api.critalarm.app',
+        relayUrl: 'https://relay.critalarm.app',
+      ),
+    );
     registerFallbackValue(const NoParams());
     registerFallbackValue(
       const ServerConnection(serverUrl: '', adminToken: ''),
@@ -37,10 +50,29 @@ void main() {
   });
 
   setUp(() {
+    mockEstablishSession = MockEstablishSession();
+    when(() => mockEstablishSession(any(), any())).thenAnswer((
+      invocation,
+    ) async {
+      final info = invocation.positionalArguments[0] as ServerInfo;
+      return ApiSession(
+        baseUri: Uri.parse(info.baseUrl),
+        relayUri: Uri.parse(info.relayUrl),
+        mode: ServerMode.selfhosted,
+        managementCredential: invocation.positionalArguments[1] as String,
+      );
+    });
     mockGetServerInfo = MockGetServerInfoUsecase();
     mockSaveConnection = MockSaveConnectionUsecase();
     mockCompleteOnboarding = MockCompleteOnboardingUsecase();
     mockTriggerTestAlarm = MockTriggerTestAlarmUsecase();
+    when(() => mockGetServerInfo(any())).thenAnswer(
+      (_) async => const ServerInfo(
+        version: '0.1.0',
+        baseUrl: 'https://api.critalarm.app',
+        relayUrl: 'https://relay.critalarm.app',
+      ).toSuccess(),
+    );
   });
 
   group('OnboardingConnectCubit', () {
@@ -49,6 +81,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       );
       expect(cubit.state.serverUrl, 'https://api.critalarm.app');
       expect(cubit.state.adminToken, isEmpty);
@@ -64,6 +97,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
         serverUrlError: 'Invalid URL',
@@ -83,6 +117,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
         adminTokenError: 'Required',
@@ -101,6 +136,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       act: (cubit) => cubit.pasteToken('ad_pasted_token'),
       expect: () => [
@@ -116,6 +152,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       act: (cubit) => cubit.scanQrTapped(),
       expect: () => [
@@ -131,6 +168,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
         serverUrl: '   ',
@@ -152,6 +190,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
         serverUrl: 'not_a_valid_url',
@@ -173,6 +212,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
         adminToken: '   ',
@@ -181,6 +221,11 @@ void main() {
       expect: () => [
         const OnboardingConnectState(
           adminToken: '   ',
+          status: OnboardingConnectStatus.connecting,
+        ),
+        const OnboardingConnectState(
+          adminToken: '   ',
+          requiresAdminToken: true,
           adminTokenError: 'Admin token cannot be empty',
         ),
       ],
@@ -200,6 +245,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
         adminToken: 'ad_12345',
@@ -234,6 +280,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
         adminToken: 'ad_12345',
@@ -247,8 +294,7 @@ void main() {
         const OnboardingConnectState(
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.failure,
-          errorMessage:
-              'This app needs a v0.x server. Yours is 1.2.0.',
+          errorMessage: 'This app needs a v0.x server. Yours is 1.2.0.',
         ),
       ],
     );
@@ -269,6 +315,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
         adminToken: 'ad_12345',
@@ -307,6 +354,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
         adminToken: 'ad_12345',
@@ -345,6 +393,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
         status: OnboardingConnectStatus.connected,
@@ -377,6 +426,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
         status: OnboardingConnectStatus.connected,
@@ -406,6 +456,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
         completeOnboarding: mockCompleteOnboarding,
       ),
       act: (cubit) => cubit.navigateToHome(),
@@ -427,6 +478,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
         completeOnboarding: mockCompleteOnboarding,
       ),
       act: (cubit) => cubit.navigateToHome(),
@@ -441,6 +493,7 @@ void main() {
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
+        establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
         status: OnboardingConnectStatus.connected,

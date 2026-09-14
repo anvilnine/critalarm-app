@@ -19,6 +19,7 @@ class OnboardingConnectState {
   const OnboardingConnectState({
     this.serverUrl = 'https://api.critalarm.app',
     this.adminToken = '',
+    this.requiresAdminToken = false,
     this.status = OnboardingConnectStatus.idle,
     this.testAlarmStatus = TestAlarmStatus.idle,
     this.serverUrlError,
@@ -32,6 +33,7 @@ class OnboardingConnectState {
 
   final String serverUrl;
   final String adminToken;
+  final bool requiresAdminToken;
   final OnboardingConnectStatus status;
   final TestAlarmStatus testAlarmStatus;
   final String? serverUrlError;
@@ -51,6 +53,7 @@ class OnboardingConnectState {
   OnboardingConnectState copyWith({
     String? serverUrl,
     String? adminToken,
+    bool? requiresAdminToken,
     OnboardingConnectStatus? status,
     TestAlarmStatus? testAlarmStatus,
     String? serverUrlError,
@@ -69,6 +72,7 @@ class OnboardingConnectState {
     return OnboardingConnectState(
       serverUrl: serverUrl ?? this.serverUrl,
       adminToken: adminToken ?? this.adminToken,
+      requiresAdminToken: requiresAdminToken ?? this.requiresAdminToken,
       status: status ?? this.status,
       testAlarmStatus: testAlarmStatus ?? this.testAlarmStatus,
       serverUrlError: clearServerUrlError
@@ -94,6 +98,7 @@ class OnboardingConnectState {
           runtimeType == other.runtimeType &&
           serverUrl == other.serverUrl &&
           adminToken == other.adminToken &&
+          requiresAdminToken == other.requiresAdminToken &&
           status == other.status &&
           testAlarmStatus == other.testAlarmStatus &&
           serverUrlError == other.serverUrlError &&
@@ -108,6 +113,7 @@ class OnboardingConnectState {
   int get hashCode => Object.hash(
     serverUrl,
     adminToken,
+    requiresAdminToken,
     status,
     testAlarmStatus,
     serverUrlError,

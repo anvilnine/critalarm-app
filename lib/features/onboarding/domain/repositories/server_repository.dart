@@ -4,7 +4,7 @@ import 'package:critalarm/features/onboarding/domain/entities/server_info.dart';
 
 /// Domain contract for connecting to a server and registering devices.
 abstract interface class ServerRepository {
-  Future<AppResult<ServerInfo>> getServerInfo();
+  Future<AppResult<ServerInfo>> getServerInfo([Uri? candidateBaseUri]);
 
   Future<AppResult<DeviceRegistrationResponse>> registerDevice(
     DeviceRegistration registration,
