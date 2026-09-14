@@ -80,9 +80,15 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                 ),
           slivers: [
             SliverToBoxAdapter(
-              child: AppStage.horizontal(
-                faceState: FaceState.acked,
-                sub: summary,
+              child: Column(
+                children: [
+                  const SizedBox(height: Spacing.s2),
+                  AppStage.horizontal(
+                    faceState: FaceState.acked,
+                    sub: summary,
+                  ),
+                  const SizedBox(height: Spacing.s3),
+                ],
               ),
             ),
             if (state.isEmpty)
