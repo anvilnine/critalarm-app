@@ -484,7 +484,6 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => SettingsCubit(
-        getIt<GetTopicsUsecase>(),
         getConnectionUsecase: getIt<GetConnectionUsecase>(),
         clearConnectionUsecase: getIt<ClearConnectionUsecase>(),
         saveConnectionUsecase: getIt<SaveConnectionUsecase>(),

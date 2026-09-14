@@ -8,6 +8,11 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_connect_sc
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
+import 'package:critalarm/features/settings/presentation/about_screen.dart';
+import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
+import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
+import 'package:critalarm/features/settings/presentation/privacy_settings_screen.dart';
+import 'package:critalarm/features/settings/presentation/server_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_picker_screen.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
@@ -32,6 +37,11 @@ abstract final class AppRoute {
   static const settingsDisconnected = 'settingsDisconnected';
   static const devicePermissions = 'devicePermissions';
   static const soundPicker = 'soundPicker';
+  static const alarmSettings = 'alarmSettings';
+  static const serverSettings = 'serverSettings';
+  static const privacySettings = 'privacySettings';
+  static const about = 'about';
+  static const developerSettings = 'developerSettings';
   static const paywall = 'paywall';
   static const alarm = 'alarm';
   static const incidentDetail = 'incidentDetail';
@@ -130,6 +140,34 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   path: 'permissions',
                   name: AppRoute.devicePermissions,
                   builder: (context, state) => const DevicePermissionsScreen(),
+                ),
+                GoRoute(
+                  path: 'alarms',
+                  name: AppRoute.alarmSettings,
+                  builder: (context, state) => const AlarmSettingsScreen(),
+                ),
+                GoRoute(
+                  path: 'server',
+                  name: AppRoute.serverSettings,
+                  builder: (context, state) => const ServerSettingsScreen(),
+                ),
+                GoRoute(
+                  path: 'privacy',
+                  name: AppRoute.privacySettings,
+                  builder: (context, state) => const PrivacySettingsScreen(),
+                ),
+                GoRoute(
+                  path: 'about',
+                  name: AppRoute.about,
+                  builder: (context, state) => const AboutScreen(),
+                ),
+                // Only reachable in builds made with
+                // --dart-define=SKIP_PAYWALL=true, where Settings shows the
+                // row that leads here.
+                GoRoute(
+                  path: 'developer',
+                  name: AppRoute.developerSettings,
+                  builder: (context, state) => const DeveloperSettingsScreen(),
                 ),
               ],
             ),

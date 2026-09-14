@@ -1,28 +1,4 @@
-import 'package:critalarm/design/components/chips.dart';
 import 'package:flutter/foundation.dart';
-
-/// Representation of a topic item and its priority level in Settings.
-@immutable
-class TopicPriorityItem {
-  const TopicPriorityItem({
-    required this.name,
-    required this.priority,
-  });
-
-  final String name;
-  final PriorityLevel priority;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is TopicPriorityItem &&
-          runtimeType == other.runtimeType &&
-          name == other.name &&
-          priority == other.priority;
-
-  @override
-  int get hashCode => Object.hash(name, priority);
-}
 
 enum SettingsStatus { initial, loading, success, failure }
 
@@ -41,15 +17,6 @@ class SettingsState {
     this.crashReportingEnabled = false,
     this.isDisconnecting = false,
     this.isSavingConnection = false,
-    this.topics = const [
-      TopicPriorityItem(name: 'prod-db', priority: PriorityLevel.critical),
-      TopicPriorityItem(name: 'nas-backup', priority: PriorityLevel.high),
-      TopicPriorityItem(
-        name: 'uptime-kuma',
-        priority: PriorityLevel.defaultPriority,
-      ),
-      TopicPriorityItem(name: 'home-ha', priority: PriorityLevel.low),
-    ],
     this.errorMessage,
   });
 
@@ -64,7 +31,6 @@ class SettingsState {
   final bool crashReportingEnabled;
   final bool isDisconnecting;
   final bool isSavingConnection;
-  final List<TopicPriorityItem> topics;
   final String? errorMessage;
 
   SettingsState copyWith({
@@ -79,7 +45,6 @@ class SettingsState {
     bool? crashReportingEnabled,
     bool? isDisconnecting,
     bool? isSavingConnection,
-    List<TopicPriorityItem>? topics,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -98,7 +63,6 @@ class SettingsState {
           crashReportingEnabled ?? this.crashReportingEnabled,
       isDisconnecting: isDisconnecting ?? this.isDisconnecting,
       isSavingConnection: isSavingConnection ?? this.isSavingConnection,
-      topics: topics ?? this.topics,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
@@ -119,7 +83,6 @@ class SettingsState {
           crashReportingEnabled == other.crashReportingEnabled &&
           isDisconnecting == other.isDisconnecting &&
           isSavingConnection == other.isSavingConnection &&
-          listEquals(topics, other.topics) &&
           errorMessage == other.errorMessage;
 
   @override
@@ -135,7 +98,6 @@ class SettingsState {
     crashReportingEnabled,
     isDisconnecting,
     isSavingConnection,
-    Object.hashAll(topics),
     errorMessage,
   );
 }
