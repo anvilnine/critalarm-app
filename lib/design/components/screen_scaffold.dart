@@ -123,26 +123,32 @@ class AppScreenScaffold extends StatelessWidget {
     Widget body = Stack(
       children: [
         Positioned.fill(child: list),
+        // The tab bar floats over every branch screen, so the fade behind it
+        // lives here rather than in the shell: this side of the tree is inside
+        // the screen's SeverityScope, so the wash follows the retint.
+        if (hasTabBar && !size.isExpanded)
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: AppScrollFade(
+              edge: ScrollFadeEdge.bottom,
+              height: padding.bottom + AppFloatingTabBar.fadeHeight,
+              color: canvas,
+              strength: 0.5,
+            ),
+          ),
         if (topBar != null)
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: Stack(
-              children: [
-                AppScrollFade(
-                  edge: ScrollFadeEdge.top,
-                  height: topInset + 28,
-                  color: canvas,
-                ),
-                SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: gutter),
-                    child: SizedBox(height: topBarHeight, child: topBar),
-                  ),
-                ),
-              ],
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: gutter),
+                child: SizedBox(height: topBarHeight, child: topBar),
+              ),
             ),
           ),
         if (bottomBar != null)

@@ -5,9 +5,7 @@ import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/nav_rail.dart';
-import 'package:critalarm/design/components/scroll_fade.dart';
 import 'package:critalarm/design/size_class.dart';
-import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -50,7 +48,6 @@ class _AppShellContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final size = AppSize.of(context);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
@@ -99,22 +96,14 @@ class _AppShellContent extends StatelessWidget {
         return Stack(
           children: [
             Positioned.fill(child: navigationShell),
+            // The fade behind the bar is drawn by AppScreenScaffold, not here.
+            // Up at this level the shell sits above every screen's
+            // SeverityScope, so a wash painted here would stay the base yellow
+            // on a retinted screen.
             Positioned(
               left: 0,
               right: 0,
-              bottom: 0,
-              child: IgnorePointer(
-                child: AppScrollFade(
-                  edge: ScrollFadeEdge.bottom,
-                  height: bottomInset + 112,
-                  color: colors.canvas,
-                ),
-              ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomInset + 22,
+              bottom: bottomInset + AppFloatingTabBar.edgeGap,
               child: Center(
                 // Four slots inside 390 px is tight. Scale the whole bar down
                 // rather than let a label clip on a narrow display.
