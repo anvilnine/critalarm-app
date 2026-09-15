@@ -2,6 +2,7 @@ import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/close_incident_usecase.dart';
@@ -162,6 +163,15 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     await _updateBadge?.call();
   }
 
+  /// How long this incident has been ringing, right now. The string used to
+  /// be the literal "Ringing 2 min 14 s.", a mockup value that shipped, so the
+  /// screen claimed the same duration whatever was happening.
+  String _ringingFor(Incident incident) {
+    final openedAt = incident.openedAt;
+    if (openedAt == null) return formatRingDuration(Duration.zero);
+    return formatRingDuration(DateTime.now().difference(openedAt));
+  }
+
   Future<void> closeIncident() async {
     final incidentId = state.incident?.id;
     if (incidentId == null) return;
@@ -255,7 +265,9 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
           title: title,
           body: body,
           word: LocaleKeys.critical_alarm_stage_word_critical.tr(),
-          subtext: LocaleKeys.critical_alarm_stage_sub_ringing.tr(),
+          subtext: LocaleKeys.critical_alarm_stage_sub_ringing.tr(
+            namedArgs: {'duration': _ringingFor(incident)},
+          ),
           severityMode: SeverityMode.crit,
           faceState: FaceState.alarmed,
           isLive: true,
