@@ -39,6 +39,12 @@ class AppFloatingTabBar extends StatelessWidget {
     this.composeLabel,
     this.searchLabel,
     this.iconsOnly = false,
+    this.isSearching = false,
+    this.searchController,
+    this.searchFocusNode,
+    this.searchPlaceholder,
+    this.onSearchChanged,
+    this.onSearchClose,
     super.key,
   });
 
@@ -74,6 +80,17 @@ class AppFloatingTabBar extends StatelessWidget {
   /// anything else too narrow to spell out three tab names.
   final bool iconsOnly;
 
+  /// Turns the bar into the search field. The pill itself does not move or
+  /// change shape: only what is inside it swaps, so searching reads as the bar
+  /// opening up rather than a new screen arriving.
+  final bool isSearching;
+
+  final TextEditingController? searchController;
+  final FocusNode? searchFocusNode;
+  final String? searchPlaceholder;
+  final ValueChanged<String>? onSearchChanged;
+  final VoidCallback? onSearchClose;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -91,29 +108,143 @@ class AppFloatingTabBar extends StatelessWidget {
       // Material for the ink on each slot.
       child: Material(
         type: MaterialType.transparency,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < items.length; i++) ...[
-              if (i > 0) const SizedBox(width: 2),
-              _TabSlot(
-                item: items[i],
-                isCurrent: i == currentIndex,
-                iconsOnly: iconsOnly,
-                onTap: () {
-                  if (i == currentIndex) return;
-                  AppHaptics.selection();
-                  onSelect(i);
-                },
+        child: isSearching
+            ? _SearchRow(
+                controller: searchController,
+                focusNode: searchFocusNode,
+                placeholder: searchPlaceholder,
+                onChanged: onSearchChanged,
+                onClose: onSearchClose,
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < items.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 2),
+                    _TabSlot(
+                      item: items[i],
+                      isCurrent: i == currentIndex,
+                      iconsOnly: iconsOnly,
+                      onTap: () {
+                        if (i == currentIndex) return;
+                        AppHaptics.selection();
+                        onSelect(i);
+                      },
+                    ),
+                  ],
+                  const SizedBox(width: 4),
+                  if (onSearch != null) ...[
+                    _SearchSlot(label: searchLabel, onTap: onSearch!),
+                    const SizedBox(width: 4),
+                  ],
+                  _ComposeSlot(label: composeLabel, onTap: onCompose),
+                ],
               ),
-            ],
-            const SizedBox(width: 4),
-            if (onSearch != null) ...[
-              _SearchSlot(label: searchLabel, onTap: onSearch!),
-              const SizedBox(width: 4),
-            ],
-            _ComposeSlot(label: composeLabel, onTap: onCompose),
-          ],
+      ),
+    );
+  }
+}
+
+/// What the pill holds while searching: the same 44px slots, with the field
+/// stretched across the middle where the tabs were.
+class _SearchRow extends StatelessWidget {
+  const _SearchRow({
+    required this.controller,
+    required this.focusNode,
+    required this.placeholder,
+    required this.onChanged,
+    required this.onClose,
+  });
+
+  final TextEditingController? controller;
+  final FocusNode? focusNode;
+  final String? placeholder;
+  final ValueChanged<String>? onChanged;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 44,
+          child: Center(
+            child: AppGlyph(
+              GlyphType.search,
+              size: 20,
+              color: colors.onPanelMuted,
+            ),
+          ),
+        ),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            // Focus is asked for by the shell once the bar has swapped, not
+            // with autofocus: the field is built in the middle of the same
+            // frame the bar changes shape in, and autofocus does not land.
+            textInputAction: TextInputAction.search,
+            onChanged: onChanged,
+            cursorColor: colors.highlight,
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontFamilyFallback: AppTypography.fontBodyFallbacks,
+              fontSize: 15,
+              color: colors.onPanel,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+              hintText: placeholder,
+              hintStyle: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                fontSize: 15,
+                color: colors.onPanelMuted,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        _CloseSlot(onTap: onClose),
+      ],
+    );
+  }
+}
+
+/// Leaves search and puts the tabs back.
+class _CloseSlot extends StatelessWidget {
+  const _CloseSlot({required this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: () {
+          AppHaptics.selection();
+          onTap?.call();
+        },
+        borderRadius: Radii.fullAll,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Center(
+            child: AppGlyph(
+              GlyphType.close,
+              size: 18,
+              color: colors.onPanelMuted,
+            ),
+          ),
         ),
       ),
     );
