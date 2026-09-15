@@ -61,46 +61,53 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildLayer(BuildContext context, SearchState state) {
-    // Top aligned and no taller than it needs to be, so everything below the
-    // panel is still scrim and still closes search when tapped.
-    return SafeArea(
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            Spacing.s4,
-            Spacing.s2,
-            Spacing.s4,
-            Spacing.s4 + MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppSize.contentMaxWidth,
+    // The route is not opaque, so there is no Material above this the way there
+    // is inside a normal screen. Without one, Text falls back to the debug
+    // style with yellow underlines and the ink on each row has nothing to draw
+    // on. The floating tab bar carries its own Material for the same reason.
+    return Material(
+      type: MaterialType.transparency,
+      // Top aligned and no taller than it needs to be, so everything below the
+      // panel is still scrim and still closes search when tapped.
+      child: SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              Spacing.s4,
+              Spacing.s2,
+              Spacing.s4,
+              Spacing.s4 + MediaQuery.viewInsetsOf(context).bottom,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                _SearchField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  scope: widget.scope,
-                  onChanged: context.read<SearchCubit>().updateQuery,
-                  onClear: () {
-                    _controller.clear();
-                    context.read<SearchCubit>().clearQuery();
-                    _focusNode.requestFocus();
-                  },
-                  onClose: () => Navigator.of(context).maybePop(),
-                ),
-                const SizedBox(height: Spacing.s3),
-                Flexible(
-                  child: _Panel(
-                    state: state,
-                    onTapResult: _open,
-                    onTapRecent: _fill,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSize.contentMaxWidth,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  _SearchField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    scope: widget.scope,
+                    onChanged: context.read<SearchCubit>().updateQuery,
+                    onClear: () {
+                      _controller.clear();
+                      context.read<SearchCubit>().clearQuery();
+                      _focusNode.requestFocus();
+                    },
+                    onClose: () => Navigator.of(context).maybePop(),
                   ),
-                ),
-              ],
+                  const SizedBox(height: Spacing.s3),
+                  Flexible(
+                    child: _Panel(
+                      state: state,
+                      onTapResult: _open,
+                      onTapRecent: _fill,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
