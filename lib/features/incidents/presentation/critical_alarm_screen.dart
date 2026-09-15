@@ -116,12 +116,19 @@ class _RingingScreen extends StatelessWidget {
         SizedBox(
           height: 48,
           child: AppButton(
-            label: LocaleKeys.critical_alarm_snooze_button.tr(),
+            label: LocaleKeys.critical_alarm_read_message_button.tr(),
             variant: AppButtonVariant.ghost,
             isFullWidth: true,
-            // Snooze has no cubit method yet, so the press only confirms
-            // itself with a haptic until one exists.
-            onPressed: AppHaptics.capture,
+            // Reading is not acknowledging, so this leaves the alarm ringing
+            // and takes the user to the messages on the topic.
+            onPressed: state.incident == null
+                ? null
+                : () {
+                    AppHaptics.selection();
+                    unawaited(
+                      context.push('/topics/${state.incident!.topic}'),
+                    );
+                  },
           ),
         ),
       ],
