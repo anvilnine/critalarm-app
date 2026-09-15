@@ -9,6 +9,19 @@
 // ignore_for_file: type=lint
 // ignore_for_file: deprecated_member_use,directives_ordering,implicit_dynamic_list_literal,unnecessary_import
 
+class $AssetsDocsGen {
+  const $AssetsDocsGen();
+
+  /// File path: assets/docs/docs_index.json
+  String get docsIndex => 'assets/docs/docs_index.json';
+
+  /// Directory path: assets/docs
+  String get path => 'assets/docs';
+
+  /// List of all assets
+  List<String> get values => [docsIndex];
+}
+
 class $AssetsFontsGen {
   const $AssetsFontsGen();
 
@@ -139,6 +152,7 @@ class $AssetsTranslationsGen {
 class Assets {
   const Assets._();
 
+  static const $AssetsDocsGen docs = $AssetsDocsGen();
   static const $AssetsFontsGen fonts = $AssetsFontsGen();
   static const $AssetsSoundsGen sounds = $AssetsSoundsGen();
   static const $AssetsTranslationsGen translations = $AssetsTranslationsGen();
