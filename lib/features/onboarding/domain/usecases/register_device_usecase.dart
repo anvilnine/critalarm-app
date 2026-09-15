@@ -52,6 +52,7 @@ final class RegisterDeviceUsecase {
       deviceToken: token,
       accountId: response.accountId,
       tier: response.tier,
+      caps: response.caps,
     );
     await identifyAccount?.call(response.accountId);
     return response;

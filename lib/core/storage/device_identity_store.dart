@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:critalarm/core/models/device_identity.dart';
+import 'package:critalarm/core/models/device_registration.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +21,7 @@ class DeviceIdentityStore {
     'device_token',
     'account_id',
     'account_tier',
+    'account_caps',
   ];
 
   DeviceIdentity? _readLegacy() {
@@ -30,6 +32,10 @@ class DeviceIdentityStore {
       deviceToken: _prefs.getString('device_token'),
       accountId: _prefs.getString('account_id'),
       tier: _prefs.getString('account_tier') ?? 'free',
+      caps: AccountCaps.fromJson(
+        jsonDecode(_prefs.getString('account_caps') ?? '{}')
+            as Map<String, dynamic>,
+      ),
     );
   }
 
@@ -45,11 +51,13 @@ class DeviceIdentityStore {
     required String deviceToken,
     required String accountId,
     required String tier,
+    AccountCaps caps = const AccountCaps(),
   }) async {
     if (deviceToken.trim().isEmpty) throw StateError('Empty device token');
     await _prefs.setString('device_token', deviceToken);
     await _prefs.setString('account_id', accountId);
     await _prefs.setString('account_tier', tier);
+    await _prefs.setString('account_caps', jsonEncode(caps.toJson()));
   }
 }
 
@@ -68,6 +76,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
       'device_token': identity.deviceToken,
       'account_id': identity.accountId,
       'account_tier': identity.tier,
+      'caps': identity.caps.toJson(),
     }),
   );
 
@@ -82,6 +91,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
         deviceToken: data['device_token'] as String?,
         accountId: data['account_id'] as String?,
         tier: data['account_tier'] as String,
+        caps: AccountCaps.fromJson(data['caps'] as Map<String, dynamic>? ?? {}),
       );
     } else {
       identity =
@@ -101,6 +111,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
     required String deviceToken,
     required String accountId,
     required String tier,
+    AccountCaps caps = const AccountCaps(),
   }) async {
     if (deviceToken.trim().isEmpty) throw StateError('Empty device token');
     final identity = await readOrCreate();
@@ -110,6 +121,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
         deviceToken: deviceToken,
         accountId: accountId,
         tier: tier,
+        caps: caps,
       ),
     );
   }

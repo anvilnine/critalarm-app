@@ -94,6 +94,7 @@ void main() {
 
       final pubResult = await incidentRepo.publishMessage(
         'alerts',
+        message: 'triggered',
         title: 'Alarm test',
         priority: 5,
       );
@@ -117,6 +118,7 @@ void main() {
         await topicRepo.createTopic(name: 'alerts', critical: true);
         final pubResult = await incidentRepo.publishMessage(
           'alerts',
+          message: 'triggered',
           priority: 5,
         );
         final incidentId = pubResult.getOrNull()!.incidentId!;

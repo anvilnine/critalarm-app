@@ -20,6 +20,7 @@ abstract class Topic with _$Topic {
     @NullableDateTimeConverter()
     DateTime? createdAt,
     String? token,
+    @JsonKey(name: 'token_id') String? tokenId,
   }) = _Topic;
 
   factory Topic.fromJson(Map<String, dynamic> json) => _$TopicFromJson(json);

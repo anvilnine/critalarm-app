@@ -57,7 +57,11 @@ void main() {
 
     test('lifecycle state transitions: open -> acked -> closed', () async {
       await client.createTopic(name: 'ops', critical: true);
-      final msg = await client.publishMessage('ops', priority: 5);
+      final msg = await client.publishMessage(
+        'ops',
+        message: 'triggered',
+        priority: 5,
+      );
       final incId = msg.incidentId!;
 
       // 1. Initial state is open
@@ -81,7 +85,11 @@ void main() {
 
     test('invalid state transitions return 409', () async {
       await client.createTopic(name: 'ops', critical: true);
-      final msg = await client.publishMessage('ops', priority: 5);
+      final msg = await client.publishMessage(
+        'ops',
+        message: 'triggered',
+        priority: 5,
+      );
       final incId = msg.incidentId!;
 
       // Close when open -> 409
@@ -135,7 +143,7 @@ void main() {
       expect(response.deviceToken, startsWith('dv_'));
       expect(response.tier, 'free');
       expect(response.caps.devices, 1);
-      expect(response.caps.criticalTopics, 1);
+      expect(response.caps.criticalTopics, 2);
       expect(response.caps.p4Daily, 50);
     });
 
