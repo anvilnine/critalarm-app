@@ -1,6 +1,7 @@
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/models/send_result.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/entities/message.dart';
@@ -30,6 +31,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
         statusCode: e.statusCode,
         message: e.message,
         code: e.code,
+        cap: e.cap,
       ).toFailure();
     } on Exception catch (e) {
       return Failure.unexpected(message: e.toString()).toFailure();
@@ -46,6 +48,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
         statusCode: e.statusCode,
         message: e.message,
         code: e.code,
+        cap: e.cap,
       ).toFailure();
     } on Exception catch (e) {
       return Failure.unexpected(message: e.toString()).toFailure();
@@ -62,6 +65,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
         statusCode: e.statusCode,
         message: e.message,
         code: e.code,
+        cap: e.cap,
       ).toFailure();
     } on Exception catch (e) {
       return Failure.unexpected(message: e.toString()).toFailure();
@@ -78,6 +82,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
         statusCode: e.statusCode,
         message: e.message,
         code: e.code,
+        cap: e.cap,
       ).toFailure();
     } on Exception catch (e) {
       return Failure.unexpected(message: e.toString()).toFailure();
@@ -94,6 +99,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
         statusCode: e.statusCode,
         message: e.message,
         code: e.code,
+        cap: e.cap,
       ).toFailure();
     } on Exception catch (e) {
       return Failure.unexpected(message: e.toString()).toFailure();
@@ -101,14 +107,12 @@ class InMemoryIncidentRepository implements IncidentRepository {
   }
 
   @override
-  Future<AppResult<Message>> publishMessage(
+  Future<AppResult<SendResult>> publishMessage(
     String topic, {
-    String? message,
+    required String message,
     String? title,
     int priority = 3,
     List<String>? tags,
-    String? click,
-    bool? markdown,
   }) async {
     try {
       final msg = await _client.publishMessage(
@@ -117,8 +121,6 @@ class InMemoryIncidentRepository implements IncidentRepository {
         title: title,
         priority: priority,
         tags: tags,
-        click: click,
-        markdown: markdown,
       );
       return msg.toSuccess();
     } on ApiException catch (e) {
@@ -126,6 +128,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
         statusCode: e.statusCode,
         message: e.message,
         code: e.code,
+        cap: e.cap,
       ).toFailure();
     } on Exception catch (e) {
       return Failure.unexpected(message: e.toString()).toFailure();
@@ -150,6 +153,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
         statusCode: e.statusCode,
         message: e.message,
         code: e.code,
+        cap: e.cap,
       ).toFailure();
     } on Exception catch (e) {
       return Failure.unexpected(message: e.toString()).toFailure();

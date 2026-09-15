@@ -4,10 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('AccountCaps', () {
     test('defaults match specification', () {
-      const caps = AccountCaps();
+      const caps = AccountCaps.free;
 
       expect(caps.devices, 1);
-      expect(caps.criticalTopics, 1);
+      expect(caps.criticalTopics, 2);
+      expect(caps.historyIncidents, 20);
+      expect(caps.historyDays, 7);
       expect(caps.p4Daily, 50);
     });
 

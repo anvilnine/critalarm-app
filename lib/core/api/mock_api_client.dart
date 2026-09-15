@@ -3,8 +3,10 @@ import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
+import 'package:critalarm/core/models/send_result.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/core/models/topic_token.dart';
 
 /// In-memory implementation of [ApiClient] backed by [MockServer].
 class MockApiClient implements ApiClient {
@@ -59,7 +61,7 @@ class MockApiClient implements ApiClient {
   Future<void> deleteTopic(String name) async => server.deleteTopic(name);
 
   @override
-  Future<String> createTopicToken(String name) async =>
+  Future<TopicToken> createTopicToken(String name) async =>
       server.createTopicToken(name);
 
   @override
@@ -89,23 +91,19 @@ class MockApiClient implements ApiClient {
       server.triggerTest(topic: topic);
 
   @override
-  Future<Message> publishMessage(
+  Future<SendResult> publishMessage(
     String topic, {
-    String? message,
+    required String message,
     String? title,
     int priority = 3,
     List<String>? tags,
-    String? click,
-    bool? markdown,
   }) async {
-    return server.publishMessage(
+    return server.sendMessage(
       topic,
       message: message,
       title: title,
       priority: priority,
       tags: tags,
-      click: click,
-      markdown: markdown,
     );
   }
 
@@ -126,6 +124,28 @@ class MockApiClient implements ApiClient {
     return server.registerDevice(registration);
   }
 
+  @override
+  Future<void> subscribeTopic({
+    required String deviceId,
+    required String deviceToken,
+    required String topicHash,
+  }) async => server.subscribeTopic(
+    deviceId: deviceId,
+    deviceToken: deviceToken,
+    topicHash: topicHash,
+  );
+
+  @override
+  Future<void> unsubscribeTopic({
+    required String deviceId,
+    required String deviceToken,
+    required String topicHash,
+  }) async => server.unsubscribeTopic(
+    deviceId: deviceId,
+    deviceToken: deviceToken,
+    topicHash: topicHash,
+  );
+
   /// Every token the app has handed over, newest last. The diagnostics test
   /// reads this instead of a real relay.
   final List<Map<String, String?>> activityTokens = [];
@@ -137,12 +157,22 @@ class MockApiClient implements ApiClient {
     required String kind,
     required String token,
     String? incidentId,
+    String? activityId,
   }) async {
+    server.uploadActivityToken(
+      deviceId: deviceId,
+      deviceToken: deviceToken,
+      kind: kind,
+      token: token,
+      activityId: kind == 'la_update' ? activityId : null,
+      incidentId: kind == 'la_update' ? incidentId : null,
+    );
     activityTokens.add({
       'device_id': deviceId,
       'kind': kind,
       'token': token,
       'incident_id': incidentId,
+      if (kind == 'la_update') 'activity_id': activityId,
     });
   }
 
@@ -151,5 +181,9 @@ class MockApiClient implements ApiClient {
     DeviceRegistration registration,
     String deviceToken, {
     Uri? relayUri,
-  }) async => server.registerDevice(registration);
+  }) async {
+    // The development fixture is recreated on launch, while identity persists.
+    server.registerDevice(registration, deviceToken: deviceToken);
+    return server.refreshDevice(registration.deviceId, deviceToken);
+  }
 }

@@ -109,7 +109,10 @@ void main() {
         MockClient((request) async {
           requests.add(request);
           if (request.url.path.endsWith('/tokens')) {
-            return http.Response('{"token":"tk_new"}', 201);
+            return http.Response(
+              '{"token":"tk_new","token_id":"tok_new"}',
+              201,
+            );
           }
           if (request.url.path.endsWith('/ack')) {
             return http.Response(
@@ -123,7 +126,7 @@ void main() {
         sessionStore,
       );
 
-      expect(await client.createTopicToken('prod db'), 'tk_new');
+      expect((await client.createTopicToken('prod db')).tokenId, 'tok_new');
       await client.deleteTopicToken('prod db', 'token/id');
       await client.ackIncident('inc/a');
 
@@ -238,21 +241,5 @@ void main() {
     );
 
     await expectLater(client.getTopics(), throwsA(isA<http.ClientException>()));
-  });
-
-  test('publish and poll reject missing topic-token support', () async {
-    final client = HttpApiClient(
-      MockClient((_) async => http.Response('', 500)),
-      sessionStore,
-    );
-
-    await expectLater(
-      client.publishMessage('prod'),
-      throwsA(isA<UnsupportedError>()),
-    );
-    await expectLater(
-      client.pollMessages('prod', poll: 1),
-      throwsA(isA<UnsupportedError>()),
-    );
   });
 }

@@ -30,6 +30,7 @@ class ActivityToken {
     required this.kind,
     required this.token,
     this.incidentId,
+    this.activityId,
   });
 
   /// `la_start` (one per install, lets the relay start a card with no app
@@ -39,6 +40,7 @@ class ActivityToken {
 
   /// Set on `la_update` only: which card the token belongs to.
   final String? incidentId;
+  final String? activityId;
 
   static ActivityToken? fromMap(Object? raw) {
     if (raw is! Map) return null;
@@ -50,6 +52,7 @@ class ActivityToken {
     return ActivityToken(
       kind: kind,
       token: token,
+      activityId: raw['activity_id'] as String?,
       incidentId: incidentId is String && incidentId.isNotEmpty
           ? incidentId
           : null,
@@ -59,7 +62,8 @@ class ActivityToken {
   Map<String, Object?> toJson() => {
     'kind': kind,
     'token': token,
-    if (incidentId != null) 'incident_id': incidentId,
+    'incident_id': ?incidentId,
+    'activity_id': ?activityId,
   };
 }
 

@@ -194,7 +194,11 @@ Future<void> configureDependencies({
       () => SharedPrefsThemePreferenceRepository(getIt<SharedPreferences>()),
     )
     ..registerLazySingleton<TopicRepository>(
-      () => InMemoryTopicRepository(getIt<ApiClient>()),
+      () => InMemoryTopicRepository(
+        getIt<ApiClient>(),
+        sessions: getIt<ApiSessionStore>(),
+        identity: getIt<DeviceIdentityStore>(),
+      ),
     )
     ..registerLazySingleton<IncidentRepository>(
       () => InMemoryIncidentRepository(getIt<ApiClient>()),
