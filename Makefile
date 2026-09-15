@@ -1,4 +1,4 @@
-.PHONY: gen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release build-release-apk build-release-ios worktree-new worktree-list worktree-clean
+.PHONY: gen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios worktree-new worktree-list worktree-clean
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -51,6 +51,16 @@ doctor:
 # Pass a device with DEVICE=<id>, e.g. make run-release DEVICE=R5CXB30NDRV
 run-release:
 	fvm flutter run --release --dart-define=SKIP_PAYWALL=true $(if $(DEVICE),-d $(DEVICE),)
+
+# Release build that rings quietly: no volume override, and a ring that stops
+# itself after a few seconds. For testing an alarm at a desk in daylight.
+# Pass a device with DEVICE=<id>, e.g. make run-quiet DEVICE=R5CXB30NDRV
+run-quiet:
+	fvm flutter run --release --dart-define=SKIP_PAYWALL=true --dart-define=QUIET_ALARM=true $(if $(DEVICE),-d $(DEVICE),)
+
+# Same, as an installable artifact.
+build-quiet-apk:
+	fvm flutter build apk --release --dart-define=SKIP_PAYWALL=true --dart-define=QUIET_ALARM=true
 
 # Same flag, for an installable artifact instead of an attached run.
 build-release-apk:
