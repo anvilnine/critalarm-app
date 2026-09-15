@@ -1,6 +1,7 @@
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
+import 'package:critalarm/core/alarm/alarm_build_mode.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
@@ -134,6 +135,11 @@ Future<void> configureDependencies({
   http.Client? httpClient,
 }) async {
   final prefs = await SharedPreferences.getInstance();
+
+  // The alarm service runs with no Dart engine, so it reads this flag out of
+  // the same preferences file rather than asking the app. Written on every
+  // launch so a store build, where the constant is false, always clears it.
+  await prefs.setBool('quiet_alarm', buildUsesQuietAlarm);
 
   if (!getIt.isRegistered<TelemetryGate>()) {
     final options = () {

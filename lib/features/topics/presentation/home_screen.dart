@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
@@ -37,8 +38,45 @@ class _HomeScreenContent extends StatefulWidget {
   State<_HomeScreenContent> createState() => _HomeScreenContentState();
 }
 
-class _HomeScreenContentState extends State<_HomeScreenContent> {
+class _HomeScreenContentState extends State<_HomeScreenContent>
+    with WidgetsBindingObserver, RouteAware {
   String? _selectedTopic;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) appRouteObserver.subscribe(this, route);
+  }
+
+  @override
+  void dispose() {
+    appRouteObserver.unsubscribe(this);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Back from creating a topic, from a topic, from anywhere. Whatever the
+  /// user just did could have changed this list, so load it again.
+  @override
+  void didPopNext() {
+    if (!mounted) return;
+    unawaited(context.read<HomeCubit>().refresh());
+  }
+
+  /// Coming back to the app reloads the list. A page can land while the phone
+  /// is in a pocket, and the whole point of this screen is to show it.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) return;
+    unawaited(context.read<HomeCubit>().refresh());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +128,8 @@ class _HomeScreenContentState extends State<_HomeScreenContent> {
                       children: [
                         if (state.topicItems.isEmpty) ...[
                           AppEmptyState(
-                            onButtonPressed: () => context.push('/topics/new'),
+                            onButtonPressed: () =>
+                                context.push('/topics/new'),
                           ),
                         ] else ...[
                           for (final topic in state.topicItems) ...[
