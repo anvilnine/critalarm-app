@@ -77,6 +77,46 @@ void main() {
       expect(score, SearchRanking.keywordMatch);
     });
 
+    test('every word has to land somewhere', () {
+      // "alarm sound" is one word from the title and one from the screen the
+      // row lives on, which is how a user would describe it.
+      final row = _result(
+        SearchResultKind.settings,
+        'Default sound',
+        subtitle: 'Alarms',
+      );
+
+      expect(SearchRanking.score(row, query: 'alarm sound'), greaterThan(0));
+      expect(SearchRanking.score(row, query: 'sound alarm'), greaterThan(0));
+      // "siren" lands nowhere, so the whole thing drops.
+      expect(SearchRanking.score(row, query: 'alarm siren'), 0);
+    });
+
+    test('a word may land on a hidden keyword', () {
+      final row = _result(
+        SearchResultKind.settings,
+        'Theme',
+        keywords: <String>['dark mode', 'appearance'],
+      );
+
+      expect(SearchRanking.score(row, query: 'dark theme'), greaterThan(0));
+    });
+
+    test('a longer query does not score higher just for being longer', () {
+      final row = _result(
+        SearchResultKind.settings,
+        'Default sound',
+        subtitle: 'Alarms',
+      );
+
+      // Adding a word that only lands on the subtitle cannot push the score
+      // above the single word that lands on the title.
+      expect(
+        SearchRanking.score(row, query: 'alarm sound'),
+        lessThanOrEqualTo(SearchRanking.score(row, query: 'sound')),
+      );
+    });
+
     test('nothing matching scores zero, scope bonus included', () {
       expect(
         SearchRanking.score(

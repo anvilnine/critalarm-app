@@ -1,4 +1,5 @@
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/list_rows.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
@@ -6,7 +7,7 @@ import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/features/search/domain/entities/search_result.dart';
 import 'package:critalarm/features/search/presentation/cubits/search_state.dart';
-import 'package:critalarm/features/search/presentation/widgets/search_result_row.dart';
+import 'package:critalarm/features/search/presentation/widgets/search_section_label.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -25,6 +26,9 @@ class SearchPanel extends StatelessWidget {
     required this.onClearRecent,
     super.key,
   });
+
+  /// Gap between rows, matching the Topics and History lists.
+  static const double _rowGap = 10;
 
   final SearchState state;
 
@@ -60,7 +64,12 @@ class SearchPanel extends StatelessWidget {
           ),
           child: ListView(
             shrinkWrap: true,
-            padding: const EdgeInsets.symmetric(vertical: Spacing.s2),
+            padding: const EdgeInsets.fromLTRB(
+              Spacing.s2,
+              Spacing.s2,
+              Spacing.s2,
+              Spacing.s1,
+            ),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: children,
           ),
@@ -81,41 +90,72 @@ class SearchPanel extends StatelessWidget {
           action: LocaleKeys.search_recent_clear.tr(),
           onAction: onClearRecent,
         ),
-        for (final query in state.recent)
-          SearchResultRow(
-            title: query,
-            subtitle: '',
-            glyph: GlyphType.clock,
-            isMono: false,
+        for (final query in state.recent) ...<Widget>[
+          AppListRow(
+            name: query,
+            meta: '',
+            faceState: null,
+            trailing: _trailingGlyph(context, GlyphType.clock),
             onTap: () => onTapRecent(query),
           ),
+          const SizedBox(height: _rowGap),
+        ],
       ];
     }
 
     if (state.hasNoMatches) {
-      return <Widget>[
-        _NoMatches(query: state.query.trim()),
-      ];
+      return <Widget>[_NoMatches(query: state.query.trim())];
     }
 
     final children = <Widget>[];
     state.sections.forEach((kind, results) {
       children.add(SearchSectionLabel(_sectionTitle(kind)));
-      for (var i = 0; i < results.length; i++) {
-        if (i > 0) children.add(const _RowDivider());
-        final result = results[i];
-        children.add(
-          SearchResultRow(
-            title: result.title,
-            subtitle: result.subtitle,
-            glyph: result.opensExternally ? GlyphType.arrow : GlyphType.chevron,
-            isMono: kind != SearchResultKind.docs,
-            onTap: () => onTapResult(result),
-          ),
-        );
+      for (final result in results) {
+        children
+          ..add(_row(context, result))
+          ..add(const SizedBox(height: _rowGap));
       }
     });
     return children;
+  }
+
+  /// Draws a result with the row its own screen uses.
+  ///
+  /// A topic wears its face and its ringing state, the way the Topics list
+  /// draws it. A past alarm carries the same sentence, with the day where
+  /// History puts the time. Settings and documentation only open something
+  /// else, so they get no face and an arrow, matching the Settings screen.
+  Widget _row(BuildContext context, SearchResult result) {
+    void open() => onTapResult(result);
+
+    return switch (result.kind) {
+      SearchResultKind.topic => AppListRow(
+        name: result.title,
+        meta: result.subtitle,
+        faceState: result.faceState,
+        isCrit: result.isCrit,
+        isQuiet: result.isQuiet,
+        onTap: open,
+      ),
+      SearchResultKind.history => AppListRow(
+        name: result.title,
+        meta: result.subtitle,
+        faceState: result.faceState,
+        timeText: result.timeText,
+        onTap: open,
+      ),
+      SearchResultKind.settings || SearchResultKind.docs => AppListRow(
+        name: result.title,
+        meta: result.subtitle,
+        faceState: null,
+        trailing: _trailingGlyph(context, GlyphType.arrow),
+        onTap: open,
+      ),
+    };
+  }
+
+  static Widget _trailingGlyph(BuildContext context, GlyphType glyph) {
+    return AppGlyph(glyph, size: 16, color: context.appColors.ink3);
   }
 
   static String _sectionTitle(SearchResultKind kind) => switch (kind) {
@@ -124,18 +164,6 @@ class SearchPanel extends StatelessWidget {
     SearchResultKind.settings => LocaleKeys.search_section_settings.tr(),
     SearchResultKind.docs => LocaleKeys.search_section_docs.tr(),
   };
-}
-
-class _RowDivider extends StatelessWidget {
-  const _RowDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: Spacing.s4),
-      child: Container(height: 1, color: context.appColors.panelLine),
-    );
-  }
 }
 
 class _NoMatches extends StatelessWidget {

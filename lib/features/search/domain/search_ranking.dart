@@ -31,8 +31,8 @@ abstract final class SearchRanking {
   /// This result is the kind the user was already looking at.
   static const int scopeBonus = 150;
 
-  /// Below this many characters, only the start of a title counts. One letter
-  /// otherwise matches most of the app.
+  /// Below this many characters, a word only counts at the start of a word in
+  /// the title. One letter otherwise matches most of the app.
   static const int minLooseQuery = 2;
 
   /// The most results shown in one section. A panel that has to be scrolled to
@@ -64,30 +64,29 @@ abstract final class SearchRanking {
     final q = query.trim().toLowerCase();
     if (q.isNotEmpty) {
       final title = result.title.toLowerCase();
+
+      // The whole phrase first. Typing a title in full, or the start of one,
+      // outranks anything found word by word.
       if (title == q) {
         total += exactTitle;
       } else if (title.startsWith(q)) {
         total += titlePrefix;
-      } else if (q.length >= minLooseQuery) {
-        // One letter matches almost everything once you look inside words and
-        // hidden keywords, which turns the panel into a list of the whole app.
-        // Below two characters only the start of a title counts.
-        if (_hasWordStartingWith(title, q)) {
-          total += titleWordStart;
-        } else if (title.contains(q)) {
-          total += titleContains;
-        }
-
-        if (result.subtitle.toLowerCase().contains(q)) {
-          total += subtitleContains;
-        }
-
-        for (final keyword in result.keywords) {
-          if (_hasWordStartingWith(keyword, q)) {
-            total += keywordMatch;
+      } else {
+        // Otherwise every word has to land somewhere, so "alarm sound" finds
+        // the sound row on the Alarms screen: one word from the title, one
+        // from the screen it lives on. Averaged, so a longer query does not
+        // score higher just for having more words in it.
+        final words = q.split(_whitespace).where((w) => w.isNotEmpty).toList();
+        var sum = 0;
+        for (final word in words) {
+          final wordScore = _wordScore(result, title, word);
+          if (wordScore == 0) {
+            sum = 0;
             break;
           }
+          sum += wordScore;
         }
+        if (words.isNotEmpty) total += sum ~/ words.length;
       }
     }
 
@@ -161,6 +160,26 @@ abstract final class SearchRanking {
     SearchScope.history => SearchResultKind.history,
     SearchScope.settings => SearchResultKind.settings,
   };
+
+  static final RegExp _whitespace = RegExp(r'\s+');
+
+  /// How well one word of the query lands on [result]. Zero means it does not,
+  /// and one word missing drops the whole result.
+  static int _wordScore(SearchResult result, String title, String word) {
+    if (word.length < minLooseQuery) {
+      // One letter finds something inside most words, so it only counts at the
+      // start of a word in the title.
+      return _hasWordStartingWith(title, word) ? titleWordStart : 0;
+    }
+
+    if (_hasWordStartingWith(title, word)) return titleWordStart;
+    if (title.contains(word)) return titleContains;
+    if (result.subtitle.toLowerCase().contains(word)) return subtitleContains;
+    for (final keyword in result.keywords) {
+      if (_hasWordStartingWith(keyword, word)) return keywordMatch;
+    }
+    return 0;
+  }
 
   /// True when any word in [text] starts with [query]. Words break on anything
   /// that is not a letter or a digit, so "prod-db" holds "prod" and "db".

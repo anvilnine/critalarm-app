@@ -1,3 +1,4 @@
+import 'package:critalarm/design/faces/face_state.dart';
 import 'package:flutter/foundation.dart';
 
 /// What a result points at. Also the section it is drawn under.
@@ -16,6 +17,10 @@ class SearchResult {
     this.routePath,
     this.externalUrl,
     this.date,
+    this.faceState,
+    this.timeText,
+    this.isCrit = false,
+    this.isQuiet = false,
   });
 
   final SearchResultKind kind;
@@ -41,6 +46,19 @@ class SearchResult {
   /// The day this result belongs to, so a query that reads as a date can match
   /// it. Only past alarms set this.
   final DateTime? date;
+
+  // The rest is how the row draws. A result is shown with the same row the
+  // thing itself uses on its own screen, so a topic in the results looks like a
+  // topic and an alarm looks like an alarm. Null face means no face, which is
+  // what a row that only opens another screen gets.
+
+  final FaceState? faceState;
+
+  /// The right hand time on a past alarm, matching the History list.
+  final String? timeText;
+
+  final bool isCrit;
+  final bool isQuiet;
 
   bool get opensExternally => externalUrl != null;
 
