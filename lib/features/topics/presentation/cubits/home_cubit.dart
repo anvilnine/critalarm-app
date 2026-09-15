@@ -150,9 +150,26 @@ class HomeCubit extends Cubit<HomeState> {
         } else {
           faceState = FaceState.calm;
           word = LocaleKeys.home_stage_word_clear.tr();
-          subText = LocaleKeys.home_stage_sub_clear.tr(
-            namedArgs: {'count': topics.length.toString()},
-          );
+          // "Last alert 06:12, acknowledged." used to be baked into the
+          // string, so every calm user was told about an alert at 06:12 that
+          // never happened. Use the real one, or say nothing about it.
+          final lastAck = incidents
+              .map((i) => i.ackedAt)
+              .whereType<DateTime>()
+              .fold<DateTime?>(
+                null,
+                (newest, at) =>
+                    newest == null || at.isAfter(newest) ? at : newest,
+              );
+          subText = lastAck == null
+              ? LocaleKeys.home_stage_sub_clear.plural(topics.length)
+              : LocaleKeys.home_stage_sub_clear_last.plural(
+                  topics.length,
+                  namedArgs: {
+                    'count': topics.length.toString(),
+                    'time': DateFormat.Hm().format(lastAck.toLocal()),
+                  },
+                );
           severity = SeverityMode.none;
         }
 

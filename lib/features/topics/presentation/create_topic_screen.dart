@@ -20,7 +20,11 @@ class CreateTopicScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => getIt<CreateTopicCubit>(),
+      create: (_) {
+        final cubit = getIt<CreateTopicCubit>();
+        unawaited(cubit.loadConnection());
+        return cubit;
+      },
       child: const _CreateTopicScreenContent(),
     );
   }
@@ -71,6 +75,19 @@ class _CreateTopicScreenContent extends StatelessWidget {
                 glyph: GlyphType.close,
                 ariaLabel: LocaleKeys.create_topic_cancel_aria_label.tr(),
                 onPressed: () {
+                  // After the topic exists, closing is the same move as
+                  // Done. The X used to pop straight out and drop the
+                  // one-time token the card says to save.
+                  final created = state.createdTopic;
+                  if (created != null) {
+                    if (context.canPop()) {
+                      context.pop();
+                      unawaited(context.push('/topics/${created.name}'));
+                    } else {
+                      context.go('/topics/${created.name}');
+                    }
+                    return;
+                  }
                   if (context.canPop()) {
                     context.pop();
                   } else {
@@ -171,6 +188,18 @@ class _CreateTopicScreenContent extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 8),
+                          // The card used to show the token alone, so the
+                          // user finished setup with no address to point a
+                          // script at.
+                          if (state.serverUrl.isNotEmpty) ...[
+                            AppKeyValueRow(
+                              value: '${state.serverUrl}/${state.name}',
+                              trailing: _TokenActions(
+                                value: '${state.serverUrl}/${state.name}',
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
                           AppKeyValueRow(
                             value: token,
                             trailing: _TokenActions(value: token),
