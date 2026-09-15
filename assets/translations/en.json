@@ -85,7 +85,7 @@
     "stage_word_no_topics": "No topics yet",
     "stage_sub_no_topics": "Create one, then point a script, cron job or monitor at its endpoint.",
     "stage_word_critical": "CRITICAL",
-    "stage_sub_critical": "{topic} ringing. Repeats every 30 s.",
+    "stage_sub_critical": "{topic} is ringing.",
     "stage_word_warning": {
       "one": "{} warning",
       "other": "{} warnings"
@@ -166,15 +166,19 @@
     "back_aria_label": "Back",
     "critical_toggle_title": "Critical delivery",
     "critical_toggle_subtitle": "Rings through silent mode and Do Not Disturb",
-    "mark_as_read_button": "Mark as read",
     "stage_word_critical": "CRITICAL",
     "stage_word_warning": "1 warning",
     "stage_word_clear": "All clear",
-    "stage_sub": "Default priority {priority}. {count} messages.",
+    "stage_sub": {
+      "one": "1 message. Rings at {priority} priority.",
+      "other": "{count} messages. Rings at {priority} priority."
+    },
     "critical_needs_alarm": "Turn on Alarms in Settings first. Without it a critical alert arrives as a quiet notification.",
     "sound_row_title": "Alarm sound",
     "sound_row_default": "Using the default",
-    "messages_header": "Messages"
+    "messages_header": "Messages",
+    "stop_alarm_button": "Stop the alarm",
+    "stage_sub_empty": "No messages yet. Anything sent here rings at {priority} priority."
   },
   "create_topic": {
     "title": "New topic",
@@ -196,11 +200,11 @@
   "critical_alarm": {
     "back_aria_label": "Back",
     "dismiss_button": "Dismiss",
-    "acknowledge_button": "Acknowledge",
+    "acknowledge_button": "Stop the alarm",
     "stage_word_critical": "CRITICAL",
     "stage_word_acknowledged": "ACKNOWLEDGED",
     "stage_word_closed": "CLOSED",
-    "stage_sub_ringing": "Ringing 2 min 14 s. Repeats every 30 s.",
+    "stage_sub_ringing": "Ringing 2 min 14 s.",
     "acknowledged_message": "Acknowledged at {time}",
     "fallback_title": "Primary database down",
     "fallback_body": "pg_isready failed 3 times in 90 s. Replica promoted to primary on db-2.",
@@ -211,7 +215,8 @@
     "acknowledged_label": "Acknowledged",
     "source_label": "Source",
     "open_topic_button": "Open {topic}",
-    "back_to_topics_button": "Back to topics"
+    "back_to_topics_button": "Back to topics",
+    "read_message_button": "Read the full message"
   },
   "lock_screen": {
     "back_aria_label": "Back",

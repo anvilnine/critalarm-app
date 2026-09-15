@@ -78,6 +78,7 @@ class TopicDetailState {
     this.errorMessage,
     this.isUpdatingCritical = false,
     this.isMarkingAsRead = false,
+    this.openIncidentIds = const [],
   });
 
   /// Set when the server refused with a 429 naming a cap (api.md §4.2), so the
@@ -108,6 +109,11 @@ class TopicDetailState {
   final bool isUpdatingCritical;
   final bool isMarkingAsRead;
 
+  /// Ids of the incidents on this topic the server still has open. Held on the
+  /// state so acknowledging can silence the phone straight away, without
+  /// waiting on a request to tell it what is ringing.
+  final List<String> openIncidentIds;
+
   TopicDetailState copyWith({
     CapReached? capReached,
     TopicDetailStatus? status,
@@ -122,6 +128,7 @@ class TopicDetailState {
     String? errorMessage,
     bool? isUpdatingCritical,
     bool? isMarkingAsRead,
+    List<String>? openIncidentIds,
     bool clearError = false,
   }) {
     return TopicDetailState(
@@ -138,6 +145,7 @@ class TopicDetailState {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       isUpdatingCritical: isUpdatingCritical ?? this.isUpdatingCritical,
       isMarkingAsRead: isMarkingAsRead ?? this.isMarkingAsRead,
+      openIncidentIds: openIncidentIds ?? this.openIncidentIds,
     );
   }
 
@@ -158,7 +166,8 @@ class TopicDetailState {
           listEquals(messages, other.messages) &&
           errorMessage == other.errorMessage &&
           isUpdatingCritical == other.isUpdatingCritical &&
-          isMarkingAsRead == other.isMarkingAsRead;
+          isMarkingAsRead == other.isMarkingAsRead &&
+          listEquals(openIncidentIds, other.openIncidentIds);
 
   @override
   int get hashCode => Object.hash(
@@ -175,5 +184,6 @@ class TopicDetailState {
     errorMessage,
     isUpdatingCritical,
     isMarkingAsRead,
+    Object.hashAll(openIncidentIds),
   );
 }
