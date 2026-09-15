@@ -128,30 +128,35 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                           isPane: true,
                         )),
             slivers: [
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    const SizedBox(height: Spacing.s3),
-                    AppStage(
-                      faceState: state.faceState,
-                      word: state.word,
-                      sub: state.subText,
-                    ),
-                    const SizedBox(height: Spacing.s4),
-                  ],
+              if (state.topicItems.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: Spacing.s3),
+                      AppStage(
+                        faceState: state.faceState,
+                        word: state.word,
+                        sub: state.subText,
+                      ),
+                      const SizedBox(height: Spacing.s4),
+                    ],
+                  ),
                 ),
-              ),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  padding: EdgeInsets.fromLTRB(
+                    12,
+                    state.topicItems.isEmpty ? Spacing.s3 : 0,
+                    12,
+                    16,
+                  ),
                   child: AppSheet(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (state.topicItems.isEmpty) ...[
                           AppEmptyState(
-                            onButtonPressed: () =>
-                                context.push('/topics/new'),
+                            onButtonPressed: () => context.push('/topics/new'),
                           ),
                         ] else ...[
                           for (final topic in state.topicItems) ...[
