@@ -7,6 +7,7 @@ import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/features/search/domain/entities/search_result.dart';
 import 'package:critalarm/features/search/presentation/cubits/search_state.dart';
+import 'package:critalarm/features/search/presentation/widgets/search_recent_row.dart';
 import 'package:critalarm/features/search/presentation/widgets/search_section_label.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -90,16 +91,8 @@ class SearchPanel extends StatelessWidget {
           action: LocaleKeys.search_recent_clear.tr(),
           onAction: onClearRecent,
         ),
-        for (final query in state.recent) ...<Widget>[
-          AppListRow(
-            name: query,
-            meta: '',
-            faceState: null,
-            trailing: _trailingGlyph(context, GlyphType.clock),
-            onTap: () => onTapRecent(query),
-          ),
-          const SizedBox(height: _rowGap),
-        ],
+        for (final query in state.recent)
+          SearchRecentRow(query: query, onTap: () => onTapRecent(query)),
       ];
     }
 
