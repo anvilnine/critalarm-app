@@ -55,17 +55,20 @@ class _CriticalAlarmView extends StatelessWidget {
               ),
             ),
             slivers: [
-              SliverToBoxAdapter(
-                child: AppEmptyState(
-                  title: state.status == CriticalAlarmStatus.loading
-                      ? 'Loading alarm'
-                      : state.errorMessage != null
-                      ? 'Unable to load alarm'
-                      : 'No active alarm',
-                  description: state.errorMessage ?? '',
-                  buttonLabel: null,
-                  faceState: FaceState.calm,
-                  isLive: false,
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+                sliver: SliverToBoxAdapter(
+                  child: AppEmptyState(
+                    title: state.status == CriticalAlarmStatus.loading
+                        ? 'Loading alarm'
+                        : state.errorMessage != null
+                        ? 'Unable to load alarm'
+                        : 'No active alarm',
+                    description: state.errorMessage ?? '',
+                    buttonLabel: null,
+                    faceState: FaceState.calm,
+                    isLive: false,
+                  ),
                 ),
               ),
             ],

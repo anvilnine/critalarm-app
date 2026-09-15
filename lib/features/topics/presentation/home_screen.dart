@@ -77,13 +77,14 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   Future<void> _startTourIfNew() async {
     if (!getIt.isRegistered<SharedPreferences>()) return;
     final prefs = getIt<SharedPreferences>();
-    final completed =
-        prefs.getBool(HomeScreen.tourCompletedKey) ?? false;
+    final completed = prefs.getBool(HomeScreen.tourCompletedKey) ?? false;
     if (!completed && mounted) {
       _tourTimer?.cancel();
       _tourTimer = Timer(const Duration(milliseconds: 600), () {
         if (mounted) {
-          ShowCaseWidget.of(context).startShowCase([_stageKey, _topicsSheetKey]);
+          ShowCaseWidget.of(
+            context,
+          ).startShowCase([_stageKey, _topicsSheetKey]);
         }
       });
     }
@@ -165,28 +166,34 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                           isPane: true,
                         )),
             slivers: [
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    const SizedBox(height: Spacing.s3),
-                    Showcase(
-                      key: _stageKey,
-                      title: LocaleKeys.showcase_topic_title.tr(),
-                      description: LocaleKeys.showcase_topic_desc.tr(),
-                      targetBorderRadius: BorderRadius.circular(16),
-                      child: AppStage(
-                        faceState: state.faceState,
-                        word: state.word,
-                        sub: state.subText,
+              if (state.topicItems.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: Spacing.s3),
+                      Showcase(
+                        key: _stageKey,
+                        title: LocaleKeys.showcase_topic_title.tr(),
+                        description: LocaleKeys.showcase_topic_desc.tr(),
+                        targetBorderRadius: BorderRadius.circular(16),
+                        child: AppStage(
+                          faceState: state.faceState,
+                          word: state.word,
+                          sub: state.subText,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: Spacing.s4),
-                  ],
+                      const SizedBox(height: Spacing.s4),
+                    ],
+                  ),
                 ),
-              ),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  padding: EdgeInsets.fromLTRB(
+                    12,
+                    state.topicItems.isEmpty ? Spacing.s3 : 0,
+                    12,
+                    16,
+                  ),
                   child: Showcase(
                     key: _topicsSheetKey,
                     title: state.topicItems.isEmpty
@@ -197,50 +204,50 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                         : LocaleKeys.showcase_webhook_desc.tr(),
                     targetBorderRadius: BorderRadius.circular(16),
                     child: AppSheet(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (state.topicItems.isEmpty) ...[
-                          AppEmptyState(
-                            onButtonPressed: () =>
-                                context.push('/topics/new'),
-                          ),
-                        ] else ...[
-                          for (final topic in state.topicItems) ...[
-                            AppListRow(
-                              name: topic.name,
-                              meta: topic.meta,
-                              isSelected:
-                                  size.isExpanded &&
-                                  topic.name == _selectedTopic,
-                              faceState: topic.faceState,
-                              isCrit: topic.isCrit,
-                              isQuiet: topic.isQuiet,
-                              trailing: AppPriorityChip(
-                                priority: topic.priority,
-                              ),
-                              onTap: () {
-                                if (size.isExpanded) {
-                                  AppHaptics.selection();
-                                  setState(
-                                    () => _selectedTopic = topic.name,
-                                  );
-                                } else {
-                                  unawaited(
-                                    context.push('/topics/${topic.name}'),
-                                  );
-                                }
-                              },
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (state.topicItems.isEmpty) ...[
+                            AppEmptyState(
+                              onButtonPressed: () =>
+                                  context.push('/topics/new'),
                             ),
-                            const SizedBox(height: 10),
+                          ] else ...[
+                            for (final topic in state.topicItems) ...[
+                              AppListRow(
+                                name: topic.name,
+                                meta: topic.meta,
+                                isSelected:
+                                    size.isExpanded &&
+                                    topic.name == _selectedTopic,
+                                faceState: topic.faceState,
+                                isCrit: topic.isCrit,
+                                isQuiet: topic.isQuiet,
+                                trailing: AppPriorityChip(
+                                  priority: topic.priority,
+                                ),
+                                onTap: () {
+                                  if (size.isExpanded) {
+                                    AppHaptics.selection();
+                                    setState(
+                                      () => _selectedTopic = topic.name,
+                                    );
+                                  } else {
+                                    unawaited(
+                                      context.push('/topics/${topic.name}'),
+                                    );
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                            ],
                           ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
             ],
           ),
         );

@@ -20,18 +20,11 @@ class AppBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final textColor = isDark ? colors.yellow : colors.canvas;
-    final faceFill = isDark ? colors.yellow : colors.canvas;
-    final faceStroke = isDark ? colors.yellow : colors.canvas;
-    final faceInk = isDark ? colors.inkFixed : colors.ink;
-
     return Container(
       constraints: const BoxConstraints(minHeight: 34),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: colors.ink,
+        color: colors.panel,
         borderRadius: Radii.fullAll,
       ),
       child: Row(
@@ -40,9 +33,9 @@ class AppBadge extends StatelessWidget {
           FaceWidget(
             state: faceState,
             size: 24,
-            overrideFillColor: faceFill,
-            overrideStrokeColor: faceStroke,
-            overrideInkColor: faceInk,
+            overrideFillColor: colors.yellow,
+            overrideStrokeColor: colors.yellow,
+            overrideInkColor: colors.inkFixed,
           ),
           const SizedBox(width: 8),
           Flexible(
@@ -54,7 +47,7 @@ class AppBadge extends StatelessWidget {
                 fontFamilyFallback: AppTypography.fontBodyFallbacks,
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
-                color: textColor,
+                color: colors.yellow,
                 height: 1,
               ),
             ),
