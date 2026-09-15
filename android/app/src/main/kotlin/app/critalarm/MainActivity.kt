@@ -10,6 +10,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import app.critalarm.alarm.AlarmChannel
 import app.critalarm.notifications.NotificationChannels
 import app.critalarm.sound.SoundChannel
 import io.flutter.plugin.common.MethodChannel
@@ -27,6 +28,9 @@ class MainActivity : FlutterFragmentActivity() {
         soundChannel = sounds
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SoundChannel.NAME)
             .setMethodCallHandler(sounds::handle)
+        val alarms = AlarmChannel(applicationContext)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AlarmChannel.NAME)
+            .setMethodCallHandler(alarms::handle)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SETTINGS_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "openNotificationSettings" -> {

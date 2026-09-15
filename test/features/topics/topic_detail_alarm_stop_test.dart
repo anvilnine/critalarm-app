@@ -23,11 +23,10 @@ class _AckAlwaysFails implements IncidentRepository {
   final IncidentRepository _inner;
 
   @override
-  Future<AppResult<Incident>> ackIncident(String id) async =>
-      const Failure.api(
-        statusCode: 500,
-        message: 'the server refused it',
-      ).toFailure();
+  Future<AppResult<Incident>> ackIncident(String id) async => const Failure.api(
+    statusCode: 500,
+    message: 'the server refused it',
+  ).toFailure();
 
   @override
   Future<AppResult<List<Incident>>> getIncidents({
@@ -37,8 +36,7 @@ class _AckAlwaysFails implements IncidentRepository {
   }) => _inner.getIncidents(limit: limit, state: state, topic: topic);
 
   @override
-  Future<AppResult<Incident>> getIncident(String id) =>
-      _inner.getIncident(id);
+  Future<AppResult<Incident>> getIncident(String id) => _inner.getIncident(id);
 
   @override
   Future<AppResult<Incident>> closeIncident(String id) =>
@@ -143,7 +141,7 @@ void main() {
       await cubit.markAsRead();
 
       // The very first native call markAsRead makes must be the silencing one.
-      expect(alarm.calls.first.method, 'cancelAlarm');
+      expect(alarm.calls.first.method, 'stopRinging');
     });
 
     test('a refused acknowledge still leaves the phone quiet', () async {
@@ -167,6 +165,23 @@ void main() {
       for (final id in open) {
         expect(cancelled, contains(id));
       }
+    });
+
+    test('stopRinging is asked for with no incident on the state', () async {
+      server.seedAlarmed();
+      final cubit = TopicDetailCubit(
+        getTopicUsecase,
+        updateTopicUsecase,
+        incidentRepo,
+        alarm: alarm.host,
+      );
+      alarm.calls.clear();
+
+      // No load(), so the cubit knows of no incident at all. The sound must
+      // still stop: the server can ring one the app never heard about.
+      await cubit.markAsRead();
+
+      expect(alarm.callsTo('stopRinging'), isNotEmpty);
     });
 
     test('a missing alarm host does not stop the acknowledge', () async {

@@ -189,6 +189,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   Future<void> markAsRead() async {
     emit(state.copyWith(isMarkingAsRead: true));
 
+    // Kill the sound first, by asking for the sound rather than for an id.
+    // The server can ring an incident it already has as acknowledged, and then
+    // no id the app holds matches what the speaker is doing.
+    await _stopRinging();
     await _silence(state.openIncidentIds);
 
     final incidentsResult = await _incidentRepository.getIncidents(
@@ -224,6 +228,15 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         openIncidentIds: const [],
       ),
     );
+  }
+
+  /// Stop whatever is ringing, whichever incident it belongs to.
+  Future<void> _stopRinging() async {
+    try {
+      await alarm?.stopRinging();
+    } on Object catch (_) {
+      // Nothing to do. The ack below is what the server cares about.
+    }
   }
 
   /// Stop the local alarm for each incident. Never throws: a platform channel
