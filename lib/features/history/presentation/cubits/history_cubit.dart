@@ -124,7 +124,10 @@ class HistoryCubit extends Cubit<HistoryState> {
         HistoryEntry(
           id: incident.id,
           topic: incident.topic,
-          startedAt: startedAt,
+          // The model keeps UTC, which is right for a model. Everything the
+          // user reads is local, and History was the one screen that forgot:
+          // the same incident read 05:31 here and 13:31 on topic detail.
+          startedAt: startedAt.toLocal(),
           state: incident.incidentState,
           ringDuration: stoppedAt == null
               ? (incident.isOpen ? now.difference(startedAt) : null)
