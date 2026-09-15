@@ -8,6 +8,7 @@ import 'package:critalarm/features/topics/presentation/cubits/create_topic_state
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -162,7 +163,7 @@ class _CreateTopicScreenContent extends StatelessWidget {
                           const SizedBox(height: 8),
                           AppKeyValueRow(
                             value: token,
-                            trailing: _ShareButton(value: token),
+                            trailing: _TokenActions(value: token),
                           ),
                           ...[
                             const SizedBox(height: 6),
@@ -188,6 +189,75 @@ class _CreateTopicScreenContent extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Copy and Share, side by side.
+///
+/// The card tells the user this token is shown once and to save it now, and
+/// the value is truncated to fit the row, so Copy is the only way to actually
+/// obey that instruction. Share stays for sending it somewhere else.
+class _TokenActions extends StatelessWidget {
+  const _TokenActions({required this.value});
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _CopyButton(value: value),
+        const SizedBox(width: 6),
+        _ShareButton(value: value),
+      ],
+    );
+  }
+}
+
+/// Puts the whole token on the clipboard, not the truncated form on screen.
+class _CopyButton extends StatelessWidget {
+  const _CopyButton({required this.value});
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return GestureDetector(
+      onTap: () async {
+        AppHaptics.selection();
+        await Clipboard.setData(ClipboardData(text: value));
+        if (!context.mounted) return;
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(LocaleKeys.create_topic_copied_toast.tr()),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      },
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: Radii.fullAll,
+          border: Border.all(color: colors.hairline, width: 1.5),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          LocaleKeys.create_topic_copy_button.tr(),
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: colors.ink,
+          ),
+        ),
+      ),
     );
   }
 }
