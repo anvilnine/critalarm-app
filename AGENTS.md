@@ -63,6 +63,18 @@ state-management library.
 | Codegen | `make gen`, then `make l10n` |
 | Layer check | `make check-layers` |
 | Refresh the contract | `make sync-contract` |
+| New worktree | `make worktree-new NAME=<slug>` |
+| Worktree status | `make worktree-list` |
+| Drop merged worktrees | `make worktree-clean` |
+
+**Work in a worktree, one per task.** `make worktree-new NAME=search-overlay`
+creates `worktrees/search-overlay` on branch `task/search-overlay` off `main`, so
+two agents never fight over `HEAD`. A fresh worktree does not compile until
+`pub get`, `make gen` and `make l10n` have run, so `.claude/hooks/worktree-prep.sh`
+runs all three in the background and drops a `.worktree-ready` marker when it can
+build. `make worktree-list` shows what is still open; `make worktree-clean` removes
+only the worktrees that are clean and already merged. Details in
+`worktrees/README.md`.
 
 **Most generated files are git-ignored.** `*.g.dart` and `*.freezed.dart` are not
 in the repo. FlutterGen's `lib/gen/*.gen.dart` is the exception and is committed,

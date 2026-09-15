@@ -104,3 +104,13 @@ scripts/push/apns.env
 # Session-scoped agent scratch. Never committed.
 .superpowers/
 docs/superpowers/
+
+# Git worktrees. One folder per branch under /worktrees, nothing inside tracked.
+/worktrees/*
+!/worktrees/README.md
+
+# Worktree prep state, written by .claude/hooks/worktree-prep.sh
+.worktree-ready
+.worktree-prep.log
+.worktree-prep.err
+.worktree-prep.lock/
