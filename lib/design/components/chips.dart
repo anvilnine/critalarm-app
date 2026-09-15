@@ -173,6 +173,72 @@ class AppPriorityChip extends StatelessWidget {
   }
 }
 
+/// Says how a topic is set up to arrive, for a row where nothing is ringing.
+///
+/// The priority chip reads the last page that came in, so it stays red long
+/// after the alarm was acknowledged and fights the face above it. This one
+/// carries no alarm colour at all: it is the resting state of the topic.
+class AppDeliveryChip extends StatelessWidget {
+  const AppDeliveryChip({
+    required this.label,
+    required this.rings,
+    super.key,
+  });
+
+  final String label;
+
+  /// True when critical delivery is on for this topic, so a page rings
+  /// through the silent switch.
+  final bool rings;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final fg = rings ? colors.ink : colors.ink2;
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 26),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: Radii.fullAll,
+        border: Border.all(
+          color: rings ? colors.ink : colors.hairline,
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppGlyph(
+            rings ? GlyphType.bell : GlyphType.dot,
+            size: 12,
+            color: fg,
+            strokeWidth: 2.4,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: TextStyle(
+                fontFamily: AppTypography.fontMono,
+                fontFamilyFallback: AppTypography.fontMonoFallbacks,
+                fontWeight: rings ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 12,
+                letterSpacing: 0.2,
+                color: fg,
+                height: 1,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Chip used for topic names (e.g. `POST /alerts`).
 class AppTopicChip extends StatelessWidget {
   const AppTopicChip({
