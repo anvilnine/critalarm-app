@@ -25,6 +25,7 @@ class FakeAlarmHost {
     'requestAuthorization': 'authorized',
     'scheduleAlarm': true,
     'cancelAlarm': true,
+    'stopRinging': true,
     'startLocalActivity': true,
     'endActivity': true,
     'showingIncidentIds': <String>[],

@@ -39,8 +39,15 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
 
   /// Stop the local alarm. Never throws: a platform channel that is missing or
   /// unhappy must not stop the acknowledge from going out.
+  ///
+  /// Asks twice on purpose. [AlarmHost.stopRinging] stops the sound whatever
+  /// incident it belongs to, which is what the person pressing Stop means, and
+  /// matters because the server can ring an incident the app already has as
+  /// acknowledged. [AlarmHost.cancelAlarm] then clears the scheduled alarm and
+  /// its notification for this incident.
   Future<void> _silence(String incidentId) async {
     try {
+      await _alarm?.stopRinging();
       await _alarm?.cancelAlarm(incidentId);
     } on Object catch (_) {
       // Nothing to do. The ack below is what the server cares about.

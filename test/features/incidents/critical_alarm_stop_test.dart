@@ -52,7 +52,7 @@ void main() {
 
       await cubit.acknowledge();
 
-      expect(alarm.calls.first.method, 'cancelAlarm');
+      expect(alarm.calls.first.method, 'stopRinging');
     });
 
     test('closing cancels the alarm too', () async {
