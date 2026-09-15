@@ -39,6 +39,52 @@ void main() {
     });
 
     blocTest<HomeCubit, HomeState>(
+      'a calm topic reports how it is set up, not the priority of the last '
+      'page it took',
+      setUp: () => server.seedCalm(),
+      build: () => HomeCubit(getTopicsUsecase, incidentRepo),
+      act: (cubit) => cubit.load(),
+      skip: 1,
+      expect: () => [
+        isA<HomeState>()
+            // prod-db still carries priority 5 from a page that was
+            // acknowledged, so the row must not show it. Nothing is open and
+            // nothing is warning, so every topic is at rest.
+            .having(
+              (s) => s.topicItems.every((t) => !t.isLive),
+              'no topic is live',
+              isTrue,
+            )
+            .having(
+              (s) => s.topicItems[0].ringsThroughSilent,
+              'prod-db rings through silent',
+              isTrue,
+            )
+            .having(
+              (s) => s.topicItems[1].ringsThroughSilent,
+              'nas-backup rings through silent',
+              isFalse,
+            ),
+      ],
+    );
+
+    blocTest<HomeCubit, HomeState>(
+      'a topic with an open incident is live, so the row shows the priority '
+      'that came in',
+      setUp: () => server.seedAlarmed(),
+      build: () => HomeCubit(getTopicsUsecase, incidentRepo),
+      act: (cubit) => cubit.load(),
+      skip: 1,
+      expect: () => [
+        isA<HomeState>().having(
+          (s) => s.topicItems.any((t) => t.isLive),
+          'at least one topic is live',
+          isTrue,
+        ),
+      ],
+    );
+
+    blocTest<HomeCubit, HomeState>(
       'calm fixture uses current server data for every topic',
       setUp: () => server.seedCalm(),
       build: () => HomeCubit(getTopicsUsecase, incidentRepo),
