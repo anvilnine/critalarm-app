@@ -122,6 +122,7 @@ class HomeCubit extends Cubit<HomeState> {
         String word;
         String subText;
         SeverityMode severity;
+        String? ringingIncidentId;
 
         if (hasCriticalOpen) {
           faceState = FaceState.alarmed;
@@ -133,6 +134,7 @@ class HomeCubit extends Cubit<HomeState> {
             namedArgs: {'topic': crit.topic},
           );
           severity = SeverityMode.crit;
+          ringingIncidentId = crit.id;
         } else if (hasWarningOpen) {
           faceState = FaceState.worried;
           final warningCount = warningTopics.length;
@@ -169,6 +171,8 @@ class HomeCubit extends Cubit<HomeState> {
             word: word,
             subText: subText,
             severity: severity,
+            ringingIncidentId: ringingIncidentId,
+            clearRinging: ringingIncidentId == null,
           ),
         );
       },
