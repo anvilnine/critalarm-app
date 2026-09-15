@@ -1,3 +1,4 @@
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -20,6 +21,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     this._acknowledgeIncident,
     this._closeIncident, [
     this._updateBadge,
+    this._alarm,
   ]) : super(const CriticalAlarmState());
 
   final GetIncidentUsecase _getIncident;
@@ -30,6 +32,27 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// Keeps the app icon showing how many incidents are still open. Optional so
   /// a test can build the cubit without a platform channel behind it.
   final UpdateIncidentBadgeUsecase? _updateBadge;
+
+  /// Stops the ring on this device. Optional so a test can build the cubit
+  /// without a platform channel behind it.
+  final AlarmHost? _alarm;
+
+  /// Stop the local alarm. Never throws: a platform channel that is missing or
+  /// unhappy must not stop the acknowledge from going out.
+  ///
+  /// Asks twice on purpose. [AlarmHost.stopRinging] stops the sound whatever
+  /// incident it belongs to, which is what the person pressing Stop means, and
+  /// matters because the server can ring an incident the app already has as
+  /// acknowledged. [AlarmHost.cancelAlarm] then clears the scheduled alarm and
+  /// its notification for this incident.
+  Future<void> _silence(String incidentId) async {
+    try {
+      await _alarm?.stopRinging();
+      await _alarm?.cancelAlarm(incidentId);
+    } on Object catch (_) {
+      // Nothing to do. The ack below is what the server cares about.
+    }
+  }
 
   Future<void> load({String? incidentId}) async {
     emit(const CriticalAlarmState(status: CriticalAlarmStatus.loading));
@@ -64,6 +87,11 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     emit(state.copyWith(isAcknowledging: true));
 
     final targetId = state.incident!.id;
+
+    // Silence first. The person pressed Stop, so the noise is over whatever
+    // the server says next. A slow or refused ack must not keep it ringing.
+    await _silence(targetId);
+
     final result = await _acknowledgeIncident(targetId);
 
     result.fold(
@@ -137,6 +165,9 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   Future<void> closeIncident() async {
     final incidentId = state.incident?.id;
     if (incidentId == null) return;
+
+    // Closing ends the incident, so nothing should still be ringing for it.
+    await _silence(incidentId);
 
     final result = await _closeIncident(incidentId);
     result.fold(

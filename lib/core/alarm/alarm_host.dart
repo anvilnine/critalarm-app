@@ -127,6 +127,16 @@ final class AlarmHost {
   Future<bool> cancelAlarm(String incidentId) async =>
       await _invoke<bool>('cancelAlarm', {'incident_id': incidentId}) ?? false;
 
+  /// Stop whatever is ringing on this device, whichever incident it belongs to.
+  ///
+  /// [cancelAlarm] needs an id, and an id can be wrong: the server can ring an
+  /// incident the app thinks is already acknowledged, and then nothing in the
+  /// app's bookkeeping matches the sound coming out of the speaker. The person
+  /// pressing Stop means the noise, not a row in a table, so this asks for
+  /// exactly that. Answers false where the platform has no such idea.
+  Future<bool> stopRinging() async =>
+      await _invoke<bool>('stopRinging') ?? false;
+
   /// Onboarding uses this once so the Allow prompt happens before the relay
   /// ever tries a remote start.
   Future<bool> startLocalActivity({
