@@ -41,6 +41,15 @@ class HomeCubit extends Cubit<HomeState> {
     final topicsResult = await _getTopics(const NoParams());
     final incidentsResult = await _incidentRepository.getIncidents();
 
+    if (incidentsResult.isError()) {
+      emit(
+        state.copyWith(
+          status: HomeStatus.failure,
+          errorMessage: incidentsResult.exceptionOrNull()?.message,
+        ),
+      );
+      return;
+    }
     await topicsResult.fold(
       (topics) async {
         if (topics.isEmpty) {
@@ -71,12 +80,26 @@ class HomeCubit extends Cubit<HomeState> {
         );
 
         final warningTopics = <String>{};
+        final priorities = <String, int>{};
         for (final t in topics) {
           final pollResult = await _incidentRepository.pollMessages(
             t.name,
             poll: 1,
           );
+          if (pollResult.isError()) {
+            emit(
+              state.copyWith(
+                status: HomeStatus.failure,
+                errorMessage: pollResult.exceptionOrNull()?.message,
+              ),
+            );
+            return;
+          }
           final msgs = pollResult.getOrNull() ?? [];
+          final latest = msgs.isEmpty
+              ? null
+              : msgs.reduce((a, b) => a.time > b.time ? a : b);
+          priorities[t.name] = latest?.priority ?? 3;
           if (msgs.any(
             (m) =>
                 m.priority == 4 ||
@@ -135,6 +158,7 @@ class HomeCubit extends Cubit<HomeState> {
           topics,
           openIncidents,
           warningTopics,
+          priorities,
         );
 
         emit(
@@ -163,52 +187,9 @@ class HomeCubit extends Cubit<HomeState> {
     List<Topic> topics,
     List<Incident> openIncidents,
     Set<String> warningTopics,
+    Map<String, int> priorities,
   ) {
     return topics.map((t) {
-      if (t.name == 'prod-db') {
-        final isOpenCrit = openIncidents.any(
-          (i) => i.topic == 'prod-db' && i.messages.any((m) => m.priority == 5),
-        );
-        return HomeTopicItem(
-          name: t.name,
-          meta: isOpenCrit
-              ? LocaleKeys.home_meta_ringing_crit.tr()
-              : LocaleKeys.home_meta_quiet_6h.tr(),
-          priority: PriorityLevel.critical,
-          faceState: isOpenCrit ? FaceState.alarmed : FaceState.calm,
-          isCrit: isOpenCrit,
-        );
-      }
-
-      if (t.name == 'nas-backup') {
-        final isWorried = warningTopics.contains('nas-backup');
-        return HomeTopicItem(
-          name: t.name,
-          meta: isWorried
-              ? LocaleKeys.home_meta_finished_warnings.tr()
-              : LocaleKeys.home_meta_finished_size.tr(),
-          priority: PriorityLevel.high,
-          faceState: isWorried ? FaceState.worried : FaceState.calm,
-        );
-      }
-
-      if (t.name == 'uptime-kuma') {
-        return HomeTopicItem(
-          name: t.name,
-          meta: LocaleKeys.home_meta_today.tr(),
-          priority: PriorityLevel.defaultPriority,
-        );
-      }
-
-      if (t.name == 'home-ha') {
-        return HomeTopicItem(
-          name: t.name,
-          meta: LocaleKeys.home_meta_yesterday.tr(),
-          priority: PriorityLevel.low,
-          isQuiet: true,
-        );
-      }
-
       final hasOpen = openIncidents.any((i) => i.topic == t.name);
       final hasWarning = warningTopics.contains(t.name);
       return HomeTopicItem(
@@ -218,9 +199,8 @@ class HomeCubit extends Cubit<HomeState> {
             : (hasWarning
                   ? LocaleKeys.home_meta_warning.tr()
                   : LocaleKeys.home_meta_quiet.tr()),
-        priority: t.critical
-            ? PriorityLevel.critical
-            : PriorityLevel.defaultPriority,
+        priority: _priority(priorities[t.name] ?? 3),
+        isQuiet: (priorities[t.name] ?? 3) <= 2,
         faceState: hasOpen
             ? FaceState.alarmed
             : (hasWarning ? FaceState.worried : FaceState.calm),
@@ -229,3 +209,11 @@ class HomeCubit extends Cubit<HomeState> {
     }).toList();
   }
 }
+
+PriorityLevel _priority(int priority) => switch (priority) {
+  5 => PriorityLevel.critical,
+  4 => PriorityLevel.high,
+  2 => PriorityLevel.low,
+  1 => PriorityLevel.min,
+  _ => PriorityLevel.defaultPriority,
+};

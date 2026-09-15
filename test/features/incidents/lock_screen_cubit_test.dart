@@ -27,29 +27,12 @@ void main() {
   });
 
   group('LockScreenCubit', () {
-    test('initial state has default date, time, and mockup notifications', () {
+    test('initial state is empty', () {
       final state = cubit.state;
       expect(state.status, LockScreenStatus.initial);
-      expect(state.dateText, 'Thursday 10 September');
-      expect(state.timeText, '03:12');
-      expect(state.notifications.length, 2);
-
-      final critNotif = state.notifications.first;
-      expect(critNotif.isCrit, isTrue);
-      expect(critNotif.topic, 'prod-db');
-      expect(critNotif.title, 'Primary database down');
-      expect(
-        critNotif.ringingPillText,
-        'Ringing through silent mode. Tap to acknowledge.',
-      );
-      expect(critNotif.timeText, 'now');
-
-      final quietNotif = state.notifications[1];
-      expect(quietNotif.isQuiet, isTrue);
-      expect(quietNotif.topic, 'nas-backup');
-      expect(quietNotif.title, 'Backup finished');
-      expect(quietNotif.body, '412 GB copied in 43 min.');
-      expect(quietNotif.timeText, '02:04');
+      expect(state.dateText, isEmpty);
+      expect(state.timeText, isEmpty);
+      expect(state.notifications, isEmpty);
     });
 
     test(
@@ -72,16 +55,14 @@ void main() {
     );
 
     test(
-      'load with empty incidents keeps default mockup notifications',
+      'load with empty incidents renders no notifications',
       () async {
         server.reset();
         await cubit.load();
 
         final state = cubit.state;
         expect(state.status, LockScreenStatus.success);
-        expect(state.notifications.length, 2);
-        expect(state.notifications.first.topic, 'prod-db');
-        expect(state.notifications.last.topic, 'nas-backup');
+        expect(state.notifications, isEmpty);
       },
     );
   });

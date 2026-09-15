@@ -173,7 +173,7 @@ class AppPriorityChip extends StatelessWidget {
   }
 }
 
-/// Chip used for topic names (e.g. `POST /t/prod-db`).
+/// Chip used for topic names (e.g. `POST /alerts`).
 class AppTopicChip extends StatelessWidget {
   const AppTopicChip({
     required this.text,

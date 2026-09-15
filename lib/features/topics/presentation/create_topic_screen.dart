@@ -50,15 +50,11 @@ class _CreateTopicScreenContent extends StatelessWidget {
               ),
             ),
           );
-
-          final targetName = state.createdTopic?.name ?? state.name;
-          context.go('/topics/$targetName');
         }
       },
       builder: (context, state) {
         final cubit = context.read<CreateTopicCubit>();
-        final name = state.name.isEmpty ? 'prod-db' : state.name;
-        final token = state.createdToken ?? 'ca_live_7Hq2mN9xPz4wKd8';
+        final token = state.createdToken;
 
         // Tapping anywhere outside a field puts the keyboard away. Translucent
         // so the button and the text field still get their own taps.
@@ -83,12 +79,18 @@ class _CreateTopicScreenContent extends StatelessWidget {
               ),
             ),
             bottomBar: AppButton(
-              label: LocaleKeys.create_topic_create_button.tr(),
+              label: state.status == CreateTopicStatus.success
+                  ? 'Done'
+                  : LocaleKeys.create_topic_create_button.tr(),
               isFullWidth: true,
               isLoading: state.status == CreateTopicStatus.submitting,
               onPressed: () {
                 AppHaptics.capture();
-                unawaited(cubit.createTopic());
+                if (state.status == CreateTopicStatus.success) {
+                  context.go('/topics/${state.createdTopic!.name}');
+                } else {
+                  unawaited(cubit.createTopic());
+                }
               },
             ),
             slivers: [
@@ -109,64 +111,73 @@ class _CreateTopicScreenContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        AppTextField(
-                          label: LocaleKeys.create_topic_name_label.tr(),
-                          initialValue: state.name,
-                          placeholder: LocaleKeys.create_topic_name_placeholder
-                              .tr(),
-                          helperText: LocaleKeys.create_topic_name_helper.tr(),
-                          errorText: state.errorMessage,
-                          onChanged: cubit.nameChanged,
-                        ),
-                        const SizedBox(height: 14),
-                        AppToggleRow(
-                          title: LocaleKeys.create_topic_critical_toggle_title
-                              .tr(),
-                          subtitle: LocaleKeys
-                              .create_topic_critical_toggle_subtitle
-                              .tr(),
-                          value: state.isCritical,
-                          onChanged: (val) {
-                            AppHaptics.selection();
-                            cubit.criticalToggled(isCritical: val);
-                          },
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          LocaleKeys.create_topic_generated_label.tr(),
-                          style: TextStyle(
-                            fontFamily: AppTypography.fontBody,
-                            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: colors.ink3,
+                        if (state.capReached != null)
+                          AppEmptyState(
+                            title: state.capReached!.message,
+                            description:
+                                'Review your plan to increase this limit.',
+                            faceState: FaceState.worried,
+                            buttonLabel: null,
+                            isLive: false,
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        AppKeyValueRow(
-                          value: 'https://api.critalarm.app/t/$name',
-                          trailing: _ShareButton(
-                            value: 'https://api.critalarm.app/t/$name',
+                        if (state.status != CreateTopicStatus.success) ...[
+                          AppTextField(
+                            label: LocaleKeys.create_topic_name_label.tr(),
+                            initialValue: state.name,
+                            placeholder: LocaleKeys
+                                .create_topic_name_placeholder
+                                .tr(),
+                            helperText: LocaleKeys.create_topic_name_helper
+                                .tr(),
+                            errorText: state.errorMessage,
+                            onChanged: cubit.nameChanged,
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        AppKeyValueRow(
-                          value: token,
-                          trailing: _ShareButton(value: token),
-                        ),
-                        if (state.createdToken != null) ...[
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 14),
+                          AppToggleRow(
+                            title: LocaleKeys.create_topic_critical_toggle_title
+                                .tr(),
+                            subtitle: LocaleKeys
+                                .create_topic_critical_toggle_subtitle
+                                .tr(),
+                            value: state.isCritical,
+                            onChanged: (val) {
+                              AppHaptics.selection();
+                              cubit.criticalToggled(isCritical: val);
+                            },
+                          ),
+                        ],
+                        if (token != null) ...[
+                          const SizedBox(height: 14),
                           Text(
-                            LocaleKeys.create_topic_token_warning.tr(),
+                            LocaleKeys.create_topic_generated_label.tr(),
                             style: TextStyle(
                               fontFamily: AppTypography.fontBody,
                               fontFamilyFallback:
                                   AppTypography.fontBodyFallbacks,
-                              fontSize: 12,
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: colors.ink3,
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          AppKeyValueRow(
+                            value: token,
+                            trailing: _ShareButton(value: token),
+                          ),
+                          ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              LocaleKeys.create_topic_token_warning.tr(),
+                              style: TextStyle(
+                                fontFamily: AppTypography.fontBody,
+                                fontFamilyFallback:
+                                    AppTypography.fontBodyFallbacks,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: colors.ink3,
+                              ),
+                            ),
+                          ],
                         ],
                       ],
                     ),

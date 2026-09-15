@@ -60,14 +60,6 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
     }
   }
 
-  // Placeholder server data. The cubit does not report a server connection
-  // yet, so these stand in for the real host, check time and last delivery
-  // until that data exists.
-  static const _placeholderHost = 'api.critalarm.app';
-  static const _placeholderCheckedAt = '09:45:02';
-  static const _placeholderDeliveryTopic = 'prod-db';
-  static const _placeholderDeliveryTiming = '03:12:04, 1.2 s';
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<DevicePermissionsCubit, DevicePermissionsState>(
@@ -135,38 +127,12 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
                         ),
                         const SizedBox(height: 8),
                       ],
-                      const SizedBox(height: 8),
-                      AppSectionHeader(
-                        LocaleKeys.device_permissions_server_header.tr(),
-                      ),
-                      AppKeyValueRow(
-                        value: _placeholderHost,
-                        trailing: _LowChip(
-                          label: LocaleKeys.device_permissions_badge_reachable
-                              .tr(),
-                          glyph: GlyphType.wifi,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      AppKeyValueRow(
-                        label: LocaleKeys.device_permissions_checked_label.tr(),
-                        value: _placeholderCheckedAt,
-                      ),
-                      const SizedBox(height: 8),
-                      AppKeyValueRow(
-                        label: LocaleKeys.device_permissions_last_delivery_label
-                            .tr(),
-                        value:
-                            '$_placeholderDeliveryTopic, '
-                            '$_placeholderDeliveryTiming',
-                      ),
-                      const SizedBox(height: 16),
                       AppButton(
                         label: LocaleKeys.device_permissions_test_alarm_button
                             .tr(),
                         variant: AppButtonVariant.ghost,
                         isFullWidth: true,
-                        onPressed: AppHaptics.capture,
+                        onPressed: () => context.push('/onboarding/connect'),
                       ),
                     ],
                   ),
@@ -191,10 +157,6 @@ class _PermissionRow extends StatelessWidget {
 
   final DevicePermissionItem item;
   final VoidCallback onTurnOn;
-
-  // Placeholder date. DevicePermissionItem does not carry the date a
-  // permission was turned off, so this stands in until it does.
-  static const _placeholderOffSinceDate = '12 September';
 
   @override
   Widget build(BuildContext context) {
@@ -226,9 +188,7 @@ class _PermissionRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    LocaleKeys
-                        .device_permissions_item_full_screen_intent_off_since
-                        .tr(namedArgs: {'date': _placeholderOffSinceDate}),
+                    'Not allowed',
                     style: TextStyle(
                       fontFamily: AppTypography.fontBody,
                       fontFamilyFallback: AppTypography.fontBodyFallbacks,

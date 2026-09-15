@@ -1,4 +1,5 @@
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:flutter/foundation.dart';
@@ -64,6 +65,7 @@ class TopicDetailMessageItem {
 @immutable
 class TopicDetailState {
   const TopicDetailState({
+    this.capReached,
     this.status = TopicDetailStatus.initial,
     this.topicName = '',
     this.critical = false,
@@ -77,6 +79,10 @@ class TopicDetailState {
     this.isUpdatingCritical = false,
     this.isMarkingAsRead = false,
   });
+
+  /// Set when the server refused with a 429 naming a cap (api.md §4.2), so the
+  /// screen can say which limit was hit instead of failing generically.
+  final CapReached? capReached;
 
   final TopicDetailStatus status;
   final String topicName;
@@ -103,6 +109,7 @@ class TopicDetailState {
   final bool isMarkingAsRead;
 
   TopicDetailState copyWith({
+    CapReached? capReached,
     TopicDetailStatus? status,
     String? topicName,
     bool? critical,
@@ -118,6 +125,7 @@ class TopicDetailState {
     bool clearError = false,
   }) {
     return TopicDetailState(
+      capReached: clearError ? null : (capReached ?? this.capReached),
       status: status ?? this.status,
       topicName: topicName ?? this.topicName,
       critical: critical ?? this.critical,
@@ -138,6 +146,7 @@ class TopicDetailState {
       identical(this, other) ||
       other is TopicDetailState &&
           runtimeType == other.runtimeType &&
+          capReached == other.capReached &&
           status == other.status &&
           topicName == other.topicName &&
           critical == other.critical &&
@@ -153,6 +162,7 @@ class TopicDetailState {
 
   @override
   int get hashCode => Object.hash(
+    capReached,
     status,
     topicName,
     critical,
