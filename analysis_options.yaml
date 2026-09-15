@@ -3,6 +3,10 @@ include: package:very_good_analysis/analysis_options.yaml
 analyzer:
   exclude:
     - "build/**"
+    # Each worktree is a full checkout of another branch sitting inside this
+    # one, so the analyzer walks into it and reports that branch's problems as
+    # if they were ours. See worktrees/README.md.
+    - "worktrees/**"
     - "**/*.g.dart"
     - "**/*.freezed.dart"
     - "**/*.gen.dart"

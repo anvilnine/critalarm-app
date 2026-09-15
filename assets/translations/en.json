@@ -195,7 +195,9 @@
     "name_error_empty": "Give the topic a name.",
     "name_error_invalid": "Use 1 to 64 lowercase letters, digits and hyphens. Try prod-db.",
     "cancel_aria_label": "Cancel",
-    "share_button": "Share"
+    "share_button": "Share",
+    "copy_button": "Copy",
+    "copied_toast": "Token copied"
   },
   "critical_alarm": {
     "back_aria_label": "Back",
