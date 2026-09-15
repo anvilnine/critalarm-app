@@ -20,8 +20,12 @@ class OnboardingConnectState {
     this.serverUrl = '',
     this.adminToken = '',
     this.requiresAdminToken = false,
+    this.isSelfHosting = false,
     this.status = OnboardingConnectStatus.idle,
     this.testAlarmStatus = TestAlarmStatus.idle,
+    this.countdownSeconds = 30,
+    this.isCountingDown = false,
+    this.canLaunchDemoAlarm = false,
     this.serverUrlError,
     this.adminTokenError,
     this.errorMessage,
@@ -34,8 +38,12 @@ class OnboardingConnectState {
   final String serverUrl;
   final String adminToken;
   final bool requiresAdminToken;
+  final bool isSelfHosting;
   final OnboardingConnectStatus status;
   final TestAlarmStatus testAlarmStatus;
+  final int countdownSeconds;
+  final bool isCountingDown;
+  final bool canLaunchDemoAlarm;
   final String? serverUrlError;
   final String? adminTokenError;
   final String? errorMessage;
@@ -54,8 +62,12 @@ class OnboardingConnectState {
     String? serverUrl,
     String? adminToken,
     bool? requiresAdminToken,
+    bool? isSelfHosting,
     OnboardingConnectStatus? status,
     TestAlarmStatus? testAlarmStatus,
+    int? countdownSeconds,
+    bool? isCountingDown,
+    bool? canLaunchDemoAlarm,
     String? serverUrlError,
     String? adminTokenError,
     String? errorMessage,
@@ -73,8 +85,12 @@ class OnboardingConnectState {
       serverUrl: serverUrl ?? this.serverUrl,
       adminToken: adminToken ?? this.adminToken,
       requiresAdminToken: requiresAdminToken ?? this.requiresAdminToken,
+      isSelfHosting: isSelfHosting ?? this.isSelfHosting,
       status: status ?? this.status,
       testAlarmStatus: testAlarmStatus ?? this.testAlarmStatus,
+      countdownSeconds: countdownSeconds ?? this.countdownSeconds,
+      isCountingDown: isCountingDown ?? this.isCountingDown,
+      canLaunchDemoAlarm: canLaunchDemoAlarm ?? this.canLaunchDemoAlarm,
       serverUrlError: clearServerUrlError
           ? null
           : (serverUrlError ?? this.serverUrlError),
@@ -99,8 +115,12 @@ class OnboardingConnectState {
           serverUrl == other.serverUrl &&
           adminToken == other.adminToken &&
           requiresAdminToken == other.requiresAdminToken &&
+          isSelfHosting == other.isSelfHosting &&
           status == other.status &&
           testAlarmStatus == other.testAlarmStatus &&
+          countdownSeconds == other.countdownSeconds &&
+          isCountingDown == other.isCountingDown &&
+          canLaunchDemoAlarm == other.canLaunchDemoAlarm &&
           serverUrlError == other.serverUrlError &&
           adminTokenError == other.adminTokenError &&
           errorMessage == other.errorMessage &&
@@ -114,8 +134,12 @@ class OnboardingConnectState {
     serverUrl,
     adminToken,
     requiresAdminToken,
+    isSelfHosting,
     status,
     testAlarmStatus,
+    countdownSeconds,
+    isCountingDown,
+    canLaunchDemoAlarm,
     serverUrlError,
     adminTokenError,
     errorMessage,

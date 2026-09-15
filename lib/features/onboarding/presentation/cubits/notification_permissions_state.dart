@@ -3,17 +3,16 @@ import 'package:flutter/foundation.dart';
 
 /// Step in the notification permissions onboarding flow.
 enum NotificationPermissionStep {
-  /// Initial prompt before user clicks allow.
+  /// Prompt before user clicks allow.
   initial,
 
   /// In the middle of requesting permissions from the OS.
   requesting,
 
-  /// Permission was granted. Ready to proceed.
+  /// All required permissions granted. Ready to proceed.
   granted,
 
-  /// Permission was denied. Showing denial path with AppEmptyState
-  /// and settings deep-link.
+  /// Permission was denied. Showing denial path with recovery action.
   denied,
 }
 
@@ -21,6 +20,9 @@ enum NotificationPermissionStep {
 class NotificationPermissionsState {
   const NotificationPermissionsState({
     this.step = NotificationPermissionStep.initial,
+    this.activeSubstep = 0,
+    this.notificationsGranted = false,
+    this.criticalAlertsGranted = false,
     this.errorMessage,
     this.canNavigate = false,
     this.alarm = AlarmAuthorization.notDetermined,
@@ -28,16 +30,19 @@ class NotificationPermissionsState {
   });
 
   final NotificationPermissionStep step;
+
+  /// 0 = Notifications step, 1 = Critical Alerts / Silent bypass step.
+  final int activeSubstep;
+
+  final bool notificationsGranted;
+  final bool criticalAlertsGranted;
   final String? errorMessage;
   final bool canNavigate;
 
-  /// Whether iOS lets the app set alarms. Without this a critical topic can
-  /// only send a notification, so the toggle on the topic is turned off.
+  /// Whether iOS lets the app set alarms / Critical Alerts.
   final AlarmAuthorization alarm;
 
-  /// True once onboarding has started its one local Live Activity, which is
-  /// what puts the Allow prompt in front of the user before the relay ever
-  /// tries a remote start.
+  /// True once onboarding has started its one local Live Activity.
   final bool liveActivityStarted;
 
   bool get isRequesting => step == NotificationPermissionStep.requesting;
@@ -46,6 +51,9 @@ class NotificationPermissionsState {
 
   NotificationPermissionsState copyWith({
     NotificationPermissionStep? step,
+    int? activeSubstep,
+    bool? notificationsGranted,
+    bool? criticalAlertsGranted,
     String? errorMessage,
     bool? canNavigate,
     AlarmAuthorization? alarm,
@@ -54,6 +62,10 @@ class NotificationPermissionsState {
   }) {
     return NotificationPermissionsState(
       step: step ?? this.step,
+      activeSubstep: activeSubstep ?? this.activeSubstep,
+      notificationsGranted: notificationsGranted ?? this.notificationsGranted,
+      criticalAlertsGranted:
+          criticalAlertsGranted ?? this.criticalAlertsGranted,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       canNavigate: canNavigate ?? this.canNavigate,
       alarm: alarm ?? this.alarm,
@@ -67,6 +79,9 @@ class NotificationPermissionsState {
       other is NotificationPermissionsState &&
           runtimeType == other.runtimeType &&
           step == other.step &&
+          activeSubstep == other.activeSubstep &&
+          notificationsGranted == other.notificationsGranted &&
+          criticalAlertsGranted == other.criticalAlertsGranted &&
           errorMessage == other.errorMessage &&
           canNavigate == other.canNavigate &&
           alarm == other.alarm &&
@@ -75,6 +90,9 @@ class NotificationPermissionsState {
   @override
   int get hashCode => Object.hash(
     step,
+    activeSubstep,
+    notificationsGranted,
+    criticalAlertsGranted,
     errorMessage,
     canNavigate,
     alarm,

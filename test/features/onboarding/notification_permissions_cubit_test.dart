@@ -59,6 +59,8 @@ void main() {
         ),
         const NotificationPermissionsState(
           step: NotificationPermissionStep.granted,
+          notificationsGranted: true,
+          criticalAlertsGranted: true,
           canNavigate: true,
         ),
       ],
@@ -126,18 +128,16 @@ void main() {
     });
 
     blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
-      'continueAnyway sets canNavigate to true',
+      'requestCriticalAlerts without alarm host marks granted directly',
       build: () => NotificationPermissionsCubit(
         mockRequestPermission,
         mockOpenSettings,
       ),
-      seed: () => const NotificationPermissionsState(
-        step: NotificationPermissionStep.denied,
-      ),
-      act: (cubit) => cubit.continueAnyway(),
+      act: (cubit) => cubit.requestCriticalAlerts(),
       expect: () => [
         const NotificationPermissionsState(
-          step: NotificationPermissionStep.denied,
+          step: NotificationPermissionStep.granted,
+          criticalAlertsGranted: true,
           canNavigate: true,
         ),
       ],

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -25,6 +28,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     this.getTopics,
     this.getConnection,
     this.completeOnboarding,
+    this.alarmHost,
     bool initialConnected = false,
   }) : super(
          OnboardingConnectState(
@@ -36,6 +40,8 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
 
   final GetTopicsUsecase? getTopics;
   final GetConnectionUsecase? getConnection;
+  final AlarmHost? alarmHost;
+  Timer? _countdownTimer;
 
   Future<void> loadConnection() async {
     final result = await getConnection?.call(const NoParams());
@@ -56,6 +62,10 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   final SaveConnectionUsecase _saveConnection;
   final CompleteOnboardingUsecase? completeOnboarding;
   final TriggerTestAlarmUsecase _triggerTestAlarm;
+
+  void toggleSelfHosting() {
+    emit(state.copyWith(isSelfHosting: !state.isSelfHosting));
+  }
 
   void serverUrlChanged(String url) {
     emit(
@@ -103,6 +113,11 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
 
   static bool isSemverCompatible(String version) =>
       ServerInfoValidation.isSemverCompatible(version);
+
+  Future<void> connectToCloud() async {
+    serverUrlChanged('https://api.critalarm.app');
+    await connect();
+  }
 
   Future<void> connect() async {
     final trimmedUrl = state.serverUrl.trim();
@@ -220,6 +235,72 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     );
   }
 
+  /// 100% Local 30-second alarm test with live countdown.
+  void startLocal30sAlarm() {
+    _countdownTimer?.cancel();
+    emit(
+      state.copyWith(
+        isCountingDown: true,
+        countdownSeconds: 30,
+        testAlarmStatus: TestAlarmStatus.ringing,
+        topic: 'demo-topic',
+        incidentId: 'inc_demo',
+        canLaunchDemoAlarm: false,
+        clearErrorMessage: true,
+      ),
+    );
+
+    final host = alarmHost;
+    if (host != null) {
+      unawaited(
+        host
+            .scheduleAlarm(
+              incidentId: 'inc_demo',
+              topic: 'demo-topic',
+              server: '',
+              title: 'Crit Alarm Test',
+            )
+            .catchError((_) => false),
+      );
+    }
+
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final nextSec = state.countdownSeconds - 1;
+      if (nextSec <= 0) {
+        timer.cancel();
+        emit(
+          state.copyWith(
+            countdownSeconds: 0,
+            isCountingDown: false,
+            testAlarmStatus: TestAlarmStatus.success,
+            canLaunchDemoAlarm: true,
+          ),
+        );
+      } else {
+        emit(state.copyWith(countdownSeconds: nextSec));
+      }
+    });
+  }
+
+  void cancelCountdown() {
+    _countdownTimer?.cancel();
+    final host = alarmHost;
+    if (host != null) {
+      unawaited(host.cancelAlarm('inc_demo').catchError((_) => false));
+    }
+    emit(
+      state.copyWith(
+        isCountingDown: false,
+        countdownSeconds: 30,
+        testAlarmStatus: TestAlarmStatus.idle,
+      ),
+    );
+  }
+
+  void demoAlarmHandled() {
+    emit(state.copyWith(canLaunchDemoAlarm: false));
+  }
+
   Future<void> ringTestAlarm({String? topic}) async {
     if (getTopics != null) await loadTestTopic();
     final targetTopic = getTopics == null
@@ -272,6 +353,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
       state.copyWith(
         status: OnboardingConnectStatus.idle,
         testAlarmStatus: TestAlarmStatus.idle,
+        isCountingDown: false,
         clearErrorMessage: true,
       ),
     );
@@ -290,5 +372,11 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
 
   void navigationHandled() {
     emit(state.copyWith(canNavigateToHome: false));
+  }
+
+  @override
+  Future<void> close() {
+    _countdownTimer?.cancel();
+    return super.close();
   }
 }

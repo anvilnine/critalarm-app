@@ -1,5 +1,6 @@
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
@@ -57,6 +58,29 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
 
   Future<void> load({String? incidentId}) async {
     emit(const CriticalAlarmState(status: CriticalAlarmStatus.loading));
+    if (incidentId == 'inc_demo') {
+      final now = DateTime.now();
+      _applyIncident(
+        Incident(
+          id: 'inc_demo',
+          topic: 'demo-topic',
+          openedAt: now,
+          messages: [
+            Message(
+              id: 'msg_demo',
+              topic: 'demo-topic',
+              title: 'Crit Alarm Test',
+              message:
+                  'This is a test alarm to verify your device rings '
+                  'through silent mode.',
+              priority: 5,
+              time: now.millisecondsSinceEpoch ~/ 1000,
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     if (incidentId != null && incidentId.isNotEmpty) {
       final result = await _getIncident(incidentId);
       result.fold(_applyIncident, _showFailure);
@@ -92,6 +116,34 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     // Silence first. The person pressed Stop, so the noise is over whatever
     // the server says next. A slow or refused ack must not keep it ringing.
     await _silence(targetId);
+
+    if (targetId == 'inc_demo') {
+      final now = DateTime.now();
+      final updated = state.incident!.copyWith(
+        state: 'acked',
+        ackedAt: now,
+      );
+      final timeStr = _formatTime(now);
+      final ackMsg = LocaleKeys.critical_alarm_acknowledged_message.tr(
+        namedArgs: {'time': timeStr},
+      );
+      emit(
+        state.copyWith(
+          status: CriticalAlarmStatus.acknowledged,
+          incident: updated,
+          isAcknowledged: true,
+          isAcknowledging: false,
+          severityMode: SeverityMode.ack,
+          faceState: FaceState.calm,
+          isLive: false,
+          word: LocaleKeys.critical_alarm_stage_word_acknowledged.tr(),
+          subtext: ackMsg,
+          feedbackMessage: ackMsg,
+          clearError: true,
+        ),
+      );
+      return;
+    }
 
     final result = await _acknowledgeIncident(targetId);
 

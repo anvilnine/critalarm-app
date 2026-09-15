@@ -1,8 +1,8 @@
 import 'package:critalarm/app/di.dart';
-import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/permission_dialog_preview.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -11,10 +11,11 @@ import 'package:go_router/go_router.dart';
 
 /// Screen 1 of Onboarding (/onboarding): Permissions.
 ///
-/// Explains Crit Alarm capabilities (3am pages through silent switch & DND),
-/// details required Android 13+ POST_NOTIFICATIONS and Android 14+
-/// USE_FULL_SCREEN_INTENT permissions, requests them, and handles the denial
-/// path cleanly with [AppEmptyState].
+/// Implements Option B (2-step stepper):
+/// 1. Notifications permission ask with simulated dialog preview.
+/// 2. Critical alerts / silent-mode breakthrough ask with simulated preview.
+///
+/// Enforces permission grant with no bypass.
 class OnboardingPermissionsScreen extends StatelessWidget {
   const OnboardingPermissionsScreen({
     super.key,
@@ -50,22 +51,7 @@ class _OnboardingPermissionsView extends StatelessWidget {
       },
       builder: (context, state) {
         final cubit = context.read<NotificationPermissionsCubit>();
-        final postNotificationsText = LocaleKeys
-            .onboarding_permissions_post_notifications
-            .tr();
-        final fullScreenIntentText = LocaleKeys
-            .onboarding_permissions_full_screen_intent
-            .tr();
-        final requiredHeader = LocaleKeys.onboarding_permissions_required_header
-            .tr();
-        final continueWithoutText = LocaleKeys
-            .onboarding_permissions_continue_without_button
-            .tr();
-        final cardTitle = LocaleKeys.onboarding_permissions_card_row_title
-            .tr();
-        final cardOn = LocaleKeys.onboarding_permissions_card_row_granted.tr();
-        final cardPending = LocaleKeys.onboarding_permissions_card_row_pending
-            .tr();
+        final isStep2 = state.activeSubstep == 1;
 
         return Scaffold(
           resizeToAvoidBottomInset: true,
@@ -113,12 +99,37 @@ class _OnboardingPermissionsView extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            // Stepper indicator pill
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colors.surface,
+                                borderRadius: BorderRadius.circular(12),
+                                 border: Border.all(
+                                  color: colors.hairline.withValues(alpha: 0.5),
+                                ),
+                              ),
+                              child: Text(
+                                isStep2 ? 'Step 2 of 2' : 'Step 1 of 2',
+                                style: TextStyle(
+                                  fontFamily: AppTypography.fontMono,
+                                  fontFamilyFallback:
+                                      AppTypography.fontMonoFallbacks,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                  color: colors.ink2,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: Spacing.s5),
 
                         if (state.isDenied) ...[
-                          // Denial path: clearly states what won't work
+                          // Denial recovery path
                           AppEmptyState(
                             faceState: FaceState.worried,
                             title: LocaleKeys
@@ -130,82 +141,98 @@ class _OnboardingPermissionsView extends StatelessWidget {
                             buttonLabel: null,
                           ),
                         ] else ...[
-                          // Center alarmed face and pill badge
-                          const Center(
+                          // Visual face & badge
+                          Center(
                             child: FaceWidget(
-                              state: FaceState.alarmed,
-                              size: 84,
+                              state: isStep2
+                                  ? FaceState.watching
+                                  : FaceState.alarmed,
+                              size: 80,
                               isLive: true,
                             ),
                           ),
-                          const SizedBox(height: Spacing.s4),
+                          const SizedBox(height: Spacing.s3),
                           Center(
                             child: AppBadge(
-                              text: LocaleKeys.onboarding_permissions_badge
-                                  .tr(),
-                              faceState: FaceState.alarmed,
+                              text: isStep2
+                                  ? 'BREAKTHROUGH SILENT MODE'
+                                  : LocaleKeys.onboarding_permissions_badge
+                                      .tr(),
+                              faceState: isStep2
+                                  ? FaceState.watching
+                                  : FaceState.alarmed,
                             ),
                           ),
                           const SizedBox(height: Spacing.s4),
 
                           // Hero text
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              LocaleKeys.onboarding_permissions_title.tr(),
-                              style: AppTypography.display(
-                                colors.onCanvas,
-                                fontSize: 36,
-                              ),
+                          Text(
+                            isStep2
+                                ? LocaleKeys
+                                    .onboarding_permissions_step2_title
+                                    .tr()
+                                : LocaleKeys
+                                    .onboarding_permissions_step1_title
+                                    .tr(),
+                            style: AppTypography.display(
+                              colors.onCanvas,
+                              fontSize: 32,
                             ),
                           ),
-                          const SizedBox(height: Spacing.s3),
+                          const SizedBox(height: Spacing.s2),
 
-                          // Explains what Crit Alarm does
+                          // Subtitle
                           Text(
-                            LocaleKeys.onboarding_permissions_subtitle.tr(),
+                            isStep2
+                                ? LocaleKeys
+                                    .onboarding_permissions_step2_subtitle
+                                    .tr()
+                                : LocaleKeys
+                                    .onboarding_permissions_step1_subtitle
+                                    .tr(),
                             style: AppTypography.lead(
                               colors.onCanvasMuted,
-                              fontSize: 16,
+                              fontSize: 15,
                             ),
                           ),
                           const SizedBox(height: Spacing.s5),
 
-                          // Explains Android 13+ and Android 14+ permissions
-                          AppSheet(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                AppSectionHeader(requiredHeader),
-                                const SizedBox(height: 4),
-                                AppFeatureBullet(
-                                  text: postNotificationsText,
-                                  glyph: GlyphType.bell,
-                                ),
-                                const SizedBox(height: 12),
-                                AppFeatureBullet(
-                                  text: fullScreenIntentText,
-                                  glyph: GlyphType.arrow,
-                                ),
-                                if (state.alarm !=
-                                    AlarmAuthorization.unsupported) ...[
-                                  const SizedBox(height: 12),
-                                  AppKeyValueRow(
-                                    label: LocaleKeys
-                                        .onboarding_permissions_alarm_row_title
-                                        .tr(),
-                                    value: _alarmRowValue(state.alarm),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  AppKeyValueRow(
-                                    label: cardTitle,
-                                    value: state.liveActivityStarted
-                                        ? cardOn
-                                        : cardPending,
-                                  ),
-                                ],
-                              ],
+                          // Simulated native dialog preview
+                          PermissionDialogPreview(
+                            title: isStep2
+                                ? LocaleKeys
+                                    .onboarding_permissions_preview_crit_title
+                                    .tr()
+                                : LocaleKeys
+                                    .onboarding_permissions_preview_notif_title
+                                    .tr(),
+                            message: isStep2
+                                ? LocaleKeys
+                                    .onboarding_permissions_preview_crit_desc
+                                    .tr()
+                                : LocaleKeys
+                                    .onboarding_permissions_preview_notif_desc
+                                    .tr(),
+                            allowLabel: LocaleKeys
+                                .onboarding_permissions_preview_allow
+                                .tr(),
+                            denyLabel: LocaleKeys
+                                .onboarding_permissions_preview_dont_allow
+                                .tr(),
+                            isCritical: isStep2,
+                          ),
+                          const SizedBox(height: 12),
+                          Center(
+                            child: Text(
+                              LocaleKeys.onboarding_permissions_preview_hint
+                                  .tr(),
+                              style: TextStyle(
+                                fontFamily: AppTypography.fontMono,
+                                fontFamilyFallback:
+                                    AppTypography.fontMonoFallbacks,
+                                fontSize: 11,
+                                color: colors.onCanvasMuted,
+                              ),
                             ),
                           ),
                         ],
@@ -218,8 +245,6 @@ class _OnboardingPermissionsView extends StatelessWidget {
           ),
           bottomNavigationBar: SafeArea(
             top: false,
-            // heightFactor keeps the bar as tall as its child. A plain Center
-            // would expand and swallow the body above it.
             child: Align(
               heightFactor: 1,
               child: ConstrainedBox(
@@ -229,7 +254,7 @@ class _OnboardingPermissionsView extends StatelessWidget {
                     Spacing.s5,
                     12,
                     Spacing.s5,
-                    12,
+                    16,
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -239,39 +264,33 @@ class _OnboardingPermissionsView extends StatelessWidget {
                               label: LocaleKeys
                                   .onboarding_permissions_denied_open_settings
                                   .tr(),
+                              size: AppButtonSize.lg,
                               isFullWidth: true,
                               onPressed: cubit.openSettings,
                             ),
                             const SizedBox(height: Spacing.s3),
                             AppButton(
-                              label: LocaleKeys
-                                  .onboarding_permissions_denied_continue
-                                  .tr(),
-                              variant: AppButtonVariant.ghost,
+                              label: 'Try again',
+                              variant: AppButtonVariant.paper,
                               isFullWidth: true,
-                              onPressed: () {
-                                cubit.continueAnyway();
-                                context.go('/onboarding/connect');
-                              },
+                              onPressed: cubit.requestPermissions,
                             ),
                           ]
                         : [
                             AppButton(
-                              label: LocaleKeys
-                                  .onboarding_permissions_enable_button
-                                  .tr(),
+                              label: isStep2
+                                  ? LocaleKeys
+                                      .onboarding_permissions_step2_button
+                                      .tr()
+                                  : LocaleKeys
+                                      .onboarding_permissions_step1_button
+                                      .tr(),
                               size: AppButtonSize.lg,
                               isFullWidth: true,
                               isLoading: state.isRequesting,
-                              onPressed: cubit.requestPermissions,
-                            ),
-                            const SizedBox(height: Spacing.s3),
-                            AppButton(
-                              label: continueWithoutText,
-                              variant: AppButtonVariant.ghost,
-                              isFullWidth: true,
-                              onPressed: () =>
-                                  context.go('/onboarding/connect'),
+                              onPressed: isStep2
+                                  ? cubit.requestCriticalAlerts
+                                  : cubit.requestNotifications,
                             ),
                           ],
                   ),
@@ -284,16 +303,3 @@ class _OnboardingPermissionsView extends StatelessWidget {
     );
   }
 }
-
-/// The alarm row reads back what the system said, so a denial is visible here
-/// and not only later on the topic's toggle.
-String _alarmRowValue(AlarmAuthorization alarm) => switch (alarm) {
-  AlarmAuthorization.authorized =>
-    LocaleKeys.onboarding_permissions_alarm_row_granted.tr(),
-  AlarmAuthorization.denied =>
-    LocaleKeys.onboarding_permissions_alarm_row_denied.tr(),
-  AlarmAuthorization.notDetermined =>
-    LocaleKeys.onboarding_permissions_alarm_row_pending.tr(),
-  AlarmAuthorization.unsupported =>
-    LocaleKeys.onboarding_permissions_alarm_row_unsupported.tr(),
-};

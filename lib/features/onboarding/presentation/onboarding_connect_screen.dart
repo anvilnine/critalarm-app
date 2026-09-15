@@ -11,16 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// Screen 2 of Onboarding (/onboarding/connect): Server Connection & Test Alarm.
-///
-/// Features:
-/// - Server URL and Admin Token inputs with Paste button.
-/// - Stubbed QR-scan button with non-blocking feedback.
-/// - "Crit Alarm Cloud" hosted sign-in placeholder card.
-/// - Validates via GET /v1/info and checks semver compatibility (major == 0).
-/// - Stores server URL and admin token upon successful connection.
-/// - Transitions to interactive "Ring me now" test state before dropping user
-///   on home screen (/ or /home).
+/// Screen 2 of Onboarding (/onboarding/connect): Server Connection & Local Test Alarm.
 class OnboardingConnectScreen extends StatelessWidget {
   const OnboardingConnectScreen({
     this.initialConnected = false,
@@ -85,10 +76,17 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
 
     return BlocConsumer<OnboardingConnectCubit, OnboardingConnectState>(
       listenWhen: (prev, curr) =>
-          !prev.canNavigateToHome && curr.canNavigateToHome,
+          (!prev.canNavigateToHome && curr.canNavigateToHome) ||
+          (!prev.canLaunchDemoAlarm && curr.canLaunchDemoAlarm),
       listener: (context, state) {
-        context.read<OnboardingConnectCubit>().navigationHandled();
-        context.go('/');
+        final cubit = context.read<OnboardingConnectCubit>();
+        if (state.canNavigateToHome) {
+          cubit.navigationHandled();
+          context.go('/');
+        } else if (state.canLaunchDemoAlarm) {
+          cubit.demoAlarmHandled();
+          unawaited(context.push('/incidents/inc_demo'));
+        }
       },
       builder: (context, state) {
         final cubit = context.read<OnboardingConnectCubit>();
@@ -114,8 +112,8 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
                       16,
                     ),
                     child: state.isConnected
-                        ? _buildRingMeNowState(context, state, cubit)
-                        : _buildConnectForm(context, state, cubit),
+                        ? _buildHookTestState(context, state, cubit)
+                        : _buildConnectOptions(context, state, cubit),
                   ),
                 ),
               ),
@@ -123,8 +121,6 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
           ),
           bottomNavigationBar: SafeArea(
             top: false,
-            // heightFactor keeps the bar as tall as its child. A plain Center
-            // would expand and swallow the body above it.
             child: Align(
               heightFactor: 1,
               child: ConstrainedBox(
@@ -134,42 +130,11 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
                     Spacing.s5,
                     12,
                     Spacing.s5,
-                    12,
+                    16,
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: state.isConnected
-                        ? [
-                            AppButton(
-                              label: LocaleKeys
-                                  .onboarding_connect_dashboard_button
-                                  .tr(),
-                              size: AppButtonSize.lg,
-                              isFullWidth: true,
-                              onPressed: cubit.navigateToHome,
-                            ),
-                            const SizedBox(height: Spacing.s3),
-                            AppButton(
-                              label: LocaleKeys
-                                  .onboarding_connect_change_server_button
-                                  .tr(),
-                              variant: AppButtonVariant.ghost,
-                              size: AppButtonSize.sm,
-                              onPressed: cubit.editConnection,
-                            ),
-                          ]
-                        : [
-                            AppButton(
-                              label: LocaleKeys
-                                  .onboarding_connect_connect_button
-                                  .tr(),
-                              size: AppButtonSize.lg,
-                              isFullWidth: true,
-                              isLoading: state.isConnecting,
-                              onPressed: cubit.connect,
-                            ),
-                          ],
-                  ),
+                  child: state.isConnected
+                      ? _buildHookBottomBar(context, state, cubit)
+                      : const SizedBox.shrink(),
                 ),
               ),
             ),
@@ -179,14 +144,14 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
     );
   }
 
-  Widget _buildConnectForm(
+  Widget _buildConnectOptions(
     BuildContext context,
     OnboardingConnectState state,
     OnboardingConnectCubit cubit,
   ) {
     final colors = context.appColors;
-    final qrNotice = state.qrNotice;
     final errorMsg = state.errorMessage;
+    final qrNotice = state.qrNotice;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,10 +159,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
         // Brand header
         Row(
           children: [
-            const FaceWidget(
-              state: FaceState.calm,
-              size: 34,
-            ),
+            const FaceWidget(state: FaceState.calm, size: 34),
             const SizedBox(width: Spacing.s3),
             Expanded(
               child: Text(
@@ -218,71 +180,118 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
         ),
         const SizedBox(height: Spacing.s6),
 
-        // Headline
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            LocaleKeys.onboarding_connect_title.tr(),
-            style: AppTypography.display(
-              colors.onCanvas,
-              fontSize: 34,
-            ),
-          ),
+        Text(
+          LocaleKeys.onboarding_connect_title.tr(),
+          style: AppTypography.display(colors.onCanvas, fontSize: 32),
         ),
-        const SizedBox(height: Spacing.s3),
-
-        // Subtitle
+        const SizedBox(height: Spacing.s2),
         Text(
           LocaleKeys.onboarding_connect_subtitle.tr(),
-          style: AppTypography.lead(
-            colors.onCanvasMuted,
-            fontSize: 16,
-          ),
+          style: AppTypography.lead(colors.onCanvasMuted, fontSize: 15),
         ),
         const SizedBox(height: Spacing.s6),
 
-        // Server URL input
-        AppTextField(
-          label: LocaleKeys.onboarding_connect_url_label.tr(),
-          controller: _urlController,
-          placeholder: 'https://api.critalarm.app',
-          helperText: LocaleKeys.onboarding_connect_url_helper.tr(),
-          errorText: state.serverUrlError,
-          onChanged: cubit.serverUrlChanged,
-          onSubmitted: (_) => cubit.connect(),
-        ),
-        const SizedBox(height: Spacing.s5),
+        if (errorMsg != null) ...[
+          AppToast(
+            key: const ValueKey('connect-error-toast'),
+            faceState: FaceState.worried,
+            message: errorMsg,
+          ),
+          const SizedBox(height: Spacing.s4),
+        ],
 
-        if (state.requiresAdminToken) ...[
-          // Admin Token section with Paste and Scan QR buttons
+        if (qrNotice != null) ...[
+          AppToast(
+            key: const ValueKey('qr-notice-toast'),
+            faceState: FaceState.watching,
+            message: qrNotice,
+          ),
+          const SizedBox(height: Spacing.s4),
+        ],
+
+        if (!state.isSelfHosting) ...[
+          // Default: Crit Alarm Cloud primary card
+          AppSheet(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const FaceWidget(state: FaceState.calm, size: 32),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        LocaleKeys.onboarding_connect_cloud_title.tr(),
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontDisplay,
+                          fontFamilyFallback:
+                              AppTypography.fontDisplayFallbacks,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                          color: colors.ink,
+                        ),
+                      ),
+                    ),
+                    const AppBadge(text: 'OFFICIAL'),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  LocaleKeys.onboarding_connect_cloud_description.tr(),
+                  style: AppTypography.body(colors.ink2, fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                AppButton(
+                  label: LocaleKeys.onboarding_connect_cloud_button.tr(),
+                  size: AppButtonSize.lg,
+                  isFullWidth: true,
+                  isLoading: state.isConnecting,
+                  onPressed: cubit.connectToCloud,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: Spacing.s5),
+          Center(
+            child: AppButton(
+              label: LocaleKeys.onboarding_connect_self_host_toggle.tr(),
+              variant: AppButtonVariant.ghost,
+              size: AppButtonSize.sm,
+              onPressed: cubit.toggleSelfHosting,
+            ),
+          ),
+        ] else ...[
+          // Advanced self-hosted form
+          AppTextField(
+            label: LocaleKeys.onboarding_connect_url_label.tr(),
+            controller: _urlController,
+            placeholder: 'https://api.critalarm.app',
+            helperText: LocaleKeys.onboarding_connect_url_helper.tr(),
+            errorText: state.serverUrlError,
+            onChanged: cubit.serverUrlChanged,
+            onSubmitted: (_) => cubit.connect(),
+          ),
+          const SizedBox(height: Spacing.s4),
+
           Row(
             children: [
               Expanded(
                 child: Text(
                   LocaleKeys.onboarding_connect_admin_token_label.tr(),
                   overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
                   style: AppTypography.small(colors.onCanvas).copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              // Paste button
               AppButton(
                 label: LocaleKeys.onboarding_connect_paste_button.tr(),
                 size: AppButtonSize.sm,
                 variant: AppButtonVariant.paper,
-                icon: AppGlyph(
-                  GlyphType.copy,
-                  size: 13,
-                  color: colors.ink,
-                ),
+                icon: AppGlyph(GlyphType.copy, size: 13, color: colors.ink),
                 onPressed: _handlePaste,
               ),
               const SizedBox(width: 8),
-              // Stubbed Scan QR button
               Semantics(
                 label: LocaleKeys.onboarding_connect_scan_qr_semantic_label
                     .tr(),
@@ -318,73 +327,30 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
             onChanged: cubit.adminTokenChanged,
             onSubmitted: (_) => cubit.connect(),
           ),
-          const SizedBox(height: Spacing.s4),
-        ],
+          const SizedBox(height: Spacing.s5),
 
-        // Non-blocking notifications / error toasts
-        if (qrNotice != null) ...[
-          AppToast(
-            key: const ValueKey('qr-notice-toast'),
-            faceState: FaceState.watching,
-            message: qrNotice,
+          AppButton(
+            label: LocaleKeys.onboarding_connect_connect_button.tr(),
+            size: AppButtonSize.lg,
+            isFullWidth: true,
+            isLoading: state.isConnecting,
+            onPressed: cubit.connect,
           ),
-          const SizedBox(height: Spacing.s4),
+          const SizedBox(height: Spacing.s3),
+          Center(
+            child: AppButton(
+              label: LocaleKeys.onboarding_connect_self_host_hide.tr(),
+              variant: AppButtonVariant.ghost,
+              size: AppButtonSize.sm,
+              onPressed: cubit.toggleSelfHosting,
+            ),
+          ),
         ],
-
-        if (errorMsg != null) ...[
-          AppToast(
-            key: const ValueKey('connect-error-toast'),
-            faceState: FaceState.worried,
-            message: errorMsg,
-          ),
-          const SizedBox(height: Spacing.s4),
-        ],
-
-        // Hosted sign-in placeholder card
-        AppSheet(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const FaceWidget(state: FaceState.watching, size: 28),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      LocaleKeys.onboarding_connect_cloud_title.tr(),
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontDisplay,
-                        fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 17,
-                        color: colors.ink,
-                      ),
-                    ),
-                  ),
-                  AppBadge(
-                    text: LocaleKeys.onboarding_connect_cloud_badge.tr(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                LocaleKeys.onboarding_connect_cloud_description.tr(),
-                style: AppTypography.body(colors.ink2, fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              AppButton(
-                label: LocaleKeys.onboarding_connect_cloud_button.tr(),
-                variant: AppButtonVariant.paper,
-                isFullWidth: true,
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
 
-  Widget _buildRingMeNowState(
+  Widget _buildHookTestState(
     BuildContext context,
     OnboardingConnectState state,
     OnboardingConnectCubit cubit,
@@ -394,7 +360,6 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Connection status pill badge
         Center(
           child: AppBadge(
             text: LocaleKeys.onboarding_connect_connected_status.tr(
@@ -404,79 +369,128 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
         ),
         const SizedBox(height: Spacing.s5),
 
-        // Alarmed face
-        const FaceWidget(
-          state: FaceState.alarmed,
-          size: 96,
+        FaceWidget(
+          state: state.isCountingDown
+              ? FaceState.alarmed
+              : FaceState.watching,
+          size: 88,
           isLive: true,
         ),
         const SizedBox(height: Spacing.s4),
 
-        // Pill badge
-        const AppBadge(
-          faceState: FaceState.alarmed,
-        ),
-        const SizedBox(height: Spacing.s4),
-
-        // Headline
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            LocaleKeys.onboarding_connect_ring_title.tr(),
-            textAlign: TextAlign.center,
-            style: AppTypography.headline(
-              colors.onCanvas,
-              fontSize: 32,
-            ),
-          ),
-        ),
-        const SizedBox(height: Spacing.s3),
-
-        // Body explaining Critical Alerts
         Text(
-          LocaleKeys.onboarding_connect_ring_body.tr(),
+          LocaleKeys.onboarding_connect_hook_title.tr(),
+          textAlign: TextAlign.center,
+          style: AppTypography.headline(colors.onCanvas, fontSize: 30),
+        ),
+        const SizedBox(height: Spacing.s2),
+        Text(
+          LocaleKeys.onboarding_connect_hook_subtitle.tr(),
           textAlign: TextAlign.center,
           style: AppTypography.body(colors.onCanvasMuted),
         ),
-        const SizedBox(height: Spacing.s6),
+        const SizedBox(height: Spacing.s5),
 
-        // "Ring me now" test button
-        AppButton(
-          label: state.topic.isEmpty
-              ? 'No critical topic to ring'
-              : LocaleKeys.onboarding_connect_ring_button.tr(),
-          variant: AppButtonVariant.ink,
-          isFullWidth: true,
-          isLoading: state.isRinging,
-          onPressed: state.topic.isEmpty ? null : () => cubit.ringTestAlarm(),
-        ),
-
-        // Test alert toast / status feedback when rung
-        if (state.isAlarmSuccess || state.isAlarmFailure) ...[
-          const SizedBox(height: Spacing.s4),
-          AnimatedSwitcher(
-            duration: AppDurations.quick,
-            child: state.isAlarmSuccess
-                ? AppToast(
-                    key: const ValueKey('ring-success-toast'),
-                    variant: AppToastVariant.crit,
-                    message: LocaleKeys.onboarding_connect_ring_toast_sent.tr(),
-                    boldText: state.topic,
-                    boldTextSuffix: state.incidentId != null
-                        ? LocaleKeys
-                              .onboarding_connect_ring_toast_ringing_with_id
-                              .tr(namedArgs: {'incidentId': state.incidentId!})
-                        : LocaleKeys.onboarding_connect_ring_toast_ringing.tr(),
-                  )
-                : AppToast(
-                    key: const ValueKey('ring-error-toast'),
-                    faceState: FaceState.worried,
-                    message:
-                        state.errorMessage ??
-                        LocaleKeys.onboarding_connect_ring_toast_failed.tr(),
+        if (state.isCountingDown) ...[
+          // Live Countdown Display
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.onCanvas, width: 2),
+              boxShadow: AppShadows.lightLg,
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '${state.countdownSeconds}s',
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontDisplay,
+                    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 54,
+                    letterSpacing: -2,
+                    color: colors.crit,
                   ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  LocaleKeys.onboarding_connect_hook_countdown.tr(
+                    namedArgs: {'seconds': '${state.countdownSeconds}'},
+                  ),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontBody,
+                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: colors.ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          // 3-Step Challenge Box
+          AppSheet(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const AppSectionHeader('HOW THE TEST WORKS'),
+                const SizedBox(height: 8),
+                AppFeatureBullet(
+                  text: LocaleKeys.onboarding_connect_hook_step1.tr(),
+                  glyph: GlyphType.bell,
+                ),
+                const SizedBox(height: 12),
+                AppFeatureBullet(
+                  text: LocaleKeys.onboarding_connect_hook_step2.tr(),
+                  glyph: GlyphType.arrow,
+                ),
+                const SizedBox(height: 12),
+                AppFeatureBullet(
+                  text: LocaleKeys.onboarding_connect_hook_step3.tr(),
+                  glyph: GlyphType.clock,
+                ),
+              ],
+            ),
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _buildHookBottomBar(
+    BuildContext context,
+    OnboardingConnectState state,
+    OnboardingConnectCubit cubit,
+  ) {
+    if (state.isCountingDown) {
+      return AppButton(
+        label: LocaleKeys.onboarding_connect_hook_cancel.tr(),
+        variant: AppButtonVariant.ghost,
+        isFullWidth: true,
+        onPressed: cubit.cancelCountdown,
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppButton(
+          label: LocaleKeys.onboarding_connect_hook_button.tr(),
+          size: AppButtonSize.lg,
+          isFullWidth: true,
+          onPressed: cubit.startLocal30sAlarm,
+        ),
+        const SizedBox(height: Spacing.s3),
+        AppButton(
+          label: LocaleKeys.onboarding_connect_dashboard_button.tr(),
+          variant: AppButtonVariant.ghost,
+          size: AppButtonSize.sm,
+          onPressed: cubit.navigateToHome,
+        ),
       ],
     );
   }
