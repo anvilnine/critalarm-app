@@ -31,6 +31,17 @@ abstract final class SearchRanking {
   /// This result is the kind the user was already looking at.
   static const int scopeBonus = 150;
 
+  /// Below this many characters, only the start of a title counts. One letter
+  /// otherwise matches most of the app.
+  static const int minLooseQuery = 2;
+
+  /// The most results shown in one section. A panel that has to be scrolled to
+  /// reach the good answer is not a search.
+  static const int maxPerKind = 4;
+
+  /// The most results shown at all, across every section.
+  static const int maxResults = 12;
+
   /// How well [result] answers [query]. Zero means it does not, and a zero
   /// scoring result is never shown.
   static int score(
@@ -57,20 +68,25 @@ abstract final class SearchRanking {
         total += exactTitle;
       } else if (title.startsWith(q)) {
         total += titlePrefix;
-      } else if (_hasWordStartingWith(title, q)) {
-        total += titleWordStart;
-      } else if (title.contains(q)) {
-        total += titleContains;
-      }
+      } else if (q.length >= minLooseQuery) {
+        // One letter matches almost everything once you look inside words and
+        // hidden keywords, which turns the panel into a list of the whole app.
+        // Below two characters only the start of a title counts.
+        if (_hasWordStartingWith(title, q)) {
+          total += titleWordStart;
+        } else if (title.contains(q)) {
+          total += titleContains;
+        }
 
-      if (result.subtitle.toLowerCase().contains(q)) {
-        total += subtitleContains;
-      }
+        if (result.subtitle.toLowerCase().contains(q)) {
+          total += subtitleContains;
+        }
 
-      for (final keyword in result.keywords) {
-        if (keyword.contains(q)) {
-          total += keywordMatch;
-          break;
+        for (final keyword in result.keywords) {
+          if (_hasWordStartingWith(keyword, q)) {
+            total += keywordMatch;
+            break;
+          }
         }
       }
     }
@@ -113,7 +129,17 @@ abstract final class SearchRanking {
       return byScore != 0 ? byScore : a.index.compareTo(b.index);
     });
 
-    return <SearchResult>[for (final entry in scored) entry.result];
+    final ranked = <SearchResult>[];
+    final perKind = <SearchResultKind, int>{};
+    for (final entry in scored) {
+      if (ranked.length >= maxResults) break;
+      final kind = entry.result.kind;
+      final used = perKind[kind] ?? 0;
+      if (used >= maxPerKind) continue;
+      perKind[kind] = used + 1;
+      ranked.add(entry.result);
+    }
+    return ranked;
   }
 
   /// Splits ranked results into sections, keeping both the order inside a
