@@ -48,8 +48,19 @@ tail -f worktrees/<name>/.worktree-prep.log
 `.worktree-ready` appears in the worktree when it can compile. That marker is
 also what stops the hook re-running. Delete it to force a re-prep.
 
-The hook also copies the git-ignored machine-local files across: `.env`,
-`.env.local`, `.claude/settings.local.json`.
+The hook also copies the git-ignored machine-local files across, when the main
+checkout has them:
+
+| File | Why a worktree needs it |
+|---|---|
+| `.env`, `.env.local` | app config |
+| `.claude/settings.local.json` | local agent settings |
+| `android/app/google-services.json` | without it a release build fails at `:app:processReleaseGoogleServices` |
+| `android/key.properties` | release signing |
+| `ios/Runner/GoogleService-Info.plist` | the iOS half of the same Firebase config |
+
+None of those are in the repo, and they must stay out of it: this is a public
+repo and they are secrets.
 
 ## Finish a worktree
 

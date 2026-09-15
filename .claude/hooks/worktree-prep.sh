@@ -30,7 +30,13 @@ while read -r wt; do
   mkdir "$wt/.worktree-prep.lock" 2>/dev/null || continue
 
   # Carry over the files git cannot: all git-ignored, all machine-local.
-  for f in .env .env.local .claude/settings.local.json; do
+  # google-services.json and GoogleService-Info.plist are kept out of this
+  # public repo on purpose, and without them an Android release build fails at
+  # :app:processReleaseGoogleServices.
+  for f in .env .env.local .claude/settings.local.json \
+           android/app/google-services.json \
+           android/key.properties \
+           ios/Runner/GoogleService-Info.plist; do
     if [ -f "$main/$f" ] && [ ! -e "$wt/$f" ]; then
       mkdir -p "$(dirname "$wt/$f")"
       cp "$main/$f" "$wt/$f"
