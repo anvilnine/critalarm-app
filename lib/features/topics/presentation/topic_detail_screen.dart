@@ -65,6 +65,8 @@ class _TopicDetailScreenContent extends StatelessWidget {
             // it. As a pane it never had one. Either way there is no bar to
             // leave room for.
             hasTabBar: false,
+            onRefresh: () =>
+                context.read<TopicDetailCubit>().load(state.topicName),
             withGhosts: !isPane,
             backgroundColor: isPane ? context.appColors.surface : null,
             // Pinned rather than trailing the message list, so acknowledging
@@ -146,8 +148,27 @@ class _TopicDetailScreenContent extends StatelessWidget {
                             buttonLabel: null,
                             isLive: false,
                           )
-                        else if (state.errorMessage != null)
-                          Text(state.errorMessage!),
+                        else if (state.errorMessage != null) ...[
+                          // Was a bare Text dropped in the middle of the
+                          // sheet, with no way to try the thing again.
+                          AppToast(
+                            faceState: FaceState.worried,
+                            message: state.errorMessage,
+                          ),
+                          const SizedBox(height: 10),
+                          AppButton(
+                            label: LocaleKeys.topic_detail_retry_button.tr(),
+                            variant: AppButtonVariant.ghost,
+                            size: AppButtonSize.sm,
+                            isFullWidth: true,
+                            onPressed: () => unawaited(
+                              context.read<TopicDetailCubit>().load(
+                                state.topicName,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
                         AppToggleRow(
                           title: LocaleKeys.topic_detail_critical_toggle_title
                               .tr(),

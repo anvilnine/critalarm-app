@@ -44,30 +44,69 @@ class _CriticalAlarmView extends StatelessWidget {
       listener: (context, state) => AppHaptics.success(),
       builder: (context, state) {
         if (!state.isLive && !state.isAcknowledged) {
+          final isLoading = state.status == CriticalAlarmStatus.loading;
+          final didFail = !isLoading && state.errorMessage != null;
+
           return AppScreenScaffold(
             hasTabBar: false,
             topBar: AppTopBar(
-              title: 'Alarm',
+              title: LocaleKeys.critical_alarm_screen_title.tr(),
               leading: AppIconButton(
                 glyph: GlyphType.back,
-                ariaLabel: 'Back',
+                ariaLabel: LocaleKeys.critical_alarm_back_aria_label.tr(),
                 onPressed: () => context.go('/'),
               ),
             ),
+            // The load failing does not stop the phone ringing, so this screen
+            // keeps a way out even when it has no incident to acknowledge.
+            bottomBar: didFail
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppButton(
+                        label: LocaleKeys.critical_alarm_retry_button.tr(),
+                        isFullWidth: true,
+                        onPressed: () => unawaited(
+                          context.read<CriticalAlarmCubit>().load(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      AppButton(
+                        label: LocaleKeys.critical_alarm_silence_button.tr(),
+                        variant: AppButtonVariant.ghost,
+                        isFullWidth: true,
+                        onPressed: () {
+                          AppHaptics.capture();
+                          unawaited(
+                            context
+                                .read<CriticalAlarmCubit>()
+                                .silenceThisPhone(),
+                          );
+                        },
+                      ),
+                    ],
+                  )
+                : null,
             slivers: [
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
                 sliver: SliverToBoxAdapter(
                   child: AppEmptyState(
-                    title: state.status == CriticalAlarmStatus.loading
-                        ? 'Loading alarm'
-                        : state.errorMessage != null
-                        ? 'Unable to load alarm'
-                        : 'No active alarm',
-                    description: state.errorMessage ?? '',
+                    title: isLoading
+                        ? LocaleKeys.critical_alarm_loading_title.tr()
+                        : didFail
+                        ? LocaleKeys.critical_alarm_load_failed_title.tr()
+                        : LocaleKeys.critical_alarm_no_alarm_title.tr(),
+                    description: didFail
+                        ? LocaleKeys.critical_alarm_load_failed_body.tr()
+                        : isLoading
+                        ? ''
+                        : LocaleKeys.critical_alarm_no_alarm_body.tr(),
                     buttonLabel: null,
-                    faceState: FaceState.calm,
-                    isLive: false,
+                    faceState: didFail
+                        ? FaceState.worried
+                        : FaceState.calm,
+                    isLive: isLoading,
                   ),
                 ),
               ),
@@ -79,9 +118,16 @@ class _CriticalAlarmView extends StatelessWidget {
           child: Builder(
             builder: (context) {
               final colors = context.appColors;
-              return state.isAcknowledged
-                  ? _AcknowledgedScreen(state: state, colors: colors)
-                  : _RingingScreen(state: state, colors: colors);
+              if (state.isAcknowledged) {
+                return _AcknowledgedScreen(state: state, colors: colors);
+              }
+              // While it is ringing this screen holds the only Stop control.
+              // An Android back press or an edge swipe used to dismiss it and
+              // leave the phone screaming with no way back.
+              return PopScope(
+                canPop: false,
+                child: _RingingScreen(state: state, colors: colors),
+              );
             },
           ),
         );
@@ -106,6 +152,13 @@ class _RingingScreen extends StatelessWidget {
     final bottomBar = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (state.errorMessage != null) ...[
+          AppToast(
+            faceState: FaceState.worried,
+            message: state.errorMessage,
+          ),
+          const SizedBox(height: 8),
+        ],
         SizedBox(
           height: 48,
           child: AppButton(
