@@ -4,6 +4,7 @@ import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/search/domain/entities/docs_page.dart';
 import 'package:critalarm/features/search/domain/repositories/docs_index_repository.dart';
+import 'package:critalarm/gen/assets.gen.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/services.dart';
@@ -16,7 +17,7 @@ class AssetDocsIndexRepository implements DocsIndexRepository {
   AssetDocsIndexRepository({AssetBundle? bundle})
     : _bundle = bundle ?? rootBundle;
 
-  static const String assetPath = 'assets/docs/docs_index.json';
+  static final String assetPath = Assets.docs.docsIndex;
 
   final AssetBundle _bundle;
 
