@@ -1,5 +1,6 @@
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
+import 'package:critalarm/features/history/domain/entities/history_filter.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,20 +14,26 @@ class HistoryCubit extends Cubit<HistoryState> {
   final GetIncidentsUsecase _getIncidents;
   final DateTime Function() _now;
 
-  /// How far back the list reaches.
-  static const Duration window = Duration(days: 30);
+  /// How far back the list reaches. The widest filter window can never ask for
+  /// more than this, because nothing older was ever fetched.
+  static const Duration window = HistoryWindows.full;
 
   Future<void> load() async {
     emit(state.copyWith(status: HistoryStatus.loading));
     final result = await _getIncidents(const GetIncidentsParams(limit: 200));
     result.fold(
-      (incidents) => emit(
-        state.copyWith(
-          status: HistoryStatus.success,
-          days: groupByDay(toEntries(incidents, _now())),
-          clearError: true,
-        ),
-      ),
+      (incidents) {
+        final now = _now();
+        final entries = toEntries(incidents, now);
+        emit(
+          state.copyWith(
+            status: HistoryStatus.success,
+            entries: entries,
+            days: groupByDay(filterEntries(entries, state.filter, now)),
+            clearError: true,
+          ),
+        );
+      },
       (failure) => emit(
         state.copyWith(
           status: HistoryStatus.failure,
@@ -37,6 +44,35 @@ class HistoryCubit extends Cubit<HistoryState> {
   }
 
   Future<void> refresh() => load();
+
+  /// Narrows the list down. Re-derives from what is already loaded, so this
+  /// never goes back to the server.
+  void applyFilter(HistoryFilter filter) {
+    emit(
+      state.copyWith(
+        filter: filter,
+        days: groupByDay(filterEntries(state.entries, filter, _now())),
+      ),
+    );
+  }
+
+  void clearFilter() => applyFilter(HistoryFilter.none);
+
+  /// Keeps the entries that match [filter]. Order is preserved, so the result
+  /// is still newest first and ready for [groupByDay].
+  static List<HistoryEntry> filterEntries(
+    List<HistoryEntry> entries,
+    HistoryFilter filter,
+    DateTime now,
+  ) {
+    final cutoff = now.subtract(filter.window);
+    return <HistoryEntry>[
+      for (final entry in entries)
+        if (!entry.startedAt.isBefore(cutoff) &&
+            (filter.states.isEmpty || filter.states.contains(entry.state)))
+          entry,
+    ];
+  }
 
   /// Turns raw incidents into entries, dropping anything older than [window]
   /// and anything with no start time to sort on.

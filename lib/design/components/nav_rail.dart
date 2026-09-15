@@ -18,7 +18,9 @@ class AppNavRail extends StatelessWidget {
     required this.currentIndex,
     required this.onSelect,
     required this.onCompose,
+    this.onSearch,
     this.composeLabel,
+    this.searchLabel,
     super.key,
   });
 
@@ -35,7 +37,13 @@ class AppNavRail extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onSelect;
   final VoidCallback onCompose;
+
+  /// Opens search, in the slot just above compose. Matches the tab bar, where
+  /// search sits just left of it. Null leaves the slot out.
+  final VoidCallback? onSearch;
+
   final String? composeLabel;
+  final String? searchLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +78,10 @@ class AppNavRail extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 6),
+            if (onSearch != null) ...[
+              _RailSearch(label: searchLabel, onTap: onSearch!),
+              const SizedBox(height: 6),
+            ],
             _RailCompose(label: composeLabel, onTap: onCompose),
           ],
         ),
@@ -153,6 +165,47 @@ class _RailSlot extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens search. Outlined, so the filled compose slot stays the one obviously
+/// primary action on the rail.
+class _RailSearch extends StatelessWidget {
+  const _RailSearch({required this.label, required this.onTap});
+
+  final String? label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: () {
+          AppHaptics.selection();
+          onTap();
+        },
+        borderRadius: Radii.fullAll,
+        child: Container(
+          width: 56,
+          height: 48,
+          decoration: BoxDecoration(
+            borderRadius: Radii.fullAll,
+            border: Border.all(color: colors.panelLine, width: 1.5),
+          ),
+          child: Center(
+            child: AppGlyph(
+              GlyphType.search,
+              size: 20,
+              color: colors.onPanelMuted,
+            ),
           ),
         ),
       ),

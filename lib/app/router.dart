@@ -1,5 +1,7 @@
 import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
+import 'package:critalarm/design/motion.dart';
+import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/features/history/presentation/history_screen.dart';
 import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
 import 'package:critalarm/features/incidents/presentation/lock_screen.dart';
@@ -8,6 +10,9 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_connect_sc
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
+import 'package:critalarm/features/search/domain/entities/search_scope.dart';
+import 'package:critalarm/features/search/presentation/search_screen.dart';
+import 'package:critalarm/features/search/presentation/widgets/search_overlay_transition.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
@@ -33,6 +38,7 @@ abstract final class AppRoute {
   static const history = 'history';
   static const topicDetail = 'topicDetail';
   static const createTopic = 'createTopic';
+  static const search = 'search';
   static const settings = 'settings';
   static const settingsDisconnected = 'settingsDisconnected';
   static const devicePermissions = 'devicePermissions';
@@ -54,6 +60,28 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
   navigatorKey: _rootKey,
   initialLocation: initialLocation,
   routes: [
+    // Search is a layer, not a place: the screen it was opened from stays
+    // mounted and blurred underneath, so the route is not opaque and the
+    // barrier is the way out.
+    GoRoute(
+      path: '/search',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.search,
+      pageBuilder: (context, state) {
+        final scope = _scopeFromName(state.uri.queryParameters['scope']);
+        return CustomTransitionPage<void>(
+          key: state.pageKey,
+          opaque: false,
+          barrierDismissible: true,
+          barrierColor: const Color(0x00000000),
+          transitionDuration: context.motion(AppDurations.enter),
+          reverseTransitionDuration: context.motion(AppDurations.quick),
+          child: SearchScreen(scope: scope),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+              SearchOverlayTransition(animation: animation, child: child),
+        );
+      },
+    ),
     // Creating a topic covers the display, so it is routed off the root
     // navigator and the tab bar goes with it.
     GoRoute(
@@ -243,3 +271,12 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     ),
   ],
 );
+
+/// Turns the `scope` query parameter into a [SearchScope]. An unknown or
+/// missing value means no scope, and then nothing gets a ranking bonus.
+SearchScope? _scopeFromName(String? name) => switch (name) {
+  'topics' => SearchScope.topics,
+  'history' => SearchScope.history,
+  'settings' => SearchScope.settings,
+  _ => null,
+};

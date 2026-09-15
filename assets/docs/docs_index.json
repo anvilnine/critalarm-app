@@ -1,0 +1,84 @@
+{
+  "baseUrl": "https://critalarm.app",
+  "source": "critalarm-site/src/content/docs",
+  "note": "Hand-maintained. Update this when a docs page is added, renamed or removed on critalarm.app. Only public information belongs here: titles, descriptions, groups and public URLs.",
+  "pages": [
+    {
+      "slug": "ntfy-compatibility",
+      "title": "ntfy Compatibility",
+      "description": "Which ntfy headers, endpoints and options Crit Alarm supports, and where it differs on purpose.",
+      "group": "Getting Started",
+      "url": "https://critalarm.app/ntfy-compatibility/"
+    },
+    {
+      "slug": "failure-modes",
+      "title": "Failure modes",
+      "description": "What happens when the host dies, a push is rejected, or the phone is offline.",
+      "group": "Getting Started",
+      "url": "https://critalarm.app/failure-modes/"
+    },
+    {
+      "slug": "install/docker",
+      "title": "Docker Installation",
+      "description": "Run Crit Alarm server using Docker or Docker Compose with SQLite persistence.",
+      "group": "Installation",
+      "url": "https://critalarm.app/install/docker/"
+    },
+    {
+      "slug": "install/config",
+      "title": "Configuration Reference",
+      "description": "Detailed reference of server configuration options, environment variables, and privacy settings.",
+      "group": "Installation",
+      "url": "https://critalarm.app/install/config/"
+    },
+    {
+      "slug": "install/reverse-proxy",
+      "title": "Reverse Proxy Setup",
+      "description": "Configure Caddy, Traefik, and Nginx to front Crit Alarm while preserving critical HTTP headers.",
+      "group": "Installation",
+      "url": "https://critalarm.app/install/reverse-proxy/"
+    },
+    {
+      "slug": "integrations/uptime-kuma",
+      "title": "Uptime Kuma Integration",
+      "description": "Configure Uptime Kuma to trigger emergency Crit Alarm incidents using native ntfy notifications or webhooks.",
+      "group": "Integrations",
+      "url": "https://critalarm.app/integrations/uptime-kuma/"
+    },
+    {
+      "slug": "integrations/healthchecks",
+      "title": "Healthchecks Integration",
+      "description": "Configure Healthchecks or Healthchecks.io to trigger Crit Alarm emergency alerts when cron jobs fail.",
+      "group": "Integrations",
+      "url": "https://critalarm.app/integrations/healthchecks/"
+    },
+    {
+      "slug": "integrations/home-assistant",
+      "title": "Home Assistant Integration",
+      "description": "Trigger Crit Alarm sirens from Home Assistant automations using Notify or REST commands.",
+      "group": "Integrations",
+      "url": "https://critalarm.app/integrations/home-assistant/"
+    },
+    {
+      "slug": "api-publish",
+      "title": "Publish API (ntfy-compatible)",
+      "description": "Specification for the ntfy-compatible message publishing and polling HTTP interface.",
+      "group": "API Contract",
+      "url": "https://critalarm.app/api-publish/"
+    },
+    {
+      "slug": "api-v1",
+      "title": "Crit Alarm API (v1)",
+      "description": "Management endpoints for topics, tokens, incidents, alarms, and server metadata.",
+      "group": "API Contract",
+      "url": "https://critalarm.app/api-v1/"
+    },
+    {
+      "slug": "api-reference",
+      "title": "Full API Reference",
+      "description": "Complete API contract and reference specification for Crit Alarm server and relay.",
+      "group": "API Contract",
+      "url": "https://critalarm.app/api-reference/"
+    }
+  ]
+}

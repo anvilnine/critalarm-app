@@ -38,6 +38,22 @@ class _AppShellContent extends StatelessWidget {
 
   final StatefulNavigationShell navigationShell;
 
+  /// Which tab the user is on, as the scope search ranks by. Index order
+  /// matches the branch order in the router: Topics, History, Settings.
+  static const List<String> _scopeNames = <String>[
+    'topics',
+    'history',
+    'settings',
+  ];
+
+  void _openSearch(BuildContext context) {
+    final index = navigationShell.currentIndex;
+    final path = index >= 0 && index < _scopeNames.length
+        ? '/search?scope=${_scopeNames[index]}'
+        : '/search';
+    unawaited(context.push(path));
+  }
+
   void _goBranch(BuildContext context, int index) {
     navigationShell.goBranch(
       index,
@@ -86,6 +102,8 @@ class _AppShellContent extends StatelessWidget {
                     onSelect: (index) => _goBranch(context, index),
                     composeLabel: LocaleKeys.nav_new_topic.tr(),
                     onCompose: () => context.pushNamed('createTopic'),
+                    searchLabel: LocaleKeys.search_open_aria_label.tr(),
+                    onSearch: () => _openSearch(context),
                   ),
                 ),
               ),
@@ -105,7 +123,7 @@ class _AppShellContent extends StatelessWidget {
               right: 0,
               bottom: bottomInset + AppFloatingTabBar.edgeGap,
               child: Center(
-                // Four slots inside 390 px is tight. Scale the whole bar down
+                // Five slots inside 390 px is tight. Scale the whole bar down
                 // rather than let a label clip on a narrow display.
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -118,6 +136,8 @@ class _AppShellContent extends StatelessWidget {
                       onSelect: (index) => _goBranch(context, index),
                       composeLabel: LocaleKeys.nav_new_topic.tr(),
                       onCompose: () => context.pushNamed('createTopic'),
+                      searchLabel: LocaleKeys.search_open_aria_label.tr(),
+                      onSearch: () => _openSearch(context),
                     ),
                   ),
                 ),
