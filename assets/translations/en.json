@@ -132,7 +132,14 @@
       "other": "{count} topics. {warnings} warnings."
     },
     "stage_word_clear": "All clear",
-    "stage_sub_clear": "{count} topics. Last alert 06:12, acknowledged.",
+    "stage_sub_clear": {
+      "one": "1 topic. Nothing has rung yet.",
+      "other": "{} topics. Nothing has rung yet."
+    },
+    "stage_sub_clear_last": {
+      "one": "1 topic. Last alert {time}, acknowledged.",
+      "other": "{count} topics. Last alert {time}, acknowledged."
+    },
     "meta_quiet_6h": "Quiet for 6 h",
     "meta_finished_warnings": "Finished 02:04, 2 warnings",
     "meta_finished_size": "Finished 02:00, 412 GB",
@@ -164,6 +171,9 @@
   },
   "history": {
     "title": "History",
+    "loading_title": "Loading your history",
+    "load_failed": "Could not reach your server.",
+    "retry_button": "Try again",
     "filter_aria_label": "Filter history",
     "summary": {
       "one": "1 alarm in 30 days. Longest ring {longest}.",
