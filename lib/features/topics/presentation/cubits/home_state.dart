@@ -57,6 +57,7 @@ class HomeState {
     this.word = '',
     this.subText = '',
     this.severity = SeverityMode.none,
+    this.ringingIncidentId,
     this.errorMessage,
   });
 
@@ -66,6 +67,11 @@ class HomeState {
   final String word;
   final String subText;
   final SeverityMode severity;
+
+  /// The open incident that is ringing right now, if there is one. The app is
+  /// the alarm while this is set: the list hands the user to the takeover
+  /// screen instead of making them hunt for a way to stop it.
+  final String? ringingIncidentId;
   final String? errorMessage;
 
   bool get isEmpty => topicItems.isEmpty && status == HomeStatus.success;
@@ -77,6 +83,8 @@ class HomeState {
     String? word,
     String? subText,
     SeverityMode? severity,
+    String? ringingIncidentId,
+    bool clearRinging = false,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -87,6 +95,9 @@ class HomeState {
       word: word ?? this.word,
       subText: subText ?? this.subText,
       severity: severity ?? this.severity,
+      ringingIncidentId: clearRinging
+          ? null
+          : (ringingIncidentId ?? this.ringingIncidentId),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
@@ -102,6 +113,7 @@ class HomeState {
           word == other.word &&
           subText == other.subText &&
           severity == other.severity &&
+          ringingIncidentId == other.ringingIncidentId &&
           errorMessage == other.errorMessage;
 
   @override
@@ -112,6 +124,7 @@ class HomeState {
     word,
     subText,
     severity,
+    ringingIncidentId,
     errorMessage,
   );
 }
