@@ -1,3 +1,4 @@
+import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
 import 'package:critalarm/features/history/presentation/history_screen.dart';
@@ -52,6 +53,7 @@ final _rootKey = GlobalKey<NavigatorState>();
 
 GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
   navigatorKey: _rootKey,
+  observers: [appRouteObserver],
   initialLocation: initialLocation,
   routes: [
     // Creating a topic covers the display, so it is routed off the root

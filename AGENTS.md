@@ -63,6 +63,7 @@ state-management library.
 | Codegen | `make gen`, then `make l10n` |
 | Layer check | `make check-layers` |
 | Refresh the contract | `make sync-contract` |
+| Run with a quiet alarm | `make run-quiet DEVICE=<id>` (dev only, never ships) |
 | New worktree | `make worktree-new NAME=<slug>` |
 | Worktree status | `make worktree-list` |
 | Drop merged worktrees | `make worktree-clean` |
