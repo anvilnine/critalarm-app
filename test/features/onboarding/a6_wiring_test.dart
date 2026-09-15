@@ -163,7 +163,7 @@ void main() {
   }
 
   test('hosted connects without asking for an admin token', () async {
-    final cubit = connectCubit();
+    final cubit = connectCubit()..serverUrlChanged('https://typed.example');
     await cubit.connect();
     expect(cubit.state.isConnected, isTrue);
     expect(cubit.state.requiresAdminToken, isFalse);
@@ -236,11 +236,13 @@ void main() {
       'successful $action invalidates CustomerInfo '
       'and re-registers to read tier',
       () async {
-        final connection = connectCubit();
+        final connection = connectCubit()
+          ..serverUrlChanged('https://typed.example');
         await connection.connect();
         await revenueCat.initialize(apiKey: 'test');
         final repository = InMemorySubscriptionRepository();
         final paywall = PaywallCubit(
+          identityStore: identity,
           purchasePackageUsecase: PurchasePackageUsecase(repository),
           restorePurchasesUsecase: RestorePurchasesUsecase(repository),
           refreshRegistration: () async {

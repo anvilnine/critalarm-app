@@ -5,9 +5,11 @@ import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
+import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,6 +22,8 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     this._saveConnection,
     this._triggerTestAlarm, {
     required this.establishSession,
+    this.getTopics,
+    this.getConnection,
     this.completeOnboarding,
     bool initialConnected = false,
   }) : super(
@@ -29,6 +33,23 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
                : OnboardingConnectStatus.idle,
          ),
        );
+
+  final GetTopicsUsecase? getTopics;
+  final GetConnectionUsecase? getConnection;
+
+  Future<void> loadConnection() async {
+    final result = await getConnection?.call(const NoParams());
+    final connection = result?.getOrNull();
+    if (connection != null) {
+      emit(
+        state.copyWith(
+          serverUrl: connection.serverUrl,
+          status: OnboardingConnectStatus.connected,
+        ),
+      );
+      await loadTestTopic();
+    }
+  }
 
   final EstablishApiSessionUsecase establishSession;
   final GetServerInfoUsecase _getServerInfo;
@@ -150,14 +171,18 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
               adminToken: session.managementCredential,
             ),
           );
-          saved.fold(
-            (_) => emit(
-              state.copyWith(
-                status: OnboardingConnectStatus.connected,
-                clearErrorMessage: true,
-              ),
-            ),
-            (failure) => emit(
+          await saved.fold(
+            (_) async {
+              await loadTestTopic();
+              emit(
+                state.copyWith(
+                  serverUrl: info.baseUrl,
+                  status: OnboardingConnectStatus.connected,
+                  clearErrorMessage: true,
+                ),
+              );
+            },
+            (failure) async => emit(
               state.copyWith(
                 status: OnboardingConnectStatus.failure,
                 errorMessage: failure.message,
@@ -184,8 +209,33 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     );
   }
 
+  Future<void> loadTestTopic() async {
+    final result = await getTopics?.call(const NoParams());
+    final topics = result?.getOrNull() ?? [];
+    emit(
+      state.copyWith(
+        topic: topics.where((t) => t.critical).firstOrNull?.name ?? '',
+        errorMessage: result?.exceptionOrNull()?.message,
+      ),
+    );
+  }
+
   Future<void> ringTestAlarm({String? topic}) async {
-    final targetTopic = topic ?? state.topic;
+    if (getTopics != null) await loadTestTopic();
+    final targetTopic = getTopics == null
+        ? (topic ?? state.topic)
+        : state.topic;
+    if (targetTopic.isEmpty) {
+      emit(
+        state.copyWith(
+          testAlarmStatus: TestAlarmStatus.failure,
+          errorMessage:
+              'Create a topic and enable critical delivery '
+              'before testing an alarm.',
+        ),
+      );
+      return;
+    }
     emit(
       state.copyWith(
         testAlarmStatus: TestAlarmStatus.ringing,

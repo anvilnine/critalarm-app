@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
@@ -30,9 +32,11 @@ class OnboardingConnectScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => getIt<OnboardingConnectCubit>(
-        param1: initialConnected,
-      ),
+      create: (_) {
+        final cubit = getIt<OnboardingConnectCubit>(param1: initialConnected);
+        unawaited(cubit.loadConnection());
+        return cubit;
+      },
       child: const _OnboardingConnectView(),
     );
   }
@@ -438,11 +442,13 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView> {
 
         // "Ring me now" test button
         AppButton(
-          label: LocaleKeys.onboarding_connect_ring_button.tr(),
+          label: state.topic.isEmpty
+              ? 'No critical topic to ring'
+              : LocaleKeys.onboarding_connect_ring_button.tr(),
           variant: AppButtonVariant.ink,
           isFullWidth: true,
           isLoading: state.isRinging,
-          onPressed: () => cubit.ringTestAlarm(topic: 'prod-db'),
+          onPressed: state.topic.isEmpty ? null : () => cubit.ringTestAlarm(),
         ),
 
         // Test alert toast / status feedback when rung

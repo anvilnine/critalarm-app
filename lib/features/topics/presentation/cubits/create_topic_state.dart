@@ -1,3 +1,4 @@
+import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:flutter/foundation.dart';
 
@@ -8,6 +9,7 @@ enum CreateTopicStatus { initial, submitting, success, failure }
 @immutable
 class CreateTopicState {
   const CreateTopicState({
+    this.capReached,
     this.status = CreateTopicStatus.initial,
     this.name = '',
     this.isCritical = false,
@@ -16,6 +18,7 @@ class CreateTopicState {
     this.errorMessage,
   });
 
+  final CapReached? capReached;
   final CreateTopicStatus status;
   final String name;
 
@@ -26,6 +29,7 @@ class CreateTopicState {
   final String? errorMessage;
 
   CreateTopicState copyWith({
+    CapReached? capReached,
     CreateTopicStatus? status,
     String? name,
     bool? isCritical,
@@ -35,6 +39,7 @@ class CreateTopicState {
     bool clearError = false,
   }) {
     return CreateTopicState(
+      capReached: clearError ? null : (capReached ?? this.capReached),
       status: status ?? this.status,
       name: name ?? this.name,
       isCritical: isCritical ?? this.isCritical,
@@ -49,6 +54,7 @@ class CreateTopicState {
       identical(this, other) ||
       other is CreateTopicState &&
           runtimeType == other.runtimeType &&
+          capReached == other.capReached &&
           status == other.status &&
           name == other.name &&
           isCritical == other.isCritical &&
@@ -58,6 +64,7 @@ class CreateTopicState {
 
   @override
   int get hashCode => Object.hash(
+    capReached,
     status,
     name,
     isCritical,

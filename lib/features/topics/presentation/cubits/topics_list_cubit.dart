@@ -24,6 +24,15 @@ class TopicsListCubit extends Cubit<TopicsListState> {
     final topicsResult = await _getTopics(const NoParams());
     final incidentsResult = await _incidentRepository.getIncidents();
 
+    if (incidentsResult.isError()) {
+      emit(
+        state.copyWith(
+          status: TopicsListStatus.failure,
+          errorMessage: incidentsResult.exceptionOrNull()?.message,
+        ),
+      );
+      return;
+    }
     await topicsResult.fold(
       (topics) async {
         if (topics.isEmpty) {
@@ -43,12 +52,26 @@ class TopicsListCubit extends Cubit<TopicsListState> {
         final openIncidentIds = openIncidents.map((i) => i.id).toSet();
 
         final warningTopics = <String>{};
+        final priorities = <String, int>{};
         for (final t in topics) {
           final pollResult = await _incidentRepository.pollMessages(
             t.name,
             poll: 1,
           );
+          if (pollResult.isError()) {
+            emit(
+              state.copyWith(
+                status: TopicsListStatus.failure,
+                errorMessage: pollResult.exceptionOrNull()?.message,
+              ),
+            );
+            return;
+          }
           final msgs = pollResult.getOrNull() ?? [];
+          final latest = msgs.isEmpty
+              ? null
+              : msgs.reduce((a, b) => a.time > b.time ? a : b);
+          priorities[t.name] = latest?.priority ?? 3;
           if (msgs.any(
             (m) =>
                 m.priority == 4 ||
@@ -71,47 +94,6 @@ class TopicsListCubit extends Cubit<TopicsListState> {
             (i) => i.topic == t.name && i.messages.any((m) => m.priority == 4),
           );
 
-          if (t.name == 'prod-db') {
-            return TopicsListItem(
-              name: t.name,
-              meta: isOpenCrit
-                  ? LocaleKeys.topics_list_meta_ringing_crit.tr()
-                  : LocaleKeys.topics_list_meta_quiet_6h.tr(),
-              priority: PriorityLevel.critical,
-              faceState: isOpenCrit ? FaceState.alarmed : FaceState.calm,
-              isCrit: isOpenCrit,
-            );
-          }
-
-          if (t.name == 'nas-backup') {
-            final hasWarning = warningTopics.contains('nas-backup');
-            return TopicsListItem(
-              name: t.name,
-              meta: hasWarning
-                  ? LocaleKeys.topics_list_meta_finished_warnings.tr()
-                  : LocaleKeys.topics_list_meta_finished_size.tr(),
-              priority: PriorityLevel.high,
-              faceState: hasWarning ? FaceState.worried : FaceState.calm,
-            );
-          }
-
-          if (t.name == 'uptime-kuma') {
-            return TopicsListItem(
-              name: t.name,
-              meta: LocaleKeys.topics_list_meta_today.tr(),
-              priority: PriorityLevel.defaultPriority,
-            );
-          }
-
-          if (t.name == 'home-ha') {
-            return TopicsListItem(
-              name: t.name,
-              meta: LocaleKeys.topics_list_meta_yesterday.tr(),
-              priority: PriorityLevel.low,
-              isQuiet: true,
-            );
-          }
-
           FaceState face;
           final hasWarning = warningTopics.contains(t.name);
           if (isOpenCrit) {
@@ -122,9 +104,7 @@ class TopicsListCubit extends Cubit<TopicsListState> {
             face = FaceState.calm;
           }
 
-          final priority = t.critical
-              ? PriorityLevel.critical
-              : PriorityLevel.defaultPriority;
+          final priority = _priority(priorities[t.name] ?? 3);
 
           return TopicsListItem(
             name: t.name,
@@ -134,6 +114,7 @@ class TopicsListCubit extends Cubit<TopicsListState> {
                       ? LocaleKeys.topics_list_meta_warning.tr()
                       : LocaleKeys.topics_list_meta_quiet.tr()),
             priority: priority,
+            isQuiet: (priorities[t.name] ?? 3) <= 2,
             faceState: face,
             isCrit: isOpenCrit,
           );
@@ -157,3 +138,11 @@ class TopicsListCubit extends Cubit<TopicsListState> {
     );
   }
 }
+
+PriorityLevel _priority(int priority) => switch (priority) {
+  5 => PriorityLevel.critical,
+  4 => PriorityLevel.high,
+  2 => PriorityLevel.low,
+  1 => PriorityLevel.min,
+  _ => PriorityLevel.defaultPriority,
+};

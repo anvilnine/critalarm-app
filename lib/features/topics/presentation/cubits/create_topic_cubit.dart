@@ -1,3 +1,4 @@
+import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -25,6 +26,10 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   }
 
   Future<void> createTopic() async {
+    if (state.status == CreateTopicStatus.success ||
+        state.status == CreateTopicStatus.submitting) {
+      return;
+    }
     final trimmedName = state.name.trim();
     if (trimmedName.isEmpty) {
       emit(
@@ -64,7 +69,7 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
           state.copyWith(
             status: CreateTopicStatus.success,
             createdTopic: topic,
-            createdToken: topic.token ?? 'ca_live_${trimmedName}_token',
+            createdToken: topic.token,
           ),
         );
       },
@@ -73,6 +78,7 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
           state.copyWith(
             status: CreateTopicStatus.failure,
             errorMessage: failure.message,
+            capReached: CapReached.fromFailure(failure),
           ),
         );
       },

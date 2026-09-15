@@ -19,11 +19,11 @@ void main() {
 
   group('OnboardingPermissionsCubit', () {
     test(
-      'initial state has default topic prod-db and initial status',
+      'initial state has no test topic and initial status',
       () async {
         final cubit = OnboardingPermissionsCubit(mockTriggerTestAlarm);
         expect(cubit.state.status, OnboardingPermissionsStatus.initial);
-        expect(cubit.state.topic, 'prod-db');
+        expect(cubit.state.topic, isEmpty);
         expect(cubit.state.incidentId, isNull);
         expect(cubit.state.errorMessage, isNull);
         await cubit.close();
@@ -39,14 +39,16 @@ void main() {
         ).thenAnswer((_) async => 'inc_12345'.toSuccess());
       },
       build: () => OnboardingPermissionsCubit(mockTriggerTestAlarm),
-      act: (cubit) => cubit.ringTestAlarm(),
+      act: (cubit) => cubit.ringTestAlarm(topic: 'prod-db'),
       expect: () => [
         const OnboardingPermissionsState(
           status: OnboardingPermissionsStatus.ringing,
+          topic: 'prod-db',
         ),
         const OnboardingPermissionsState(
           status: OnboardingPermissionsStatus.success,
           incidentId: 'inc_12345',
+          topic: 'prod-db',
         ),
       ],
     );
@@ -63,14 +65,16 @@ void main() {
         );
       },
       build: () => OnboardingPermissionsCubit(mockTriggerTestAlarm),
-      act: (cubit) => cubit.ringTestAlarm(),
+      act: (cubit) => cubit.ringTestAlarm(topic: 'prod-db'),
       expect: () => [
         const OnboardingPermissionsState(
           status: OnboardingPermissionsStatus.ringing,
+          topic: 'prod-db',
         ),
         const OnboardingPermissionsState(
           status: OnboardingPermissionsStatus.failure,
           errorMessage: 'topic is not critical',
+          topic: 'prod-db',
         ),
       ],
     );

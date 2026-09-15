@@ -58,15 +58,15 @@ void main() {
   });
 
   group('SettingsCubit', () {
-    test('initial state matches design specs and mockup defaults', () {
+    test('initial state has no server connection', () {
       final cubit = SettingsCubit();
 
       expect(cubit.state.status, SettingsStatus.initial);
       expect(cubit.state.quietHoursEnabled, isTrue);
       expect(cubit.state.criticalRingsQuietHours, isTrue);
       expect(cubit.state.escalationCallEnabled, isFalse);
-      expect(cubit.state.serverUrl, 'api.critalarm.app');
-      expect(cubit.state.isConnected, isTrue);
+      expect(cubit.state.serverUrl, isEmpty);
+      expect(cubit.state.isConnected, isFalse);
       expect(cubit.state.analyticsEnabled, isFalse);
       expect(cubit.state.crashReportingEnabled, isFalse);
     });
@@ -128,11 +128,6 @@ void main() {
       act: (cubit) => cubit.load(),
       expect: () => [
         const SettingsState(status: SettingsStatus.loading),
-        isA<SettingsState>().having(
-          (s) => s.isConnected,
-          'isConnected',
-          isFalse,
-        ),
         isA<SettingsState>().having(
           (s) => s.status,
           'status',

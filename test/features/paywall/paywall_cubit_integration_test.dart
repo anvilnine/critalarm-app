@@ -1,4 +1,5 @@
 import 'package:bloc_test/bloc_test.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/features/paywall/data/repositories/in_memory_subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/domain/usecases/check_pro_entitlement_usecase.dart';
@@ -10,6 +11,7 @@ import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dar
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('PaywallCubit with SubscriptionRepository', () {
@@ -19,6 +21,7 @@ void main() {
     late PurchasePackageUsecase purchasePackageUsecase;
     late RestorePurchasesUsecase restorePurchasesUsecase;
     late GetCustomerInfoUsecase getCustomerInfoUsecase;
+    late DeviceIdentityStore identityStore;
 
     const yearlyPackage = Package(
       'yearly',
@@ -62,7 +65,11 @@ void main() {
       current: defaultOffering,
     );
 
-    setUp(() {
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      identityStore = DeviceIdentityStore(
+        await SharedPreferences.getInstance(),
+      );
       repository = InMemorySubscriptionRepository(offerings: mockOfferings);
       checkProUsecase = CheckProEntitlementUsecase(repository);
       getOfferingsUsecase = GetOfferingsUsecase(repository);
@@ -82,6 +89,12 @@ void main() {
       restorePurchasesUsecase: restorePurchasesUsecase,
       getCustomerInfoUsecase: getCustomerInfoUsecase,
       subscriptionRepository: repository,
+      identityStore: identityStore,
+      refreshRegistration: () => identityStore.saveRegistration(
+        deviceToken: 'dv_test',
+        accountId: 'acc_test',
+        tier: 'hosted',
+      ),
     );
 
     test('selectTier updates selectedTier and finds matching package', () {
@@ -118,7 +131,9 @@ void main() {
       act: (cubit) => cubit.upgradeToPro(yearlyPackage),
       expect: () => [
         predicate<PaywallState>((s) => s.status == PaywallStatus.loading),
-        predicate<PaywallState>((s) => s.isPro),
+        predicate<PaywallState>(
+          (s) => s.customerInfo != null && !s.isPro,
+        ),
         predicate<PaywallState>(
           (s) =>
               s.status == PaywallStatus.success &&
@@ -134,7 +149,9 @@ void main() {
       act: (cubit) => cubit.restorePurchases(),
       expect: () => [
         predicate<PaywallState>((s) => s.status == PaywallStatus.loading),
-        predicate<PaywallState>((s) => s.isPro),
+        predicate<PaywallState>(
+          (s) => s.customerInfo != null && !s.isPro,
+        ),
         predicate<PaywallState>(
           (s) =>
               s.status == PaywallStatus.success &&

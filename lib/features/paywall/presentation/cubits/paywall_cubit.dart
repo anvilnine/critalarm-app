@@ -1,5 +1,8 @@
 import 'dart:async';
+
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/models/account_access.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
@@ -20,6 +23,7 @@ import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 class PaywallCubit extends Cubit<PaywallState> {
   PaywallCubit({
     this.telemetryGate,
+    this.identityStore,
     this.refreshRegistration,
     this.checkProEntitlementUsecase,
     this.getOfferingsUsecase,
@@ -40,6 +44,9 @@ class PaywallCubit extends Cubit<PaywallState> {
 
   final Future<void> Function()? refreshRegistration;
   final TelemetryGate? telemetryGate;
+  final DeviceIdentityStore? identityStore;
+  Future<bool> _isPaid() async =>
+      AccountAccess(await identityStore?.readOrCreate()).isPaid;
   final CheckProEntitlementUsecase? checkProEntitlementUsecase;
   final GetOfferingsUsecase? getOfferingsUsecase;
   final PurchasePackageUsecase? purchasePackageUsecase;
@@ -60,14 +67,7 @@ class PaywallCubit extends Cubit<PaywallState> {
 
     emit(state.copyWith(status: PaywallStatus.loading, clearError: true));
 
-    var isPro = state.isPro;
-    if (checkProEntitlementUsecase != null) {
-      final proResult = await checkProEntitlementUsecase!(const NoParams());
-      proResult.fold(
-        (active) => isPro = active,
-        (_) {},
-      );
-    }
+    final isPro = await _isPaid();
 
     var customerInfo = state.customerInfo;
     if (getCustomerInfoUsecase != null) {
@@ -149,9 +149,7 @@ class PaywallCubit extends Cubit<PaywallState> {
       await result.fold(
         (customerInfo) async {
           await _refreshRegistration();
-          final entitlement =
-              customerInfo.entitlements.all[SubscriptionTier.proEntitlement];
-          final isPro = entitlement?.isActive ?? false;
+          final isPro = await _isPaid();
           emit(
             state.copyWith(
               status: PaywallStatus.success,
@@ -180,12 +178,11 @@ class PaywallCubit extends Cubit<PaywallState> {
       return;
     }
 
-    // Default simulation for paywall shell and unit tests
+    // No offering is available to purchase.
     emit(
       state.copyWith(
-        status: PaywallStatus.success,
-        isPro: true,
-        feedbackMessage: LocaleKeys.paywall_feedback_upgraded.tr(),
+        status: PaywallStatus.failure,
+        errorMessage: 'No purchase is available.',
       ),
     );
   }
@@ -206,9 +203,7 @@ class PaywallCubit extends Cubit<PaywallState> {
       await result.fold(
         (customerInfo) async {
           await _refreshRegistration();
-          final entitlement =
-              customerInfo.entitlements.all[SubscriptionTier.proEntitlement];
-          final isPro = entitlement?.isActive ?? false;
+          final isPro = await _isPaid();
           emit(
             state.copyWith(
               status: PaywallStatus.success,
@@ -232,7 +227,7 @@ class PaywallCubit extends Cubit<PaywallState> {
       return;
     }
 
-    // Default simulation for paywall shell and unit tests
+    // No offering is available to purchase.
     emit(
       state.copyWith(
         status: PaywallStatus.success,
@@ -274,15 +269,13 @@ class PaywallCubit extends Cubit<PaywallState> {
   }
 
   void _onCustomerInfoUpdated(CustomerInfo customerInfo) {
-    final entitlement =
-        customerInfo.entitlements.all[SubscriptionTier.proEntitlement];
-    final isPro = entitlement?.isActive ?? false;
-    emit(
-      state.copyWith(
-        customerInfo: customerInfo,
-        isPro: isPro,
-      ),
-    );
+    emit(state.copyWith(customerInfo: customerInfo));
+    unawaited(_refreshTier());
+  }
+
+  Future<void> _refreshTier() async {
+    final isPro = await _isPaid();
+    if (!isClosed) emit(state.copyWith(isPro: isPro));
   }
 
   Package? _findPackageForTier(Offering offering, SubscriptionTier tier) {

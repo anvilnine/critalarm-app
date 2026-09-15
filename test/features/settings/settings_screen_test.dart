@@ -18,7 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
-    await configureDependencies();
+    await configureDependencies(useMockApi: true);
   });
 
   Widget buildTestApp(GoRouter router) {

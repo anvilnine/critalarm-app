@@ -1,3 +1,5 @@
+import 'package:critalarm/core/models/account_access.dart';
+import 'package:critalarm/core/models/topic.dart';
 import 'package:flutter/foundation.dart';
 
 enum SettingsStatus { initial, loading, success, failure }
@@ -6,13 +8,15 @@ enum SettingsStatus { initial, loading, success, failure }
 @immutable
 class SettingsState {
   const SettingsState({
+    this.access = const AccountAccess(null),
+    this.topics = const [],
     this.status = SettingsStatus.initial,
     this.quietHoursEnabled = true,
     this.criticalRingsQuietHours = true,
     this.escalationCallEnabled = false,
-    this.serverUrl = 'api.critalarm.app',
+    this.serverUrl = '',
     this.adminToken,
-    this.isConnected = true,
+    this.isConnected = false,
     this.analyticsEnabled = false,
     this.crashReportingEnabled = false,
     this.isDisconnecting = false,
@@ -20,6 +24,9 @@ class SettingsState {
     this.errorMessage,
   });
 
+  final List<Topic> topics;
+  final AccountAccess access;
+  String get criticalUsage => access.criticalUsage(topics);
   final SettingsStatus status;
   final bool quietHoursEnabled;
   final bool criticalRingsQuietHours;
@@ -34,6 +41,8 @@ class SettingsState {
   final String? errorMessage;
 
   SettingsState copyWith({
+    List<Topic>? topics,
+    AccountAccess? access,
     SettingsStatus? status,
     bool? quietHoursEnabled,
     bool? criticalRingsQuietHours,
@@ -49,6 +58,8 @@ class SettingsState {
     bool clearError = false,
   }) {
     return SettingsState(
+      access: access ?? this.access,
+      topics: topics ?? this.topics,
       status: status ?? this.status,
       quietHoursEnabled: quietHoursEnabled ?? this.quietHoursEnabled,
       criticalRingsQuietHours:
@@ -72,6 +83,8 @@ class SettingsState {
       identical(this, other) ||
       other is SettingsState &&
           runtimeType == other.runtimeType &&
+          access == other.access &&
+          topics == other.topics &&
           status == other.status &&
           quietHoursEnabled == other.quietHoursEnabled &&
           criticalRingsQuietHours == other.criticalRingsQuietHours &&
@@ -87,6 +100,8 @@ class SettingsState {
 
   @override
   int get hashCode => Object.hash(
+    access,
+    topics,
     status,
     quietHoursEnabled,
     criticalRingsQuietHours,
