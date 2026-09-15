@@ -1,4 +1,4 @@
-.PHONY: gen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release build-release-apk build-release-ios
+.PHONY: gen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release build-release-apk build-release-ios worktree-new worktree-list worktree-clean
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -58,3 +58,18 @@ build-release-apk:
 
 build-release-ios:
 	fvm flutter build ios --release --dart-define=SKIP_PAYWALL=true
+
+# --- Worktrees ---------------------------------------------------------------
+# One folder per branch under worktrees/. See worktrees/README.md for the flow.
+
+# make worktree-new NAME=search-overlay [BRANCH=task/existing] [BASE=main]
+worktree-new:
+	@sh tool/worktree_new.sh "$(NAME)" "$(BRANCH)" "$(BASE)"
+
+# Every worktree, its branch, and whether it still holds work.
+worktree-list:
+	@sh tool/worktree_status.sh
+
+# Remove the worktrees that are clean and already merged into main.
+worktree-clean:
+	@sh tool/worktree_clean.sh

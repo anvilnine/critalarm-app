@@ -1,0 +1,53 @@
+{
+  "description": "Worktree automation. A new git worktree only gets tracked files, which in this repo does not compile: codegen output and lib/gen/locale_keys.g.dart are git-ignored. These hooks run pub get, make gen and make l10n in a new worktree, and report at session end which worktrees are finished.",
+  "hooks": {
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -x \"${CLAUDE_PROJECT_DIR}/.claude/hooks/worktree-prep.sh\" ] || \"${CLAUDE_PROJECT_DIR}/.claude/hooks/worktree-prep.sh\"",
+            "timeout": 15,
+            "statusMessage": "Preparing worktree"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -x \"${CLAUDE_PROJECT_DIR}/.claude/hooks/worktree-prep.sh\" ] || \"${CLAUDE_PROJECT_DIR}/.claude/hooks/worktree-prep.sh\"",
+            "timeout": 15,
+            "statusMessage": "Checking worktrees"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -x \"${CLAUDE_PROJECT_DIR}/.claude/hooks/worktree-prep.sh\" ] || \"${CLAUDE_PROJECT_DIR}/.claude/hooks/worktree-prep.sh\"",
+            "timeout": 15,
+            "statusMessage": "Checking worktrees"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -x \"${CLAUDE_PROJECT_DIR}/.claude/hooks/worktree-report.sh\" ] || \"${CLAUDE_PROJECT_DIR}/.claude/hooks/worktree-report.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
