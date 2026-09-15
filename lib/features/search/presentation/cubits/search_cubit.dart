@@ -1,7 +1,9 @@
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
+import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
+import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/search/domain/entities/docs_page.dart';
 import 'package:critalarm/features/search/domain/entities/search_result.dart';
@@ -74,8 +76,15 @@ class SearchCubit extends Cubit<SearchState> {
 
     if (isClosed) return;
 
+    // Which topics are ringing right now, so a topic result wears the same
+    // face it wears on the Topics list.
+    final ringing = <String>{
+      for (final incident in incidents)
+        if (incident.isOpen) incident.topic,
+    };
+
     _catalogue = <SearchResult>[
-      ..._topicResults(topics),
+      ..._topicResults(topics, ringing),
       ..._historyResults(incidents),
       ..._settingsResults(),
       ..._docsResults(docs),
@@ -123,7 +132,7 @@ class SearchCubit extends Cubit<SearchState> {
     );
   }
 
-  List<SearchResult> _topicResults(List<Topic> topics) {
+  List<SearchResult> _topicResults(List<Topic> topics, Set<String> ringing) {
     return <SearchResult>[
       for (final topic in topics)
         SearchResult(
@@ -133,11 +142,12 @@ class SearchCubit extends Cubit<SearchState> {
           subtitle: topic.critical
               ? LocaleKeys.search_subtitle_topic_critical.tr()
               : LocaleKeys.search_subtitle_topic.tr(),
-          keywords: <String>[
-            'topic',
-            if (topic.critical) 'critical',
-          ],
+          keywords: <String>['topic', if (topic.critical) 'critical'],
           routePath: '/topics/${Uri.encodeComponent(topic.name)}',
+          faceState: ringing.contains(topic.name)
+              ? FaceState.alarmed
+              : FaceState.calm,
+          isCrit: topic.critical && ringing.contains(topic.name),
         ),
     ];
   }
@@ -145,17 +155,19 @@ class SearchCubit extends Cubit<SearchState> {
   List<SearchResult> _historyResults(List<Incident> incidents) {
     final entries = HistoryCubit.toEntries(incidents, _now());
     final dayFormat = DateFormat('MMM d');
-    final timeFormat = DateFormat('h:mm a');
 
     return <SearchResult>[
       for (final entry in entries)
         SearchResult(
           kind: SearchResultKind.history,
           id: entry.id,
+          // The same sentence the History list shows, so the row reads the
+          // same in both places. The day goes where History puts the time,
+          // because a flat result list has no day headings to sit under.
           title: entry.topic,
-          subtitle:
-              '${dayFormat.format(entry.startedAt)}, '
-              '${timeFormat.format(entry.startedAt)}',
+          subtitle: historyMetaText(entry),
+          timeText: dayFormat.format(entry.startedAt),
+          faceState: entry.faceState,
           keywords: <String>[
             'history',
             'alarm',

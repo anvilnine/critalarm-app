@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
-import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
@@ -9,6 +8,7 @@ import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
+import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/features/history/presentation/widgets/history_filter_sheet.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -58,7 +58,7 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
             ? LocaleKeys.history_summary_empty.tr()
             : LocaleKeys.history_summary.plural(
                 state.alarmCount,
-                namedArgs: {'longest': _formatRingDuration(longest)},
+                namedArgs: {'longest': formatRingDuration(longest)},
               );
 
         return AppScreenScaffold(
@@ -133,7 +133,7 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                           for (final entry in day.entries) ...[
                             AppListRow(
                               name: entry.topic,
-                              meta: _metaText(entry),
+                              meta: historyMetaText(entry),
                               isSelected:
                                   size.isExpanded && entry.id == _selected?.id,
                               faceState: entry.faceState,
@@ -234,7 +234,7 @@ class _IncidentDetail extends StatelessWidget {
             style: AppTypography.monoBold(colors.ink, fontSize: 22),
           ),
           const SizedBox(height: Spacing.s2),
-          Text(_metaText(entry), style: AppTypography.small(colors.ink3)),
+          Text(historyMetaText(entry), style: AppTypography.small(colors.ink3)),
           const SizedBox(height: Spacing.s4),
           AppKeyValueRow(
             label: LocaleKeys.history_detail_started_label.tr(),
@@ -243,7 +243,7 @@ class _IncidentDetail extends StatelessWidget {
           const SizedBox(height: 10),
           AppKeyValueRow(
             label: LocaleKeys.history_detail_ring_label.tr(),
-            value: _formatRingDuration(entry.ringDuration ?? Duration.zero),
+            value: formatRingDuration(entry.ringDuration ?? Duration.zero),
           ),
         ],
       ),
@@ -263,24 +263,4 @@ String _dayLabel(DateTime day) {
     return LocaleKeys.history_day_today.tr(namedArgs: {'date': formatted});
   }
   return formatted;
-}
-
-/// "6 min 02 s", or just "44 s" under a minute.
-String _formatRingDuration(Duration duration) {
-  final minutes = duration.inMinutes;
-  final seconds = duration.inSeconds % 60;
-
-  if (minutes <= 0) return '$seconds s';
-  return '$minutes min ${seconds.toString().padLeft(2, '0')} s';
-}
-
-String _metaText(HistoryEntry entry) {
-  final duration = _formatRingDuration(entry.ringDuration ?? Duration.zero);
-  final key = switch (entry.state) {
-    IncidentState.acked => LocaleKeys.history_meta_acknowledged,
-    IncidentState.closed => LocaleKeys.history_meta_resolved,
-    IncidentState.expired => LocaleKeys.history_meta_expired,
-    IncidentState.open => LocaleKeys.history_meta_open,
-  };
-  return key.tr(namedArgs: {'duration': duration});
 }
