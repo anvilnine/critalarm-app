@@ -538,6 +538,7 @@ Future<void> configureDependencies({
         getIt<AcknowledgeIncidentUsecase>(),
         getIt<CloseIncidentUsecase>(),
         getIt<UpdateIncidentBadgeUsecase>(),
+        getIt<AlarmHost>(),
       ),
     )
     ..registerFactory(

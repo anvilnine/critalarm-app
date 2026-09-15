@@ -173,7 +173,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
                         ],
                         const SizedBox(height: 4),
                         AppButton(
-                          label: LocaleKeys.topic_detail_mark_as_read_button
+                          label: LocaleKeys.topic_detail_stop_alarm_button
                               .tr(),
                           variant: AppButtonVariant.ink,
                           isFullWidth: true,

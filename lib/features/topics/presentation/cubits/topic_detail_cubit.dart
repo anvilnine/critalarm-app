@@ -113,12 +113,19 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
             )
             .toList();
         final count = messages.length;
-        final subText = LocaleKeys.topic_detail_stage_sub.tr(
-          namedArgs: {
-            'priority': priorityLabel,
-            'count': count.toString(),
-          },
-        );
+        // A topic with nothing in it gets its own line. The counted form reads
+        // as nonsense at zero.
+        final subText = count == 0
+            ? LocaleKeys.topic_detail_stage_sub_empty.tr(
+                namedArgs: {'priority': priorityLabel},
+              )
+            : LocaleKeys.topic_detail_stage_sub.plural(
+                count,
+                namedArgs: {
+                  'priority': priorityLabel,
+                  'count': count.toString(),
+                },
+              );
 
         emit(
           state.copyWith(
@@ -130,6 +137,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
             word: word,
             subText: subText,
             messages: messages,
+            openIncidentIds: openIncidents.map((i) => i.id).toList(),
           ),
         );
       },
@@ -173,17 +181,33 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     );
   }
 
+  /// Acknowledge every open incident on this topic, and stop the noise first.
+  ///
+  /// The phone goes quiet before any request is made. A slow server, a dead
+  /// network or a refused ack must never leave the alarm ringing: the person
+  /// pressed the button, so the sound is over whatever the server says next.
   Future<void> markAsRead() async {
     emit(state.copyWith(isMarkingAsRead: true));
+
+    await _silence(state.openIncidentIds);
 
     final incidentsResult = await _incidentRepository.getIncidents(
       topic: state.topicName,
     );
     final incidents = incidentsResult.getOrNull() ?? [];
-    for (final inc in incidents) {
-      if (inc.state == 'open') {
-        await _incidentRepository.ackIncident(inc.id);
-      }
+    final openIds = incidents
+        .where((i) => i.state == 'open')
+        .map((i) => i.id)
+        .toList();
+
+    // The list the server just gave can hold an incident that opened after the
+    // screen loaded, so silence anything new before acking it.
+    await _silence(
+      openIds.where((id) => !state.openIncidentIds.contains(id)),
+    );
+
+    for (final id in openIds) {
+      await _incidentRepository.ackIncident(id);
     }
 
     final clearedMessages = state.messages
@@ -197,7 +221,22 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         faceState: FaceState.calm,
         word: LocaleKeys.topic_detail_stage_word_clear.tr(),
         messages: clearedMessages,
+        openIncidentIds: const [],
       ),
     );
+  }
+
+  /// Stop the local alarm for each incident. Never throws: a platform channel
+  /// that is missing or unhappy must not stop the acknowledge from going out.
+  Future<void> _silence(Iterable<String> incidentIds) async {
+    final host = alarm;
+    if (host == null) return;
+    for (final id in incidentIds) {
+      try {
+        await host.cancelAlarm(id);
+      } on Object catch (_) {
+        // Nothing to do. The ack below is what the server cares about.
+      }
+    }
   }
 }
