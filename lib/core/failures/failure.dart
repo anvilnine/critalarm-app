@@ -14,6 +14,8 @@ sealed class Failure with _$Failure {
   /// noop provider that has no real backend yet (purchases before the store
   /// integration ships). Callers surface a "not available yet" message.
   const factory Failure.unsupported({String? message}) = UnsupportedFailure;
+  const factory Failure.topicAlreadyExists({String? message}) =
+      TopicAlreadyExistsFailure;
   const factory Failure.conflict({String? message}) = ConflictFailure;
   const factory Failure.badRequest({String? message}) = BadRequestFailure;
   const factory Failure.unauthorized({String? message}) = UnauthorizedFailure;
@@ -21,5 +23,6 @@ sealed class Failure with _$Failure {
     required int statusCode,
     String? message,
     int? code,
+    String? cap,
   }) = ApiFailure;
 }

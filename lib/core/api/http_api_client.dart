@@ -6,8 +6,10 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
+import 'package:critalarm/core/models/send_result.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/core/models/topic_token.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:http/http.dart' as http;
 
@@ -48,8 +50,9 @@ final class HttpApiClient implements ApiClient {
     Uri uri, {
     Object? body,
     String? auth,
+    String accept = 'application/json',
   }) async {
-    final headers = <String, String>{'accept': 'application/json'};
+    final headers = <String, String>{'accept': accept};
     if (body != null) headers['content-type'] = 'application/json';
     if (auth != null) headers['authorization'] = 'Bearer $auth';
     final request = http.Request(method, uri)..headers.addAll(headers);
@@ -125,10 +128,6 @@ final class HttpApiClient implements ApiClient {
       body: {
         'name': name,
         'critical': critical,
-        'repeat_interval_s': repeatIntervalS,
-        'max_ring_s': maxRingS,
-        'desk_timer_s': deskTimerS,
-        'relay_content': relayContent,
       },
     );
     return Topic.fromJson(_json(response) as Map<String, dynamic>);
@@ -168,12 +167,12 @@ final class HttpApiClient implements ApiClient {
   }
 
   @override
-  Future<String> createTopicToken(String name) async {
+  Future<TopicToken> createTopicToken(String name) async {
     final (s, u) = await _sessionUri(['topics', name, 'tokens']);
     final j =
         _json(await _send('POST', u, auth: s.managementCredential))
             as Map<String, dynamic>;
-    return j['token'] as String;
+    return TopicToken.fromJson(j);
   }
 
   @override
@@ -268,10 +267,50 @@ final class HttpApiClient implements ApiClient {
       'PATCH',
       uri,
       auth: deviceToken,
-      body: registration.toJson(),
+      body: {
+        'push_token': registration.pushToken,
+        'app_version': registration.appVersion,
+      },
     );
     return DeviceRegistrationResponse.fromJson(
       _json(response) as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<void> subscribeTopic({
+    required String deviceId,
+    required String deviceToken,
+    required String topicHash,
+  }) async {
+    final session = await _sessions.read();
+    if (session == null) throw StateError('No API session configured');
+    await _send(
+      'POST',
+      _rawPath(
+        session.relayUri,
+        'relay/v1/devices/${Uri.encodeComponent(deviceId)}/subscriptions',
+      ),
+      auth: deviceToken,
+      body: {'topic_hash': topicHash},
+    );
+  }
+
+  @override
+  Future<void> unsubscribeTopic({
+    required String deviceId,
+    required String deviceToken,
+    required String topicHash,
+  }) async {
+    final session = await _sessions.read();
+    if (session == null) throw StateError('No API session configured');
+    await _send(
+      'DELETE',
+      _rawPath(
+        session.relayUri,
+        'relay/v1/devices/${Uri.encodeComponent(deviceId)}/subscriptions/${Uri.encodeComponent(topicHash)}',
+      ),
+      auth: deviceToken,
     );
   }
 
@@ -282,14 +321,17 @@ final class HttpApiClient implements ApiClient {
     required String kind,
     required String token,
     String? incidentId,
+    String? activityId,
   }) async {
     final session = await _sessions.read();
     if (session == null) throw StateError('No API session configured');
-    final uri = _rawUri(
+    final uri = _rawPath(
       session.relayUri,
-      '/relay/v1/devices/${Uri.encodeComponent(deviceId)}/tokens',
-      null,
+      'relay/v1/devices/${Uri.encodeComponent(deviceId)}/tokens',
     );
+    if (kind == 'la_update' && (activityId == null || activityId.isEmpty)) {
+      throw ArgumentError('la_update requires activityId');
+    }
     await _send(
       'POST',
       uri,
@@ -297,28 +339,61 @@ final class HttpApiClient implements ApiClient {
       body: {
         'kind': kind,
         'token': token,
-        'incident_id': ?incidentId,
+        if (kind == 'la_update') 'activity_id': activityId,
+        if (kind == 'la_update' && incidentId != null)
+          'incident_id': incidentId,
       },
     );
   }
 
   @override
-  Future<Message> publishMessage(
+  Future<SendResult> publishMessage(
     String topic, {
-    String? message,
+    required String message,
     String? title,
     int priority = 3,
     List<String>? tags,
-    String? click,
-    bool? markdown,
-  }) async =>
-      throw UnsupportedError('Topic publish token provider not configured');
+  }) async {
+    final (s, uri) = await _sessionUri(['topics', topic, 'send']);
+    final response = await _send(
+      'POST',
+      uri,
+      auth: s.managementCredential,
+      body: {
+        'message': message,
+        'priority': priority,
+        'title': ?title,
+        'tags': ?tags,
+      },
+    );
+    return SendResult.fromJson(_json(response) as Map<String, dynamic>);
+  }
 
   @override
   Future<List<Message>> pollMessages(
     String topic, {
     required int poll,
     String? since,
-  }) async =>
-      throw UnsupportedError('Topic publish token provider not configured');
+  }) async {
+    final session = await _sessions.read();
+    if (session == null) throw StateError('No API session configured');
+    final uri = _rawPath(
+      session.baseUri,
+      '${Uri.encodeComponent(topic)}/json',
+      {'poll': '$poll', 'since': ?since},
+    );
+    final response = await _send(
+      'GET',
+      uri,
+      auth: session.managementCredential,
+      accept: 'application/x-ndjson',
+    );
+    return const LineSplitter()
+        .convert(response.body)
+        .where((line) => line.trim().isNotEmpty)
+        .map(
+          (line) => Message.fromJson(jsonDecode(line) as Map<String, dynamic>),
+        )
+        .toList();
+  }
 }

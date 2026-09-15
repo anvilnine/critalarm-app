@@ -229,9 +229,10 @@ import AlarmKit
   private func startAlarmAndActivityStreams() {
     if #available(iOS 16.2, *) {
       IncidentActivityCoordinator.shared.start()
-      IncidentActivityCoordinator.shared.onTokenCaptured = { [weak self] kind, token, incidentId in
+      IncidentActivityCoordinator.shared.onTokenCaptured = { [weak self] kind, token, incidentId, activityId in
         var payload: [String: Any] = ["kind": kind.rawValue, "token": token]
         if let incidentId { payload["incident_id"] = incidentId }
+        if let activityId { payload["activity_id"] = activityId }
         self?.alarmChannel?.invokeMethod("onActivityToken", arguments: payload)
       }
     }

@@ -22,6 +22,7 @@ class InMemoryServerRepository implements ServerRepository {
         statusCode: e.statusCode,
         message: e.message,
         code: e.code,
+        cap: e.cap,
       ).toFailure();
     } on Exception catch (e) {
       return Failure.unexpected(message: e.toString()).toFailure();
@@ -40,6 +41,7 @@ class InMemoryServerRepository implements ServerRepository {
         statusCode: e.statusCode,
         message: e.message,
         code: e.code,
+        cap: e.cap,
       ).toFailure();
     } on Exception catch (e) {
       return Failure.unexpected(message: e.toString()).toFailure();

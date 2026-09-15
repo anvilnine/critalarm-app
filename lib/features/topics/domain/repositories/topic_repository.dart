@@ -1,3 +1,4 @@
+import 'package:critalarm/core/models/topic_token.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 
@@ -24,7 +25,7 @@ abstract interface class TopicRepository {
 
   Future<AppResult<Unit>> deleteTopic(String name);
 
-  Future<AppResult<String>> createTopicToken(String name);
+  Future<AppResult<TopicToken>> createTopicToken(String name);
 
   Future<AppResult<Unit>> deleteTopicToken(String name, String tokenId);
 }

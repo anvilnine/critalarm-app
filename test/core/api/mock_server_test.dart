@@ -96,9 +96,10 @@ void main() {
       server.createTopic(name: 'prod');
 
       final token2 = server.createTopicToken('prod');
-      expect(token2, startsWith('tk_'));
+      expect(token2.token, startsWith('tk_'));
+      expect(token2.tokenId, startsWith('tok_'));
 
-      server.deleteTopicToken('prod', token2);
+      server.deleteTopicToken('prod', token2.tokenId);
     });
 
     test('/v1/test throws 409 if topic is not critical', () {
@@ -296,7 +297,7 @@ void main() {
       expect(response.deviceToken, startsWith('dv_'));
       expect(response.tier, 'free');
       expect(response.caps.devices, 1);
-      expect(response.caps.criticalTopics, 1);
+      expect(response.caps.criticalTopics, 2);
       expect(response.caps.p4Daily, 50);
     });
   });

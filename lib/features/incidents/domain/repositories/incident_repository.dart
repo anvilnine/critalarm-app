@@ -1,3 +1,4 @@
+import 'package:critalarm/core/models/send_result.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/entities/message.dart';
@@ -18,14 +19,12 @@ abstract interface class IncidentRepository {
 
   Future<AppResult<String>> triggerTest({required String topic});
 
-  Future<AppResult<Message>> publishMessage(
+  Future<AppResult<SendResult>> publishMessage(
     String topic, {
-    String? message,
+    required String message,
     String? title,
     int priority = 3,
     List<String>? tags,
-    String? click,
-    bool? markdown,
   });
 
   Future<AppResult<List<Message>>> pollMessages(

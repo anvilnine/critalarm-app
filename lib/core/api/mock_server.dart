@@ -4,8 +4,10 @@ import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
+import 'package:critalarm/core/models/send_result.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/core/models/topic_token.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -27,6 +29,8 @@ class MockServer {
   ServerInfo serverInfo;
   final Map<String, Topic> _topics = {};
   final Map<String, Set<String>> _tokens = {};
+  final Map<String, Set<String>> subscriptions = {};
+  final Map<String, Map<String, Map<String, String>>> pushTokens = {};
   final Map<String, Incident> _incidents = {};
   final Map<String, List<Message>> _messages = {};
   final Map<String, DeviceRegistrationResponse> _devices = {};
@@ -456,7 +460,15 @@ class MockServer {
       );
     }
 
+    if (_topics.containsKey(name)) {
+      throw const ApiException(
+        statusCode: 409,
+        code: 40901,
+        message: 'topic already exists',
+      );
+    }
     final token = _nextId('tk');
+    final tokenId = _nextId('tok');
     final topic = Topic(
       name: name,
       critical: critical,
@@ -466,10 +478,11 @@ class MockServer {
       relayContent: relayContent,
       createdAt: DateTime.now().toUtc(),
       token: token,
+      tokenId: tokenId,
     );
 
-    _topics[name] = topic.copyWith(token: null);
-    (_tokens[name] ??= {}).add(token);
+    _topics[name] = topic.copyWith(token: null, tokenId: null);
+    (_tokens[name] ??= {}).add(tokenId);
 
     return topic;
   }
@@ -516,15 +529,15 @@ class MockServer {
   }
 
   /// POST /v1/topics/{name}/tokens
-  String createTopicToken(String name) {
+  TopicToken createTopicToken(String name) {
     if (!_topics.containsKey(name)) {
       throw const ApiException(
         statusCode: 404,
         message: 'topic not found',
       );
     }
-    final token = _nextId('tk');
-    (_tokens[name] ??= {}).add(token);
+    final token = TopicToken(token: _nextId('tk'), tokenId: _nextId('tok'));
+    (_tokens[name] ??= {}).add(token.tokenId);
     return token;
   }
 
@@ -536,7 +549,16 @@ class MockServer {
         message: 'topic not found',
       );
     }
-    _tokens[name]?.remove(tokenId);
+    if (!_tokens[name]!.contains(tokenId)) {
+      throw const ApiException(statusCode: 404, message: 'not found');
+    }
+    if (_tokens[name]!.length == 1) {
+      throw const ApiException(
+        statusCode: 409,
+        message: 'topic must retain a token',
+      );
+    }
+    _tokens[name]!.remove(tokenId);
   }
 
   /// GET /v1/incidents
@@ -810,15 +832,27 @@ class MockServer {
 
     var items = _messages[topic] ?? const <Message>[];
 
-    if (since != null && since.isNotEmpty && since != 'all') {
-      final sinceTs = int.tryParse(since);
-      if (sinceTs != null) {
-        items = items.where((m) => m.time >= sinceTs).toList();
+    if (since != 'all') {
+      final timestamp = int.tryParse(since ?? '');
+      final duration = RegExp(r'^(\d+)(s|m|h|d)$').firstMatch(since ?? '');
+      if (timestamp != null) {
+        items = items.where((m) => m.time > timestamp).toList();
+      } else if (since == null || duration != null) {
+        final seconds = duration == null
+            ? 12 * 3600
+            : int.parse(duration[1]!) *
+                  switch (duration[2]) {
+                    's' => 1,
+                    'm' => 60,
+                    'h' => 3600,
+                    _ => 86400,
+                  };
+        final cutoff =
+            DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 - seconds;
+        items = items.where((m) => m.time >= cutoff).toList();
       } else {
-        // Message ID lookup. Everything after that id, which is nothing at
-        // all when the caller already has the newest message.
         final idx = items.indexWhere((m) => m.id == since);
-        if (idx != -1) items = items.sublist(idx + 1);
+        items = idx == -1 ? [] : items.sublist(idx + 1);
       }
     }
 
@@ -826,10 +860,13 @@ class MockServer {
   }
 
   /// POST /relay/v1/devices
-  DeviceRegistrationResponse registerDevice(DeviceRegistration registration) {
+  DeviceRegistrationResponse registerDevice(
+    DeviceRegistration registration, {
+    String? deviceToken,
+  }) {
     final accountId = _nextId('acc');
-    final deviceToken = _nextId('dv');
-    const caps = AccountCaps();
+    deviceToken ??= _nextId('dv');
+    const caps = AccountCaps.free;
 
     final response = DeviceRegistrationResponse(
       deviceToken: deviceToken,
@@ -839,6 +876,92 @@ class MockServer {
 
     _devices[registration.deviceId] = response;
     return response;
+  }
+
+  DeviceRegistrationResponse _authorizedDevice(String id, String token) {
+    final device = _devices[id];
+    if (device == null || device.deviceToken != token) {
+      throw const ApiException(statusCode: 401, message: 'unauthorized');
+    }
+    return device;
+  }
+
+  DeviceRegistrationResponse refreshDevice(String id, String token) =>
+      _authorizedDevice(id, token).copyWith(deviceToken: null);
+
+  void subscribeTopic({
+    required String deviceId,
+    required String deviceToken,
+    required String topicHash,
+  }) {
+    final device = _authorizedDevice(deviceId, deviceToken);
+    final hashes = subscriptions[deviceId] ??= {};
+    final limit = device.caps.criticalTopics;
+    if (!hashes.contains(topicHash) &&
+        limit != null &&
+        hashes.length >= limit) {
+      throw const ApiException(
+        statusCode: 429,
+        message: 'cap',
+        cap: 'critical_topics',
+      );
+    }
+    hashes.add(topicHash);
+  }
+
+  void unsubscribeTopic({
+    required String deviceId,
+    required String deviceToken,
+    required String topicHash,
+  }) {
+    _authorizedDevice(deviceId, deviceToken);
+    subscriptions[deviceId]?.remove(topicHash);
+  }
+
+  void uploadActivityToken({
+    required String deviceId,
+    required String deviceToken,
+    required String kind,
+    required String token,
+    String? activityId,
+    String? incidentId,
+  }) {
+    _authorizedDevice(deviceId, deviceToken);
+    if (!['apns', 'fcm', 'la_start', 'la_update'].contains(kind) ||
+        (kind == 'la_update'
+            ? activityId == null || activityId.isEmpty
+            : activityId != null || incidentId != null)) {
+      throw const ApiException(statusCode: 400, message: 'invalid request');
+    }
+    (pushTokens[deviceId] ??= {})['$kind:${activityId ?? ''}'] = {
+      'kind': kind,
+      'token': token,
+      'activity_id': ?activityId,
+      'incident_id': ?incidentId,
+    };
+  }
+
+  SendResult sendMessage(
+    String topic, {
+    required String message,
+    String? title,
+    int priority = 3,
+    List<String>? tags,
+  }) {
+    if (!_topics.containsKey(topic)) {
+      throw const ApiException(statusCode: 404, message: 'not found');
+    }
+    if (priority < 1 || priority > 5) {
+      throw const ApiException(statusCode: 400, message: 'invalid priority');
+    }
+    final result = publishMessage(
+      topic,
+      message: message,
+      title: title,
+      priority: priority,
+      tags: tags,
+    );
+    return SendResult(id: result.id, incidentId: result.incidentId);
   }
 
   // ---------------------------------------------------------------------------
@@ -901,7 +1024,7 @@ class MockServer {
         final topicName = Uri.decodeComponent(tokensMatch[1]!);
         if (method == 'POST') {
           final token = createTopicToken(topicName);
-          return _jsonResponse({'token': token}, 201);
+          return _jsonResponse(token.toJson(), 201);
         }
       }
 
@@ -994,6 +1117,76 @@ class MockServer {
         final registration = DeviceRegistration.fromJson(body);
         final response = registerDevice(registration);
         return _jsonResponse(response.toJson(), 201);
+      }
+
+      final deviceRoute = RegExp(
+        r'^/relay/v1/devices/([^/]+)(?:/(subscriptions|tokens)(?:/([^/]+))?)?$',
+      ).firstMatch(path);
+      if (deviceRoute != null) {
+        final id = Uri.decodeComponent(deviceRoute[1]!);
+        final credential = (request.headers['authorization'] ?? '')
+            .replaceFirst('Bearer ', '');
+        final body = bodyString.isEmpty
+            ? <String, dynamic>{}
+            : jsonDecode(bodyString) as Map<String, dynamic>;
+        if (deviceRoute[2] == null && method == 'PATCH') {
+          if (body.keys.toSet().difference({
+                'push_token',
+                'app_version',
+              }).isNotEmpty ||
+              body['push_token'] is! String ||
+              body['app_version'] is! String) {
+            throw const ApiException(
+              statusCode: 400,
+              message: 'invalid request',
+            );
+          }
+          return _jsonResponse(refreshDevice(id, credential).toJson(), 200);
+        }
+        if (deviceRoute[2] == 'subscriptions') {
+          if (method == 'POST') {
+            subscribeTopic(
+              deviceId: id,
+              deviceToken: credential,
+              topicHash: body['topic_hash'] as String,
+            );
+            return http.Response('', 204);
+          }
+          if (method == 'DELETE' && deviceRoute[3] != null) {
+            unsubscribeTopic(
+              deviceId: id,
+              deviceToken: credential,
+              topicHash: deviceRoute[3]!,
+            );
+            return http.Response('', 204);
+          }
+        }
+        if (deviceRoute[2] == 'tokens' && method == 'POST') {
+          uploadActivityToken(
+            deviceId: id,
+            deviceToken: credential,
+            kind: body['kind'] as String,
+            token: body['token'] as String,
+            activityId: body['activity_id'] as String?,
+            incidentId: body['incident_id'] as String?,
+          );
+          return http.Response('', 204);
+        }
+      }
+      final sendMatch = RegExp(r'^/v1/topics/([^/]+)/send$').firstMatch(path);
+      if (sendMatch != null && method == 'POST') {
+        final body = jsonDecode(bodyString) as Map<String, dynamic>;
+        if (body['message'] is! String) {
+          throw const ApiException(statusCode: 400, message: 'invalid request');
+        }
+        final result = sendMessage(
+          Uri.decodeComponent(sendMatch[1]!),
+          message: body['message'] as String,
+          title: body['title'] as String?,
+          priority: body['priority'] as int? ?? 3,
+          tags: (body['tags'] as List<dynamic>?)?.cast<String>(),
+        );
+        return _jsonResponse(result.toJson(), 200);
       }
 
       // 12. GET /{topic}/json?poll=1
@@ -1115,6 +1308,7 @@ class MockServer {
         'http': e.statusCode,
       };
       if (e.code != null) body['code'] = e.code;
+      if (e.cap != null) body['cap'] = e.cap;
       return _jsonResponse(body, e.statusCode);
     } on Exception catch (e) {
       return _jsonResponse({'error': e.toString()}, 500);

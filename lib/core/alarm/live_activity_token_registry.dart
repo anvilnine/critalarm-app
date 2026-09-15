@@ -30,7 +30,7 @@ final class LiveActivityTokenRegistry {
   });
 
   /// What the last accepted upload of each kind looked like, as JSON:
-  /// `{"la_start": "...", "la_update:inc_1": "..."}`.
+  /// `{"la_start": "...", "la_update:inc_1:activity_1": "..."}`.
   static const acceptedKey = 'relay_activity_tokens';
 
   final SharedPreferences prefs;
@@ -86,6 +86,7 @@ final class LiveActivityTokenRegistry {
         kind: token.kind,
         token: token.token,
         incidentId: token.incidentId,
+        activityId: token.activityId,
       );
     } on Object catch (_) {
       _log('activity_token_failed kind=${token.kind}');
@@ -107,15 +108,20 @@ final class LiveActivityTokenRegistry {
   /// being skipped as unchanged.
   Future<void> forget(String incidentId) async {
     final accepted = _readAccepted()
-      ..remove('${ActivityTokenKind.update}:$incidentId');
+      ..removeWhere(
+        (key, _) =>
+            key == '${ActivityTokenKind.update}:$incidentId' ||
+            key.startsWith('${ActivityTokenKind.update}:$incidentId:'),
+      );
     await prefs.setString(acceptedKey, jsonEncode(accepted));
   }
 
   /// One slot per thing that can rotate: the install for `la_start`, and each
-  /// incident for `la_update`.
-  static String _slot(ActivityToken token) => token.incidentId == null
+  /// activity for `la_update`.
+  static String _slot(ActivityToken token) =>
+      token.kind != ActivityTokenKind.update
       ? token.kind
-      : '${token.kind}:${token.incidentId}';
+      : '${token.kind}:${token.incidentId}:${token.activityId}';
 
   Map<String, String> _readAccepted() {
     final raw = prefs.getString(acceptedKey);
