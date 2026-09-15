@@ -121,8 +121,8 @@ class AppScreenScaffold extends StatelessWidget {
       list = RefreshIndicator(
         onRefresh: onRefresh!,
         edgeOffset: topInset,
-        color: colors.onCanvas,
-        backgroundColor: colors.panel,
+        color: colors.cobalt,
+        backgroundColor: colors.surface,
         child: list,
       );
     }
