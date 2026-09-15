@@ -42,6 +42,11 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     with WidgetsBindingObserver, RouteAware {
   String? _selectedTopic;
 
+  /// The incident this screen has already handed over for. Kept so backing out
+  /// of the alarm screen does not bounce the user straight back into it, while
+  /// a new incident still takes over.
+  String? _handedOver;
+
   @override
   void initState() {
     super.initState();
@@ -78,11 +83,28 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     unawaited(context.read<HomeCubit>().refresh());
   }
 
+  /// While anything is ringing, the app is the alarm. The list is no use to
+  /// someone being screamed at, so hand them the screen with the stop control
+  /// on it. Only once per incident, so leaving it is allowed.
+  void _handOverIfRinging(HomeState state) {
+    final id = state.ringingIncidentId;
+    if (id == null) {
+      if (_handedOver != null) _handedOver = null;
+      return;
+    }
+    if (id == _handedOver) return;
+    _handedOver = id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(context.push('/incidents/$id'));
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = AppSize.of(context);
 
-    return BlocBuilder<HomeCubit, HomeState>(
+    return BlocConsumer<HomeCubit, HomeState>(
+      listener: (context, state) => _handOverIfRinging(state),
       builder: (context, state) {
         return SeverityScope(
           severity: state.severity,
