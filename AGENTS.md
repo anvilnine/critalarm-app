@@ -1,8 +1,8 @@
-# Crit Alarm — rules for every agent
+# Crit Alarm: rules for every agent
 
 You are building Crit Alarm. Read, in this order, before touching code:
-1. docs/api.md          — the contract. Build to this. Never edit it inside a task. (In the app and site repos it is a generated copy; the source is critalarm-server/docs/api.md.)
-2. docs/ARCHITECTURE.md — how the pieces fit and the folder layout.
+1. docs/api.md          is the contract. Build to this. Never edit it inside a task. (In the app and site repos it is a generated copy; the source is critalarm-server/docs/api.md.)
+2. docs/ARCHITECTURE.md is how the pieces fit and the folder layout.
 3. The task file you were given. It is self-contained; it includes the product commitments that apply to you.
 
 Commitments made to Apple that no task may break: critical delivery defaults OFF per topic; every topic has a token; the app never generates alerts and never inspects content; the alarm stops on acknowledge; the user can disable critical delivery per topic or in Settings.
@@ -23,7 +23,7 @@ Commitments made to Apple that no task may break: critical delivery defaults OFF
 
 ## Code
 - TypeScript strict. No `any`. Node 22.
-- Flutter: follow the design system in the repo. Cubit/Bloc, go_router, freezed — as the template does. Do not introduce a state-management library.
+- Flutter: follow the design system in the repo. Cubit/Bloc, go_router, freezed, as the template does. Do not introduce a state-management library.
 - Astro: follow the template. No new frameworks.
 - Small commits with plain messages. One task = one branch = one PR.
 
@@ -124,6 +124,11 @@ presentation. Today only `features/settings` exists, holding the theme slice.
   and the widget names in `lib/design_system/widgets/`.
 
 **Public repo.** Never commit a `.p8`, a keystore, `google-services.json`,
-`GoogleService-Info.plist`, a `.env`, a RevenueCat key, or a price. The
-Critical Alerts entitlement is tied to the signing identity, which lives in the
-Apple developer account, not here.
+`GoogleService-Info.plist`, a `.env`, a RevenueCat key, or a price. Signing
+identities live in the Apple developer account, not here.
+
+**No Apple Critical Alerts.** Apple denied the entitlement for `app.critalarm`.
+The app does not ask for it and no code path may assume it exists. iOS
+priority 5 is a Time-Sensitive push. Android keeps the full-screen alarm. The
+per-topic `critical` switch, the priority ladder and incidents are unaffected
+and stay exactly as they are.

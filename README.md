@@ -81,10 +81,11 @@ Telemetry collection is strictly opt-in:
 No push credential, keystore or store key belongs in this repo. Report anything
 you find to security@critalarm.app.
 
-A note for anyone forking this: the iOS Critical Alerts entitlement is tied to
-an Apple signing identity, not to the source. A fork built with your own
-identity will not ring through silent on iOS unless Apple grants you the
-entitlement too.
+A note for anyone forking this: Crit Alarm does not use Apple's Critical Alerts
+entitlement. Apple turned the request down for `app.critalarm`. On iOS a
+priority-5 page arrives as a Time-Sensitive push, which obeys the silent switch
+and Do Not Disturb. On Android it takes the whole screen and rings. If Apple
+ever approves the request, wiring it back up is its own piece of work.
 
 ## Licence
 

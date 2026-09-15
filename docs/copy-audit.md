@@ -10,9 +10,9 @@ The Dart accessor for `onboarding_connect.title` is `LocaleKeys.onboarding_conne
 
 These five rules beat any wording preference. Every proposed line respects them.
 
-1. Never claim the app rings through the iOS silent switch or Do Not Disturb. The Critical Alerts
-   entitlement is tied to the signing identity and is not granted yet. Promise the acknowledge
-   loop instead, which is true on both platforms.
+1. Never claim the app rings through the iOS silent switch or Do Not Disturb. Apple denied the
+   Critical Alerts entitlement for `app.critalarm`, so iOS gets a Time-Sensitive push. Promise the
+   acknowledge loop instead, which is true on both platforms.
 2. "Crit Alarm Cloud" is coming soon until hosted sign-in ships. No string may read as if a user
    can sign in today.
 3. The critical toggle copy has to say two things: it is off by default, and what turning it on
