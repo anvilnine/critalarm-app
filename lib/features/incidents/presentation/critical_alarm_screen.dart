@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -320,6 +322,7 @@ class _AcknowledgedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final incident = state.incident;
+    final isDemo = incident?.id == 'inc_demo' || state.topic == 'demo-topic';
     final startedAt = incident?.openedAt;
     final ackedAt = incident?.ackedAt;
     final ringDuration = (startedAt != null && ackedAt != null)
@@ -327,47 +330,84 @@ class _AcknowledgedScreen extends StatelessWidget {
         : null;
     final startedLabel = startedAt != null ? _formatClock(startedAt) : '—';
     final ackedLabel = ackedAt != null ? _formatClock(ackedAt) : '—';
-    final ackedSub = LocaleKeys.critical_alarm_acked_sub.tr(
-      namedArgs: {
-        'duration': ringDuration == null
-            ? '—'
-            : _formatRingDuration(ringDuration),
-      },
-    );
+    final ackedSub = isDemo
+        ? LocaleKeys.onboarding_connect_celebration_subtitle.tr()
+        : LocaleKeys.critical_alarm_acked_sub.tr(
+            namedArgs: {
+              'duration': ringDuration == null
+                  ? '—'
+                  : _formatRingDuration(ringDuration),
+            },
+          );
 
     final size = AppSize.of(context);
     final isWide = size.isExpanded || size.isShort;
 
     final bottomBar = Column(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          height: 48,
-          child: AppButton(
-            label: LocaleKeys.critical_alarm_open_topic_button.tr(
-              namedArgs: {'topic': state.topic},
-            ),
-            isFullWidth: true,
-            onPressed: () {
-              AppHaptics.capture();
-              context.go('/topics/${state.topic}');
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 48,
-          child: AppButton(
-            label: LocaleKeys.critical_alarm_back_to_topics_button.tr(),
-            variant: AppButtonVariant.ghost,
-            isFullWidth: true,
-            onPressed: () {
-              AppHaptics.capture();
-              context.go('/');
-            },
-          ),
-        ),
-      ],
+      children: isDemo
+          ? [
+              SizedBox(
+                height: 48,
+                child: AppButton(
+                  label: LocaleKeys
+                      .onboarding_connect_create_first_topic_button
+                      .tr(),
+                  isFullWidth: true,
+                  onPressed: () async {
+                    AppHaptics.capture();
+                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
+                    if (context.mounted) {
+                      context.go('/topics/new');
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 48,
+                child: AppButton(
+                  label: LocaleKeys.onboarding_connect_skip_to_dashboard.tr(),
+                  variant: AppButtonVariant.ghost,
+                  isFullWidth: true,
+                  onPressed: () async {
+                    AppHaptics.capture();
+                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
+                    if (context.mounted) {
+                      context.go('/');
+                    }
+                  },
+                ),
+              ),
+            ]
+          : [
+              SizedBox(
+                height: 48,
+                child: AppButton(
+                  label: LocaleKeys.critical_alarm_open_topic_button.tr(
+                    namedArgs: {'topic': state.topic},
+                  ),
+                  isFullWidth: true,
+                  onPressed: () {
+                    AppHaptics.capture();
+                    context.go('/topics/${state.topic}');
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 48,
+                child: AppButton(
+                  label: LocaleKeys.critical_alarm_back_to_topics_button.tr(),
+                  variant: AppButtonVariant.ghost,
+                  isFullWidth: true,
+                  onPressed: () {
+                    AppHaptics.capture();
+                    context.go('/');
+                  },
+                ),
+              ),
+            ],
     );
 
     if (isWide) {
@@ -387,7 +427,7 @@ class _AcknowledgedScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _title(TextAlign.left),
+                        _title(TextAlign.left, isDemo),
                         const SizedBox(height: Spacing.s2),
                         _topic(TextAlign.left),
                         const SizedBox(height: Spacing.s2),
@@ -417,7 +457,7 @@ class _AcknowledgedScreen extends StatelessWidget {
               children: [
                 FaceWidget(state: state.faceState, size: 224),
                 const SizedBox(height: Spacing.s4),
-                _title(TextAlign.center),
+                _title(TextAlign.center, isDemo),
                 const SizedBox(height: Spacing.s2),
                 _topic(TextAlign.center),
                 const SizedBox(height: Spacing.s2),
@@ -437,11 +477,13 @@ class _AcknowledgedScreen extends StatelessWidget {
     );
   }
 
-  Widget _title(TextAlign align) {
+  Widget _title(TextAlign align, bool isDemo) {
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Text(
-        LocaleKeys.critical_alarm_acked_title.tr(),
+        isDemo
+            ? LocaleKeys.onboarding_connect_celebration_title.tr()
+            : LocaleKeys.critical_alarm_acked_title.tr(),
         textAlign: align,
         style: AppTypography.display(colors.onCanvas),
       ),

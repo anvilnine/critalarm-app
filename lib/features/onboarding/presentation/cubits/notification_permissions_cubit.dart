@@ -6,7 +6,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/request_notificati
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Cubit managing the Screen 1 Notification Permissions step.
+/// Cubit managing the Screen 1 Permissions step (Option B: 2-step stepper).
 class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   NotificationPermissionsCubit(
     this._requestPermission,
@@ -26,9 +26,8 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   /// first time the relay tries a remote start.
   static const onboardingIncidentId = 'inc_onboarding';
 
-  /// Requests notification (POST_NOTIFICATIONS) and full screen intent
-  /// (USE_FULL_SCREEN_INTENT) permissions.
-  Future<void> requestPermissions() async {
+  /// Step 1: Requests system notification permission.
+  Future<void> requestNotifications() async {
     emit(
       state.copyWith(
         step: NotificationPermissionStep.requesting,
@@ -38,18 +37,31 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     );
 
     final result = await _requestPermission(const NoParams());
-    var granted = false;
     result.fold(
       (status) {
         if (status == NotificationPermissionStatus.granted) {
-          granted = true;
-          emit(
-            state.copyWith(
-              step: NotificationPermissionStep.granted,
-              canNavigate: true,
-              clearError: true,
-            ),
-          );
+          if (alarm == null) {
+            // Platform does not require a second prompt (or test mode).
+            emit(
+              state.copyWith(
+                notificationsGranted: true,
+                criticalAlertsGranted: true,
+                step: NotificationPermissionStep.granted,
+                canNavigate: true,
+                clearError: true,
+              ),
+            );
+          } else {
+            // Move to Step 2: Critical Alerts / Silent mode bypass
+            emit(
+              state.copyWith(
+                notificationsGranted: true,
+                activeSubstep: 1,
+                step: NotificationPermissionStep.initial,
+                clearError: true,
+              ),
+            );
+          }
         } else {
           emit(
             state.copyWith(
@@ -70,47 +82,85 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
         );
       },
     );
-
-    if (granted) await requestAlarmAndActivity();
   }
 
-  /// The two iOS prompts that follow the notification one.
-  ///
-  /// AlarmKit is what lets a critical topic ring through silent mode and a
-  /// Focus. The local Live Activity is only there to make the system ask
-  /// Allow, because no update token is issued until the user has.
-  Future<void> requestAlarmAndActivity() async {
-    final alarm = this.alarm;
-    if (alarm == null) return;
+  /// Step 2: Requests critical alert authorization (AlarmKit / Live Activities on iOS).
+  Future<void> requestCriticalAlerts() async {
+    final alarmHost = alarm;
+    if (alarmHost == null) {
+      emit(
+        state.copyWith(
+          criticalAlertsGranted: true,
+          step: NotificationPermissionStep.granted,
+          canNavigate: true,
+        ),
+      );
+      return;
+    }
 
-    final authorization = await alarm.requestAuthorization();
-    emit(state.copyWith(alarm: authorization));
+    emit(
+      state.copyWith(
+        step: NotificationPermissionStep.requesting,
+        clearError: true,
+      ),
+    );
 
-    final started = await alarm.startLocalActivity(
+    final authorization = await alarmHost.requestAuthorization();
+    final started = await alarmHost.startLocalActivity(
       incidentId: onboardingIncidentId,
       topic: 'setup',
       server: '',
       title: 'Crit Alarm is ready',
       state: 'acked',
     );
-    emit(state.copyWith(liveActivityStarted: started));
+
+    if (authorization == AlarmAuthorization.authorized ||
+        authorization == AlarmAuthorization.unsupported) {
+      emit(
+        state.copyWith(
+          alarm: authorization,
+          liveActivityStarted: started,
+          criticalAlertsGranted: true,
+          step: NotificationPermissionStep.granted,
+          canNavigate: true,
+          clearError: true,
+        ),
+      );
+    } else {
+      emit(
+        state.copyWith(
+          alarm: authorization,
+          liveActivityStarted: started,
+          step: NotificationPermissionStep.denied,
+          canNavigate: false,
+          clearError: true,
+        ),
+      );
+    }
   }
+
+  /// Backward-compatible combined request for tests or single-tap.
+  Future<void> requestPermissions() async {
+    if (state.activeSubstep == 0 && !state.notificationsGranted) {
+      await requestNotifications();
+    } else {
+      await requestCriticalAlerts();
+    }
+  }
+
+  /// The two iOS prompts that follow the notification one.
+  Future<void> requestAlarmAndActivity() => requestCriticalAlerts();
 
   /// Reads the alarm state back without prompting, for the status row.
   Future<void> refreshAlarmAuthorization() async {
-    final alarm = this.alarm;
-    if (alarm == null) return;
-    emit(state.copyWith(alarm: await alarm.authorizationStatus()));
+    final alarmHost = alarm;
+    if (alarmHost == null) return;
+    emit(state.copyWith(alarm: await alarmHost.authorizationStatus()));
   }
 
   /// Opens the system app notification settings.
   Future<void> openSettings() async {
     await _openSettings(const NoParams());
-  }
-
-  /// Allows the user to proceed to Screen 2 even if permissions are denied.
-  void continueAnyway() {
-    emit(state.copyWith(canNavigate: true));
   }
 
   /// Resets the navigation trigger once handled by the router.

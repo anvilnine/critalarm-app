@@ -466,6 +466,7 @@ Future<void> configureDependencies({
         establishSession: getIt<EstablishApiSessionUsecase>(),
         getConnection: getIt<GetConnectionUsecase>(),
         getTopics: getIt<GetTopicsUsecase>(),
+        alarmHost: getIt<AlarmHost>(),
         initialConnected: initialConnected ?? false,
       ),
     )

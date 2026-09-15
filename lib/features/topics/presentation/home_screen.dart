@@ -13,10 +13,20 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:showcase_tutorial/showcase_tutorial.dart';
 
 /// HomeScreen matching docs/design-system/index.html mobile mockup.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
+  static const tourCompletedKey = 'has_completed_showcase_tour';
+
+  static Future<void> _markTourCompleted() async {
+    if (getIt.isRegistered<SharedPreferences>()) {
+      await getIt<SharedPreferences>().setBool(tourCompletedKey, true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +36,13 @@ class HomeScreen extends StatelessWidget {
         unawaited(cubit.load());
         return cubit;
       },
-      child: const _HomeScreenContent(),
+      child: ShowCaseWidget(
+        onFinish: _markTourCompleted,
+        onDismiss: (_) => _markTourCompleted(),
+        builder: Builder(
+          builder: (context) => const _HomeScreenContent(),
+        ),
+      ),
     );
   }
 }
@@ -47,10 +63,30 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   /// a new incident still takes over.
   String? _handedOver;
 
+  final GlobalKey _stageKey = GlobalKey();
+  final GlobalKey _topicsSheetKey = GlobalKey();
+  Timer? _tourTimer;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startTourIfNew());
+  }
+
+  Future<void> _startTourIfNew() async {
+    if (!getIt.isRegistered<SharedPreferences>()) return;
+    final prefs = getIt<SharedPreferences>();
+    final completed =
+        prefs.getBool(HomeScreen.tourCompletedKey) ?? false;
+    if (!completed && mounted) {
+      _tourTimer?.cancel();
+      _tourTimer = Timer(const Duration(milliseconds: 600), () {
+        if (mounted) {
+          ShowCaseWidget.of(context).startShowCase([_stageKey, _topicsSheetKey]);
+        }
+      });
+    }
   }
 
   @override
@@ -62,6 +98,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
 
   @override
   void dispose() {
+    _tourTimer?.cancel();
     appRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -132,10 +169,16 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                 child: Column(
                   children: [
                     const SizedBox(height: Spacing.s3),
-                    AppStage(
-                      faceState: state.faceState,
-                      word: state.word,
-                      sub: state.subText,
+                    Showcase(
+                      key: _stageKey,
+                      title: LocaleKeys.showcase_topic_title.tr(),
+                      description: LocaleKeys.showcase_topic_desc.tr(),
+                      targetBorderRadius: BorderRadius.circular(16),
+                      child: AppStage(
+                        faceState: state.faceState,
+                        word: state.word,
+                        sub: state.subText,
+                      ),
                     ),
                     const SizedBox(height: Spacing.s4),
                   ],
@@ -144,7 +187,16 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                  child: AppSheet(
+                  child: Showcase(
+                    key: _topicsSheetKey,
+                    title: state.topicItems.isEmpty
+                        ? LocaleKeys.showcase_create_title.tr()
+                        : LocaleKeys.showcase_topic_title.tr(),
+                    description: state.topicItems.isEmpty
+                        ? LocaleKeys.showcase_create_desc.tr()
+                        : LocaleKeys.showcase_webhook_desc.tr(),
+                    targetBorderRadius: BorderRadius.circular(16),
+                    child: AppSheet(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -188,6 +240,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                   ),
                 ),
               ),
+            ),
             ],
           ),
         );
