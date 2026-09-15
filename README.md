@@ -28,6 +28,24 @@ make check-layers   # clean-architecture direction
 make sync-contract  # refresh docs/api.md from critalarm-server
 ```
 
+Generated files also go stale after a merge, so run `make gen` and `make l10n`
+again if a pull leaves the analyzer complaining about `LocaleKeys`.
+
+### Testing an alarm without waking the neighbours
+
+A critical page rings at full volume, overrides whatever the volume was set to,
+and keeps going until it is acknowledged. That is the product, and it is
+unpleasant to test at a desk.
+
+```bash
+make run-quiet DEVICE=R5CXB30NDRV   # attached run
+make build-quiet-apk                # installable artifact
+```
+
+Both pass `--dart-define=QUIET_ALARM=true`, which skips the volume override and
+stops the ring after five seconds. The flag defaults to false, so a build that
+does not ask for it behaves exactly like a store build.
+
 ## Docs
 
 - `docs/api.md` is a generated copy of the server's contract. Do not edit it
