@@ -49,7 +49,7 @@ Write what you tried and what blocked you in the PR or a `BLOCKED.md` in the tas
 `critalarm-app`. Public, GPL-3.0. The Flutter app, and later one native Swift
 target for the iOS Notification Service Extension.
 
-**Stack.** Flutter 3.44.4 (pinned in `.fvmrc`, use `fvm`), Dart 3.12. Cubit and
+**Stack.** Flutter 3.44.9 (pinned in `.fvmrc`, use `fvm`), Dart 3.12. Cubit and
 Bloc for state, `go_router` for navigation, `freezed` for models, `get_it` for
 the composition root, `easy_localization` for strings. Do not add another
 state-management library.
