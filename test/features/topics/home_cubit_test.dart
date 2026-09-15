@@ -39,7 +39,7 @@ void main() {
     });
 
     blocTest<HomeCubit, HomeState>(
-      'calm fixture: emits calm face, All clear, 4 topics',
+      'calm fixture uses current server data for every topic',
       setUp: () => server.seedCalm(),
       build: () => HomeCubit(getTopicsUsecase, incidentRepo),
       act: (cubit) => cubit.load(),
@@ -69,7 +69,7 @@ void main() {
             .having(
               (s) => s.topicItems[1].priority,
               'nas-backup priority',
-              PriorityLevel.high,
+              PriorityLevel.defaultPriority,
             )
             .having(
               (s) => s.topicItems[2].name,
@@ -87,9 +87,9 @@ void main() {
               'home-ha',
             )
             .having(
-              (s) => s.topicItems[3].isQuiet,
-              'home-ha isQuiet',
-              isTrue,
+              (s) => s.topicItems[3].priority,
+              'home-ha priority',
+              PriorityLevel.defaultPriority,
             ),
       ],
     );

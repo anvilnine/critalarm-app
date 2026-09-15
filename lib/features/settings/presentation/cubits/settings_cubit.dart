@@ -1,3 +1,5 @@
+import 'package:critalarm/core/models/account_access.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
@@ -10,6 +12,7 @@ import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings
 import 'package:critalarm/features/settings/domain/usecases/set_analytics_enabled_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_crash_reporting_enabled_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
+import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state and preferences on the Settings screen.
@@ -24,6 +27,8 @@ class SettingsCubit extends Cubit<SettingsState> {
     this.setCrashReportingEnabledUsecase,
     this.privacyRepository,
     this.telemetryGate,
+    this.identityStore,
+    this.getTopics,
   }) : super(const SettingsState());
 
   final GetConnectionUsecase? getConnectionUsecase;
@@ -35,6 +40,8 @@ class SettingsCubit extends Cubit<SettingsState> {
   final SetCrashReportingEnabledUsecase? setCrashReportingEnabledUsecase;
   final PrivacyRepository? privacyRepository;
   final TelemetryGate? telemetryGate;
+  final DeviceIdentityStore? identityStore;
+  final GetTopicsUsecase? getTopics;
 
   bool get isPaywallEnabled => telemetryGate?.isPaywallEnabled ?? false;
   bool get paywallEnabled => isPaywallEnabled;
@@ -125,7 +132,16 @@ class SettingsCubit extends Cubit<SettingsState> {
       );
     }
 
-    emit(state.copyWith(status: SettingsStatus.success));
+    final identity = await identityStore?.readOrCreate();
+    final result = await getTopics?.call(const NoParams());
+    emit(
+      state.copyWith(
+        status: SettingsStatus.success,
+        access: AccountAccess(identity),
+        topics: result?.getOrNull() ?? [],
+        errorMessage: result?.exceptionOrNull()?.message,
+      ),
+    );
   }
 
   void toggleQuietHours({required bool isEnabled}) {

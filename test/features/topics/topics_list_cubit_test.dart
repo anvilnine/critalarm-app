@@ -35,7 +35,7 @@ void main() {
     });
 
     blocTest<TopicsListCubit, TopicsListState>(
-      'loads 4 topics when server is seeded with calm fixture',
+      'loads current topics and derives presentation from server data',
       setUp: () => server.seedCalm(),
       build: () => TopicsListCubit(getTopicsUsecase, incidentRepo),
       act: (cubit) => cubit.load(),
@@ -55,9 +55,9 @@ void main() {
               PriorityLevel.critical,
             )
             .having(
-              (s) => s.topics.firstWhere((t) => t.name == 'home-ha').isQuiet,
-              'home-ha isQuiet',
-              isTrue,
+              (s) => s.topics.firstWhere((t) => t.name == 'home-ha').priority,
+              'home-ha priority',
+              PriorityLevel.defaultPriority,
             ),
       ],
     );

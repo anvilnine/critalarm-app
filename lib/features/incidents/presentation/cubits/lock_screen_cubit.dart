@@ -12,16 +12,18 @@ class LockScreenCubit extends Cubit<LockScreenState> {
   final GetIncidentsUsecase _getIncidents;
 
   Future<void> load() async {
-    emit(state.copyWith(status: LockScreenStatus.loading));
+    final now = DateTime.now();
+    emit(
+      state.copyWith(
+        status: LockScreenStatus.loading,
+        dateText: DateFormat('EEEE d MMMM').format(now),
+        timeText: DateFormat('HH:mm').format(now),
+      ),
+    );
 
     final result = await _getIncidents();
     result.fold(
       (incidents) {
-        if (incidents.isEmpty) {
-          emit(state.copyWith(status: LockScreenStatus.success));
-          return;
-        }
-
         final items = <LockNotificationItem>[];
         for (final inc in incidents) {
           final firstMsg = inc.messages.firstOrNull;
@@ -41,7 +43,9 @@ class LockScreenCubit extends Cubit<LockScreenState> {
               ringingPillText: isCrit
                   ? LocaleKeys.lock_screen_ringing_pill.tr()
                   : null,
-              timeText: isCrit ? LocaleKeys.lock_screen_time_now.tr() : '02:04',
+              timeText: inc.lastMessageAt == null
+                  ? null
+                  : DateFormat('HH:mm').format(inc.lastMessageAt!.toLocal()),
               isCrit: isCrit,
               isQuiet: isQuiet,
               incidentId: inc.id,
@@ -49,12 +53,10 @@ class LockScreenCubit extends Cubit<LockScreenState> {
           );
         }
 
-        // If items were produced from real incidents, use them;
-        // otherwise retain the default mockup notifications.
         emit(
           state.copyWith(
             status: LockScreenStatus.success,
-            notifications: items.isNotEmpty ? items : state.notifications,
+            notifications: items,
           ),
         );
       },

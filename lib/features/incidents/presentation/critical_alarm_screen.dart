@@ -41,6 +41,34 @@ class _CriticalAlarmView extends StatelessWidget {
           !previous.isAcknowledged && current.isAcknowledged,
       listener: (context, state) => AppHaptics.success(),
       builder: (context, state) {
+        if (!state.isLive && !state.isAcknowledged) {
+          return AppScreenScaffold(
+            hasTabBar: false,
+            topBar: AppTopBar(
+              title: 'Alarm',
+              leading: AppIconButton(
+                glyph: GlyphType.back,
+                ariaLabel: 'Back',
+                onPressed: () => context.go('/'),
+              ),
+            ),
+            slivers: [
+              SliverToBoxAdapter(
+                child: AppEmptyState(
+                  title: state.status == CriticalAlarmStatus.loading
+                      ? 'Loading alarm'
+                      : state.errorMessage != null
+                      ? 'Unable to load alarm'
+                      : 'No active alarm',
+                  description: state.errorMessage ?? '',
+                  buttonLabel: null,
+                  faceState: FaceState.calm,
+                  isLive: false,
+                ),
+              ),
+            ],
+          );
+        }
         return SeverityScope(
           mode: state.severityMode,
           child: Builder(
@@ -289,13 +317,15 @@ class _AcknowledgedScreen extends StatelessWidget {
     final ackedAt = incident?.ackedAt;
     final ringDuration = (startedAt != null && ackedAt != null)
         ? ackedAt.difference(startedAt)
-        : const Duration(minutes: 2, seconds: 14);
-    final startedLabel = startedAt != null
-        ? _formatClock(startedAt)
-        : '03:12:04';
-    final ackedLabel = ackedAt != null ? _formatClock(ackedAt) : '03:14:22';
+        : null;
+    final startedLabel = startedAt != null ? _formatClock(startedAt) : '—';
+    final ackedLabel = ackedAt != null ? _formatClock(ackedAt) : '—';
     final ackedSub = LocaleKeys.critical_alarm_acked_sub.tr(
-      namedArgs: {'duration': _formatRingDuration(ringDuration)},
+      namedArgs: {
+        'duration': ringDuration == null
+            ? '—'
+            : _formatRingDuration(ringDuration),
+      },
     );
 
     final size = AppSize.of(context);

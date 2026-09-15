@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
-import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -105,14 +104,9 @@ class _SettingsScreenContent extends StatelessWidget {
     );
   }
 
-  Widget _buildPlanRow(BuildContext context, {required bool isPro}) {
+  Widget _buildPlanRow(BuildContext context, SettingsState state) {
     final colors = context.appColors;
-    // SettingsState carries no topic count yet, so these stand in. The tier
-    // comes from the store, or from the developer switch below in builds made
-    // with --dart-define=SKIP_PAYWALL=true.
-    const topicsUsed = 4;
-    const topicsLimit = 5;
-
+    final isPro = state.access.isPaid;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -127,7 +121,9 @@ class _SettingsScreenContent extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isPro
+                  !state.access.isKnown
+                      ? 'Plan unavailable'
+                      : isPro
                       ? LocaleKeys.settings_plan_pro.tr()
                       : LocaleKeys.settings_plan_free.tr(),
                   style: TextStyle(
@@ -140,12 +136,7 @@ class _SettingsScreenContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  LocaleKeys.settings_plan_topics_used.tr(
-                    namedArgs: {
-                      'used': '$topicsUsed',
-                      'limit': '$topicsLimit',
-                    },
-                  ),
+                  state.criticalUsage,
                   style: TextStyle(
                     fontFamily: AppTypography.fontBody,
                     fontFamilyFallback: AppTypography.fontBodyFallbacks,
@@ -267,14 +258,7 @@ class _SettingsScreenContent extends StatelessWidget {
                       AppSectionHeader(
                         LocaleKeys.settings_plan_header.tr(),
                       ),
-                      if (buildSkipsPaywall)
-                        ValueListenableBuilder<bool>(
-                          valueListenable: getIt<DevProSwitch>(),
-                          builder: (context, isPro, _) =>
-                              _buildPlanRow(context, isPro: isPro),
-                        )
-                      else
-                        _buildPlanRow(context, isPro: false),
+                      _buildPlanRow(context, state),
                       const SizedBox(height: 14),
                       AppSectionHeader(
                         LocaleKeys.settings_setup_header.tr(),

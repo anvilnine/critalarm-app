@@ -13,7 +13,7 @@ class OnboardingPermissionsState {
     this.status = OnboardingPermissionsStatus.initial,
     this.incidentId,
     this.errorMessage,
-    this.topic = 'prod-db',
+    this.topic = '',
   });
 
   final OnboardingPermissionsStatus status;

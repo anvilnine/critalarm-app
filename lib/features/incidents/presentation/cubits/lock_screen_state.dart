@@ -62,26 +62,9 @@ class LockNotificationItem {
 class LockScreenState {
   const LockScreenState({
     this.status = LockScreenStatus.initial,
-    this.dateText = 'Thursday 10 September',
-    this.timeText = '03:12',
-    this.notifications = const [
-      LockNotificationItem(
-        topic: 'prod-db',
-        title: 'Primary database down',
-        body: 'pg_isready failed 3 times in 90 s. Replica promoted on db-2.',
-        faceState: FaceState.alarmed,
-        ringingPillText: 'Ringing through silent mode. Tap to acknowledge.',
-        timeText: 'now',
-        isCrit: true,
-      ),
-      LockNotificationItem(
-        topic: 'nas-backup',
-        title: 'Backup finished',
-        body: '412 GB copied in 43 min.',
-        timeText: '02:04',
-        isQuiet: true,
-      ),
-    ],
+    this.dateText = '',
+    this.timeText = '',
+    this.notifications = const [],
     this.errorMessage,
   });
 

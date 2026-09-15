@@ -431,6 +431,8 @@ Future<void> configureDependencies({
         getIt<TriggerTestAlarmUsecase>(),
         completeOnboarding: getIt<CompleteOnboardingUsecase>(),
         establishSession: getIt<EstablishApiSessionUsecase>(),
+        getConnection: getIt<GetConnectionUsecase>(),
+        getTopics: getIt<GetTopicsUsecase>(),
         initialConnected: initialConnected ?? false,
       ),
     )
@@ -448,6 +450,7 @@ Future<void> configureDependencies({
     ..registerFactory(
       () => OnboardingPermissionsCubit(
         getIt<TriggerTestAlarmUsecase>(),
+        getTopics: getIt<GetTopicsUsecase>(),
       ),
     )
     ..registerFactory(
@@ -466,6 +469,7 @@ Future<void> configureDependencies({
     ..registerFactory(
       () => HistoryCubit(
         getIt<GetIncidentsUsecase>(),
+        identityStore: getIt<DeviceIdentityStore>(),
       ),
     )
     ..registerFactory(
@@ -503,6 +507,8 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => SettingsCubit(
+        identityStore: getIt<DeviceIdentityStore>(),
+        getTopics: getIt<GetTopicsUsecase>(),
         getConnectionUsecase: getIt<GetConnectionUsecase>(),
         clearConnectionUsecase: getIt<ClearConnectionUsecase>(),
         saveConnectionUsecase: getIt<SaveConnectionUsecase>(),
@@ -533,6 +539,7 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => PaywallCubit(
+        identityStore: getIt<DeviceIdentityStore>(),
         telemetryGate: getIt.isRegistered<TelemetryGate>()
             ? getIt<TelemetryGate>()
             : null,
@@ -543,8 +550,9 @@ Future<void> configureDependencies({
         getCustomerInfoUsecase: getIt<GetCustomerInfoUsecase>(),
         subscriptionRepository: getIt<SubscriptionRepository>(),
         refreshRegistration: () async {
-          if (buildSkipsPaywall) return;
-          await getIt<RevenueCatService>().invalidateCustomerInfoCache();
+          if (!buildSkipsPaywall) {
+            await getIt<RevenueCatService>().invalidateCustomerInfoCache();
+          }
           await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
         },
       ),
