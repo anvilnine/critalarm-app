@@ -32,83 +32,38 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   final UpdateIncidentBadgeUsecase? _updateBadge;
 
   Future<void> load({String? incidentId}) async {
-    emit(state.copyWith(status: CriticalAlarmStatus.loading));
-
+    emit(const CriticalAlarmState(status: CriticalAlarmStatus.loading));
     if (incidentId != null && incidentId.isNotEmpty) {
       final result = await _getIncident(incidentId);
-      result.fold(
-        _applyIncident,
-        (failure) {
-          // If not found, fall back to alarmed mock data
-          emit(
-            state.copyWith(
-              status: CriticalAlarmStatus.ringing,
-              severityMode: SeverityMode.crit,
-              faceState: FaceState.alarmed,
-              isLive: true,
-              isAcknowledged: false,
-              errorMessage: failure.message,
-            ),
-          );
-        },
-      );
+      result.fold(_applyIncident, _showFailure);
       return;
     }
+    final result = await _getIncidents(const GetIncidentsParams(state: 'open'));
+    result.fold((incidents) {
+      final incident = incidents.where((i) => i.isOpen).firstOrNull;
+      if (incident == null) {
+        emit(const CriticalAlarmState());
+      } else {
+        _applyIncident(incident);
+      }
+    }, _showFailure);
+  }
 
-    // No specific incidentId given; find active open incident or default
-    final incidentsResult = await _getIncidents(
-      const GetIncidentsParams(state: 'open'),
-    );
-
-    await incidentsResult.fold(
-      (incidents) async {
-        final critIncident = incidents.where((i) {
-          return i.messages.any((m) => m.priority == 5) || i.isOpen;
-        }).firstOrNull;
-
-        if (critIncident != null) {
-          _applyIncident(critIncident);
-        } else {
-          // Check for seeded alarmed fixture
-          final fixtureResult = await _getIncident('inc_alarmed_proddb');
-          fixtureResult.fold(
-            _applyIncident,
-            (_) {
-              // Default fixture state
-              emit(
-                state.copyWith(
-                  status: CriticalAlarmStatus.ringing,
-                  severityMode: SeverityMode.crit,
-                  faceState: FaceState.alarmed,
-                  isLive: true,
-                  isAcknowledged: false,
-                ),
-              );
-            },
-          );
-        }
-      },
-      (failure) async {
-        // Fall back to default alarmed state
-        emit(
-          state.copyWith(
-            status: CriticalAlarmStatus.ringing,
-            severityMode: SeverityMode.crit,
-            faceState: FaceState.alarmed,
-            isLive: true,
-            isAcknowledged: false,
-          ),
-        );
-      },
+  void _showFailure(Failure failure) {
+    emit(
+      CriticalAlarmState(
+        status: CriticalAlarmStatus.failure,
+        errorMessage: failure.message,
+      ),
     );
   }
 
   Future<void> acknowledge() async {
-    if (state.isAcknowledged) return;
+    if (state.isAcknowledged || state.incident == null) return;
 
     emit(state.copyWith(isAcknowledging: true));
 
-    final targetId = state.incident?.id ?? 'inc_alarmed_proddb';
+    final targetId = state.incident!.id;
     final result = await _acknowledgeIncident(targetId);
 
     result.fold(
@@ -211,12 +166,19 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     final body = (firstMsg != null && firstMsg.message.isNotEmpty)
         ? firstMsg.message
         : LocaleKeys.critical_alarm_fallback_body.tr();
-    final topic = incident.topic.isNotEmpty ? incident.topic : 'prod-db';
+    final topic = incident.topic;
+    emit(
+      state.copyWith(
+        meta: firstMsg == null
+            ? ''
+            : '${_formatTime(DateTime.fromMillisecondsSinceEpoch(firstMsg.time * 1000).toLocal())} / ${firstMsg.tags.join(', ')}',
+      ),
+    );
 
     if (incident.isAcked) {
       final ackedTime = incident.ackedAt != null
           ? _formatTime(incident.ackedAt!)
-          : '03:14';
+          : '';
       final ackMsg = LocaleKeys.critical_alarm_acknowledged_message.tr(
         namedArgs: {'time': ackedTime},
       );
@@ -238,7 +200,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
           clearError: true,
         ),
       );
-    } else if (incident.isClosed) {
+    } else if (!incident.isOpen) {
       emit(
         state.copyWith(
           status: CriticalAlarmStatus.closed,

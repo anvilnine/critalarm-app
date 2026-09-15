@@ -42,7 +42,7 @@ void main() {
     });
 
     blocTest<TopicDetailCubit, TopicDetailState>(
-      'loads nas-backup in worried fixture with high severity and 2 messages',
+      'loads nas-backup from the current server response',
       setUp: () => server.seedWorried(),
       build: () => TopicDetailCubit(
         getTopicUsecase,
@@ -61,13 +61,8 @@ void main() {
             .having((s) => s.severity, 'severity', SeverityMode.high)
             .having((s) => s.faceState, 'faceState', FaceState.worried)
             .having((s) => s.word, 'word', '1 warning')
-            .having((s) => s.messages.length, 'messages length', 2)
-            .having((s) => s.messages[0].isHigh, 'first message isHigh', isTrue)
-            .having(
-              (s) => s.messages[1].isHigh,
-              'second message isHigh',
-              isFalse,
-            ),
+            .having((s) => s.messages.length, 'messages length', 1)
+            .having((s) => s.messages.single.isHigh, 'message isHigh', isTrue),
       ],
     );
 

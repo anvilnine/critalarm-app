@@ -17,7 +17,7 @@ enum TestAlarmStatus {
 @immutable
 class OnboardingConnectState {
   const OnboardingConnectState({
-    this.serverUrl = 'https://api.critalarm.app',
+    this.serverUrl = '',
     this.adminToken = '',
     this.requiresAdminToken = false,
     this.status = OnboardingConnectStatus.idle,
@@ -27,7 +27,7 @@ class OnboardingConnectState {
     this.errorMessage,
     this.qrNotice,
     this.incidentId,
-    this.topic = 'prod-db',
+    this.topic = '',
     this.canNavigateToHome = false,
   });
 

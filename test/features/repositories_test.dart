@@ -183,7 +183,7 @@ void main() {
     test('registers all repositories and services cleanly', () async {
       SharedPreferences.setMockInitialValues({});
       await getIt.reset();
-      await configureDependencies();
+      await configureDependencies(useMockApi: true);
 
       expect(getIt.isRegistered<MockServer>(), isTrue);
       expect(getIt.isRegistered<MockApiClient>(), isTrue);

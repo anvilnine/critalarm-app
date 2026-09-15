@@ -44,17 +44,17 @@ void main() {
   });
 
   group('CriticalAlarmCubit', () {
-    test('initial state has default critical alarm values', () {
+    test('initial state is empty and calm', () {
       final state = cubit.state;
       expect(state.status, CriticalAlarmStatus.initial);
-      expect(state.topic, 'prod-db');
-      // The stage word is written by load(), so it is blank until then.
-      expect(state.word, '');
-      expect(state.severityMode, SeverityMode.crit);
-      expect(state.faceState, FaceState.alarmed);
-      expect(state.isLive, isTrue);
+      expect(state.topic, isEmpty);
+      expect(state.word, isEmpty);
+      expect(state.severityMode, SeverityMode.none);
+      expect(state.faceState, FaceState.calm);
+      expect(state.isLive, isFalse);
       expect(state.isAcknowledged, isFalse);
-      expect(state.title, 'Primary database down');
+      expect(state.title, isEmpty);
+      expect(state.body, isEmpty);
     });
 
     test(

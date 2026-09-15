@@ -1,4 +1,5 @@
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
@@ -43,6 +44,22 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       topic: topicName,
     );
 
+    final pollResult = await _incidentRepository.pollMessages(
+      topicName,
+      poll: 1,
+    );
+    if (incidentsResult.isError() || pollResult.isError()) {
+      emit(
+        state.copyWith(
+          status: TopicDetailStatus.failure,
+          errorMessage:
+              incidentsResult.exceptionOrNull()?.message ??
+              pollResult.exceptionOrNull()?.message,
+        ),
+      );
+      return;
+    }
+    final polled = pollResult.getOrNull() ?? [];
     topicResult.fold(
       (topic) {
         final incidents = incidentsResult.getOrNull() ?? [];
@@ -57,7 +74,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
             openIncidents.any(
               (i) => i.messages.any((m) => m.priority == 4),
             ) ||
-            (topicName == 'nas-backup');
+            polled.any((m) => m.priority == 4);
 
         SeverityMode severity;
         FaceState face;
@@ -77,16 +94,25 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
           word = LocaleKeys.topic_detail_stage_word_clear.tr();
         }
 
-        final priorityLabel = topic.critical
+        final priorityLabel = hasCrit
             ? 'critical'
-            : (topicName == 'nas-backup'
-                  ? 'high'
-                  : (topicName == 'uptime-kuma'
-                        ? 'default'
-                        : (topicName == 'home-ha' ? 'low' : 'default')));
-
-        final messages = _resolveMessages(topicName, hasHigh: hasHigh);
-        final count = messages.length > 2 ? messages.length : 61;
+            : hasHigh
+            ? 'high'
+            : 'default';
+        final messages = polled.reversed
+            .map(
+              (m) => TopicDetailMessageItem(
+                title: m.title ?? m.topic,
+                timestamp: DateFormat('MMM d HH:mm').format(
+                  DateTime.fromMillisecondsSinceEpoch(m.time * 1000).toLocal(),
+                ),
+                body: m.message,
+                source: m.tags.join(', '),
+                isHigh: m.priority == 4,
+              ),
+            )
+            .toList();
+        final count = messages.length;
         final subText = LocaleKeys.topic_detail_stage_sub.tr(
           namedArgs: {
             'priority': priorityLabel,
@@ -112,6 +138,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
           state.copyWith(
             status: TopicDetailStatus.failure,
             errorMessage: failure.message,
+            capReached: CapReached.fromFailure(failure),
           ),
         );
       },
@@ -119,7 +146,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   }
 
   Future<void> toggleCriticalDelivery({required bool isCritical}) async {
-    emit(state.copyWith(isUpdatingCritical: true));
+    emit(state.copyWith(isUpdatingCritical: true, clearError: true));
 
     final result = await _updateTopic(
       UpdateTopicParams(name: state.topicName, critical: isCritical),
@@ -139,6 +166,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
           state.copyWith(
             isUpdatingCritical: false,
             errorMessage: failure.message,
+            capReached: CapReached.fromFailure(failure),
           ),
         );
       },
@@ -171,39 +199,5 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         messages: clearedMessages,
       ),
     );
-  }
-
-  List<TopicDetailMessageItem> _resolveMessages(
-    String topicName, {
-    required bool hasHigh,
-  }) {
-    if (topicName == 'nas-backup') {
-      return [
-        TopicDetailMessageItem(
-          title: 'Backup finished with 2 warnings',
-          timestamp: '02:04',
-          body:
-              'rsync: 2 files vanished during transfer. '
-              '412 GB copied in 43 min.',
-          source: 'cron@nas / high',
-          isHigh: hasHigh,
-        ),
-        const TopicDetailMessageItem(
-          title: 'Backup finished',
-          timestamp: 'Wed 02:00',
-          body: '409 GB copied in 41 min.',
-          source: 'cron@nas / default',
-        ),
-      ];
-    }
-
-    return [
-      TopicDetailMessageItem(
-        title: '$topicName message',
-        timestamp: '10:00',
-        body: 'Status check reported healthy.',
-        source: 'agent@$topicName / default',
-      ),
-    ];
   }
 }

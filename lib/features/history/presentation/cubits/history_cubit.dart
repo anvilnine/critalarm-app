@@ -1,4 +1,6 @@
+import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
@@ -6,25 +8,46 @@ import 'package:critalarm/features/incidents/domain/usecases/get_incidents_useca
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Past alarms, newest first, grouped by the day they started.
+///
+/// Two things narrow the list, and they are not the same thing. The plan caps
+/// how far back the server will go and how many alarms come back at all. The
+/// filter is the user choosing to see less than that. Caps apply when the list
+/// is fetched, the filter applies to what was fetched, so changing the filter
+/// never goes back to the server.
 class HistoryCubit extends Cubit<HistoryState> {
-  HistoryCubit(this._getIncidents, {DateTime Function()? now})
-    : _now = now ?? DateTime.now,
-      super(const HistoryState());
+  HistoryCubit(
+    this._getIncidents, {
+    DateTime Function()? now,
+    this.identityStore,
+  }) : _now = now ?? DateTime.now,
+       super(const HistoryState());
 
   final GetIncidentsUsecase _getIncidents;
   final DateTime Function() _now;
-
-  /// How far back the list reaches. The widest filter window can never ask for
-  /// more than this, because nothing older was ever fetched.
-  static const Duration window = HistoryWindows.full;
+  final DeviceIdentityStore? identityStore;
 
   Future<void> load() async {
     emit(state.copyWith(status: HistoryStatus.loading));
-    final result = await _getIncidents(const GetIncidentsParams(limit: 200));
+    final identity = await identityStore?.readOrCreate();
+    if (identityStore != null && identity?.accountId == null) {
+      emit(
+        state.copyWith(
+          status: HistoryStatus.failure,
+          days: [],
+          errorMessage:
+              'History limits unavailable. Reconnect to refresh your plan.',
+        ),
+      );
+      return;
+    }
+    final caps = identity?.caps ?? AccountCaps.free;
+    final result = await _getIncidents(
+      GetIncidentsParams(limit: caps.historyIncidents),
+    );
     result.fold(
       (incidents) {
         final now = _now();
-        final entries = toEntries(incidents, now);
+        final entries = toEntries(incidents, now, caps: caps);
         emit(
           state.copyWith(
             status: HistoryStatus.success,
@@ -60,6 +83,9 @@ class HistoryCubit extends Cubit<HistoryState> {
 
   /// Keeps the entries that match [filter]. Order is preserved, so the result
   /// is still newest first and ready for [groupByDay].
+  ///
+  /// The filter can only narrow what the plan already allowed through, so a
+  /// 30 day window on a plan that keeps 7 days still shows 7.
   static List<HistoryEntry> filterEntries(
     List<HistoryEntry> entries,
     HistoryFilter filter,
@@ -74,15 +100,22 @@ class HistoryCubit extends Cubit<HistoryState> {
     ];
   }
 
-  /// Turns raw incidents into entries, dropping anything older than [window]
-  /// and anything with no start time to sort on.
-  static List<HistoryEntry> toEntries(List<Incident> incidents, DateTime now) {
-    final cutoff = now.subtract(window);
+  /// Apply both display caps, then group the newest incidents first.
+  static List<HistoryEntry> toEntries(
+    List<Incident> incidents,
+    DateTime now, {
+    AccountCaps caps = AccountCaps.free,
+  }) {
+    final cutoff = caps.historyDays == null
+        ? null
+        : now.subtract(Duration(days: caps.historyDays!));
     final entries = <HistoryEntry>[];
 
     for (final incident in incidents) {
       final startedAt = incident.openedAt;
-      if (startedAt == null || startedAt.isBefore(cutoff)) continue;
+      if (startedAt == null || (cutoff != null && startedAt.isBefore(cutoff))) {
+        continue;
+      }
 
       final stoppedAt =
           incident.ackedAt ?? incident.closedAt ?? incident.lastMessageAt;
@@ -101,7 +134,9 @@ class HistoryCubit extends Cubit<HistoryState> {
     }
 
     entries.sort((a, b) => b.startedAt.compareTo(a.startedAt));
-    return entries;
+    return caps.historyIncidents == null
+        ? entries
+        : entries.take(caps.historyIncidents!).toList();
   }
 
   /// Groups sorted entries into days, keeping the newest day first.

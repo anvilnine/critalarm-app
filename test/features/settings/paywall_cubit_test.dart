@@ -27,15 +27,14 @@ void main() {
     });
 
     blocTest<PaywallCubit, PaywallState>(
-      'upgradeToPro emits loading then success with isPro true and feedback',
+      'upgradeToPro reports when no purchase offering is available',
       build: PaywallCubit.new,
       act: (cubit) => cubit.upgradeToPro(),
       expect: () => [
         const PaywallState(status: PaywallStatus.loading),
         const PaywallState(
-          status: PaywallStatus.success,
-          isPro: true,
-          feedbackMessage: 'Upgraded to Crit Alarm Pro',
+          status: PaywallStatus.failure,
+          errorMessage: 'No purchase is available.',
         ),
       ],
     );

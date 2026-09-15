@@ -114,21 +114,21 @@ void main() {
         // Granted reads as a chip. The two that are off each offer a way in.
         expect(find.text('allowed'), findsOneWidget);
         expect(find.text('Turn on'), findsNWidgets(2));
-        expect(find.text('Off since 12 September'), findsNWidgets(2));
+        expect(find.text('Not allowed'), findsNWidgets(2));
       },
     );
 
     testWidgets(
-      'the server connection block names the host and the last delivery',
+      'shows the test action without fabricated server diagnostics',
       (tester) async {
         await tester.pumpWidget(buildTestWidget());
         await tester.pumpAndSettle();
 
-        expect(find.text('Server connection'), findsOneWidget);
-        expect(find.text('reachable'), findsOneWidget);
-        expect(find.text('Checked'), findsOneWidget);
-        expect(find.text('Last delivery'), findsOneWidget);
         expect(find.text('Send a test alarm'), findsOneWidget);
+        expect(find.text('api.critalarm.app'), findsNothing);
+        expect(find.text('09:45:02'), findsNothing);
+        expect(find.textContaining('prod-db'), findsNothing);
+        expect(find.textContaining('03:12:04'), findsNothing);
       },
     );
 

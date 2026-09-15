@@ -72,12 +72,12 @@ class _TopicDetailScreenContent extends StatelessWidget {
                       },
                     ),
               trailing: AppTopicChip(
-                text: 'POST /t/${state.topicName}',
+                text: 'POST /${state.topicName}',
                 onTap: () {
                   unawaited(
                     Clipboard.setData(
                       ClipboardData(
-                        text: 'POST /t/${state.topicName}',
+                        text: 'POST /${state.topicName}',
                       ),
                     ),
                   );
@@ -107,6 +107,17 @@ class _TopicDetailScreenContent extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (state.capReached != null)
+                          AppEmptyState(
+                            title: state.capReached!.message,
+                            description:
+                                'Review your plan to increase this limit.',
+                            faceState: FaceState.worried,
+                            buttonLabel: null,
+                            isLive: false,
+                          )
+                        else if (state.errorMessage != null)
+                          Text(state.errorMessage!),
                         AppToggleRow(
                           title: LocaleKeys.topic_detail_critical_toggle_title
                               .tr(),

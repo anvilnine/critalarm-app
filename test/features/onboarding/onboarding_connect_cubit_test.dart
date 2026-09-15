@@ -76,14 +76,14 @@ void main() {
   });
 
   group('OnboardingConnectCubit', () {
-    test('initial state has default server URL and idle status', () async {
+    test('initial state has no server URL and idle status', () async {
       final cubit = OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
         mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       );
-      expect(cubit.state.serverUrl, 'https://api.critalarm.app');
+      expect(cubit.state.serverUrl, isEmpty);
       expect(cubit.state.adminToken, isEmpty);
       expect(cubit.state.status, OnboardingConnectStatus.idle);
       expect(cubit.state.testAlarmStatus, TestAlarmStatus.idle);
@@ -215,15 +215,18 @@ void main() {
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
+        serverUrl: 'https://api.critalarm.app',
         adminToken: '   ',
       ),
       act: (cubit) => cubit.connect(),
       expect: () => [
         const OnboardingConnectState(
+          serverUrl: 'https://api.critalarm.app',
           adminToken: '   ',
           status: OnboardingConnectStatus.connecting,
         ),
         const OnboardingConnectState(
+          serverUrl: 'https://api.critalarm.app',
           adminToken: '   ',
           requiresAdminToken: true,
           adminTokenError: 'Admin token cannot be empty',
@@ -248,15 +251,18 @@ void main() {
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
+        serverUrl: 'https://api.critalarm.app',
         adminToken: 'ad_12345',
       ),
       act: (cubit) => cubit.connect(),
       expect: () => [
         const OnboardingConnectState(
+          serverUrl: 'https://api.critalarm.app',
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.connecting,
         ),
         const OnboardingConnectState(
+          serverUrl: 'https://api.critalarm.app',
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.failure,
           errorMessage: 'Bad Gateway',
@@ -283,15 +289,18 @@ void main() {
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
+        serverUrl: 'https://api.critalarm.app',
         adminToken: 'ad_12345',
       ),
       act: (cubit) => cubit.connect(),
       expect: () => [
         const OnboardingConnectState(
+          serverUrl: 'https://api.critalarm.app',
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.connecting,
         ),
         const OnboardingConnectState(
+          serverUrl: 'https://api.critalarm.app',
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.failure,
           errorMessage: 'This app needs a v0.x server. Yours is 1.2.0.',
@@ -318,15 +327,18 @@ void main() {
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
+        serverUrl: 'https://api.critalarm.app',
         adminToken: 'ad_12345',
       ),
       act: (cubit) => cubit.connect(),
       expect: () => [
         const OnboardingConnectState(
+          serverUrl: 'https://api.critalarm.app',
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.connecting,
         ),
         const OnboardingConnectState(
+          serverUrl: 'https://api.critalarm.app',
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.failure,
           errorMessage:
@@ -357,15 +369,18 @@ void main() {
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
+        serverUrl: 'https://api.critalarm.app',
         adminToken: 'ad_12345',
       ),
       act: (cubit) => cubit.connect(),
       expect: () => [
         const OnboardingConnectState(
+          serverUrl: 'https://api.critalarm.app',
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.connecting,
         ),
         const OnboardingConnectState(
+          serverUrl: 'https://api.critalarm.app',
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.connected,
         ),
@@ -398,16 +413,18 @@ void main() {
       seed: () => const OnboardingConnectState(
         status: OnboardingConnectStatus.connected,
       ),
-      act: (cubit) => cubit.ringTestAlarm(),
+      act: (cubit) => cubit.ringTestAlarm(topic: 'prod-db'),
       expect: () => [
         const OnboardingConnectState(
           status: OnboardingConnectStatus.connected,
           testAlarmStatus: TestAlarmStatus.ringing,
+          topic: 'prod-db',
         ),
         const OnboardingConnectState(
           status: OnboardingConnectStatus.connected,
           testAlarmStatus: TestAlarmStatus.success,
           incidentId: 'inc_test_999',
+          topic: 'prod-db',
         ),
       ],
     );
@@ -431,16 +448,18 @@ void main() {
       seed: () => const OnboardingConnectState(
         status: OnboardingConnectStatus.connected,
       ),
-      act: (cubit) => cubit.ringTestAlarm(),
+      act: (cubit) => cubit.ringTestAlarm(topic: 'prod-db'),
       expect: () => [
         const OnboardingConnectState(
           status: OnboardingConnectStatus.connected,
           testAlarmStatus: TestAlarmStatus.ringing,
+          topic: 'prod-db',
         ),
         const OnboardingConnectState(
           status: OnboardingConnectStatus.connected,
           testAlarmStatus: TestAlarmStatus.failure,
           errorMessage: 'Server error',
+          topic: 'prod-db',
         ),
       ],
     );
