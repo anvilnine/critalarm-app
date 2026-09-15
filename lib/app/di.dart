@@ -79,6 +79,15 @@ import 'package:critalarm/features/permissions/domain/repositories/device_permis
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
+import 'package:critalarm/features/search/data/repositories/asset_docs_index_repository.dart';
+import 'package:critalarm/features/search/data/repositories/shared_prefs_recent_searches_repository.dart';
+import 'package:critalarm/features/search/domain/repositories/docs_index_repository.dart';
+import 'package:critalarm/features/search/domain/repositories/recent_searches_repository.dart';
+import 'package:critalarm/features/search/domain/usecases/add_recent_search_usecase.dart';
+import 'package:critalarm/features/search/domain/usecases/clear_recent_searches_usecase.dart';
+import 'package:critalarm/features/search/domain/usecases/get_docs_index_usecase.dart';
+import 'package:critalarm/features/search/domain/usecases/get_recent_searches_usecase.dart';
+import 'package:critalarm/features/search/presentation/cubits/search_cubit.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_privacy_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_theme_preference_repository.dart';
@@ -378,6 +387,24 @@ Future<void> configureDependencies({
     ..registerLazySingleton(
       () => CloseIncidentUsecase(getIt<IncidentRepository>()),
     )
+    ..registerLazySingleton<RecentSearchesRepository>(
+      () => SharedPrefsRecentSearchesRepository(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<DocsIndexRepository>(
+      AssetDocsIndexRepository.new,
+    )
+    ..registerLazySingleton(
+      () => GetRecentSearchesUsecase(getIt<RecentSearchesRepository>()),
+    )
+    ..registerLazySingleton(
+      () => AddRecentSearchUsecase(getIt<RecentSearchesRepository>()),
+    )
+    ..registerLazySingleton(
+      () => ClearRecentSearchesUsecase(getIt<RecentSearchesRepository>()),
+    )
+    ..registerLazySingleton(
+      () => GetDocsIndexUsecase(getIt<DocsIndexRepository>()),
+    )
     ..registerLazySingleton(
       () => GetTopicsUsecase(getIt<TopicRepository>()),
     )
@@ -452,6 +479,19 @@ Future<void> configureDependencies({
         getIt<IncidentRepository>(),
         getIt<MessageSyncService>(),
         getIt<AppBadge>(),
+      ),
+    )
+    ..registerFactory(
+      () => SearchCubit(
+        getTopics: getIt<GetTopicsUsecase>(),
+        getIncidents: getIt<GetIncidentsUsecase>(),
+        getDocsIndex: getIt<GetDocsIndexUsecase>(),
+        getRecentSearches: getIt<GetRecentSearchesUsecase>(),
+        addRecentSearch: getIt<AddRecentSearchUsecase>(),
+        clearRecentSearches: getIt<ClearRecentSearchesUsecase>(),
+        // A release build never offers the developer screen, so search must
+        // never find it either.
+        includeDevOnlySettings: buildSkipsPaywall,
       ),
     )
     ..registerFactory(

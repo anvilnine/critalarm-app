@@ -35,7 +35,9 @@ class AppFloatingTabBar extends StatelessWidget {
     required this.currentIndex,
     required this.onSelect,
     required this.onCompose,
+    this.onSearch,
     this.composeLabel,
+    this.searchLabel,
     this.iconsOnly = false,
     super.key,
   });
@@ -59,7 +61,14 @@ class AppFloatingTabBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onSelect;
   final VoidCallback onCompose;
+
+  /// Opens search. Sits immediately left of the compose button, so the two
+  /// things a user reaches for from anywhere are next to each other. Null
+  /// leaves the slot out entirely.
+  final VoidCallback? onSearch;
+
   final String? composeLabel;
+  final String? searchLabel;
 
   /// Draw glyphs instead of word labels. For a Galaxy Fold cover screen and
   /// anything else too narrow to spell out three tab names.
@@ -99,6 +108,10 @@ class AppFloatingTabBar extends StatelessWidget {
               ),
             ],
             const SizedBox(width: 4),
+            if (onSearch != null) ...[
+              _SearchSlot(label: searchLabel, onTap: onSearch!),
+              const SizedBox(width: 4),
+            ],
             _ComposeSlot(label: composeLabel, onTap: onCompose),
           ],
         ),
@@ -186,6 +199,47 @@ class _TabSlot extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens search. Outlined rather than filled, so the filled compose button
+/// stays the one obviously primary action on the bar.
+class _SearchSlot extends StatelessWidget {
+  const _SearchSlot({required this.label, required this.onTap});
+
+  final String? label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: () {
+          AppHaptics.selection();
+          onTap();
+        },
+        borderRadius: Radii.fullAll,
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            borderRadius: Radii.fullAll,
+            border: Border.all(color: colors.panelLine, width: 1.5),
+          ),
+          child: Center(
+            child: AppGlyph(
+              GlyphType.search,
+              size: 20,
+              color: colors.onPanelMuted,
+            ),
           ),
         ),
       ),

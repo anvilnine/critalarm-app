@@ -120,8 +120,7 @@
     "meta_yesterday": "Yesterday 18:40",
     "meta_ringing": "Ringing",
     "meta_warning": "1 warning",
-    "meta_quiet": "Quiet",
-    "search_aria_label": "Search topics"
+    "meta_quiet": "Quiet"
   },
   "history": {
     "title": "History",
@@ -141,7 +140,27 @@
     "detail_empty_title": "No incident selected",
     "detail_empty_body": "Pick an incident to see its details.",
     "detail_started_label": "Started",
-    "detail_ring_label": "Rang for"
+    "detail_ring_label": "Rang for",
+    "search_aria_label": "Search",
+    "filter_title": "Filter history",
+    "filter_state_header": "State",
+    "filter_state_all": "All",
+    "filter_state_ringing": "Ringing",
+    "filter_state_acked": "Acknowledged",
+    "filter_state_closed": "Resolved",
+    "filter_state_expired": "Expired",
+    "filter_window_header": "Window",
+    "filter_window_7": "7 days",
+    "filter_window_30": "30 days",
+    "filter_reset": "Reset",
+    "filter_apply": "Apply",
+    "filter_badge": {
+      "one": "1 filter on",
+      "other": "{} filters on"
+    },
+    "empty_filtered_title": "Nothing matches those filters",
+    "empty_filtered_body": "Loosen the state, or widen the window.",
+    "filter_window_24h": "24 hours"
   },
   "topic_detail": {
     "back_aria_label": "Back",
@@ -359,7 +378,9 @@
   "storage_errors": {
     "save_theme_preference": "Could not save theme preference",
     "save_analytics_preference": "Could not save analytics preference",
-    "save_crash_reporting_preference": "Could not save crash reporting preference"
+    "save_crash_reporting_preference": "Could not save crash reporting preference",
+    "save_recent_searches": "Could not save recent searches",
+    "read_docs_index": "Could not read the documentation index."
   },
   "sound_library": {
     "names": {
@@ -393,5 +414,27 @@
     "error_copy_failed": "The file could not be saved. Try again.",
     "use_button": "Use {name}",
     "badge_playing": "playing"
+  },
+  "search": {
+    "title": "Search",
+    "open_aria_label": "Search",
+    "clear_aria_label": "Clear search",
+    "close_aria_label": "Close search",
+    "placeholder_default": "Search Crit Alarm",
+    "placeholder_topics": "Search topics, alarms, settings, docs",
+    "placeholder_history": "Search past alarms, or type a date",
+    "placeholder_settings": "Search settings and docs",
+    "recent_header": "Recent",
+    "recent_clear": "Clear",
+    "section_topics": "Topics",
+    "section_history": "History",
+    "section_settings": "Settings",
+    "section_docs": "Documentation",
+    "subtitle_topic": "Topic",
+    "subtitle_topic_critical": "Topic, critical delivery on",
+    "hint_title": "Search Crit Alarm",
+    "hint_body": "Topics, past alarms, settings, and the documentation. Type a date like Sep 14 to find that day's alarms.",
+    "no_matches_title": "Nothing matched “{query}”",
+    "no_matches_body": "Try a topic name, a date like Sep 14, or a setting such as sound."
   }
 }

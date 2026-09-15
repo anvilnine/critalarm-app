@@ -50,14 +50,10 @@ class _HomeScreenContentState extends State<_HomeScreenContent> {
           severity: state.severity,
           child: AppScreenScaffold(
             onRefresh: () => context.read<HomeCubit>().refresh(),
-            topBar: AppTopBar(
-              title: LocaleKeys.topics_list_title.tr(),
-              trailing: AppIconButton(
-                glyph: GlyphType.search,
-                ariaLabel: LocaleKeys.topics_list_search_aria_label.tr(),
-                onPressed: () {},
-              ),
-            ),
+            // Search is not up here any more. It lives next to the compose
+            // button on the floating bar, so it is reachable from every tab
+            // rather than only this one.
+            topBar: AppTopBar(title: LocaleKeys.topics_list_title.tr()),
             detail: state.topicItems.isEmpty
                 ? null
                 : (_selectedTopic == null

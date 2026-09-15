@@ -6,8 +6,10 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
+import 'package:critalarm/features/history/domain/entities/history_filter.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
+import 'package:critalarm/features/history/presentation/widgets/history_filter_sheet.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -48,7 +50,11 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
     return BlocBuilder<HistoryCubit, HistoryState>(
       builder: (context, state) {
         final longest = state.longestRing;
-        final summary = longest == null
+        final summary = state.filter.isActive
+            // The unfiltered line reads "in 30 days", which a filter makes
+            // untrue. Say what the filter is doing instead of lying.
+            ? LocaleKeys.history_filter_badge.plural(state.filter.activeCount)
+            : longest == null
             ? LocaleKeys.history_summary_empty.tr()
             : LocaleKeys.history_summary.plural(
                 state.alarmCount,
@@ -59,12 +65,7 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
           onRefresh: () => context.read<HistoryCubit>().refresh(),
           topBar: AppTopBar(
             title: LocaleKeys.history_title.tr(),
-            trailing: AppIconButton(
-              glyph: GlyphType.filter,
-              ariaLabel: LocaleKeys.history_filter_aria_label.tr(),
-              // Filtering is not wired up yet.
-              onPressed: () {},
-            ),
+            trailing: _FilterButton(filter: state.filter),
           ),
           detail: state.isEmpty
               ? null
@@ -91,7 +92,21 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                 ],
               ),
             ),
-            if (state.isEmpty)
+            if (state.isEmptyAfterFilter)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+                sliver: SliverToBoxAdapter(
+                  child: AppEmptyState(
+                    title: LocaleKeys.history_empty_filtered_title.tr(),
+                    description: LocaleKeys.history_empty_filtered_body.tr(),
+                    buttonLabel: LocaleKeys.history_filter_reset.tr(),
+                    onButtonPressed: () =>
+                        context.read<HistoryCubit>().clearFilter(),
+                    isLive: false,
+                  ),
+                ),
+              )
+            else if (state.isEmpty)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
                 sliver: SliverToBoxAdapter(
@@ -147,6 +162,52 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
           ],
         );
       },
+    );
+  }
+}
+
+/// Opens the filter sheet, with a dot on it while a filter is on so the state
+/// is visible without opening the sheet.
+class _FilterButton extends StatelessWidget {
+  const _FilterButton({required this.filter});
+
+  final HistoryFilter filter;
+
+  Future<void> _open(BuildContext context) async {
+    final cubit = context.read<HistoryCubit>();
+    final chosen = await showHistoryFilterSheet(context, filter);
+    if (chosen != null) cubit.applyFilter(chosen);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        AppIconButton(
+          glyph: GlyphType.filter,
+          ariaLabel: LocaleKeys.history_filter_aria_label.tr(),
+          onPressed: () => unawaited(_open(context)),
+        ),
+        if (filter.isActive)
+          Positioned(
+            top: 2,
+            right: 2,
+            child: IgnorePointer(
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: colors.highlight,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: colors.canvas, width: 1.5),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

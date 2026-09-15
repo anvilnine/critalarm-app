@@ -53,6 +53,7 @@ flutter:
   assets:
     - assets/translations/
     - assets/sounds/
+    - assets/docs/
     - assets/fonts/Anton-OFL.txt
     - assets/fonts/Archivo-OFL.txt
     - assets/fonts/IBMPlexMono-OFL.txt
