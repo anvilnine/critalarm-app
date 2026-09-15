@@ -2,6 +2,7 @@ import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,6 +30,19 @@ void main() {
     prefs = await SharedPreferences.getInstance();
     api = MockApiClient(MockServer());
     identity = DeviceIdentityStore(prefs);
+    final registration = await api.registerDevice(
+      const DeviceRegistration(
+        deviceId: 'dev_test',
+        platform: 'ios',
+        pushToken: 'apns',
+        appVersion: '1',
+      ),
+    );
+    await identity.saveRegistration(
+      deviceToken: registration.deviceToken!,
+      accountId: registration.accountId,
+      tier: registration.tier,
+    );
     fake = FakeAlarmHost();
   });
 
@@ -56,6 +70,7 @@ void main() {
     await registry.upload(
       const ActivityToken(
         kind: ActivityTokenKind.update,
+        activityId: 'activity_1',
         token: 'bb22',
         incidentId: 'inc_9a8b7c',
       ),
@@ -66,6 +81,7 @@ void main() {
       'kind': 'la_update',
       'token': 'bb22',
       'incident_id': 'inc_9a8b7c',
+      'activity_id': 'activity_1',
     });
   });
 
@@ -98,6 +114,7 @@ void main() {
     await registry.upload(
       const ActivityToken(
         kind: ActivityTokenKind.update,
+        activityId: 'activity_1',
         token: 'aa11',
         incidentId: 'inc_one',
       ),
@@ -105,6 +122,7 @@ void main() {
     await registry.upload(
       const ActivityToken(
         kind: ActivityTokenKind.update,
+        activityId: 'activity_1',
         token: 'bb22',
         incidentId: 'inc_two',
       ),
@@ -121,6 +139,7 @@ void main() {
     final registry = await build();
     const token = ActivityToken(
       kind: ActivityTokenKind.update,
+      activityId: 'activity_1',
       token: 'aa11',
       incidentId: 'inc_one',
     );
@@ -158,7 +177,12 @@ void main() {
   test('tokens captured before Dart was up are taken on start', () async {
     fake.answers['takePendingActivityTokens'] = <Object?>[
       {'kind': 'la_start', 'token': 'aa11'},
-      {'kind': 'la_update', 'token': 'bb22', 'incident_id': 'inc_one'},
+      {
+        'kind': 'la_update',
+        'token': 'bb22',
+        'incident_id': 'inc_one',
+        'activity_id': 'activity_1',
+      },
     ];
     final registry = await build();
     await registry.start();

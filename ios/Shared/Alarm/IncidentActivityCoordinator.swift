@@ -46,7 +46,7 @@ public final class IncidentActivityCoordinator {
     private var alarmingIncidents: Set<String> = []
 
     /// Told about a new token so it can send it now instead of next launch.
-    public var onTokenCaptured: ((TokenKind, String, String?) -> Void)?
+    public var onTokenCaptured: ((TokenKind, String, String?, String?) -> Void)?
 
     private var streamsStarted = false
     private var perActivityWatchers: [String: Task<Void, Never>] = [:]
@@ -123,7 +123,7 @@ public final class IncidentActivityCoordinator {
                 #if DEBUG
                 NSLog("CritAlarmActivity: activity_update_token=%@", hex)
                 #endif
-                await self?.capture(.update, token: hex, incidentId: incidentId)
+                await self?.capture(.update, token: hex, incidentId: incidentId, activityId: activity.id)
             }
             await self?.forgetWatcher(activity.id)
         }
@@ -135,11 +135,12 @@ public final class IncidentActivityCoordinator {
     }
     #endif
 
-    private func capture(_ kind: TokenKind, token: String, incidentId: String?) {
+    private func capture(_ kind: TokenKind, token: String, incidentId: String?, activityId: String? = nil) {
         var entry: [String: Any] = ["kind": kind.rawValue, "token": token]
         if let incidentId { entry["incident_id"] = incidentId }
+        if let activityId { entry["activity_id"] = activityId }
         appendPending(entry)
-        onTokenCaptured?(kind, token, incidentId)
+        onTokenCaptured?(kind, token, incidentId, activityId)
     }
 
     /// Everything captured so far, handed to Dart once and cleared.
@@ -161,10 +162,10 @@ public final class IncidentActivityCoordinator {
            let decoded = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
             entries = decoded
         }
-        // One entry per (kind, incident). A rotated token replaces the old one.
+        // One entry per (kind, activity). A rotated token replaces the old one.
         entries.removeAll {
             ($0["kind"] as? String) == (entry["kind"] as? String)
-                && ($0["incident_id"] as? String) == (entry["incident_id"] as? String)
+                && ($0["activity_id"] as? String) == (entry["activity_id"] as? String)
         }
         entries.append(entry)
         guard let data = try? JSONSerialization.data(withJSONObject: entries),

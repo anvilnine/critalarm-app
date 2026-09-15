@@ -7,13 +7,22 @@ part 'device_registration.g.dart';
 @freezed
 abstract class AccountCaps with _$AccountCaps {
   const factory AccountCaps({
-    @Default(1) int devices,
-    @JsonKey(name: 'critical_topics') @Default(1) int criticalTopics,
-    @JsonKey(name: 'p4_daily') @Default(50) int p4Daily,
+    int? devices,
+    @JsonKey(name: 'critical_topics') int? criticalTopics,
+    @JsonKey(name: 'p4_daily') int? p4Daily,
+    @JsonKey(name: 'history_incidents') int? historyIncidents,
+    @JsonKey(name: 'history_days') int? historyDays,
   }) = _AccountCaps;
 
   factory AccountCaps.fromJson(Map<String, dynamic> json) =>
       _$AccountCapsFromJson(json);
+  static const free = AccountCaps(
+    devices: 1,
+    criticalTopics: 2,
+    p4Daily: 50,
+    historyIncidents: 20,
+    historyDays: 7,
+  );
 }
 
 /// Registration payload sent by the app to the relay.

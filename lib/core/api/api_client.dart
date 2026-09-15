@@ -1,8 +1,10 @@
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
+import 'package:critalarm/core/models/send_result.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/core/models/topic_token.dart';
 
 /// Contract for communicating with a Crit Alarm server.
 abstract interface class ApiClient {
@@ -35,7 +37,7 @@ abstract interface class ApiClient {
   Future<void> deleteTopic(String name);
 
   /// POST /v1/topics/{name}/tokens
-  Future<String> createTopicToken(String name);
+  Future<TopicToken> createTopicToken(String name);
 
   /// DELETE /v1/topics/{name}/tokens/{token_id}
   Future<void> deleteTopicToken(String name, String tokenId);
@@ -59,15 +61,13 @@ abstract interface class ApiClient {
   /// POST /v1/test?topic={name}
   Future<String> triggerTest({required String topic});
 
-  /// POST /{topic}
-  Future<Message> publishMessage(
+  /// POST /v1/topics/{topic}/send
+  Future<SendResult> publishMessage(
     String topic, {
-    String? message,
+    required String message,
     String? title,
     int priority = 3,
     List<String>? tags,
-    String? click,
-    bool? markdown,
   });
 
   /// GET /{topic}/json?poll=1
@@ -90,21 +90,27 @@ abstract interface class ApiClient {
     Uri? relayUri,
   });
 
-  /// POST /relay/v1/devices/{device_id}/tokens
-  ///
-  /// Hands the relay a Live Activity token. [kind] is `la_start` for the
-  /// push-to-start token, which is one per install and lets the relay put a
-  /// card up with no app running, or `la_update` for a token that belongs to
-  /// one card and lets the relay update or end it. `la_update` carries the
-  /// [incidentId] it belongs to; `la_start` does not.
-  ///
-  /// NOTE: api.md does not carry this route yet. See
-  /// docs/specs/remote-alarm-ios-blocked.md.
+  /// POST /relay/v1/devices/{device_id}/subscriptions
+  Future<void> subscribeTopic({
+    required String deviceId,
+    required String deviceToken,
+    required String topicHash,
+  });
+
+  /// DELETE /relay/v1/devices/{device_id}/subscriptions/{topic_hash}
+  Future<void> unsubscribeTopic({
+    required String deviceId,
+    required String deviceToken,
+    required String topicHash,
+  });
+
+  /// POST /relay/v1/devices/{device_id}/tokens. la_update requires activityId.
   Future<void> uploadActivityToken({
     required String deviceId,
     required String deviceToken,
     required String kind,
     required String token,
     String? incidentId,
+    String? activityId,
   });
 }
