@@ -75,6 +75,11 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
       builder: (context, state) {
         final cubit = context.read<CreateTopicCubit>();
         final token = state.createdToken;
+        // One face for the whole screen. It is the only thing that reacts to
+        // an error, so the card below it renders without one.
+        final stageFace = state.errorMessage != null
+            ? FaceState.worried
+            : FaceState.watching;
 
         // Tapping anywhere outside a field puts the keyboard away. Translucent
         // so the button and the text field still get their own taps.
@@ -146,12 +151,12 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
               ],
             ),
             slivers: [
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: AppStage(
-                  faceState: FaceState.watching,
+                  faceState: stageFace,
                   faceSize: 110,
                   isLive: true,
-                  padding: EdgeInsets.fromLTRB(24, Spacing.s3, 24, 0),
+                  padding: const EdgeInsets.fromLTRB(24, Spacing.s3, 24, 0),
                 ),
               ),
               SliverToBoxAdapter(
@@ -168,9 +173,8 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                             title: state.capReached!.message,
                             description:
                                 'Review your plan to increase this limit.',
-                            faceState: FaceState.worried,
                             buttonLabel: null,
-                            isLive: false,
+                            showFace: false,
                           ),
                         if (state.status != CreateTopicStatus.success) ...[
                           AppTextField(
