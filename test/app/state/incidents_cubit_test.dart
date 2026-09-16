@@ -35,7 +35,7 @@ class _CountingIncidents implements IncidentRepository {
 
   @override
   Future<AppResult<List<Incident>>> getIncidents({
-    int? limit,
+    required int limit,
     String? state,
     String? topic,
   }) {
@@ -86,11 +86,11 @@ class _ScriptedIncidents implements IncidentRepository {
   final pending = <Completer<AppResult<List<Incident>>>>[];
 
   /// What each list read put on the wire, so a test can pin the contract.
-  final limits = <int?>[];
+  final limits = <int>[];
 
   @override
   Future<AppResult<List<Incident>>> getIncidents({
-    int? limit,
+    required int limit,
     String? state,
     String? topic,
   }) {

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
@@ -157,7 +158,10 @@ void main() {
       expect(topics, isEmpty);
 
       client.server.loadFixture(FaceState.alarmed);
-      final incidents = await client.getIncidents(state: 'open');
+      final incidents = await client.getIncidents(
+        limit: maxIncidentLimit,
+        state: 'open',
+      );
       expect(incidents.length, 1);
       expect(incidents.first.topic, 'prod-db');
     });

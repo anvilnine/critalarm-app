@@ -5,8 +5,10 @@ import 'package:critalarm/features/incidents/domain/entities/message.dart';
 
 /// Domain contract for managing incidents and alarm messages on the server.
 abstract interface class IncidentRepository {
+  /// [limit] is required and not nullable on purpose: the server reads a
+  /// missing `limit` as 20, so there is no way to ask for "all of them".
   Future<AppResult<List<Incident>>> getIncidents({
-    int? limit,
+    required int limit,
     String? state,
     String? topic,
   });
