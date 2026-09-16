@@ -184,7 +184,7 @@ void main() {
       await tester.tap(find.text('Connect server'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Connect your server'), findsOneWidget);
+      expect(find.text('Connect your server?'), findsOneWidget);
     });
 
     testWidgets('privacy screen shows opt-in toggles OFF by default '

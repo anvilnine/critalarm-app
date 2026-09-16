@@ -29,8 +29,11 @@ void main() {
     verify(() => repository.isCompleted()).called(1);
   });
 
-  test('CompleteOnboardingUsecase delegates to repository', () async {
+  test('CompleteOnboardingUsecase marks done and drops the draft', () async {
     when(() => repository.markCompleted()).thenAnswer(
+      (_) async => unit.toSuccess(),
+    );
+    when(() => repository.clearDraft()).thenAnswer(
       (_) async => unit.toSuccess(),
     );
 
@@ -40,5 +43,7 @@ void main() {
 
     expect(result.isSuccess(), isTrue);
     verify(() => repository.markCompleted()).called(1);
+    // A leftover draft would drop a second run into a step already passed.
+    verify(() => repository.clearDraft()).called(1);
   });
 }

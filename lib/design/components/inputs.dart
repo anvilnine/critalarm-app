@@ -16,6 +16,7 @@ class AppTextField extends StatefulWidget {
     this.readOnly = false,
     this.isFocused = false,
     this.isMono = true,
+    this.growToFit = false,
     this.controller,
     this.focusNode,
     this.onChanged,
@@ -32,6 +33,11 @@ class AppTextField extends StatefulWidget {
   final bool readOnly;
   final bool isFocused;
   final bool isMono;
+
+  /// Lets the field grow downwards instead of scrolling sideways, so a long
+  /// server URL or token can be read in full. Still one logical line: there is
+  /// no Enter key behaviour, the text just wraps.
+  final bool growToFit;
   final TextEditingController? controller;
   final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
@@ -125,7 +131,9 @@ class _AppTextFieldState extends State<AppTextField> {
           onExit: (_) => setState(() => _isHovered = false),
           child: AnimatedContainer(
             duration: AppDurations.quick,
-            height: 48,
+            // A minimum, not a fixed height: the box has to grow for wrapped
+            // text and for a large Dynamic Type setting.
+            constraints: const BoxConstraints(minHeight: 48),
             decoration: BoxDecoration(
               color: bg,
               borderRadius: Radii.mdAll,
@@ -135,7 +143,7 @@ class _AppTextFieldState extends State<AppTextField> {
               ),
               boxShadow: shadows,
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             alignment: Alignment.center,
             child: TextField(
               controller: _controller,
@@ -143,6 +151,12 @@ class _AppTextFieldState extends State<AppTextField> {
               enabled: widget.enabled,
               readOnly: widget.readOnly,
               style: inputTextStyle,
+              minLines: 1,
+              maxLines: widget.growToFit ? null : 1,
+              keyboardType: widget.growToFit ? TextInputType.multiline : null,
+              textInputAction: widget.growToFit
+                  ? TextInputAction.done
+                  : null,
               onChanged: widget.onChanged,
               onSubmitted: widget.onSubmitted,
               decoration: InputDecoration(

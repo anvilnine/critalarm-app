@@ -47,10 +47,10 @@ class _CriticalAlarmView extends StatelessWidget {
           return AppScreenScaffold(
             hasTabBar: false,
             topBar: AppTopBar(
-              title: 'Alarm',
+              title: LocaleKeys.critical_alarm_title.tr(),
               leading: AppIconButton(
                 glyph: GlyphType.back,
-                ariaLabel: 'Back',
+                ariaLabel: LocaleKeys.critical_alarm_back_aria_label.tr(),
                 onPressed: () => context.go('/'),
               ),
             ),
@@ -60,11 +60,13 @@ class _CriticalAlarmView extends StatelessWidget {
                 sliver: SliverToBoxAdapter(
                   child: AppEmptyState(
                     title: state.status == CriticalAlarmStatus.loading
-                        ? 'Loading alarm'
+                        ? LocaleKeys.critical_alarm_loading.tr()
                         : state.errorMessage != null
-                        ? 'Unable to load alarm'
-                        : 'No active alarm',
-                    description: state.errorMessage ?? '',
+                        ? LocaleKeys.critical_alarm_load_failed_title.tr()
+                        : LocaleKeys.critical_alarm_none_active.tr(),
+                    description: state.errorMessage == null
+                        ? ''
+                        : LocaleKeys.critical_alarm_load_failed_body.tr(),
                     buttonLabel: null,
                     faceState: FaceState.calm,
                     isLive: false,
@@ -106,21 +108,20 @@ class _RingingScreen extends StatelessWidget {
     final bottomBar = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          height: 48,
-          child: AppButton(
-            label: LocaleKeys.critical_alarm_acknowledge_button.tr(),
-            isFullWidth: true,
-            isLoading: state.isAcknowledging,
-            onPressed: () {
-              unawaited(context.read<CriticalAlarmCubit>().acknowledge());
-            },
-          ),
+        AppButton(
+          label: LocaleKeys.critical_alarm_acknowledge_button.tr(),
+          isFullWidth: true,
+          isLoading: state.isAcknowledging,
+          onPressed: () {
+            unawaited(context.read<CriticalAlarmCubit>().acknowledge());
+          },
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 48,
-          child: AppButton(
+        // Hidden during onboarding: `demo-topic` is invented for the test and
+        // is on no server, so opening it drops the user on a broken screen
+        // halfway through setup.
+        if (state.incident?.id != 'inc_demo')
+          AppButton(
             label: LocaleKeys.critical_alarm_read_message_button.tr(),
             variant: AppButtonVariant.ghost,
             isFullWidth: true,
@@ -135,7 +136,6 @@ class _RingingScreen extends StatelessWidget {
                     );
                   },
           ),
-        ),
       ],
     );
 
@@ -197,7 +197,15 @@ class _RingingScreen extends StatelessWidget {
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, Spacing.s4, 16, 16),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              Spacing.s4,
+              16,
+              _AcknowledgedScreen._pinnedBarHeight(
+                context,
+                twoButtons: state.incident?.id != 'inc_demo',
+              ),
+            ),
             child: _detailSheet(),
           ),
         ),
@@ -350,65 +358,53 @@ class _AcknowledgedScreen extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: isDemo
           ? [
-              SizedBox(
-                height: 48,
-                child: AppButton(
-                  label: LocaleKeys
-                      .onboarding_connect_create_first_topic_button
-                      .tr(),
-                  isFullWidth: true,
-                  onPressed: () async {
-                    AppHaptics.capture();
-                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
-                    if (context.mounted) {
-                      context.go('/topics/new');
-                    }
-                  },
-                ),
+              AppButton(
+                label: LocaleKeys
+                    .onboarding_connect_create_first_topic_button
+                    .tr(),
+                isFullWidth: true,
+                onPressed: () async {
+                  AppHaptics.capture();
+                  await getIt<CompleteOnboardingUsecase>()(const NoParams());
+                  if (context.mounted) {
+                    context.go('/topics/new');
+                  }
+                },
               ),
               const SizedBox(height: 8),
-              SizedBox(
-                height: 48,
-                child: AppButton(
-                  label: LocaleKeys.onboarding_connect_skip_to_dashboard.tr(),
-                  variant: AppButtonVariant.ghost,
-                  isFullWidth: true,
-                  onPressed: () async {
-                    AppHaptics.capture();
-                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
-                    if (context.mounted) {
-                      context.go('/');
-                    }
-                  },
-                ),
+              AppButton(
+                label: LocaleKeys.onboarding_connect_skip_to_dashboard.tr(),
+                variant: AppButtonVariant.ghost,
+                isFullWidth: true,
+                onPressed: () async {
+                  AppHaptics.capture();
+                  await getIt<CompleteOnboardingUsecase>()(const NoParams());
+                  if (context.mounted) {
+                    context.go('/');
+                  }
+                },
               ),
             ]
           : [
-              SizedBox(
-                height: 48,
-                child: AppButton(
-                  label: LocaleKeys.critical_alarm_open_topic_button.tr(
-                    namedArgs: {'topic': state.topic},
-                  ),
-                  isFullWidth: true,
-                  onPressed: () {
-                    AppHaptics.capture();
-                    context.go('/topics/${state.topic}');
-                  },
+              AppButton(
+                label: LocaleKeys.critical_alarm_open_topic_button.tr(
+                  namedArgs: {'topic': state.topic},
                 ),
+                isFullWidth: true,
+                onPressed: () {
+                  AppHaptics.capture();
+                  context.go('/topics/${state.topic}');
+                },
               ),
               const SizedBox(height: 8),
-              SizedBox(
-                height: 48,
-                child: AppButton(
-                  label: LocaleKeys.critical_alarm_back_to_topics_button.tr(),
-                  variant: AppButtonVariant.ghost,
-                  isFullWidth: true,
-                  onPressed: () {
-                    AppHaptics.capture();
-                    context.go('/');
-                  },
-                ),
+              AppButton(
+                label: LocaleKeys.critical_alarm_back_to_topics_button.tr(),
+                variant: AppButtonVariant.ghost,
+                isFullWidth: true,
+                onPressed: () {
+                  AppHaptics.capture();
+                  context.go('/');
+                },
               ),
             ],
     );
@@ -465,13 +461,29 @@ class _AcknowledgedScreen extends StatelessWidget {
                 _topic(TextAlign.center),
                 const SizedBox(height: Spacing.s2),
                 _sub(TextAlign.center, ackedSub),
+                // Onboarding ends on "create your first topic", and the word
+                // topic has not been explained anywhere before that button.
+                if (isDemo) ...[
+                  const SizedBox(height: Spacing.s3),
+                  _sub(
+                    TextAlign.center,
+                    LocaleKeys.onboarding_connect_celebration_topics_hint.tr(),
+                  ),
+                ],
               ],
             ),
           ),
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, Spacing.s4, 16, 16),
+            // The pinned bar floats over the list, so leave room for its two
+            // buttons, the gap between them and the home indicator.
+            padding: EdgeInsets.fromLTRB(
+              16,
+              Spacing.s4,
+              16,
+              _pinnedBarHeight(context, twoButtons: true),
+            ),
             child: _detailSheet(startedLabel, ackedLabel),
           ),
         ),
@@ -480,32 +492,36 @@ class _AcknowledgedScreen extends StatelessWidget {
     );
   }
 
+  /// What the floating bar takes off the bottom: its buttons, the 12 the
+  /// scaffold puts under them, and the home indicator.
+  static double _pinnedBarHeight(
+    BuildContext context, {
+    required bool twoButtons,
+  }) {
+    final buttons = twoButtons ? 48.0 + 8 + 48 : 48.0;
+    return buttons + 12 + MediaQuery.paddingOf(context).bottom;
+  }
+
   Widget _title(TextAlign align, bool isDemo) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Text(
-        isDemo
-            ? LocaleKeys.onboarding_connect_celebration_title.tr()
-            : LocaleKeys.critical_alarm_acked_title.tr(),
-        textAlign: align,
-        style: AppTypography.display(colors.onCanvas),
-      ),
+    return Text(
+      isDemo
+          ? LocaleKeys.onboarding_connect_celebration_title.tr()
+          : LocaleKeys.critical_alarm_acked_title.tr(),
+      textAlign: align,
+      style: AppTypography.display(colors.onCanvas),
     );
   }
 
   Widget _topic(TextAlign align) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Text(
-        state.topic,
-        textAlign: align,
-        style: TextStyle(
-          fontFamily: AppTypography.fontMono,
-          fontFamilyFallback: AppTypography.fontMonoFallbacks,
-          fontWeight: FontWeight.w700,
-          fontSize: 17,
-          color: colors.onCanvas,
-        ),
+    return Text(
+      state.topic,
+      textAlign: align,
+      style: TextStyle(
+        fontFamily: AppTypography.fontMono,
+        fontFamilyFallback: AppTypography.fontMonoFallbacks,
+        fontWeight: FontWeight.w700,
+        fontSize: 17,
+        color: colors.onCanvas,
       ),
     );
   }

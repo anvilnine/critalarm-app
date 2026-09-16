@@ -207,32 +207,41 @@ class _AppButtonState extends State<AppButton> {
       ),
     );
 
-    return Opacity(
-      opacity: _isEnabled ? 1.0 : 0.45,
-      child: MouseRegion(
-        cursor: _isEnabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        onEnter: (_) {
-          if (_isEnabled) setState(() => _isHovered = true);
-        },
-        onExit: (_) {
-          if (_isEnabled) setState(() => _isHovered = false);
-        },
-        child: GestureDetector(
-          onTapDown: (_) {
-            if (_isEnabled) setState(() => _isActive = true);
+    // Without this a screen reader reads the label as plain text: it never
+    // says "button", never says the button is off, and never mentions that
+    // the button is busy.
+    return Semantics(
+      button: true,
+      enabled: _isEnabled,
+      label: widget.label,
+      excludeSemantics: true,
+      child: Opacity(
+        opacity: _isEnabled ? 1.0 : 0.45,
+        child: MouseRegion(
+          cursor: _isEnabled
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          onEnter: (_) {
+            if (_isEnabled) setState(() => _isHovered = true);
           },
-          onTapUp: (_) {
-            if (_isEnabled) setState(() => _isActive = false);
+          onExit: (_) {
+            if (_isEnabled) setState(() => _isHovered = false);
           },
-          onTapCancel: () {
-            if (_isEnabled) setState(() => _isActive = false);
-          },
-          onTap: _isEnabled ? widget.onPressed : null,
-          child: widget.isFullWidth
-              ? SizedBox(width: double.infinity, child: buttonCore)
-              : buttonCore,
+          child: GestureDetector(
+            onTapDown: (_) {
+              if (_isEnabled) setState(() => _isActive = true);
+            },
+            onTapUp: (_) {
+              if (_isEnabled) setState(() => _isActive = false);
+            },
+            onTapCancel: () {
+              if (_isEnabled) setState(() => _isActive = false);
+            },
+            onTap: _isEnabled ? widget.onPressed : null,
+            child: widget.isFullWidth
+                ? SizedBox(width: double.infinity, child: buttonCore)
+                : buttonCore,
+          ),
         ),
       ),
     );

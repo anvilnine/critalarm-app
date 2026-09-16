@@ -5,6 +5,7 @@ import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
+import 'package:critalarm/features/permissions/presentation/widgets/setup_health_banner.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
@@ -166,6 +167,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                           isPane: true,
                         )),
             slivers: [
+              // Ahead of everything: if a device setting is off, no page on
+              // this list can actually reach the user.
+              const SliverToBoxAdapter(child: SetupHealthBanner()),
               if (state.topicItems.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Column(

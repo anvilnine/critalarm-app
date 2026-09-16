@@ -5,11 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('DevicePermissionType', () {
-    test('contains all 3 required types', () {
+    test('contains every type the app can report on', () {
       expect(DevicePermissionType.values, [
         DevicePermissionType.notifications,
         DevicePermissionType.fullScreenIntent,
         DevicePermissionType.batteryOptimization,
+        DevicePermissionType.timeSensitive,
+        DevicePermissionType.alarms,
       ]);
     });
   });

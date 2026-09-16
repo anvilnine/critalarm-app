@@ -201,7 +201,12 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       name: AppRoute.onboarding,
       builder: (context, state) {
         final isDenied = state.uri.queryParameters['denied'] == 'true';
+        // `?demo=true` comes from the developer menu. It shows every step,
+        // including the ones this phone has already granted, because the
+        // point is looking at the screens rather than getting through them.
+        final replay = state.uri.queryParameters['demo'] == 'true';
         return OnboardingPermissionsScreen(
+          replayForDemo: replay,
           initialStep: isDenied
               ? NotificationPermissionStep.denied
               : NotificationPermissionStep.initial,
@@ -223,7 +228,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     GoRoute(
       path: '/onboarding/permissions',
       name: AppRoute.onboardingPermissions,
-      builder: (context, state) => const OnboardingConnectScreen(),
+      builder: (context, state) => const OnboardingPermissionsScreen(),
     ),
     GoRoute(
       path: '/alarm',

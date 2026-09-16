@@ -2,53 +2,63 @@ import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
-import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
-import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-
-class MockGetConnectionUsecase extends Mock implements GetConnectionUsecase {}
 
 class MockGetOnboardingCompletedUsecase extends Mock
     implements GetOnboardingCompletedUsecase {}
 
+class MockReadOnboardingDraftUsecase extends Mock
+    implements ReadOnboardingDraftUsecase {}
+
 void main() {
   group('initialLocationFor', () {
-    test('opens onboarding without connection or completion', () {
+    test('opens onboarding at step one when nothing is saved', () {
       expect(
-        initialLocationFor(
-          hasServerConnection: false,
-          hasCompletedOnboarding: false,
-        ),
+        initialLocationFor(hasCompletedOnboarding: false),
         '/onboarding',
       );
     });
 
-    test('opens home with saved connection', () {
+    test('resumes the step the user had reached', () {
       expect(
         initialLocationFor(
-          hasServerConnection: true,
           hasCompletedOnboarding: false,
+          step: OnboardingStep.connect,
         ),
-        '/',
+        '/onboarding/connect',
+      );
+      expect(
+        initialLocationFor(
+          hasCompletedOnboarding: false,
+          step: OnboardingStep.test,
+        ),
+        '/onboarding/connect',
+      );
+    });
+
+    test('a saved server alone does not end onboarding', () {
+      // The connection is written before the alarm test runs, so treating it
+      // as "finished" used to skip the rest of onboarding for good.
+      expect(
+        initialLocationFor(
+          hasCompletedOnboarding: false,
+          step: OnboardingStep.test,
+        ),
+        isNot('/'),
       );
     });
 
     test('opens home after completed onboarding', () {
-      expect(
-        initialLocationFor(
-          hasServerConnection: false,
-          hasCompletedOnboarding: true,
-        ),
-        '/',
-      );
+      expect(initialLocationFor(hasCompletedOnboarding: true), '/');
     });
 
     test('a tapped incident notification opens that incident', () {
       expect(
         initialLocationFor(
-          hasServerConnection: true,
           hasCompletedOnboarding: true,
           deepLink: '/incidents/inc_1',
         ),
@@ -59,22 +69,21 @@ void main() {
     test('a tapped topic notification opens that topic', () {
       expect(
         initialLocationFor(
-          hasServerConnection: true,
-          hasCompletedOnboarding: false,
+          hasCompletedOnboarding: true,
           deepLink: '/topics/prod',
         ),
         '/topics/prod',
       );
     });
 
-    test('onboarding still wins before there is a server', () {
+    test('onboarding still wins over a deep link', () {
       expect(
         initialLocationFor(
-          hasServerConnection: false,
           hasCompletedOnboarding: false,
+          step: OnboardingStep.connect,
           deepLink: '/incidents/inc_1',
         ),
-        '/onboarding',
+        '/onboarding/connect',
       );
     });
 
@@ -82,7 +91,6 @@ void main() {
       for (final route in ['/', '/settings', 'nonsense', null]) {
         expect(
           initialLocationFor(
-            hasServerConnection: true,
             hasCompletedOnboarding: true,
             deepLink: route,
           ),
@@ -91,70 +99,78 @@ void main() {
         );
       }
     });
-
-    test('opens home with connection and completed onboarding', () {
-      expect(
-        initialLocationFor(
-          hasServerConnection: true,
-          hasCompletedOnboarding: true,
-        ),
-        '/',
-      );
-    });
   });
 
   group('InitialRouteResolver', () {
-    late MockGetConnectionUsecase getConnection;
     late MockGetOnboardingCompletedUsecase getOnboardingCompleted;
+    late MockReadOnboardingDraftUsecase readDraft;
 
     setUp(() {
-      getConnection = MockGetConnectionUsecase();
       getOnboardingCompleted = MockGetOnboardingCompletedUsecase();
+      readDraft = MockReadOnboardingDraftUsecase();
     });
 
-    test('treats failed lookups as false', () async {
-      when(() => getConnection(const NoParams())).thenAnswer(
-        (_) async => const Failure.notFound().toFailure(),
-      );
+    test('treats failed lookups as unfinished onboarding', () async {
       when(() => getOnboardingCompleted(const NoParams())).thenAnswer(
         (_) async => const Failure.unexpected().toFailure(),
       );
+      when(() => readDraft(const NoParams())).thenAnswer(
+        (_) async => const Failure.notFound().toFailure(),
+      );
 
       final location = await InitialRouteResolver(
-        getConnection,
         getOnboardingCompleted,
+        readDraft,
         platformRoute: () => '/',
       )();
 
       expect(location, '/onboarding');
     });
 
-    test('uses successful connection and completion values', () async {
-      when(() => getConnection(const NoParams())).thenAnswer(
-        (_) async => const ServerConnection(
-          serverUrl: 'https://alerts.example.com',
-          adminToken: 'ad_token',
-        ).toSuccess(),
-      );
+    test('resumes the saved step', () async {
       when(() => getOnboardingCompleted(const NoParams())).thenAnswer(
-        (_) async => true.toSuccess(),
+        (_) async => false.toSuccess(),
+      );
+      when(() => readDraft(const NoParams())).thenAnswer(
+        (_) async => const OnboardingDraft(
+          step: OnboardingStep.test,
+        ).toSuccess(),
       );
 
       final location = await InitialRouteResolver(
-        getConnection,
         getOnboardingCompleted,
+        readDraft,
         platformRoute: () => '/',
       )();
 
-      expect(location, '/');
+      expect(location, '/onboarding/connect');
+    });
 
-      final deepLinked = await InitialRouteResolver(
-        getConnection,
-        getOnboardingCompleted,
-        platformRoute: () => '/incidents/inc_1',
-      )();
+    test('a finished user lands home, and a deep link still wins', () async {
+      when(() => getOnboardingCompleted(const NoParams())).thenAnswer(
+        (_) async => true.toSuccess(),
+      );
+      when(() => readDraft(const NoParams())).thenAnswer(
+        (_) async => const OnboardingDraft().toSuccess(),
+      );
 
-      expect(deepLinked, '/incidents/inc_1');
+      expect(
+        await InitialRouteResolver(
+          getOnboardingCompleted,
+          readDraft,
+          platformRoute: () => '/',
+        )(),
+        '/',
+      );
+
+      expect(
+        await InitialRouteResolver(
+          getOnboardingCompleted,
+          readDraft,
+          platformRoute: () => '/incidents/inc_1',
+        )(),
+        '/incidents/inc_1',
+      );
     });
   });
 }
