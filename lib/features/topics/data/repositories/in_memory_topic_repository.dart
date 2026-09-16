@@ -159,6 +159,23 @@ class InMemoryTopicRepository implements TopicRepository {
   }
 
   @override
+  Future<AppResult<List<TopicTokenInfo>>> getTopicTokens(String name) async {
+    try {
+      final tokens = await _client.getTopicTokens(name);
+      return tokens.toSuccess();
+    } on ApiException catch (e) {
+      return Failure.api(
+        statusCode: e.statusCode,
+        message: e.message,
+        code: e.code,
+        cap: e.cap,
+      ).toFailure();
+    } on Exception catch (e) {
+      return Failure.unexpected(message: e.toString()).toFailure();
+    }
+  }
+
+  @override
   Future<AppResult<TopicToken>> createTopicToken(String name) async {
     try {
       final token = await _client.createTopicToken(name);

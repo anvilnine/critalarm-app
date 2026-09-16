@@ -50,6 +50,11 @@ abstract interface class ApiClient {
   /// DELETE /v1/topics/{name}
   Future<void> deleteTopic(String name);
 
+  /// GET /v1/topics/{name}/tokens
+  ///
+  /// Ids and dates only. The server has no token values to give back.
+  Future<List<TopicTokenInfo>> getTopicTokens(String name);
+
   /// POST /v1/topics/{name}/tokens
   Future<TopicToken> createTopicToken(String name);
 

@@ -115,10 +115,12 @@ import 'package:critalarm/features/topics/domain/repositories/topic_repository.d
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/delete_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
+import 'package:critalarm/features/topics/domain/usecases/topic_token_usecases.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
 import 'package:critalarm/firebase_options.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -458,6 +460,22 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton(
       () => DeleteTopicUsecase(getIt<TopicRepository>()),
+    )
+    ..registerLazySingleton(
+      () => GetTopicTokensUsecase(getIt<TopicRepository>()),
+    )
+    ..registerLazySingleton(
+      () => CreateTopicTokenUsecase(getIt<TopicRepository>()),
+    )
+    ..registerLazySingleton(
+      () => RevokeTopicTokenUsecase(getIt<TopicRepository>()),
+    )
+    ..registerFactory(
+      () => TopicTokensCubit(
+        getIt<GetTopicTokensUsecase>(),
+        getIt<CreateTopicTokenUsecase>(),
+        getIt<RevokeTopicTokenUsecase>(),
+      ),
     )
     ..registerLazySingleton(
       () => GetOfferingsUsecase(getIt<SubscriptionRepository>()),
