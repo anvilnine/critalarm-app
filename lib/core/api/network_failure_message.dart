@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -27,6 +28,30 @@ String networkFailureMessage(Object error) {
     return LocaleKeys.onboarding_connect_network_unreachable.tr();
   }
   return text;
+}
+
+/// Turns a wire error code from the server into a sentence a user can read.
+///
+/// The server answers things like `{"error":"cap","cap":"critical_topics"}`,
+/// and the bare word `cap` used to land under the Name field on New Topic. Any
+/// code we have no sentence for falls back to one generic line, so a wire code
+/// never reaches the screen.
+String apiErrorMessage(String? wireCode, {String? cap}) {
+  return switch (wireCode?.trim().toLowerCase()) {
+    'cap' =>
+      cap == null
+          ? LocaleKeys.api_errors_cap_unnamed.tr()
+          : LocaleKeys.api_errors_cap.tr(
+              namedArgs: {'limit': CapReached(cap).label.toLowerCase()},
+            ),
+    'unauthorized' => LocaleKeys.api_errors_unauthorized.tr(),
+    'invalid topic name' => LocaleKeys.api_errors_invalid_topic_name.tr(),
+    'topic already exists' => LocaleKeys.api_errors_topic_already_exists.tr(),
+    'rate limited' => LocaleKeys.api_errors_rate_limited.tr(),
+    'invalid request' => LocaleKeys.api_errors_invalid_request.tr(),
+    'not found' => LocaleKeys.api_errors_not_found.tr(),
+    _ => LocaleKeys.api_errors_unknown.tr(),
+  };
 }
 
 /// True when the device has no route out at all.

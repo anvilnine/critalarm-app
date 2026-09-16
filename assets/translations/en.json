@@ -461,6 +461,17 @@
     "save_recent_searches": "Could not save recent searches",
     "read_docs_index": "Could not read the documentation index."
   },
+  "api_errors": {
+    "cap": "You have hit your {limit} limit.",
+    "cap_unnamed": "You have hit a limit on your plan.",
+    "unauthorized": "The server refused that. Check your connection in Settings.",
+    "invalid_topic_name": "That name is not allowed. Use 1 to 64 lowercase letters, digits and hyphens.",
+    "topic_already_exists": "A topic with that name already exists.",
+    "rate_limited": "Too many requests. Wait a moment and try again.",
+    "invalid_request": "The server could not read that request.",
+    "not_found": "The server could not find that.",
+    "unknown": "Something went wrong on the server. Try again."
+  },
   "sound_library": {
     "names": {
       "classic_siren": "Classic siren",
