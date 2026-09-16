@@ -2,6 +2,8 @@ import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 /// UI access comes from registration, never from store entitlement guesses.
 ///
@@ -31,12 +33,14 @@ class AccountAccess {
       topics.where((topic) => topic.critical).length;
 
   String criticalUsage(Iterable<Topic> topics) {
-    if (!isKnown) return 'Plan limits unavailable';
+    if (!isKnown) return LocaleKeys.account_plan_limits_unavailable.tr();
     final count = criticalCount(topics);
     final limit = caps!.criticalTopics;
     return limit == null
-        ? '$count critical topics used · Unlimited'
-        : '$count of $limit critical topics used';
+        ? LocaleKeys.account_critical_usage_unlimited.plural(count)
+        : LocaleKeys.account_critical_usage.tr(
+            namedArgs: {'count': '$count', 'limit': '$limit'},
+          );
   }
 
   bool canAddDevice(int registeredDevices) =>
