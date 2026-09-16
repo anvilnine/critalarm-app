@@ -8,6 +8,7 @@ import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_tokens_section.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -336,6 +337,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
                               ),
                             ),
                           ),
+                        TopicTokensSection(topicName: state.topicName),
                         const SizedBox(height: Spacing.s5),
                         // Last on the sheet, so nothing is reached past to
                         // get to it.

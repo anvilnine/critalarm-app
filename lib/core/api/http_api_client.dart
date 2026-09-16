@@ -174,6 +174,17 @@ final class HttpApiClient implements ApiClient {
   }
 
   @override
+  Future<List<TopicTokenInfo>> getTopicTokens(String name) async {
+    final (s, u) = await _sessionUri(['topics', name, 'tokens']);
+    final json =
+        _json(await _send('GET', u, auth: s.managementCredential))
+            as List<dynamic>;
+    return json
+        .map((e) => TopicTokenInfo.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
   Future<TopicToken> createTopicToken(String name) async {
     final (s, u) = await _sessionUri(['topics', name, 'tokens']);
     final j =

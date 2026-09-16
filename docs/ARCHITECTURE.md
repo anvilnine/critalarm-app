@@ -1,4 +1,4 @@
-<!-- GENERATED from critalarm-server@19c4656 — do not edit. Run scripts/sync-contract.sh -->
+<!-- GENERATED from critalarm-server@64ba6df — do not edit. Run scripts/sync-contract.sh -->
 
 # Crit Alarm architecture
 

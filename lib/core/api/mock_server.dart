@@ -29,7 +29,9 @@ class MockServer {
   /// Server metadata returned by /v1/info.
   ServerInfo serverInfo;
   final Map<String, Topic> _topics = {};
-  final Map<String, Set<String>> _tokens = {};
+  /// Token id to when it was made. The value is never kept: the real
+  /// server holds a hash of it, so neither can this.
+  final Map<String, Map<String, DateTime>> _tokens = {};
   final Map<String, Set<String>> subscriptions = {};
   final Map<String, Map<String, Map<String, String>>> pushTokens = {};
   final Map<String, Incident> _incidents = {};
@@ -46,6 +48,9 @@ class MockServer {
   static final RegExp _topicRegex = RegExp(r'^[-_A-Za-z0-9]{1,64}$');
 
   String _nextId(String prefix) => '${prefix}_${++_counter}';
+
+  /// When every seeded token was made. Fixed so a test can name it.
+  static final DateTime _seedTime = DateTime.utc(2026, 9);
 
   /// Reset all stored state to empty.
   void reset() {
@@ -166,10 +171,10 @@ class MockServer {
     _topics[uptimeKuma.name] = uptimeKuma;
     _topics[homeHa.name] = homeHa;
 
-    _tokens[prodDb.name] = {'tk_calm_proddb'};
-    _tokens[nasBackup.name] = {'tk_calm_nasbackup'};
-    _tokens[uptimeKuma.name] = {'tk_calm_uptimekuma'};
-    _tokens[homeHa.name] = {'tk_calm_homeha'};
+    _tokens[prodDb.name] = {'tok_calm_proddb': _seedTime};
+    _tokens[nasBackup.name] = {'tok_calm_nasbackup': _seedTime};
+    _tokens[uptimeKuma.name] = {'tok_calm_uptimekuma': _seedTime};
+    _tokens[homeHa.name] = {'tok_calm_homeha': _seedTime};
 
     // Last alert acknowledged and closed (0 open incidents)
     final closedMsg = Message(
@@ -222,8 +227,8 @@ class MockServer {
 
     _topics[nasBackup.name] = nasBackup;
     _topics[prodDb.name] = prodDb;
-    _tokens[nasBackup.name] = {'tk_worried_nas'};
-    _tokens[prodDb.name] = {'tk_worried_prod'};
+    _tokens[nasBackup.name] = {'tok_worried_nas': _seedTime};
+    _tokens[prodDb.name] = {'tok_worried_prod': _seedTime};
 
     final warningMsg = Message(
       id: 'm_worried_nas_1',
@@ -265,9 +270,9 @@ class MockServer {
     _topics[nasBackup.name] = nasBackup;
     _topics[uptimeKuma.name] = uptimeKuma;
 
-    _tokens[prodDb.name] = {'tk_alarmed_proddb'};
-    _tokens[nasBackup.name] = {'tk_alarmed_nas'};
-    _tokens[uptimeKuma.name] = {'tk_alarmed_kuma'};
+    _tokens[prodDb.name] = {'tok_alarmed_proddb': _seedTime};
+    _tokens[nasBackup.name] = {'tok_alarmed_nas': _seedTime};
+    _tokens[uptimeKuma.name] = {'tok_alarmed_kuma': _seedTime};
 
     const incidentId = 'inc_alarmed_proddb';
     final openedAt = now.subtract(const Duration(seconds: 134));
@@ -370,8 +375,8 @@ class MockServer {
 
     _topics[prodDb.name] = prodDb;
     _topics[nasBackup.name] = nasBackup;
-    _tokens[prodDb.name] = {'tk_acked_prod'};
-    _tokens[nasBackup.name] = {'tk_acked_nas'};
+    _tokens[prodDb.name] = {'tok_acked_prod': _seedTime};
+    _tokens[nasBackup.name] = {'tok_acked_nas': _seedTime};
 
     const incidentId = 'inc_acked_proddb';
     final ackedMsg = Message(
@@ -410,7 +415,7 @@ class MockServer {
       for (final t in topics) {
         _topics[t.name] = t;
         if (t.token != null) {
-          (_tokens[t.name] ??= {}).add(t.token!);
+          (_tokens[t.name] ??= {})[t.tokenId ?? t.token!] = _seedTime;
         }
       }
     }
@@ -483,7 +488,7 @@ class MockServer {
     );
 
     _topics[name] = topic.copyWith(token: null, tokenId: null);
-    (_tokens[name] ??= {}).add(tokenId);
+    (_tokens[name] ??= {})[tokenId] = DateTime.now().toUtc();
 
     return topic;
   }
@@ -529,6 +534,21 @@ class MockServer {
     _messages.remove(name);
   }
 
+  /// GET /v1/topics/{name}/tokens
+  ///
+  /// Ids and dates, oldest first. No value, the same as the real server, which
+  /// only ever stored a hash of it.
+  List<TopicTokenInfo> getTopicTokens(String name) {
+    if (!_topics.containsKey(name)) {
+      throw const ApiException(statusCode: 404, message: 'topic not found');
+    }
+    final held = _tokens[name] ?? const <String, DateTime>{};
+    return [
+      for (final entry in held.entries)
+        TopicTokenInfo(tokenId: entry.key, createdAt: entry.value),
+    ]..sort((a, b) => a.createdAt!.compareTo(b.createdAt!));
+  }
+
   /// POST /v1/topics/{name}/tokens
   TopicToken createTopicToken(String name) {
     if (!_topics.containsKey(name)) {
@@ -538,7 +558,7 @@ class MockServer {
       );
     }
     final token = TopicToken(token: _nextId('tk'), tokenId: _nextId('tok'));
-    (_tokens[name] ??= {}).add(token.tokenId);
+    (_tokens[name] ??= {})[token.tokenId] = DateTime.now().toUtc();
     return token;
   }
 
@@ -550,7 +570,7 @@ class MockServer {
         message: 'topic not found',
       );
     }
-    if (!_tokens[name]!.contains(tokenId)) {
+    if (!_tokens[name]!.containsKey(tokenId)) {
       throw const ApiException(statusCode: 404, message: 'not found');
     }
     if (_tokens[name]!.length == 1) {
@@ -1035,6 +1055,12 @@ class MockServer {
         if (method == 'POST') {
           final token = createTopicToken(topicName);
           return _jsonResponse(token.toJson(), 201);
+        }
+        if (method == 'GET') {
+          return _jsonResponse(
+            getTopicTokens(topicName).map((t) => t.toJson()).toList(),
+            200,
+          );
         }
       }
 
