@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
@@ -562,11 +563,22 @@ class MockServer {
   }
 
   /// GET /v1/incidents
+  ///
+  /// `limit` behaves the way api.md §3.2 says the real server behaves: absent
+  /// means [defaultIncidentLimit], above [maxIncidentLimit] is cut down to it,
+  /// and below 1 is a 400. A fake that answered "everything" for an absent
+  /// limit would hide the bug this models.
   List<Incident> getIncidents({
     int? limit,
     String? state,
     String? topic,
   }) {
+    if (limit != null && limit < 1) {
+      throw const ApiException(statusCode: 400, message: 'invalid request');
+    }
+    final take = limit == null
+        ? defaultIncidentLimit
+        : (limit > maxIncidentLimit ? maxIncidentLimit : limit);
     var items = _incidents.values.toList();
 
     if (state != null && state.isNotEmpty) {
@@ -587,9 +599,7 @@ class MockServer {
       return bTime.compareTo(aTime);
     });
 
-    if (limit != null && limit > 0 && items.length > limit) {
-      items = items.sublist(0, limit);
-    }
+    if (items.length > take) items = items.sublist(0, take);
 
     return items;
   }
@@ -1063,7 +1073,14 @@ class MockServer {
 
       // 6. /v1/incidents
       if (path == '/v1/incidents' && method == 'GET') {
-        final limit = int.tryParse(query['limit'] ?? '');
+        final rawLimit = query['limit'];
+        final limit = rawLimit == null ? null : int.tryParse(rawLimit);
+        if (rawLimit != null && limit == null) {
+          throw const ApiException(
+            statusCode: 400,
+            message: 'invalid request',
+          );
+        }
         final state = query['state'];
         final topic = query['topic'];
         final incidents = getIncidents(

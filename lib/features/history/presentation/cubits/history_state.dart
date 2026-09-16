@@ -11,6 +11,7 @@ class HistoryState {
     this.entries = const <HistoryEntry>[],
     this.days = const <HistoryDay>[],
     this.filter = HistoryFilter.none,
+    this.isCapped = false,
     this.errorMessage,
   });
 
@@ -24,6 +25,11 @@ class HistoryState {
   final List<HistoryDay> days;
 
   final HistoryFilter filter;
+
+  /// [entries] holds as many alarms as History is allowed to hold, so there
+  /// are older ones the app cannot reach. v1 has no paging, so the only
+  /// honest thing to do is say so.
+  final bool isCapped;
 
   final String? errorMessage;
 
@@ -59,6 +65,7 @@ class HistoryState {
     List<HistoryEntry>? entries,
     List<HistoryDay>? days,
     HistoryFilter? filter,
+    bool? isCapped,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -67,6 +74,7 @@ class HistoryState {
       entries: entries ?? this.entries,
       days: days ?? this.days,
       filter: filter ?? this.filter,
+      isCapped: isCapped ?? this.isCapped,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/api/api_client.dart' show maxIncidentLimit;
 import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 
@@ -12,7 +13,10 @@ final class UpdateIncidentBadgeUsecase {
   final AppBadge _badge;
 
   Future<int?> call() async {
-    final result = await _incidents.getIncidents(state: 'open');
+    final result = await _incidents.getIncidents(
+      limit: maxIncidentLimit,
+      state: 'open',
+    );
     final incidents = result.getOrNull();
     if (incidents == null) return null;
     await _badge.setCount(incidents.length);

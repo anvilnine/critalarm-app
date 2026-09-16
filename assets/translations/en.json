@@ -203,7 +203,8 @@
     },
     "empty_filtered_title": "Nothing matches those filters",
     "empty_filtered_body": "Loosen the state, or widen the window.",
-    "filter_window_24h": "24 hours"
+    "filter_window_24h": "24 hours",
+    "capped_notice": "History stops at {count} alarms. Older ones are not shown."
   },
   "topic_detail": {
     "back_aria_label": "Back",

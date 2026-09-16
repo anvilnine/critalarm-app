@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:critalarm/app/state/app_data_status.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/core/api/api_client.dart' show maxIncidentLimit;
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
@@ -100,6 +102,7 @@ class HistoryCubit extends Cubit<HistoryState> {
         status: HistoryStatus.success,
         entries: entries,
         days: groupByDay(filterEntries(entries, state.filter, now)),
+        isCapped: entries.length >= ceilingFor(_caps),
         clearError: true,
       ),
     );
@@ -136,6 +139,16 @@ class HistoryCubit extends Cubit<HistoryState> {
           entry,
     ];
   }
+
+  /// The most alarms History can put on screen.
+  ///
+  /// Two ceilings, whichever is lower. The plan says how many a tier may show
+  /// ([AccountCaps.historyIncidents], null on a paid tier). The shared list
+  /// cannot fetch more than [maxIncidentLimit] in one call, and v1 has no
+  /// paging, so a paid user with more alarms than that in their window still
+  /// stops there.
+  static int ceilingFor(AccountCaps caps) =>
+      math.min(caps.historyIncidents ?? maxIncidentLimit, maxIncidentLimit);
 
   /// Apply both display caps, then group the newest incidents first.
   static List<HistoryEntry> toEntries(
@@ -174,9 +187,7 @@ class HistoryCubit extends Cubit<HistoryState> {
     }
 
     entries.sort((a, b) => b.startedAt.compareTo(a.startedAt));
-    return caps.historyIncidents == null
-        ? entries
-        : entries.take(caps.historyIncidents!).toList();
+    return entries.take(ceilingFor(caps)).toList();
   }
 
   /// Groups sorted entries into days, keeping the newest day first.
