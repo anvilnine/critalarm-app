@@ -73,6 +73,19 @@ class IncidentsState {
   );
 }
 
+/// A guess written into the shared list before the server answered, and what
+/// has to go back if the server says no.
+@immutable
+final class OptimisticAck {
+  const OptimisticAck({required this.guess, required this.before});
+
+  /// What was written into the list.
+  final Incident guess;
+
+  /// What the list held for that id before the guess.
+  final Incident before;
+}
+
 /// The one incident list in the app.
 ///
 /// Screens read it and listen to it. Nothing else fetches incidents, so a
@@ -146,6 +159,46 @@ class IncidentsCubit extends Cubit<IncidentsState> {
 
   /// One incident, for a caller that only has one.
   void applyIncident(Incident incident) => applyIncidents([incident]);
+
+  /// Marks [incident] acknowledged in the shared list now, before the request
+  /// goes out, so every screen moves on the tap instead of on the answer.
+  ///
+  /// Hand the token back to [revert] if the server refuses it. A 409 is not a
+  /// refusal: it means the incident was acknowledged somewhere else, so the
+  /// guess was right and there is nothing to put back.
+  OptimisticAck acknowledgeNow(Incident incident) {
+    final held = state.incidents.where((i) => i.id == incident.id).firstOrNull;
+    final before = held ?? incident;
+    final guess = before.copyWith(
+      state: IncidentStates.acked,
+      ackedAt: before.ackedAt ?? _now(),
+    );
+    applyIncident(guess);
+    return OptimisticAck(guess: guess, before: before);
+  }
+
+  /// Puts back what [ack] replaced.
+  ///
+  /// A rollback carries an old value, so the stale-write guard cannot be the
+  /// thing that decides it: the guard compares when an update was asked for,
+  /// and this one is being asked for now. It is decided by what the list still
+  /// holds instead. The list only holds [OptimisticAck.guess] while nothing
+  /// else has touched that incident, so a push or a list read that landed
+  /// while the request was in the air wins and the rollback is dropped.
+  void revert(OptimisticAck ack) {
+    if (isClosed) return;
+    final at = state.incidents.indexWhere((i) => i.id == ack.guess.id);
+    if (at < 0 || !identical(state.incidents[at], ack.guess)) return;
+
+    // Newer than anything asked for before the server refused, so an answer
+    // still in the air cannot undo it.
+    final order = IncidentUpdateOrder(_now());
+    if (!_order.accepts(order)) return;
+    _order = order;
+
+    final merged = [...state.incidents]..[at] = ack.before;
+    emit(state.copyWith(incidents: merged));
+  }
 
   Future<void> _fetch() async {
     final order = IncidentUpdateOrder(_now());

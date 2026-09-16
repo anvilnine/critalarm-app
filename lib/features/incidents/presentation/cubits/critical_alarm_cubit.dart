@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/failure.dart';
@@ -24,7 +26,10 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     this._closeIncident, [
     this._incidents,
     this._alarm,
-  ]) : super(const CriticalAlarmState());
+    this.ringTick = const Duration(seconds: 1),
+    DateTime Function()? now,
+  ]) : _now = now ?? DateTime.now,
+       super(const CriticalAlarmState());
 
   final GetIncidentUsecase _getIncident;
   final GetIncidentsUsecase _getIncidents;
@@ -40,6 +45,15 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// Stops the ring on this device. Optional so a test can build the cubit
   /// without a platform channel behind it.
   final AlarmHost? _alarm;
+
+  /// How often the ringing line is redrawn while the alarm is live. A test
+  /// passes something short so it does not have to wait a real second.
+  final Duration ringTick;
+
+  final DateTime Function() _now;
+
+  /// Redraws the ringing line. Null whenever nothing is ringing.
+  Timer? _ticker;
 
   /// Stop the local alarm. Never throws: a platform channel that is missing or
   /// unhappy must not stop the acknowledge from going out.
@@ -72,6 +86,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   }
 
   Future<void> load({String? incidentId}) async {
+    _stopRingTicker();
     emit(const CriticalAlarmState(status: CriticalAlarmStatus.loading));
     if (incidentId == 'inc_demo') {
       final now = DateTime.now();
@@ -113,6 +128,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   }
 
   void _showFailure(Failure failure) {
+    _stopRingTicker();
     emit(
       CriticalAlarmState(
         status: CriticalAlarmStatus.failure,
@@ -124,110 +140,125 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   Future<void> acknowledge() async {
     if (state.isAcknowledged || state.incident == null) return;
 
-    emit(state.copyWith(isAcknowledging: true));
-
-    final targetId = state.incident!.id;
-
-    // Silence first. The person pressed Stop, so the noise is over whatever
-    // the server says next. A slow or refused ack must not keep it ringing.
-    await _silence(targetId);
+    final incident = state.incident!;
+    final targetId = incident.id;
 
     if (targetId == 'inc_demo') {
-      final now = DateTime.now();
-      final updated = state.incident!.copyWith(
-        state: 'acked',
-        ackedAt: now,
-      );
-      final timeStr = _formatTime(now);
-      final ackMsg = LocaleKeys.critical_alarm_acknowledged_message.tr(
-        namedArgs: {'time': timeStr},
-      );
-      emit(
-        state.copyWith(
-          status: CriticalAlarmStatus.acknowledged,
-          incident: updated,
-          isAcknowledged: true,
-          isAcknowledging: false,
-          severityMode: SeverityMode.ack,
-          faceState: FaceState.calm,
-          isLive: false,
-          word: LocaleKeys.critical_alarm_stage_word_acknowledged.tr(),
-          subtext: ackMsg,
-          feedbackMessage: ackMsg,
-          clearError: true,
-        ),
+      emit(state.copyWith(isAcknowledging: true));
+      await _silence(targetId);
+      _showAcknowledged(
+        incident.copyWith(state: IncidentStates.acked, ackedAt: _now()),
+        face: FaceState.calm,
       );
       return;
     }
 
+    // The screen the person is looking at moves first, and so does every
+    // other screen, because they all read the same list. Nothing here waits
+    // on the server.
+    final ringing = state;
+    final ack = _incidents?.acknowledgeNow(incident);
+    _showAcknowledged(
+      ack?.guess ??
+          incident.copyWith(state: IncidentStates.acked, ackedAt: _now()),
+    );
+
+    // Silence next, still before anything goes on the wire. The person
+    // pressed Stop, so the noise is over whatever the server says: a slow or
+    // refused ack must not keep it ringing.
+    await _silence(targetId);
+
     final result = await _acknowledgeIncident(targetId);
+    if (isClosed) return;
 
     result.fold(
       (updatedIncident) {
-        final ackedTime = updatedIncident.ackedAt ?? DateTime.now();
-        final timeStr = _formatTime(ackedTime);
-        final ackMsg = LocaleKeys.critical_alarm_acknowledged_message.tr(
-          namedArgs: {'time': timeStr},
-        );
-
-        // Home, the topic, History and search all read the same list.
+        // The server's own copy, which carries the real acked_at.
         _incidents?.applyIncident(updatedIncident);
-        emit(
-          state.copyWith(
-            status: CriticalAlarmStatus.acknowledged,
-            incident: updatedIncident,
-            isAcknowledged: true,
-            isAcknowledging: false,
-            severityMode: SeverityMode.ack,
-            faceState: FaceState.acked,
-            isLive: false,
-            word: LocaleKeys.critical_alarm_stage_word_acknowledged.tr(),
-            subtext: ackMsg,
-            feedbackMessage: ackMsg,
-            clearError: true,
-          ),
-        );
+        _showAcknowledged(updatedIncident);
       },
       (failure) {
-        final isConflict = failure is ApiFailure && failure.statusCode == 409;
-        final timeStr = _formatTime(DateTime.now());
-        final ackMsg = LocaleKeys.critical_alarm_acknowledged_message.tr(
-          namedArgs: {'time': timeStr},
-        );
+        // 409 means it was acknowledged somewhere else, so the guess on
+        // screen was right and there is nothing to put back.
+        if (failure is ApiFailure && failure.statusCode == 409) return;
 
-        if (isConflict) {
-          emit(
-            state.copyWith(
-              status: CriticalAlarmStatus.acknowledged,
-              isAcknowledged: true,
-              isAcknowledging: false,
-              severityMode: SeverityMode.ack,
-              faceState: FaceState.acked,
-              isLive: false,
-              word: LocaleKeys.critical_alarm_stage_word_acknowledged.tr(),
-              subtext: ackMsg,
-              feedbackMessage: ackMsg,
-              clearError: true,
-            ),
-          );
-        } else {
-          // The server did not take the acknowledge, so the incident is still
-          // open and can ring again. Saying "acknowledged" here sent people
-          // back to sleep on a page nobody had handled. The phone is quiet,
-          // because Stop already silenced it, and the screen stays on the
-          // ringing state so the button is there to try again.
-          emit(
-            state.copyWith(
-              status: CriticalAlarmStatus.ringing,
-              isAcknowledged: false,
-              isAcknowledging: false,
-              isLive: true,
-              errorMessage: LocaleKeys.critical_alarm_ack_failed.tr(),
-            ),
-          );
-        }
+        // The server did not take the acknowledge, so the incident is still
+        // open and can ring again. Saying "acknowledged" here sent people
+        // back to sleep on a page nobody had handled. The phone is quiet,
+        // because Stop already silenced it, and the screen goes back to the
+        // ringing state so the button is there to try again.
+        if (ack != null) _incidents?.revert(ack);
+        emit(
+          ringing.copyWith(
+            status: CriticalAlarmStatus.ringing,
+            incident: ack?.before ?? incident,
+            isAcknowledged: false,
+            isAcknowledging: false,
+            isLive: true,
+            errorMessage: LocaleKeys.critical_alarm_ack_failed.tr(),
+          ),
+        );
+        _startRingTicker();
       },
     );
+  }
+
+  /// The acknowledged screen, for a guess and for the server's answer alike.
+  void _showAcknowledged(
+    Incident incident, {
+    FaceState face = FaceState.acked,
+  }) {
+    _stopRingTicker();
+    final ackMsg = LocaleKeys.critical_alarm_acknowledged_message.tr(
+      namedArgs: {'time': _formatTime(incident.ackedAt ?? _now())},
+    );
+    emit(
+      state.copyWith(
+        status: CriticalAlarmStatus.acknowledged,
+        incident: incident,
+        isAcknowledged: true,
+        isAcknowledging: false,
+        severityMode: SeverityMode.ack,
+        faceState: face,
+        isLive: false,
+        word: LocaleKeys.critical_alarm_stage_word_acknowledged.tr(),
+        subtext: ackMsg,
+        feedbackMessage: ackMsg,
+        clearError: true,
+      ),
+    );
+  }
+
+  /// Redraws the ringing line every [ringTick]. The duration used to be worked
+  /// out once, when the screen loaded, so the number sat still while the person
+  /// watched it.
+  void _startRingTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(ringTick, (_) {
+      final incident = state.incident;
+      if (state.status != CriticalAlarmStatus.ringing || incident == null) {
+        _stopRingTicker();
+        return;
+      }
+      emit(
+        state.copyWith(
+          subtext: LocaleKeys.critical_alarm_stage_sub_ringing.tr(
+            namedArgs: {'duration': _ringingFor(incident)},
+          ),
+        ),
+      );
+    });
+  }
+
+  void _stopRingTicker() {
+    _ticker?.cancel();
+    _ticker = null;
+  }
+
+  @override
+  Future<void> close() {
+    _stopRingTicker();
+    return super.close();
   }
 
   /// How long this incident has been ringing, right now. The string used to
@@ -236,12 +267,14 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   String _ringingFor(Incident incident) {
     final openedAt = incident.openedAt;
     if (openedAt == null) return formatRingDuration(Duration.zero);
-    return formatRingDuration(DateTime.now().difference(openedAt));
+    return formatRingDuration(_now().difference(openedAt));
   }
 
   Future<void> closeIncident() async {
     final incidentId = state.incident?.id;
     if (incidentId == null) return;
+
+    _stopRingTicker();
 
     // Closing ends the incident, so nothing should still be ringing for it.
     await _silence(incidentId);
@@ -268,6 +301,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   }
 
   void _applyIncident(Incident incident) {
+    _stopRingTicker();
     final firstMsg = incident.messages.firstOrNull;
     // A page with no title or no body used to fall back to a sample outage
     // about a database, which read as the real thing to someone woken by it.
@@ -349,6 +383,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
           clearError: true,
         ),
       );
+      _startRingTicker();
     }
   }
 
