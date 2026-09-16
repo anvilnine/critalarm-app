@@ -5,6 +5,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
+import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -48,6 +49,15 @@ class _TopicDetailScreenContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<TopicDetailCubit, TopicDetailState>(
       builder: (context, state) {
+        final latest = state.messages.isEmpty ? null : state.messages.first;
+        final olderCount = state.messages.isEmpty
+            ? 0
+            : state.messages.length - 1;
+
+        // Nothing is ringing, so there is nothing to stop. The button used to
+        // sit at the bottom of the sheet on every topic, whatever its state.
+        final isRinging = state.openIncidentIds.isNotEmpty;
+
         return SeverityScope(
           severity: state.severity,
           child: AppScreenScaffold(
@@ -57,6 +67,23 @@ class _TopicDetailScreenContent extends StatelessWidget {
             hasTabBar: false,
             withGhosts: !isPane,
             backgroundColor: isPane ? context.appColors.surface : null,
+            // Pinned rather than trailing the message list, so acknowledging
+            // never means scrolling first.
+            bottomBar: isRinging
+                ? AppButton(
+                    label: LocaleKeys.topic_detail_stop_alarm_button.tr(),
+                    variant: AppButtonVariant.ink,
+                    size: AppButtonSize.lg,
+                    isFullWidth: true,
+                    isLoading: state.isMarkingAsRead,
+                    onPressed: () {
+                      AppHaptics.capture();
+                      unawaited(
+                        context.read<TopicDetailCubit>().markAsRead(),
+                      );
+                    },
+                  )
+                : null,
             topBar: AppTopBar(
               leading: isPane
                   ? null
@@ -102,7 +129,10 @@ class _TopicDetailScreenContent extends StatelessWidget {
               ),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  // The acknowledge button floats over the bottom of the
+                  // list, so the sheet leaves room for it rather than sliding
+                  // its last row underneath.
+                  padding: EdgeInsets.fromLTRB(12, 0, 12, isRinging ? 88 : 16),
                   child: AppSheet(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -161,30 +191,41 @@ class _TopicDetailScreenContent extends StatelessWidget {
                         AppSectionHeader(
                           LocaleKeys.topic_detail_messages_header.tr(),
                         ),
-                        for (final msg in state.messages) ...[
-                          AppMessageCard(
-                            title: msg.title,
-                            timestamp: msg.timestamp,
-                            body: msg.body,
-                            source: msg.source,
-                            isHigh: msg.isHigh,
+                        // Only the newest one. The whole list used to run
+                        // down the sheet and push the action button off the
+                        // bottom of a long topic.
+                        if (latest != null) ...[
+                          Hero(
+                            tag: topicLatestMessageHeroTag(
+                              state.topicName,
+                              latest.timestamp,
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: AppMessageCard(
+                                title: latest.title,
+                                timestamp: latest.timestamp,
+                                body: latest.body,
+                                source: latest.source,
+                                isHigh: latest.isHigh,
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 10),
                         ],
-                        const SizedBox(height: 4),
-                        AppButton(
-                          label: LocaleKeys.topic_detail_stop_alarm_button
-                              .tr(),
-                          variant: AppButtonVariant.ink,
-                          isFullWidth: true,
-                          isLoading: state.isMarkingAsRead,
-                          onPressed: () {
-                            AppHaptics.capture();
-                            unawaited(
-                              context.read<TopicDetailCubit>().markAsRead(),
-                            );
-                          },
-                        ),
+                        if (olderCount > 0)
+                          AppButton(
+                            label: LocaleKeys.topic_detail_view_all_messages
+                                .plural(olderCount),
+                            variant: AppButtonVariant.ghost,
+                            size: AppButtonSize.sm,
+                            isFullWidth: true,
+                            onPressed: () => unawaited(
+                              context.push(
+                                '/topics/${state.topicName}/messages',
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),

@@ -88,7 +88,17 @@ class _CreateTopicScreenContent extends StatelessWidget {
               onPressed: () {
                 AppHaptics.capture();
                 if (state.status == CreateTopicStatus.success) {
-                  context.go('/topics/${state.createdTopic!.name}');
+                  final name = state.createdTopic!.name;
+                  // Pop back to the list first so it reloads and the new
+                  // topic is on it, then open the topic. Going straight
+                  // there replaces this route instead of popping it, and
+                  // the list never hears that anything changed.
+                  if (context.canPop()) {
+                    context.pop();
+                    unawaited(context.push('/topics/$name'));
+                  } else {
+                    context.go('/topics/$name');
+                  }
                 } else {
                   unawaited(cubit.createTopic());
                 }

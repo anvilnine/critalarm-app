@@ -141,6 +141,8 @@
     "meta_alert_active": "Alert active",
     "meta_warning": "1 warning",
     "meta_quiet": "Quiet",
+    "delivery_rings": "rings",
+    "delivery_normal": "normal",
     "detail_empty_title": "No topic selected",
     "detail_empty_body": "Pick a topic to see its details."
   },
@@ -213,7 +215,15 @@
     "sound_row_default": "Using the default",
     "messages_header": "Messages",
     "stop_alarm_button": "Stop the alarm",
-    "stage_sub_empty": "No messages yet. Anything sent here rings at {priority} priority."
+    "stage_sub_empty": "No messages yet. Anything sent here rings at {priority} priority.",
+    "view_all_messages": {
+      "one": "View 1 older message",
+      "other": "View {} older messages"
+    }
+  },
+  "topic_messages": {
+    "empty_title": "No messages yet",
+    "empty_body": "Anything sent to this topic shows up here."
   },
   "create_topic": {
     "title": "New topic",

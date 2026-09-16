@@ -223,9 +223,23 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                                 faceState: topic.faceState,
                                 isCrit: topic.isCrit,
                                 isQuiet: topic.isQuiet,
-                                trailing: AppPriorityChip(
-                                  priority: topic.priority,
-                                ),
+                                // The priority that came in is only shown
+                                // while there is something live. Once the
+                                // alarm is acknowledged the row goes back to
+                                // saying how the topic is set up, so a red
+                                // chip never contradicts the calm face above.
+                                trailing: topic.isLive
+                                    ? AppPriorityChip(
+                                        priority: topic.priority,
+                                      )
+                                    : AppDeliveryChip(
+                                        rings: topic.ringsThroughSilent,
+                                        label: topic.ringsThroughSilent
+                                            ? LocaleKeys.home_delivery_rings
+                                                  .tr()
+                                            : LocaleKeys.home_delivery_normal
+                                                  .tr(),
+                                      ),
                                 onTap: () {
                                   if (size.isExpanded) {
                                     AppHaptics.selection();
