@@ -101,7 +101,8 @@ final class IncidentAlarmController {
     IncidentState state = IncidentState.closed,
   }) async {
     _alarming.remove(incidentId);
-    await host.cancelAlarm(incidentId);
+    // The incident is over, so no card replaces the one being taken down.
+    await host.cancelAlarm(incidentId, handOverToStatusCard: false);
     await host.endActivity(incidentId, state: _activityState(state));
     await tokens?.forget(incidentId);
     _log('alarm_cancelled id=$incidentId state=${state.name}');

@@ -21,10 +21,25 @@ object FaceBitmap {
      * card after Stop asks for it on the main thread, so the second ask must
      * not pay for it again.
      */
+    // getOrPut on a ConcurrentHashMap is a get then a put, not one atomic
+    // step, so two threads asking at once can both draw and one put wins.
+    // Harmless here: the two bitmaps are identical and the loser is collected.
     private val cache = ConcurrentHashMap<String, Bitmap>()
 
+    /**
+     * A copy every time, never the cached bitmap itself.
+     *
+     * Notification.Builder.build() runs reduceImageSizes(), which scales a
+     * large icon down on a low-density device. Today's AOSP allocates a new
+     * bitmap to do it, but an OEM build that recycles the source instead would
+     * poison the cache: every later render would hand back a recycled bitmap
+     * and the next card would die on "trying to use a recycled bitmap", taking
+     * the whole FCM path with it. The copy costs a memcpy; the draw, which is
+     * the expensive half, stays cached.
+     */
     fun render(face: CritAlarmFace, sizePx: Int): Bitmap =
         cache.getOrPut("${face.name}:$sizePx") { draw(face, sizePx) }
+            .copy(Bitmap.Config.ARGB_8888, false)
 
     private fun draw(face: CritAlarmFace, sizePx: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)

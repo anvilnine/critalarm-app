@@ -32,7 +32,7 @@ object StatusNotificationFactory {
         payload: FcmIncidentPayload,
         content: IncidentContent = IncidentContentFetcher.fallback(payload),
         state: IncidentCardState = IncidentCardState.ACKED,
-        openedAtMillis: Long = System.currentTimeMillis(),
+        ackedAtMillis: Long = System.currentTimeMillis(),
         deskTimerEndMillis: Long? = null,
     ): Notification {
         NotificationChannels.ensureCreated(context)
@@ -61,7 +61,7 @@ object StatusNotificationFactory {
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setWhen(openedAtMillis)
+            .setWhen(ackedAtMillis)
             .setShowWhen(true)
             .setUsesChronometer(true)
             .shortCriticalText(state.chipText)
@@ -75,7 +75,7 @@ object StatusNotificationFactory {
             builder.addAction(0, "Done", pending)
         }
 
-        applyCountdown(context, builder, content, state, openedAtMillis, deskTimerEndMillis)
+        applyCountdown(context, builder, content, state, ackedAtMillis, deskTimerEndMillis)
         return builder.build()
     }
 

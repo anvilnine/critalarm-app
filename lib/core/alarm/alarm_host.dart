@@ -131,9 +131,23 @@ final class AlarmHost {
       }) ??
       false;
 
-  /// The incident closed or expired. Stops the alarm and ends the card.
-  Future<bool> cancelAlarm(String incidentId) async =>
-      await _invoke<bool>('cancelAlarm', {'incident_id': incidentId}) ?? false;
+  /// Stops the alarm for [incidentId] and says what should be left behind.
+  ///
+  /// [handOverToStatusCard] true means the user acknowledged: the incident is
+  /// still open, so Android replaces the ringing card with the acked one that
+  /// carries the Done button. False means the incident is over, or was never
+  /// real, so both cards come down and nothing replaces them. Only the caller
+  /// knows which of the two it is, and getting it wrong leaves an ongoing card
+  /// on an incident nobody can close.
+  Future<bool> cancelAlarm(
+    String incidentId, {
+    required bool handOverToStatusCard,
+  }) async =>
+      await _invoke<bool>('cancelAlarm', {
+        'incident_id': incidentId,
+        'hand_over_to_status_card': handOverToStatusCard,
+      }) ??
+      false;
 
   /// Stop whatever is ringing on this device, whichever incident it belongs to.
   ///

@@ -65,12 +65,21 @@ class AlarmChannel(private val context: Context) {
                     result.success(false)
                     return
                 }
-                result.success(stop(incidentId, handOverToStatusCard = true))
+                // Dart says which it is. An acknowledge leaves the incident
+                // open and hands the card over; a close, or the onboarding
+                // demo, ends it and takes both cards down. A missing argument
+                // reads as the second, because that is the one that never
+                // leaves an ongoing card behind.
+                val handOver = call.argument<Boolean>("hand_over_to_status_card") ?: false
+                result.success(stop(incidentId, handOverToStatusCard = handOver))
             }
 
-            // Android puts up a plain notification, not a Live Activity, so
-            // there is never a card of ours on screen to report or end.
-            "showingIncidentIds" -> result.success(emptyList<String>())
+            // The acked cards this device still has up. They are plain
+            // notifications rather than Live Activities, so the store is the
+            // only record of them, and launch-time reconcile needs the list to
+            // take down the ones the server has finished with.
+            "showingIncidentIds" ->
+                result.success(IncidentDeliveryStore(context).acknowledgedIncidentIds())
             "endActivity" -> {
                 val incidentId = call.argument<String>("incident_id")
                 if (!incidentId.isNullOrEmpty()) stop(incidentId, handOverToStatusCard = false)
@@ -88,11 +97,11 @@ class AlarmChannel(private val context: Context) {
      * alarm card with startForeground, which takes no tag, and Android keys a
      * notification by tag and id together.
      *
-     * [handOverToStatusCard] is the difference between the two callers. Stop
-     * inside the app leaves the incident open, so the acked card takes over the
-     * way it does when the user presses Stop on the notification. endActivity
-     * is the incident finishing, so both cards come down and nothing replaces
-     * them.
+     * [handOverToStatusCard] comes from Dart, because only the caller knows
+     * what it just did. An acknowledge leaves the incident open, so the acked
+     * card takes over the way it does when the user presses Stop on the
+     * notification. A close, or the onboarding demo alarm, ends it: both cards
+     * come down and nothing replaces them.
      */
     private fun stop(incidentId: String, handOverToStatusCard: Boolean): Boolean = try {
         ScheduledAlarmReceiver.cancel(context, incidentId)

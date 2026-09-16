@@ -20,9 +20,33 @@ object MessageNotificationFactory {
     /** Bodies longer than this get BigTextStyle so they are readable expanded. */
     const val BIG_TEXT_THRESHOLD = 60
 
-    fun notificationId(payload: FcmIncidentPayload): Int =
-        payload.incidentId?.hashCode()
-            ?: (payload.server.toString() + payload.kind.wireValue).hashCode()
+    /**
+     * Kept apart from the other two cards by the salt.
+     *
+     * The alarm card is the plain hash of the incident id and the status card
+     * is that hash xor its own salt. A push can carry an incident id and still
+     * come here, and without a salt of its own this card would land on the id
+     * of a ringing alarm card: it would replace the full-screen intent and the
+     * Stop button while the service kept ringing, and the shade would have
+     * nothing left to stop it with.
+     *
+     * A p4 forward carries no incident id (api.md §4.1), so its id is built
+     * from the text instead. The server and the kind alone are the same for
+     * every p4 from one server, so each forward replaced the last one.
+     */
+    fun notificationId(payload: FcmIncidentPayload): Int {
+        val key = payload.incidentId
+            ?: listOf(
+                payload.server.toString(),
+                payload.kind.wireValue,
+                payload.title.orEmpty(),
+                payload.body.orEmpty(),
+            ).joinToString("|")
+        return key.hashCode() xor MESSAGE_ID_SALT
+    }
+
+    /** Any constant will do, as long as it is neither 0 nor the status card's. */
+    private const val MESSAGE_ID_SALT = 0x2c9277b5
 
     fun create(
         context: Context,

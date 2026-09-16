@@ -36,6 +36,11 @@ void main() {
   List<Object?> cancelled() =>
       alarm.argsTo('cancelAlarm').map((a) => a['incident_id']).toList();
 
+  List<Object?> handedOver() => alarm
+      .argsTo('cancelAlarm')
+      .map((a) => a['hand_over_to_status_card'])
+      .toList();
+
   group('the alarm screen stops the ring', () {
     test('acknowledge cancels the alarm for the incident on screen', () async {
       await cubit.load();
@@ -63,6 +68,37 @@ void main() {
       await cubit.closeIncident();
 
       expect(cancelled(), contains(id));
+    });
+
+    test('acknowledge hands the card over to the acked one', () async {
+      await cubit.load();
+      alarm.calls.clear();
+
+      await cubit.acknowledge();
+
+      expect(handedOver(), [true]);
+    });
+
+    test('closing leaves no card behind', () async {
+      // The acked card is ongoing, so it cannot be swiped away, and its Done
+      // button would POST a close the server answers with 409.
+      await cubit.load();
+      alarm.calls.clear();
+
+      await cubit.closeIncident();
+
+      expect(handedOver(), [false]);
+    });
+
+    test('the demo alarm leaves no card behind', () async {
+      // inc_demo is not on the server. A card for it would sit there for good.
+      await cubit.load(incidentId: 'inc_demo');
+      alarm.calls.clear();
+
+      await cubit.acknowledge();
+
+      expect(cancelled(), ['inc_demo']);
+      expect(handedOver(), [false]);
     });
 
     test('a cubit with no alarm host still acknowledges', () async {
