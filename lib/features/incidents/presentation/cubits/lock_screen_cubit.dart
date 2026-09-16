@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_state.dart';
@@ -7,19 +9,34 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state for LockScreen.
 class LockScreenCubit extends Cubit<LockScreenState> {
-  LockScreenCubit(this._getIncidents) : super(const LockScreenState());
+  LockScreenCubit(this._getIncidents, {DateTime Function()? now})
+    : _now = now ?? DateTime.now,
+      super(const LockScreenState());
 
   final GetIncidentsUsecase _getIncidents;
 
+  /// Injected in tests so the clock can be moved without waiting.
+  final DateTime Function() _now;
+
+  Timer? _clockTimer;
+
+  /// How long until the wall clock rolls over to the next minute.
+  ///
+  /// The screen shows HH:mm, so a one-second timer would wake up 59 times for
+  /// nothing. A plain one-minute repeat is just as wrong the other way: start
+  /// it at 10:30:59 and every change lands 59 seconds late. Waiting for the
+  /// boundary and then re-arming keeps the reading right without the drift.
+  static Duration untilNextMinute(DateTime now) =>
+      const Duration(minutes: 1) -
+      Duration(
+        seconds: now.second,
+        milliseconds: now.millisecond,
+        microseconds: now.microsecond,
+      );
+
   Future<void> load() async {
-    final now = DateTime.now();
-    emit(
-      state.copyWith(
-        status: LockScreenStatus.loading,
-        dateText: DateFormat('EEEE d MMMM').format(now),
-        timeText: DateFormat('HH:mm').format(now),
-      ),
-    );
+    _emitClock(status: LockScreenStatus.loading);
+    _scheduleClockTick();
 
     final result = await _getIncidents();
     result.fold(
@@ -69,5 +86,31 @@ class LockScreenCubit extends Cubit<LockScreenState> {
         );
       },
     );
+  }
+
+  void _scheduleClockTick() {
+    _clockTimer?.cancel();
+    _clockTimer = Timer(untilNextMinute(_now()), () {
+      _emitClock();
+      _scheduleClockTick();
+    });
+  }
+
+  void _emitClock({LockScreenStatus? status}) {
+    final now = _now();
+    emit(
+      state.copyWith(
+        status: status,
+        dateText: DateFormat('EEEE d MMMM').format(now),
+        timeText: DateFormat('HH:mm').format(now),
+      ),
+    );
+  }
+
+  @override
+  Future<void> close() {
+    _clockTimer?.cancel();
+    _clockTimer = null;
+    return super.close();
   }
 }
