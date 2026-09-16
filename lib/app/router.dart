@@ -66,6 +66,23 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       name: AppRoute.createTopic,
       builder: (context, state) => const CreateTopicScreen(),
     ),
+    // One screen, two jobs. No `topic` sets the default sound;
+    // `?topic=<name>` sets that topic only. Neither ever reaches the server.
+    // It covers the display and both Settings and a topic open it, so it sits
+    // on the root navigator. Nested under `/settings` it dragged the shell to
+    // the Settings tab, which swallowed the next Settings tap and left the
+    // page alive in the inactive branch with its preview still playing.
+    GoRoute(
+      path: '/sounds',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.soundPicker,
+      builder: (context, state) {
+        final topic = state.uri.queryParameters['topic'];
+        return SoundPickerScreen(
+          topicName: topic != null && topic.isNotEmpty ? topic : null,
+        );
+      },
+    ),
     // The three root destinations live inside the shell, so the floating tab
     // bar stays on screen and each tab keeps its own back stack. Anything that
     // must cover the whole display is routed outside it.
@@ -137,21 +154,6 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   builder: (context, state) => const SettingsScreen(
                     forceDisconnected: true,
                   ),
-                ),
-                // One screen, two jobs. No `topic` sets the default sound;
-                // `?topic=<name>` sets that topic only. Neither ever reaches
-                // the server.
-                GoRoute(
-                  path: 'sounds',
-                  name: AppRoute.soundPicker,
-                  builder: (context, state) {
-                    final topic = state.uri.queryParameters['topic'];
-                    return SoundPickerScreen(
-                      topicName: topic != null && topic.isNotEmpty
-                          ? topic
-                          : null,
-                    );
-                  },
                 ),
                 GoRoute(
                   path: 'permissions',
