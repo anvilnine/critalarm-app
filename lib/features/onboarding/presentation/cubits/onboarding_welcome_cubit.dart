@@ -27,7 +27,7 @@ class OnboardingWelcomeCubit extends Cubit<OnboardingWelcomeState> {
     if (trimmed.isEmpty) {
       emit(
         state.copyWith(
-          errorMessage: LocaleKeys.onboarding_welcome_server_url_error_empty
+          errorMessage: LocaleKeys.onboarding_connect_server_url_error_empty
               .tr(),
           canNavigate: false,
         ),
@@ -41,7 +41,7 @@ class OnboardingWelcomeCubit extends Cubit<OnboardingWelcomeState> {
         uri.host.isEmpty) {
       emit(
         state.copyWith(
-          errorMessage: LocaleKeys.onboarding_welcome_server_url_error_invalid
+          errorMessage: LocaleKeys.onboarding_connect_server_url_error_invalid
               .tr(),
           canNavigate: false,
         ),

@@ -13,6 +13,7 @@ class GhostField extends StatelessWidget {
     this.lockFaceState = FaceState.alarmed,
     this.seed = 42,
     this.shapeCount = 6,
+    this.opacity = 1,
     super.key,
   });
 
@@ -21,6 +22,11 @@ class GhostField extends StatelessWidget {
   final FaceState lockFaceState;
   final int seed;
   final int shapeCount;
+
+  /// Dials the shapes down. Below 1 they sit further back, so text over them
+  /// keeps its contrast. Light mode needs this more than dark: its ghosts are
+  /// drawn at 7% and 12% against 4.5% and 8% in dark.
+  final double opacity;
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +38,12 @@ class GhostField extends StatelessWidget {
         Positioned.fill(
           child: CustomPaint(
             painter: _GhostFieldPainter(
-              ghostColor: colors.canvasGhost,
-              ghostStrongColor: colors.canvasGhostStrong,
+              ghostColor: colors.canvasGhost.withValues(
+                alpha: colors.canvasGhost.a * opacity,
+              ),
+              ghostStrongColor: colors.canvasGhostStrong.withValues(
+                alpha: colors.canvasGhostStrong.a * opacity,
+              ),
               seed: seed,
               shapeCount: shapeCount,
             ),

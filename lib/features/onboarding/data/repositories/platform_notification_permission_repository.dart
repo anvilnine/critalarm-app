@@ -39,6 +39,24 @@ class PlatformNotificationPermissionRepository
             .toSuccess();
       }
 
+      // iOS. The plugin has no read-only check, so this goes over the app's
+      // own channel, which reads UNNotificationSettings.authorizationStatus.
+      try {
+        final granted = await _channel.invokeMethod<bool>(
+          'checkNotificationPermission',
+        );
+        if (granted != null) {
+          return (granted
+                  ? NotificationPermissionStatus.granted
+                  : NotificationPermissionStatus.notDetermined)
+              .toSuccess();
+        }
+      } on PlatformException catch (_) {
+        // No handler on this platform; fall through to "not asked yet".
+      } on MissingPluginException catch (_) {
+        // Same, on a platform with no channel at all.
+      }
+
       return NotificationPermissionStatus.notDetermined.toSuccess();
     } on Exception catch (e) {
       return Failure.unexpected(message: e.toString()).toFailure();

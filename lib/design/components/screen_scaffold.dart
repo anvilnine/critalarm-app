@@ -25,6 +25,7 @@ class AppScreenScaffold extends StatelessWidget {
     this.scrollController,
     this.backgroundColor,
     this.withGhosts = true,
+    this.ghostOpacity = 1,
     this.resizeForKeyboard = false,
     super.key,
   });
@@ -53,6 +54,10 @@ class AppScreenScaffold extends StatelessWidget {
   final ScrollController? scrollController;
   final Color? backgroundColor;
   final bool withGhosts;
+
+  /// Dials the background shapes down, for a screen whose text sits straight
+  /// on top of them.
+  final double ghostOpacity;
 
   /// True on a screen with text fields, so the body shrinks for the soft
   /// keyboard and the field being typed into stays in view. The Scaffold takes
@@ -144,6 +149,19 @@ class AppScreenScaffold extends StatelessWidget {
               color: canvas,
             ),
           ),
+        // The list runs under the top bar, so wash the canvas over the last
+        // few pixels and let rows dissolve instead of meeting a hard edge.
+        if (topBar != null)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AppScrollFade(
+              edge: ScrollFadeEdge.top,
+              height: padding.top + topBarHeight + 16,
+              color: canvas,
+            ),
+          ),
         if (topBar != null)
           Positioned(
             top: 0,
@@ -207,7 +225,7 @@ class AppScreenScaffold extends StatelessWidget {
       );
     }
 
-    if (withGhosts) body = GhostField(child: body);
+    if (withGhosts) body = GhostField(opacity: ghostOpacity, child: body);
 
     return Scaffold(
       backgroundColor: canvas,

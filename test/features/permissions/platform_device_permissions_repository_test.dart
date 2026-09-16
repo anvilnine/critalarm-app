@@ -112,4 +112,61 @@ void main() {
       },
     );
   });
+
+  group('rows per platform', () {
+    Future<List<DevicePermissionType>> typesOn(TargetPlatform platform) async {
+      final repo = PlatformDevicePermissionsRepository(
+        channel: channel,
+        platform: platform,
+      );
+      final result = await repo.getPermissions();
+      return result.getOrNull()!.map((item) => item.type).toList();
+    }
+
+    test('iOS asks about notifications, Time Sensitive and alarms', () async {
+      expect(await typesOn(TargetPlatform.iOS), [
+        DevicePermissionType.notifications,
+        DevicePermissionType.timeSensitive,
+        DevicePermissionType.alarms,
+      ]);
+    });
+
+    test('Android keeps full-screen intent and battery instead', () async {
+      expect(await typesOn(TargetPlatform.android), [
+        DevicePermissionType.notifications,
+        DevicePermissionType.fullScreenIntent,
+        DevicePermissionType.batteryOptimization,
+      ]);
+    });
+
+    test('neither platform gets a row it cannot fix', () async {
+      final ios = await typesOn(TargetPlatform.iOS);
+      final android = await typesOn(TargetPlatform.android);
+
+      expect(ios, isNot(contains(DevicePermissionType.batteryOptimization)));
+      expect(ios, isNot(contains(DevicePermissionType.fullScreenIntent)));
+      expect(android, isNot(contains(DevicePermissionType.timeSensitive)));
+      expect(android, isNot(contains(DevicePermissionType.alarms)));
+    });
+
+    test('Time Sensitive off is a denied row on iOS', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'checkTimeSensitive') return false;
+            return true;
+          });
+
+      final repo = PlatformDevicePermissionsRepository(
+        channel: channel,
+        platform: TargetPlatform.iOS,
+      );
+      final items = (await repo.getPermissions()).getOrNull()!;
+      final row = items.firstWhere(
+        (item) => item.type == DevicePermissionType.timeSensitive,
+      );
+
+      expect(row.status, DevicePermissionStatus.denied);
+      expect(row.canFix, isTrue);
+    });
+  });
 }

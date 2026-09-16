@@ -8,5 +8,11 @@ class CompleteOnboardingUsecase implements UseCase<NoParams, Unit> {
   final OnboardingProgressRepository _repository;
 
   @override
-  Future<AppResult<Unit>> call(NoParams input) => _repository.markCompleted();
+  Future<AppResult<Unit>> call(NoParams input) async {
+    final result = await _repository.markCompleted();
+    // The half-finished draft has served its purpose. Leaving it behind would
+    // drop a second run back into a step the user already got past.
+    await _repository.clearDraft();
+    return result;
+  }
 }

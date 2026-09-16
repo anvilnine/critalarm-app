@@ -62,6 +62,7 @@ void main() {
           notificationsGranted: true,
           criticalAlertsGranted: true,
           canNavigate: true,
+          alarmSupported: false,
         ),
       ],
     );
@@ -139,6 +140,9 @@ void main() {
           step: NotificationPermissionStep.granted,
           criticalAlertsGranted: true,
           canNavigate: true,
+          // No alarm host means no alarm permission on this platform, so the
+          // stepper is one step, not two.
+          alarmSupported: false,
         ),
       ],
     );

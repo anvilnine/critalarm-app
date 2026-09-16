@@ -272,7 +272,12 @@ class _SettingsScreenContent extends StatelessWidget {
                           color: colors.ink3,
                           size: 16,
                         ),
-                        onTap: () => context.pushNamed(AppRoute.onboarding),
+                        // From Settings this is a look at the screens, not
+                        // a real run, so no step is skipped for being granted.
+                        onTap: () => context.pushNamed(
+                          AppRoute.onboarding,
+                          queryParameters: const {'demo': 'true'},
+                        ),
                       ),
                       if (buildSkipsPaywall) ...[
                         const SizedBox(height: 8),
