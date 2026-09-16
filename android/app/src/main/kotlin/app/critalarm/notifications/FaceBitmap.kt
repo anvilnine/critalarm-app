@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The five faces, drawn for a notification large icon.
@@ -14,7 +15,18 @@ import android.graphics.RectF
  * same character. Change one and change the other.
  */
 object FaceBitmap {
-    fun render(face: CritAlarmFace, sizePx: Int): Bitmap {
+    /**
+     * Five faces at one or two sizes, so this tops out at a handful of
+     * bitmaps. Drawing one is a 192x192 ARGB_8888 render, and the first status
+     * card after Stop asks for it on the main thread, so the second ask must
+     * not pay for it again.
+     */
+    private val cache = ConcurrentHashMap<String, Bitmap>()
+
+    fun render(face: CritAlarmFace, sizePx: Int): Bitmap =
+        cache.getOrPut("${face.name}:$sizePx") { draw(face, sizePx) }
+
+    private fun draw(face: CritAlarmFace, sizePx: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val size = sizePx.toFloat()

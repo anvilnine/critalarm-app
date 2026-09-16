@@ -193,8 +193,13 @@ class MainActivity : FlutterFragmentActivity() {
                 "openPromotedNotificationsSettings" -> {
                     try {
                         startActivity(
+                            // An app-scoped notification screen reads the
+                            // package off EXTRA_APP_PACKAGE. The data URI alone
+                            // opens Settings on the wrong page and throws
+                            // nothing, so the catch below never sees it.
                             Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS).apply {
                                 data = Uri.parse("package:$packageName")
+                                putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
                             },
                         )
                         result.success(true)
