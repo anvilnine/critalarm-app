@@ -229,7 +229,12 @@
     "view_all_messages": {
       "one": "View 1 older message",
       "other": "View {} older messages"
-    }
+    },
+    "delete_button": "Delete topic",
+    "delete_dialog_title": "Delete {topic}?",
+    "delete_dialog_content": "This removes the topic, its tokens and every alarm it has ever raised. Anything still sending to it stops working.",
+    "delete_dialog_confirm": "Delete",
+    "delete_failed": "Could not delete {topic}. {reason}"
   },
   "topic_messages": {
     "empty_title": "No messages yet",
