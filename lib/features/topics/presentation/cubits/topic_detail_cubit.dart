@@ -50,10 +50,16 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
 
   int _buildId = 0;
 
+  /// An acknowledge is still on the wire. Separate from
+  /// [TopicDetailState.isMarkingAsRead], which is only the spinner on the
+  /// button and goes off as soon as the guess is on screen.
+  bool _acking = false;
+
   /// While this screen is making its own change, an upstream emission is
   /// ignored: what the change is about to emit is newer than anything a
   /// rebuild would derive halfway through it.
-  bool get _busy => state.isMarkingAsRead || state.isUpdatingCritical;
+  bool get _busy =>
+      _acking || state.isMarkingAsRead || state.isUpdatingCritical;
 
   Future<void> load(String topicName) async {
     _incidentsSub ??= _incidents.stream.listen(
@@ -262,6 +268,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   /// network or a refused ack must never leave the alarm ringing: the person
   /// pressed the button, so the sound is over whatever the server says next.
   Future<void> markAsRead() async {
+    _acking = true;
     emit(state.copyWith(isMarkingAsRead: true));
 
     // Kill the sound first, by asking for the sound rather than for an id.
@@ -270,57 +277,13 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     await _stopRinging();
     await _silence(state.openIncidentIds);
 
-    await _incidents.refresh();
-    final openIds = _incidents.state
-        .forTopic(state.topicName)
-        .where((i) => i.state == 'open')
-        .map((i) => i.id)
-        .toList();
+    // What the page looked like while it was ringing. Whatever the server
+    // will not take goes back to this.
+    final ringing = state;
+    final targets = state.openIncidentIds.toList();
 
-    // The list the server just gave can hold an incident that opened after the
-    // screen loaded, so silence anything new before acking it.
-    await _silence(
-      openIds.where((id) => !state.openIncidentIds.contains(id)),
-    );
-
-    // Whatever the server would not take stays open. Clearing the list on a
-    // failed ack told the user the page was handled and took the button away,
-    // while the incident was still open and free to ring again. A 409 means
-    // it was already acknowledged somewhere else, which is a success here.
-    final stillOpen = <String>[];
-    final acked = <Incident>[];
-    for (final id in openIds) {
-      final result = await _incidentRepository.ackIncident(id);
-      final failure = result.exceptionOrNull();
-      if (failure == null) {
-        final incident = result.getOrNull();
-        if (incident != null) acked.add(incident);
-        continue;
-      }
-      final alreadyAcked = failure is ApiFailure && failure.statusCode == 409;
-      if (!alreadyAcked) stillOpen.add(id);
-    }
-
-    // Home, History and search all read the same list, so they see this
-    // without asking the server again.
-    _incidents.applyIncidents(acked);
-
-    if (stillOpen.isNotEmpty) {
-      _markUpstreamAccountedFor();
-      emit(
-        state.copyWith(
-          isMarkingAsRead: false,
-          openIncidentIds: stillOpen,
-          errorMessage: LocaleKeys.topic_detail_ack_failed.tr(),
-        ),
-      );
-      return;
-    }
-
-    final clearedMessages = state.messages
-        .map((m) => m.copyWith(isHigh: false))
-        .toList();
-
+    // The page and every other screen move now, before anything is sent.
+    final guesses = _guessAcked(targets);
     _markUpstreamAccountedFor();
     emit(
       state.copyWith(
@@ -328,11 +291,83 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         severity: SeverityMode.none,
         faceState: FaceState.calm,
         word: LocaleKeys.topic_detail_stage_word_clear.tr(),
-        messages: clearedMessages,
+        messages: state.messages.map((m) => m.copyWith(isHigh: false)).toList(),
         openIncidentIds: const [],
         clearError: true,
       ),
     );
+
+    final stillOpen = await _sendAcks(guesses);
+    if (isClosed) return;
+
+    // An incident can open between this page being drawn and Stop being
+    // pressed, so catch up and take those too.
+    await _incidents.refresh();
+    if (isClosed) return;
+    final openedLate = _incidents.state
+        .forTopic(ringing.topicName)
+        .where((i) => i.isOpen && !guesses.containsKey(i.id))
+        .map((i) => i.id)
+        .toList();
+    if (openedLate.isNotEmpty) {
+      await _silence(openedLate);
+      stillOpen.addAll(await _sendAcks(_guessAcked(openedLate)));
+      if (isClosed) return;
+    }
+
+    _acking = false;
+    _markUpstreamAccountedFor();
+
+    // Clearing the list on a failed ack told the user the page was handled
+    // and took the button away, while the incident was still open and free to
+    // ring again.
+    if (stillOpen.isNotEmpty) {
+      emit(
+        ringing.copyWith(
+          isMarkingAsRead: false,
+          openIncidentIds: stillOpen,
+          errorMessage: LocaleKeys.topic_detail_ack_failed.tr(),
+        ),
+      );
+    }
+  }
+
+  /// Marks each of [ids] acknowledged in the shared list, before any request
+  /// goes out. Home, History and search all read that list, so they move on
+  /// the tap too.
+  Map<String, OptimisticAck> _guessAcked(Iterable<String> ids) {
+    final guesses = <String, OptimisticAck>{};
+    for (final id in ids) {
+      final incident = _incidents.state.incidents
+          .where((i) => i.id == id)
+          .firstOrNull;
+      if (incident == null) continue;
+      guesses[id] = _incidents.acknowledgeNow(incident);
+    }
+    return guesses;
+  }
+
+  /// Sends one acknowledge per guess and returns the ids the server would not
+  /// take, having put each of those back in the shared list. A 409 means it
+  /// was already acknowledged somewhere else, which is a success here.
+  Future<List<String>> _sendAcks(Map<String, OptimisticAck> guesses) async {
+    final stillOpen = <String>[];
+    final acked = <Incident>[];
+    for (final entry in guesses.entries) {
+      final result = await _incidentRepository.ackIncident(entry.key);
+      final failure = result.exceptionOrNull();
+      if (failure == null) {
+        final incident = result.getOrNull();
+        if (incident != null) acked.add(incident);
+        continue;
+      }
+      if (failure is ApiFailure && failure.statusCode == 409) continue;
+      stillOpen.add(entry.key);
+      _incidents.revert(entry.value);
+    }
+    // The server's own copies, which carry the real acked_at.
+    _incidents.applyIncidents(acked);
+    return stillOpen;
   }
 
   /// This screen has just written the state it wants from lists it changed
