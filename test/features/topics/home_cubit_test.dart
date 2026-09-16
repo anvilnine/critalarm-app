@@ -1,4 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
+import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/design/components/chips.dart';
@@ -6,6 +8,7 @@ import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
@@ -18,19 +21,26 @@ void main() {
   late MockApiClient apiClient;
   late TopicRepository topicRepo;
   late IncidentRepository incidentRepo;
-  late GetTopicsUsecase getTopicsUsecase;
+  late IncidentsCubit incidentsCubit;
+  late TopicsCubit topicsCubit;
 
   setUp(() {
     server = MockServer();
     apiClient = MockApiClient(server);
     topicRepo = InMemoryTopicRepository(apiClient);
     incidentRepo = InMemoryIncidentRepository(apiClient);
-    getTopicsUsecase = GetTopicsUsecase(topicRepo);
+    incidentsCubit = IncidentsCubit(GetIncidentsUsecase(incidentRepo));
+    topicsCubit = TopicsCubit(GetTopicsUsecase(topicRepo));
+  });
+
+  tearDown(() async {
+    await incidentsCubit.close();
+    await topicsCubit.close();
   });
 
   group('HomeCubit', () {
     test('initial state has calm face and no stage word yet', () {
-      final cubit = HomeCubit(getTopicsUsecase, incidentRepo);
+      final cubit = HomeCubit(incidentsCubit, topicsCubit, incidentRepo);
       expect(cubit.state.status, HomeStatus.initial);
       expect(cubit.state.faceState, FaceState.calm);
       // The stage word is written by load(), so it is blank until then.
@@ -42,7 +52,7 @@ void main() {
       'a calm topic reports how it is set up, not the priority of the last '
       'page it took',
       setUp: () => server.seedCalm(),
-      build: () => HomeCubit(getTopicsUsecase, incidentRepo),
+      build: () => HomeCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
       skip: 1,
       expect: () => [
@@ -72,7 +82,7 @@ void main() {
       'a topic with an open incident is live, so the row shows the priority '
       'that came in',
       setUp: () => server.seedAlarmed(),
-      build: () => HomeCubit(getTopicsUsecase, incidentRepo),
+      build: () => HomeCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
       skip: 1,
       expect: () => [
@@ -87,7 +97,7 @@ void main() {
     blocTest<HomeCubit, HomeState>(
       'calm fixture uses current server data for every topic',
       setUp: () => server.seedCalm(),
-      build: () => HomeCubit(getTopicsUsecase, incidentRepo),
+      build: () => HomeCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
       expect: () => [
         const HomeState(status: HomeStatus.loading),
@@ -143,7 +153,7 @@ void main() {
     blocTest<HomeCubit, HomeState>(
       'worried fixture: emits worried face, 1 warning, severity high',
       setUp: () => server.seedWorried(),
-      build: () => HomeCubit(getTopicsUsecase, incidentRepo),
+      build: () => HomeCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
       expect: () => [
         const HomeState(status: HomeStatus.loading),
@@ -158,7 +168,7 @@ void main() {
     blocTest<HomeCubit, HomeState>(
       'alarmed fixture: emits alarmed face, CRITICAL, severity crit',
       setUp: () => server.seedAlarmed(),
-      build: () => HomeCubit(getTopicsUsecase, incidentRepo),
+      build: () => HomeCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
       expect: () => [
         const HomeState(status: HomeStatus.loading),
@@ -178,7 +188,7 @@ void main() {
     blocTest<HomeCubit, HomeState>(
       'empty/watching fixture: emits watching face, No topics yet',
       setUp: () => server.seedWatching(),
-      build: () => HomeCubit(getTopicsUsecase, incidentRepo),
+      build: () => HomeCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
       expect: () => [
         const HomeState(status: HomeStatus.loading),

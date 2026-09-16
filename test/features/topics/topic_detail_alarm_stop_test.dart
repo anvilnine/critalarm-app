@@ -1,3 +1,5 @@
+import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/failures/failure.dart';
@@ -7,8 +9,9 @@ import 'package:critalarm/features/incidents/data/repositories/in_memory_inciden
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/entities/message.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
-import 'package:critalarm/features/topics/domain/usecases/get_topic_usecase.dart';
+import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -73,8 +76,9 @@ void main() {
   late MockServer server;
   late MockApiClient apiClient;
   late IncidentRepository incidentRepo;
-  late GetTopicUsecase getTopicUsecase;
   late UpdateTopicUsecase updateTopicUsecase;
+  late IncidentsCubit incidentsCubit;
+  late TopicsCubit topicsCubit;
   late FakeAlarmHost alarm;
 
   setUp(() {
@@ -82,18 +86,24 @@ void main() {
     apiClient = MockApiClient(server);
     incidentRepo = InMemoryIncidentRepository(apiClient);
     final topicRepo = InMemoryTopicRepository(apiClient);
-    getTopicUsecase = GetTopicUsecase(topicRepo);
     updateTopicUsecase = UpdateTopicUsecase(topicRepo);
+    incidentsCubit = IncidentsCubit(GetIncidentsUsecase(incidentRepo));
+    topicsCubit = TopicsCubit(GetTopicsUsecase(topicRepo));
     alarm = FakeAlarmHost();
   });
 
-  tearDown(() => alarm.dispose());
+  tearDown(() async {
+    alarm.dispose();
+    await incidentsCubit.close();
+    await topicsCubit.close();
+  });
 
   group('acknowledging stops the ring', () {
     test('load remembers which incidents are open', () async {
       server.seedAlarmed();
       final cubit = TopicDetailCubit(
-        getTopicUsecase,
+        incidentsCubit,
+        topicsCubit,
         updateTopicUsecase,
         incidentRepo,
         alarm: alarm.host,
@@ -107,7 +117,8 @@ void main() {
     test('markAsRead cancels the alarm for every open incident', () async {
       server.seedAlarmed();
       final cubit = TopicDetailCubit(
-        getTopicUsecase,
+        incidentsCubit,
+        topicsCubit,
         updateTopicUsecase,
         incidentRepo,
         alarm: alarm.host,
@@ -130,7 +141,8 @@ void main() {
     test('the alarm is cancelled before the acknowledge goes out', () async {
       server.seedAlarmed();
       final cubit = TopicDetailCubit(
-        getTopicUsecase,
+        incidentsCubit,
+        topicsCubit,
         updateTopicUsecase,
         incidentRepo,
         alarm: alarm.host,
@@ -147,7 +159,8 @@ void main() {
     test('a refused acknowledge still leaves the phone quiet', () async {
       server.seedAlarmed();
       final cubit = TopicDetailCubit(
-        getTopicUsecase,
+        incidentsCubit,
+        topicsCubit,
         updateTopicUsecase,
         _AckAlwaysFails(incidentRepo),
         alarm: alarm.host,
@@ -170,7 +183,8 @@ void main() {
     test('stopRinging is asked for with no incident on the state', () async {
       server.seedAlarmed();
       final cubit = TopicDetailCubit(
-        getTopicUsecase,
+        incidentsCubit,
+        topicsCubit,
         updateTopicUsecase,
         incidentRepo,
         alarm: alarm.host,
@@ -187,7 +201,8 @@ void main() {
     test('a missing alarm host does not stop the acknowledge', () async {
       server.seedAlarmed();
       final cubit = TopicDetailCubit(
-        getTopicUsecase,
+        incidentsCubit,
+        topicsCubit,
         updateTopicUsecase,
         incidentRepo,
       );

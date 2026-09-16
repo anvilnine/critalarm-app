@@ -1,10 +1,13 @@
 import 'package:bloc_test/bloc_test.dart';
+import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
@@ -17,19 +20,26 @@ void main() {
   late MockApiClient apiClient;
   late TopicRepository topicRepo;
   late IncidentRepository incidentRepo;
-  late GetTopicsUsecase getTopicsUsecase;
+  late IncidentsCubit incidentsCubit;
+  late TopicsCubit topicsCubit;
 
   setUp(() {
     server = MockServer();
     apiClient = MockApiClient(server);
     topicRepo = InMemoryTopicRepository(apiClient);
     incidentRepo = InMemoryIncidentRepository(apiClient);
-    getTopicsUsecase = GetTopicsUsecase(topicRepo);
+    incidentsCubit = IncidentsCubit(GetIncidentsUsecase(incidentRepo));
+    topicsCubit = TopicsCubit(GetTopicsUsecase(topicRepo));
+  });
+
+  tearDown(() async {
+    await incidentsCubit.close();
+    await topicsCubit.close();
   });
 
   group('TopicsListCubit', () {
     test('initial state is initial with empty list', () {
-      final cubit = TopicsListCubit(getTopicsUsecase, incidentRepo);
+      final cubit = TopicsListCubit(incidentsCubit, topicsCubit, incidentRepo);
       expect(cubit.state.status, TopicsListStatus.initial);
       expect(cubit.state.topics, isEmpty);
     });
@@ -37,7 +47,7 @@ void main() {
     blocTest<TopicsListCubit, TopicsListState>(
       'loads current topics and derives presentation from server data',
       setUp: () => server.seedCalm(),
-      build: () => TopicsListCubit(getTopicsUsecase, incidentRepo),
+      build: () => TopicsListCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
       expect: () => [
         const TopicsListState(status: TopicsListStatus.loading),
@@ -65,7 +75,7 @@ void main() {
     blocTest<TopicsListCubit, TopicsListState>(
       'loads empty list when server has no topics',
       setUp: () => server.seedWatching(),
-      build: () => TopicsListCubit(getTopicsUsecase, incidentRepo),
+      build: () => TopicsListCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
       expect: () => [
         const TopicsListState(status: TopicsListStatus.loading),
@@ -79,7 +89,7 @@ void main() {
     blocTest<TopicsListCubit, TopicsListState>(
       'reflects worried face on nas-backup in worried fixture',
       setUp: () => server.seedWorried(),
-      build: () => TopicsListCubit(getTopicsUsecase, incidentRepo),
+      build: () => TopicsListCubit(incidentsCubit, topicsCubit, incidentRepo),
       act: (cubit) => cubit.load(),
       expect: () => [
         const TopicsListState(status: TopicsListStatus.loading),
