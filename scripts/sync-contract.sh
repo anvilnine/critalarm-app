@@ -8,7 +8,20 @@ set -euo pipefail
 
 # Local sibling checkout. Override when the server lives somewhere else:
 #   SERVER_REPO=../some/path ./scripts/sync-contract.sh
-SERVER_REPO="${SERVER_REPO:-../critalarm-server}"
+#
+# Plain "../critalarm-server" only works from the main checkout. Inside
+# worktrees/<name> it points at critalarm-app/worktrees/critalarm-server, which
+# does not exist. The common git dir always lives in the main checkout, so we
+# walk back from there instead of from the current folder.
+if [ -z "${SERVER_REPO:-}" ]; then
+  common_dir="$(git rev-parse --git-common-dir 2>/dev/null || true)"
+  if [ -n "$common_dir" ] && [ -d "$common_dir" ]; then
+    main_checkout="$(dirname "$(cd "$common_dir" && pwd)")"
+    SERVER_REPO="$main_checkout/../critalarm-server"
+  else
+    SERVER_REPO="../critalarm-server"
+  fi
+fi
 
 # After critalarm-server is pushed, switch to fetching a pinned commit instead
 # of a sibling folder, so a stale local checkout cannot leak into a build:

@@ -1,4 +1,5 @@
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
@@ -136,7 +137,7 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
         emit(
           state.copyWith(
             step: NotificationPermissionStep.denied,
-            errorMessage: failure.message,
+            errorMessage: failureMessage(failure),
             canNavigate: false,
           ),
         );
