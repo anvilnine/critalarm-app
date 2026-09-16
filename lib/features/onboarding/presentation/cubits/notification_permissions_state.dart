@@ -27,6 +27,8 @@ class NotificationPermissionsState {
     this.canNavigate = false,
     this.alarm = AlarmAuthorization.notDetermined,
     this.liveActivityStarted = false,
+    this.alarmSupported = true,
+    this.isChecking = false,
   });
 
   final NotificationPermissionStep step;
@@ -45,6 +47,17 @@ class NotificationPermissionsState {
   /// True once onboarding has started its one local Live Activity.
   final bool liveActivityStarted;
 
+  /// False where this OS has no alarm permission to ask for: Android, and iOS
+  /// below 26. The step still shows, saying plainly what the phone can do,
+  /// rather than promising a ring the platform will never deliver.
+  final bool alarmSupported;
+
+  /// Re-reading the system state after the user came back from Settings.
+  final bool isChecking;
+
+  /// How many steps the stepper really has on this phone.
+  int get totalSteps => alarmSupported ? 2 : 1;
+
   bool get isRequesting => step == NotificationPermissionStep.requesting;
   bool get isGranted => step == NotificationPermissionStep.granted;
   bool get isDenied => step == NotificationPermissionStep.denied;
@@ -58,6 +71,8 @@ class NotificationPermissionsState {
     bool? canNavigate,
     AlarmAuthorization? alarm,
     bool? liveActivityStarted,
+    bool? alarmSupported,
+    bool? isChecking,
     bool clearError = false,
   }) {
     return NotificationPermissionsState(
@@ -70,6 +85,8 @@ class NotificationPermissionsState {
       canNavigate: canNavigate ?? this.canNavigate,
       alarm: alarm ?? this.alarm,
       liveActivityStarted: liveActivityStarted ?? this.liveActivityStarted,
+      alarmSupported: alarmSupported ?? this.alarmSupported,
+      isChecking: isChecking ?? this.isChecking,
     );
   }
 
@@ -85,7 +102,9 @@ class NotificationPermissionsState {
           errorMessage == other.errorMessage &&
           canNavigate == other.canNavigate &&
           alarm == other.alarm &&
-          liveActivityStarted == other.liveActivityStarted;
+          liveActivityStarted == other.liveActivityStarted &&
+          alarmSupported == other.alarmSupported &&
+          isChecking == other.isChecking;
 
   @override
   int get hashCode => Object.hash(
@@ -97,5 +116,7 @@ class NotificationPermissionsState {
     canNavigate,
     alarm,
     liveActivityStarted,
+    alarmSupported,
+    isChecking,
   );
 }

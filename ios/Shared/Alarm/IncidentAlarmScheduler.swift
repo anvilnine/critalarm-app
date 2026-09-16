@@ -21,6 +21,9 @@ import SwiftUI
 public enum IncidentAlarmScheduler {
     /// How far out the alarm is set. Long enough for the countdown to be
     /// registered, short enough that nobody notices the wait.
+    /// How soon a push-driven alarm rings. A page is already late by the time
+    /// it reaches the phone, so this is only long enough for the countdown
+    /// card to appear. Onboarding's test alarm passes its own, longer delay.
     public static let leadTime: TimeInterval = 3
 
     /// The bundled sound. api.md §5.1 already names it for the APNs payload,
@@ -77,7 +80,8 @@ public enum IncidentAlarmScheduler {
         topic: String,
         server: String,
         title: String,
-        sound: String? = nil
+        sound: String? = nil,
+        delay: TimeInterval = leadTime
     ) async -> Bool {
         guard AlarmManager.shared.authorizationState == .authorized else {
             NSLog(
@@ -112,7 +116,7 @@ public enum IncidentAlarmScheduler {
         )
 
         let configuration = AlarmManager.AlarmConfiguration.timer(
-            duration: leadTime,
+            duration: delay,
             attributes: attributes,
             stopIntent: StopAlarmIntent(incidentId: incidentId),
             sound: .named(sound ?? soundName)
@@ -122,7 +126,7 @@ public enum IncidentAlarmScheduler {
             _ = try await AlarmManager.shared.schedule(id: id, configuration: configuration)
             NSLog(
                 "CritAlarmAlarm: alarm_scheduled incident_id=%@ alarm_id=%@ in=%.0fs sound=%@",
-                incidentId, id.uuidString, leadTime, sound ?? soundName
+                incidentId, id.uuidString, delay, sound ?? soundName
             )
             PendingIncidentStore.write(
                 incidentId: incidentId, topic: topic, server: server,

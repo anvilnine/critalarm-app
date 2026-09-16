@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 /// Simulated native system permission prompt preview.
 ///
 /// Previews the OS-level permission dialog before prompting, visually guiding
-/// the user to choose 'Allow'.
+/// the user to choose 'Allow'. Tapping anywhere on it opens the real prompt,
+/// because people read it as the real thing and tap it.
 class PermissionDialogPreview extends StatelessWidget {
   const PermissionDialogPreview({
     required this.title,
@@ -13,14 +14,28 @@ class PermissionDialogPreview extends StatelessWidget {
     required this.allowLabel,
     required this.denyLabel,
     super.key,
+    this.summaryLabel,
     this.isCritical = false,
+    this.onTap,
+    this.semanticLabel,
   });
 
   final String title;
   final String message;
   final String allowLabel;
   final String denyLabel;
+
+  /// iOS only, and only on the notification ask: the middle choice that files
+  /// pages into the Scheduled Summary instead of delivering them.
+  final String? summaryLabel;
+
   final bool isCritical;
+
+  /// Opens the real system prompt.
+  final VoidCallback? onTap;
+
+  /// What a screen reader announces for the card as a whole.
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -31,14 +46,29 @@ class PermissionDialogPreview extends StatelessWidget {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 340),
-        child: isApple
-            ? _buildIosPreview(context, colors)
-            : _buildAndroidPreview(context, colors),
+        // One control, not three. A screen reader would otherwise read the
+        // drawn Allow / Don't Allow rows as if they were buttons, and tapping
+        // one of them does nothing: the whole card opens the real prompt.
+        child: Semantics(
+          button: true,
+          enabled: onTap != null,
+          label: semanticLabel,
+          excludeSemantics: true,
+          child: GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: isApple
+                ? _buildIosPreview(context, colors)
+                : _buildAndroidPreview(context, colors),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildIosPreview(BuildContext context, AppColors colors) {
+    final summary = summaryLabel;
+
     return Container(
       decoration: BoxDecoration(
         color: colors.surface,
@@ -91,84 +121,76 @@ class PermissionDialogPreview extends StatelessWidget {
               ],
             ),
           ),
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: colors.hairline.withValues(alpha: 0.4),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  alignment: Alignment.center,
-                  child: Text(
-                    denyLabel,
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontWeight: FontWeight.w400,
-                      fontSize: 15,
-                      color: colors.ink3,
-                    ),
+          _hairline(colors),
+
+          // The notification ask has three choices on iOS, so they stack. The
+          // alarm ask has two, so they sit side by side.
+          if (summary != null) ...[
+            _iosRow(colors, allowLabel, isPreferred: true),
+            _hairline(colors),
+            _iosRow(colors, summary, isMuted: true),
+            _hairline(colors),
+            _iosRow(colors, denyLabel, isMuted: true, isLast: true),
+          ] else
+            IntrinsicHeight(
+              child: Row(
+                children: [
+                  Expanded(child: _iosRow(colors, denyLabel, isMuted: true)),
+                  Container(
+                    width: 1,
+                    color: colors.hairline.withValues(alpha: 0.4),
                   ),
-                ),
-              ),
-              Container(
-                width: 1,
-                height: 44,
-                color: colors.hairline.withValues(alpha: 0.4),
-              ),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: colors.ink.withValues(alpha: 0.05),
-                    borderRadius: const BorderRadius.only(
-                      bottomRight: Radius.circular(18),
-                    ),
+                  Expanded(
+                    child: _iosRow(colors, allowLabel, isPreferred: true),
                   ),
-                  alignment: Alignment.center,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        allowLabel,
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontBody,
-                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: colors.ink,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colors.ink,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'TAP',
-                          style: TextStyle(
-                            fontFamily: AppTypography.fontMono,
-                            fontFamilyFallback:
-                                AppTypography.fontMonoFallbacks,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 9,
-                            color: colors.canvas,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ),
-            ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _hairline(AppColors colors) => Container(
+    height: 1,
+    color: colors.hairline.withValues(alpha: 0.4),
+  );
+
+  /// One choice in the iOS alert. The preferred one is filled and bold, the
+  /// rest are dimmed, so the eye lands on the one that keeps pages coming.
+  /// No marker points at it: Apple's HIG bans drawing a cue at Allow.
+  Widget _iosRow(
+    AppColors colors,
+    String label, {
+    bool isPreferred = false,
+    bool isMuted = false,
+    bool isLast = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
+      decoration: BoxDecoration(
+        color: isPreferred ? colors.ink.withValues(alpha: 0.05) : null,
+        borderRadius: isLast
+            ? const BorderRadius.vertical(bottom: Radius.circular(18))
+            : null,
+      ),
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                fontWeight: isPreferred ? FontWeight.w700 : FontWeight.w400,
+                fontSize: 15,
+                color: isMuted ? colors.ink3 : colors.ink,
+              ),
+            ),
           ),
         ],
       ),
@@ -258,41 +280,15 @@ class PermissionDialogPreview extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: colors.ink.withValues(alpha: 0.2)),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      allowLabel,
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontBody,
-                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        color: colors.ink,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.ink,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: Text(
-                        'TAP',
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontMono,
-                          fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 9,
-                          color: colors.canvas,
-                        ),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  allowLabel,
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontBody,
+                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: colors.ink,
+                  ),
                 ),
               ),
             ],

@@ -49,6 +49,7 @@ import 'package:critalarm/features/onboarding/domain/repositories/connection_rep
 import 'package:critalarm/features/onboarding/domain/repositories/notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
@@ -56,6 +57,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/establish_api_sess
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/open_notification_settings_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/request_notification_permission_usecase.dart';
@@ -244,7 +246,7 @@ Future<void> configureDependencies({
       PlatformNotificationPermissionRepository.new,
     )
     ..registerLazySingleton<DevicePermissionsRepository>(
-      PlatformDevicePermissionsRepository.new,
+      () => PlatformDevicePermissionsRepository(alarm: getIt<AlarmHost>()),
     )
     ..registerLazySingleton<SubscriptionRepository>(
       () => buildSkipsPaywall
@@ -259,6 +261,11 @@ Future<void> configureDependencies({
     ..registerLazySingleton(
       () => OpenPermissionSettingsUsecase(
         getIt<DevicePermissionsRepository>(),
+      ),
+    )
+    ..registerLazySingleton(
+      () => CheckNotificationPermissionUsecase(
+        getIt<NotificationPermissionRepository>(),
       ),
     )
     ..registerLazySingleton(
@@ -338,9 +345,18 @@ Future<void> configureDependencies({
       () => CompleteOnboardingUsecase(getIt<OnboardingProgressRepository>()),
     )
     ..registerLazySingleton(
+      () => ReadOnboardingDraftUsecase(getIt<OnboardingProgressRepository>()),
+    )
+    ..registerLazySingleton(
+      () => SaveOnboardingDraftUsecase(getIt<OnboardingProgressRepository>()),
+    )
+    ..registerLazySingleton(
+      () => ClearOnboardingDraftUsecase(getIt<OnboardingProgressRepository>()),
+    )
+    ..registerLazySingleton(
       () => InitialRouteResolver(
-        getIt<GetConnectionUsecase>(),
         getIt<GetOnboardingCompletedUsecase>(),
+        getIt<ReadOnboardingDraftUsecase>(),
       ),
     )
     ..registerLazySingleton(
@@ -448,12 +464,14 @@ Future<void> configureDependencies({
     ..registerFactoryParam<
       NotificationPermissionsCubit,
       NotificationPermissionStep?,
-      void
+      bool?
     >(
-      (initialStep, _) => NotificationPermissionsCubit(
+      (initialStep, replayForDemo) => NotificationPermissionsCubit(
         getIt<RequestNotificationPermissionUsecase>(),
         getIt<OpenNotificationSettingsUsecase>(),
         alarm: getIt<AlarmHost>(),
+        checkPermission: getIt<CheckNotificationPermissionUsecase>(),
+        replayForDemo: replayForDemo ?? false,
         initialStep: initialStep ?? NotificationPermissionStep.initial,
       ),
     )
@@ -467,6 +485,8 @@ Future<void> configureDependencies({
         getConnection: getIt<GetConnectionUsecase>(),
         getTopics: getIt<GetTopicsUsecase>(),
         alarmHost: getIt<AlarmHost>(),
+        readDraft: getIt<ReadOnboardingDraftUsecase>(),
+        saveDraft: getIt<SaveOnboardingDraftUsecase>(),
         initialConnected: initialConnected ?? false,
       ),
     )
