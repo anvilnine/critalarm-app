@@ -1,10 +1,10 @@
+import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
 /// Says so, on the screen the user actually opens, when a device setting is
 /// off and a page would not reach them.
@@ -84,7 +84,10 @@ class _Banner extends StatelessWidget {
               label: LocaleKeys.setup_health_banner_button.tr(),
               size: AppButtonSize.sm,
               isFullWidth: true,
-              onPressed: () => context.push('/settings/permissions'),
+              // This banner draws on Home but the fix lives on the
+              // Settings tab, so opening it moves the tab bar too.
+              onPressed: () =>
+                  openAppPath(context, '/settings/permissions'),
             ),
           ],
         ),

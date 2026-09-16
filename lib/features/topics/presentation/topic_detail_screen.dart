@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/router.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
@@ -205,8 +206,9 @@ class _TopicDetailScreenContent extends StatelessWidget {
                             color: context.appColors.ink3,
                             size: 16,
                           ),
-                          onTap: () => context.push(
-                            '/settings/sounds?topic=${state.topicName}',
+                          onTap: () => context.pushNamed(
+                            AppRoute.soundPicker,
+                            queryParameters: {'topic': state.topicName},
                           ),
                         ),
                         AppSectionHeader(

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/router.dart';
+import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/glyphs.dart';
@@ -168,6 +170,7 @@ class _AppShellContentState extends State<_AppShellContent>
   Future<void> _openResult(SearchResult result) async {
     AppHaptics.selection();
     final router = GoRouter.of(context);
+    final fromBranch = widget.navigationShell.currentIndex;
     await _search.recordSearch(_search.state.query);
 
     final url = result.externalUrl;
@@ -184,7 +187,17 @@ class _AppShellContentState extends State<_AppShellContent>
     final path = result.routePath;
     if (path == null) return;
     _closeSearch();
-    unawaited(router.push<void>(path));
+
+    // Search opens from any tab, so a settings row can be tapped from
+    // Topics. Switch tabs on purpose in that case: a push would move
+    // the shell to Settings silently and the tab bar would then
+    // ignore the next tap on Settings.
+    final branch = shellBranchForPath(path);
+    if (branch != null && branch != fromBranch) {
+      router.go(path);
+    } else {
+      unawaited(router.push<void>(path));
+    }
   }
 
   String get _placeholder => switch (_scope) {
@@ -256,7 +269,7 @@ class _AppShellContentState extends State<_AppShellContent>
                     items: items,
                     onSelect: _goBranch,
                     composeLabel: LocaleKeys.nav_new_topic.tr(),
-                    onCompose: () => context.pushNamed('createTopic'),
+                    onCompose: () => context.pushNamed(AppRoute.createTopic),
                     searchLabel: LocaleKeys.search_open_aria_label.tr(),
                     onSearch: _openSearch,
                   ),
@@ -339,7 +352,7 @@ class _AppShellContentState extends State<_AppShellContent>
       items: items,
       onSelect: _goBranch,
       composeLabel: LocaleKeys.nav_new_topic.tr(),
-      onCompose: () => context.pushNamed('createTopic'),
+      onCompose: () => context.pushNamed(AppRoute.createTopic),
       searchLabel: LocaleKeys.search_open_aria_label.tr(),
       onSearch: _openSearch,
       isSearching: _isSearching,

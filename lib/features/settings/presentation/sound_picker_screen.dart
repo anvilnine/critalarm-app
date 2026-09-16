@@ -85,7 +85,7 @@ class _SoundPickerView extends StatelessWidget {
                 if (context.canPop()) {
                   context.pop();
                 } else {
-                  context.go('/settings');
+                  context.go('/');
                 }
               },
             ),
@@ -197,7 +197,7 @@ class _SoundPickerView extends StatelessWidget {
                               if (context.canPop()) {
                                 context.pop();
                               } else {
-                                context.go('/settings');
+                                context.go('/');
                               }
                             },
                           ),
