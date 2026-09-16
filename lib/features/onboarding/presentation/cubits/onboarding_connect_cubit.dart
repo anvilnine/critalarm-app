@@ -56,7 +56,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   /// How long the onboarding test alarm waits before it rings. The countdown
   /// on screen and the alarm the OS holds are both set from this, so they
   /// cannot drift apart.
-  static const testAlarmDelaySeconds = 30;
+  static const testAlarmDelaySeconds = 5;
 
   Future<void> loadConnection() async {
     // What the user typed and where they had got to last time, first: a
@@ -356,7 +356,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   /// killed before the countdown ends. When the platform cannot set one, the
   /// countdown is skipped rather than run in silence and then congratulate
   /// the user for a ring that never happened.
-  Future<void> startLocal30sAlarm() async {
+  Future<void> startLocalTestAlarm() async {
     _countdownTimer?.cancel();
 
     final host = alarmHost;

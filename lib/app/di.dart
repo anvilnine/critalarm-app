@@ -568,6 +568,11 @@ Future<void> configureDependencies({
         getIt<CloseIncidentUsecase>(),
         getIt<IncidentsCubit>(),
         getIt<AlarmHost>(),
+        // The two defaults, spelled out so the onboarding flag after them can
+        // be passed at all. Only a test overrides either.
+        const Duration(seconds: 1),
+        null,
+        getIt<GetOnboardingCompletedUsecase>(),
       ),
     )
     ..registerFactory(
