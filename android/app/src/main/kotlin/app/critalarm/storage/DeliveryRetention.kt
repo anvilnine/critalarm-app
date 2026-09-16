@@ -21,12 +21,18 @@ object DeliveryRetention {
     /**
      * True when this incident's keys can go.
      *
-     * An incident counts as finished once it is acknowledged or closed, and
-     * [ackedAtMillis] is when that happened. Null means the row was written by
-     * a build that did not record the instant, which makes it older than
-     * anything this one wrote.
+     * A row goes only once the incident is closed, and [ackedAtMillis] is when
+     * the user stopped the alarm. Null means the row was written by a build
+     * that did not record the instant, which makes it older than anything this
+     * one wrote.
      *
-     * A ringing incident is never stale, whatever the clock says.
+     * A ringing incident is never stale, whatever the clock says, and neither
+     * is an acked one the server has not finished with. That row is a card
+     * still on the lock screen: launch reconcile reads the id off
+     * [IncidentDeliveryStore.acknowledgedIncidentIds] to take the card down,
+     * and dropping the acked flag lets the next repeat push ring an incident
+     * the user already answered. Reconcile closes the row when the server says
+     * the incident is over, and the window runs from there.
      */
     fun isStale(
         acknowledged: Boolean,
@@ -34,7 +40,7 @@ object DeliveryRetention {
         ackedAtMillis: Long?,
         nowMillis: Long,
     ): Boolean {
-        if (!acknowledged && !closed) return false
+        if (!acknowledged || !closed) return false
         val ackedAt = ackedAtMillis ?: return true
         return nowMillis - ackedAt >= WINDOW_MS
     }

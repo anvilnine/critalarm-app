@@ -38,16 +38,37 @@ class AlarmStopRuleTest {
     }
 
     /**
-     * The rule above is only worth having if the channel asks it. A pure test
-     * cannot reach a Service, so this reads the one call site instead.
+     * The rule above is only worth having if every caller asks it. A pure test
+     * cannot reach a Service, so this reads the call sites instead.
      */
     @Test
     fun `the channel asks the rule before it stops the service`() {
-        val channel = File("src/main/kotlin/app/critalarm/alarm/AlarmChannel.kt")
-        assertTrue("expected ${channel.absolutePath}", channel.isFile)
-        assertTrue(
-            "AlarmChannel.stop must guard stopService with AlarmStopRule",
-            channel.readText().contains("if (AlarmStopRule.stopsService("),
+        assertGuardsStopService(
+            "src/main/kotlin/app/critalarm/alarm/AlarmChannel.kt",
         )
+    }
+
+    /**
+     * The Stop button on the notification goes through here, and it used to
+     * stop the service on sight. A card can outlive its own alarm: a late
+     * enrichment re-posts the alarm card for an incident that stopped being
+     * the ringing one seconds ago, and its Stop then killed a live alarm
+     * nobody had acknowledged.
+     */
+    @Test
+    fun `the notification ack route asks the rule before it stops the service`() {
+        assertGuardsStopService(
+            "src/main/kotlin/app/critalarm/actions/IncidentActionReceiver.kt",
+        )
+    }
+
+    private fun assertGuardsStopService(path: String) {
+        val source = File(path)
+        assertTrue("expected ${source.absolutePath}", source.isFile)
+        val text = source.readText()
+        val guard = text.indexOf("if (AlarmStopRule.stopsService(")
+        val stop = text.indexOf("stopService(Intent(")
+        assertTrue("$path must guard stopService with AlarmStopRule", guard >= 0)
+        assertTrue("$path calls stopService with no guard before it", stop > guard)
     }
 }

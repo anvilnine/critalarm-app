@@ -53,11 +53,34 @@ void main() {
 
     test('the alarm is cancelled before the acknowledge goes out', () async {
       await cubit.load();
+      final id = cubit.state.incident!.id;
       alarm.calls.clear();
 
       await cubit.acknowledge();
 
-      expect(alarm.calls.first.method, 'stopRinging');
+      expect(alarm.calls.first.method, 'cancelAlarm');
+      expect(alarm.argsTo('cancelAlarm').first['incident_id'], id);
+    });
+
+    test('acknowledge never asks for a stop with no id on it', () async {
+      // One alarm service for the whole app. stopRinging names no incident,
+      // so acking the incident on screen used to silence whatever else was
+      // ringing, un-acknowledged, with its card still up.
+      await cubit.load();
+      alarm.calls.clear();
+
+      await cubit.acknowledge();
+
+      expect(alarm.callsTo('stopRinging'), isEmpty);
+    });
+
+    test('closing never asks for a stop with no id on it', () async {
+      await cubit.load();
+      alarm.calls.clear();
+
+      await cubit.closeIncident();
+
+      expect(alarm.callsTo('stopRinging'), isEmpty);
     });
 
     test('closing cancels the alarm too', () async {

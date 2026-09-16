@@ -1,5 +1,6 @@
 import 'package:critalarm/core/alarm/alarm_trigger_path.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/incident.dart';
@@ -7,6 +8,19 @@ import 'package:critalarm/core/push/incident_push.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_alarm_host.dart';
+
+/// Answers `GET /v1/incidents/{id}` with one status, whatever is asked for.
+/// [MockServer] only ever says 404 for an incident it does not hold, and 410
+/// is the other answer a relay gives for one it has purged.
+class GoneApiClient extends MockApiClient {
+  GoneApiClient(super.server, this.statusCode);
+
+  final int statusCode;
+
+  @override
+  Future<Incident> getIncident(String id) async =>
+      throw ApiException(statusCode: statusCode, message: 'gone');
+}
 
 IncidentPush push(IncidentPushKind kind, {String id = 'inc_one'}) =>
     IncidentPush(
@@ -203,6 +217,21 @@ void main() {
       await build().reconcile();
 
       expect(fake.argsOnce('cancelAlarm')['incident_id'], 'inc_purged');
+      expect(fake.argsOnce('endActivity')['state'], 'expired');
+    });
+
+    test('a 410 takes the card down the same way a 404 does', () async {
+      // A relay answers 410 for an incident it purged on purpose, and 404 for
+      // one it has no record of. Both mean the card has nothing behind it.
+      fake.answers['showingIncidentIds'] = <String>['inc_gone'];
+
+      await IncidentAlarmController(
+        host: fake.host,
+        api: GoneApiClient(server, 410),
+        path: AlarmTriggerPath.appBackgroundPush,
+      ).reconcile();
+
+      expect(fake.argsOnce('cancelAlarm')['incident_id'], 'inc_gone');
       expect(fake.argsOnce('endActivity')['state'], 'expired');
     });
 
