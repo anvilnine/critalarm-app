@@ -56,7 +56,7 @@ class _HomeScreenContent extends StatefulWidget {
 }
 
 class _HomeScreenContentState extends State<_HomeScreenContent>
-    with WidgetsBindingObserver, RouteAware {
+    with RouteAware {
   String? _selectedTopic;
 
   /// The incident this screen has already handed over for. Kept so backing out
@@ -71,7 +71,6 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _startTourIfNew());
   }
 
@@ -102,7 +101,6 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   void dispose() {
     _tourTimer?.cancel();
     appRouteObserver.unsubscribe(this);
-    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -111,14 +109,6 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   @override
   void didPopNext() {
     if (!mounted) return;
-    unawaited(context.read<HomeCubit>().refresh());
-  }
-
-  /// Coming back to the app reloads the list. A page can land while the phone
-  /// is in a pocket, and the whole point of this screen is to show it.
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || !mounted) return;
     unawaited(context.read<HomeCubit>().refresh());
   }
 

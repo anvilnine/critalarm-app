@@ -1,10 +1,13 @@
+import 'dart:async';
+
+import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
-import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/search/domain/entities/docs_page.dart';
 import 'package:critalarm/features/search/domain/entities/search_result.dart';
 import 'package:critalarm/features/search/domain/entities/search_scope.dart';
@@ -17,7 +20,6 @@ import 'package:critalarm/features/search/domain/usecases/get_docs_index_usecase
 import 'package:critalarm/features/search/domain/usecases/get_recent_searches_usecase.dart';
 import 'package:critalarm/features/search/presentation/cubits/search_state.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
-import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -31,8 +33,8 @@ class SearchCubit extends Cubit<SearchState> {
   // The private fields below are named parameters at the call site under their
   // public names: `getTopics:`, `getIncidents:`, and so on.
   SearchCubit({
-    required this._getTopics,
-    required this._getIncidents,
+    required this._topics,
+    required this._incidents,
     required this._getDocsIndex,
     required this._getRecentSearches,
     required this._addRecentSearch,
@@ -42,8 +44,8 @@ class SearchCubit extends Cubit<SearchState> {
   }) : _now = now ?? DateTime.now,
        super(const SearchState());
 
-  final GetTopicsUsecase _getTopics;
-  final GetIncidentsUsecase _getIncidents;
+  final TopicsCubit _topics;
+  final IncidentsCubit _incidents;
   final GetDocsIndexUsecase _getDocsIndex;
   final GetRecentSearchesUsecase _getRecentSearches;
   final AddRecentSearchUsecase _addRecentSearch;
@@ -55,40 +57,46 @@ class SearchCubit extends Cubit<SearchState> {
   /// past alarms, settings, documentation.
   List<SearchResult> _catalogue = const <SearchResult>[];
 
+  /// The documentation index, read once. It ships with the app, so nothing
+  /// changes it while search is open.
+  List<DocsPage> _docs = const <DocsPage>[];
+
+  StreamSubscription<IncidentsState>? _incidentsSub;
+  StreamSubscription<TopicsState>? _topicsSub;
+
+  /// The lists the catalogue was built from.
+  List<Incident>? _seenIncidents;
+  List<Topic>? _seenTopics;
+
   /// Loads the catalogue and the recent searches.
   ///
   /// Settings and documentation are always available, so a failure to read
   /// topics or past alarms narrows the results rather than failing the screen.
+  /// Topics and past alarms come from the app-level cubits, so opening search
+  /// does not fetch what another screen already has.
   Future<void> load({SearchScope? scope}) async {
     emit(state.copyWith(status: SearchStatus.loading, scope: scope));
 
+    _incidentsSub ??= _incidents.stream.listen((_) => _rebuildCatalogue());
+    _topicsSub ??= _topics.stream.listen((_) => _rebuildCatalogue());
+
     // Started together, awaited one at a time, so all four run at once and
     // each keeps its own type.
-    final topicsCall = _getTopics(const NoParams());
-    final incidentsCall = _getIncidents(const GetIncidentsParams(limit: 200));
+    final topicsCall = _topics.ensureLoaded();
+    final incidentsCall = _incidents.ensureLoaded();
     final docsCall = _getDocsIndex(const NoParams());
     final recentCall = _getRecentSearches(const NoParams());
 
-    final topics = (await topicsCall).getOrNull() ?? const <Topic>[];
-    final incidents = (await incidentsCall).getOrNull() ?? const <Incident>[];
-    final docs = (await docsCall).getOrNull() ?? const <DocsPage>[];
+    await topicsCall;
+    await incidentsCall;
+    _docs = (await docsCall).getOrNull() ?? const <DocsPage>[];
     final recent = (await recentCall).getOrNull() ?? const <String>[];
 
     if (isClosed) return;
 
-    // Which topics are ringing right now, so a topic result wears the same
-    // face it wears on the Topics list.
-    final ringing = <String>{
-      for (final incident in incidents)
-        if (incident.isOpen) incident.topic,
-    };
-
-    _catalogue = <SearchResult>[
-      ..._topicResults(topics, ringing),
-      ..._historyResults(incidents),
-      ..._settingsResults(),
-      ..._docsResults(docs),
-    ];
+    _catalogue = _buildCatalogue();
+    _seenIncidents = _incidents.state.incidents;
+    _seenTopics = _topics.state.topics;
 
     emit(
       state.copyWith(
@@ -98,6 +106,48 @@ class SearchCubit extends Cubit<SearchState> {
         clearError: true,
       ),
     );
+  }
+
+  /// A topic created or an alarm acknowledged elsewhere changes what search
+  /// should find, so the catalogue is rebuilt in place.
+  void _rebuildCatalogue() {
+    if (isClosed || state.status != SearchStatus.ready) return;
+    final incidents = _incidents.state.incidents;
+    final topics = _topics.state.topics;
+    if (identical(incidents, _seenIncidents) &&
+        identical(topics, _seenTopics)) {
+      return;
+    }
+    _seenIncidents = incidents;
+    _seenTopics = topics;
+    _catalogue = _buildCatalogue();
+    emit(state.copyWith(results: _rank(state.query)));
+  }
+
+  List<SearchResult> _buildCatalogue() {
+    final topics = _topics.state.topics;
+    final incidents = _incidents.state.incidents;
+
+    // Which topics are ringing right now, so a topic result wears the same
+    // face it wears on the Topics list.
+    final ringing = <String>{
+      for (final incident in incidents)
+        if (incident.isOpen) incident.topic,
+    };
+
+    return <SearchResult>[
+      ..._topicResults(topics, ringing),
+      ..._historyResults(incidents),
+      ..._settingsResults(),
+      ..._docsResults(_docs),
+    ];
+  }
+
+  @override
+  Future<void> close() async {
+    await _incidentsSub?.cancel();
+    await _topicsSub?.cancel();
+    return super.close();
   }
 
   /// Re-ranks against the catalogue already in memory.

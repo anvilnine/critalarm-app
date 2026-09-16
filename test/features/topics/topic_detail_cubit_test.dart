@@ -1,13 +1,16 @@
 import 'package:bloc_test/bloc_test.dart';
+import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
-import 'package:critalarm/features/topics/domain/usecases/get_topic_usecase.dart';
+import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
@@ -18,22 +21,30 @@ void main() {
   late MockApiClient apiClient;
   late TopicRepository topicRepo;
   late IncidentRepository incidentRepo;
-  late GetTopicUsecase getTopicUsecase;
   late UpdateTopicUsecase updateTopicUsecase;
+  late IncidentsCubit incidentsCubit;
+  late TopicsCubit topicsCubit;
 
   setUp(() {
     server = MockServer();
     apiClient = MockApiClient(server);
     topicRepo = InMemoryTopicRepository(apiClient);
     incidentRepo = InMemoryIncidentRepository(apiClient);
-    getTopicUsecase = GetTopicUsecase(topicRepo);
     updateTopicUsecase = UpdateTopicUsecase(topicRepo);
+    incidentsCubit = IncidentsCubit(GetIncidentsUsecase(incidentRepo));
+    topicsCubit = TopicsCubit(GetTopicsUsecase(topicRepo));
+  });
+
+  tearDown(() async {
+    await incidentsCubit.close();
+    await topicsCubit.close();
   });
 
   group('TopicDetailCubit', () {
     test('critical delivery defaults to false in initial state', () {
       final cubit = TopicDetailCubit(
-        getTopicUsecase,
+        incidentsCubit,
+        topicsCubit,
         updateTopicUsecase,
         incidentRepo,
       );
@@ -45,7 +56,8 @@ void main() {
       'loads nas-backup from the current server response',
       setUp: () => server.seedWorried(),
       build: () => TopicDetailCubit(
-        getTopicUsecase,
+        incidentsCubit,
+        topicsCubit,
         updateTopicUsecase,
         incidentRepo,
       ),
@@ -70,7 +82,8 @@ void main() {
       'toggleCriticalDelivery updates topic on server and emits new state',
       setUp: () => server.seedCalm(),
       build: () => TopicDetailCubit(
-        getTopicUsecase,
+        incidentsCubit,
+        topicsCubit,
         updateTopicUsecase,
         incidentRepo,
       ),
@@ -101,7 +114,8 @@ void main() {
       'markAsRead clears high severity and returns face to calm',
       setUp: () => server.seedWorried(),
       build: () => TopicDetailCubit(
-        getTopicUsecase,
+        incidentsCubit,
+        topicsCubit,
         updateTopicUsecase,
         incidentRepo,
       ),
@@ -139,7 +153,8 @@ void main() {
       'emits failure state when topic not found',
       setUp: () => server.seedCalm(),
       build: () => TopicDetailCubit(
-        getTopicUsecase,
+        incidentsCubit,
+        topicsCubit,
         updateTopicUsecase,
         incidentRepo,
       ),

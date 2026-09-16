@@ -1,3 +1,4 @@
+import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -9,7 +10,6 @@ import 'package:critalarm/features/incidents/domain/usecases/acknowledge_inciden
 import 'package:critalarm/features/incidents/domain/usecases/close_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
-import 'package:critalarm/features/incidents/domain/usecases/update_incident_badge_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -22,7 +22,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     this._getIncidents,
     this._acknowledgeIncident,
     this._closeIncident, [
-    this._updateBadge,
+    this._incidents,
     this._alarm,
   ]) : super(const CriticalAlarmState());
 
@@ -31,9 +31,11 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   final AcknowledgeIncidentUsecase _acknowledgeIncident;
   final CloseIncidentUsecase _closeIncident;
 
-  /// Keeps the app icon showing how many incidents are still open. Optional so
-  /// a test can build the cubit without a platform channel behind it.
-  final UpdateIncidentBadgeUsecase? _updateBadge;
+  /// The shared incident list. What the server answers to an acknowledge or a
+  /// close goes in here, so every other screen and the app icon badge follow
+  /// without asking the server again. Optional so a test can build the cubit
+  /// without it.
+  final IncidentsCubit? _incidents;
 
   /// Stops the ring on this device. Optional so a test can build the cubit
   /// without a platform channel behind it.
@@ -168,6 +170,8 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
           namedArgs: {'time': timeStr},
         );
 
+        // Home, the topic, History and search all read the same list.
+        _incidents?.applyIncident(updatedIncident);
         emit(
           state.copyWith(
             status: CriticalAlarmStatus.acknowledged,
@@ -224,7 +228,6 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         }
       },
     );
-    await _updateBadge?.call();
   }
 
   /// How long this incident has been ringing, right now. The string used to
@@ -246,6 +249,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     final result = await _closeIncident(incidentId);
     result.fold(
       (closedIncident) {
+        _incidents?.applyIncident(closedIncident);
         emit(
           state.copyWith(
             status: CriticalAlarmStatus.closed,
@@ -261,7 +265,6 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         emit(state.copyWith(errorMessage: failure.message));
       },
     );
-    await _updateBadge?.call();
   }
 
   void _applyIncident(Incident incident) {
