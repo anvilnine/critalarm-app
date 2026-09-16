@@ -70,6 +70,23 @@ void main() {
       expect(cancelled(), contains(id));
     });
 
+    test('the card that takes over is handed the text on screen', () async {
+      await cubit.load();
+      final title = cubit.state.title;
+      final body = cubit.state.body;
+      alarm.calls.clear();
+
+      await cubit.acknowledge();
+
+      final args = alarm.argsTo('cancelAlarm').single;
+      // Without these the acked card reads "Critical incident" for as long as
+      // its own fetch keeps failing, while the screen behind it says what
+      // actually happened.
+      expect(title, isNotEmpty);
+      expect(args['title'], title);
+      expect(args['body'], body);
+    });
+
     test('acknowledge hands the card over to the acked one', () async {
       await cubit.load();
       alarm.calls.clear();

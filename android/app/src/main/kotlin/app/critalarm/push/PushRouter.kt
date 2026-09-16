@@ -25,7 +25,14 @@ import app.critalarm.storage.PushEventLog
  */
 object SingleCardRule {
     fun showsAlarmCard(ringing: Boolean) = ringing
-    fun showsStatusCard(ringing: Boolean) = !ringing
+
+    /**
+     * [handsOver] false is an alarm with no incident behind it, which is the
+     * onboarding demo. Stopping it leaves no card: an acked card is ongoing,
+     * so it cannot be swiped away, and its Done button would close an incident
+     * that does not exist.
+     */
+    fun showsStatusCard(ringing: Boolean, handsOver: Boolean = true) = !ringing && handsOver
 }
 
 /**

@@ -16,4 +16,12 @@ class SingleCardRuleTest {
         assertFalse(SingleCardRule.showsAlarmCard(ringing = false))
         assertTrue(SingleCardRule.showsStatusCard(ringing = false))
     }
+
+    @Test
+    fun `an alarm with no incident behind it leaves no card`() {
+        // The onboarding demo. Stop on its notification used to post an acked
+        // card for inc_demo: ongoing, so it could not be swiped away, and its
+        // Done button POSTed a close for an incident the server never had.
+        assertFalse(SingleCardRule.showsStatusCard(ringing = false, handsOver = false))
+    }
 }

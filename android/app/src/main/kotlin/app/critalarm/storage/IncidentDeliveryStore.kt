@@ -68,15 +68,63 @@ class IncidentDeliveryStore(context: Context) {
      * A closed incident is also an acknowledged one, so a repeat push that
      * crosses the close still gets dropped instead of ringing.
      */
-    fun markClosed(incidentId: String) {
+    fun markClosed(incidentId: String, atMillis: Long = System.currentTimeMillis()) {
         preferences.edit()
             .putBoolean("closed:$incidentId", true)
             .putBoolean("acknowledged:$incidentId", true)
+            // Dated, because [prune] reads this to tell an incident that
+            // finished weeks ago from one that finished a minute ago. A close
+            // that follows an ack keeps the ack's instant.
+            .putLong("acked_at:$incidentId", acknowledgedAtMillis(incidentId) ?: atMillis)
             .remove("active:$incidentId")
             .apply()
     }
 
     fun rememberDeskTimerFiresAt(incidentId: String, millis: Long) {
         preferences.edit().putLong("desk_timer_fires_at:$incidentId", millis).apply()
+    }
+
+    /**
+     * Drops every key of every incident past the retention window. See
+     * [DeliveryRetention] for the window and why it is that long.
+     *
+     * Called on launch, from the same channel call that reads
+     * [acknowledgedIncidentIds], because that list is the thing that grew: a
+     * purged incident answers 404 for good, and each one cost another server
+     * call on every cold start.
+     */
+    fun prune(nowMillis: Long = System.currentTimeMillis()) {
+        val stale = incidentIds().filter { incidentId ->
+            DeliveryRetention.isStale(
+                acknowledged = isAcknowledged(incidentId),
+                closed = isClosed(incidentId),
+                ackedAtMillis = acknowledgedAtMillis(incidentId),
+                nowMillis = nowMillis,
+            )
+        }
+        if (stale.isEmpty()) return
+        val edit = preferences.edit()
+        for (incidentId in stale) {
+            for (prefix in PREFIXES) edit.remove("$prefix$incidentId")
+        }
+        edit.apply()
+    }
+
+    /** Every incident this store holds anything about. */
+    private fun incidentIds(): Set<String> = preferences.all.keys
+        .mapNotNull { key ->
+            PREFIXES.firstOrNull { key.startsWith(it) }?.let { key.removePrefix(it) }
+        }
+        .filter { it.isNotEmpty() }
+        .toSet()
+
+    private companion object {
+        val PREFIXES = listOf(
+            "active:",
+            "acknowledged:",
+            "closed:",
+            "acked_at:",
+            "desk_timer_fires_at:",
+        )
     }
 }

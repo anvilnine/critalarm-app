@@ -38,25 +38,43 @@ class IncidentActionReceiver : BroadcastReceiver() {
         // long as the enrichment fails.
         val title = intent.getStringExtra(EXTRA_TITLE)?.takeIf(String::isNotEmpty)
         val body = intent.getStringExtra(EXTRA_BODY)?.takeIf(String::isNotEmpty)
+        // False on the onboarding demo alarm, which is scheduled locally and
+        // has no incident behind it. It comes from the alarm that posted this
+        // button, so nothing here has to recognise an id.
+        val handOver = intent.getBooleanExtra(EXTRA_HAND_OVER, true)
         // The desk timer starts when the user stops the alarm, so the refresh
         // that follows the fetch counts from here too and not from whenever
         // the network answered.
         val ackedAtMillis = System.currentTimeMillis()
         val deliveries = IncidentDeliveryStore(context)
+        val manager = context.getSystemService(NotificationManager::class.java)
         if (route.action == IncidentAction.ACK) {
-            deliveries.markAcknowledged(incidentId, ackedAtMillis)
+            // A demo alarm is over the moment it is stopped. Marking it closed
+            // rather than acknowledged is what keeps it out of the list launch
+            // reconcile walks.
+            if (handOver) {
+                deliveries.markAcknowledged(incidentId, ackedAtMillis)
+            } else {
+                deliveries.markClosed(incidentId, ackedAtMillis)
+            }
             context.stopService(Intent(context, AlarmForegroundService::class.java))
             Log.i(TAG, "alarm_service_stopped incident_id=$incidentId")
             // The alarm card goes whether or not a status card can take its
             // place. A promoted RINGING card left on a stopped alarm is worse
             // than a gap.
-            context.getSystemService(NotificationManager::class.java)
-                .cancel(AlarmNotificationFactory.notificationId(incidentId))
+            manager.cancel(AlarmNotificationFactory.notificationId(incidentId))
             // The alarm has stopped, so the card changes hands. SingleCardRule
             // gives one incident one card, and a promoted alarm card left
             // beside a promoted status card puts two chips in the status bar.
             val ringing = !deliveries.isAcknowledged(incidentId)
-            if (server != null && SingleCardRule.showsStatusCard(ringing)) {
+            val handsOverToStatusCard =
+                SingleCardRule.showsStatusCard(ringing, handsOver = handOver)
+            if (!handsOverToStatusCard) {
+                // Nothing takes the alarm card's place, so any status card
+                // from an earlier round goes too.
+                manager.cancel(StatusNotificationFactory.notificationId(incidentId))
+            }
+            if (server != null && handsOverToStatusCard) {
                 postStatusCard(
                     context = context,
                     incidentId = incidentId,
@@ -89,22 +107,22 @@ class IncidentActionReceiver : BroadcastReceiver() {
                 connection.readTimeout = 5_000
                 val status = connection.responseCode
                 Log.i(TAG, "${route.action.wireValue}_response_$status incident_id=$incidentId")
-                // 409 means the incident already moved on, so there is nothing
-                // left to send. Anything else outside 2xx is worth a retry.
-                if (status !in 200..299 && status != 409) {
+                // 409 means the incident already moved on and 404 or 410 that
+                // it is not there at all, so neither has anything left to
+                // send. Anything else outside 2xx is worth a retry.
+                if (!ActionResponseRule.isSettled(status)) {
                     queue.enqueue(route.action.wireValue, incidentId)
                     Log.i(TAG, "ack_queued action=${route.action.wireValue} incident_id=$incidentId pending=${queue.pendingCount()}")
                 }
                 if (route.action == IncidentAction.ACK && status in 200..299) {
                     rememberDeskTimer(connection, deliveries, incidentId)
                 }
-                if (route.action == IncidentAction.CLOSE && status in 200..299) {
+                if (route.action == IncidentAction.CLOSE && ActionResponseRule.endsTheIncident(status)) {
                     // Written before the cancel, because a fetch started by the
                     // Stop that came before this is still out and will try to
                     // put the card back when it lands.
                     deliveries.markClosed(incidentId)
-                    context.getSystemService(NotificationManager::class.java)
-                        .cancel(StatusNotificationFactory.notificationId(incidentId))
+                    manager.cancel(StatusNotificationFactory.notificationId(incidentId))
                     Log.i(TAG, "status_notification_cancelled incident_id=$incidentId")
                 }
                 connection.disconnect()
@@ -124,7 +142,7 @@ class IncidentActionReceiver : BroadcastReceiver() {
             }
             // Outside the try, so a failed ack still refreshes the text. The
             // ack is what the server needs; the card is what the user reads.
-            if (route.action == IncidentAction.ACK && server != null) {
+            if (route.action == IncidentAction.ACK && server != null && handOver) {
                 enrichStatusCard(context, deliveries, incidentId, server, title, body, ackedAtMillis)
             }
         }.start()
@@ -203,6 +221,13 @@ class IncidentActionReceiver : BroadcastReceiver() {
         const val EXTRA_SERVER = "server"
         const val EXTRA_TITLE = "title"
         const val EXTRA_BODY = "body"
+
+        /**
+         * False when the alarm that posted this button leaves no card behind.
+         * Set by [AlarmNotificationFactory] from the flag the alarm was
+         * scheduled with, so the receiver never has to recognise an id.
+         */
+        const val EXTRA_HAND_OVER = "hand_over_to_status_card"
         private const val TAG = "CritAlarmAction"
 
         /**

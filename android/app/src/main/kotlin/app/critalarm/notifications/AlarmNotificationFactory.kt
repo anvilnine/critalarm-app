@@ -19,12 +19,27 @@ object AlarmNotificationFactory {
     /** The face is drawn at this many pixels, the same size the status card uses. */
     private const val FACE_PX = 192
 
+    /**
+     * Mixed into the full-screen request code so it lands in its own space.
+     * The code used to be the notification id plus one, and two incident ids
+     * that hash one apart would have shared a PendingIntent slot.
+     */
+    private const val FULL_SCREEN_SALT = 0x46530001
+
     fun notificationId(incidentId: String) = incidentId.hashCode()
 
+    /**
+     * [handOverToStatusCard] false means this alarm leaves nothing behind when
+     * it stops. The onboarding demo is the one that says so: inc_demo is not
+     * on the server, so an acked card for it would be ongoing, unswipeable,
+     * and its Done button would close an incident that does not exist. The
+     * flag rides the Stop button rather than being guessed from the id.
+     */
     fun create(
         context: Context,
         payload: FcmIncidentPayload,
         content: IncidentContent = IncidentContentFetcher.fallback(payload),
+        handOverToStatusCard: Boolean = true,
     ): Notification {
         NotificationChannels.ensureCreated(context)
         val incidentId = payload.incidentId ?: ""
@@ -58,6 +73,7 @@ object AlarmNotificationFactory {
             putExtra(IncidentActionReceiver.EXTRA_SERVER, payload.server.toString())
             putExtra(IncidentActionReceiver.EXTRA_TITLE, content.title)
             putExtra(IncidentActionReceiver.EXTRA_BODY, content.body)
+            putExtra(IncidentActionReceiver.EXTRA_HAND_OVER, handOverToStatusCard)
         }
 
         val builder = NotificationCompat.Builder(context, NotificationChannels.alarmChannelId())
@@ -75,7 +91,7 @@ object AlarmNotificationFactory {
             .setAutoCancel(false)
             .setContentIntent(PendingIntent.getActivity(context, id, launch, immutable))
             .setFullScreenIntent(
-                PendingIntent.getActivity(context, id + 1, fullScreen, immutable),
+                PendingIntent.getActivity(context, id xor FULL_SCREEN_SALT, fullScreen, immutable),
                 true,
             )
             .addAction(0, "Stop", PendingIntent.getBroadcast(context, id, stop, immutable))

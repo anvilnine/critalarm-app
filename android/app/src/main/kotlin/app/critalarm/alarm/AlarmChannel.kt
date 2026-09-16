@@ -49,6 +49,13 @@ class AlarmChannel(private val context: Context) {
                         title = call.argument<String>("title").orEmpty(),
                         body = call.argument<String>("body"),
                         delaySeconds = call.argument<Int>("delay_seconds") ?: 30,
+                        // The onboarding demo says false: inc_demo is not on
+                        // the server, so its Stop button must not leave a card
+                        // whose Done button has nothing to close. The flag
+                        // rides the alarm all the way to that button rather
+                        // than being guessed from the id in the receiver.
+                        handOverToStatusCard =
+                            call.argument<Boolean>("hand_over_to_status_card") ?: true,
                     ),
                 )
             }
@@ -71,15 +78,31 @@ class AlarmChannel(private val context: Context) {
                 // reads as the second, because that is the one that never
                 // leaves an ongoing card behind.
                 val handOver = call.argument<Boolean>("hand_over_to_status_card") ?: false
-                result.success(stop(incidentId, handOverToStatusCard = handOver))
+                result.success(
+                    stop(
+                        incidentId = incidentId,
+                        handOverToStatusCard = handOver,
+                        // What the screen was showing. The card that takes
+                        // over is built here, with no network, so without
+                        // these it reads "Critical incident" for good.
+                        title = call.argument<String>("title"),
+                        body = call.argument<String>("body"),
+                    ),
+                )
             }
 
             // The acked cards this device still has up. They are plain
             // notifications rather than Live Activities, so the store is the
             // only record of them, and launch-time reconcile needs the list to
             // take down the ones the server has finished with.
-            "showingIncidentIds" ->
-                result.success(IncidentDeliveryStore(context).acknowledgedIncidentIds())
+            "showingIncidentIds" -> {
+                val deliveries = IncidentDeliveryStore(context)
+                // Launch is the one moment a session drops what is past the
+                // retention window, and this list is the thing that grows:
+                // Dart walks it one server call at a time.
+                deliveries.prune()
+                result.success(deliveries.acknowledgedIncidentIds())
+            }
             "endActivity" -> {
                 val incidentId = call.argument<String>("incident_id")
                 if (!incidentId.isNullOrEmpty()) stop(incidentId, handOverToStatusCard = false)
@@ -102,8 +125,17 @@ class AlarmChannel(private val context: Context) {
      * card takes over the way it does when the user presses Stop on the
      * notification. A close, or the onboarding demo alarm, ends it: both cards
      * come down and nothing replaces them.
+     *
+     * The ring only stops when this incident is the one ringing. See
+     * [AlarmStopRule]: there is one service for the whole app, and cancelling
+     * an old incident used to silence a live alarm.
      */
-    private fun stop(incidentId: String, handOverToStatusCard: Boolean): Boolean = try {
+    private fun stop(
+        incidentId: String,
+        handOverToStatusCard: Boolean,
+        title: String? = null,
+        body: String? = null,
+    ): Boolean = try {
         ScheduledAlarmReceiver.cancel(context, incidentId)
         val ackedAtMillis = System.currentTimeMillis()
         val deliveries = IncidentDeliveryStore(context)
@@ -118,8 +150,8 @@ class AlarmChannel(private val context: Context) {
                     context = context,
                     incidentId = incidentId,
                     server = server,
-                    title = null,
-                    body = null,
+                    title = title,
+                    body = body,
                     content = null,
                     ackedAtMillis = ackedAtMillis,
                     deskTimerEndMillis = deliveries.deskTimerFiresAtMillis(incidentId),
@@ -129,7 +161,16 @@ class AlarmChannel(private val context: Context) {
             deliveries.markClosed(incidentId)
             manager?.cancel(StatusNotificationFactory.notificationId(incidentId))
         }
-        stopService("incident_id=$incidentId")
+        if (AlarmStopRule.stopsService(incidentId, AlarmForegroundService.ringingIncidentId)) {
+            stopService("incident_id=$incidentId")
+        } else {
+            Log.i(
+                TAG,
+                "alarm_service_kept incident_id=$incidentId " +
+                    "ringing_incident_id=${AlarmForegroundService.ringingIncidentId}",
+            )
+            true
+        }
     } catch (e: Exception) {
         Log.w(TAG, "alarm_stop_failed incident_id=$incidentId error=${e.message}")
         false
