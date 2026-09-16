@@ -102,7 +102,7 @@ abstract final class SettingsSearchIndex {
     // Rows that live inside one of those screens.
     SettingsDestination(
       id: 'alarm_sound',
-      routePath: '/settings/sounds',
+      routePath: '/sounds',
       titleKey: LocaleKeys.settings_alarm_sound_row_title,
       parentTitleKey: LocaleKeys.settings_alarms_header,
       keywords: <String>['sound', 'ringtone', 'tone', 'siren', 'noise'],
