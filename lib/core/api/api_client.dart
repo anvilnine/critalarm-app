@@ -6,6 +6,20 @@ import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/core/models/topic_token.dart';
 
+/// What `GET /v1/incidents` answers when `limit` is left off (api.md §3.2).
+///
+/// Here so a fake server can behave like the real one. No caller should ever
+/// see it, because every caller sends a limit.
+const defaultIncidentLimit = 20;
+
+/// The biggest `limit` `GET /v1/incidents` accepts.
+///
+/// api.md §3.2: leave `limit` off and the server hands back 20, so an absent
+/// parameter is not a request for everything. Ask for more than 200 and the
+/// server gives you 200. There is no paging in v1, so this is the most
+/// incidents one call can read.
+const maxIncidentLimit = 200;
+
 /// Contract for communicating with a Crit Alarm server.
 abstract interface class ApiClient {
   /// GET /v1/info
@@ -43,8 +57,13 @@ abstract interface class ApiClient {
   Future<void> deleteTopicToken(String name, String tokenId);
 
   /// GET /v1/incidents
+  ///
+  /// [limit] is required, and not nullable, because a missing `limit` is not
+  /// "no limit": the server answers 20 (api.md §3.2). It used to be optional
+  /// here and the query dropped it when it was null, which is how paid
+  /// History quietly showed 20 alarms.
   Future<List<Incident>> getIncidents({
-    int? limit,
+    required int limit,
     String? state,
     String? topic,
   });

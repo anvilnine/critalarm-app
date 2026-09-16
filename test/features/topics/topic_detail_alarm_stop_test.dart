@@ -33,7 +33,7 @@ class _AckAlwaysFails implements IncidentRepository {
 
   @override
   Future<AppResult<List<Incident>>> getIncidents({
-    int? limit,
+    required int limit,
     String? state,
     String? topic,
   }) => _inner.getIncidents(limit: limit, state: state, topic: topic);

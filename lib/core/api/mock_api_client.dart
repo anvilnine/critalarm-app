@@ -70,7 +70,7 @@ class MockApiClient implements ApiClient {
 
   @override
   Future<List<Incident>> getIncidents({
-    int? limit,
+    required int limit,
     String? state,
     String? topic,
   }) async {

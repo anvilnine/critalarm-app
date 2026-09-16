@@ -190,12 +190,13 @@ final class HttpApiClient implements ApiClient {
 
   @override
   Future<List<Incident>> getIncidents({
-    int? limit,
+    required int limit,
     String? state,
     String? topic,
   }) async {
-    final query = <String, String>{};
-    if (limit != null) query['limit'] = '$limit';
+    // Always on the wire. An absent `limit` means 20 on the server, never
+    // "everything", so this line is the whole fix for paid History.
+    final query = <String, String>{'limit': '$limit'};
     if (state != null) query['state'] = state;
     if (topic != null) query['topic'] = topic;
     final (s, u) = await _sessionUri(
