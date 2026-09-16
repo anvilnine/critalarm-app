@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
@@ -45,6 +46,92 @@ class _TopicDetailScreenContent extends StatelessWidget {
   const _TopicDetailScreenContent({required this.isPane});
 
   final bool isPane;
+
+  /// Asks first, then deletes, then leaves.
+  ///
+  /// The screen goes as soon as the person says yes, and the shared topic list
+  /// has the topic out of it before that, so the list behind is already right
+  /// rather than catching up a moment later. A server that refuses puts the
+  /// topic back and says why on the screen underneath, which by then is the
+  /// topics list.
+  Future<void> _confirmDelete(BuildContext context, String topicName) async {
+    final colors = context.appColors;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: const RoundedRectangleBorder(borderRadius: Radii.lgAll),
+        title: Text(
+          LocaleKeys.topic_detail_delete_dialog_title.tr(
+            namedArgs: {'topic': topicName},
+          ),
+          style: TextStyle(
+            fontFamily: AppTypography.fontDisplay,
+            fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: colors.ink,
+          ),
+        ),
+        content: Text(
+          LocaleKeys.topic_detail_delete_dialog_content.tr(),
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 14,
+            color: colors.ink2,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              LocaleKeys.common_cancel.tr(),
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                color: colors.ink3,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              LocaleKeys.topic_detail_delete_dialog_confirm.tr(),
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                color: colors.crit,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    AppHaptics.destructive();
+    // Read before the pop, because the pop takes this context with it.
+    final topics = getIt<TopicsCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+
+    // As a pane there is no page to leave; the topics list beside it drops
+    // the row and the pane clears itself.
+    if (!isPane && router.canPop()) router.pop();
+
+    final reason = await topics.deleteTopic(topicName);
+    if (reason == null) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          LocaleKeys.topic_detail_delete_failed.tr(
+            namedArgs: {'topic': topicName, 'reason': reason},
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -249,6 +336,18 @@ class _TopicDetailScreenContent extends StatelessWidget {
                               ),
                             ),
                           ),
+                        const SizedBox(height: Spacing.s5),
+                        // Last on the sheet, so nothing is reached past to
+                        // get to it.
+                        AppButton(
+                          label: LocaleKeys.topic_detail_delete_button.tr(),
+                          variant: AppButtonVariant.ghost,
+                          size: AppButtonSize.sm,
+                          isFullWidth: true,
+                          onPressed: () => unawaited(
+                            _confirmDelete(context, state.topicName),
+                          ),
+                        ),
                       ],
                     ),
                   ),

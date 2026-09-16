@@ -157,6 +157,23 @@ class IncidentsCubit extends Cubit<IncidentsState> {
     emit(state.copyWith(incidents: merged));
   }
 
+  /// Forgets every incident on [topic], because the topic itself is gone.
+  ///
+  /// The server deletes a topic's incidents along with it, so this is the app
+  /// catching up rather than guessing. History stops listing alarms for a
+  /// topic that no longer exists, and the badge drops the open ones.
+  void dropTopic(String topic) {
+    if (isClosed) return;
+    final kept = state.incidents.where((i) => i.topic != topic).toList();
+    if (kept.length == state.incidents.length) return;
+
+    final order = IncidentUpdateOrder(_now());
+    if (!_order.accepts(order)) return;
+    _order = order;
+
+    emit(state.copyWith(incidents: kept));
+  }
+
   /// One incident, for a caller that only has one.
   void applyIncident(Incident incident) => applyIncidents([incident]);
 

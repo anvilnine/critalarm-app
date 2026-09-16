@@ -1,9 +1,16 @@
 import 'dart:async';
 
+import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/api/mock_api_client.dart';
+import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/result/result.dart';
+import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
+import 'package:critalarm/features/topics/domain/usecases/delete_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -11,11 +18,21 @@ import 'package:flutter_test/flutter_test.dart';
 /// air while the user changes something.
 class _ScriptedTopics implements TopicRepository {
   final pending = <Completer<AppResult<List<Topic>>>>[];
+  final deletes = <Completer<AppResult<Unit>>>[];
+  final deleted = <String>[];
 
   @override
   Future<AppResult<List<Topic>>> getTopics() {
     final completer = Completer<AppResult<List<Topic>>>();
     pending.add(completer);
+    return completer.future;
+  }
+
+  @override
+  Future<AppResult<Unit>> deleteTopic(String name) {
+    deleted.add(name);
+    final completer = Completer<AppResult<Unit>>();
+    deletes.add(completer);
     return completer.future;
   }
 
@@ -84,5 +101,151 @@ void main() {
         expect(cubit.state.topics.single.name, 'nas-backup');
       },
     );
+  });
+
+  group('deleting a topic', () {
+    Future<TopicsCubit> loaded(
+      _ScriptedTopics scripted, {
+      IncidentsCubit? incidents,
+    }) async {
+      final cubit = TopicsCubit(
+        GetTopicsUsecase(scripted),
+        deleteTopic: DeleteTopicUsecase(scripted),
+        incidents: incidents,
+      );
+      final first = cubit.ensureLoaded();
+      scripted.pending[0].complete(
+        [
+          const Topic(name: 'nas-backup'),
+          const Topic(name: 'prod-db'),
+          const Topic(name: 'web-front'),
+        ].toSuccess(),
+      );
+      await first;
+      return cubit;
+    }
+
+    test('the list drops the topic before the server answers', () async {
+      final scripted = _ScriptedTopics();
+      final cubit = await loaded(scripted);
+      addTearDown(cubit.close);
+
+      final delete = cubit.deleteTopic('prod-db');
+      await pumpEventQueue();
+
+      expect(
+        cubit.state.topics.map((t) => t.name),
+        ['nas-backup', 'web-front'],
+        reason: 'the request is still in the air',
+      );
+      expect(scripted.deleted, ['prod-db']);
+
+      scripted.deletes[0].complete(unit.toSuccess());
+      expect(await delete, isNull);
+      expect(cubit.state.topics.map((t) => t.name), [
+        'nas-backup',
+        'web-front',
+      ]);
+    });
+
+    test('a refused delete puts the topic back where it was', () async {
+      final scripted = _ScriptedTopics();
+      final cubit = await loaded(scripted);
+      addTearDown(cubit.close);
+
+      final delete = cubit.deleteTopic('prod-db');
+      await pumpEventQueue();
+      scripted.deletes[0].complete(
+        const Failure.api(statusCode: 500).toFailure(),
+      );
+
+      expect(await delete, isNotNull);
+      expect(cubit.state.topics.map((t) => t.name), [
+        'nas-backup',
+        'prod-db',
+        'web-front',
+      ]);
+      expect(cubit.state.errorMessage, isNotNull);
+    });
+
+    test('a topic the list never held is a no-op', () async {
+      final scripted = _ScriptedTopics();
+      final cubit = await loaded(scripted);
+      addTearDown(cubit.close);
+
+      final delete = cubit.deleteTopic('gone-already');
+      await pumpEventQueue();
+      scripted.deletes[0].complete(unit.toSuccess());
+
+      expect(await delete, isNull);
+      expect(cubit.state.topics, hasLength(3));
+    });
+
+    test("the topic's incidents leave the shared list with it", () async {
+      final server = MockServer()..seedAlarmed();
+      final api = MockApiClient(server);
+      final incidents = IncidentsCubit(
+        GetIncidentsUsecase(InMemoryIncidentRepository(api)),
+      );
+      addTearDown(incidents.close);
+      await incidents.ensureLoaded();
+
+      final topic = incidents.state.incidents.first.topic;
+      expect(
+        incidents.state.incidents.where((i) => i.topic == topic),
+        isNotEmpty,
+      );
+
+      final scripted = _ScriptedTopics();
+      final cubit = TopicsCubit(
+        GetTopicsUsecase(scripted),
+        deleteTopic: DeleteTopicUsecase(scripted),
+        incidents: incidents,
+      );
+      addTearDown(cubit.close);
+      final first = cubit.ensureLoaded();
+      scripted.pending[0].complete([Topic(name: topic)].toSuccess());
+      await first;
+
+      final delete = cubit.deleteTopic(topic);
+      await pumpEventQueue();
+      scripted.deletes[0].complete(unit.toSuccess());
+      await delete;
+
+      expect(incidents.state.incidents.where((i) => i.topic == topic), isEmpty);
+    });
+
+    test('a refused delete leaves the incidents alone', () async {
+      final server = MockServer()..seedAlarmed();
+      final api = MockApiClient(server);
+      final incidents = IncidentsCubit(
+        GetIncidentsUsecase(InMemoryIncidentRepository(api)),
+      );
+      addTearDown(incidents.close);
+      await incidents.ensureLoaded();
+
+      final topic = incidents.state.incidents.first.topic;
+      final before = incidents.state.incidents.length;
+
+      final scripted = _ScriptedTopics();
+      final cubit = TopicsCubit(
+        GetTopicsUsecase(scripted),
+        deleteTopic: DeleteTopicUsecase(scripted),
+        incidents: incidents,
+      );
+      addTearDown(cubit.close);
+      final first = cubit.ensureLoaded();
+      scripted.pending[0].complete([Topic(name: topic)].toSuccess());
+      await first;
+
+      final delete = cubit.deleteTopic(topic);
+      await pumpEventQueue();
+      scripted.deletes[0].complete(
+        const Failure.api(statusCode: 500).toFailure(),
+      );
+      await delete;
+
+      expect(incidents.state.incidents, hasLength(before));
+    });
   });
 }

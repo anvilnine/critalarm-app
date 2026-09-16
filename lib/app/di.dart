@@ -417,7 +417,11 @@ Future<void> configureDependencies({
       ),
     )
     ..registerLazySingleton(
-      () => TopicsCubit(getIt<GetTopicsUsecase>()),
+      () => TopicsCubit(
+        getIt<GetTopicsUsecase>(),
+        deleteTopic: getIt<DeleteTopicUsecase>(),
+        incidents: getIt<IncidentsCubit>(),
+      ),
     )
     ..registerLazySingleton(
       () => AcknowledgeIncidentUsecase(getIt<IncidentRepository>()),

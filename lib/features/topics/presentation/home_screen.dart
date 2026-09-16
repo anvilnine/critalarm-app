@@ -135,6 +135,13 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     return BlocConsumer<HomeCubit, HomeState>(
       listener: (context, state) => _handOverIfRinging(state),
       builder: (context, state) {
+        // A deleted topic leaves the pane pointing at a name the list no
+        // longer has, so the selection is read back off the list every build
+        // rather than trusted.
+        final selected = state.topicItems.any((t) => t.name == _selectedTopic)
+            ? _selectedTopic
+            : null;
+
         return SeverityScope(
           severity: state.severity,
           child: AppScreenScaffold(
@@ -145,15 +152,15 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             topBar: AppTopBar(title: LocaleKeys.topics_list_title.tr()),
             detail: state.topicItems.isEmpty
                 ? null
-                : (_selectedTopic == null
+                : (selected == null
                       ? AppEmptyState(
                           title: LocaleKeys.home_detail_empty_title.tr(),
                           description: LocaleKeys.home_detail_empty_body.tr(),
                           buttonLabel: null,
                         )
                       : TopicDetailScreen(
-                          key: ValueKey(_selectedTopic),
-                          topicName: _selectedTopic!,
+                          key: ValueKey(selected),
+                          topicName: selected,
                           isPane: true,
                         )),
             slivers: [
@@ -240,8 +247,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                                 name: topic.name,
                                 meta: topic.meta,
                                 isSelected:
-                                    size.isExpanded &&
-                                    topic.name == _selectedTopic,
+                                    size.isExpanded && topic.name == selected,
                                 faceState: topic.faceState,
                                 isCrit: topic.isCrit,
                                 isQuiet: topic.isQuiet,
