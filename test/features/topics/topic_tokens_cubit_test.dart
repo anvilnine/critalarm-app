@@ -1,0 +1,110 @@
+import 'package:critalarm/core/api/mock_api_client.dart';
+import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
+import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
+import 'package:critalarm/features/topics/domain/usecases/topic_token_usecases.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_state.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  late MockServer server;
+  late TopicRepository repository;
+  late TopicTokensCubit cubit;
+
+  setUp(() {
+    server = MockServer()..seedCalm();
+    repository = InMemoryTopicRepository(MockApiClient(server));
+    cubit = TopicTokensCubit(
+      GetTopicTokensUsecase(repository),
+      CreateTopicTokenUsecase(repository),
+      RevokeTopicTokenUsecase(repository),
+    );
+    addTearDown(cubit.close);
+  });
+
+  group('TopicTokensCubit', () {
+    test('lists the topic it was asked for, ids only', () async {
+      await cubit.load('prod-db');
+
+      expect(cubit.state.status, TopicTokensStatus.ready);
+      expect(cubit.state.tokens, hasLength(1));
+      expect(cubit.state.errorMessage, isNull);
+      expect(cubit.state.newToken, isNull);
+      expect(cubit.topicName, 'prod-db');
+    });
+
+    test('a topic the server does not have reads as a failure', () async {
+      await cubit.load('never-made');
+
+      expect(cubit.state.status, TopicTokensStatus.failure);
+      expect(cubit.state.tokens, isEmpty);
+      expect(cubit.state.errorMessage, isNotNull);
+    });
+
+    test('a new token lands in the list and shows its value once', () async {
+      await cubit.load('prod-db');
+      await cubit.createToken();
+
+      expect(cubit.state.tokens, hasLength(2));
+      expect(cubit.state.newToken, startsWith('tk_'));
+      expect(cubit.state.isWorking, isFalse);
+
+      cubit.dismissNewToken();
+      expect(cubit.state.newToken, isNull);
+    });
+
+    test('the last token cannot be revoked', () async {
+      await cubit.load('prod-db');
+
+      expect(cubit.state.canRevoke, isFalse);
+
+      await cubit.createToken();
+      expect(cubit.state.canRevoke, isTrue);
+    });
+
+    test('revoking takes the token off the list', () async {
+      await cubit.load('prod-db');
+      await cubit.createToken();
+      final target = cubit.state.tokens.last.tokenId;
+
+      await cubit.revoke(target);
+
+      expect(cubit.state.tokens.map((t) => t.tokenId), isNot(contains(target)));
+      expect(cubit.state.errorMessage, isNull);
+
+      // What the server holds agrees with what is on screen.
+      await cubit.load('prod-db');
+      expect(cubit.state.tokens.map((t) => t.tokenId), isNot(contains(target)));
+    });
+
+    test('a refused revoke puts the token back where it was', () async {
+      await cubit.load('prod-db');
+      await cubit.createToken();
+      final before = cubit.state.tokens.map((t) => t.tokenId).toList();
+      expect(before, hasLength(2));
+
+      // Another device revoked the first one. This screen has not heard, so
+      // it still shows two and still offers to revoke the second.
+      server.deleteTopicToken('prod-db', before[0]);
+
+      // The server refuses: that is its last token now.
+      await cubit.revoke(before[1]);
+
+      expect(cubit.state.tokens.map((t) => t.tokenId), before);
+      expect(cubit.state.errorMessage, isNotNull);
+      expect(cubit.state.isWorking, isFalse);
+    });
+
+    test('revoking a token the list never held does nothing', () async {
+      await cubit.load('prod-db');
+      final before = cubit.state;
+
+      await cubit.revoke('tok_not_here');
+
+      expect(cubit.state, before);
+    });
+  });
+}

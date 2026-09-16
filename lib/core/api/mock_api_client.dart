@@ -61,6 +61,10 @@ class MockApiClient implements ApiClient {
   Future<void> deleteTopic(String name) async => server.deleteTopic(name);
 
   @override
+  Future<List<TopicTokenInfo>> getTopicTokens(String name) async =>
+      server.getTopicTokens(name);
+
+  @override
   Future<TopicToken> createTopicToken(String name) async =>
       server.createTopicToken(name);
 

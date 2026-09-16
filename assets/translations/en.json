@@ -236,6 +236,20 @@
     "delete_dialog_confirm": "Delete",
     "delete_failed": "Could not delete {topic}. {reason}"
   },
+  "topic_tokens": {
+    "header": "Tokens",
+    "loading": "Reading this topic's tokens...",
+    "load_failed": "Could not read this topic's tokens.",
+    "made_on": "Made {date}",
+    "made_just_now": "Made just now",
+    "new_button": "New token",
+    "new_label": "YOUR NEW TOKEN",
+    "saved_button": "I have saved it",
+    "revoke_aria": "Revoke this token",
+    "revoke_dialog_title": "Revoke this token?",
+    "revoke_dialog_content": "Anything still sending with this token stops working right away. The topic keeps its other tokens.",
+    "revoke_dialog_confirm": "Revoke"
+  },
   "topic_messages": {
     "empty_title": "No messages yet",
     "empty_body": "Anything sent to this topic shows up here."
