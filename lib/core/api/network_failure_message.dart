@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:critalarm/core/failures/cap_reached.dart';
+import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -53,6 +54,16 @@ String apiErrorMessage(String? wireCode, {String? cap}) {
     _ => LocaleKeys.api_errors_unknown.tr(),
   };
 }
+
+/// [apiErrorMessage] read straight off a [Failure].
+///
+/// `failure.message` is whatever the layer below put there: a server wire code
+/// like `cap`, or the text of a caught exception. Neither belongs on screen,
+/// so every cubit that shows an error runs it through here.
+String failureMessage(Failure failure) => apiErrorMessage(
+  failure.message,
+  cap: CapReached.fromFailure(failure)?.name,
+);
 
 /// True when the device has no route out at all.
 ///

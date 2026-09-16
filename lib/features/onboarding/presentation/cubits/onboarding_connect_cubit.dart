@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
@@ -312,7 +313,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
             (failure) async => emit(
               state.copyWith(
                 status: OnboardingConnectStatus.failure,
-                errorMessage: failure.message,
+                errorMessage: failureMessage(failure),
               ),
             ),
           );
@@ -320,7 +321,9 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
           emit(
             state.copyWith(
               status: OnboardingConnectStatus.failure,
-              errorMessage: error.toString(),
+              // An exception dump is not a sentence. This one is a transport
+              // error, so it gets the transport wording.
+              errorMessage: networkFailureMessage(error),
             ),
           );
         }
@@ -329,7 +332,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         emit(
           state.copyWith(
             status: OnboardingConnectStatus.failure,
-            errorMessage: failure.message,
+            errorMessage: failureMessage(failure),
           ),
         );
       },
@@ -486,7 +489,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         emit(
           state.copyWith(
             testAlarmStatus: TestAlarmStatus.failure,
-            errorMessage: failure.message,
+            errorMessage: failureMessage(failure),
           ),
         );
       },
@@ -511,7 +514,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     final result = await completion(const NoParams());
     result.fold(
       (_) => emit(state.copyWith(canNavigateToHome: true)),
-      (failure) => emit(state.copyWith(errorMessage: failure.message)),
+      (failure) => emit(state.copyWith(errorMessage: failureMessage(failure))),
     );
   }
 

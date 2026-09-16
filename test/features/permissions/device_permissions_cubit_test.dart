@@ -162,7 +162,9 @@ void main() {
             .having(
               (s) => s.errorMessage,
               'errorMessage',
-              'Failed to inspect device permissions',
+              // The cubit no longer repeats what the layer below said.
+              // Whatever it was, the user reads one sentence.
+              'Something went wrong on the server. Try again.',
             )
             .having((s) => s.allGranted, 'allGranted', isFalse)
             .having((s) => s.hasIssues, 'hasIssues', isTrue),

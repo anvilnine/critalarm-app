@@ -109,7 +109,7 @@ void main() {
         ),
         const NotificationPermissionsState(
           step: NotificationPermissionStep.denied,
-          errorMessage: 'Plugin unavailable',
+          errorMessage: 'Something went wrong on the server. Try again.',
         ),
       ],
     );

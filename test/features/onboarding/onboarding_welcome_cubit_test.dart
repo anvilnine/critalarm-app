@@ -103,7 +103,9 @@ void main() {
       act: (cubit) => cubit.validateAndContinue(),
       expect: () => [
         const OnboardingWelcomeState(isValidating: true),
-        const OnboardingWelcomeState(errorMessage: 'Bad Gateway'),
+        const OnboardingWelcomeState(
+          errorMessage: 'Something went wrong on the server. Try again.',
+        ),
       ],
     );
 

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -66,7 +67,7 @@ class OnboardingWelcomeCubit extends Cubit<OnboardingWelcomeState> {
         emit(
           state.copyWith(
             isValidating: false,
-            errorMessage: failure.message,
+            errorMessage: failureMessage(failure),
             canNavigate: false,
           ),
         );
