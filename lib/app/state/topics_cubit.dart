@@ -1,8 +1,10 @@
 import 'package:critalarm/app/state/app_data_status.dart';
+import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/notifications/incident_update_order.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
+import 'package:critalarm/features/topics/domain/usecases/delete_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -68,16 +70,41 @@ class TopicsState {
       Object.hash(status, isRefreshing, errorMessage, Object.hashAll(topics));
 }
 
+/// A topic taken out of the shared list before the server agreed to it.
+@immutable
+final class RemovedTopic {
+  const RemovedTopic({required this.topic, required this.at});
+
+  /// What was taken out.
+  final Topic topic;
+
+  /// Where it sat, so putting it back does not move it to the end of the list.
+  final int at;
+}
+
 /// The one topic list in the app.
 ///
 /// Screens read it and listen to it. Nothing else fetches topics, so a screen
 /// opening does not repeat a request another screen already made.
 class TopicsCubit extends Cubit<TopicsState> {
-  TopicsCubit(this._getTopics, {DateTime Function()? now})
-    : _now = now ?? DateTime.now,
-      super(const TopicsState());
+  TopicsCubit(
+    this._getTopics, {
+    this._deleteTopic,
+    this._incidents,
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now,
+       super(const TopicsState());
 
   final GetTopicsUsecase _getTopics;
+
+  /// Optional so a test that never deletes can build the cubit without a
+  /// repository behind it.
+  final DeleteTopicUsecase? _deleteTopic;
+
+  /// Deleting a topic on the server takes its incidents with it, so the shared
+  /// incident list drops them here too rather than waiting for a fetch to
+  /// notice. Optional for the same reason as above.
+  final IncidentsCubit? _incidents;
 
   final DateTime Function() _now;
 
@@ -118,6 +145,73 @@ class TopicsCubit extends Cubit<TopicsState> {
     } else {
       merged[at] = topic;
     }
+    emit(state.copyWith(topics: merged));
+  }
+
+  /// Deletes a topic, taking it out of the shared list before asking.
+  ///
+  /// Returns null when the server took it, or the reason when it refused. A
+  /// refusal puts the topic back where it was.
+  ///
+  /// This lives here rather than on the topic screen's own cubit because the
+  /// screen pops as soon as it is called, and a closed cubit cannot finish the
+  /// request or do anything with the answer.
+  Future<String?> deleteTopic(String name) async {
+    final usecase = _deleteTopic;
+    if (usecase == null) return null;
+
+    final removed = _removeNow(name);
+    final result = await usecase(name);
+    if (isClosed) return null;
+
+    return result.fold(
+      (_) {
+        // The server dropped this topic's incidents with it. Drop the copies
+        // the app is holding, so History and the badge do not keep counting
+        // alarms for a topic that is gone.
+        _incidents?.dropTopic(name);
+        return null;
+      },
+      (failure) {
+        final message = failureMessage(failure);
+        if (removed != null) _restore(removed);
+        emit(state.copyWith(errorMessage: message));
+        return message;
+      },
+    );
+  }
+
+  /// Takes [name] out of the shared list now, so the screen behind the one
+  /// popping is already right. Null when the list never held it.
+  RemovedTopic? _removeNow(String name) {
+    if (isClosed) return null;
+    final at = state.topics.indexWhere((t) => t.name == name);
+    if (at < 0) return null;
+
+    final order = IncidentUpdateOrder(_now());
+    if (!_order.accepts(order)) return null;
+    _order = order;
+
+    final removed = RemovedTopic(topic: state.topics[at], at: at);
+    emit(
+      state.copyWith(topics: [...state.topics]..removeAt(at), clearError: true),
+    );
+    return removed;
+  }
+
+  /// Puts back what a refused delete took out.
+  ///
+  /// Dropped when the list holds that name again already: a fetch that landed
+  /// while the delete was in the air is the newer truth.
+  void _restore(RemovedTopic removed) {
+    if (isClosed || state.named(removed.topic.name) != null) return;
+
+    final order = IncidentUpdateOrder(_now());
+    if (!_order.accepts(order)) return;
+    _order = order;
+
+    final merged = [...state.topics]
+      ..insert(removed.at.clamp(0, state.topics.length), removed.topic);
     emit(state.copyWith(topics: merged));
   }
 
