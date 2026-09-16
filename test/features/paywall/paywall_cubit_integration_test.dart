@@ -2,7 +2,6 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/features/paywall/data/repositories/in_memory_subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
-import 'package:critalarm/features/paywall/domain/usecases/check_pro_entitlement_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_customer_info_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_offerings_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/purchase_package_usecase.dart';
@@ -16,7 +15,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   group('PaywallCubit with SubscriptionRepository', () {
     late InMemorySubscriptionRepository repository;
-    late CheckProEntitlementUsecase checkProUsecase;
     late GetOfferingsUsecase getOfferingsUsecase;
     late PurchasePackageUsecase purchasePackageUsecase;
     late RestorePurchasesUsecase restorePurchasesUsecase;
@@ -71,7 +69,6 @@ void main() {
         await SharedPreferences.getInstance(),
       );
       repository = InMemorySubscriptionRepository(offerings: mockOfferings);
-      checkProUsecase = CheckProEntitlementUsecase(repository);
       getOfferingsUsecase = GetOfferingsUsecase(repository);
       purchasePackageUsecase = PurchasePackageUsecase(repository);
       restorePurchasesUsecase = RestorePurchasesUsecase(repository);
@@ -83,7 +80,6 @@ void main() {
     });
 
     PaywallCubit buildCubit() => PaywallCubit(
-      checkProEntitlementUsecase: checkProUsecase,
       getOfferingsUsecase: getOfferingsUsecase,
       purchasePackageUsecase: purchasePackageUsecase,
       restorePurchasesUsecase: restorePurchasesUsecase,
