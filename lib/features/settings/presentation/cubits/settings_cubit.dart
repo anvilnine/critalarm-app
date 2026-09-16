@@ -1,4 +1,5 @@
 import 'package:critalarm/core/models/account_access.dart';
+import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -29,7 +30,11 @@ class SettingsCubit extends Cubit<SettingsState> {
     this.telemetryGate,
     this.identityStore,
     this.getTopics,
-  }) : super(const SettingsState());
+    ProOverride? proOverride,
+  }) : _proOverride = proOverride ?? appProOverride,
+       super(const SettingsState()) {
+    _proOverride.listenable?.addListener(_onForceProChanged);
+  }
 
   final GetConnectionUsecase? getConnectionUsecase;
   final ClearConnectionUsecase? clearConnectionUsecase;
@@ -42,6 +47,27 @@ class SettingsCubit extends Cubit<SettingsState> {
   final TelemetryGate? telemetryGate;
   final DeviceIdentityStore? identityStore;
   final GetTopicsUsecase? getTopics;
+  final ProOverride _proOverride;
+
+  /// The developer Force Pro switch moved. The plan row reads
+  /// [AccountAccess.isPaid], so hand it a fresh one and let the screen rebuild.
+  void _onForceProChanged() {
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        access: AccountAccess(
+          state.access.identity,
+          proOverride: _proOverride,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<void> close() {
+    _proOverride.listenable?.removeListener(_onForceProChanged);
+    return super.close();
+  }
 
   bool get isPaywallEnabled => telemetryGate?.isPaywallEnabled ?? false;
   bool get paywallEnabled => isPaywallEnabled;
@@ -137,7 +163,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     emit(
       state.copyWith(
         status: SettingsStatus.success,
-        access: AccountAccess(identity),
+        access: AccountAccess(identity, proOverride: _proOverride),
         topics: result?.getOrNull() ?? [],
         errorMessage: result?.exceptionOrNull()?.message,
       ),

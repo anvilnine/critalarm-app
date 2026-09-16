@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/account_access.dart';
+import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
-import 'package:critalarm/features/paywall/domain/usecases/check_pro_entitlement_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_customer_info_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_offerings_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/purchase_package_usecase.dart';
@@ -25,13 +25,14 @@ class PaywallCubit extends Cubit<PaywallState> {
     this.telemetryGate,
     this.identityStore,
     this.refreshRegistration,
-    this.checkProEntitlementUsecase,
     this.getOfferingsUsecase,
     this.purchasePackageUsecase,
     this.restorePurchasesUsecase,
     this.getCustomerInfoUsecase,
     SubscriptionRepository? subscriptionRepository,
-  }) : super(
+    ProOverride? proOverride,
+  }) : _proOverride = proOverride ?? appProOverride,
+       super(
          PaywallState(
            paywallEnabled: telemetryGate?.paywallEnabled ?? false,
          ),
@@ -40,14 +41,21 @@ class PaywallCubit extends Cubit<PaywallState> {
       _customerInfoSubscription = subscriptionRepository.customerInfoStream
           .listen(_onCustomerInfoUpdated);
     }
+    _proOverride.listenable?.addListener(_onForceProChanged);
   }
 
   final Future<void> Function()? refreshRegistration;
   final TelemetryGate? telemetryGate;
   final DeviceIdentityStore? identityStore;
-  Future<bool> _isPaid() async =>
-      AccountAccess(await identityStore?.readOrCreate()).isPaid;
-  final CheckProEntitlementUsecase? checkProEntitlementUsecase;
+  final ProOverride _proOverride;
+  Future<bool> _isPaid() async => AccountAccess(
+    await identityStore?.readOrCreate(),
+    proOverride: _proOverride,
+  ).isPaid;
+
+  /// The developer Force Pro switch moved, so the paywall has to say something
+  /// different about this device.
+  void _onForceProChanged() => unawaited(_refreshTier());
   final GetOfferingsUsecase? getOfferingsUsecase;
   final PurchasePackageUsecase? purchasePackageUsecase;
   final RestorePurchasesUsecase? restorePurchasesUsecase;
@@ -61,7 +69,7 @@ class PaywallCubit extends Cubit<PaywallState> {
 
   /// Loads current entitlement status, customer info, and available offerings.
   Future<void> loadSubscriptionData() async {
-    if (checkProEntitlementUsecase == null && getOfferingsUsecase == null) {
+    if (getOfferingsUsecase == null) {
       return;
     }
 
@@ -326,6 +334,7 @@ class PaywallCubit extends Cubit<PaywallState> {
 
   @override
   Future<void> close() async {
+    _proOverride.listenable?.removeListener(_onForceProChanged);
     await _customerInfoSubscription?.cancel();
     return super.close();
   }
