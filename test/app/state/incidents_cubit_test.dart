@@ -85,12 +85,16 @@ class _CountingIncidents implements IncidentRepository {
 class _ScriptedIncidents implements IncidentRepository {
   final pending = <Completer<AppResult<List<Incident>>>>[];
 
+  /// What each list read put on the wire, so a test can pin the contract.
+  final limits = <int?>[];
+
   @override
   Future<AppResult<List<Incident>>> getIncidents({
     int? limit,
     String? state,
     String? topic,
   }) {
+    limits.add(limit);
     final completer = Completer<AppResult<List<Incident>>>();
     pending.add(completer);
     return completer.future;
@@ -190,6 +194,26 @@ void main() {
         );
       },
     );
+  });
+
+  group('the shared list read', () {
+    test('carries the limit api.md writes into the call', () async {
+      final scripted = _ScriptedIncidents();
+      final cubit = IncidentsCubit(GetIncidentsUsecase(scripted));
+      addTearDown(cubit.close);
+
+      final first = cubit.ensureLoaded();
+      scripted.pending[0].complete([_incident('inc_1')].toSuccess());
+      await first;
+      final second = cubit.refresh();
+      scripted.pending[1].complete([_incident('inc_1')].toSuccess());
+      await second;
+
+      // api.md §3.2 has limit as part of the call, not an optional extra, and
+      // one list now serves every screen that used to ask for its own.
+      expect(scripted.limits, [200, 200]);
+      expect(IncidentsCubit.listLimit, 200);
+    });
   });
 
   group('the stale-write guard', () {

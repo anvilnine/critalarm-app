@@ -85,6 +85,15 @@ class IncidentsCubit extends Cubit<IncidentsState> {
   }) : _now = now ?? DateTime.now,
        super(const IncidentsState());
 
+  /// How many incidents the shared list asks for.
+  ///
+  /// api.md §3.2 writes the call as `GET /v1/incidents?limit=20[&state=...]`,
+  /// so `limit` is part of the call and is always sent. One list now serves
+  /// Home, the topics list, topic detail, History and search, so it asks for
+  /// the widest window any of them used to ask for. Search asked for 200 and
+  /// nothing else asked for a bigger number.
+  static const listLimit = 200;
+
   final GetIncidentsUsecase _getIncidents;
 
   /// The number on the app icon. Optional so a test can build the cubit
@@ -142,7 +151,9 @@ class IncidentsCubit extends Cubit<IncidentsState> {
     final order = IncidentUpdateOrder(_now());
     emit(state.copyWith(isRefreshing: true));
 
-    final result = await _getIncidents();
+    final result = await _getIncidents(
+      const GetIncidentsParams(limit: listLimit),
+    );
     if (isClosed) return;
 
     // An answer asked for before the newest update in the state is older than
