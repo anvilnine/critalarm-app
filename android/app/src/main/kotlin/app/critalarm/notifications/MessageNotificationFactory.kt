@@ -68,6 +68,10 @@ object MessageNotificationFactory {
                 action = IncidentActionReceiver.ACTION_STOP
                 putExtra(IncidentActionReceiver.EXTRA_INCIDENT_ID, incidentId)
                 putExtra(IncidentActionReceiver.EXTRA_SERVER, payload.server.toString())
+                // Same reason as the alarm card: the status card that follows
+                // has no other source for the text before its fetch answers.
+                putExtra(IncidentActionReceiver.EXTRA_TITLE, content.title)
+                putExtra(IncidentActionReceiver.EXTRA_BODY, content.body)
             }
             builder.addAction(
                 0,

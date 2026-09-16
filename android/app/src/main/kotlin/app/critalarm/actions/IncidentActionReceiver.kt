@@ -15,6 +15,7 @@ import app.critalarm.push.FcmIncidentPayload
 import app.critalarm.push.IncidentContent
 import app.critalarm.push.IncidentContentFetcher
 import app.critalarm.push.IncidentPushKind
+import app.critalarm.push.LateContentRule
 import app.critalarm.push.SingleCardRule
 import android.app.NotificationManager
 import java.net.HttpURLConnection
@@ -32,23 +33,40 @@ class IncidentActionReceiver : BroadcastReceiver() {
         val route = IncidentActionRouter.fromTrigger(trigger, incidentId) ?: return
         val server = intent.getStringExtra(EXTRA_SERVER)
             ?.let { runCatching { URI(it) }.getOrNull() }
+        // The text the card being replaced was already showing. Without it the
+        // status card falls back to "Critical incident" and stays there for as
+        // long as the enrichment fails.
+        val title = intent.getStringExtra(EXTRA_TITLE)?.takeIf(String::isNotEmpty)
+        val body = intent.getStringExtra(EXTRA_BODY)?.takeIf(String::isNotEmpty)
         // The desk timer starts when the user stops the alarm, so the refresh
         // that follows the fetch counts from here too and not from whenever
         // the network answered.
         val ackedAtMillis = System.currentTimeMillis()
+        val deliveries = IncidentDeliveryStore(context)
         if (route.action == IncidentAction.ACK) {
-            val deliveries = IncidentDeliveryStore(context)
-            deliveries.markAcknowledged(incidentId)
+            deliveries.markAcknowledged(incidentId, ackedAtMillis)
             context.stopService(Intent(context, AlarmForegroundService::class.java))
             Log.i(TAG, "alarm_service_stopped incident_id=$incidentId")
+            // The alarm card goes whether or not a status card can take its
+            // place. A promoted RINGING card left on a stopped alarm is worse
+            // than a gap.
+            context.getSystemService(NotificationManager::class.java)
+                .cancel(AlarmNotificationFactory.notificationId(incidentId))
             // The alarm has stopped, so the card changes hands. SingleCardRule
             // gives one incident one card, and a promoted alarm card left
             // beside a promoted status card puts two chips in the status bar.
             val ringing = !deliveries.isAcknowledged(incidentId)
             if (server != null && SingleCardRule.showsStatusCard(ringing)) {
-                context.getSystemService(NotificationManager::class.java)
-                    .cancel(incidentId, AlarmNotificationFactory.notificationId(incidentId))
-                postStatusCard(context, incidentId, server, null, ackedAtMillis)
+                postStatusCard(
+                    context = context,
+                    incidentId = incidentId,
+                    server = server,
+                    title = title,
+                    body = body,
+                    content = null,
+                    ackedAtMillis = ackedAtMillis,
+                    deskTimerEndMillis = deliveries.deskTimerFiresAtMillis(incidentId),
+                )
                 Log.i(TAG, "status_notification_posted incident_id=$incidentId")
             }
         }
@@ -77,25 +95,19 @@ class IncidentActionReceiver : BroadcastReceiver() {
                     queue.enqueue(route.action.wireValue, incidentId)
                     Log.i(TAG, "ack_queued action=${route.action.wireValue} incident_id=$incidentId pending=${queue.pendingCount()}")
                 }
+                if (route.action == IncidentAction.ACK && status in 200..299) {
+                    rememberDeskTimer(connection, deliveries, incidentId)
+                }
                 if (route.action == IncidentAction.CLOSE && status in 200..299) {
-                    // The same tag the card was posted under. A cancel without
-                    // it leaves the card on screen.
+                    // Written before the cancel, because a fetch started by the
+                    // Stop that came before this is still out and will try to
+                    // put the card back when it lands.
+                    deliveries.markClosed(incidentId)
                     context.getSystemService(NotificationManager::class.java)
-                        .cancel(incidentId, StatusNotificationFactory.notificationId(incidentId))
+                        .cancel(StatusNotificationFactory.notificationId(incidentId))
                     Log.i(TAG, "status_notification_cancelled incident_id=$incidentId")
                 }
                 connection.disconnect()
-                if (route.action == IncidentAction.ACK && server != null) {
-                    // The card went up with the fallback text because a push
-                    // carries no topic and the alarm could not wait for a
-                    // fetch. This is the same enrichment PushRouter does for
-                    // the alarm card, and the topic it brings back is what
-                    // gives the desk timer its countdown.
-                    IncidentContentFetcher.fetch(context, server, incidentId)?.let {
-                        postStatusCard(context, incidentId, server, it, ackedAtMillis)
-                        Log.i(TAG, "status_content_resolved incident_id=$incidentId")
-                    }
-                }
             } catch (_: Exception) {
                 // Offline. The alarm is already stopped; the send waits for the
                 // network and goes out from the Dart queue on the next launch.
@@ -103,47 +115,85 @@ class IncidentActionReceiver : BroadcastReceiver() {
                 queue.enqueue(route.action.wireValue, incidentId)
                 Log.i(TAG, "ack_queued action=${route.action.wireValue} incident_id=$incidentId pending=${queue.pendingCount()}")
             } finally {
+                // The broadcast window closes here, before the enrichment runs.
+                // A manifest receiver fired from a notification action has
+                // roughly ten seconds, and the POST above can spend ten of them
+                // on its own, so holding the broadcast open for a second
+                // network call risks a timeout or an ANR.
                 pending.finish()
+            }
+            // Outside the try, so a failed ack still refreshes the text. The
+            // ack is what the server needs; the card is what the user reads.
+            if (route.action == IncidentAction.ACK && server != null) {
+                enrichStatusCard(context, deliveries, incidentId, server, title, body, ackedAtMillis)
             }
         }.start()
     }
 
     /**
-     * The acked card for one incident, posted under the same tag the push path
-     * uses so a later post replaces it instead of stacking a second one.
-     *
-     * [content] is null for the first post, right after the alarm stops, and
-     * the resolved content once the fetch answers.
+     * Reads `desk_timer_fires_at` off the ack response (api.md §3.2) so the bar
+     * counts to the instant the server picked, not to a fresh full timer the
+     * device guessed. A 409 carries no such field and leaves the cached value
+     * in place.
      */
-    private fun postStatusCard(
+    private fun rememberDeskTimer(
+        connection: HttpURLConnection,
+        deliveries: IncidentDeliveryStore,
+        incidentId: String,
+    ) {
+        val text = runCatching {
+            connection.inputStream.bufferedReader().use { it.readText() }
+        }.getOrNull() ?: return
+        val firesAt = IncidentContentFetcher.parseDeskTimerFiresAt(text) ?: return
+        deliveries.rememberDeskTimerFiresAt(incidentId, firesAt)
+        Log.i(TAG, "desk_timer_resolved incident_id=$incidentId fires_at=$firesAt")
+    }
+
+    /**
+     * Replaces the seeded text on the status card once
+     * `GET /v1/incidents/{id}` answers, and brings back the topic, which is
+     * what gives the bar its length.
+     *
+     * The two guards are the point of the re-read. The fetch can be out for
+     * seconds, and in that time the user can press Done, or a reopen can put
+     * the alarm back up. Posting the acked card either way leaves a card on an
+     * incident that no longer has one.
+     */
+    private fun enrichStatusCard(
         context: Context,
+        deliveries: IncidentDeliveryStore,
         incidentId: String,
         server: URI,
-        content: IncidentContent?,
+        title: String?,
+        body: String?,
         ackedAtMillis: Long,
     ) {
-        // Only the incident id and the server are read off this. A stopped
-        // alarm was a priority 5 incident push, which is what the two values
-        // below say.
-        val payload = FcmIncidentPayload(
+        val content = IncidentContentFetcher.fetch(
+            context = context,
+            server = server,
+            incidentId = incidentId,
+            connectTimeoutMs = IncidentContentFetcher.ACTION_CONNECT_TIMEOUT_MS,
+            readTimeoutMs = IncidentContentFetcher.ACTION_READ_TIMEOUT_MS,
+        ) ?: return
+        val destination = LateContentRule.destinationFor(
+            acknowledged = deliveries.isAcknowledged(incidentId),
+            closed = deliveries.isClosed(incidentId),
+        )
+        if (destination != LateContentRule.Destination.STATUS_CARD) {
+            Log.i(TAG, "status_content_dropped incident_id=$incidentId destination=$destination")
+            return
+        }
+        postStatusCard(
+            context = context,
             incidentId = incidentId,
             server = server,
-            kind = IncidentPushKind.OPEN,
-            priority = 5,
-            title = null,
-            body = null,
+            title = title,
+            body = body,
+            content = content,
+            ackedAtMillis = ackedAtMillis,
+            deskTimerEndMillis = deliveries.deskTimerFiresAtMillis(incidentId),
         )
-        context.getSystemService(NotificationManager::class.java).notify(
-            incidentId,
-            StatusNotificationFactory.notificationId(incidentId),
-            StatusNotificationFactory.create(
-                context = context,
-                payload = payload,
-                content = content ?: IncidentContentFetcher.fallback(payload),
-                state = IncidentCardState.ACKED,
-                openedAtMillis = ackedAtMillis,
-            ),
-        )
+        Log.i(TAG, "status_content_resolved incident_id=$incidentId")
     }
 
     companion object {
@@ -151,6 +201,58 @@ class IncidentActionReceiver : BroadcastReceiver() {
         const val ACTION_ACKNOWLEDGE = "app.critalarm.action.ACKNOWLEDGE"
         const val EXTRA_INCIDENT_ID = "incident_id"
         const val EXTRA_SERVER = "server"
+        const val EXTRA_TITLE = "title"
+        const val EXTRA_BODY = "body"
         private const val TAG = "CritAlarmAction"
+
+        /**
+         * The acked card for one incident.
+         *
+         * Posted untagged, under the id alone, because
+         * [AlarmForegroundService] posts the alarm card with startForeground,
+         * which takes no tag. Android keys a notification by tag and id
+         * together, so one tagged post and one untagged post of the same id
+         * are two cards and two status bar chips.
+         *
+         * [content] is null for the first post, right after the alarm stops,
+         * and the resolved content once the fetch answers. [title] and [body]
+         * are what the card being replaced was showing.
+         *
+         * Shared with AlarmChannel so in-app Stop hands the card over the same
+         * way the notification's Stop button does.
+         */
+        fun postStatusCard(
+            context: Context,
+            incidentId: String,
+            server: URI,
+            title: String?,
+            body: String?,
+            content: IncidentContent?,
+            ackedAtMillis: Long,
+            deskTimerEndMillis: Long?,
+        ) {
+            // Only the incident id, the server and the text are read off this.
+            // A stopped alarm was a priority 5 incident push, which is what the
+            // two values below say.
+            val payload = FcmIncidentPayload(
+                incidentId = incidentId,
+                server = server,
+                kind = IncidentPushKind.OPEN,
+                priority = 5,
+                title = title,
+                body = body,
+            )
+            context.getSystemService(NotificationManager::class.java).notify(
+                StatusNotificationFactory.notificationId(incidentId),
+                StatusNotificationFactory.create(
+                    context = context,
+                    payload = payload,
+                    content = content ?: IncidentContentFetcher.fallback(payload),
+                    state = IncidentCardState.ACKED,
+                    openedAtMillis = ackedAtMillis,
+                    deskTimerEndMillis = deskTimerEndMillis,
+                ),
+            )
+        }
     }
 }

@@ -5,10 +5,12 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
+import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.notifications.AlarmNotificationFactory
 import app.critalarm.notifications.MessageNotificationFactory
 import app.critalarm.notifications.NotificationChannels
+import app.critalarm.notifications.StatusNotificationFactory
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.storage.PushEventLog
@@ -24,6 +26,24 @@ import app.critalarm.storage.PushEventLog
 object SingleCardRule {
     fun showsAlarmCard(ringing: Boolean) = ringing
     fun showsStatusCard(ringing: Boolean) = !ringing
+}
+
+/**
+ * Where a fetch that started seconds ago puts its answer.
+ *
+ * Both content fetches run up to twenty seconds, and the incident does not hold
+ * still for them. Stop lands at 2s and the alarm card is gone; Done lands at 4s
+ * and the status card is gone too. Whoever started the fetch has to re-read the
+ * state, not trust the one it captured, or a finished incident gets a card back.
+ */
+object LateContentRule {
+    enum class Destination { ALARM_CARD, STATUS_CARD, NOWHERE }
+
+    fun destinationFor(acknowledged: Boolean, closed: Boolean): Destination = when {
+        closed -> Destination.NOWHERE
+        acknowledged -> Destination.STATUS_CARD
+        else -> Destination.ALARM_CARD
+    }
 }
 
 /**
@@ -91,16 +111,24 @@ class PushRouter(private val context: Context) {
 
         val manager = context.getSystemService(NotificationManager::class.java)
         if (!alreadyActive || reopen) {
+            // The alarm is ringing, so SingleCardRule gives it the card on its
+            // own. A reopen arrives on an incident the user already acked, and
+            // that ack left a status card up, so the handover runs in this
+            // direction too. The status card starts again when the user stops
+            // the alarm, in IncidentActionReceiver.
+            if (!SingleCardRule.showsStatusCard(ringing = true)) {
+                manager.cancel(StatusNotificationFactory.notificationId(incidentId))
+            }
             // Post first, resolve the text after. FCM cuts an app's
             // high-priority quota when a high-priority message does not show a
             // notification quickly, and an alarm that waits ten seconds for a
             // fetch is an alarm that arrives late.
-            // The alarm is ringing, so SingleCardRule gives it the card on its
-            // own. The status card starts when the user stops the alarm, in
-            // IncidentActionReceiver.
             val fallback = IncidentContentFetcher.fallback(payload)
+            // Untagged, under the id alone. AlarmForegroundService posts this
+            // same id with startForeground, which takes no tag, and Android
+            // keys a notification by tag and id together. A tag here would
+            // make the two posts two cards and two status bar chips.
             manager.notify(
-                incidentId,
                 AlarmNotificationFactory.notificationId(incidentId),
                 AlarmNotificationFactory.create(context, payload, fallback),
             )
@@ -171,15 +199,48 @@ class PushRouter(private val context: Context) {
                 Log.i(TAG, "alarm_content_fallback incident_id=$incidentId")
                 return@Thread
             }
-            // Still ringing, so this refreshes the alarm card and leaves the
-            // status card alone.
+            // Re-read rather than trust the state from before the network call.
+            // The fetch waits up to ten seconds for connect and ten for read,
+            // and the user can press Stop inside the first one. Re-posting the
+            // alarm card then would put a RINGING card back on an incident
+            // they already stopped.
+            val store = IncidentDeliveryStore(context)
             val manager = context.getSystemService(NotificationManager::class.java)
-            manager.notify(
-                incidentId,
-                AlarmNotificationFactory.notificationId(incidentId),
-                AlarmNotificationFactory.create(context, payload, content),
-            )
-            Log.i(TAG, "alarm_content_resolved incident_id=$incidentId")
+            when (
+                LateContentRule.destinationFor(
+                    acknowledged = store.isAcknowledged(incidentId),
+                    closed = store.isClosed(incidentId),
+                )
+            ) {
+                LateContentRule.Destination.NOWHERE ->
+                    Log.i(TAG, "alarm_content_dropped incident_id=$incidentId")
+
+                // The alarm is gone, so the resolved text belongs to the card
+                // that took its place.
+                LateContentRule.Destination.STATUS_CARD -> {
+                    IncidentActionReceiver.postStatusCard(
+                        context = context,
+                        incidentId = incidentId,
+                        server = payload.server,
+                        title = payload.title,
+                        body = payload.body,
+                        content = content,
+                        ackedAtMillis = store.acknowledgedAtMillis(incidentId)
+                            ?: System.currentTimeMillis(),
+                        deskTimerEndMillis = store.deskTimerFiresAtMillis(incidentId),
+                    )
+                    Log.i(TAG, "status_content_resolved incident_id=$incidentId")
+                }
+
+                // Untagged, for the same reason the first post is.
+                LateContentRule.Destination.ALARM_CARD -> {
+                    manager.notify(
+                        AlarmNotificationFactory.notificationId(incidentId),
+                        AlarmNotificationFactory.create(context, payload, content),
+                    )
+                    Log.i(TAG, "alarm_content_resolved incident_id=$incidentId")
+                }
+            }
         }.start()
     }
 
