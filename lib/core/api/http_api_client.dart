@@ -45,6 +45,9 @@ final class HttpApiClient implements ApiClient {
     );
   }
 
+  /// How long any one request waits before it gives up.
+  static const requestTimeout = Duration(seconds: 12);
+
   Future<http.Response> _send(
     String method,
     Uri uri, {
@@ -57,8 +60,12 @@ final class HttpApiClient implements ApiClient {
     if (auth != null) headers['authorization'] = 'Bearer $auth';
     final request = http.Request(method, uri)..headers.addAll(headers);
     if (body != null) request.body = jsonEncode(body);
-    final response = await _http.send(request);
-    final result = await http.Response.fromStream(response);
+    // A host that accepts the socket and then says nothing used to hang until
+    // the OS gave up, with the connect button spinning the whole time.
+    final response = await _http.send(request).timeout(requestTimeout);
+    final result = await http.Response.fromStream(response).timeout(
+      requestTimeout,
+    );
     if (result.statusCode < 200 || result.statusCode >= 300) {
       var json = <String, dynamic>{};
       try {

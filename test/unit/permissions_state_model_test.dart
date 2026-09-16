@@ -6,16 +6,18 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('DevicePermissionType', () {
-    test('contains notifications, fullScreenIntent, batteryOptimization', () {
+    test('covers both the Android rows and the iOS rows', () {
       expect(
         DevicePermissionType.values,
         containsAll([
           DevicePermissionType.notifications,
           DevicePermissionType.fullScreenIntent,
           DevicePermissionType.batteryOptimization,
+          DevicePermissionType.timeSensitive,
+          DevicePermissionType.alarms,
         ]),
       );
-      expect(DevicePermissionType.values.length, equals(3));
+      expect(DevicePermissionType.values.length, equals(5));
     });
   });
 

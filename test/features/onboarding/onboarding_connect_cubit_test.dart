@@ -157,7 +157,8 @@ void main() {
       act: (cubit) => cubit.scanQrTapped(),
       expect: () => [
         const OnboardingConnectState(
-          qrNotice: 'Scanning is not ready yet. Paste the token instead.',
+          qrNotice:
+              'QR scanning is not in this version. Paste the token instead.',
         ),
       ],
     );
@@ -303,7 +304,8 @@ void main() {
           serverUrl: 'https://api.critalarm.app',
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.failure,
-          errorMessage: 'This app needs a v0.x server. Yours is 1.2.0.',
+          errorMessage:
+              'Your server is 1.2.0. Update it to 0.x, then connect again.',
         ),
       ],
     );
@@ -342,7 +344,8 @@ void main() {
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.failure,
           errorMessage:
-              'This app needs a v0.x server. Yours is custom-build-xyz.',
+              'Your server is custom-build-xyz. Update it to 0.x, '
+              'then connect again.',
         ),
       ],
     );

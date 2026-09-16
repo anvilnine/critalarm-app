@@ -5,11 +5,13 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
@@ -29,6 +31,8 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     this.getConnection,
     this.completeOnboarding,
     this.alarmHost,
+    this.readDraft,
+    this.saveDraft,
     bool initialConnected = false,
   }) : super(
          OnboardingConnectState(
@@ -41,20 +45,113 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   final GetTopicsUsecase? getTopics;
   final GetConnectionUsecase? getConnection;
   final AlarmHost? alarmHost;
+
+  /// Null in tests that do not care about surviving a force-quit.
+  final ReadOnboardingDraftUsecase? readDraft;
+  final SaveOnboardingDraftUsecase? saveDraft;
+
   Timer? _countdownTimer;
 
+  /// How long the onboarding test alarm waits before it rings. The countdown
+  /// on screen and the alarm the OS holds are both set from this, so they
+  /// cannot drift apart.
+  static const testAlarmDelaySeconds = 30;
+
   Future<void> loadConnection() async {
+    // What the user typed and where they had got to last time, first: a
+    // half-typed server survives a force-quit this way.
+    final draft = (await readDraft?.call(const NoParams()))?.getOrNull();
+    if (draft != null && !isClosed) {
+      emit(
+        state.copyWith(
+          serverUrl: draft.serverUrl.isEmpty
+              ? state.serverUrl
+              : draft.serverUrl,
+          adminToken: draft.adminToken.isEmpty
+              ? state.adminToken
+              : draft.adminToken,
+          isSelfHosting: draft.isSelfHosting,
+        ),
+      );
+    }
+
     final result = await getConnection?.call(const NoParams());
     final connection = result?.getOrNull();
-    if (connection != null) {
+    if (connection != null && !isClosed) {
       emit(
         state.copyWith(
           serverUrl: connection.serverUrl,
           status: OnboardingConnectStatus.connected,
         ),
       );
+      unawaited(_rememberStep(OnboardingStep.test));
       await loadTestTopic();
+      _resumeCountdown(draft);
+      return;
     }
+    unawaited(_rememberStep(OnboardingStep.connect));
+  }
+
+  /// A countdown that was running when the app went away. The alarm itself is
+  /// held by the OS, so this only catches the on-screen clock up.
+  void _resumeCountdown(OnboardingDraft? draft) {
+    final left = draft?.secondsLeft;
+    if (left == null) return;
+    if (left <= 0) {
+      // The alarm is already due or has rung. Go straight to the screen that
+      // handles it rather than counting down to something in the past.
+      emit(
+        state.copyWith(
+          isCountingDown: false,
+          countdownSeconds: 0,
+          testAlarmStatus: TestAlarmStatus.success,
+          topic: 'demo-topic',
+          incidentId: 'inc_demo',
+          canLaunchDemoAlarm: true,
+        ),
+      );
+      unawaited(_saveCountdown(null));
+      return;
+    }
+    emit(
+      state.copyWith(
+        isCountingDown: true,
+        countdownSeconds: left,
+        testAlarmStatus: TestAlarmStatus.ringing,
+        topic: 'demo-topic',
+        incidentId: 'inc_demo',
+      ),
+    );
+    _tickCountdown();
+  }
+
+  Future<void> _rememberStep(OnboardingStep step) async {
+    final save = saveDraft;
+    final read = readDraft;
+    if (save == null || read == null) return;
+    final current =
+        (await read(const NoParams())).getOrNull() ?? const OnboardingDraft();
+    await save(
+      current.copyWith(
+        step: step,
+        serverUrl: state.serverUrl,
+        adminToken: state.adminToken,
+        isSelfHosting: state.isSelfHosting,
+      ),
+    );
+  }
+
+  Future<void> _saveCountdown(DateTime? endsAt) async {
+    final save = saveDraft;
+    final read = readDraft;
+    if (save == null || read == null) return;
+    final current =
+        (await read(const NoParams())).getOrNull() ?? const OnboardingDraft();
+    await save(
+      endsAt == null
+          ? current.copyWith(clearCountdown: true)
+          : current.copyWith(countdownEndsAt: endsAt),
+    );
   }
 
   final EstablishApiSessionUsecase establishSession;
@@ -64,7 +161,18 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   final TriggerTestAlarmUsecase _triggerTestAlarm;
 
   void toggleSelfHosting() {
-    emit(state.copyWith(isSelfHosting: !state.isSelfHosting));
+    // The failure from the mode the user just left does not belong over the
+    // form they just opened.
+    emit(
+      state.copyWith(
+        isSelfHosting: !state.isSelfHosting,
+        clearErrorMessage: true,
+        clearServerUrlError: true,
+        clearAdminTokenError: true,
+        clearQrNotice: true,
+      ),
+    );
+    unawaited(_rememberStep(OnboardingStep.connect));
   }
 
   void serverUrlChanged(String url) {
@@ -75,8 +183,10 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         clearAdminTokenError: true,
         clearServerUrlError: true,
         clearErrorMessage: true,
+        clearQrNotice: true,
       ),
     );
+    unawaited(_rememberStep(OnboardingStep.connect));
   }
 
   void adminTokenChanged(String token) {
@@ -85,8 +195,10 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         adminToken: token,
         clearAdminTokenError: true,
         clearErrorMessage: true,
+        clearQrNotice: true,
       ),
     );
+    unawaited(_rememberStep(OnboardingStep.connect));
   }
 
   void pasteToken(String token) {
@@ -235,13 +347,48 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     );
   }
 
-  /// 100% Local 30-second alarm test with live countdown.
-  void startLocal30sAlarm() {
+  /// The local test alarm, set for [testAlarmDelaySeconds] from now.
+  ///
+  /// The OS holds the alarm, so it rings even if the app is backgrounded or
+  /// killed before the countdown ends. When the platform cannot set one, the
+  /// countdown is skipped rather than run in silence and then congratulate
+  /// the user for a ring that never happened.
+  Future<void> startLocal30sAlarm() async {
     _countdownTimer?.cancel();
+
+    final host = alarmHost;
+    final scheduled =
+        host != null &&
+        await host
+              .scheduleAlarm(
+                incidentId: 'inc_demo',
+                topic: 'demo-topic',
+                server: '',
+                title: LocaleKeys.onboarding_connect_demo_alarm_title.tr(),
+                body: LocaleKeys.onboarding_connect_demo_alarm_body.tr(),
+                delaySeconds: testAlarmDelaySeconds,
+              )
+              .catchError((_) => false);
+    if (isClosed) return;
+
+    if (!scheduled) {
+      emit(
+        state.copyWith(
+          isCountingDown: false,
+          countdownSeconds: testAlarmDelaySeconds,
+          testAlarmStatus: TestAlarmStatus.failure,
+          topic: 'demo-topic',
+          incidentId: 'inc_demo',
+          errorMessage: LocaleKeys.onboarding_connect_hook_no_alarm_body.tr(),
+        ),
+      );
+      return;
+    }
+
     emit(
       state.copyWith(
         isCountingDown: true,
-        countdownSeconds: 30,
+        countdownSeconds: testAlarmDelaySeconds,
         testAlarmStatus: TestAlarmStatus.ringing,
         topic: 'demo-topic',
         incidentId: 'inc_demo',
@@ -249,25 +396,22 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         clearErrorMessage: true,
       ),
     );
+    unawaited(
+      _saveCountdown(
+        DateTime.now().add(const Duration(seconds: testAlarmDelaySeconds)),
+      ),
+    );
+    _tickCountdown();
+  }
 
-    final host = alarmHost;
-    if (host != null) {
-      unawaited(
-        host
-            .scheduleAlarm(
-              incidentId: 'inc_demo',
-              topic: 'demo-topic',
-              server: '',
-              title: 'Crit Alarm Test',
-            )
-            .catchError((_) => false),
-      );
-    }
-
+  /// Drives the on-screen clock. The alarm is already set; this only counts.
+  void _tickCountdown() {
+    _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       final nextSec = state.countdownSeconds - 1;
       if (nextSec <= 0) {
         timer.cancel();
+        unawaited(_saveCountdown(null));
         emit(
           state.copyWith(
             countdownSeconds: 0,
@@ -288,10 +432,11 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     if (host != null) {
       unawaited(host.cancelAlarm('inc_demo').catchError((_) => false));
     }
+    unawaited(_saveCountdown(null));
     emit(
       state.copyWith(
         isCountingDown: false,
-        countdownSeconds: 30,
+        countdownSeconds: testAlarmDelaySeconds,
         testAlarmStatus: TestAlarmStatus.idle,
       ),
     );

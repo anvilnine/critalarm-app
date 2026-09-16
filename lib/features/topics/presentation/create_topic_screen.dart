@@ -30,8 +30,34 @@ class CreateTopicScreen extends StatelessWidget {
   }
 }
 
-class _CreateTopicScreenContent extends StatelessWidget {
+class _CreateTopicScreenContent extends StatefulWidget {
   const _CreateTopicScreenContent();
+
+  @override
+  State<_CreateTopicScreenContent> createState() =>
+      _CreateTopicScreenContentState();
+}
+
+class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
+  /// Shown just above the pinned button, in the layout rather than floating
+  /// over it. A SnackBar is a Material idea and lands on top of the button
+  /// the user is reaching for.
+  String? _toast;
+  Timer? _toastTimer;
+
+  @override
+  void dispose() {
+    _toastTimer?.cancel();
+    super.dispose();
+  }
+
+  void _showToast(String message) {
+    _toastTimer?.cancel();
+    setState(() => _toast = message);
+    _toastTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _toast = null);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,19 +67,8 @@ class _CreateTopicScreenContent extends StatelessWidget {
       listener: (context, state) {
         if (state.status == CreateTopicStatus.success) {
           AppHaptics.success();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 3),
-              content: Center(
-                child: AppToast(
-                  message: LocaleKeys.create_topic_toast_created.tr(),
-                  boldText: state.name,
-                ),
-              ),
-            ),
+          _showToast(
+            '${LocaleKeys.create_topic_toast_created.tr()} ${state.name}',
           );
         }
       },
@@ -96,30 +111,39 @@ class _CreateTopicScreenContent extends StatelessWidget {
                 },
               ),
             ),
-            bottomBar: AppButton(
-              label: state.status == CreateTopicStatus.success
-                  ? 'Done'
-                  : LocaleKeys.create_topic_create_button.tr(),
-              isFullWidth: true,
-              isLoading: state.status == CreateTopicStatus.submitting,
-              onPressed: () {
-                AppHaptics.capture();
-                if (state.status == CreateTopicStatus.success) {
-                  final name = state.createdTopic!.name;
-                  // Pop back to the list first so it reloads and the new
-                  // topic is on it, then open the topic. Going straight
-                  // there replaces this route instead of popping it, and
-                  // the list never hears that anything changed.
-                  if (context.canPop()) {
-                    context.pop();
-                    unawaited(context.push('/topics/$name'));
-                  } else {
-                    context.go('/topics/$name');
-                  }
-                } else {
-                  unawaited(cubit.createTopic());
-                }
-              },
+            bottomBar: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_toast case final message?) ...[
+                  AppToast(message: message),
+                  const SizedBox(height: Spacing.s2),
+                ],
+                AppButton(
+                  label: state.status == CreateTopicStatus.success
+                      ? 'Done'
+                      : LocaleKeys.create_topic_create_button.tr(),
+                  isFullWidth: true,
+                  isLoading: state.status == CreateTopicStatus.submitting,
+                  onPressed: () {
+                    AppHaptics.capture();
+                    if (state.status == CreateTopicStatus.success) {
+                      final name = state.createdTopic!.name;
+                      // Pop back to the list first so it reloads and the new
+                      // topic is on it, then open the topic. Going straight
+                      // there replaces this route instead of popping it, and
+                      // the list never hears that anything changed.
+                      if (context.canPop()) {
+                        context.pop();
+                        unawaited(context.push('/topics/$name'));
+                      } else {
+                        context.go('/topics/$name');
+                      }
+                    } else {
+                      unawaited(cubit.createTopic());
+                    }
+                  },
+                ),
+              ],
             ),
             slivers: [
               const SliverToBoxAdapter(
@@ -196,13 +220,17 @@ class _CreateTopicScreenContent extends StatelessWidget {
                               value: '${state.serverUrl}/${state.name}',
                               trailing: _TokenActions(
                                 value: '${state.serverUrl}/${state.name}',
+                                onCopied: _showToast,
                               ),
                             ),
                             const SizedBox(height: 8),
                           ],
                           AppKeyValueRow(
                             value: token,
-                            trailing: _TokenActions(value: token),
+                            trailing: _TokenActions(
+                              value: token,
+                              onCopied: _showToast,
+                            ),
                           ),
                           ...[
                             const SizedBox(height: 6),
@@ -238,16 +266,17 @@ class _CreateTopicScreenContent extends StatelessWidget {
 /// the value is truncated to fit the row, so Copy is the only way to actually
 /// obey that instruction. Share stays for sending it somewhere else.
 class _TokenActions extends StatelessWidget {
-  const _TokenActions({required this.value});
+  const _TokenActions({required this.value, required this.onCopied});
 
   final String value;
+  final void Function(String message) onCopied;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _CopyButton(value: value),
+        _CopyButton(value: value, onCopied: onCopied),
         const SizedBox(width: 6),
         _ShareButton(value: value),
       ],
@@ -257,9 +286,10 @@ class _TokenActions extends StatelessWidget {
 
 /// Puts the whole token on the clipboard, not the truncated form on screen.
 class _CopyButton extends StatelessWidget {
-  const _CopyButton({required this.value});
+  const _CopyButton({required this.value, required this.onCopied});
 
   final String value;
+  final void Function(String message) onCopied;
 
   @override
   Widget build(BuildContext context) {
@@ -270,12 +300,7 @@ class _CopyButton extends StatelessWidget {
         AppHaptics.selection();
         await Clipboard.setData(ClipboardData(text: value));
         if (!context.mounted) return;
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(
-            content: Text(LocaleKeys.create_topic_copied_toast.tr()),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        onCopied(LocaleKeys.create_topic_copied_toast.tr());
       },
       child: Container(
         height: 30,

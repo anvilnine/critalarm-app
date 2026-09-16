@@ -16,6 +16,7 @@ import AlarmKit
   private var pushChannel: FlutterMethodChannel?
   private var alarmChannel: FlutterMethodChannel?
   private var soundChannel: FlutterMethodChannel?
+  private var settingsChannel: FlutterMethodChannel?
   private var alarmUpdatesTask: Task<Void, Never>?
 
   /// Held until Dart asks for it, which can be after APNs has already
@@ -89,6 +90,14 @@ import AlarmKit
     identity.setMethodCallHandler { call, result in
       DeviceIdentityKeychain.handle(call, result: result)
     }
+
+    let settings = FlutterMethodChannel(
+      name: "app.critalarm/settings", binaryMessenger: messenger
+    )
+    settings.setMethodCallHandler { call, result in
+      AppDelegate.handleSettingsCall(call, result: result)
+    }
+    settingsChannel = settings
 
     let credentials = FlutterMethodChannel(
       name: "app.critalarm/nse_credentials",
@@ -272,7 +281,8 @@ import AlarmKit
         topic: args["topic"] as? String ?? "",
         server: args["server"] as? String ?? "",
         title: args["title"] as? String ?? "Crit Alarm",
-        sound: args["sound"] as? String
+        sound: args["sound"] as? String,
+        delaySeconds: args["delay_seconds"] as? Int
       ) { ok in result(ok) }
 
     case "cancelAlarm":
@@ -353,13 +363,17 @@ import AlarmKit
     server: String,
     title: String,
     sound: String?,
+    // A push-driven alarm keeps the short default; only onboarding's test
+    // alarm passes a delay of its own.
+    delaySeconds: Int? = nil,
     completion: @escaping (Bool) -> Void
   ) {
     #if canImport(AlarmKit)
     if #available(iOS 26.0, *) {
       Task {
         let ok = await IncidentAlarmScheduler.schedule(
-          incidentId: incidentId, topic: topic, server: server, title: title, sound: sound
+          incidentId: incidentId, topic: topic, server: server, title: title, sound: sound,
+          delay: delaySeconds.map(TimeInterval.init) ?? IncidentAlarmScheduler.leadTime
         )
         await MainActor.run {
           if ok {
@@ -747,6 +761,90 @@ enum DeviceIdentityKeychain {
       result(nil)
     default:
       result(FlutterMethodNotImplemented)
+    }
+  }
+}
+
+// MARK: - Settings channel
+
+/// What the app can read back about how iOS will deliver its notifications,
+/// and how to send the user to the switch that changes it.
+///
+/// Full-screen intent and battery optimisation are Android ideas. They answer
+/// true here so one shared Dart repository can ask about them either way.
+extension AppDelegate {
+  static func handleSettingsCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    switch call.method {
+    case "checkNotificationPermission":
+      readSettings(result) { settings in
+        settings.authorizationStatus == .authorized
+          || settings.authorizationStatus == .provisional
+      }
+
+    case "checkTimeSensitive":
+      // The one switch that quietly breaks an alarm app: with it off, iOS
+      // holds a time-sensitive page for the next Scheduled Summary.
+      readSettings(result) { settings in
+        switch settings.timeSensitiveSetting {
+        case .enabled: return true
+        case .disabled: return false
+        // .notSupported means this iOS has no such switch, so nothing is wrong.
+        default: return true
+        }
+      }
+
+    case "checkScheduledSummary":
+      readSettings(result) { $0.scheduledDeliverySetting == .enabled }
+
+    case "checkFullScreenIntent", "checkBatteryOptimization":
+      result(true)
+
+    case "openNotificationSettings":
+      openNotificationSettings(result)
+
+    case "openFullScreenIntentSettings", "openBatteryOptimizationSettings",
+         "openAppSettings":
+      openAppSettings(result)
+
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private static func readSettings(
+    _ result: @escaping FlutterResult,
+    _ read: @escaping (UNNotificationSettings) -> Bool
+  ) {
+    UNUserNotificationCenter.current().getNotificationSettings { settings in
+      let value = read(settings)
+      DispatchQueue.main.async { result(value) }
+    }
+  }
+
+  /// iOS 16 and up opens this app's own notification page. Older versions only
+  /// reach the app's settings page, which is one tap away from the same thing.
+  private static func openNotificationSettings(_ result: @escaping FlutterResult) {
+    if #available(iOS 16.0, *),
+       let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+      open(url, result)
+      return
+    }
+    openAppSettings(result)
+  }
+
+  private static func openAppSettings(_ result: @escaping FlutterResult) {
+    guard let url = URL(string: UIApplication.openSettingsURLString) else {
+      result(false)
+      return
+    }
+    open(url, result)
+  }
+
+  private static func open(_ url: URL, _ result: @escaping FlutterResult) {
+    DispatchQueue.main.async {
+      UIApplication.shared.open(url, options: [:]) { opened in
+        result(opened)
+      }
     }
   }
 }

@@ -213,8 +213,8 @@ class _AppShellContentState extends State<_AppShellContent>
     final panelMaxHeight = screen.height - panelBottom - padding.top - 16;
     final width = (screen.width - _gutter * 2).clamp(0.0, _maxWidth);
 
-    return BlocBuilder<ShellCubit, int>(
-      builder: (context, missingPermissions) {
+    return BlocBuilder<ShellCubit, ShellHealth>(
+      builder: (context, health) {
         final items = [
           AppTabItem(label: LocaleKeys.nav_topics.tr(), glyph: GlyphType.list),
           AppTabItem(
@@ -224,7 +224,7 @@ class _AppShellContentState extends State<_AppShellContent>
           AppTabItem(
             label: LocaleKeys.nav_settings.tr(),
             glyph: GlyphType.gear,
-            showFlag: missingPermissions > 0,
+            showFlag: !health.isHealthy,
           ),
         ];
 
