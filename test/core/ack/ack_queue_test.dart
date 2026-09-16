@@ -72,6 +72,36 @@ void main() {
     expect(prefs.getString(AckQueue.storageKey), isNull);
   });
 
+  test('a send that goes through tells its owner to catch up', () async {
+    final api = _FakeApi();
+    var caughtUp = 0;
+    final queue = AckQueue(prefs, api, onSent: () async => caughtUp++);
+
+    await queue.enqueue(action: AckAction.ack, incidentId: 'inc_1');
+    await queue.flush();
+
+    // The incident the app is holding is out of date the moment this lands,
+    // which is how the badge follows an ack that only reached the server
+    // minutes after the alarm was stopped.
+    expect(caughtUp, 1);
+  });
+
+  test('a send that failed tells nobody anything', () async {
+    final api = _FakeApi(
+      onAck: (_) async => throw const ApiException(
+        statusCode: 503,
+        message: 'offline',
+      ),
+    );
+    var caughtUp = 0;
+    final queue = AckQueue(prefs, api, onSent: () async => caughtUp++);
+
+    await queue.enqueue(action: AckAction.ack, incidentId: 'inc_1');
+    await queue.flush();
+
+    expect(caughtUp, 0);
+  });
+
   test('close calls the close route', () async {
     final api = _FakeApi();
     final queue = AckQueue(prefs, api);

@@ -122,7 +122,9 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                   ),
                 ),
               )
-            else if (state.isLoading)
+            // A refresh keeps the list that is already on screen. Only a
+            // first load, with nothing grouped yet, says "loading".
+            else if (state.isLoading && state.days.isEmpty)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
                 sliver: SliverToBoxAdapter(

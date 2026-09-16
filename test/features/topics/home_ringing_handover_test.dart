@@ -1,7 +1,10 @@
+import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
@@ -13,9 +16,11 @@ void main() {
 
   HomeCubit build() {
     final api = MockApiClient(server);
+    final incidentRepo = InMemoryIncidentRepository(api);
     return HomeCubit(
-      GetTopicsUsecase(InMemoryTopicRepository(api)),
-      InMemoryIncidentRepository(api),
+      IncidentsCubit(GetIncidentsUsecase(incidentRepo)),
+      TopicsCubit(GetTopicsUsecase(InMemoryTopicRepository(api))),
+      incidentRepo,
     );
   }
 

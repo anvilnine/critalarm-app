@@ -1,10 +1,13 @@
+import 'dart:async';
+
+import 'package:critalarm/app/state/app_data_status.dart';
+import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
-import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Past alarms, newest first, grouped by the day they started.
@@ -14,20 +17,35 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// filter is the user choosing to see less than that. Caps apply when the list
 /// is fetched, the filter applies to what was fetched, so changing the filter
 /// never goes back to the server.
+///
+/// The incidents themselves come from the app-level [IncidentsCubit], so this
+/// tab follows an acknowledge made anywhere else without being reopened.
 class HistoryCubit extends Cubit<HistoryState> {
   HistoryCubit(
-    this._getIncidents, {
+    this._incidents, {
     DateTime Function()? now,
     this.identityStore,
   }) : _now = now ?? DateTime.now,
        super(const HistoryState());
 
-  final GetIncidentsUsecase _getIncidents;
+  final IncidentsCubit _incidents;
   final DateTime Function() _now;
   final DeviceIdentityStore? identityStore;
 
+  StreamSubscription<IncidentsState>? _incidentsSub;
+
+  /// What the days on screen were built from, so an upstream change that
+  /// leaves the incidents alone does not regroup them.
+  List<Incident>? _builtFrom;
+
+  AccountCaps _caps = AccountCaps.free;
+
   Future<void> load() async {
+    _incidentsSub ??= _incidents.stream.listen((_) => _rebuildIfChanged());
+    // A refresh keeps whatever is already grouped. Only a first load has
+    // nothing to show, and that is the only time the screen says "loading".
     emit(state.copyWith(status: HistoryStatus.loading));
+
     final identity = await identityStore?.readOrCreate();
     if (identityStore != null && identity?.accountId == null) {
       emit(
@@ -40,33 +58,52 @@ class HistoryCubit extends Cubit<HistoryState> {
       );
       return;
     }
-    final caps = identity?.caps ?? AccountCaps.free;
-    final result = await _getIncidents(
-      GetIncidentsParams(limit: caps.historyIncidents),
-    );
-    result.fold(
-      (incidents) {
-        final now = _now();
-        final entries = toEntries(incidents, now, caps: caps);
-        emit(
-          state.copyWith(
-            status: HistoryStatus.success,
-            entries: entries,
-            days: groupByDay(filterEntries(entries, state.filter, now)),
-            clearError: true,
-          ),
-        );
-      },
-      (failure) => emit(
+    _caps = identity?.caps ?? AccountCaps.free;
+
+    await _incidents.ensureLoaded();
+    _rebuildIfChanged();
+  }
+
+  Future<void> refresh() async {
+    await _incidents.refresh();
+    _rebuildIfChanged();
+  }
+
+  @override
+  Future<void> close() async {
+    await _incidentsSub?.cancel();
+    return super.close();
+  }
+
+  void _rebuildIfChanged() {
+    if (isClosed) return;
+    final incidents = _incidents.state;
+
+    if (incidents.status == AppDataStatus.failure) {
+      _builtFrom = null;
+      emit(
         state.copyWith(
           status: HistoryStatus.failure,
-          errorMessage: failure.message,
+          errorMessage: incidents.errorMessage,
         ),
+      );
+      return;
+    }
+    if (!incidents.isReady) return;
+    if (identical(incidents.incidents, _builtFrom)) return;
+    _builtFrom = incidents.incidents;
+
+    final now = _now();
+    final entries = toEntries(incidents.incidents, now, caps: _caps);
+    emit(
+      state.copyWith(
+        status: HistoryStatus.success,
+        entries: entries,
+        days: groupByDay(filterEntries(entries, state.filter, now)),
+        clearError: true,
       ),
     );
   }
-
-  Future<void> refresh() => load();
 
   /// Narrows the list down. Re-derives from what is already loaded, so this
   /// never goes back to the server.
