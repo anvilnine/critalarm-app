@@ -20,10 +20,20 @@ final class PushHost {
 
   static const channelName = 'app.critalarm/push';
 
+  /// Key the platform stamps on a tap so the two ways it can reach Dart, live
+  /// over the channel and pulled with [takePendingRoute], are recognised as
+  /// the same tap.
+  static const tapIdKey = 'tap_id';
+
   final MethodChannel _channel;
   final _tokens = StreamController<String>.broadcast();
   final _routes = StreamController<String>.broadcast();
   final _acks = StreamController<String>.broadcast();
+  final _pushes = StreamController<void>.broadcast();
+
+  /// The last tap the platform handed over. Both paths hold a tap until Dart
+  /// takes it, so the same one can arrive twice; the second copy is dropped.
+  String? _lastTapId;
 
   /// APNs tokens handed out after launch. The first one arrives through
   /// [apnsToken]; this carries the rotations.
@@ -36,14 +46,24 @@ final class PushHost {
   /// one lands, so the send goes out without waiting for the next launch.
   Stream<String> get queuedAcks => _acks.stream;
 
+  /// A push that arrived while the app was in front and the user has not
+  /// touched. It carries nothing: what changed is on the server, and the
+  /// shared incident list is what asks for it.
+  Stream<void> get foregroundPushes => _pushes.stream;
+
   /// The current APNs token, or null before APNs has handed one out.
   Future<String?> apnsToken() => _invoke<String>('getApnsToken');
 
-  /// Whatever arrived before Dart was listening, taken once at startup.
+  /// Whatever the platform is still holding, taken once.
   ///
-  /// A cold launch from a tapped notification lands here: the route it wants
-  /// is the app's first screen. Any ack the ACK action queued is reported on
-  /// [queuedAcks] so the send goes out with the rest.
+  /// Called twice: at startup, where a cold launch from a tapped notification
+  /// gives the app its first screen, and again on every resume, where it is
+  /// how a tap that woke the app is navigated before anything reloads. Any
+  /// ack the ACK action queued is reported on [queuedAcks] so the send goes
+  /// out with the rest.
+  ///
+  /// Null when the platform has nothing, and null when what it has is the tap
+  /// that already came over the channel.
   Future<String?> takePendingRoute() async {
     final pending = await _invoke<Map<Object?, Object?>>('takePending');
     if (pending == null) return null;
@@ -53,10 +73,12 @@ final class PushHost {
 
     final tap = pending['tap'];
     if (tap is! Map) return null;
-    return PushDeepLink.fromNotificationData({
+    final data = {
       for (final entry in tap.entries)
         if (entry.value != null) '${entry.key}': '${entry.value}',
-    });
+    };
+    if (_isRepeatTap(data)) return null;
+    return PushDeepLink.fromNotificationData(data);
   }
 
   /// Sets the number on the app icon. Zero clears it.
@@ -79,12 +101,27 @@ final class PushHost {
         final token = call.arguments as String?;
         if (token != null && token.isNotEmpty) _tokens.add(token);
       case 'onNotificationTap':
-        final route = PushDeepLink.fromNotificationData(_stringMap(call));
+        final data = _stringMap(call);
+        if (_isRepeatTap(data)) return;
+        final route = PushDeepLink.fromNotificationData(data);
         if (route != null) _routes.add(route);
       case 'onAckQueued':
         final id = call.arguments as String?;
         if (id != null && id.isNotEmpty) _acks.add(id);
+      case 'onPushReceived':
+        _pushes.add(null);
     }
+  }
+
+  /// True when this is the tap Dart already handled. The platform keeps a tap
+  /// until it is taken and also sends it live, so one tap can arrive twice;
+  /// only the first copy opens a screen.
+  bool _isRepeatTap(Map<String, String> data) {
+    final id = data[tapIdKey];
+    if (id == null) return false;
+    if (id == _lastTapId) return true;
+    _lastTapId = id;
+    return false;
   }
 
   static Map<String, String> _stringMap(MethodCall call) {
@@ -101,5 +138,6 @@ final class PushHost {
     await _tokens.close();
     await _routes.close();
     await _acks.close();
+    await _pushes.close();
   }
 }

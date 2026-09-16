@@ -82,6 +82,82 @@ void main() {
     expect(seen, isEmpty);
   });
 
+  test('a push arriving while the app is open is reported', () async {
+    var seen = 0;
+    final subscription = host.foregroundPushes.listen((_) => seen++);
+    await sendFromPlatform('onPushReceived', null);
+    await subscription.cancel();
+    expect(seen, 1);
+  });
+
+  test('a tap sent live is not opened again when resume asks for it', () async {
+    answerWith(
+      (call) => call.method == 'takePending'
+          ? {
+              'tap': {'incident_id': 'inc_9a8b7c', 'tap_id': '1'},
+            }
+          : null,
+    );
+    final routes = <String>[];
+    final subscription = host.deepLinks.listen(routes.add);
+    await sendFromPlatform('onNotificationTap', {
+      'incident_id': 'inc_9a8b7c',
+      'tap_id': '1',
+    });
+    // The platform is still holding the same tap. Resume asks for it anyway.
+    expect(await host.takePendingRoute(), isNull);
+    await subscription.cancel();
+    expect(routes, ['/incidents/inc_9a8b7c']);
+  });
+
+  test('a tap taken on resume is not opened again live', () async {
+    answerWith(
+      (call) => call.method == 'takePending'
+          ? {
+              'tap': {'incident_id': 'inc_9a8b7c', 'tap_id': '4'},
+            }
+          : null,
+    );
+    expect(await host.takePendingRoute(), '/incidents/inc_9a8b7c');
+    final routes = <String>[];
+    final subscription = host.deepLinks.listen(routes.add);
+    await sendFromPlatform('onNotificationTap', {
+      'incident_id': 'inc_9a8b7c',
+      'tap_id': '4',
+    });
+    await subscription.cancel();
+    expect(routes, isEmpty);
+  });
+
+  test('the next tap opens its screen', () async {
+    final routes = <String>[];
+    final subscription = host.deepLinks.listen(routes.add);
+    await sendFromPlatform('onNotificationTap', {
+      'incident_id': 'inc_1',
+      'tap_id': '1',
+    });
+    await sendFromPlatform('onNotificationTap', {
+      'incident_id': 'inc_2',
+      'tap_id': '2',
+    });
+    await subscription.cancel();
+    expect(routes, ['/incidents/inc_1', '/incidents/inc_2']);
+  });
+
+  test('a cold launch from a tap still hands back its route', () async {
+    answerWith(
+      (call) => call.method == 'takePending'
+          ? {
+              'tap': {'topic': 'prod-db', 'tap_id': '1'},
+              'ack': 'inc_9a8b7c',
+            }
+          : null,
+    );
+    final acked = host.queuedAcks.first;
+    expect(await host.takePendingRoute(), '/topics/prod-db');
+    expect(await acked, 'inc_9a8b7c');
+  });
+
   test('an ack queued natively reaches the ack stream', () async {
     final acked = host.queuedAcks.first;
     await sendFromPlatform('onAckQueued', 'inc_9a8b7c');

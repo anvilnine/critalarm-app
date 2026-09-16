@@ -24,10 +24,19 @@ import AlarmKit
   private var apnsToken: String?
 
   /// A tap or an ack can beat Dart to the channel. They wait here until Dart
-  /// asks for them with `takePending`, and after that they go over live.
+  /// asks for them with `takePending`.
+  ///
+  /// A tap is held even once Dart is listening, and sent live as well. Dart
+  /// asks for a pending tap every time the app comes back, before it reloads
+  /// anything, so the screen the notification asked for is the first one it
+  /// paints. Whichever copy reaches Dart first wins; `tap_id` is what makes
+  /// the other a no-op.
   private var pendingTap: [String: String]?
   private var pendingAck: String?
   private var dartIsListening = false
+
+  /// Counts taps, so Dart can tell one from the next.
+  private var tapSequence = 0
 
   override func application(
     _ application: UIApplication,
@@ -177,6 +186,12 @@ import AlarmKit
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     NSLog("CritAlarm: push_presented_foreground title=%@", notification.request.content.title)
+    // Nobody is going to tap this: the app is already open. Tell Dart so the
+    // screen the user is on reloads. Nothing about the notification is passed
+    // over; what changed is on the server and Dart asks it.
+    if dartIsListening {
+      pushChannel?.invokeMethod("onPushReceived", arguments: nil)
+    }
     completionHandler([.banner, .list, .sound])
   }
 
@@ -206,10 +221,12 @@ import AlarmKit
       if let incidentId { tap["incident_id"] = incidentId }
       if let topic = info["topic"] as? String { tap["topic"] = topic }
       if !tap.isEmpty {
+        tapSequence += 1
+        tap["tap_id"] = "\(tapSequence)"
+        // Held and sent. See `pendingTap`.
+        pendingTap = tap
         if dartIsListening {
           pushChannel?.invokeMethod("onNotificationTap", arguments: tap)
-        } else {
-          pendingTap = tap
         }
       }
     }
@@ -217,9 +234,10 @@ import AlarmKit
     completionHandler()
   }
 
-  /// Hands Dart whatever arrived before it was listening, once. A cold launch
-  /// from a tap comes through here, which is how the app opens on the right
-  /// screen.
+  /// Hands Dart whatever is waiting, once. A cold launch from a tap comes
+  /// through here, which is how the app opens on the right screen, and so
+  /// does a tap that woke the app: Dart asks again on every resume, before it
+  /// reloads anything.
   private func takePending() -> [String: Any] {
     dartIsListening = true
     var pending: [String: Any] = [:]
