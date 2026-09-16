@@ -1,4 +1,5 @@
 import 'package:critalarm/app/state/app_data_status.dart';
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/notifications/incident_update_order.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
@@ -148,7 +149,7 @@ class TopicsCubit extends Cubit<TopicsState> {
         state.copyWith(
           status: AppDataStatus.failure,
           isRefreshing: false,
-          errorMessage: failure.message,
+          errorMessage: failureMessage(failure),
         ),
       ),
     );

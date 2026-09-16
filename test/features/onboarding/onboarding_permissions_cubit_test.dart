@@ -73,7 +73,9 @@ void main() {
         ),
         const OnboardingPermissionsState(
           status: OnboardingPermissionsStatus.failure,
-          errorMessage: 'topic is not critical',
+          // "topic is not critical" is a wire code. The screen gets a
+          // sentence instead.
+          errorMessage: 'Something went wrong on the server. Try again.',
           topic: 'prod-db',
         ),
       ],

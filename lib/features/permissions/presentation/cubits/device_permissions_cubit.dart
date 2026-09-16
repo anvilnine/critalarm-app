@@ -1,3 +1,4 @@
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
@@ -33,7 +34,7 @@ class DevicePermissionsCubit extends Cubit<DevicePermissionsState> {
         emit(
           state.copyWith(
             status: DevicePermissionsCubitStatus.failure,
-            errorMessage: failure.message,
+            errorMessage: failureMessage(failure),
           ),
         );
       },

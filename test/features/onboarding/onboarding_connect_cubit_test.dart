@@ -266,7 +266,7 @@ void main() {
           serverUrl: 'https://api.critalarm.app',
           adminToken: 'ad_12345',
           status: OnboardingConnectStatus.failure,
-          errorMessage: 'Bad Gateway',
+          errorMessage: 'Something went wrong on the server. Try again.',
         ),
       ],
     );
@@ -461,7 +461,7 @@ void main() {
         const OnboardingConnectState(
           status: OnboardingConnectStatus.connected,
           testAlarmStatus: TestAlarmStatus.failure,
-          errorMessage: 'Server error',
+          errorMessage: 'Something went wrong on the server. Try again.',
           topic: 'prod-db',
         ),
       ],
@@ -505,7 +505,9 @@ void main() {
       ),
       act: (cubit) => cubit.navigateToHome(),
       expect: () => [
-        const OnboardingConnectState(errorMessage: 'Could not save'),
+        const OnboardingConnectState(
+          errorMessage: 'Something went wrong on the server. Try again.',
+        ),
       ],
     );
 

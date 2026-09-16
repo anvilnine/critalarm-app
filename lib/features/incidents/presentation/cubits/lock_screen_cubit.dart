@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_state.dart';
@@ -81,7 +82,7 @@ class LockScreenCubit extends Cubit<LockScreenState> {
         emit(
           state.copyWith(
             status: LockScreenStatus.failure,
-            errorMessage: failure.message,
+            errorMessage: failureMessage(failure),
           ),
         );
       },
