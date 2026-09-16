@@ -1,5 +1,6 @@
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
@@ -10,7 +11,13 @@ import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecas
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockOnboardingProgressRepository extends Mock
+    implements OnboardingProgressRepository {}
 
 void main() {
   late MockServer server;
@@ -41,6 +48,63 @@ void main() {
 
   tearDown(() async {
     await cubit.close();
+  });
+
+  group('the demo alarm and onboarding', () {
+    CriticalAlarmCubit demoCubit({required bool completed}) {
+      final repo = _MockOnboardingProgressRepository();
+      when(repo.isCompleted).thenAnswer((_) async => completed.toSuccess());
+      return CriticalAlarmCubit(
+        getIncidentUsecase,
+        getIncidentsUsecase,
+        acknowledgeIncidentUsecase,
+        closeIncidentUsecase,
+        null,
+        null,
+        const Duration(seconds: 1),
+        null,
+        GetOnboardingCompletedUsecase(repo),
+      );
+    }
+
+    test('a test alarm during onboarding leaves the flag off', () async {
+      final demo = demoCubit(completed: false);
+      addTearDown(demo.close);
+
+      await demo.load(incidentId: 'inc_demo');
+
+      expect(demo.state.isOnboardingDone, isFalse);
+    });
+
+    test('a test alarm after onboarding sets the flag', () async {
+      final demo = demoCubit(completed: true);
+      addTearDown(demo.close);
+
+      await demo.load(incidentId: 'inc_demo');
+
+      expect(demo.state.isOnboardingDone, isTrue);
+      expect(demo.state.incident?.id, 'inc_demo');
+    });
+
+    test('the flag survives acknowledging the demo alarm', () async {
+      final demo = demoCubit(completed: true);
+      addTearDown(demo.close);
+
+      await demo.load(incidentId: 'inc_demo');
+      await demo.acknowledge();
+
+      expect(demo.state.status, CriticalAlarmStatus.acknowledged);
+      expect(demo.state.isOnboardingDone, isTrue);
+    });
+
+    test('a real incident never carries the flag', () async {
+      final demo = demoCubit(completed: true);
+      addTearDown(demo.close);
+
+      await demo.load();
+
+      expect(demo.state.isOnboardingDone, isFalse);
+    });
   });
 
   group('CriticalAlarmCubit', () {

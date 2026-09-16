@@ -578,7 +578,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           size: AppButtonSize.lg,
           isFullWidth: true,
           isLoading: state.isCountingDown,
-          onPressed: cubit.startLocal30sAlarm,
+          onPressed: cubit.startLocalTestAlarm,
         ),
         const SizedBox(height: Spacing.s3),
         AppButton(
