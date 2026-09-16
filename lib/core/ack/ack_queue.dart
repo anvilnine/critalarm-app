@@ -19,6 +19,7 @@ final class AckQueue {
     this._prefs,
     this._api, {
     this.analytics,
+    this.onSent,
     DateTime Function()? clock,
     this.tickInterval = const Duration(seconds: 15),
   }) : _clock = clock ?? DateTime.now;
@@ -39,6 +40,12 @@ final class AckQueue {
   final SharedPreferences _prefs;
   final ApiClient _api;
   final PushAnalytics? analytics;
+
+  /// Called after an entry finally reaches the server, which can be minutes
+  /// after the user pressed Stop. The incident the app holds is out of date by
+  /// then, so whoever owns it gets told to catch up.
+  final Future<void> Function()? onSent;
+
   final DateTime Function() _clock;
   final Duration tickInterval;
 
@@ -97,6 +104,7 @@ final class AckQueue {
       switch (outcome) {
         case _SendOutcome.done:
           await _reportAcked(entry);
+          await onSent?.call();
         case _SendOutcome.giveUp:
           break;
         case _SendOutcome.retry:

@@ -1,5 +1,7 @@
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
+import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/alarm_build_mode.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
@@ -37,7 +39,6 @@ import 'package:critalarm/features/incidents/domain/usecases/close_incident_usec
 import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
-import 'package:critalarm/features/incidents/domain/usecases/update_incident_badge_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cubit.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
@@ -113,7 +114,6 @@ import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repo
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/delete_topic_usecase.dart';
-import 'package:critalarm/features/topics/domain/usecases/get_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
@@ -329,6 +329,9 @@ Future<void> configureDependencies({
         getIt<SharedPreferences>(),
         getIt<ApiClient>(),
         analytics: getIt<PushAnalytics>(),
+        // An acknowledge that only lands minutes later still has to move the
+        // badge and every open screen, so the shared list catches up.
+        onSent: () => getIt<IncidentsCubit>().refresh(),
       ),
     )
     ..registerLazySingleton(
@@ -399,13 +402,18 @@ Future<void> configureDependencies({
       () => GetIncidentsUsecase(getIt<IncidentRepository>()),
     )
     ..registerLazySingleton(
-      () => UpdateIncidentBadgeUsecase(
-        getIt<IncidentRepository>(),
-        getIt<AppBadge>(),
+      () => GetIncidentUsecase(getIt<IncidentRepository>()),
+    )
+    // The two app-level cubits. Singletons, not factories: every screen has
+    // to read and listen to the same instance or there is no shared state.
+    ..registerLazySingleton(
+      () => IncidentsCubit(
+        getIt<GetIncidentsUsecase>(),
+        badge: getIt<AppBadge>(),
       ),
     )
     ..registerLazySingleton(
-      () => GetIncidentUsecase(getIt<IncidentRepository>()),
+      () => TopicsCubit(getIt<GetTopicsUsecase>()),
     )
     ..registerLazySingleton(
       () => AcknowledgeIncidentUsecase(getIt<IncidentRepository>()),
@@ -433,9 +441,6 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton(
       () => GetTopicsUsecase(getIt<TopicRepository>()),
-    )
-    ..registerLazySingleton(
-      () => GetTopicUsecase(getIt<TopicRepository>()),
     )
     ..registerLazySingleton(
       () => CreateTopicUsecase(getIt<TopicRepository>()),
@@ -509,16 +514,16 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => HomeCubit(
-        getIt<GetTopicsUsecase>(),
+        getIt<IncidentsCubit>(),
+        getIt<TopicsCubit>(),
         getIt<IncidentRepository>(),
         getIt<MessageSyncService>(),
-        getIt<AppBadge>(),
       ),
     )
     ..registerFactory(
       () => SearchCubit(
-        getTopics: getIt<GetTopicsUsecase>(),
-        getIncidents: getIt<GetIncidentsUsecase>(),
+        topics: getIt<TopicsCubit>(),
+        incidents: getIt<IncidentsCubit>(),
         getDocsIndex: getIt<GetDocsIndexUsecase>(),
         getRecentSearches: getIt<GetRecentSearchesUsecase>(),
         addRecentSearch: getIt<AddRecentSearchUsecase>(),
@@ -535,19 +540,21 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => HistoryCubit(
-        getIt<GetIncidentsUsecase>(),
+        getIt<IncidentsCubit>(),
         identityStore: getIt<DeviceIdentityStore>(),
       ),
     )
     ..registerFactory(
       () => TopicsListCubit(
-        getIt<GetTopicsUsecase>(),
+        getIt<IncidentsCubit>(),
+        getIt<TopicsCubit>(),
         getIt<IncidentRepository>(),
       ),
     )
     ..registerFactory(
       () => TopicDetailCubit(
-        getIt<GetTopicUsecase>(),
+        getIt<IncidentsCubit>(),
+        getIt<TopicsCubit>(),
         getIt<UpdateTopicUsecase>(),
         getIt<IncidentRepository>(),
         alarm: getIt<AlarmHost>(),
@@ -565,7 +572,7 @@ Future<void> configureDependencies({
         getIt<GetIncidentsUsecase>(),
         getIt<AcknowledgeIncidentUsecase>(),
         getIt<CloseIncidentUsecase>(),
-        getIt<UpdateIncidentBadgeUsecase>(),
+        getIt<IncidentsCubit>(),
         getIt<AlarmHost>(),
       ),
     )
