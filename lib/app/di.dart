@@ -119,7 +119,6 @@ import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.d
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
-import 'package:critalarm/features/topics/presentation/cubits/topics_list_cubit.dart';
 import 'package:critalarm/firebase_options.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -544,13 +543,6 @@ Future<void> configureDependencies({
       () => HistoryCubit(
         getIt<IncidentsCubit>(),
         identityStore: getIt<DeviceIdentityStore>(),
-      ),
-    )
-    ..registerFactory(
-      () => TopicsListCubit(
-        getIt<IncidentsCubit>(),
-        getIt<TopicsCubit>(),
-        getIt<IncidentRepository>(),
       ),
     )
     ..registerFactory(
