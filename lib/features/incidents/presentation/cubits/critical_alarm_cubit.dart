@@ -4,6 +4,7 @@ import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/message.dart';
+import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
@@ -13,6 +14,7 @@ import 'package:critalarm/features/incidents/domain/usecases/close_incident_usec
 import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -28,6 +30,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     this._alarm,
     this.ringTick = const Duration(seconds: 1),
     DateTime Function()? now,
+    this._onboardingCompleted,
   ]) : _now = now ?? DateTime.now,
        super(const CriticalAlarmState());
 
@@ -49,6 +52,11 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// How often the ringing line is redrawn while the alarm is live. A test
   /// passes something short so it does not have to wait a real second.
   final Duration ringTick;
+
+  /// Tells the demo celebration which pair of exits to draw. Optional so a
+  /// test can build the cubit without it; absent reads as not finished,
+  /// which is onboarding's own shape.
+  final GetOnboardingCompletedUsecase? _onboardingCompleted;
 
   final DateTime Function() _now;
 
@@ -89,6 +97,11 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     _stopRingTicker();
     emit(const CriticalAlarmState(status: CriticalAlarmStatus.loading));
     if (incidentId == 'inc_demo') {
+      // Read before the screen is drawn, so the exits never flash the
+      // onboarding pair at someone who only re-tested from Settings.
+      final done = await _onboardingCompleted?.call(const NoParams());
+      if (isClosed) return;
+      emit(state.copyWith(isOnboardingDone: done?.getOrNull() ?? false));
       final now = DateTime.now();
       _applyIncident(
         Incident(

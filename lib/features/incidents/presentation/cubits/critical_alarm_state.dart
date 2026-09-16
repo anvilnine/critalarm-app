@@ -31,6 +31,7 @@ class CriticalAlarmState {
     this.isAcknowledging = false,
     this.feedbackMessage,
     this.errorMessage,
+    this.isOnboardingDone = false,
   });
 
   final CriticalAlarmStatus status;
@@ -49,6 +50,12 @@ class CriticalAlarmState {
   final String? feedbackMessage;
   final String? errorMessage;
 
+  /// True when onboarding was already finished before this alarm rang.
+  /// Only the demo alarm reads it: a test fired from Settings ends on one
+  /// Finish button, while onboarding's own test still ends on the two
+  /// buttons that start the first topic.
+  final bool isOnboardingDone;
+
   CriticalAlarmState copyWith({
     CriticalAlarmStatus? status,
     Incident? incident,
@@ -65,6 +72,7 @@ class CriticalAlarmState {
     bool? isAcknowledging,
     String? feedbackMessage,
     String? errorMessage,
+    bool? isOnboardingDone,
     bool clearError = false,
     bool clearFeedback = false,
   }) {
@@ -86,6 +94,7 @@ class CriticalAlarmState {
           ? null
           : (feedbackMessage ?? this.feedbackMessage),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      isOnboardingDone: isOnboardingDone ?? this.isOnboardingDone,
     );
   }
 
@@ -108,7 +117,8 @@ class CriticalAlarmState {
           isAcknowledged == other.isAcknowledged &&
           isAcknowledging == other.isAcknowledging &&
           feedbackMessage == other.feedbackMessage &&
-          errorMessage == other.errorMessage;
+          errorMessage == other.errorMessage &&
+          isOnboardingDone == other.isOnboardingDone;
 
   @override
   int get hashCode => Object.hash(
@@ -127,5 +137,6 @@ class CriticalAlarmState {
     isAcknowledging,
     feedbackMessage,
     errorMessage,
+    isOnboardingDone,
   );
 }
