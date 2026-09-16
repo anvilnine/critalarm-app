@@ -132,7 +132,14 @@
       "other": "{count} topics. {warnings} warnings."
     },
     "stage_word_clear": "All clear",
-    "stage_sub_clear": "{count} topics. Last alert 06:12, acknowledged.",
+    "stage_sub_clear": {
+      "one": "1 topic. Nothing has rung yet.",
+      "other": "{} topics. Nothing has rung yet."
+    },
+    "stage_sub_clear_last": {
+      "one": "1 topic. Last alert {time}, acknowledged.",
+      "other": "{count} topics. Last alert {time}, acknowledged."
+    },
     "meta_quiet_6h": "Quiet for 6 h",
     "meta_finished_warnings": "Finished 02:04, 2 warnings",
     "meta_finished_size": "Finished 02:00, 412 GB",
@@ -142,6 +149,9 @@
     "meta_warning": "1 warning",
     "meta_quiet": "Quiet",
     "delivery_rings": "rings",
+    "loading_title": "Loading your topics",
+    "load_failed": "Could not reach your server.",
+    "retry_button": "Try again",
     "delivery_normal": "normal",
     "detail_empty_title": "No topic selected",
     "detail_empty_body": "Pick a topic to see its details."
@@ -161,6 +171,9 @@
   },
   "history": {
     "title": "History",
+    "loading_title": "Loading your history",
+    "load_failed": "Could not reach your server.",
+    "retry_button": "Try again",
     "filter_aria_label": "Filter history",
     "summary": {
       "one": "1 alarm in 30 days. Longest ring {longest}.",
@@ -215,6 +228,8 @@
     "sound_row_default": "Using the default",
     "messages_header": "Messages",
     "stop_alarm_button": "Stop the alarm",
+    "retry_button": "Try again",
+    "ack_failed": "The server did not confirm. This phone is quiet, but the page is still open. Tap Stop the alarm again.",
     "stage_sub_empty": "No messages yet. Anything sent here rings at {priority} priority.",
     "view_all_messages": {
       "one": "View 1 older message",
@@ -253,8 +268,8 @@
     "stage_word_closed": "CLOSED",
     "stage_sub_ringing": "Ringing {duration}.",
     "acknowledged_message": "Acknowledged at {time}",
-    "fallback_title": "Primary database down",
-    "fallback_body": "pg_isready failed 3 times in 90 s. Replica promoted to primary on db-2.",
+    "fallback_title": "Page from {topic}",
+    "fallback_body": "This page arrived with no message.",
     "snooze_button": "Snooze 10 min",
     "acked_title": "Acknowledged",
     "acked_sub": "Rang for {duration}.",
@@ -263,7 +278,16 @@
     "source_label": "Source",
     "open_topic_button": "Open {topic}",
     "back_to_topics_button": "Back to topics",
-    "read_message_button": "Read the full message"
+    "read_message_button": "Read the full message",
+    "screen_title": "Alarm",
+    "loading_title": "Loading the alarm",
+    "no_alarm_title": "Nothing is ringing",
+    "no_alarm_body": "There is no open page on this device right now.",
+    "load_failed_title": "Could not load the alarm",
+    "load_failed_body": "The page is still open on the server. Try again, or stop the noise on this phone and open it from your topics.",
+    "retry_button": "Try again",
+    "silence_button": "Stop the noise on this phone",
+    "ack_failed": "The server did not confirm. This phone is quiet, but the page is still open. Tap Stop the alarm again."
   },
   "lock_screen": {
     "back_aria_label": "Back",

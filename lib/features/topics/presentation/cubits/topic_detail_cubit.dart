@@ -1,5 +1,6 @@
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
+import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
@@ -210,8 +211,28 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       openIds.where((id) => !state.openIncidentIds.contains(id)),
     );
 
+    // Whatever the server would not take stays open. Clearing the list on a
+    // failed ack told the user the page was handled and took the button away,
+    // while the incident was still open and free to ring again. A 409 means
+    // it was already acknowledged somewhere else, which is a success here.
+    final stillOpen = <String>[];
     for (final id in openIds) {
-      await _incidentRepository.ackIncident(id);
+      final result = await _incidentRepository.ackIncident(id);
+      final failure = result.exceptionOrNull();
+      if (failure == null) continue;
+      final alreadyAcked = failure is ApiFailure && failure.statusCode == 409;
+      if (!alreadyAcked) stillOpen.add(id);
+    }
+
+    if (stillOpen.isNotEmpty) {
+      emit(
+        state.copyWith(
+          isMarkingAsRead: false,
+          openIncidentIds: stillOpen,
+          errorMessage: LocaleKeys.topic_detail_ack_failed.tr(),
+        ),
+      );
+      return;
     }
 
     final clearedMessages = state.messages
@@ -226,6 +247,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         word: LocaleKeys.topic_detail_stage_word_clear.tr(),
         messages: clearedMessages,
         openIncidentIds: const [],
+        clearError: true,
       ),
     );
   }

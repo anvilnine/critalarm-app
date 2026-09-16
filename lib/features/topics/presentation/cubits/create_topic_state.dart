@@ -16,11 +16,17 @@ class CreateTopicState {
     this.createdToken,
     this.createdTopic,
     this.errorMessage,
+    this.serverUrl = '',
   });
 
   final CapReached? capReached;
   final CreateTopicStatus status;
   final String name;
+
+  /// Base URL of the server this app is connected to. The result card needs
+  /// it to show the address the user points their script at; the token on its
+  /// own is not enough to send anything.
+  final String serverUrl;
 
   /// Critical delivery / Ring through silent mode. MUST DEFAULT TO FALSE.
   final bool isCritical;
@@ -36,6 +42,7 @@ class CreateTopicState {
     String? createdToken,
     Topic? createdTopic,
     String? errorMessage,
+    String? serverUrl,
     bool clearError = false,
   }) {
     return CreateTopicState(
@@ -46,6 +53,7 @@ class CreateTopicState {
       createdToken: createdToken ?? this.createdToken,
       createdTopic: createdTopic ?? this.createdTopic,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      serverUrl: serverUrl ?? this.serverUrl,
     );
   }
 

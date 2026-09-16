@@ -92,7 +92,48 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                 ],
               ),
             ),
-            if (state.isEmptyAfterFilter)
+            // Loading and failure both used to fall through to the list
+            // branch, which drew an empty card with no spinner, no message
+            // and no way to try again. `errorMessage` was never rendered.
+            if (state.status == HistoryStatus.failure)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppToast(
+                        faceState: FaceState.worried,
+                        message:
+                            state.errorMessage ??
+                            LocaleKeys.history_load_failed.tr(),
+                      ),
+                      const SizedBox(height: 10),
+                      AppButton(
+                        label: LocaleKeys.history_retry_button.tr(),
+                        variant: AppButtonVariant.ghost,
+                        size: AppButtonSize.sm,
+                        isFullWidth: true,
+                        onPressed: () => unawaited(
+                          context.read<HistoryCubit>().refresh(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (state.isLoading)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+                sliver: SliverToBoxAdapter(
+                  child: AppEmptyState(
+                    title: LocaleKeys.history_loading_title.tr(),
+                    description: '',
+                    buttonLabel: null,
+                  ),
+                ),
+              )
+            else if (state.isEmptyAfterFilter)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
                 sliver: SliverToBoxAdapter(

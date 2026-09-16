@@ -56,6 +56,19 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
   }
 
+  /// Stops the ring on this device without telling the server anything.
+  ///
+  /// For the case where the incident could not be loaded: the phone is
+  /// screaming and the screen has no id to acknowledge, so the least it can do
+  /// is stop the noise. The incident stays open on the server.
+  Future<void> silenceThisPhone() async {
+    try {
+      await _alarm?.stopRinging();
+    } on Object catch (_) {
+      // Nothing to do. There is no id to fall back on here.
+    }
+  }
+
   Future<void> load({String? incidentId}) async {
     emit(const CriticalAlarmState(status: CriticalAlarmStatus.loading));
     if (incidentId == 'inc_demo') {
@@ -194,19 +207,18 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
             ),
           );
         } else {
-          // If backend returned error, transition locally with feedback
+          // The server did not take the acknowledge, so the incident is still
+          // open and can ring again. Saying "acknowledged" here sent people
+          // back to sleep on a page nobody had handled. The phone is quiet,
+          // because Stop already silenced it, and the screen stays on the
+          // ringing state so the button is there to try again.
           emit(
             state.copyWith(
-              status: CriticalAlarmStatus.acknowledged,
-              isAcknowledged: true,
+              status: CriticalAlarmStatus.ringing,
+              isAcknowledged: false,
               isAcknowledging: false,
-              severityMode: SeverityMode.ack,
-              faceState: FaceState.acked,
-              isLive: false,
-              word: LocaleKeys.critical_alarm_stage_word_acknowledged.tr(),
-              subtext: ackMsg,
-              feedbackMessage: ackMsg,
-              errorMessage: failure.message,
+              isLive: true,
+              errorMessage: LocaleKeys.critical_alarm_ack_failed.tr(),
             ),
           );
         }
@@ -254,8 +266,15 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
 
   void _applyIncident(Incident incident) {
     final firstMsg = incident.messages.firstOrNull;
+    // A page with no title or no body used to fall back to a sample outage
+    // about a database, which read as the real thing to someone woken by it.
+    // Say what is actually known instead: the topic, and that nothing came
+    // with it.
     final title =
-        firstMsg?.title ?? LocaleKeys.critical_alarm_fallback_title.tr();
+        firstMsg?.title ??
+        LocaleKeys.critical_alarm_fallback_title.tr(
+          namedArgs: {'topic': incident.topic},
+        );
     final body = (firstMsg != null && firstMsg.message.isNotEmpty)
         ? firstMsg.message
         : LocaleKeys.critical_alarm_fallback_body.tr();
