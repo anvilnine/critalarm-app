@@ -1,6 +1,7 @@
 package app.critalarm.push
 
 import android.util.Log
+import app.critalarm.MainActivity
 import app.critalarm.storage.PushEventLog
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -19,6 +20,10 @@ class CritAlarmMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         Log.i(TAG, "fcm_received")
         PushRouter(this).route(message.data)
+        // The notification goes up first; this is only so an app that is
+        // already open catches up. With no engine attached it does nothing,
+        // which is the usual case here.
+        MainActivity.notifyPushReceived()
     }
 
     companion object {

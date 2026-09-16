@@ -6,6 +6,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -22,8 +24,32 @@ class MainActivity : FlutterFragmentActivity() {
     private val SETTINGS_CHANNEL = "app.critalarm/settings"
     private var soundChannel: SoundChannel? = null
 
+    /**
+     * A tap the activity has read off an intent but Dart has not taken yet.
+     * Dart asks for it on resume, before it reloads its lists.
+     */
+    private var pendingTap: Map<String, String>? = null
+
+    private var tapSequence = 0
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // The same channel iOS uses, with the same two calls Dart makes of it:
+        // `takePending` for a tap the platform still holds, and the
+        // `onNotificationTap` / `onPushReceived` calls sent the other way.
+        val push = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PUSH_CHANNEL)
+        push.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "takePending" -> {
+                    val tap = pendingTap
+                    pendingTap = null
+                    result.success(if (tap == null) null else mapOf("tap" to tap))
+                }
+                // The APNs token and the app-icon badge are iOS only.
+                else -> result.notImplemented()
+            }
+        }
+        pushChannel = push
         val sounds = SoundChannel(applicationContext)
         soundChannel = sounds
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SoundChannel.NAME)
@@ -167,10 +193,34 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        // The push service checks this to decide whether anyone is listening.
+        // Leaving it set after the engine goes keeps the activity alive.
+        pushChannel = null
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
+
     override fun onStop() {
         // Leaving the picker on screen must not leave a preview ringing.
         soundChannel?.stopPreview()
         super.onStop()
+    }
+
+    /**
+     * A notification tapped while the app is already running. The tap intents
+     * carry SINGLE_TOP, so the tap lands here instead of in onCreate and
+     * `getInitialRoute` never sees it. iOS hands a warm tap over the same way.
+     */
+    override fun onNewIntent(intent: Intent) {
+        val tap = readTap(intent)
+        setIntent(intent)
+        super.onNewIntent(intent)
+        if (tap == null) return
+        // Held as well as sent. Dart asks for a tap on resume, before it
+        // reloads its lists, so the same tap can reach it twice; the id on it
+        // is what makes the second copy a no-op.
+        pendingTap = tap
+        pushChannel?.invokeMethod("onNotificationTap", tap)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -190,18 +240,72 @@ class MainActivity : FlutterFragmentActivity() {
      * message has no incident (api.md §1.7), so its notification carries the
      * topic and opens that instead.
      */
-    override fun getInitialRoute(): String? {
+    override fun getInitialRoute(): String? =
+        routeFor(readTap(intent)) ?: super.getInitialRoute()
+
+    /**
+     * The tap a notification put on an intent, read once.
+     *
+     * The extras come off as they are read and the activity keeps the intent
+     * without them, so nothing reopens the same screen later. An intent the
+     * system replayed out of the recents list is ignored outright: the user
+     * asked for the app, not for a notification they already dealt with.
+     */
+    private fun readTap(intent: Intent?): Map<String, String>? {
+        if (intent == null) return null
+        if ((intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return null
         val incidentId = intent.getStringExtra(EXTRA_ALARM_INCIDENT_ID)
             ?: intent.getStringExtra(EXTRA_INCIDENT_ID)
-        if (incidentId != null) return "/incidents/${Uri.encode(incidentId)}"
         val topic = intent.getStringExtra(EXTRA_TOPIC)
-        if (topic != null) return "/topics/${Uri.encode(topic)}"
-        return super.getInitialRoute()
+        if (incidentId == null && topic == null) return null
+        intent.removeExtra(EXTRA_ALARM_INCIDENT_ID)
+        intent.removeExtra(EXTRA_INCIDENT_ID)
+        intent.removeExtra(EXTRA_TOPIC)
+        tapSequence += 1
+        val tap = mutableMapOf(KEY_TAP_ID to tapSequence.toString())
+        if (incidentId != null) tap[EXTRA_INCIDENT_ID] = incidentId
+        if (topic != null) tap[EXTRA_TOPIC] = topic
+        return tap
+    }
+
+    /** The same mapping Dart's PushDeepLink makes: incident first, topic next. */
+    private fun routeFor(tap: Map<String, String>?): String? {
+        if (tap == null) return null
+        tap[EXTRA_INCIDENT_ID]?.let { return "/incidents/${Uri.encode(it)}" }
+        tap[EXTRA_TOPIC]?.let { return "/topics/${Uri.encode(it)}" }
+        return null
     }
 
     companion object {
         const val EXTRA_ALARM_INCIDENT_ID = "alarm_incident_id"
         const val EXTRA_INCIDENT_ID = "incident_id"
         const val EXTRA_TOPIC = "topic"
+
+        /** Matches PushHost.channelName in Dart and the channel in AppDelegate. */
+        const val PUSH_CHANNEL = "app.critalarm/push"
+
+        /** Matches PushHost.tapIdKey in Dart. */
+        const val KEY_TAP_ID = "tap_id"
+
+        /**
+         * The push channel of the running app, or null when no engine is
+         * attached. The push service runs in both cases.
+         */
+        @Volatile
+        private var pushChannel: MethodChannel? = null
+
+        /**
+         * Tells a running app that a push landed, so the screen the user is
+         * looking at can catch up without being left and come back to. Does
+         * nothing when the app is not running, and never blocks the caller:
+         * the push service is on a background thread and a channel call has
+         * to be made on the main one.
+         */
+        fun notifyPushReceived() {
+            if (pushChannel == null) return
+            Handler(Looper.getMainLooper()).post {
+                pushChannel?.invokeMethod("onPushReceived", null)
+            }
+        }
     }
 }
