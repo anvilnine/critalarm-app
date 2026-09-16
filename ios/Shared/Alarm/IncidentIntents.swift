@@ -10,7 +10,9 @@ import Foundation
 ///
 /// api.md §3.2 is the state machine they drive:
 ///   open --ack--> acked --close--> closed
-/// Stop on the ringing alarm is stage 1. Acknowledge on the card is stage 2.
+/// Stop on the ringing alarm is stage 1, "I'm up". Done on the card is
+/// stage 2, "At my desk": the alarm is already quiet by then, and this is
+/// what stops the desk timer reopening the incident.
 
 @available(iOS 16.2, *)
 struct StopAlarmIntent: LiveActivityIntent {
@@ -38,8 +40,8 @@ struct StopAlarmIntent: LiveActivityIntent {
 }
 
 @available(iOS 16.2, *)
-struct AcknowledgeIncidentIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Acknowledge"
+struct CloseIncidentIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Done"
     static var description = IntentDescription("Closes the incident. Opens nothing.")
 
     static var openAppWhenRun: Bool = false
@@ -55,8 +57,8 @@ struct AcknowledgeIncidentIntent: LiveActivityIntent {
 
     func perform() async throws -> some IntentResult {
         AckQueueStore.enqueue(action: "close", incidentId: incidentId)
-        NSLog("CritAlarmActivity: incident_acknowledged incident_id=%@", incidentId)
-        await IncidentActivityCoordinator.shared.acknowledged(incidentId: incidentId)
+        NSLog("CritAlarmActivity: incident_closed incident_id=%@", incidentId)
+        await IncidentActivityCoordinator.shared.closed(incidentId: incidentId)
         return .result()
     }
 }
