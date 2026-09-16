@@ -36,7 +36,6 @@ class _AlarmSettingsView extends StatelessWidget {
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) {
         final colors = context.appColors;
-        final cubit = context.read<SettingsCubit>();
 
         return AppScreenScaffold(
           topBar: AppTopBar(
@@ -73,36 +72,22 @@ class _AlarmSettingsView extends StatelessWidget {
                         ),
                         onTap: () => context.push('/settings/sounds'),
                       ),
-                      const SizedBox(height: 8),
-                      AppToggleRow(
-                        title: LocaleKeys.settings_quiet_hours_label.tr(),
-                        subtitle: LocaleKeys.settings_quiet_hours_subtitle.tr(),
-                        value: state.quietHoursEnabled,
-                        onChanged: (val) =>
-                            cubit.toggleQuietHours(isEnabled: val),
-                      ),
-                      const SizedBox(height: 8),
-                      AppToggleRow(
-                        title: LocaleKeys.settings_critical_rings_title.tr(),
-                        subtitle: LocaleKeys.settings_critical_rings_subtitle
-                            .tr(),
-                        value: state.criticalRingsQuietHours,
-                        onChanged: (val) => cubit.toggleCriticalRingsQuietHours(
-                          isEnabled: val,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      AppSectionHeader(
-                        LocaleKeys.settings_escalation_header.tr(),
-                      ),
-                      AppToggleRow(
-                        title: LocaleKeys.settings_escalation_call_title.tr(),
-                        subtitle: LocaleKeys.settings_escalation_call_subtitle
-                            .tr(),
-                        value: state.escalationCallEnabled,
-                        onChanged: (val) =>
-                            cubit.toggleEscalationCall(isEnabled: val),
-                      ),
+                      // Quiet hours, "critical still rings" and the
+                      // escalation call are off this screen until they do
+                      // something. Nothing saved these, nothing read them, and
+                      // `SettingsCubit` is a factory, so leaving the screen
+                      // reset all three to off. The escalation row also
+                      // advertised a phone call, with a placeholder number, to
+                      // a server that has no such route: api.md accepts `call`
+                      // and ignores it.
+                      //
+                      // Quiet hours is written up as its own task. It needs
+                      // the same window check in two places, because on the
+                      // extension path the alarm is scheduled in Swift before
+                      // Dart hears about the push at all
+                      // (`incident_alarm_controller.dart`). The state and the
+                      // cubit methods stay, and so do the strings, so that
+                      // task is a wiring job rather than a rebuild.
                     ],
                   ),
                 ),
