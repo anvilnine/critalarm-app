@@ -32,6 +32,10 @@ class IncidentActionReceiver : BroadcastReceiver() {
         val route = IncidentActionRouter.fromTrigger(trigger, incidentId) ?: return
         val server = intent.getStringExtra(EXTRA_SERVER)
             ?.let { runCatching { URI(it) }.getOrNull() }
+        // The desk timer starts when the user stops the alarm, so the refresh
+        // that follows the fetch counts from here too and not from whenever
+        // the network answered.
+        val ackedAtMillis = System.currentTimeMillis()
         if (route.action == IncidentAction.ACK) {
             val deliveries = IncidentDeliveryStore(context)
             deliveries.markAcknowledged(incidentId)
@@ -44,7 +48,7 @@ class IncidentActionReceiver : BroadcastReceiver() {
             if (server != null && SingleCardRule.showsStatusCard(ringing)) {
                 context.getSystemService(NotificationManager::class.java)
                     .cancel(incidentId, AlarmNotificationFactory.notificationId(incidentId))
-                postStatusCard(context, incidentId, server, null)
+                postStatusCard(context, incidentId, server, null, ackedAtMillis)
                 Log.i(TAG, "status_notification_posted incident_id=$incidentId")
             }
         }
@@ -88,7 +92,7 @@ class IncidentActionReceiver : BroadcastReceiver() {
                     // the alarm card, and the topic it brings back is what
                     // gives the desk timer its countdown.
                     IncidentContentFetcher.fetch(context, server, incidentId)?.let {
-                        postStatusCard(context, incidentId, server, it)
+                        postStatusCard(context, incidentId, server, it, ackedAtMillis)
                         Log.i(TAG, "status_content_resolved incident_id=$incidentId")
                     }
                 }
@@ -116,6 +120,7 @@ class IncidentActionReceiver : BroadcastReceiver() {
         incidentId: String,
         server: URI,
         content: IncidentContent?,
+        ackedAtMillis: Long,
     ) {
         // Only the incident id and the server are read off this. A stopped
         // alarm was a priority 5 incident push, which is what the two values
@@ -136,6 +141,7 @@ class IncidentActionReceiver : BroadcastReceiver() {
                 payload = payload,
                 content = content ?: IncidentContentFetcher.fallback(payload),
                 state = IncidentCardState.ACKED,
+                openedAtMillis = ackedAtMillis,
             ),
         )
     }
