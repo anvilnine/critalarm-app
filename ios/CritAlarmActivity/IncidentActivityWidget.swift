@@ -3,11 +3,15 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
-/// The acknowledge card.
+/// The card left behind once the alarm has stopped.
 ///
-/// One button, Acknowledge, which is stage 2 of the state machine in api.md
-/// §3.2. It opens nothing: the intent runs in the app's process and puts a
-/// close on the shared queue.
+/// One button, Done, which is stage 2 of the state machine in api.md §3.2,
+/// the one api.md calls "At my desk". It opens nothing: the intent runs in
+/// the app's process and puts a close on the shared queue.
+///
+/// It used to say Acknowledge, which was wrong twice over. The card only
+/// appears once the incident is already acknowledged, and the word was long
+/// enough that the capsule hyphenated it down the middle.
 @available(iOS 16.2, *)
 struct IncidentActivityWidget: Widget {
     var body: some WidgetConfiguration {
@@ -33,7 +37,7 @@ struct IncidentActivityWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     if context.state.state == .acked {
-                        AcknowledgeButton(incidentId: context.attributes.incidentId)
+                        DoneButton(incidentId: context.attributes.incidentId)
                     } else {
                         Text(context.attributes.topic)
                             .font(.caption)
@@ -78,10 +82,11 @@ private struct LockScreenCard: View {
                     .foregroundStyle(CritAlarmPalette.ink.opacity(0.6))
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
 
             if context.state.state == .acked {
-                AcknowledgeButton(incidentId: context.attributes.incidentId)
+                DoneButton(incidentId: context.attributes.incidentId)
+                    .layoutPriority(1)
             }
         }
         .padding(16)
@@ -89,13 +94,18 @@ private struct LockScreenCard: View {
 }
 
 @available(iOS 16.2, *)
-private struct AcknowledgeButton: View {
+private struct DoneButton: View {
     let incidentId: String
 
     var body: some View {
-        Button(intent: AcknowledgeIncidentIntent(incidentId: incidentId)) {
-            Text("Acknowledge")
+        Button(intent: CloseIncidentIntent(incidentId: incidentId)) {
+            Text("Done")
                 .font(.subheadline.weight(.semibold))
+                // A capsule that wraps its own label reads as broken. The
+                // button takes the width the word needs and the column
+                // beside it gives way instead.
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
         }
