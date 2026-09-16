@@ -1,3 +1,4 @@
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
@@ -91,11 +92,14 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
         );
       },
       (failure) {
+        final cap = CapReached.fromFailure(failure);
         emit(
           state.copyWith(
             status: CreateTopicStatus.failure,
-            errorMessage: failure.message,
-            capReached: CapReached.fromFailure(failure),
+            // failure.message is the server's wire code, e.g. "cap". Never
+            // put that under a text field.
+            errorMessage: apiErrorMessage(failure.message, cap: cap?.name),
+            capReached: cap,
           ),
         );
       },
