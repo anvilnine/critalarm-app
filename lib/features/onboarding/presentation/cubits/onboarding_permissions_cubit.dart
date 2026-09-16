@@ -1,3 +1,4 @@
+import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_permissions_state.dart';
@@ -62,7 +63,7 @@ class OnboardingPermissionsCubit extends Cubit<OnboardingPermissionsState> {
         emit(
           state.copyWith(
             status: OnboardingPermissionsStatus.failure,
-            errorMessage: failure.message,
+            errorMessage: failureMessage(failure),
           ),
         );
       },

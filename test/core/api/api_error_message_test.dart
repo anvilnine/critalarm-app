@@ -1,4 +1,6 @@
 import 'package:critalarm/core/api/network_failure_message.dart';
+import 'package:critalarm/core/failures/cap_reached.dart';
+import 'package:critalarm/core/failures/failure.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -62,6 +64,68 @@ void main() {
     test('a missing code falls back to the same sentence', () {
       expect(
         apiErrorMessage(null),
+        'Something went wrong on the server. Try again.',
+      );
+    });
+
+    test('a cap name we do not know never reaches the sentence', () {
+      final message = apiErrorMessage('cap', cap: 'weekly_smoke_signals');
+
+      expect(message, 'You have hit your plan limit.');
+      expect(message, isNot(contains('weekly_smoke_signals')));
+    });
+  });
+
+  group('CapReached', () {
+    test('names the caps it knows', () {
+      expect(const CapReached('critical_topics').label, 'Critical topics');
+      expect(const CapReached('devices').message, 'Devices limit reached');
+    });
+
+    test('a cap it does not know gets a generic label, not the wire name', () {
+      const cap = CapReached('weekly_smoke_signals');
+
+      expect(cap.label, 'Plan');
+      expect(cap.message, 'Plan limit reached');
+      expect(cap.message, isNot(contains('weekly_smoke_signals')));
+    });
+  });
+
+  group('failureMessage', () {
+    test('a wire code on an api failure becomes a sentence', () {
+      final message = failureMessage(
+        const Failure.api(statusCode: 400, message: 'invalid topic name'),
+      );
+
+      expect(
+        message,
+        'That name is not allowed. '
+        'Use 1 to 64 lowercase letters, digits and hyphens.',
+      );
+    });
+
+    test('a 429 keeps the cap name in the sentence', () {
+      final message = failureMessage(
+        const Failure.api(statusCode: 429, message: 'cap', cap: 'devices'),
+      );
+
+      expect(message, 'You have hit your devices limit.');
+    });
+
+    test('an exception dump never reaches the screen', () {
+      final message = failureMessage(
+        const Failure.unexpected(
+          message: 'PlatformException(error, Failed host lookup, null, null)',
+        ),
+      );
+
+      expect(message, 'Something went wrong on the server. Try again.');
+      expect(message, isNot(contains('PlatformException')));
+    });
+
+    test('a failure with no message still reads as a sentence', () {
+      expect(
+        failureMessage(const Failure.database()),
         'Something went wrong on the server. Try again.',
       );
     });
