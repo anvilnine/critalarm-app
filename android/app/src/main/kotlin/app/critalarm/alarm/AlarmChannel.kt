@@ -29,6 +29,27 @@ class AlarmChannel(private val context: Context) {
             // than "denied" is what lets the critical toggle stay editable.
             "authorizationStatus", "requestAuthorization" -> result.success(UNSUPPORTED)
 
+            // Onboarding's local test alarm. No push is coming, so the
+            // system AlarmManager holds it and starts the service on time,
+            // even if the app is backgrounded or killed by then.
+            "scheduleAlarm" -> {
+                val incidentId = call.argument<String>("incident_id")
+                if (incidentId.isNullOrEmpty()) {
+                    result.success(false)
+                    return
+                }
+                result.success(
+                    ScheduledAlarmReceiver.schedule(
+                        context = context,
+                        incidentId = incidentId,
+                        server = call.argument<String>("server").orEmpty(),
+                        title = call.argument<String>("title").orEmpty(),
+                        body = call.argument<String>("body"),
+                        delaySeconds = call.argument<Int>("delay_seconds") ?: 30,
+                    ),
+                )
+            }
+
             // Stop the sound, whichever incident it belongs to. Android runs
             // one alarm service, so stopping it is the whole job.
             "stopRinging" -> {
@@ -59,6 +80,7 @@ class AlarmChannel(private val context: Context) {
 
     /** Stops the ring and clears the notification that came with it. */
     private fun stop(incidentId: String): Boolean = try {
+        ScheduledAlarmReceiver.cancel(context, incidentId)
         IncidentDeliveryStore(context).markAcknowledged(incidentId)
         context.getSystemService(NotificationManager::class.java)
             ?.cancel(AlarmNotificationFactory.notificationId(incidentId))
