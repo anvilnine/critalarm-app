@@ -221,6 +221,7 @@ Future<void> configureDependencies({
         getIt<ApiClient>(),
         sessions: getIt<ApiSessionStore>(),
         identity: getIt<DeviceIdentityStore>(),
+        prefs: getIt<SharedPreferences>(),
       ),
     )
     ..registerLazySingleton<IncidentRepository>(
