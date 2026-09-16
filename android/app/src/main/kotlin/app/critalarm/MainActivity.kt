@@ -1,6 +1,7 @@
 package app.critalarm
 
 import android.app.NotificationManager
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -13,6 +14,7 @@ import android.provider.Settings
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import app.critalarm.alarm.AlarmChannel
+import app.critalarm.notifications.LiveUpdate
 import app.critalarm.notifications.NotificationChannels
 import app.critalarm.sound.SoundChannel
 import io.flutter.plugin.common.MethodChannel
@@ -169,9 +171,13 @@ class MainActivity : FlutterFragmentActivity() {
                     Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
                         getSystemService(android.app.AlarmManager::class.java).canScheduleExactAlarms(),
                 )
+                // LiveUpdate is what the notification code asks before it posts
+                // a promoted card, so the answer here and the card on screen
+                // cannot drift apart. It says no below Android 16, where there
+                // is no promotion and so nothing the user could fix, which is
+                // what the version check in front of it covers.
                 "checkPromotedNotifications" -> result.success(
-                    Build.VERSION.SDK_INT < 36 ||
-                        getSystemService(NotificationManager::class.java).canPostPromotedNotifications(),
+                    Build.VERSION.SDK_INT < 36 || LiveUpdate.canPromote(this),
                 )
                 "checkDndAccess" -> result.success(
                     getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted,
@@ -180,9 +186,30 @@ class MainActivity : FlutterFragmentActivity() {
                     startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply { data = Uri.parse("package:$packageName") })
                     result.success(true)
                 }
+                // Settings.ACTION_MANAGE_APP_PROMOTED_NOTIFICATIONS does not
+                // exist at compileSdk 36. The screen behind the constant below
+                // is the Android 16 one, and it is missing on every older
+                // release, so a miss lands on the app's own notification page.
                 "openPromotedNotificationsSettings" -> {
-                    startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS).apply { data = Uri.parse("package:$packageName") })
-                    result.success(true)
+                    try {
+                        startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS).apply {
+                                data = Uri.parse("package:$packageName")
+                            },
+                        )
+                        result.success(true)
+                    } catch (e: ActivityNotFoundException) {
+                        try {
+                            startActivity(
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.parse("package:$packageName")
+                                },
+                            )
+                            result.success(true)
+                        } catch (e2: ActivityNotFoundException) {
+                            result.error("UNAVAILABLE", "Cannot open promoted notification settings", null)
+                        }
+                    }
                 }
                 "openDndSettings" -> {
                     startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
