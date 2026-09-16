@@ -18,6 +18,7 @@ class AppEmptyState extends StatelessWidget {
     this.onButtonPressed,
     this.faceState = FaceState.watching,
     this.isLive = true,
+    this.showFace = true,
     super.key,
   });
 
@@ -27,6 +28,10 @@ class AppEmptyState extends StatelessWidget {
   final VoidCallback? onButtonPressed;
   final FaceState faceState;
   final bool isLive;
+
+  /// Set false where the screen already shows a face above this card, so
+  /// the user is not looking at two of them at once.
+  final bool showFace;
 
   @override
   Widget build(BuildContext context) {
@@ -49,11 +54,13 @@ class AppEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            FaceWidget(
-              state: faceState,
-              isLive: isLive,
-            ),
-            const SizedBox(height: Spacing.s4),
+            if (showFace) ...[
+              FaceWidget(
+                state: faceState,
+                isLive: isLive,
+              ),
+              const SizedBox(height: Spacing.s4),
+            ],
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
