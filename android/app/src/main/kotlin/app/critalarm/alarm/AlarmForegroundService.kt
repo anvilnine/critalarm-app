@@ -29,9 +29,19 @@ class AlarmForegroundService : Service() {
             stopSelf(startId)
             return START_NOT_STICKY
         }
+        // Whoever asks to stop an alarm has to know which one this is. The
+        // service is started again, on the same instance, when a second
+        // incident rings, so the last start is what is coming out of the
+        // speaker.
+        ringingIncidentId = incidentId
+        val handOver = intent?.getStringExtra(EXTRA_HAND_OVER) != "false"
         startForeground(
             AlarmNotificationFactory.notificationId(incidentId),
-            AlarmNotificationFactory.create(this, payload),
+            AlarmNotificationFactory.create(
+                context = this,
+                payload = payload,
+                handOverToStatusCard = handOver,
+            ),
         )
         Log.i("CritAlarmAlarm", "alarm_service_started incident_id=$incidentId")
         if (wakeLock?.isHeld != true) {
@@ -44,6 +54,7 @@ class AlarmForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        ringingIncidentId = null
         player.stop()
         wakeLock?.takeIf { it.isHeld }?.release()
         wakeLock = null
@@ -55,6 +66,26 @@ class AlarmForegroundService : Service() {
 
     companion object {
         private const val WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L
+
+        /**
+         * Says the alarm leaves no card behind when it stops. Carried as a
+         * string because the service reads its extras as strings.
+         */
+        const val EXTRA_HAND_OVER = "hand_over_to_status_card"
+
+        /**
+         * The incident ringing right now, or null when the service is not
+         * running.
+         *
+         * There is one service for the whole app, so stopping it stops
+         * whatever is ringing. Dart can ask to cancel an incident that is not
+         * that one: launch-time reconcile walks every acked card, and an
+         * incident the server expired overnight gets cancelled while a
+         * different incident rings on the lock screen. [AlarmStopRule] reads
+         * this so that stop leaves the live alarm alone.
+         */
+        @Volatile
+        var ringingIncidentId: String? = null
 
         fun startIntent(context: Context, payload: FcmIncidentPayload) =
             Intent(context, AlarmForegroundService::class.java).apply {

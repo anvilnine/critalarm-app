@@ -183,11 +183,41 @@ void main() {
     });
 
     test('an unreachable server leaves the card up', () async {
-      fake.answers['showingIncidentIds'] = <String>['inc_missing'];
+      // A 503, not a 404. The server is there and cannot answer, so the card
+      // stays: a stale card beats a missed incident.
+      server.failIncidentFetch = true;
+      fake.answers['showingIncidentIds'] = <String>['inc_unreachable'];
 
       await build().reconcile();
 
       expect(fake.callsTo('endActivity'), isEmpty);
+      expect(fake.callsTo('cancelAlarm'), isEmpty);
+    });
+
+    test('an incident the server no longer has takes its card down', () async {
+      // A relay purges incidents after its retention window, and then every
+      // launch asked about the same id and got a 404 back. The id never left
+      // the list, so the list only grew.
+      fake.answers['showingIncidentIds'] = <String>['inc_purged'];
+
+      await build().reconcile();
+
+      expect(fake.argsOnce('cancelAlarm')['incident_id'], 'inc_purged');
+      expect(fake.argsOnce('endActivity')['state'], 'expired');
+    });
+
+    test('one launch checks at most the bound', () async {
+      fake.answers['showingIncidentIds'] = List.generate(
+        IncidentAlarmController.reconcileLimit + 5,
+        (i) => 'inc_stale_$i',
+      );
+
+      await build().reconcile();
+
+      expect(
+        fake.callsTo('cancelAlarm'),
+        hasLength(IncidentAlarmController.reconcileLimit),
+      );
     });
   });
 }

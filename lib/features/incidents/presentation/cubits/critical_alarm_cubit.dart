@@ -85,6 +85,11 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       await _alarm?.cancelAlarm(
         incidentId,
         handOverToStatusCard: handOverToStatusCard,
+        // The acked card is built natively, with no engine and no network, so
+        // it only knows what it is handed. Without these it read "Critical
+        // incident" while the screen behind it named the topic.
+        title: state.title.isEmpty ? null : state.title,
+        body: state.body.isEmpty ? null : state.body,
       );
     } on Object catch (_) {
       // Nothing to do. The ack below is what the server cares about.

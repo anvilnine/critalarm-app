@@ -121,16 +121,20 @@ class NotificationKeyingTest {
     }
 
     /**
-     * True when the thing before the dot is a type name rather than a value,
-     * which makes the call one of our own helpers and not the notification
-     * manager. `ScheduledAlarmReceiver.cancel(context, incidentId)` is the one
-     * in the tree today, and its two arguments are not a tag and an id.
+     * True when the call is one of our own helpers rather than the
+     * notification manager. `ScheduledAlarmReceiver.cancel(context,
+     * incidentId)` is the one in the tree today, and its two arguments are not
+     * a tag and an id.
+     *
+     * Named, not guessed. This used to skip anything starting with a capital,
+     * so a local called `Manager` or a helper added later walked straight past
+     * the scan that is the point of this file.
      */
     private fun receiverIsTypeName(code: String, dotIndex: Int): Boolean {
         var i = dotIndex - 1
         while (i >= 0 && (code[i].isLetterOrDigit() || code[i] == '_')) i--
         val start = i + 1
-        return start < dotIndex && code[start].isUpperCase()
+        return start < dotIndex && code.substring(start, dotIndex) in OUR_HELPERS
     }
 
     /**
@@ -209,4 +213,9 @@ class NotificationKeyingTest {
     }
 
     private fun kotlinFiles() = sources.walkTopDown().filter { it.extension == "kt" }.toList()
+
+    private companion object {
+        /** Our own types with a `cancel` of their own. Add one when you write one. */
+        val OUR_HELPERS = setOf("ScheduledAlarmReceiver")
+    }
 }
