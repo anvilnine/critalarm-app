@@ -9,10 +9,22 @@ import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.notifications.AlarmNotificationFactory
 import app.critalarm.notifications.MessageNotificationFactory
 import app.critalarm.notifications.NotificationChannels
-import app.critalarm.notifications.StatusNotificationFactory
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.storage.PushEventLog
+
+/**
+ * One card per incident, never two.
+ *
+ * While the alarm rings it owns the card, and the status card starts once the
+ * alarm is gone. iOS has the same rule in
+ * ios/Shared/Alarm/IncidentActivityCoordinator.swift, and without it a
+ * promoted incident puts two chips in the status bar.
+ */
+object SingleCardRule {
+    fun showsAlarmCard(ringing: Boolean) = ringing
+    fun showsStatusCard(ringing: Boolean) = !ringing
+}
 
 /**
  * Decides what one push turns into. api.md §5.2 messages are data-only, so the
@@ -83,16 +95,14 @@ class PushRouter(private val context: Context) {
             // high-priority quota when a high-priority message does not show a
             // notification quickly, and an alarm that waits ten seconds for a
             // fetch is an alarm that arrives late.
+            // The alarm is ringing, so SingleCardRule gives it the card on its
+            // own. The status card starts when the user stops the alarm, in
+            // IncidentActionReceiver.
             val fallback = IncidentContentFetcher.fallback(payload)
             manager.notify(
                 incidentId,
                 AlarmNotificationFactory.notificationId(incidentId),
                 AlarmNotificationFactory.create(context, payload, fallback),
-            )
-            manager.notify(
-                incidentId,
-                StatusNotificationFactory.notificationId(incidentId),
-                StatusNotificationFactory.create(context, payload, fallback),
             )
             events.record("alarm_fired", mapOf("incident_id" to incidentId))
             Log.i(TAG, "alarm_notification_posted channel=${NotificationChannels.alarmChannelId()} incident_id=$incidentId kind=${payload.kind.wireValue}")
@@ -161,16 +171,13 @@ class PushRouter(private val context: Context) {
                 Log.i(TAG, "alarm_content_fallback incident_id=$incidentId")
                 return@Thread
             }
+            // Still ringing, so this refreshes the alarm card and leaves the
+            // status card alone.
             val manager = context.getSystemService(NotificationManager::class.java)
             manager.notify(
                 incidentId,
                 AlarmNotificationFactory.notificationId(incidentId),
                 AlarmNotificationFactory.create(context, payload, content),
-            )
-            manager.notify(
-                incidentId,
-                StatusNotificationFactory.notificationId(incidentId),
-                StatusNotificationFactory.create(context, payload, content),
             )
             Log.i(TAG, "alarm_content_resolved incident_id=$incidentId")
         }.start()

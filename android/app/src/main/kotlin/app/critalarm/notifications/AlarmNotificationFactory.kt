@@ -9,11 +9,16 @@ import androidx.core.app.NotificationCompat
 import app.critalarm.MainActivity
 import app.critalarm.R
 import app.critalarm.actions.IncidentActionReceiver
+import app.critalarm.notifications.LiveUpdate.requestPromotion
+import app.critalarm.notifications.LiveUpdate.shortCriticalText
 import app.critalarm.push.FcmIncidentPayload
 import app.critalarm.push.IncidentContent
 import app.critalarm.push.IncidentContentFetcher
 
 object AlarmNotificationFactory {
+    /** The face is drawn at this many pixels, the same size the status card uses. */
+    private const val FACE_PX = 192
+
     fun notificationId(incidentId: String) = incidentId.hashCode()
 
     fun create(
@@ -50,8 +55,12 @@ object AlarmNotificationFactory {
 
         val builder = NotificationCompat.Builder(context, NotificationChannels.alarmChannelId())
             .setSmallIcon(R.drawable.ic_stat_alarm)
+            .setLargeIcon(FaceBitmap.render(CritAlarmFace.ALARMED, FACE_PX))
             .setContentTitle(title)
             .setContentText(body)
+            .setColor(CritAlarmPalette.CRIT)
+            .shortCriticalText(IncidentCardState.OPEN.chipText)
+            .requestPromotion()
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
