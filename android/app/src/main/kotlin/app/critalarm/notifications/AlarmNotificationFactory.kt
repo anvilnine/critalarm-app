@@ -43,15 +43,22 @@ object AlarmNotificationFactory {
         val fullScreen = Intent(launch).apply {
             addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
         }
+        val title = NtfyEmoji.prefixTitle(content.title, content.tags)
+        val (_, plainTags) = NtfyEmoji.split(content.tags)
+        val body = if (plainTags.isEmpty()) content.body else content.body + "\n" + plainTags.joinToString(", ")
+
+        // The status card that replaces this one is built inside a broadcast
+        // receiver, with no network yet and nothing but the incident id to go
+        // on. Handing it the text this card is already showing is what keeps
+        // it from saying "Critical incident" when the ack fails and the
+        // enrichment never lands.
         val stop = Intent(context, IncidentActionReceiver::class.java).apply {
             action = IncidentActionReceiver.ACTION_STOP
             putExtra(IncidentActionReceiver.EXTRA_INCIDENT_ID, incidentId)
             putExtra(IncidentActionReceiver.EXTRA_SERVER, payload.server.toString())
+            putExtra(IncidentActionReceiver.EXTRA_TITLE, content.title)
+            putExtra(IncidentActionReceiver.EXTRA_BODY, content.body)
         }
-
-        val title = NtfyEmoji.prefixTitle(content.title, content.tags)
-        val (_, plainTags) = NtfyEmoji.split(content.tags)
-        val body = if (plainTags.isEmpty()) content.body else content.body + "\n" + plainTags.joinToString(", ")
 
         val builder = NotificationCompat.Builder(context, NotificationChannels.alarmChannelId())
             .setSmallIcon(R.drawable.ic_stat_alarm)

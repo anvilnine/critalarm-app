@@ -4,8 +4,11 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.notifications.AlarmNotificationFactory
+import app.critalarm.notifications.StatusNotificationFactory
 import app.critalarm.storage.IncidentDeliveryStore
+import app.critalarm.storage.NativeConnectionStore
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
@@ -62,7 +65,7 @@ class AlarmChannel(private val context: Context) {
                     result.success(false)
                     return
                 }
-                result.success(stop(incidentId))
+                result.success(stop(incidentId, handOverToStatusCard = true))
             }
 
             // Android puts up a plain notification, not a Live Activity, so
@@ -70,7 +73,7 @@ class AlarmChannel(private val context: Context) {
             "showingIncidentIds" -> result.success(emptyList<String>())
             "endActivity" -> {
                 val incidentId = call.argument<String>("incident_id")
-                if (!incidentId.isNullOrEmpty()) stop(incidentId)
+                if (!incidentId.isNullOrEmpty()) stop(incidentId, handOverToStatusCard = false)
                 result.success(true)
             }
 
@@ -78,12 +81,45 @@ class AlarmChannel(private val context: Context) {
         }
     }
 
-    /** Stops the ring and clears the notification that came with it. */
-    private fun stop(incidentId: String): Boolean = try {
+    /**
+     * Stops the ring and clears the notification that came with it.
+     *
+     * Both cancels drop the tag, because [AlarmForegroundService] posts the
+     * alarm card with startForeground, which takes no tag, and Android keys a
+     * notification by tag and id together.
+     *
+     * [handOverToStatusCard] is the difference between the two callers. Stop
+     * inside the app leaves the incident open, so the acked card takes over the
+     * way it does when the user presses Stop on the notification. endActivity
+     * is the incident finishing, so both cards come down and nothing replaces
+     * them.
+     */
+    private fun stop(incidentId: String, handOverToStatusCard: Boolean): Boolean = try {
         ScheduledAlarmReceiver.cancel(context, incidentId)
-        IncidentDeliveryStore(context).markAcknowledged(incidentId)
-        context.getSystemService(NotificationManager::class.java)
-            ?.cancel(AlarmNotificationFactory.notificationId(incidentId))
+        val ackedAtMillis = System.currentTimeMillis()
+        val deliveries = IncidentDeliveryStore(context)
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager?.cancel(AlarmNotificationFactory.notificationId(incidentId))
+        if (handOverToStatusCard) {
+            deliveries.markAcknowledged(incidentId, ackedAtMillis)
+            // Without this the user keeps a promoted RINGING card on an
+            // incident the app has already acked, and never sees an AWAKE one.
+            NativeConnectionStore(context).canonicalServer()?.let { server ->
+                IncidentActionReceiver.postStatusCard(
+                    context = context,
+                    incidentId = incidentId,
+                    server = server,
+                    title = null,
+                    body = null,
+                    content = null,
+                    ackedAtMillis = ackedAtMillis,
+                    deskTimerEndMillis = deliveries.deskTimerFiresAtMillis(incidentId),
+                )
+            }
+        } else {
+            deliveries.markClosed(incidentId)
+            manager?.cancel(StatusNotificationFactory.notificationId(incidentId))
+        }
         stopService("incident_id=$incidentId")
     } catch (e: Exception) {
         Log.w(TAG, "alarm_stop_failed incident_id=$incidentId error=${e.message}")
