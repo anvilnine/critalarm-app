@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/push_bindings.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
@@ -30,34 +31,34 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     initialLocation: widget.initialLocation,
   );
 
-  StreamSubscription<String>? _deepLinks;
+  /// Taps, foreground pushes and the resume reload. A notification tapped
+  /// while the app is already running does not go through the initial route,
+  /// so the platform hands the route over here.
+  late final AppPushBindings _push = AppPushBindings(
+    getIt<PushHost>(),
+    getIt<IncidentsCubit>(),
+    getIt<TopicsCubit>(),
+    _router.go,
+  );
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // A notification tapped while the app is already running does not go
-    // through the initial route, so the platform hands the route over here.
-    if (getIt.isRegistered<PushHost>()) {
-      _deepLinks = getIt<PushHost>().deepLinks.listen(_router.go);
-    }
+    _push.start();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    unawaited(_deepLinks?.cancel());
+    unawaited(_push.dispose());
     super.dispose();
   }
 
-  /// Coming back to the app reloads the shared lists, once, for every screen.
-  /// A page can land while the phone is in a pocket, and the whole point of
-  /// this app is showing it.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
-    unawaited(getIt<IncidentsCubit>().refresh());
-    unawaited(getIt<TopicsCubit>().refresh());
+    unawaited(_push.onResumed());
   }
 
   @override
