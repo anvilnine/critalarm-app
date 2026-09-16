@@ -9,6 +9,11 @@ import WidgetKit
 /// ringing alarm wear the app's face and colours instead of the stock
 /// countdown. The Stop button is the `stopIntent` on the configuration, so
 /// there is no button to add here.
+///
+/// Every Text below names its own colour. The card is tinted cream, but a
+/// Live Activity inherits the lock screen's label colour, which is white in
+/// the dark. Left to the default, the title was white on cream and the topic
+/// was .secondary off that same white: one unreadable, the other invisible.
 @available(iOS 26.0, *)
 struct AlarmActivityWidget: Widget {
     var body: some WidgetConfiguration {
@@ -18,11 +23,12 @@ struct AlarmActivityWidget: Widget {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(context.attributes.presentation.alert.title)
                         .font(.headline)
+                        .foregroundStyle(CritAlarmPalette.ink)
                         .lineLimit(2)
                     if let topic = context.attributes.metadata?.topic, !topic.isEmpty {
                         Text(topic)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(CritAlarmPalette.ink.opacity(0.6))
                     }
                 }
                 Spacer(minLength: 0)
