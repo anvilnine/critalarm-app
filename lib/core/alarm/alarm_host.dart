@@ -105,14 +105,20 @@ final class AlarmHost {
         await _invoke<String>('requestAuthorization'),
       );
 
-  /// Puts an alarm a few seconds out for [incidentId], replacing any alarm
-  /// already set for it. Answers false when it did not get scheduled.
+  /// Puts an alarm [delaySeconds] out for [incidentId], replacing any alarm
+  /// already set for it. Answers false when it did not get scheduled, which
+  /// is what the onboarding test reads to know the ring is not coming.
+  ///
+  /// The delay crosses the channel because the UI counts it down. When the two
+  /// disagreed, the phone rang 27 seconds before the screen said it would.
   Future<bool> scheduleAlarm({
     required String incidentId,
     required String topic,
     required String server,
     required String title,
     String? sound,
+    String? body,
+    int delaySeconds = 3,
   }) async =>
       await _invoke<bool>('scheduleAlarm', {
         'incident_id': incidentId,
@@ -120,6 +126,8 @@ final class AlarmHost {
         'server': server,
         'title': title,
         'sound': ?sound,
+        'body': ?body,
+        'delay_seconds': delaySeconds,
       }) ??
       false;
 
