@@ -124,7 +124,7 @@ class _SettingsScreenContent extends StatelessWidget {
               children: [
                 Text(
                   !state.access.isKnown
-                      ? 'Plan unavailable'
+                      ? LocaleKeys.account_plan_unavailable.tr()
                       : isPro
                       ? LocaleKeys.settings_plan_pro.tr()
                       : LocaleKeys.settings_plan_free.tr(),

@@ -527,5 +527,15 @@
     "hint_body": "Topics, past alarms, settings, and the documentation. Type a date like Sep 14 to find that day's alarms.",
     "no_matches_title": "Nothing matched “{query}”",
     "no_matches_body": "Try a topic name, a date like Sep 14, or a setting such as sound."
+  },
+  "account": {
+    "plan_unavailable": "Plan unavailable",
+    "plan_limits_unavailable": "Plan limits unavailable",
+    "cap_generic_label": "Plan",
+    "critical_usage_unlimited": {
+      "one": "1 critical topic used · Unlimited",
+      "other": "{} critical topics used · Unlimited"
+    },
+    "critical_usage": "{count} of {limit} critical topics used"
   }
 }
