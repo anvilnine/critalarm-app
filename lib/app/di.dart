@@ -16,6 +16,7 @@ import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/push/apns_push_token_provider.dart';
 import 'package:critalarm/core/push/firebase_push_token_provider.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
@@ -72,7 +73,6 @@ import 'package:critalarm/features/paywall/data/repositories/dev_subscription_re
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
-import 'package:critalarm/features/paywall/domain/usecases/check_pro_entitlement_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_customer_info_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_offerings_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/purchase_package_usecase.dart';
@@ -156,8 +156,13 @@ Future<void> configureDependencies({
     getIt.registerSingleton<TelemetryGate>(telemetryGate);
   }
 
-  if (buildSkipsPaywall && !getIt.isRegistered<DevProSwitch>()) {
-    getIt.registerSingleton<DevProSwitch>(DevProSwitch(prefs));
+  if (buildSkipsPaywall) {
+    if (!getIt.isRegistered<DevProSwitch>()) {
+      getIt.registerSingleton<DevProSwitch>(DevProSwitch(prefs));
+    }
+    // The only place the switch is handed to the rest of the app. In a store
+    // build appProOverride is a NoProOverride and this call does nothing.
+    appProOverride.watch(getIt<DevProSwitch>());
   }
 
   final identityStore = DeviceIdentityStore.forPlatform(prefs);
@@ -452,9 +457,6 @@ Future<void> configureDependencies({
       () => DeleteTopicUsecase(getIt<TopicRepository>()),
     )
     ..registerLazySingleton(
-      () => CheckProEntitlementUsecase(getIt<SubscriptionRepository>()),
-    )
-    ..registerLazySingleton(
       () => GetOfferingsUsecase(getIt<SubscriptionRepository>()),
     )
     ..registerLazySingleton(
@@ -619,7 +621,6 @@ Future<void> configureDependencies({
         telemetryGate: getIt.isRegistered<TelemetryGate>()
             ? getIt<TelemetryGate>()
             : null,
-        checkProEntitlementUsecase: getIt<CheckProEntitlementUsecase>(),
         getOfferingsUsecase: getIt<GetOfferingsUsecase>(),
         purchasePackageUsecase: getIt<PurchasePackageUsecase>(),
         restorePurchasesUsecase: getIt<RestorePurchasesUsecase>(),
