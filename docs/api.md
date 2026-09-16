@@ -1,9 +1,15 @@
-<!-- GENERATED from critalarm-server@3386c43 — do not edit. Run scripts/sync-contract.sh -->
+<!-- GENERATED from critalarm-server@19c4656 — do not edit. Run scripts/sync-contract.sh -->
 
 # Crit Alarm Server: API Contract
 
-**Version:** 1.6.0
+**Version:** 1.9.0
 **Status:** draft, 2026-09-16. Lives in `critalarm-server/docs/api.md`. The app's client code and tests pin to this file. Changes here are versioned changes.
+
+**1.9.0** writes down what `limit` on `GET /v1/incidents` does (§3.2). It defaults to 20 when the parameter is absent and its maximum is 200; ask for more and the server gives you 200. The default was already the server's behaviour and was never documented, so a client that left the parameter off got 20 rows while believing it had asked for everything. There is no paging in v1, so 200 is the most incidents a client can read in one call.
+
+**1.8.0** fixes a contradiction in the `critical_topics` cap. The prose said the cap counts topics with the critical switch on; the enforcement table said a subscription counted against it once it was the account's n+1th distinct topic. The server implemented the table, so a device hit "critical topics limit reached" on its third ordinary topic. Subscribing does not change how many critical topics an account owns, so subscribe is no longer a cap point. `POST /relay/v1/devices/{id}/subscriptions` no longer answers 429.
+
+**1.7.0** adds `"content-available": 1` to the iOS payload on a critical topic (§5.1). Without it iOS never wakes the app, and the app is the only thing that schedules the alarm, so the phone played a sound and never rang. Additive: no field changed or went away, and Android is untouched.
 
 **1.6.0** drops Apple Critical Alerts. Apple turned the entitlement down, so every iOS alert now carries `"interruption-level": "time-sensitive"` and a plain `alarm.caf` sound (§5.1). This is a wire change: the server used to send a critical payload, and APNs was rejecting it. Nothing else moved. The priority ladder, the per-topic `critical` switch, incidents, and `caps.critical_topics` all behave exactly as they did in 1.5.0.
 
@@ -248,7 +254,7 @@ DELETE /v1/topics/{name}/tokens/{token_id}
 ### 3.2 Incidents
 
 ```
-GET  /v1/incidents?limit=20[&state=open|acked|closed|expired][&topic=prod]
+GET  /v1/incidents[?limit=20][&state=open|acked|closed|expired][&topic=prod]
 → 200 [{ "id":"inc_9a8b7c", "topic":"prod", "state":"open",
           "opened_at":..., "acked_at":null, "closed_at":null, "last_message_at":...,
           "messages":[ { ...message object } ] }]
@@ -264,6 +270,17 @@ POST /v1/incidents/{id}/close               // stage 2, "At my desk"
 → 200 { ...incident, "state":"closed" }
 → 409 if state is not acked
 ```
+
+**`limit` defaults to 20 and stops at 200.** Leave it off and you get 20, which is the trap: a
+client that omits it is not asking for everything, it is asking for 20. Ask for more than 200 and
+you get 200. Below 1, or anything that is not a whole number, answers
+`400 {"error":"invalid request"}`.
+
+Newest first, by `opened_at`. There is no paging in v1, so 200 is the most incidents one call can
+return, and a client that wants a longer history cannot reach past it yet. Send `limit` explicitly
+on every call. `caps.history_incidents` is what the tier allows a client to *show*; it is not sent
+to the server and does not change what this endpoint returns.
+
 
 State machine:
 
@@ -372,7 +389,6 @@ POST   /relay/v1/devices/{device_id}/subscriptions
   Authorization: Bearer dv_...
   { "topic_hash":"sha256hex" }
 → 204
-→ 429 {"error":"cap", "cap":"critical_topics"}
 
 DELETE /relay/v1/devices/{device_id}/subscriptions/{topic_hash}
   Authorization: Bearer dv_...
@@ -406,13 +422,16 @@ DELETE /relay/v1/devices/{device_id}/tokens/{kind}/{activity_id}
 
 **Caps are per account, not per device.** `caps.devices` is how many handsets the account may register. `caps.critical_topics` and `caps.p4_daily` are counted across the whole account. A registration that would exceed `caps.devices` returns `429 {"error":"cap","cap":"devices"}` and issues no token.
 
-**`critical_topics` counts topics with the critical switch on.** Not subscriptions, not topics in total. It is enforced in three places, each answering `429 {"error":"cap","cap":"critical_topics"}`:
+**`critical_topics` counts topics with the critical switch on.** Not subscriptions, not topics in total. It is enforced in two places, each answering `429 {"error":"cap","cap":"critical_topics"}`:
 
 | Where | When |
 |---|---|
 | `POST /v1/topics` (§3.1) | the new topic is created with `critical: true` |
 | `PATCH /v1/topics/{name}` (§3.1) | the patch flips `critical` from `false` to `true` |
-| `POST /relay/v1/devices/{id}/subscriptions` (§4.2) | the new subscription would be the account's `n+1`th distinct topic |
+
+Subscribing is not one of them. A subscription does not change how many topics the account
+has the switch on for, so counting them there contradicted the rule above. A topic is already
+capped when it is created or when its switch is flipped on, so there is no way around the cap.
 
 Turning a topic's switch off frees a slot at once. Deleting a critical topic frees one too.
 
@@ -565,6 +584,7 @@ payload (relay_content: none):
     "sound": "alarm.caf",                                               // only on a critical topic
     "interruption-level": "time-sensitive",
     "mutable-content": 1,
+    "content-available": 1,                                             // only on a critical topic
     "category": "INCIDENT"
   },
   "incident_id": "inc_9a8b7c",
@@ -574,6 +594,8 @@ payload (relay_content: none):
 ```
 
 **iOS alerts are time-sensitive, never critical.** Apple turned the Critical Alerts entitlement down, and APNs rejects a critical payload from an app that does not hold it. So `"interruption-level"` is always `"time-sensitive"`, and the sound is the plain string `"alarm.caf"` rather than a critical sound object. When the sound is attached is unchanged: a priority-5 message on a topic whose `critical` switch is on, opening or joining an incident. The switch still decides that, and still decides whether Android rings through with a full-screen intent. Only the shape of the iOS payload changed.
+
+**`content-available` is what makes the phone ring.** The iOS app schedules the alarm from its background-push handler, and iOS only calls that handler when the push carries `"content-available": 1`. A payload without it delivers a notification with a sound and no alarm. It goes out on the same pushes as the sound: a priority-5 message on a topic whose `critical` switch is on, opening or joining an incident. Everything quieter is left asleep, because waking the app costs battery and Apple throttles background pushes.
 
 `relay_content: full` puts the real title/body in `alert` and drops `mutable-content`.
 
