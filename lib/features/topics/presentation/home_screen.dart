@@ -207,7 +207,35 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (state.topicItems.isEmpty) ...[
+                          // Loading and failure both used to fall through to
+                          // the empty state, so a slow network or a dead
+                          // server told the user every topic they own was
+                          // gone, and the error was never shown at all.
+                          if (state.status == HomeStatus.failure) ...[
+                            AppToast(
+                              faceState: FaceState.worried,
+                              message:
+                                  state.errorMessage ??
+                                  LocaleKeys.home_load_failed.tr(),
+                            ),
+                            const SizedBox(height: 10),
+                            AppButton(
+                              label: LocaleKeys.home_retry_button.tr(),
+                              variant: AppButtonVariant.ghost,
+                              size: AppButtonSize.sm,
+                              isFullWidth: true,
+                              onPressed: () => unawaited(
+                                context.read<HomeCubit>().refresh(),
+                              ),
+                            ),
+                          ] else if (state.topicItems.isEmpty &&
+                              state.status != HomeStatus.success) ...[
+                            AppEmptyState(
+                              title: LocaleKeys.home_loading_title.tr(),
+                              description: '',
+                              buttonLabel: null,
+                            ),
+                          ] else if (state.isEmpty) ...[
                             AppEmptyState(
                               onButtonPressed: () =>
                                   context.push('/topics/new'),

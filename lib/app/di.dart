@@ -536,6 +536,7 @@ Future<void> configureDependencies({
     ..registerFactory(
       () => CreateTopicCubit(
         getIt<CreateTopicUsecase>(),
+        getIt<GetConnectionUsecase>(),
       ),
     )
     ..registerFactory(
