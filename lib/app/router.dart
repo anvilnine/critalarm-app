@@ -19,6 +19,7 @@ import 'package:critalarm/features/settings/presentation/sound_picker_screen.dar
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
+import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -33,6 +34,7 @@ abstract final class AppRoute {
   static const topics = 'topics';
   static const history = 'history';
   static const topicDetail = 'topicDetail';
+  static const topicMessages = 'topicMessages';
   static const createTopic = 'createTopic';
   static const settings = 'settings';
   static const settingsDisconnected = 'settingsDisconnected';
@@ -91,6 +93,19 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     final name = state.pathParameters['name'] ?? '';
                     return TopicDetailScreen(topicName: name);
                   },
+                  routes: [
+                    // The topic screen shows only the newest message so its
+                    // acknowledge button stays on screen. The rest are here.
+                    GoRoute(
+                      path: 'messages',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.topicMessages,
+                      builder: (context, state) {
+                        final name = state.pathParameters['name'] ?? '';
+                        return TopicMessagesScreen(topicName: name);
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),

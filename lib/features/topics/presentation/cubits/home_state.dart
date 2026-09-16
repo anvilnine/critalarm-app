@@ -15,6 +15,8 @@ class HomeTopicItem {
     this.faceState = FaceState.calm,
     this.isCrit = false,
     this.isQuiet = false,
+    this.isLive = false,
+    this.ringsThroughSilent = false,
   });
 
   final String name;
@@ -23,6 +25,16 @@ class HomeTopicItem {
   final FaceState faceState;
   final bool isCrit;
   final bool isQuiet;
+
+  /// True while this topic has something the user still has to deal with: an
+  /// open incident or a live warning. The row shows the priority that came in
+  /// only while this holds. Once it clears, the row goes back to saying how
+  /// the topic is set up, so a red chip never outlives the alarm.
+  final bool isLive;
+
+  /// True when critical delivery is on for this topic, so a page rings
+  /// through the silent switch.
+  final bool ringsThroughSilent;
 
   @override
   bool operator ==(Object other) =>
@@ -34,7 +46,9 @@ class HomeTopicItem {
           priority == other.priority &&
           faceState == other.faceState &&
           isCrit == other.isCrit &&
-          isQuiet == other.isQuiet;
+          isQuiet == other.isQuiet &&
+          isLive == other.isLive &&
+          ringsThroughSilent == other.ringsThroughSilent;
 
   @override
   int get hashCode => Object.hash(
@@ -44,6 +58,8 @@ class HomeTopicItem {
     faceState,
     isCrit,
     isQuiet,
+    isLive,
+    ringsThroughSilent,
   );
 }
 

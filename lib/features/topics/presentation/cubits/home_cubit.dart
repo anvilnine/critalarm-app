@@ -209,6 +209,8 @@ class HomeCubit extends Cubit<HomeState> {
             ? FaceState.alarmed
             : (hasWarning ? FaceState.worried : FaceState.calm),
         isCrit: hasOpen && t.critical,
+        isLive: hasOpen || hasWarning,
+        ringsThroughSilent: t.critical,
       );
     }).toList();
   }
