@@ -1,4 +1,5 @@
 import 'package:critalarm/app/state/app_data_status.dart';
+import 'package:critalarm/core/notifications/incident_update_order.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
@@ -71,9 +72,22 @@ class TopicsState {
 /// Screens read it and listen to it. Nothing else fetches topics, so a screen
 /// opening does not repeat a request another screen already made.
 class TopicsCubit extends Cubit<TopicsState> {
-  TopicsCubit(this._getTopics) : super(const TopicsState());
+  TopicsCubit(this._getTopics, {DateTime Function()? now})
+    : _now = now ?? DateTime.now,
+      super(const TopicsState());
 
   final GetTopicsUsecase _getTopics;
+
+  final DateTime Function() _now;
+
+  /// When the newest update in the state was asked for. Same guard the
+  /// incidents use, and for the same reason: a list read that went out before
+  /// the user switched critical delivery on must not come back and show it
+  /// off again. [IncidentUpdateOrder] is about ordering rather than about
+  /// incidents, so it is reused rather than copied.
+  IncidentUpdateOrder _order = IncidentUpdateOrder(
+    DateTime.fromMillisecondsSinceEpoch(0),
+  );
 
   Future<void>? _inFlight;
 
@@ -92,6 +106,10 @@ class TopicsCubit extends Cubit<TopicsState> {
   /// the answer to switching critical delivery on. Nothing is fetched.
   void applyTopic(Topic topic) {
     if (isClosed) return;
+    final order = IncidentUpdateOrder(_now());
+    if (!_order.accepts(order)) return;
+    _order = order;
+
     final merged = [...state.topics];
     final at = merged.indexWhere((t) => t.name == topic.name);
     if (at < 0) {
@@ -103,10 +121,19 @@ class TopicsCubit extends Cubit<TopicsState> {
   }
 
   Future<void> _fetch() async {
+    final order = IncidentUpdateOrder(_now());
     emit(state.copyWith(isRefreshing: true));
 
     final result = await _getTopics(const NoParams());
     if (isClosed) return;
+
+    // An answer asked for before the newest update in the state is older than
+    // what is on screen. Keep the newer one and throw this away.
+    if (!_order.accepts(order)) {
+      emit(state.copyWith(isRefreshing: false));
+      return;
+    }
+    _order = order;
 
     result.fold(
       (topics) => emit(
