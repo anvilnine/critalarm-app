@@ -63,14 +63,17 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// Redraws the ringing line. Null whenever nothing is ringing.
   Timer? _ticker;
 
-  /// Stop the local alarm. Never throws: a platform channel that is missing or
-  /// unhappy must not stop the acknowledge from going out.
+  /// Stop the local alarm for [incidentId]. Never throws: a platform channel
+  /// that is missing or unhappy must not stop the acknowledge from going out.
   ///
-  /// Asks twice on purpose. [AlarmHost.stopRinging] stops the sound whatever
-  /// incident it belongs to, which is what the person pressing Stop means, and
-  /// matters because the server can ring an incident the app already has as
-  /// acknowledged. [AlarmHost.cancelAlarm] then clears the scheduled alarm and
-  /// its notification for this incident.
+  /// Names the incident, and only the incident. [AlarmHost.stopRinging] stops
+  /// the sound whatever it belongs to, and Android runs one alarm service for
+  /// the whole app, so asking for it here let an acknowledge or a close on one
+  /// incident silence a different one nobody had answered.
+  /// [AlarmHost.cancelAlarm] carries the id to the native side, which stops
+  /// the service only when that id is the one ringing. A repeat push on an
+  /// incident the app already holds as acknowledged rings under that same id,
+  /// so the cancel still reaches it.
   ///
   /// [handOverToStatusCard] is only true for an acknowledge on a real
   /// incident. A close ends the incident, and the demo incident never existed
@@ -81,7 +84,6 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     required bool handOverToStatusCard,
   }) async {
     try {
-      await _alarm?.stopRinging();
       await _alarm?.cancelAlarm(
         incidentId,
         handOverToStatusCard: handOverToStatusCard,

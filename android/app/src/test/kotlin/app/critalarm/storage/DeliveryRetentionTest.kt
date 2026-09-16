@@ -68,6 +68,32 @@ class DeliveryRetentionTest {
         assertTrue(
             DeliveryRetention.isStale(
                 acknowledged = true,
+                closed = true,
+                ackedAtMillis = null,
+                nowMillis = now,
+            ),
+        )
+    }
+
+    /**
+     * An acked row with no close is a card still on the lock screen. Aging it
+     * out took the id off the list launch reconcile walks, so that card could
+     * never come down, and cleared the acked flag, so the next repeat push
+     * rang an incident the user had already answered.
+     */
+    @Test
+    fun `an acked incident the server has not finished with stays`() {
+        assertFalse(
+            DeliveryRetention.isStale(
+                acknowledged = true,
+                closed = false,
+                ackedAtMillis = now - DeliveryRetention.WINDOW_MS * 10,
+                nowMillis = now,
+            ),
+        )
+        assertFalse(
+            DeliveryRetention.isStale(
+                acknowledged = true,
                 closed = false,
                 ackedAtMillis = null,
                 nowMillis = now,

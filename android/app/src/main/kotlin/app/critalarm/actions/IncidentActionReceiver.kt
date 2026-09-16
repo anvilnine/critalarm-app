@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import app.critalarm.alarm.AlarmForegroundService
+import app.critalarm.alarm.AlarmStopRule
 import app.critalarm.storage.AckQueueStore
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
@@ -57,8 +58,21 @@ class IncidentActionReceiver : BroadcastReceiver() {
             } else {
                 deliveries.markClosed(incidentId, ackedAtMillis)
             }
-            context.stopService(Intent(context, AlarmForegroundService::class.java))
-            Log.i(TAG, "alarm_service_stopped incident_id=$incidentId")
+            // One alarm service for the whole app, so stopping it stops
+            // whatever is ringing rather than the incident this button
+            // belongs to. A card can outlive its own alarm: a late enrichment
+            // re-posts the alarm card for an incident that stopped being the
+            // ringing one seconds ago. See AlarmStopRule.
+            if (AlarmStopRule.stopsService(incidentId, AlarmForegroundService.ringingIncidentId)) {
+                context.stopService(Intent(context, AlarmForegroundService::class.java))
+                Log.i(TAG, "alarm_service_stopped incident_id=$incidentId")
+            } else {
+                Log.i(
+                    TAG,
+                    "alarm_service_kept incident_id=$incidentId " +
+                        "ringing_incident_id=${AlarmForegroundService.ringingIncidentId}",
+                )
+            }
             // The alarm card goes whether or not a status card can take its
             // place. A promoted RINGING card left on a stopped alarm is worse
             // than a gap.
