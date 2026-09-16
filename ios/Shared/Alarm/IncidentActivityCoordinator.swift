@@ -271,9 +271,8 @@ public final class IncidentActivityCoordinator {
         #endif
     }
 
-    /// Acknowledge on the card. Stage 2 is sent; the card has nothing left to
-    /// show.
-    public func acknowledged(incidentId: String) {
+    /// Done on the card. Stage 2 is sent; the card has nothing left to show.
+    public func closed(incidentId: String) {
         end(incidentId: incidentId, finalState: .closed)
     }
 
