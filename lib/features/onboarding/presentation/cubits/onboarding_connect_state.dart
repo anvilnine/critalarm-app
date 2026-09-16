@@ -23,7 +23,7 @@ class OnboardingConnectState {
     this.isSelfHosting = false,
     this.status = OnboardingConnectStatus.idle,
     this.testAlarmStatus = TestAlarmStatus.idle,
-    this.countdownSeconds = 30,
+    this.countdownSeconds = 5,
     this.isCountingDown = false,
     this.canLaunchDemoAlarm = false,
     this.serverUrlError,

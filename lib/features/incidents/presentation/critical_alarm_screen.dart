@@ -385,6 +385,10 @@ class _AcknowledgedScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final incident = state.incident;
     final isDemo = incident?.id == 'inc_demo' || state.topic == 'demo-topic';
+    // The same test alarm is reachable from Settings long after
+    // onboarding. There is no first topic to create by then, so it ends
+    // on one Finish rather than repeating the onboarding exits.
+    final isRetest = isDemo && state.isOnboardingDone;
     final startedAt = incident?.openedAt;
     final ackedAt = incident?.ackedAt;
     final ringDuration = (startedAt != null && ackedAt != null)
@@ -407,7 +411,18 @@ class _AcknowledgedScreen extends StatelessWidget {
 
     final bottomBar = Column(
       mainAxisSize: MainAxisSize.min,
-      children: isDemo
+      children: isRetest
+          ? [
+              AppButton(
+                label: LocaleKeys.onboarding_connect_celebration_finish.tr(),
+                isFullWidth: true,
+                onPressed: () {
+                  AppHaptics.capture();
+                  context.go('/');
+                },
+              ),
+            ]
+          : isDemo
           ? [
               AppButton(
                 label: LocaleKeys
@@ -514,7 +529,7 @@ class _AcknowledgedScreen extends StatelessWidget {
                 _sub(TextAlign.center, ackedSub),
                 // Onboarding ends on "create your first topic", and the word
                 // topic has not been explained anywhere before that button.
-                if (isDemo) ...[
+                if (isDemo && !isRetest) ...[
                   const SizedBox(height: Spacing.s3),
                   _sub(
                     TextAlign.center,
@@ -533,7 +548,7 @@ class _AcknowledgedScreen extends StatelessWidget {
               16,
               Spacing.s4,
               16,
-              _pinnedBarHeight(context, twoButtons: true),
+              _pinnedBarHeight(context, twoButtons: !isRetest),
             ),
             child: _detailSheet(startedLabel, ackedLabel),
           ),
