@@ -433,7 +433,15 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     _countdownTimer?.cancel();
     final host = alarmHost;
     if (host != null) {
-      unawaited(host.cancelAlarm('inc_demo').catchError((_) => false));
+      // No handover. inc_demo is not on the server, so an acked card for it
+      // would sit there for good: it is ongoing, so it cannot be swiped away,
+      // and its Done button would POST a close for an incident that does not
+      // exist.
+      unawaited(
+        host
+            .cancelAlarm('inc_demo', handOverToStatusCard: false)
+            .catchError((_) => false),
+      );
     }
     unawaited(_saveCountdown(null));
     emit(

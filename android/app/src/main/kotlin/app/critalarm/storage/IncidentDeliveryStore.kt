@@ -32,6 +32,19 @@ class IncidentDeliveryStore(context: Context) {
     fun deskTimerFiresAtMillis(incidentId: String): Long? =
         preferences.getLong("desk_timer_fires_at:$incidentId", 0L).takeIf { it > 0L }
 
+    /**
+     * Every incident this device has acked and not closed, which is every
+     * incident with a status card still up.
+     *
+     * Read off the `acknowledged:` keys, the same prefix style the getters
+     * above use. Dart asks for this on launch and takes down the cards the
+     * server says are over.
+     */
+    fun acknowledgedIncidentIds(): List<String> = preferences.all.keys
+        .filter { it.startsWith("acknowledged:") }
+        .map { it.removePrefix("acknowledged:") }
+        .filter { it.isNotEmpty() && isAcknowledged(it) && !isClosed(it) }
+
     fun activate(incidentId: String, reopen: Boolean = false) {
         preferences.edit().putBoolean("active:$incidentId", true).apply {
             if (reopen) {

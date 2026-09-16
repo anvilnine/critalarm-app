@@ -249,7 +249,7 @@ class IncidentActionReceiver : BroadcastReceiver() {
                     payload = payload,
                     content = content ?: IncidentContentFetcher.fallback(payload),
                     state = IncidentCardState.ACKED,
-                    openedAtMillis = ackedAtMillis,
+                    ackedAtMillis = ackedAtMillis,
                     deskTimerEndMillis = deskTimerEndMillis,
                 ),
             )
