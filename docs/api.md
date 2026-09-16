@@ -1,4 +1,4 @@
-<!-- GENERATED from critalarm-server@9b17ab8 — do not edit. Run scripts/sync-contract.sh -->
+<!-- GENERATED from critalarm-server@9cb8ec7-dirty — do not edit. Run scripts/sync-contract.sh -->
 
 # Crit Alarm Server: API Contract
 
@@ -387,6 +387,7 @@ POST /relay/v1/servers
 POST /relay/v1/devices                                  // registration. no auth
   { "device_id":"dev_<uuid>", "platform":"ios"|"android", "push_token":"...", "app_version":"1.0.0" }
 → 201 { "device_token":"dv_...",                        // returned ONCE, on first registration only
+        "account_join_token":"aj_...",                  // create path only. absent on a join
         "account_id":"acc_...",
         "tier":"free"|"relay"|"hosted",
         "caps":{ "devices":5, "critical_topics":2, "p4_daily":50,
