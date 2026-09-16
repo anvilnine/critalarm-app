@@ -15,7 +15,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
 
   @override
   Future<AppResult<List<Incident>>> getIncidents({
-    int? limit,
+    required int limit,
     String? state,
     String? topic,
   }) async {

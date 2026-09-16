@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/state/app_data_status.dart';
+import 'package:critalarm/core/api/api_client.dart' show maxIncidentLimit;
 import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/core/notifications/incident_update_order.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
@@ -87,12 +88,11 @@ class IncidentsCubit extends Cubit<IncidentsState> {
 
   /// How many incidents the shared list asks for.
   ///
-  /// api.md §3.2 writes the call as `GET /v1/incidents?limit=20[&state=...]`,
-  /// so `limit` is part of the call and is always sent. One list now serves
-  /// Home, the topics list, topic detail, History and search, so it asks for
-  /// the widest window any of them used to ask for. Search asked for 200 and
-  /// nothing else asked for a bigger number.
-  static const listLimit = 200;
+  /// One list now serves Home, the topics list, topic detail, History and
+  /// search, so it asks for the widest window any of them used to ask for.
+  /// api.md §3.2 caps that at [maxIncidentLimit], and there is no paging in
+  /// v1, so this is everything the app can hold.
+  static const int listLimit = maxIncidentLimit;
 
   final GetIncidentsUsecase _getIncidents;
 
@@ -152,6 +152,9 @@ class IncidentsCubit extends Cubit<IncidentsState> {
     emit(state.copyWith(isRefreshing: true));
 
     final result = await _getIncidents(
+      // Repeats the default on purpose. The number that goes on the wire
+      // belongs at the place that decides it, not only in a default.
+      // ignore: avoid_redundant_argument_values
       const GetIncidentsParams(limit: listLimit),
     );
     if (isClosed) return;

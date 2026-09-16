@@ -197,6 +197,8 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                             const SizedBox(height: 10),
                           ],
                         ],
+                        if (state.isCapped)
+                          _CappedNotice(count: state.entries.length),
                       ],
                     ),
                   ),
@@ -205,6 +207,29 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
           ],
         );
       },
+    );
+  }
+}
+
+/// One quiet line under the last alarm: the list is as long as it can get and
+/// there are older alarms behind it. There is no paging in v1 (api.md §3.2),
+/// so there is nothing to tap, only something to know.
+class _CappedNotice extends StatelessWidget {
+  const _CappedNotice({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: Spacing.s1, bottom: Spacing.s2),
+      child: Text(
+        LocaleKeys.history_capped_notice.tr(
+          namedArgs: {'count': '$count'},
+        ),
+        style: AppTypography.small(context.appColors.ink3, fontSize: 12),
+        textAlign: TextAlign.center,
+      ),
     );
   }
 }
