@@ -80,6 +80,47 @@ class NotificationKeyingTest {
     }
 
     @Test
+    fun `the message card for an incident is keyed on the id alone`() {
+        // Whoever takes an incident's cards down only has the id. Two payloads
+        // for the same incident with different text must still name one card.
+        assertEquals(
+            MessageNotificationFactory.notificationId("inc_9a8b7c"),
+            MessageNotificationFactory.notificationId(
+                payload("inc_9a8b7c", title = "disk filling up", body = "83 percent"),
+            ),
+        )
+        assertEquals(
+            MessageNotificationFactory.notificationId(
+                payload("inc_9a8b7c", title = "one", body = "two"),
+            ),
+            MessageNotificationFactory.notificationId(
+                payload("inc_9a8b7c", title = "three", body = "four"),
+            ),
+        )
+    }
+
+    @Test
+    fun `every site that cancels the alarm card cancels the message card too`() {
+        // setAutoCancel fires on a content tap, not on an action press, so the
+        // heads-up that carried the ACK button stays up on its own. An ongoing
+        // status card then goes on top of it: two cards, two status bar chips,
+        // one incident.
+        val flagged = mutableListOf<String>()
+        for (file in kotlinFiles()) {
+            val code = strippedCode(file.readText())
+            if (!code.contains("cancel(AlarmNotificationFactory.notificationId(")) continue
+            if (!code.contains("cancel(MessageNotificationFactory.notificationId(")) {
+                flagged += file.name
+            }
+        }
+        assertEquals(
+            "cancels the alarm card but leaves the message card up: $flagged",
+            emptyList<String>(),
+            flagged,
+        )
+    }
+
+    @Test
     fun `the sources are where this test thinks they are`() {
         assertTrue(
             "expected Kotlin sources at ${sources.absolutePath}",
