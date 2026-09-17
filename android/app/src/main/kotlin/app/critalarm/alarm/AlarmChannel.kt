@@ -4,8 +4,11 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.notifications.AlarmNotificationFactory
+import app.critalarm.notifications.StatusNotificationFactory
 import app.critalarm.storage.IncidentDeliveryStore
+import app.critalarm.storage.NativeConnectionStore
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
@@ -46,6 +49,13 @@ class AlarmChannel(private val context: Context) {
                         title = call.argument<String>("title").orEmpty(),
                         body = call.argument<String>("body"),
                         delaySeconds = call.argument<Int>("delay_seconds") ?: 30,
+                        // The onboarding demo says false: inc_demo is not on
+                        // the server, so its Stop button must not leave a card
+                        // whose Done button has nothing to close. The flag
+                        // rides the alarm all the way to that button rather
+                        // than being guessed from the id in the receiver.
+                        handOverToStatusCard =
+                            call.argument<Boolean>("hand_over_to_status_card") ?: true,
                     ),
                 )
             }
@@ -62,15 +72,40 @@ class AlarmChannel(private val context: Context) {
                     result.success(false)
                     return
                 }
-                result.success(stop(incidentId))
+                // Dart says which it is. An acknowledge leaves the incident
+                // open and hands the card over; a close, or the onboarding
+                // demo, ends it and takes both cards down. A missing argument
+                // reads as the second, because that is the one that never
+                // leaves an ongoing card behind.
+                val handOver = call.argument<Boolean>("hand_over_to_status_card") ?: false
+                result.success(
+                    stop(
+                        incidentId = incidentId,
+                        handOverToStatusCard = handOver,
+                        // What the screen was showing. The card that takes
+                        // over is built here, with no network, so without
+                        // these it reads "Critical incident" for good.
+                        title = call.argument<String>("title"),
+                        body = call.argument<String>("body"),
+                    ),
+                )
             }
 
-            // Android puts up a plain notification, not a Live Activity, so
-            // there is never a card of ours on screen to report or end.
-            "showingIncidentIds" -> result.success(emptyList<String>())
+            // The acked cards this device still has up. They are plain
+            // notifications rather than Live Activities, so the store is the
+            // only record of them, and launch-time reconcile needs the list to
+            // take down the ones the server has finished with.
+            "showingIncidentIds" -> {
+                val deliveries = IncidentDeliveryStore(context)
+                // Launch is the one moment a session drops what is past the
+                // retention window, and this list is the thing that grows:
+                // Dart walks it one server call at a time.
+                deliveries.prune()
+                result.success(deliveries.acknowledgedIncidentIds())
+            }
             "endActivity" -> {
                 val incidentId = call.argument<String>("incident_id")
-                if (!incidentId.isNullOrEmpty()) stop(incidentId)
+                if (!incidentId.isNullOrEmpty()) stop(incidentId, handOverToStatusCard = false)
                 result.success(true)
             }
 
@@ -78,13 +113,64 @@ class AlarmChannel(private val context: Context) {
         }
     }
 
-    /** Stops the ring and clears the notification that came with it. */
-    private fun stop(incidentId: String): Boolean = try {
+    /**
+     * Stops the ring and clears the notification that came with it.
+     *
+     * Both cancels drop the tag, because [AlarmForegroundService] posts the
+     * alarm card with startForeground, which takes no tag, and Android keys a
+     * notification by tag and id together.
+     *
+     * [handOverToStatusCard] comes from Dart, because only the caller knows
+     * what it just did. An acknowledge leaves the incident open, so the acked
+     * card takes over the way it does when the user presses Stop on the
+     * notification. A close, or the onboarding demo alarm, ends it: both cards
+     * come down and nothing replaces them.
+     *
+     * The ring only stops when this incident is the one ringing. See
+     * [AlarmStopRule]: there is one service for the whole app, and cancelling
+     * an old incident used to silence a live alarm.
+     */
+    private fun stop(
+        incidentId: String,
+        handOverToStatusCard: Boolean,
+        title: String? = null,
+        body: String? = null,
+    ): Boolean = try {
         ScheduledAlarmReceiver.cancel(context, incidentId)
-        IncidentDeliveryStore(context).markAcknowledged(incidentId)
-        context.getSystemService(NotificationManager::class.java)
-            ?.cancel(AlarmNotificationFactory.notificationId(incidentId))
-        stopService("incident_id=$incidentId")
+        val ackedAtMillis = System.currentTimeMillis()
+        val deliveries = IncidentDeliveryStore(context)
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager?.cancel(AlarmNotificationFactory.notificationId(incidentId))
+        if (handOverToStatusCard) {
+            deliveries.markAcknowledged(incidentId, ackedAtMillis)
+            // Without this the user keeps a promoted RINGING card on an
+            // incident the app has already acked, and never sees an AWAKE one.
+            NativeConnectionStore(context).canonicalServer()?.let { server ->
+                IncidentActionReceiver.postStatusCard(
+                    context = context,
+                    incidentId = incidentId,
+                    server = server,
+                    title = title,
+                    body = body,
+                    content = null,
+                    ackedAtMillis = ackedAtMillis,
+                    deskTimerEndMillis = deliveries.deskTimerFiresAtMillis(incidentId),
+                )
+            }
+        } else {
+            deliveries.markClosed(incidentId)
+            manager?.cancel(StatusNotificationFactory.notificationId(incidentId))
+        }
+        if (AlarmStopRule.stopsService(incidentId, AlarmForegroundService.ringingIncidentId)) {
+            stopService("incident_id=$incidentId")
+        } else {
+            Log.i(
+                TAG,
+                "alarm_service_kept incident_id=$incidentId " +
+                    "ringing_incident_id=${AlarmForegroundService.ringingIncidentId}",
+            )
+            true
+        }
     } catch (e: Exception) {
         Log.w(TAG, "alarm_stop_failed incident_id=$incidentId error=${e.message}")
         false

@@ -63,18 +63,36 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// Redraws the ringing line. Null whenever nothing is ringing.
   Timer? _ticker;
 
-  /// Stop the local alarm. Never throws: a platform channel that is missing or
-  /// unhappy must not stop the acknowledge from going out.
+  /// Stop the local alarm for [incidentId]. Never throws: a platform channel
+  /// that is missing or unhappy must not stop the acknowledge from going out.
   ///
-  /// Asks twice on purpose. [AlarmHost.stopRinging] stops the sound whatever
-  /// incident it belongs to, which is what the person pressing Stop means, and
-  /// matters because the server can ring an incident the app already has as
-  /// acknowledged. [AlarmHost.cancelAlarm] then clears the scheduled alarm and
-  /// its notification for this incident.
-  Future<void> _silence(String incidentId) async {
+  /// Names the incident, and only the incident. [AlarmHost.stopRinging] stops
+  /// the sound whatever it belongs to, and Android runs one alarm service for
+  /// the whole app, so asking for it here let an acknowledge or a close on one
+  /// incident silence a different one nobody had answered.
+  /// [AlarmHost.cancelAlarm] carries the id to the native side, which stops
+  /// the service only when that id is the one ringing. A repeat push on an
+  /// incident the app already holds as acknowledged rings under that same id,
+  /// so the cancel still reaches it.
+  ///
+  /// [handOverToStatusCard] is only true for an acknowledge on a real
+  /// incident. A close ends the incident, and the demo incident never existed
+  /// on the server, so neither may leave an acked card behind: it is ongoing,
+  /// so it cannot be swiped away, and its Done button has nothing to close.
+  Future<void> _silence(
+    String incidentId, {
+    required bool handOverToStatusCard,
+  }) async {
     try {
-      await _alarm?.stopRinging();
-      await _alarm?.cancelAlarm(incidentId);
+      await _alarm?.cancelAlarm(
+        incidentId,
+        handOverToStatusCard: handOverToStatusCard,
+        // The acked card is built natively, with no engine and no network, so
+        // it only knows what it is handed. Without these it read "Critical
+        // incident" while the screen behind it named the topic.
+        title: state.title.isEmpty ? null : state.title,
+        body: state.body.isEmpty ? null : state.body,
+      );
     } on Object catch (_) {
       // Nothing to do. The ack below is what the server cares about.
     }
@@ -158,7 +176,9 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
 
     if (targetId == 'inc_demo') {
       emit(state.copyWith(isAcknowledging: true));
-      await _silence(targetId);
+      // The demo incident is not on the server, so a card for it would have
+      // nothing behind its Done button.
+      await _silence(targetId, handOverToStatusCard: false);
       _showAcknowledged(
         incident.copyWith(state: IncidentStates.acked, ackedAt: _now()),
         face: FaceState.calm,
@@ -179,7 +199,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     // Silence next, still before anything goes on the wire. The person
     // pressed Stop, so the noise is over whatever the server says: a slow or
     // refused ack must not keep it ringing.
-    await _silence(targetId);
+    await _silence(targetId, handOverToStatusCard: true);
 
     final result = await _acknowledgeIncident(targetId);
     if (isClosed) return;
@@ -289,8 +309,9 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
 
     _stopRingTicker();
 
-    // Closing ends the incident, so nothing should still be ringing for it.
-    await _silence(incidentId);
+    // Closing ends the incident, so nothing should still be ringing for it and
+    // no card should be left over it either.
+    await _silence(incidentId, handOverToStatusCard: false);
 
     final result = await _closeIncident(incidentId);
     result.fold(

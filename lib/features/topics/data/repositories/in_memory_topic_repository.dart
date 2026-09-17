@@ -3,11 +3,13 @@ import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/models/topic_token.dart';
+import 'package:critalarm/core/notifications/topic_timer_cache.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// In-memory implementation of [TopicRepository] backed by [ApiClient].
 class InMemoryTopicRepository implements TopicRepository {
@@ -15,10 +17,12 @@ class InMemoryTopicRepository implements TopicRepository {
     this._client, {
     this.sessions,
     this.identity,
+    this.prefs,
   });
 
   final ApiSessionStore? sessions;
   final DeviceIdentityStore? identity;
+  final SharedPreferences? prefs;
 
   /// Web has no registered handset. Mobile subscriptions use the canonical
   /// base_url saved from /v1/info, never the address entered by the user.
@@ -52,6 +56,10 @@ class InMemoryTopicRepository implements TopicRepository {
   Future<AppResult<List<Topic>>> getTopics() async {
     try {
       final topics = await _client.getTopics();
+      final prefs = this.prefs;
+      if (prefs != null) {
+        await TopicTimerCache(prefs).save(topics);
+      }
       return topics.toSuccess();
     } on ApiException catch (e) {
       return Failure.api(

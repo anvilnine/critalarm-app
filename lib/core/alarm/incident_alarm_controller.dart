@@ -4,6 +4,7 @@ import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/alarm_trigger_path.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_client.dart';
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/push/incident_push.dart';
 import 'package:flutter/foundation.dart';
@@ -101,7 +102,8 @@ final class IncidentAlarmController {
     IncidentState state = IncidentState.closed,
   }) async {
     _alarming.remove(incidentId);
-    await host.cancelAlarm(incidentId);
+    // The incident is over, so no card replaces the one being taken down.
+    await host.cancelAlarm(incidentId, handOverToStatusCard: false);
     await host.endActivity(incidentId, state: _activityState(state));
     await tokens?.forget(incidentId);
     _log('alarm_cancelled id=$incidentId state=${state.name}');
@@ -112,15 +114,34 @@ final class IncidentAlarmController {
   /// treating the incident as ringing.
   void onAlarmStopped(String incidentId) => _alarming.remove(incidentId);
 
+  /// How many cards one launch checks.
+  ///
+  /// Each one is a separate `GET /v1/incidents/{id}`, awaited in turn, on the
+  /// path that runs before the first frame. Twenty of them is a couple of
+  /// seconds on a bad connection; the list used to be unbounded, and a device
+  /// holding hundreds of ids spent a minute and a half of radio time on every
+  /// cold start. Whatever is left over is checked on the next launch, and the
+  /// ones handled here drop off the list for good.
+  static const int reconcileLimit = 20;
+
   /// On launch, the server is the truth. Any card still up for an incident the
   /// server has finished with comes down, and any alarm still set for one
   /// stops.
   Future<void> reconcile() async {
     final showing = await host.showingIncidentIds();
-    for (final incidentId in showing) {
+    for (final incidentId in showing.take(reconcileLimit)) {
       final Incident incident;
       try {
         incident = await api.getIncident(incidentId);
+      } on ApiException catch (error) {
+        // 404 and 410 are answers, not failures. The incident is gone from the
+        // server, which relays do after a retention window, so the card comes
+        // down and the id leaves the list. Left as an error it came back every
+        // launch and cost a server call every time.
+        if (error.statusCode == 404 || error.statusCode == 410) {
+          await onIncidentFinished(incidentId, state: IncidentState.expired);
+        }
+        continue;
       } on Object catch (_) {
         // The server is unreachable. Leave the card up: a stale card is better
         // than a missed incident.

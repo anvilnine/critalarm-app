@@ -1,5 +1,6 @@
 import 'package:critalarm/core/alarm/alarm_trigger_path.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/incident.dart';
@@ -7,6 +8,19 @@ import 'package:critalarm/core/push/incident_push.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_alarm_host.dart';
+
+/// Answers `GET /v1/incidents/{id}` with one status, whatever is asked for.
+/// [MockServer] only ever says 404 for an incident it does not hold, and 410
+/// is the other answer a relay gives for one it has purged.
+class GoneApiClient extends MockApiClient {
+  GoneApiClient(super.server, this.statusCode);
+
+  final int statusCode;
+
+  @override
+  Future<Incident> getIncident(String id) async =>
+      throw ApiException(statusCode: statusCode, message: 'gone');
+}
 
 IncidentPush push(IncidentPushKind kind, {String id = 'inc_one'}) =>
     IncidentPush(
@@ -183,11 +197,56 @@ void main() {
     });
 
     test('an unreachable server leaves the card up', () async {
-      fake.answers['showingIncidentIds'] = <String>['inc_missing'];
+      // A 503, not a 404. The server is there and cannot answer, so the card
+      // stays: a stale card beats a missed incident.
+      server.failIncidentFetch = true;
+      fake.answers['showingIncidentIds'] = <String>['inc_unreachable'];
 
       await build().reconcile();
 
       expect(fake.callsTo('endActivity'), isEmpty);
+      expect(fake.callsTo('cancelAlarm'), isEmpty);
+    });
+
+    test('an incident the server no longer has takes its card down', () async {
+      // A relay purges incidents after its retention window, and then every
+      // launch asked about the same id and got a 404 back. The id never left
+      // the list, so the list only grew.
+      fake.answers['showingIncidentIds'] = <String>['inc_purged'];
+
+      await build().reconcile();
+
+      expect(fake.argsOnce('cancelAlarm')['incident_id'], 'inc_purged');
+      expect(fake.argsOnce('endActivity')['state'], 'expired');
+    });
+
+    test('a 410 takes the card down the same way a 404 does', () async {
+      // A relay answers 410 for an incident it purged on purpose, and 404 for
+      // one it has no record of. Both mean the card has nothing behind it.
+      fake.answers['showingIncidentIds'] = <String>['inc_gone'];
+
+      await IncidentAlarmController(
+        host: fake.host,
+        api: GoneApiClient(server, 410),
+        path: AlarmTriggerPath.appBackgroundPush,
+      ).reconcile();
+
+      expect(fake.argsOnce('cancelAlarm')['incident_id'], 'inc_gone');
+      expect(fake.argsOnce('endActivity')['state'], 'expired');
+    });
+
+    test('one launch checks at most the bound', () async {
+      fake.answers['showingIncidentIds'] = List.generate(
+        IncidentAlarmController.reconcileLimit + 5,
+        (i) => 'inc_stale_$i',
+      );
+
+      await build().reconcile();
+
+      expect(
+        fake.callsTo('cancelAlarm'),
+        hasLength(IncidentAlarmController.reconcileLimit),
+      );
     });
   });
 }
