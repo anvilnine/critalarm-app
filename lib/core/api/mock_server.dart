@@ -1110,6 +1110,52 @@ class MockServer {
     return AccountSwitchResult.switched(accountId: intoAccount);
   }
 
+  /// The alarm that blocks a delete, if one is up.
+  ///
+  /// Only `open` counts here. An acked alarm is not ringing, and api.md §3.7
+  /// says a person must never be stuck unable to leave, so this is narrower
+  /// than [_liveIncident], which the merge route uses.
+  Incident? get _openIncident {
+    for (final incident in _incidents.values) {
+      if (incident.isOpen) return incident;
+    }
+    return null;
+  }
+
+  /// DELETE /v1/account
+  AccountDeleteResult deleteAccount({
+    required String deviceToken,
+    String? identityToken,
+  }) {
+    _requireAccountsSupported();
+    final account = _accountForDeviceToken(deviceToken);
+    final owner = accountIdentities[account];
+    // An account with no identity goes on the device token alone. One that
+    // holds an identity needs that identity too, so a handset left in a
+    // drawer cannot wipe a signed-in account.
+    if (owner != null && owner != identityToken) {
+      return const AccountDeleteResult.unauthorized();
+    }
+    final open = _openIncident;
+    if (open != null) {
+      return AccountDeleteResult.liveIncident(incidentId: open.id);
+    }
+    _devices.removeWhere((id, device) {
+      if (device.accountId != account) return false;
+      subscriptions.remove(id);
+      pushTokens.remove(id);
+      return true;
+    });
+    _topics.clear();
+    _tokens.clear();
+    _messages.clear();
+    _incidents.clear();
+    tombstonedAccounts.remove(account);
+    accountIdentities.remove(account);
+    identityAccounts.removeWhere((_, owned) => owned == account);
+    return const AccountDeleteResult.deleted();
+  }
+
   /// DELETE /relay/v1/devices/{device_id}
   void deleteDevice({required String deviceId, required String deviceToken}) {
     _authorizedDevice(deviceId, deviceToken);
@@ -1299,7 +1345,22 @@ class MockServer {
         return _jsonResponse({'incident_id': incidentId}, 200);
       }
 
-      // 11. /v1/account/{link,merge,switch}
+      // 11. /v1/account
+      if (path == '/v1/account' && method == 'DELETE') {
+        final body = bodyString.isEmpty
+            ? <String, dynamic>{}
+            : jsonDecode(bodyString) as Map<String, dynamic>;
+        final credential = (request.headers['authorization'] ?? '')
+            .replaceFirst('Bearer ', '');
+        return _deleteAccountResponse(
+          deleteAccount(
+            deviceToken: credential,
+            identityToken: body['identity_token'] as String?,
+          ),
+        );
+      }
+
+      // 12. /v1/account/{link,merge,switch}
       final accountMatch = RegExp(
         r'^/v1/account/(link|merge|switch)$',
       ).firstMatch(path);
@@ -1336,7 +1397,7 @@ class MockServer {
         };
       }
 
-      // 12. /relay/v1/devices
+      // 13. /relay/v1/devices
       if (path == '/relay/v1/devices' && method == 'POST') {
         final body = bodyString.isNotEmpty
             ? jsonDecode(bodyString) as Map<String, dynamic>
@@ -1593,6 +1654,20 @@ class MockServer {
           'error': 'same account',
         }, 409),
         AccountMergeUnauthorized() => _jsonResponse(
+          {'error': 'unauthorized'},
+          401,
+        ),
+      };
+
+  static http.Response _deleteAccountResponse(AccountDeleteResult result) =>
+      switch (result) {
+        // 204 carries no body, the same as the real server.
+        AccountDeleted() => http.Response('', 204),
+        AccountDeleteLiveIncident(:final incidentId) => _jsonResponse({
+          'error': 'live incident',
+          'incident_id': incidentId,
+        }, 409),
+        AccountDeleteUnauthorized() => _jsonResponse(
           {'error': 'unauthorized'},
           401,
         ),

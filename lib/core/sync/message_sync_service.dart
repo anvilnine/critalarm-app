@@ -61,4 +61,19 @@ final class MessageSyncService {
   Future<void> resetCursor(String topic) async {
     await _prefs.remove('$_lastIdPrefix$topic');
   }
+
+  /// Forgets every cursor, for every topic this phone has ever polled.
+  ///
+  /// Used when the account behind those topics is gone. A cursor names a
+  /// message id on the old account, and handing it to a later poll as `since`
+  /// asks the new account about a message it has never heard of.
+  Future<void> resetAllCursors() async {
+    final stale = _prefs
+        .getKeys()
+        .where((key) => key.startsWith(_lastIdPrefix))
+        .toList();
+    for (final key in stale) {
+      await _prefs.remove(key);
+    }
+  }
 }

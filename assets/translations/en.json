@@ -601,6 +601,22 @@
     "live_incident_button": "Open the alarm",
     "legal_footer": "By signing in you agree to the {terms} and the {privacy}.",
     "legal_footer_terms": "Terms",
-    "legal_footer_privacy": "Privacy Policy"
+    "legal_footer_privacy": "Privacy Policy",
+    "delete_button": "Delete account",
+    "delete_header": "Delete account",
+    "delete_intro": "This erases your account and everything on it, on every phone.",
+    "delete_what_goes_title": "What goes",
+    "delete_what_goes_topics": "Your topics and the tokens that publish to them",
+    "delete_what_goes_history": "Every alert you have had",
+    "delete_what_goes_devices": "Every phone signed in to this account",
+    "delete_webhooks": "Anything that sends alerts with your old tokens stops working. Whatever publishes to them goes quiet.",
+    "delete_subscription_title": "Your subscription keeps billing",
+    "delete_subscription_body": "Deleting your account does not cancel it. Cancel it in the App Store or Google Play, or it keeps charging you.",
+    "delete_manage_subscription": "Manage subscription",
+    "delete_cannot_undo": "This cannot be undone.",
+    "delete_confirm_toggle": "I understand this cannot be undone",
+    "delete_confirm_button": "Delete my account",
+    "delete_failed": "Could not delete your account. Nothing on this phone has changed. Try again.",
+    "delete_live_incident_body": "Acknowledge it, then delete."
   }
 }

@@ -27,8 +27,12 @@ final class FakeIdentityRepository implements IdentityRepository {
     );
   }
 
+  /// The session from an earlier launch. Null means nobody is signed in,
+  /// which is how an anonymous account looks.
+  IdentitySession? session;
+
   @override
-  Future<IdentitySession?> readSession() async => null;
+  Future<IdentitySession?> readSession() async => session;
 
   @override
   Future<AccountIdentity?> readIdentity() async => saved;
@@ -40,6 +44,7 @@ final class FakeIdentityRepository implements IdentityRepository {
   Future<void> clearSession() async {
     clearCalls++;
     saved = null;
+    session = null;
   }
 }
 
@@ -56,6 +61,22 @@ final class FakeAccountRepository implements AccountRepository {
     accountId: 'acc_9',
   );
   Exception? signOutError;
+
+  /// One answer per delete call, in order. The list running out means the
+  /// cubit called more times than the test expected it to.
+  List<AccountDeleteResult> deleteAnswers = const [
+    AccountDeleteResult.deleted(),
+  ];
+
+  /// Thrown instead of answering, which is what offline and a 5xx look like.
+  Exception? deleteError;
+
+  /// What was sent in the body each time, nulls included, so a test can see
+  /// that an anonymous account sent no identity token at all.
+  final List<String?> deleteIdentityTokens = [];
+  int wipeCalls = 0;
+  int recoverCalls = 0;
+  bool isPaid = false;
 
   final List<String> linkTokens = [];
   int mergeCalls = 0;
@@ -92,6 +113,23 @@ final class FakeAccountRepository implements AccountRepository {
     final error = signOutError;
     if (error != null) throw error;
   }
+
+  @override
+  Future<AccountDeleteResult> deleteAccount({String? identityToken}) async {
+    deleteIdentityTokens.add(identityToken);
+    final error = deleteError;
+    if (error != null) throw error;
+    return deleteAnswers[deleteIdentityTokens.length - 1];
+  }
+
+  @override
+  Future<void> wipeAfterDelete() async => wipeCalls++;
+
+  @override
+  Future<void> recoverFromDeadCredential() async => recoverCalls++;
+
+  @override
+  Future<bool> readIsPaid() async => isPaid;
 
   ServerMode mode = ServerMode.hosted;
 

@@ -18,6 +18,10 @@ enum AccountStatus {
   choosing,
 
   signedIn,
+
+  /// The account is gone and this phone is already on a fresh anonymous one.
+  /// The confirm screen leaves as soon as it sees this.
+  deleted,
 }
 
 /// What the account screen knows.
@@ -30,6 +34,7 @@ class AccountState {
     this.choice,
     this.errorMessage,
     this.liveIncidentId,
+    this.isPaid = false,
   });
 
   final AccountStatus status;
@@ -46,9 +51,14 @@ class AccountState {
 
   final String? errorMessage;
 
-  /// An alarm blocked the merge. The screen links to it so the person can
-  /// acknowledge it and try again.
+  /// An alarm blocked the merge or the delete. The screen links to it so the
+  /// person can acknowledge it and try again.
   final String? liveIncidentId;
+
+  /// Whether this device sits on a paid tier. The delete prompt has to warn
+  /// that a store subscription keeps billing, and only a payer needs to read
+  /// it.
+  final bool isPaid;
 
   /// Sign-in exists everywhere except on a self-hosted server, which has one
   /// operator and no accounts.
@@ -63,6 +73,7 @@ class AccountState {
     AccountLinkChoose? choice,
     String? errorMessage,
     String? liveIncidentId,
+    bool? isPaid,
     bool clearIdentity = false,
     bool clearChoice = false,
     bool clearError = false,
@@ -77,6 +88,7 @@ class AccountState {
       liveIncidentId: clearLiveIncident
           ? null
           : (liveIncidentId ?? this.liveIncidentId),
+      isPaid: isPaid ?? this.isPaid,
     );
   }
 
@@ -90,7 +102,8 @@ class AccountState {
           identity == other.identity &&
           choice == other.choice &&
           errorMessage == other.errorMessage &&
-          liveIncidentId == other.liveIncidentId;
+          liveIncidentId == other.liveIncidentId &&
+          isPaid == other.isPaid;
 
   @override
   int get hashCode => Object.hash(
@@ -100,5 +113,6 @@ class AccountState {
     choice,
     errorMessage,
     liveIncidentId,
+    isPaid,
   );
 }
