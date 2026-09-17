@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -140,7 +140,7 @@
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
 		459470031D166B3CA2B80886 /* FaceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FaceView.swift; sourceTree = "<group>"; };
-		56422C7C20CDE71116711FD1 /* alarm.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = alarm.caf; sourceTree = "<group>"; };
+		56422C7C20CDE71116711FD1 /* alarm.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = alarm.caf; sourceTree = "<group>"; };
 		593DA1142F90062F7FE99B54 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -178,7 +178,7 @@
 		D87297CA8D80B89C76E0382B /* content-none.apns */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = "content-none.apns"; sourceTree = "<group>"; };
 		E1B43861F26AA39D52CC432E /* PushEventLog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushEventLog.swift; sourceTree = "<group>"; };
 		E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AckQueueStore.swift; sourceTree = "<group>"; };
-		EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Flutter/Extension.xcconfig; sourceTree = "<group>"; };
+		EB39D2C24F513B2DC40B6462 /* Flutter/Extension.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Flutter/Extension.xcconfig; sourceTree = "<group>"; };
 		EEF761159A37EFC1340BACF6 /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Runner/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		F183319FE83F2E039E0C88D3 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F4C3109ABCF417BB50CBFEBB /* p4.apns */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = p4.apns; sourceTree = "<group>"; };
@@ -241,7 +241,6 @@
 			children = (
 				56422C7C20CDE71116711FD1 /* alarm.caf */,
 			);
-			name = Sounds;
 			path = Sounds;
 			sourceTree = "<group>";
 		};
@@ -275,7 +274,6 @@
 				F183319FE83F2E039E0C88D3 /* Info.plist */,
 				0729842DADC1254D34F8C509 /* CritAlarmActivity.entitlements */,
 			);
-			name = CritAlarmActivity;
 			path = CritAlarmActivity;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -297,7 +295,6 @@
 				E1B43861F26AA39D52CC432E /* PushEventLog.swift */,
 				9886D275E53BA770B3EB7666 /* Alarm */,
 			);
-			name = Shared;
 			path = Shared;
 			sourceTree = "<group>";
 		};
@@ -309,7 +306,7 @@
 				9740EEB21CF90195004384FC /* Debug.xcconfig */,
 				7AFA3C8E1D35360C0083082E /* Release.xcconfig */,
 				9740EEB31CF90195004384FC /* Generated.xcconfig */,
-				EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */,
+				EB39D2C24F513B2DC40B6462 /* Flutter/Extension.xcconfig */,
 			);
 			name = Flutter;
 			sourceTree = "<group>";
@@ -369,7 +366,6 @@
 				8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */,
 				9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */,
 			);
-			name = Alarm;
 			path = Alarm;
 			sourceTree = "<group>";
 		};
@@ -380,7 +376,6 @@
 				BDF158218E2B9B0CE3E2A09B /* Info.plist */,
 				D4A55D581404C4B5C1339CF8 /* CritAlarmNSE.entitlements */,
 			);
-			name = CritAlarmNSE;
 			path = CritAlarmNSE;
 			sourceTree = "<group>";
 		};
@@ -536,7 +531,7 @@
 			);
 			mainGroup = 97C146E51CF9000F007C117D;
 			packageReferences = (
-				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */,
+				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */,
 			);
 			productRefGroup = 97C146EF1CF9000F007C117D /* Products */;
 			projectDirPath = "";
@@ -811,7 +806,7 @@
 /* Begin XCBuildConfiguration section */
 		1975D97944473FC99642AEAD /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Flutter/Extension.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = CritAlarmNSE/CritAlarmNSE.entitlements;
@@ -963,7 +958,7 @@
 		};
 		5ABDCAD4CF76000F11FF293E /* Profile */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Flutter/Extension.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
@@ -990,7 +985,7 @@
 		};
 		5FE842979ED74CB6CA887F53 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Flutter/Extension.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = CritAlarmNSE/CritAlarmNSE.entitlements;
@@ -1013,7 +1008,7 @@
 		};
 		71E8BBDC036EA1DEE064EFC3 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Flutter/Extension.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
@@ -1039,7 +1034,7 @@
 		};
 		79433A94C06309CE232B2487 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Flutter/Extension.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
@@ -1227,7 +1222,7 @@
 		};
 		C5480033E11DD857CF0045AD /* Profile */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Extension.xcconfig */;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Flutter/Extension.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = CritAlarmNSE/CritAlarmNSE.entitlements;
@@ -1304,7 +1299,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */ = {
+		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage;
 		};
