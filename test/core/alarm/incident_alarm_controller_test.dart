@@ -1,11 +1,14 @@
 import 'package:critalarm/core/alarm/alarm_trigger_path.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
+import 'package:critalarm/core/alarm/quiet_hours.dart';
+import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/push/incident_push.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_alarm_host.dart';
 
@@ -22,14 +25,17 @@ class GoneApiClient extends MockApiClient {
       throw ApiException(statusCode: statusCode, message: 'gone');
 }
 
-IncidentPush push(IncidentPushKind kind, {String id = 'inc_one'}) =>
-    IncidentPush(
-      server: Uri.parse('https://alerts.example.com'),
-      kind: kind,
-      priority: kind.impliedPriority,
-      incidentId: kind == IncidentPushKind.p4 ? null : id,
-      title: 'prod-db is down',
-    );
+IncidentPush push(
+  IncidentPushKind kind, {
+  String id = 'inc_one',
+  int? priority,
+}) => IncidentPush(
+  server: Uri.parse('https://alerts.example.com'),
+  kind: kind,
+  priority: priority ?? kind.impliedPriority,
+  incidentId: kind == IncidentPushKind.p4 ? null : id,
+  title: 'prod-db is down',
+);
 
 void main() {
   late FakeAlarmHost fake;
@@ -247,6 +253,116 @@ void main() {
         fake.callsTo('cancelAlarm'),
         hasLength(IncidentAlarmController.reconcileLimit),
       );
+    });
+  });
+
+  group('quiet hours', () {
+    /// 22:00 to 07:00 with critical ringing through, which is what a device
+    /// with nothing saved runs.
+    const night = QuietHours.defaults;
+
+    /// A page that does not open an incident on a critical topic. The relay
+    /// sends priority 5 for the pager case, so anything under that is the
+    /// non-critical side of the switch.
+    IncidentPush quietPage() =>
+        push(IncidentPushKind.open, priority: 4);
+
+    IncidentPush criticalPage() => push(
+      IncidentPushKind.open,
+      priority: QuietHours.criticalPriority,
+    );
+
+    Future<QuietHoursStore> storeWith(QuietHours window) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = QuietHoursStore(prefs);
+      await store.write(window);
+      return store;
+    }
+
+    Future<IncidentAlarmController> controllerAt(
+      DateTime now, {
+      required QuietHours window,
+    }) async => IncidentAlarmController(
+      host: fake.host,
+      api: api,
+      path: AlarmTriggerPath.appBackgroundPush,
+      quietHours: await storeWith(window),
+      now: () => now,
+    );
+
+    test('a non-critical page inside the window does not ring', () async {
+      final controller = await controllerAt(
+        DateTime(2026, 9, 17, 23, 30),
+        window: night.copyWith(criticalRingsThrough: false),
+      );
+
+      expect(await controller.onPush(quietPage()), isFalse);
+      expect(fake.callsTo('scheduleAlarm'), isEmpty);
+      // Nothing is ringing, so our card is free to be the acknowledge
+      // surface.
+      expect(controller.alarmingIncidentIds, isEmpty);
+      expect(controller.mayStartActivity(incidentId: 'inc_one'), isTrue);
+    });
+
+    test('a non-critical page outside the window rings', () async {
+      final controller = await controllerAt(
+        DateTime(2026, 9, 17, 9),
+        window: night.copyWith(criticalRingsThrough: false),
+      );
+
+      expect(await controller.onPush(quietPage()), isTrue);
+      expect(fake.argsOnce('scheduleAlarm')['incident_id'], 'inc_one');
+    });
+
+    test('with quiet hours off a non-critical page rings', () async {
+      final controller = await controllerAt(
+        DateTime(2026, 9, 17, 23, 30),
+        window: night.copyWith(
+          isEnabled: false,
+          criticalRingsThrough: false,
+        ),
+      );
+
+      expect(await controller.onPush(quietPage()), isTrue);
+    });
+
+    test('a critical page rings through with the switch on', () async {
+      final controller = await controllerAt(
+        DateTime(2026, 9, 17, 23, 30),
+        window: night,
+      );
+
+      expect(await controller.onPush(criticalPage()), isTrue);
+      expect(fake.callsTo('scheduleAlarm'), hasLength(1));
+    });
+
+    test('a critical page is held with the switch off', () async {
+      final controller = await controllerAt(
+        DateTime(2026, 9, 17, 23, 30),
+        window: night.copyWith(criticalRingsThrough: false),
+      );
+
+      expect(await controller.onPush(criticalPage()), isFalse);
+      expect(fake.callsTo('scheduleAlarm'), isEmpty);
+    });
+
+    test('a window that wraps past midnight holds both sides', () async {
+      final window = night.copyWith(criticalRingsThrough: false);
+
+      final before = await controllerAt(
+        DateTime(2026, 9, 17, 23, 30),
+        window: window,
+      );
+      expect(await before.onPush(quietPage()), isFalse);
+
+      final after = await controllerAt(
+        DateTime(2026, 9, 18, 2),
+        window: window,
+      );
+      expect(await after.onPush(quietPage()), isFalse);
+
+      expect(fake.callsTo('scheduleAlarm'), isEmpty);
     });
   });
 }

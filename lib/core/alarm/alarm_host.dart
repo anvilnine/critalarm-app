@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/alarm/quiet_hours.dart';
 import 'package:flutter/services.dart';
 
 /// Whether the user has let the app set alarms.
@@ -224,6 +225,17 @@ final class AlarmHost {
   /// field on iOS 26.5 and shown as "not ready" on the diagnostics screen.
   Future<bool> pushToStartReady() async =>
       await _invoke<bool>('pushToStartReady') ?? false;
+
+  /// Copies the quiet hours window into the App Group the notification
+  /// extension reads. The extension is a separate process with its own
+  /// container, so it cannot see the app's preferences and needs its own copy.
+  Future<void> publishQuietHours(QuietHours window) async =>
+      _invoke<void>('publishQuietHours', {
+        'enabled': window.isEnabled,
+        'start_minutes': window.startMinutes,
+        'end_minutes': window.endMinutes,
+        'critical_rings': window.criticalRingsThrough,
+      });
 
   Future<T?> _invoke<T>(String method, [Object? arguments]) async {
     try {

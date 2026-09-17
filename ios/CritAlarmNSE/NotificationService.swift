@@ -113,6 +113,22 @@ final class NotificationService: UNNotificationServiceExtension {
     /// extension, and logs whatever comes back.
     private func scheduleAlarmSpike(_ push: IncidentPush) {
         guard push.priority >= 5, let incidentId = push.incidentId else { return }
+
+        // Quiet hours holds the ring and nothing else. The notification has
+        // already been handed its interruption level and is on its way out
+        // with whatever text the fetch finds; only the alarm is skipped.
+        let window = QuietHours.read(from: QuietHours.groupDefaults)
+        if window.holdsRing(
+            minuteOfDay: QuietHours.minuteOf(Date()),
+            priority: push.priority
+        ) {
+            NSLog(
+                "CritAlarmNSE alarm_skipped reason=quiet_hours incident_id=%@",
+                incidentId
+            )
+            return
+        }
+
         #if canImport(AlarmKit)
         if #available(iOS 26.0, *) {
             let state = IncidentAlarmScheduler.authorization
