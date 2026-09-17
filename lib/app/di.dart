@@ -32,6 +32,12 @@ import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/version/app_version.dart';
+import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
+import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
+import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
+import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
+import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
+import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
@@ -301,6 +307,25 @@ Future<void> configureDependencies({
         getIt<ApiSessionStore>(),
         getIt<RegisterDeviceUsecase>(),
         getIt<DeviceIdentityStore>(),
+      ),
+    )
+    ..registerLazySingleton<ProviderSignIn>(NativeProviderSignIn.new)
+    ..registerLazySingleton<IdentityRepository>(
+      () => HttpIdentityRepository(
+        httpClient: httpClient ?? http.Client(),
+        sessions: getIt<ApiSessionStore>(),
+        prefs: getIt<SharedPreferences>(),
+        providers: getIt<ProviderSignIn>(),
+      ),
+    )
+    ..registerLazySingleton<AccountRepository>(
+      () => ApiAccountRepository(
+        api: getIt<ApiClient>(),
+        sessions: getIt<ApiSessionStore>(),
+        devices: getIt<DeviceIdentityStore>(),
+        register: getIt<RegisterDeviceUsecase>(),
+        identities: getIt<IdentityRepository>(),
+        connections: getIt<ConnectionRepository>(),
       ),
     )
     ..registerLazySingleton(
@@ -604,8 +629,15 @@ Future<void> configureDependencies({
       ),
     )
     ..registerFactory(
+      () => AccountCubit(
+        identities: getIt<IdentityRepository>(),
+        account: getIt<AccountRepository>(),
+      ),
+    )
+    ..registerFactory(
       () => SettingsCubit(
         identityStore: getIt<DeviceIdentityStore>(),
+        apiSessions: getIt<ApiSessionStore>(),
         getTopics: getIt<GetTopicsUsecase>(),
         getConnectionUsecase: getIt<GetConnectionUsecase>(),
         clearConnectionUsecase: getIt<ClearConnectionUsecase>(),

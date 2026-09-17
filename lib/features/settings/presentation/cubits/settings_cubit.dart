@@ -1,5 +1,6 @@
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
+import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -29,6 +30,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     this.privacyRepository,
     this.telemetryGate,
     this.identityStore,
+    this.apiSessions,
     this.getTopics,
     ProOverride? proOverride,
   }) : _proOverride = proOverride ?? appProOverride,
@@ -46,6 +48,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   final PrivacyRepository? privacyRepository;
   final TelemetryGate? telemetryGate;
   final DeviceIdentityStore? identityStore;
+  final ApiSessionStore? apiSessions;
   final GetTopicsUsecase? getTopics;
   final ProOverride _proOverride;
 
@@ -163,6 +166,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     emit(
       state.copyWith(
         status: SettingsStatus.success,
+        serverMode: (await apiSessions?.read())?.mode,
         access: AccountAccess(identity, proOverride: _proOverride),
         topics: result?.getOrNull() ?? [],
         errorMessage: result?.exceptionOrNull()?.message,
