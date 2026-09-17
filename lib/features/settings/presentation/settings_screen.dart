@@ -229,6 +229,15 @@ class _SettingsScreenContent extends StatelessWidget {
                         subtitle: LocaleKeys.settings_server_row_subtitle.tr(),
                         path: '/settings/server',
                       ),
+                      if (state.hasAccounts) ...[
+                        const SizedBox(height: 8),
+                        _buildNavRow(
+                          context,
+                          title: LocaleKeys.account_row_title.tr(),
+                          subtitle: LocaleKeys.account_row_subtitle.tr(),
+                          path: '/settings/account',
+                        ),
+                      ],
                       const SizedBox(height: 14),
                       AppSectionHeader(
                         LocaleKeys.settings_app_header.tr(),

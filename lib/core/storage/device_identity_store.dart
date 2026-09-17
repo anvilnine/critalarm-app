@@ -47,6 +47,21 @@ class DeviceIdentityStore {
     return identity;
   }
 
+  /// Throws away this phone's credential and gives it a brand new device id.
+  ///
+  /// Signing out has to do both. api.md §3.7: dropping `dv_` while keeping the
+  /// old device id is a permanent 401, because the app only POSTs a
+  /// registration when it has no token, and registering a device id the server
+  /// already knows needs the token that was just thrown away.
+  Future<DeviceIdentity> resetIdentity() async {
+    for (final key in legacyKeys) {
+      await _prefs.remove(key);
+    }
+    final identity = DeviceIdentity(deviceId: 'dev_${const Uuid().v4()}');
+    await _prefs.setString('device_id', identity.deviceId);
+    return identity;
+  }
+
   Future<void> saveRegistration({
     required String deviceToken,
     required String accountId,
@@ -100,6 +115,16 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
     }
     // Only remove the old copy after the Keychain write succeeds. If cleanup
     // was interrupted, the Keychain copy wins on the next launch.
+    for (final key in DeviceIdentityStore.legacyKeys) {
+      await _prefs.remove(key);
+    }
+    return identity;
+  }
+
+  @override
+  Future<DeviceIdentity> resetIdentity() async {
+    final identity = DeviceIdentity(deviceId: 'dev_${const Uuid().v4()}');
+    await _write(identity);
     for (final key in DeviceIdentityStore.legacyKeys) {
       await _prefs.remove(key);
     }

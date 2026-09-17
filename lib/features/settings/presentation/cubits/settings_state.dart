@@ -1,3 +1,4 @@
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/topic.dart';
 import 'package:flutter/foundation.dart';
@@ -22,6 +23,7 @@ class SettingsState {
     this.isDisconnecting = false,
     this.isSavingConnection = false,
     this.errorMessage,
+    this.serverMode,
   });
 
   final List<Topic> topics;
@@ -40,6 +42,13 @@ class SettingsState {
   final bool isSavingConnection;
   final String? errorMessage;
 
+  /// Which mode the server runs in, or null before it has been read. A
+  /// self-hosted server has no accounts, so the Account row is left out.
+  final ServerMode? serverMode;
+
+  bool get hasAccounts =>
+      serverMode != null && serverMode != ServerMode.selfhosted;
+
   SettingsState copyWith({
     List<Topic>? topics,
     AccountAccess? access,
@@ -55,6 +64,7 @@ class SettingsState {
     bool? isDisconnecting,
     bool? isSavingConnection,
     String? errorMessage,
+    ServerMode? serverMode,
     bool clearError = false,
   }) {
     return SettingsState(
@@ -75,6 +85,7 @@ class SettingsState {
       isDisconnecting: isDisconnecting ?? this.isDisconnecting,
       isSavingConnection: isSavingConnection ?? this.isSavingConnection,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      serverMode: serverMode ?? this.serverMode,
     );
   }
 
@@ -96,7 +107,8 @@ class SettingsState {
           crashReportingEnabled == other.crashReportingEnabled &&
           isDisconnecting == other.isDisconnecting &&
           isSavingConnection == other.isSavingConnection &&
-          errorMessage == other.errorMessage;
+          errorMessage == other.errorMessage &&
+          serverMode == other.serverMode;
 
   @override
   int get hashCode => Object.hash(
@@ -114,5 +126,6 @@ class SettingsState {
     isDisconnecting,
     isSavingConnection,
     errorMessage,
+    serverMode,
   );
 }
