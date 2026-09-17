@@ -12,6 +12,11 @@ import Foundation
 /// them in the App Group with `write(_:to:)`. The extension runs in its own
 /// process with its own container, so the group is the only place it can read
 /// them from.
+///
+/// Two places read it back. `AppDelegate.didReceiveRemoteNotification` is the
+/// one that holds a ring on a phone today, because that handler is what
+/// schedules the alarm on the chosen path. `NotificationService` reads it for
+/// the path `AlarmTriggerPath` is not currently set to.
 struct QuietHours {
     static let appGroup = "group.app.critalarm"
 

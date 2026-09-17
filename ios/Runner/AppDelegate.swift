@@ -459,6 +459,22 @@ import AlarmKit
       return
     }
 
+    // Quiet hours holds the ring and nothing else. This is the live gate: it
+    // is this handler that schedules the alarm on a real phone, so the same
+    // check in Dart and in the extension does nothing until one of those
+    // paths is the one in use. The notification has already been delivered by
+    // the time iOS calls this, so the page still arrives, the incident still
+    // opens and the card still shows; only the schedule call is skipped.
+    let quietHours = QuietHours.read(from: QuietHours.groupDefaults)
+    if quietHours.holdsRing(
+      minuteOfDay: QuietHours.minuteOf(Date()),
+      priority: push.priority
+    ) {
+      NSLog("CritAlarm: background_push_ignored reason=quiet_hours")
+      completionHandler(.noData)
+      return
+    }
+
     scheduleAlarm(
       incidentId: incidentId,
       topic: userInfo["topic"] as? String ?? "",

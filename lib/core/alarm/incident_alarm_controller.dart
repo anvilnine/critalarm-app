@@ -88,6 +88,13 @@ final class IncidentAlarmController {
     // this stands in front of is the schedule call. The incident is not put on
     // the ringing list either, since nothing is ringing and our card is then
     // the acknowledge surface.
+    //
+    // This is not the gate that holds a ring on a phone today. On the chosen
+    // path the alarm is scheduled in `AppDelegate`
+    // (`didReceiveRemoteNotification`), and the live check is the one there.
+    // Nothing in `lib/` calls this method yet; it covers the in-app path for
+    // whenever that is wired up. All three checks read the same window and
+    // apply the same rule, so wiring one up changes nothing about the answer.
     final window = quietHours?.read();
     if (window != null &&
         window.holdsRing(now: _now(), priority: push.priority)) {
