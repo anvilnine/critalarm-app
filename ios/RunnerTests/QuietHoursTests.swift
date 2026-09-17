@@ -98,6 +98,37 @@ final class QuietHoursTests: XCTestCase {
         )
     }
 
+    /// What the live path hands the check on a fresh install.
+    ///
+    /// `AppDelegate.application(_:didReceiveRemoteNotification:...)` is the
+    /// handler that schedules the alarm on a real phone, and it is only woken
+    /// for a priority-5 page (api.md 5.1 sends `content-available: 1` on
+    /// nothing quieter). The handler itself needs a launched app, so it cannot
+    /// be tested here; this pins the answer it gets from the pure function.
+    func testTheDefaultsHoldNothingForTheOnlyPriorityTheLivePathSees() {
+        XCTAssertFalse(
+            QuietHours.defaults.holdsRing(
+                minuteOfDay: minute(23, 30),
+                priority: 5
+            )
+        )
+        XCTAssertFalse(
+            QuietHours.defaults.holdsRing(minuteOfDay: minute(3), priority: 5)
+        )
+    }
+
+    /// The same page once the user turns "Critical rings through quiet hours"
+    /// off, which is the only way quiet hours holds a real page today.
+    func testTurningCriticalRingsThroughOffHoldsThatSamePage() {
+        let window = QuietHours(
+            isEnabled: true,
+            startMinutes: QuietHours.defaults.startMinutes,
+            endMinutes: QuietHours.defaults.endMinutes,
+            criticalRingsThrough: false
+        )
+        XCTAssertTrue(window.holdsRing(minuteOfDay: minute(23, 30), priority: 5))
+    }
+
     func testNothingStoredFallsBackToTheSameDefaultsAsDart() {
         let empty = UserDefaults(suiteName: "quiet-hours-tests-empty")!
         for key in [
