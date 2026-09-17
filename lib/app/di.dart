@@ -176,10 +176,35 @@ Future<void> configureDependencies({
 
   if (!getIt.isRegistered<RevenueCatService>()) {
     final revenueCatService = RevenueCatService();
+    // RevenueCat issues a public SDK key per store and the SDK rejects the
+    // other store's key, so the platform picks which one is passed.
+    final sellsThroughAppStore =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    final revenueCatKey = sellsThroughAppStore
+        ? Env.revenueCatIosApiKey
+        : Env.revenueCatAndroidApiKey;
+    // Thrown above the catch below on purpose. A build that cannot sell has to
+    // stop here, not be swallowed and look like a build nobody bought from.
+    if (releaseBuildCannotSell(
+      isRelease: kReleaseMode,
+      skipsPaywall: buildSkipsPaywall,
+      apiKey: revenueCatKey,
+    )) {
+      final varName = sellsThroughAppStore
+          ? 'REVENUECAT_IOS_API_KEY'
+          : 'REVENUECAT_ANDROID_API_KEY';
+      throw StateError(
+        'This release build has no RevenueCat key, so it cannot sell '
+        'anything. Put $varName in .env. The key comes from RevenueCat, '
+        'Project settings > API keys. Build with '
+        '--dart-define=SKIP_PAYWALL=true if you meant to leave the paywall '
+        'out.',
+      );
+    }
     try {
-      if (!buildSkipsPaywall && Env.revenueCatApiKey.isNotEmpty) {
+      if (!buildSkipsPaywall && revenueCatKey.isNotEmpty) {
         await revenueCatService.initialize(
-          apiKey: Env.revenueCatApiKey,
+          apiKey: revenueCatKey,
           appUserId: (await identityStore.readOrCreate()).accountId,
         );
       }

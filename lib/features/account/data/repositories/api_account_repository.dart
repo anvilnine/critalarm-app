@@ -97,6 +97,14 @@ final class ApiAccountRepository implements AccountRepository {
     if (token != null) {
       await api.deleteDevice(deviceId: current.deviceId, deviceToken: token);
     }
+    // The next line registers a new anonymous account and logs the store in
+    // to it, so the store has to be logged out of the old one first or the
+    // purchase is handed straight to the handset's next account. Anonymous
+    // already is not a failure: the store answers
+    // logOutWithAnonymousUserError and there is nothing to undo.
+    try {
+      await signOutBilling?.call();
+    } on Object catch (_) {}
     await _startOverOnFreshAccount();
   }
 
