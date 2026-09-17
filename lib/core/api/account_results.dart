@@ -77,3 +77,23 @@ sealed class AccountSwitchResult with _$AccountSwitchResult {
   /// 401. A bad device token, or a session that has died.
   const factory AccountSwitchResult.unauthorized() = AccountSwitchUnauthorized;
 }
+
+/// What `DELETE /v1/account` answered (api.md §3.7).
+@freezed
+sealed class AccountDeleteResult with _$AccountDeleteResult {
+  /// 204. The account and everything under it is gone, and every credential
+  /// it held is dead.
+  const factory AccountDeleteResult.deleted() = AccountDeleted;
+
+  /// 409 `live incident`. An alarm is ringing. The person acknowledges it and
+  /// tries again; nothing here closes it for them. Only an `open` incident
+  /// lands here, never an acked one: nothing is ringing once it is
+  /// acknowledged, and a person must never be stuck unable to leave.
+  const factory AccountDeleteResult.liveIncident({
+    required String incidentId,
+  }) = AccountDeleteLiveIncident;
+
+  /// 401. A dead device token, or an account that holds an identity whose
+  /// token was missing, invalid, or somebody else's.
+  const factory AccountDeleteResult.unauthorized() = AccountDeleteUnauthorized;
+}

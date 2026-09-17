@@ -15,10 +15,24 @@ import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:http/http.dart' as http;
 
 final class HttpApiClient implements ApiClient {
-  HttpApiClient(this._http, this._sessions);
+  HttpApiClient(this._http, this._sessions, {this.onDeadCredential});
 
   final http.Client _http;
   final ApiSessionStore _sessions;
+
+  /// Called when a route answers 401 to this phone's own device token.
+  ///
+  /// api.md §3.7: after somebody deletes the account from another handset,
+  /// every other device on it gets 401 on its next call. The credential is
+  /// dead for good, so retrying it forever just spins. Whoever is wired in
+  /// here starts the phone over on a fresh anonymous account.
+  ///
+  /// Only a 401 on a device token fires it. A topic token that does not match
+  /// its topic answers 401 too, and that is a wrong `tk_`, not a dead account.
+  final Future<void> Function()? onDeadCredential;
+
+  /// The prefix api.md §4.2 gives every device token.
+  static const _deviceTokenPrefix = 'dv_';
 
   Uri _path(Uri base, List<String> segments, [Map<String, String>? query]) {
     final prefix = base.path.endsWith('/')
@@ -73,6 +87,18 @@ final class HttpApiClient implements ApiClient {
     );
     if ((result.statusCode < 200 || result.statusCode >= 300) &&
         !tolerate.contains(result.statusCode)) {
+      if (result.statusCode == 401 &&
+          (auth?.startsWith(_deviceTokenPrefix) ?? false)) {
+        final recover = onDeadCredential;
+        if (recover != null) {
+          try {
+            await recover();
+          } on Object catch (_) {
+            // The caller still has to hear about the 401 it asked about, so a
+            // recovery that itself failed is not allowed to replace it.
+          }
+        }
+      }
       var json = <String, dynamic>{};
       try {
         json = jsonDecode(result.body) as Map<String, dynamic>;
@@ -344,6 +370,33 @@ final class HttpApiClient implements ApiClient {
     return AccountSwitchResult.switched(
       accountId: json['account_id'] as String,
     );
+  }
+
+  @override
+  Future<AccountDeleteResult> deleteAccount({String? identityToken}) async {
+    final (session, uri) = await _sessionUri(const ['account']);
+    final response = await _send(
+      'DELETE',
+      uri,
+      auth: session.managementCredential,
+      // Left out entirely when nobody is signed in. A null or an empty string
+      // reads to the server as an identity token that does not match, which
+      // is a 401 on an account that should have deleted on the device token
+      // alone.
+      body: identityToken == null ? null : {'identity_token': identityToken},
+      tolerate: const {401, 409},
+    );
+    if (response.statusCode == 401) {
+      return const AccountDeleteResult.unauthorized();
+    }
+    if (response.statusCode == 409) {
+      final json = _json(response) as Map<String, dynamic>;
+      return AccountDeleteResult.liveIncident(
+        incidentId: json['incident_id'] as String,
+      );
+    }
+    // 204 carries no body, so there is nothing to read here.
+    return const AccountDeleteResult.deleted();
   }
 
   @override

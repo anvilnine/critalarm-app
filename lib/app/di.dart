@@ -217,6 +217,11 @@ Future<void> configureDependencies({
           : HttpApiClient(
               httpClient ?? http.Client(),
               getIt<ApiSessionStore>(),
+              // A 401 on this phone's own credential means somebody deleted
+              // the account from another handset (api.md §3.7). Resolved
+              // inside the closure, because the repository needs this client.
+              onDeadCredential: () =>
+                  getIt<AccountRepository>().recoverFromDeadCredential(),
             ),
     )
     ..registerLazySingleton<ThemePreferenceRepository>(
@@ -326,6 +331,13 @@ Future<void> configureDependencies({
         register: getIt<RegisterDeviceUsecase>(),
         identities: getIt<IdentityRepository>(),
         connections: getIt<ConnectionRepository>(),
+        acks: getIt<AckQueue>(),
+        messageCursors: getIt<MessageSyncService>(),
+        recentSearches: getIt<RecentSearchesRepository>(),
+        signOutBilling: buildSkipsPaywall
+            ? null
+            : () => getIt<RevenueCatService>().logOut(),
+        stopAlarm: getIt<AlarmHost>().stopRinging,
       ),
     )
     ..registerLazySingleton(

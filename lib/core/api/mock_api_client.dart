@@ -160,6 +160,14 @@ class MockApiClient implements ApiClient {
   }
 
   @override
+  Future<AccountDeleteResult> deleteAccount({String? identityToken}) async {
+    return server.deleteAccount(
+      deviceToken: deviceToken ?? '',
+      identityToken: identityToken,
+    );
+  }
+
+  @override
   Future<void> deleteDevice({
     required String deviceId,
     required String deviceToken,

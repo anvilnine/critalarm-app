@@ -33,6 +33,7 @@ class AccountCubit extends Cubit<AccountState> {
   Future<void> load() async {
     final mode = await account.readServerMode();
     final identity = await identities.readIdentity();
+    final isPaid = await account.readIsPaid();
     if (isClosed) return;
     emit(
       state.copyWith(
@@ -41,6 +42,7 @@ class AccountCubit extends Cubit<AccountState> {
             : AccountStatus.signedIn,
         mode: mode,
         identity: identity,
+        isPaid: isPaid,
         clearIdentity: identity == null,
       ),
     );
@@ -140,6 +142,100 @@ class AccountCubit extends Cubit<AccountState> {
     emit(
       const AccountState(status: AccountStatus.signedOut).copyWith(
         mode: state.mode,
+      ),
+    );
+  }
+
+  /// Erases the account. Works signed in or signed out, because an account
+  /// with no identity is deleted on this phone's own credential.
+  Future<void> deleteAccount() async {
+    final wasSignedIn = state.status == AccountStatus.signedIn;
+    emit(
+      state.copyWith(
+        status: AccountStatus.working,
+        clearError: true,
+        clearLiveIncident: true,
+      ),
+    );
+    await _deleteOnce(
+      await identities.readSession(),
+      wasSignedIn: wasSignedIn,
+      canRetry: true,
+    );
+  }
+
+  Future<void> _deleteOnce(
+    IdentitySession? session, {
+    required bool wasSignedIn,
+    required bool canRetry,
+  }) async {
+    final AccountDeleteResult result;
+    try {
+      result = await account.deleteAccount(identityToken: session?.token);
+    } on Object catch (_) {
+      // Offline, or the server broke. Nothing local is touched: a wipe on a
+      // call that never landed leaves a live account nobody can reach and a
+      // phone that has forgotten it.
+      _failDelete(wasSignedIn: wasSignedIn);
+      return;
+    }
+    if (isClosed) return;
+    switch (result) {
+      case AccountDeleted():
+        try {
+          await account.wipeAfterDelete();
+        } on Object catch (_) {
+          // The account is already gone on the server, so there is nothing to
+          // put back. A registration that did not go through leaves the phone
+          // with no credential, which is exactly the state it registers
+          // itself out of on the next launch.
+        }
+        if (isClosed) return;
+        _pending = null;
+        emit(
+          const AccountState(status: AccountStatus.deleted).copyWith(
+            mode: state.mode,
+          ),
+        );
+      case AccountDeleteLiveIncident(:final incidentId):
+        // The alarm is not acknowledged here and the call is not retried. The
+        // person acknowledges it and presses delete again, which works with
+        // no restart because nothing local moved.
+        emit(
+          state.copyWith(
+            status: wasSignedIn
+                ? AccountStatus.signedIn
+                : AccountStatus.signedOut,
+            liveIncidentId: incidentId,
+          ),
+        );
+      case AccountDeleteUnauthorized():
+        if (session == null || !canRetry) {
+          _failDelete(wasSignedIn: wasSignedIn);
+          return;
+        }
+        // The session died rather than the person being refused. Drop it, run
+        // the provider flow once more and try the delete again. One retry,
+        // never a loop. Same shape as [_linkSession].
+        await identities.clearSession();
+        final IdentitySession retried;
+        try {
+          retried = await identities.signIn(session.provider);
+        } on Object catch (_) {
+          _failDelete(wasSignedIn: wasSignedIn);
+          return;
+        }
+        if (isClosed) return;
+        await _deleteOnce(retried, wasSignedIn: wasSignedIn, canRetry: false);
+    }
+  }
+
+  void _failDelete({required bool wasSignedIn}) {
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        status: wasSignedIn ? AccountStatus.signedIn : AccountStatus.signedOut,
+        errorMessage: LocaleKeys.account_delete_failed.tr(),
       ),
     );
   }
