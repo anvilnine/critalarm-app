@@ -138,6 +138,12 @@ class _SignedOut extends StatelessWidget {
         // Apple wants the terms and the privacy policy reachable from the
         // screen that creates an account, not just buried in Settings.
         const _SignInLegalFooter(),
+        // Here as well as on the signed-in half. An account exists from the
+        // first registration, long before anyone signs in, and api.md §3.7
+        // deletes one with no identity on this phone's own credential. So
+        // nobody has to sign in to be able to leave.
+        const SizedBox(height: 16),
+        const _DeleteAccountButton(),
       ],
     );
   }
@@ -205,8 +211,27 @@ class _SignedIn extends StatelessWidget {
           isLoading: state.isBusy,
           onPressed: () => unawaited(cubit.signOut()),
         ),
-        // A19 fills the gap below with Delete account. Nothing here builds it.
+        const SizedBox(height: 8),
+        const _DeleteAccountButton(),
       ],
+    );
+  }
+}
+
+/// The way out, last on the sheet so nothing is reached past to get to it.
+///
+/// It only leads to the confirm screen. Nothing is erased from here.
+class _DeleteAccountButton extends StatelessWidget {
+  const _DeleteAccountButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppButton(
+      label: LocaleKeys.account_delete_button.tr(),
+      variant: AppButtonVariant.ghost,
+      size: AppButtonSize.sm,
+      isFullWidth: true,
+      onPressed: () => context.push('/settings/account/delete'),
     );
   }
 }
