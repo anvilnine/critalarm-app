@@ -128,6 +128,17 @@ abstract interface class ApiClient {
     required String intoAccount,
   });
 
+  /// DELETE /v1/account
+  ///
+  /// Erases this device's account and everything under it. `dv_` stays in the
+  /// Authorization header and [identityToken] travels in the body, the same
+  /// split the other three account routes use.
+  ///
+  /// [identityToken] is left out when the account holds no identity, because
+  /// an account with nobody signed in is deleted on the device token alone
+  /// (api.md §3.7).
+  Future<AccountDeleteResult> deleteAccount({String? identityToken});
+
   /// POST /relay/v1/devices
   Future<DeviceRegistrationResponse> registerDevice(
     DeviceRegistration registration, {

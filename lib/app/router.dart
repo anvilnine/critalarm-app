@@ -2,6 +2,7 @@ import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
+import 'package:critalarm/features/account/presentation/delete_account_screen.dart';
 import 'package:critalarm/features/history/presentation/history_screen.dart';
 import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
 import 'package:critalarm/features/incidents/presentation/lock_screen.dart';
@@ -44,6 +45,7 @@ abstract final class AppRoute {
   static const alarmSettings = 'alarmSettings';
   static const serverSettings = 'serverSettings';
   static const account = 'account';
+  static const deleteAccount = 'deleteAccount';
   static const privacySettings = 'privacySettings';
   static const about = 'about';
   static const developerSettings = 'developerSettings';
@@ -178,6 +180,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   path: 'account',
                   name: AppRoute.account,
                   builder: (context, state) => const AccountScreen(),
+                  routes: [
+                    // Its own route rather than a dialog: there is too much
+                    // to read before erasing an account.
+                    GoRoute(
+                      path: 'delete',
+                      name: AppRoute.deleteAccount,
+                      builder: (context, state) =>
+                          const DeleteAccountScreen(),
+                    ),
+                  ],
                 ),
                 GoRoute(
                   path: 'privacy',

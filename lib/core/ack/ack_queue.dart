@@ -82,6 +82,14 @@ final class AckQueue {
   /// Sends every entry whose retry time has passed.
   Future<void> flush() => _queued(_flushOnce);
 
+  /// Throws away everything still waiting, without sending any of it.
+  ///
+  /// For the account the queue was filled on being gone. Every entry names an
+  /// incident on that account, so there is nothing left to acknowledge and a
+  /// flush would just collect 404s. Takes its turn behind any flush already
+  /// running, so a write in flight cannot put an entry back afterwards.
+  Future<void> clear() => _queued(() => _write(const []));
+
   Future<T> _queued<T>(Future<T> Function() action) {
     final result = _turn.then((_) => action());
     _turn = result.then((_) {}, onError: (_) {});
