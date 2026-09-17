@@ -45,6 +45,18 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- MainActivity routes a tapped notification itself, off the
+                 extras, and hands go_router a path. The tap intents also carry
+                 a critalarm:// data URI, which is only there to keep two
+                 PendingIntents apart: there is no intent-filter for that scheme
+                 and nothing outside the app sends one. Left on, Flutter's own
+                 deep link handling reads that URI whenever the extras are gone,
+                 already taken or replayed from recents, and go_router answers
+                 "no routes for location: critalarm://incidents/inc_demo". -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false"
+              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
