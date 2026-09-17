@@ -242,6 +242,7 @@
     "load_failed": "Could not read this topic's tokens.",
     "made_on": "Made {date}",
     "made_just_now": "Made just now",
+    "last_token_note": "A topic keeps at least one token. To replace this one, make a new token first, then revoke this one.",
     "new_button": "New token",
     "new_label": "YOUR NEW TOKEN",
     "saved_button": "I have saved it",
@@ -495,6 +496,7 @@
     "rate_limited": "Too many requests. Wait a moment and try again.",
     "invalid_request": "The server could not read that request.",
     "not_found": "The server could not find that.",
+    "topic_must_retain_a_token": "A topic keeps at least one token. Make a new token first, then revoke this one.",
     "unknown": "Something went wrong on the server. Try again."
   },
   "sound_library": {

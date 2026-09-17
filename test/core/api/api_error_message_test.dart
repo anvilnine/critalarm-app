@@ -46,6 +46,17 @@ void main() {
       );
     });
 
+    test('the last token refusal reads as a next step, not a failure', () {
+      final message = apiErrorMessage('topic must retain a token');
+
+      expect(
+        message,
+        'A topic keeps at least one token. '
+        'Make a new token first, then revoke this one.',
+      );
+      expect(message, isNot(contains('Something went wrong')));
+    });
+
     test('matches whatever case and padding the server sent', () {
       expect(
         apiErrorMessage('  Not Found '),

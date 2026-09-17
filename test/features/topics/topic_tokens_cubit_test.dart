@@ -98,6 +98,32 @@ void main() {
       expect(cubit.state.isWorking, isFalse);
     });
 
+    test('a refused revoke says what to do next and keeps the order', () async {
+      await cubit.load('prod-db');
+      await cubit.createToken();
+      await cubit.createToken();
+      final before = cubit.state.tokens.map((t) => t.tokenId).toList();
+      expect(before, hasLength(3));
+
+      // Another device revoked the two newer ones. This screen still shows
+      // three, so it still offers to revoke the first.
+      server
+        ..deleteTopicToken('prod-db', before[1])
+        ..deleteTopicToken('prod-db', before[2]);
+
+      // The server answers 409 topic must retain a token.
+      await cubit.revoke(before[0]);
+
+      // Back at the front of the list, not appended to the end.
+      expect(cubit.state.tokens.map((t) => t.tokenId), before);
+      expect(
+        cubit.state.errorMessage,
+        'A topic keeps at least one token. '
+        'Make a new token first, then revoke this one.',
+      );
+      expect(cubit.state.isWorking, isFalse);
+    });
+
     test('revoking a token the list never held does nothing', () async {
       await cubit.load('prod-db');
       final before = cubit.state;
