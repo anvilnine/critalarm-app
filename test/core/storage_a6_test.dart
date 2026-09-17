@@ -5,26 +5,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/fake_device_keychain.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  const channel = MethodChannel('app.critalarm/device_identity');
-  final messenger =
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-  String? keychain;
-  var failWrite = false;
+  late FakeDeviceKeychain keychain;
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
-    keychain = null;
-    failWrite = false;
-    messenger.setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'read') return keychain;
-      if (failWrite) throw PlatformException(code: 'keychain_write');
-      keychain = call.arguments as String;
-      return null;
-    });
+    keychain = FakeDeviceKeychain()..install();
   });
-  tearDown(() => messenger.setMockMethodCallHandler(channel, null));
+  tearDown(() => keychain.remove());
 
   for (final mode in ServerMode.values) {
     test('ApiSession round-trips all four fields: ${mode.name}', () async {
@@ -98,7 +89,7 @@ void main() {
       'device_token': 'dv_existing',
     });
     final prefs = await SharedPreferences.getInstance();
-    failWrite = true;
+    keychain.failWrite = true;
     await expectLater(
       KeychainDeviceIdentityStore(prefs).readOrCreate(),
       throwsA(isA<PlatformException>()),

@@ -67,6 +67,7 @@
 		CF1F6744B717A05554FDAF49 /* FaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 459470031D166B3CA2B80886 /* FaceView.swift */; };
 		CF2A62EB3F4FB523CF9334A7 /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
 		CF8B5F6F7F90CEDBD6A3E5A6 /* alarm.caf in Resources */ = {isa = PBXBuildFile; fileRef = 56422C7C20CDE71116711FD1 /* alarm.caf */; };
+		A14C1D0EB7F3524C8A9D0011 /* DeviceIdentityKeychainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14C1D0EB7F3524C8A9D0012 /* DeviceIdentityKeychainTests.swift */; };
 		D183068650726122FB4BED45 /* PushDeliveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */; };
 		D1D0455B373B068D9BE01B47 /* IncidentIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */; };
 		D5AA1E2175BB98EC72D83577 /* p4.apns in Resources */ = {isa = PBXBuildFile; fileRef = F4C3109ABCF417BB50CBFEBB /* p4.apns */; };
@@ -138,6 +139,7 @@
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushDeliveryTests.swift; sourceTree = "<group>"; };
+		A14C1D0EB7F3524C8A9D0012 /* DeviceIdentityKeychainTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceIdentityKeychainTests.swift; sourceTree = "<group>"; };
 		27BE1B266C87A73BE64F5093 /* CritAlarmActivityBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CritAlarmActivityBundle.swift; sourceTree = "<group>"; };
 		2D67F82837113861230B142A /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
@@ -257,6 +259,7 @@
 				78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */,
 				1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */,
 				A13F0C1E4B7D25A9E0114002 /* QuietHoursTests.swift */,
+				A14C1D0EB7F3524C8A9D0012 /* DeviceIdentityKeychainTests.swift */,
 			);
 			path = RunnerTests;
 			sourceTree = "<group>";
@@ -698,6 +701,7 @@
 				331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */,
 				9DF7AE06CF79C15046128835 /* NotificationServiceTests.swift in Sources */,
 				D183068650726122FB4BED45 /* PushDeliveryTests.swift in Sources */,
+				A14C1D0EB7F3524C8A9D0011 /* DeviceIdentityKeychainTests.swift in Sources */,
 				05BDDBA0157A3EE529FEC613 /* NotificationService.swift in Sources */,
 				0D184790693B92A167F3BAAD /* AckQueueStore.swift in Sources */,
 				522BFE16F4DDA83E81723EBE /* NseCredentials.swift in Sources */,
