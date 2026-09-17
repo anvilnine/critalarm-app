@@ -251,7 +251,48 @@ void main() {
     });
     expect(keychain.device!['device_id'], 'dev_shared');
     expect(keychain.device!['device_token'], 'dv_shared');
-    expect(keychain.item(FakeDeviceKeychain.deviceService, true), isNull);
+
+    // The old synced item is still readable, and it has to be. A Keychain
+    // delete syncs, so removing it here would take the only credential every
+    // other handset on this Apple ID has.
+    expect(keychain.item(FakeDeviceKeychain.deviceService, true), {
+      'device_id': 'dev_shared',
+      'device_token': 'dv_shared',
+      'account_id': 'acc_1',
+      'account_tier': 'relay',
+      'caps': <String, dynamic>{},
+    });
+    expect(keychain.deletes, isEmpty);
+  });
+
+  test('the twin handset still finds the shared item', () async {
+    // Two handsets on one Apple ID share every synced item. The only thing
+    // that does not travel is the unsynced device item, so a second handset is
+    // this same Keychain with that one item taken away.
+    keychain.seedCombined(
+      deviceId: 'dev_shared',
+      deviceToken: 'dv_shared',
+      accountId: 'acc_1',
+      tier: 'relay',
+    );
+    await register(await newStore());
+
+    keychain.items.remove('${FakeDeviceKeychain.deviceService}|false');
+    keychain.calls.clear();
+    final twin = await newStore();
+    final adopted = await twin.readOrCreate();
+
+    // It carries the shared identity across rather than starting over. A new
+    // device id here would register with no bearer and hand the person a new
+    // empty account with none of their topics on it.
+    expect(adopted.deviceId, 'dev_shared');
+    expect(adopted.deviceToken, 'dv_shared');
+    expect(adopted.accountId, 'acc_1');
+
+    await register(twin);
+    expect(relay.registrations, isEmpty, reason: 'no new account');
+    expect(relay.refreshes.last.$1.deviceId, 'dev_shared');
+    expect(keychain.device!['device_id'], 'dev_shared');
   });
 
   test('a failed release leaves a working install and is retried', () async {

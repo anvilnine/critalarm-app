@@ -228,8 +228,16 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
       // No join token anywhere, and api.md §4.2 has no route that gives one to
       // a device holding only `dv_`. So this handset keeps the device row it
       // already has. Nothing is lost, and nothing is released.
+      //
+      // The old synced item stays where it is, and deleting it here would be a
+      // bug. A Keychain delete syncs, so it would vanish from every other
+      // handset on this Apple ID, and on an account with no join token that
+      // item is the only credential those handsets have. They would come up
+      // with nothing to carry, register from scratch, and land on a new empty
+      // account with none of the person's topics on it. The cost of keeping it
+      // is that those handsets still share one device row, which is exactly
+      // where they were before, so nothing gets worse.
       await _writeDevice(carried);
-      await _delete(deviceService, true);
       return carried;
     }
 
