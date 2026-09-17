@@ -33,35 +33,4 @@ object LiveUpdate {
     /** The word in the status bar chip. Keep it to a few characters. */
     fun NotificationCompat.Builder.shortCriticalText(text: String): NotificationCompat.Builder =
         setShortCriticalText(text)
-
-    /**
-     * The countdown bar, the second half of a Live Update.
-     *
-     * One segment covers the whole wait, the progress says how much of it has
-     * gone, and the point sits on the instant the incident rings again. The bar
-     * is a style, so it replaces BigTextStyle on the cards that get one, and it
-     * leaves the chronometer slot alone: the elapsed timer counts up from
-     * setWhen while this counts the wait down.
-     *
-     * androidx.core 1.17.0 carries NotificationCompat.ProgressStyle and its
-     * Api36Impl, so this posts a bar on Android 16 and degrades to a plain
-     * progress row below it, with no version check here.
-     *
-     * Returns null when there is nothing to count, so the caller can leave the
-     * style alone rather than draw a bar of length zero.
-     */
-    fun countdownBar(
-        elapsedSeconds: Long,
-        totalSeconds: Long,
-        color: Int,
-    ): NotificationCompat.ProgressStyle? {
-        if (totalSeconds <= 0L) return null
-        val length = totalSeconds.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-        val progress = elapsedSeconds.coerceIn(0L, length.toLong()).toInt()
-        return NotificationCompat.ProgressStyle()
-            .addProgressSegment(NotificationCompat.ProgressStyle.Segment(length).setColor(color))
-            .addProgressPoint(NotificationCompat.ProgressStyle.Point(length).setColor(color))
-            .setProgress(progress)
-            .setStyledByProgress(true)
-    }
 }
