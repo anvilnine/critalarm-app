@@ -140,6 +140,15 @@ class _TopicTokensSectionContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
               ],
+              // The revoke control is gone on the last token, so say why
+              // before someone hunts for it. Skipped while an error is up,
+              // because a refused revoke already says this.
+              if (state.tokens.length == 1 &&
+                  state.isReady &&
+                  state.errorMessage == null) ...[
+                _Note(LocaleKeys.topic_tokens_last_token_note.tr()),
+                const SizedBox(height: 8),
+              ],
               // The one moment the value exists on screen. Nothing can ask the
               // server for it again.
               if (made != null) ...[
@@ -245,7 +254,7 @@ class _TokenRow extends StatelessWidget {
 }
 
 /// A line of small muted text. Used for the loading line, an error the list
-/// survived, and the save-it-now warning.
+/// survived, the last-token note, and the save-it-now warning.
 class _Note extends StatelessWidget {
   const _Note(this.text);
 
