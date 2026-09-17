@@ -31,7 +31,9 @@ class PaywallCubit extends Cubit<PaywallState> {
     this.getCustomerInfoUsecase,
     SubscriptionRepository? subscriptionRepository,
     ProOverride? proOverride,
+    List<Duration>? tierRefreshWaits,
   }) : _proOverride = proOverride ?? appProOverride,
+       _tierRefreshWaits = tierRefreshWaits ?? _defaultTierRefreshWaits,
        super(
          PaywallState(
            paywallEnabled: telemetryGate?.paywallEnabled ?? false,
@@ -44,6 +46,17 @@ class PaywallCubit extends Cubit<PaywallState> {
     _proOverride.listenable?.addListener(_onForceProChanged);
   }
 
+  /// How long to wait between the tries at re-reading the tier. Four waits
+  /// after the first read, so five reads over about 30 seconds. Tests pass
+  /// zeroes so they do not sit through it.
+  static const _defaultTierRefreshWaits = [
+    Duration(seconds: 2),
+    Duration(seconds: 4),
+    Duration(seconds: 8),
+    Duration(seconds: 16),
+  ];
+
+  final List<Duration> _tierRefreshWaits;
   final Future<void> Function()? refreshRegistration;
   final TelemetryGate? telemetryGate;
   final DeviceIdentityStore? identityStore;
@@ -156,8 +169,8 @@ class PaywallCubit extends Cubit<PaywallState> {
 
       await result.fold(
         (customerInfo) async {
-          await _refreshRegistration();
-          final isPro = await _isPaid();
+          final isPro = await _refreshTierUntilPaid();
+          if (isClosed) return;
           emit(
             state.copyWith(
               status: PaywallStatus.success,
@@ -210,8 +223,8 @@ class PaywallCubit extends Cubit<PaywallState> {
 
       await result.fold(
         (customerInfo) async {
-          await _refreshRegistration();
-          final isPro = await _isPaid();
+          final isPro = await _refreshTierUntilPaid();
+          if (isClosed) return;
           emit(
             state.copyWith(
               status: PaywallStatus.success,
@@ -248,8 +261,28 @@ class PaywallCubit extends Cubit<PaywallState> {
     try {
       await refreshRegistration?.call();
     } on Object catch (error) {
-      emit(state.copyWith(errorMessage: error.toString()));
+      if (!isClosed) emit(state.copyWith(errorMessage: error.toString()));
     }
+  }
+
+  /// Re-reads the tier from the server until it says this account is paid.
+  ///
+  /// The store tells the app a purchase went through before RevenueCat's
+  /// webhook reaches our relay, and the tier only changes when that webhook
+  /// lands (api.md §4.3). One read right after the purchase almost always
+  /// still says `free`, so read again a few times. Gives up after the last
+  /// wait and answers false, and the caller says so instead of claiming the
+  /// upgrade happened.
+  Future<bool> _refreshTierUntilPaid() async {
+    await _refreshRegistration();
+    if (await _isPaid()) return true;
+    for (final wait in _tierRefreshWaits) {
+      await Future<void>.delayed(wait);
+      if (isClosed) return false;
+      await _refreshRegistration();
+      if (await _isPaid()) return true;
+    }
+    return false;
   }
 
   /// Presents the native RevenueCat Paywall UI.
@@ -260,7 +293,7 @@ class PaywallCubit extends Cubit<PaywallState> {
     );
 
     if (result == PaywallResult.purchased || result == PaywallResult.restored) {
-      await _refreshRegistration();
+      await _refreshTierUntilPaid();
       await loadSubscriptionData();
     }
     return result;
@@ -270,7 +303,7 @@ class PaywallCubit extends Cubit<PaywallState> {
   Future<void> presentCustomerCenter() async {
     await RevenueCatUI.presentCustomerCenter(
       onRestoreCompleted: (info) async {
-        await _refreshRegistration();
+        await _refreshTierUntilPaid();
         _onCustomerInfoUpdated(info);
       },
     );

@@ -285,6 +285,21 @@ void main() {
         harness.deviceToken,
       );
     });
+
+    // Signing out registers a new anonymous account and logs the store in to
+    // it. Without the store log-out first, a paid handset hands its
+    // subscription to whoever picks the phone up next.
+    test('signing out logs the store out before the new account', () async {
+      final harness = _Harness(failDelete: false);
+      await harness.start();
+      final oldId = harness.deviceId;
+
+      await harness.account.signOutDevice();
+
+      expect(harness.billingLogOuts, 1);
+      expect(harness.deviceId, isNot(oldId));
+      expect(harness.deviceToken, isNotNull);
+    });
   });
 
   group('against a fake repository', () {

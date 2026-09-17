@@ -64,8 +64,8 @@ class InMemorySubscriptionRepository implements SubscriptionRepository {
     final info = CustomerInfo.fromJson(const <String, dynamic>{
       'entitlements': <String, dynamic>{
         'all': <String, dynamic>{
-          'crit_alarm_pro': <String, dynamic>{
-            'identifier': 'crit_alarm_pro',
+          'hosted': <String, dynamic>{
+            'identifier': 'hosted',
             'isActive': true,
             'willRenew': true,
             'periodType': 'NORMAL',
@@ -79,8 +79,8 @@ class InMemorySubscriptionRepository implements SubscriptionRepository {
           },
         },
         'active': <String, dynamic>{
-          'crit_alarm_pro': <String, dynamic>{
-            'identifier': 'crit_alarm_pro',
+          'hosted': <String, dynamic>{
+            'identifier': 'hosted',
             'isActive': true,
             'willRenew': true,
             'periodType': 'NORMAL',

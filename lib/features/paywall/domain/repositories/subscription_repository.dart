@@ -3,7 +3,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// Contract for subscription, paywall, and customer entitlement operations.
 abstract interface class SubscriptionRepository {
-  /// Returns whether the user currently has the `crit_alarm_pro` entitlement.
+  /// Returns whether the user currently has the `hosted` entitlement.
   Future<AppResult<bool>> isProActive();
 
   /// Retrieves the latest customer info from RevenueCat or cache.
