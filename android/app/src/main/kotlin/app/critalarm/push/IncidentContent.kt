@@ -8,7 +8,6 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import java.time.Instant
 
 /** What the app shows for one incident, after the content has been resolved. */
@@ -76,7 +75,8 @@ object IncidentContentFetcher {
             Log.w(TAG, "incident_fetch_missing_session incident_id=$incidentId")
             return null
         }
-        val encoded = URLEncoder.encode(incidentId, StandardCharsets.UTF_8).replace("+", "%20")
+        // API 1 overload. See IncidentActionRouter: the Charset one is API 33.
+        val encoded = URLEncoder.encode(incidentId, "UTF-8").replace("+", "%20")
         val url = credentials.first.toString().trimEnd('/') + "/v1/incidents/" + encoded
         return try {
             val connection = URL(url).openConnection() as HttpURLConnection
