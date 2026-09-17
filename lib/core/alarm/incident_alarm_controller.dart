@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/alarm_trigger_path.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
+import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/models/incident.dart';
@@ -21,12 +22,21 @@ final class IncidentAlarmController {
     required this.host,
     required this.api,
     this.tokens,
+    this.quietHours,
     AlarmTriggerPath? path,
-  }) : path = path ?? AlarmTriggerPath.chosen;
+    DateTime Function()? now,
+  }) : path = path ?? AlarmTriggerPath.chosen,
+       _now = now ?? DateTime.now;
 
   final AlarmHost host;
   final ApiClient api;
   final LiveActivityTokenRegistry? tokens;
+
+  /// The quiet hours window, or null where nothing has one to offer, which is
+  /// every test that does not care about it.
+  final QuietHoursStore? quietHours;
+
+  final DateTime Function() _now;
 
   /// Which side schedules the alarm. Read from the spike; see
   /// `docs/specs/remote-alarm-ios-spike.md`.
@@ -72,6 +82,18 @@ final class IncidentAlarmController {
     final incidentId = push.incidentId;
     if (incidentId == null) return false;
     if (!_ringingKinds.contains(push.kind)) return false;
+
+    // Quiet hours holds the ring and nothing else: the incident still opens,
+    // the card still shows and the list still updates, because the only thing
+    // this stands in front of is the schedule call. The incident is not put on
+    // the ringing list either, since nothing is ringing and our card is then
+    // the acknowledge surface.
+    final window = quietHours?.read();
+    if (window != null &&
+        window.holdsRing(now: _now(), priority: push.priority)) {
+      _log('alarm_skipped reason=quiet_hours id=$incidentId');
+      return false;
+    }
 
     if (path == AlarmTriggerPath.notificationServiceExtension) {
       _log('alarm_skipped reason=extension_owns_scheduling id=$incidentId');

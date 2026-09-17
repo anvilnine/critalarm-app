@@ -1,3 +1,4 @@
+import 'package:critalarm/core/alarm/quiet_hours.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/topic.dart';
@@ -13,6 +14,8 @@ class SettingsState {
     this.topics = const [],
     this.status = SettingsStatus.initial,
     this.quietHoursEnabled = true,
+    this.quietHoursStartMinutes = QuietHours.defaultStartMinutes,
+    this.quietHoursEndMinutes = QuietHours.defaultEndMinutes,
     this.criticalRingsQuietHours = true,
     this.escalationCallEnabled = false,
     this.serverUrl = '',
@@ -31,6 +34,12 @@ class SettingsState {
   String get criticalUsage => access.criticalUsage(topics);
   final SettingsStatus status;
   final bool quietHoursEnabled;
+
+  /// Minutes from local midnight. 22:00 is 1320.
+  final int quietHoursStartMinutes;
+
+  /// Minutes from local midnight. 07:00 is 420.
+  final int quietHoursEndMinutes;
   final bool criticalRingsQuietHours;
   final bool escalationCallEnabled;
   final String serverUrl;
@@ -54,6 +63,8 @@ class SettingsState {
     AccountAccess? access,
     SettingsStatus? status,
     bool? quietHoursEnabled,
+    int? quietHoursStartMinutes,
+    int? quietHoursEndMinutes,
     bool? criticalRingsQuietHours,
     bool? escalationCallEnabled,
     String? serverUrl,
@@ -72,6 +83,9 @@ class SettingsState {
       topics: topics ?? this.topics,
       status: status ?? this.status,
       quietHoursEnabled: quietHoursEnabled ?? this.quietHoursEnabled,
+      quietHoursStartMinutes:
+          quietHoursStartMinutes ?? this.quietHoursStartMinutes,
+      quietHoursEndMinutes: quietHoursEndMinutes ?? this.quietHoursEndMinutes,
       criticalRingsQuietHours:
           criticalRingsQuietHours ?? this.criticalRingsQuietHours,
       escalationCallEnabled:
@@ -98,6 +112,8 @@ class SettingsState {
           topics == other.topics &&
           status == other.status &&
           quietHoursEnabled == other.quietHoursEnabled &&
+          quietHoursStartMinutes == other.quietHoursStartMinutes &&
+          quietHoursEndMinutes == other.quietHoursEndMinutes &&
           criticalRingsQuietHours == other.criticalRingsQuietHours &&
           escalationCallEnabled == other.escalationCallEnabled &&
           serverUrl == other.serverUrl &&
@@ -116,6 +132,8 @@ class SettingsState {
     topics,
     status,
     quietHoursEnabled,
+    quietHoursStartMinutes,
+    quietHoursEndMinutes,
     criticalRingsQuietHours,
     escalationCallEnabled,
     serverUrl,
