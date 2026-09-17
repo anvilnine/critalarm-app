@@ -51,6 +51,8 @@ String apiErrorMessage(String? wireCode, {String? cap}) {
     'rate limited' => LocaleKeys.api_errors_rate_limited.tr(),
     'invalid request' => LocaleKeys.api_errors_invalid_request.tr(),
     'not found' => LocaleKeys.api_errors_not_found.tr(),
+    'topic must retain a token' =>
+      LocaleKeys.api_errors_topic_must_retain_a_token.tr(),
     _ => LocaleKeys.api_errors_unknown.tr(),
   };
 }
