@@ -171,4 +171,121 @@ void main() {
     expect(find.text('Sign in with Apple'), findsNothing);
     expect(find.text('Continue with Google'), findsOneWidget);
   });
+
+  testWidgets('signed out shows the Terms and the Privacy Policy as taps', (
+    tester,
+  ) async {
+    final account = FakeAccountRepository(linkAnswers: const []);
+    final cubit = AccountCubit(
+      identities: FakeIdentityRepository(),
+      account: account,
+    );
+    addTearDown(cubit.close);
+    await cubit.load();
+
+    await tester.pumpWidget(wrap(cubit));
+    await tester.pumpAndSettle();
+
+    final terms = find.text('Terms');
+    final privacy = find.text('Privacy Policy');
+    expect(terms, findsOneWidget);
+    expect(privacy, findsOneWidget);
+    expect(
+      find.ancestor(of: terms, matching: find.byType(GestureDetector)),
+      findsOneWidget,
+    );
+    expect(
+      find.ancestor(of: privacy, matching: find.byType(GestureDetector)),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'a sentence with Privacy Policy before Terms still taps both, in order',
+    (tester) async {
+      final spans = buildLegalFooterSpans(
+        'Read the Privacy Policy and the Terms before you sign in.',
+        termsLabel: 'Terms',
+        privacyLabel: 'Privacy Policy',
+        termsUrl: 'https://example.test/terms',
+        privacyUrl: 'https://example.test/privacy',
+        textStyle: const TextStyle(),
+        linkStyle: const TextStyle(decoration: TextDecoration.underline),
+        onTapTerms: () {},
+        onTapPrivacy: () {},
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: Wrap(children: spans)),
+        ),
+      );
+
+      final terms = find.text('Terms');
+      final privacy = find.text('Privacy Policy');
+      expect(terms, findsOneWidget);
+      expect(privacy, findsOneWidget);
+      expect(
+        find.ancestor(of: terms, matching: find.byType(GestureDetector)),
+        findsOneWidget,
+      );
+      expect(
+        find.ancestor(of: privacy, matching: find.byType(GestureDetector)),
+        findsOneWidget,
+      );
+
+      // The sentence put Privacy Policy first, so the rendered order
+      // follows it. Nothing here assumes Terms always comes first.
+      final order = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((widget) => widget.data)
+          .toList();
+      expect(
+        order.indexOf('Privacy Policy'),
+        lessThan(order.indexOf('Terms')),
+      );
+    },
+  );
+
+  testWidgets('signed in hides the legal footer, it already agreed', (
+    tester,
+  ) async {
+    final account = FakeAccountRepository(
+      linkAnswers: const [AccountLinkResult.claimed(accountId: 'acc_1234')],
+    );
+    final cubit = AccountCubit(
+      identities: FakeIdentityRepository(),
+      account: account,
+    );
+    addTearDown(cubit.close);
+    await cubit.load();
+    await cubit.signIn(IdentityProvider.google);
+
+    await tester.pumpWidget(wrap(cubit));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Terms'), findsNothing);
+    expect(find.text('Privacy Policy'), findsNothing);
+  });
+
+  testWidgets('self-hosted has no sign-in buttons and no legal footer', (
+    tester,
+  ) async {
+    final account = FakeAccountRepository(linkAnswers: const [])
+      ..mode = ServerMode.selfhosted;
+    final cubit = AccountCubit(
+      identities: FakeIdentityRepository(),
+      account: account,
+    );
+    addTearDown(cubit.close);
+    await cubit.load();
+
+    await tester.pumpWidget(wrap(cubit));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in with Apple'), findsNothing);
+    expect(find.text('Continue with Google'), findsNothing);
+    expect(find.text('Terms'), findsNothing);
+    expect(find.text('Privacy Policy'), findsNothing);
+  });
 }

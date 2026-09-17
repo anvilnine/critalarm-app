@@ -598,6 +598,9 @@
     "start_fresh_button": "Start fresh",
     "live_incident_title": "An alarm is still ringing",
     "live_incident_body": "Acknowledge it, then try again.",
-    "live_incident_button": "Open the alarm"
+    "live_incident_button": "Open the alarm",
+    "legal_footer": "By signing in you agree to the {terms} and the {privacy}.",
+    "legal_footer_terms": "Terms",
+    "legal_footer_privacy": "Privacy Policy"
   }
 }
