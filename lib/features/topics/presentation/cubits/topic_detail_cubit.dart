@@ -389,12 +389,15 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
 
   /// Stop the local alarm for each incident. Never throws: a platform channel
   /// that is missing or unhappy must not stop the acknowledge from going out.
+  ///
+  /// Every caller here is acknowledging, so each incident stays open and its
+  /// ringing card hands over to the acked one.
   Future<void> _silence(Iterable<String> incidentIds) async {
     final host = alarm;
     if (host == null) return;
     for (final id in incidentIds) {
       try {
-        await host.cancelAlarm(id);
+        await host.cancelAlarm(id, handOverToStatusCard: true);
       } on Object catch (_) {
         // Nothing to do. The ack below is what the server cares about.
       }

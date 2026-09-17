@@ -6,11 +6,14 @@ import java.net.URI
 class NativeConnectionStore(context: Context) {
     private val preferences = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
 
+    /** The one server this app is connected to, or null when it is not. */
+    fun canonicalServer(): URI? {
+        val raw = preferences.getString("flutter.api_session", null) ?: return null
+        return runCatching { URI(raw.substringBefore('|')) }.getOrNull()
+    }
+
     fun matchesCanonicalServer(server: URI): Boolean {
-        val raw = preferences.getString("flutter.api_session", null)
-            ?: preferences.getString("flutter.api_session", null)
-            ?: return false
-        val canonical = runCatching { URI(raw.substringBefore('|')) }.getOrNull() ?: return false
+        val canonical = canonicalServer() ?: return false
         return canonical.normalize() == server.normalize()
     }
 

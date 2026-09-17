@@ -111,6 +111,12 @@ final class AlarmHost {
   ///
   /// The delay crosses the channel because the UI counts it down. When the two
   /// disagreed, the phone rang 27 seconds before the screen said it would.
+  ///
+  /// [handOverToStatusCard] false means this alarm has no incident behind it,
+  /// which is the onboarding test alarm. It rides the alarm all the way to the
+  /// Stop button the notification shows, so that button leaves no card: an
+  /// acked card is ongoing, so it cannot be swiped away, and its Done button
+  /// would close an incident that does not exist.
   Future<bool> scheduleAlarm({
     required String incidentId,
     required String topic,
@@ -119,6 +125,7 @@ final class AlarmHost {
     String? sound,
     String? body,
     int delaySeconds = 3,
+    bool handOverToStatusCard = true,
   }) async =>
       await _invoke<bool>('scheduleAlarm', {
         'incident_id': incidentId,
@@ -128,12 +135,35 @@ final class AlarmHost {
         'sound': ?sound,
         'body': ?body,
         'delay_seconds': delaySeconds,
+        'hand_over_to_status_card': handOverToStatusCard,
       }) ??
       false;
 
-  /// The incident closed or expired. Stops the alarm and ends the card.
-  Future<bool> cancelAlarm(String incidentId) async =>
-      await _invoke<bool>('cancelAlarm', {'incident_id': incidentId}) ?? false;
+  /// Stops the alarm for [incidentId] and says what should be left behind.
+  ///
+  /// [handOverToStatusCard] true means the user acknowledged: the incident is
+  /// still open, so Android replaces the ringing card with the acked one that
+  /// carries the Done button. False means the incident is over, or was never
+  /// real, so both cards come down and nothing replaces them. Only the caller
+  /// knows which of the two it is, and getting it wrong leaves an ongoing card
+  /// on an incident nobody can close.
+  ///
+  /// [title] and [body] are what the screen was showing. The acked card is
+  /// built natively, with no engine and no network, so without them it reads
+  /// "Critical incident" while the page behind it says what happened.
+  Future<bool> cancelAlarm(
+    String incidentId, {
+    required bool handOverToStatusCard,
+    String? title,
+    String? body,
+  }) async =>
+      await _invoke<bool>('cancelAlarm', {
+        'incident_id': incidentId,
+        'hand_over_to_status_card': handOverToStatusCard,
+        'title': ?title,
+        'body': ?body,
+      }) ??
+      false;
 
   /// Stop whatever is ringing on this device, whichever incident it belongs to.
   ///

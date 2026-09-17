@@ -31,6 +31,12 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
             putExtra("priority", "5")
             intent.getStringExtra(EXTRA_TITLE)?.let { putExtra("title", it) }
             intent.getStringExtra(EXTRA_BODY)?.let { putExtra("body", it) }
+            // Passed on so the Stop button this alarm posts knows whether a
+            // card may take the alarm card's place.
+            putExtra(
+                AlarmForegroundService.EXTRA_HAND_OVER,
+                intent.getStringExtra(AlarmForegroundService.EXTRA_HAND_OVER) ?: "true",
+            )
         }
         context.startForegroundService(service)
     }
@@ -54,6 +60,7 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
             title: String,
             body: String?,
             delaySeconds: Int,
+            handOverToStatusCard: Boolean = true,
         ): Boolean {
             val manager = context.getSystemService(AlarmManager::class.java) ?: return false
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !manager.canScheduleExactAlarms()) {
@@ -65,7 +72,7 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
                 manager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     at,
-                    pendingIntent(context, incidentId, server, title, body),
+                    pendingIntent(context, incidentId, server, title, body, handOverToStatusCard),
                 )
                 Log.i(
                     TAG,
@@ -90,12 +97,17 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
             server: String,
             title: String,
             body: String?,
+            handOverToStatusCard: Boolean = true,
         ): PendingIntent {
             val intent = Intent(context, ScheduledAlarmReceiver::class.java).apply {
                 putExtra(EXTRA_INCIDENT_ID, incidentId)
                 putExtra(EXTRA_SERVER, server)
                 putExtra(EXTRA_TITLE, title)
                 body?.let { putExtra(EXTRA_BODY, it) }
+                putExtra(
+                    AlarmForegroundService.EXTRA_HAND_OVER,
+                    handOverToStatusCard.toString(),
+                )
             }
             return PendingIntent.getBroadcast(
                 context,
