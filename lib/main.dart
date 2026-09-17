@@ -74,6 +74,10 @@ Future<void> main() async {
   final privacy = await getIt<GetPrivacySettingsUsecase>()(const NoParams());
   final analyticsOn = privacy.getOrNull()?.analyticsEnabled ?? false;
   await getIt<TelemetryGate>().setAnalyticsEnabled(analyticsOn);
+  // Crash reporting is put back here as well, so a crash on a launch where
+  // Settings is never opened still gets reported.
+  final crashReportingOn = privacy.getOrNull()?.crashReportingEnabled ?? false;
+  await getIt<TelemetryGate>().setCrashlyticsEnabled(crashReportingOn);
 
   // Anything the native push handler recorded while Dart was asleep. Reported
   // only if the user turned analytics on.
