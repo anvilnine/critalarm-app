@@ -81,15 +81,41 @@ void main() {
     for (final kind in IncidentPushKind.values) {
       test('kind ${kind.name} parses', () {
         final push = IncidentPush.fromFcmData({
-          if (kind != IncidentPushKind.p4) 'incident_id': 'inc_1',
+          if (!kind.isForward) 'incident_id': 'inc_1',
           'server': 'https://alerts.example.com',
           'kind': kind.name,
           'priority': '${kind.impliedPriority}',
         })!;
         expect(push.kind, kind);
-        expect(push.isIncident, kind != IncidentPushKind.p4);
+        expect(push.isIncident, !kind.isForward);
       });
     }
+
+    test('a p5 forward parses and never rings', () {
+      // Priority 5 on a topic whose critical switch is off, api.md §4.1. The
+      // switch defaults to off, so this is the default path for a priority-5
+      // alert, and the enum missing it dropped every one of them.
+      final push = IncidentPush.fromFcmData({
+        'server': 'https://alerts.example.com',
+        'kind': 'p5',
+        'priority': '5',
+      })!;
+      expect(push.kind, IncidentPushKind.p5);
+      expect(push.priority, 5);
+      expect(push.incidentId, isNull);
+      expect(push.isIncident, isFalse);
+    });
+
+    test('a p5 on a live incident keeps the id and still never rings', () {
+      final push = IncidentPush.fromFcmData({
+        'incident_id': 'inc_1',
+        'server': 'https://alerts.example.com',
+        'kind': 'p5',
+        'priority': '5',
+      })!;
+      expect(push.incidentId, 'inc_1');
+      expect(push.isIncident, isFalse);
+    });
 
     test('a p4 forward carries no incident id', () {
       final push = IncidentPush.fromFcmData({
@@ -188,7 +214,7 @@ void main() {
         final push = IncidentPush.fromApnsPayload(
           payload(
             kind: kind.name,
-            incidentId: kind == IncidentPushKind.p4 ? null : 'inc_1',
+            incidentId: kind.isForward ? null : 'inc_1',
           ),
         )!;
         expect(push.kind, kind);

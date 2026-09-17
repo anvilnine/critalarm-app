@@ -1,11 +1,14 @@
 package app.critalarm.notifications
 
 import app.critalarm.storage.TopicTimers
+import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Which cards get the bar, how long it is, and where it counts to. */
+/** Which cards get a countdown, how long it is, and where it counts to. */
 class StatusCountdownTest {
     private val start = 1_757_740_800_000L
     private val timers = TopicTimers(repeatIntervalS = 30, maxRingS = 1800, deskTimerS = 600)
@@ -119,5 +122,27 @@ class StatusCountdownTest {
                 deskTimerEndMillis = start + 600_000L,
             ),
         )
+    }
+
+    /**
+     * The card counts down with a chronometer, never with a bar.
+     *
+     * Android advances a chronometer itself, once a second, from the instant in
+     * setWhen. ProgressStyle is painted once when the notification is built, so
+     * a bar sat frozen at whatever it was worth when the card went up and only
+     * moved when something re-posted the card. Ten to twenty re-posts per
+     * incident buys a bar that a free-running timer already gives.
+     */
+    @Test
+    fun `the card counts down with a chronometer and not with a bar`() {
+        val text = File(
+            "src/main/kotlin/app/critalarm/notifications/StatusNotificationFactory.kt",
+        ).readText()
+        assertTrue("the card must set a chronometer", text.contains("setUsesChronometer(true)"))
+        assertTrue(
+            "the card must be able to count down",
+            text.contains("setChronometerCountDown(true)"),
+        )
+        assertFalse("ProgressStyle does not advance on its own", text.contains("ProgressStyle()"))
     }
 }

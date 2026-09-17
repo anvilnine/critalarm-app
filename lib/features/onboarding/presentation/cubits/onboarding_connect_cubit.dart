@@ -360,13 +360,19 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     _countdownTimer?.cancel();
 
     final host = alarmHost;
+    // Android parses this back out of the alarm intent and drops the whole
+    // start when it is not an http or https URL, so an empty string meant the
+    // service stopped itself and the countdown below congratulated the user
+    // for a ring that never happened.
+    final server = state.serverUrl.trim();
     final scheduled =
         host != null &&
+        server.isNotEmpty &&
         await host
               .scheduleAlarm(
                 incidentId: 'inc_demo',
                 topic: 'demo-topic',
-                server: '',
+                server: server,
                 title: LocaleKeys.onboarding_connect_demo_alarm_title.tr(),
                 body: LocaleKeys.onboarding_connect_demo_alarm_body.tr(),
                 delaySeconds: testAlarmDelaySeconds,

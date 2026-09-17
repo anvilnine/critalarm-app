@@ -22,8 +22,8 @@ object StatusNotificationFactory {
     fun notificationId(incidentId: String) = incidentId.hashCode() xor 0x5f3759df
 
     /**
-     * What the bar counts: from [startMillis] to [endMillis]. Null means no
-     * bar at all.
+     * What the timer counts: from [startMillis] to [endMillis]. Null means
+     * nothing to count down to.
      */
     data class Countdown(val startMillis: Long, val endMillis: Long)
 
@@ -61,9 +61,6 @@ object StatusNotificationFactory {
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setWhen(ackedAtMillis)
-            .setShowWhen(true)
-            .setUsesChronometer(true)
             .shortCriticalText(state.chipText)
             .requestPromotion()
 
@@ -75,35 +72,46 @@ object StatusNotificationFactory {
             builder.addAction(0, "Done", pending)
         }
 
-        applyCountdown(context, builder, content, state, ackedAtMillis, deskTimerEndMillis)
+        applyChronometer(context, builder, content, state, ackedAtMillis, deskTimerEndMillis)
         return builder.build()
     }
 
     /**
-     * Puts the bar on the card, or leaves the big text there when there is
-     * nothing to count. Both readings hold at once: the chronometer set above
-     * counts up from when the incident opened, and this counts the wait down.
+     * Sets the timer in the card's corner.
+     *
+     * When there is a wait to count, it counts down to the end of it, so the
+     * card reads "9:32" and means it. Android advances a chronometer itself,
+     * once a second, from the instant in setWhen. ProgressStyle does not: it is
+     * painted once when the notification is built, so a bar would sit frozen at
+     * whatever it was worth the moment the card went up and only move when
+     * something re-posted the card. That is why the bar is gone and this is
+     * here.
+     *
+     * With nothing to count, the timer counts up from [ackedAtMillis] instead,
+     * which is what the card did before it had a countdown.
      */
-    private fun applyCountdown(
+    private fun applyChronometer(
         context: Context,
         builder: NotificationCompat.Builder,
         content: IncidentContent,
         state: IncidentCardState,
-        openedAtMillis: Long,
+        ackedAtMillis: Long,
         deskTimerEndMillis: Long?,
     ) {
         val timers = content.topic?.let { TopicTimerStore(context).timersFor(it) }
-        val countdown = countdownFor(state, timers, openedAtMillis, deskTimerEndMillis) ?: return
-        val total = (countdown.endMillis - countdown.startMillis) / 1000L
-        val elapsed = (System.currentTimeMillis() - countdown.startMillis) / 1000L
-        val bar = LiveUpdate.countdownBar(elapsed, total, state.accentColor) ?: return
-        builder.setStyle(bar)
+        val countdown = countdownFor(state, timers, ackedAtMillis, deskTimerEndMillis)
+        builder.setShowWhen(true).setUsesChronometer(true)
+        if (countdown == null) {
+            builder.setWhen(ackedAtMillis).setChronometerCountDown(false)
+        } else {
+            builder.setWhen(countdown.endMillis).setChronometerCountDown(true)
+        }
     }
 
     /**
-     * The bar. Unacked it counts down to the next ring, acked it counts down
-     * the desk timer. Closed and expired have nothing left to wait for, so
-     * they get no bar. No cached timers also means no bar.
+     * What the timer counts down to. Unacked that is the next ring, acked it is
+     * the desk timer. Closed and expired have nothing left to wait for, so they
+     * get no countdown. No cached timers also means no countdown.
      *
      * An acked card prefers [deskTimerEndMillis], the absolute instant the ack
      * response carried (api.md §3.2). The cached duration is the fallback,
@@ -113,7 +121,7 @@ object StatusNotificationFactory {
      * The topic comes off [IncidentContent], which is the only thing here that
      * carries one. A push does not: api.md §5.2 has no topic field and adding
      * one is a contract change. So a card built from the fallback content,
-     * before GET /v1/incidents/{id} answers, gets no bar unless the ack
+     * before GET /v1/incidents/{id} answers, gets no countdown unless the ack
      * response gave one, and the refresh that follows the fetch is what puts
      * it there.
      */
