@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/constants/legal_links.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -64,6 +65,16 @@ class AboutScreen extends StatelessWidget {
                   _AboutLinkRow(
                     label: LocaleKeys.settings_about_issues_label.tr(),
                     url: 'https://github.com/critalarm/critalarm/issues',
+                  ),
+                  const SizedBox(height: 8),
+                  _AboutLinkRow(
+                    label: LocaleKeys.settings_about_privacy_label.tr(),
+                    url: privacyUrl,
+                  ),
+                  const SizedBox(height: 8),
+                  _AboutLinkRow(
+                    label: LocaleKeys.settings_about_terms_label.tr(),
+                    url: termsUrl,
                   ),
                 ],
               ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/constants/legal_links.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
@@ -9,6 +10,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// PaywallScreen matching Crit Alarm design system with RevenueCat.
 class PaywallScreen extends StatelessWidget {
@@ -320,6 +322,8 @@ class _PaywallScreenContent extends StatelessWidget {
                         state.feedbackMessage == null,
                     onPressed: cubit.restorePurchases,
                   ),
+                  const SizedBox(height: 8),
+                  const _LegalLinksRow(),
                 ],
               ),
             ),
@@ -361,6 +365,67 @@ class _PaywallScreenContent extends StatelessWidget {
       }
     }
     return fallback;
+  }
+}
+
+/// Terms and Privacy, small and muted under the purchase buttons. App Store
+/// review guideline 3.1.2 wants both reachable from the screen that sells the
+/// subscription.
+class _LegalLinksRow extends StatelessWidget {
+  const _LegalLinksRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _LegalLink(
+          label: LocaleKeys.paywall_terms_link.tr(),
+          url: termsUrl,
+        ),
+        const SizedBox(width: 16),
+        _LegalLink(
+          label: LocaleKeys.paywall_privacy_link.tr(),
+          url: privacyUrl,
+        ),
+      ],
+    );
+  }
+}
+
+class _LegalLink extends StatelessWidget {
+  const _LegalLink({
+    required this.label,
+    required this.url,
+  });
+
+  final String label;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Semantics(
+      label: '$label: $url',
+      button: true,
+      child: GestureDetector(
+        onTap: () => unawaited(
+          launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 12,
+            color: colors.ink3,
+            decoration: TextDecoration.underline,
+            decorationColor: colors.ink3,
+          ),
+        ),
+      ),
+    );
   }
 }
 
