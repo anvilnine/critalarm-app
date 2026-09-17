@@ -181,8 +181,12 @@ class MockApiClient implements ApiClient {
   Future<DeviceRegistrationResponse> registerDevice(
     DeviceRegistration registration, {
     Uri? relayUri,
+    String? accountJoinToken,
   }) async {
-    final response = server.registerDevice(registration);
+    final response = server.registerDevice(
+      registration,
+      accountJoinToken: accountJoinToken,
+    );
     deviceToken = response.deviceToken;
     return response;
   }

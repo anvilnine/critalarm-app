@@ -418,11 +418,17 @@ final class HttpApiClient implements ApiClient {
   Future<DeviceRegistrationResponse> registerDevice(
     DeviceRegistration registration, {
     Uri? relayUri,
+    String? accountJoinToken,
   }) async {
     final base = relayUri ?? (await _sessions.read())?.relayUri;
     if (base == null) throw StateError('No API session configured');
     final uri = _rawPath(base, 'relay/v1/devices');
-    final response = await _send('POST', uri, body: registration.toJson());
+    final response = await _send(
+      'POST',
+      uri,
+      auth: accountJoinToken,
+      body: registration.toJson(),
+    );
     return DeviceRegistrationResponse.fromJson(
       _json(response) as Map<String, dynamic>,
     );

@@ -732,17 +732,46 @@ enum AlarmSoundPolicy {
   static let librarySoundsRingAlarm = false
 }
 
-/// Identity is synchronized as one item; updates never delete the old secret.
+/// Two items, not one (api.md §4.2). Dart names the item it wants on every
+/// call: the service, and whether that item syncs through iCloud. The account
+/// item syncs so every handset on one Apple ID lands on the same account; the
+/// device item does not, so each handset keeps its own device id.
+///
+/// `kSecAttrSynchronizable` is part of the lookup, so an item written when the
+/// flag was true is invisible to a read asking for false. Dart passes "any" to
+/// find both, which is how the old single item is still reachable after the
+/// split. Updates never delete the old secret.
 enum DeviceIdentityKeychain {
-  static func handle(_ call: FlutterMethodCall, result: FlutterResult) {
+  /// What `synchronizable` may be on a call from Dart: true, false, or the
+  /// string "any", which reads a synced and an unsynced copy at once.
+  static func syncAttribute(_ value: Any?) -> Any? {
+    if let flag = value as? Bool { return flag as NSNumber }
+    if let name = value as? String, name == "any" { return kSecAttrSynchronizableAny }
+    return nil
+  }
+
+  /// The query that names one Keychain item. Nil when Dart asked for an item
+  /// this build does not know how to address.
+  static func itemQuery(_ arguments: Any?) -> [String: Any]? {
+    guard let args = arguments as? [String: Any],
+          let service = args["service"] as? String,
+          let sync = syncAttribute(args["synchronizable"]) else { return nil }
     var query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: "app.critalarm.device_identity",
+      kSecAttrService as String: service,
       kSecAttrAccount as String: "identity",
-      kSecAttrSynchronizable as String: true,
+      kSecAttrSynchronizable as String: sync,
     ]
     if let group = NseCredentials.accessGroup {
       query[kSecAttrAccessGroup as String] = group
+    }
+    return query
+  }
+
+  static func handle(_ call: FlutterMethodCall, result: FlutterResult) {
+    guard var query = itemQuery(call.arguments) else {
+      result(FlutterError(code: "bad_args", message: "Keychain item required", details: nil))
+      return
     }
     switch call.method {
     case "read":
@@ -758,7 +787,8 @@ enum DeviceIdentityKeychain {
       }
       result(value)
     case "write":
-      guard let value = call.arguments as? String,
+      guard let args = call.arguments as? [String: Any],
+            let value = args["value"] as? String,
             let data = value.data(using: .utf8) else {
         result(FlutterError(code: "bad_args", message: "Identity required", details: nil))
         return
@@ -774,6 +804,14 @@ enum DeviceIdentityKeychain {
       }
       guard status == errSecSuccess else {
         result(FlutterError(code: "keychain_write", message: "Identity write failed", details: status))
+        return
+      }
+      result(nil)
+    case "delete":
+      let status = SecItemDelete(query as CFDictionary)
+      // Nothing there is the outcome the caller wanted anyway.
+      guard status == errSecSuccess || status == errSecItemNotFound else {
+        result(FlutterError(code: "keychain_delete", message: "Identity delete failed", details: status))
         return
       }
       result(nil)

@@ -23,6 +23,7 @@ class _Api extends MockApiClient {
   Future<DeviceRegistrationResponse> registerDevice(
     DeviceRegistration registration, {
     Uri? relayUri,
+    String? accountJoinToken,
   }) async => DeviceRegistrationResponse(
     accountId: 'acc',
     deviceToken: 'dv_token',
@@ -74,11 +75,18 @@ void main() {
         SharedPreferences.setMockInitialValues({});
         final prefs = await SharedPreferences.getInstance();
         const channel = MethodChannel('a7/identity');
-        String? stored;
+        // One slot per Keychain service, because the identity lives in two
+        // items now.
+        final stored = <String, String>{};
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(channel, (call) async {
-              if (call.method == 'write') stored = call.arguments as String;
-              return call.method == 'read' ? stored : null;
+              final args = (call.arguments as Map).cast<String, Object?>();
+              final service = args['service']! as String;
+              if (call.method == 'write') {
+                stored[service] = args['value']! as String;
+              }
+              if (call.method == 'delete') stored.remove(service);
+              return call.method == 'read' ? stored[service] : null;
             });
         addTearDown(
           () => TestDefaultBinaryMessengerBinding
@@ -110,7 +118,8 @@ void main() {
         expect((await store().readOrCreate()).caps, AccountCaps.free);
         if (keychain) {
           expect(
-            (jsonDecode(stored!) as Map<String, dynamic>)['caps'],
+            (jsonDecode(stored[KeychainDeviceIdentityStore.deviceService]!)
+                as Map<String, dynamic>)['caps'],
             AccountCaps.free.toJson(),
           );
         }

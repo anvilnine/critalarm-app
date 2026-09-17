@@ -140,9 +140,14 @@ abstract interface class ApiClient {
   Future<AccountDeleteResult> deleteAccount({String? identityToken});
 
   /// POST /relay/v1/devices
+  ///
+  /// [accountJoinToken] is the `aj_` from api.md §4.2. With it, a device id
+  /// the server has never seen joins that account instead of creating a new
+  /// one. Without it the call creates a fresh anonymous account.
   Future<DeviceRegistrationResponse> registerDevice(
     DeviceRegistration registration, {
     Uri? relayUri,
+    String? accountJoinToken,
   });
 
   /// PATCH /relay/v1/devices/{device_id}

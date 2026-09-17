@@ -46,6 +46,9 @@ abstract class DeviceRegistrationResponse with _$DeviceRegistrationResponse {
     @JsonKey(name: 'account_id') required String accountId,
     required AccountCaps caps,
     @JsonKey(name: 'device_token') String? deviceToken,
+    // api.md §4.2: present only on the call that created the account. A join
+    // answers without it, because the caller already holds one.
+    @JsonKey(name: 'account_join_token') String? accountJoinToken,
     @Default('free') String tier,
   }) = _DeviceRegistrationResponse;
 
