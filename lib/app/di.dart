@@ -7,6 +7,7 @@ import 'package:critalarm/core/alarm/alarm_build_mode.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
+import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
@@ -358,10 +359,17 @@ Future<void> configureDependencies({
       ),
     )
     ..registerLazySingleton(
+      () => QuietHoursStore(
+        getIt<SharedPreferences>(),
+        host: getIt<AlarmHost>(),
+      ),
+    )
+    ..registerLazySingleton(
       () => IncidentAlarmController(
         host: getIt<AlarmHost>(),
         api: getIt<ApiClient>(),
         tokens: getIt<LiveActivityTokenRegistry>(),
+        quietHours: getIt<QuietHoursStore>(),
       ),
     )
     ..registerLazySingleton(() => PushAnalytics(getIt<TelemetryGate>()))
@@ -661,6 +669,7 @@ Future<void> configureDependencies({
         telemetryGate: getIt.isRegistered<TelemetryGate>()
             ? getIt<TelemetryGate>()
             : null,
+        quietHoursStore: getIt<QuietHoursStore>(),
       ),
     )
     ..registerFactory(

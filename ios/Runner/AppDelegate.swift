@@ -356,6 +356,21 @@ import AlarmKit
     case "pushToStartReady":
       result(UserDefaults.standard.bool(forKey: "flutter.live_activity_push_to_start_ready"))
 
+    case "publishQuietHours":
+      // Dart owns the window. This copy is here so the notification
+      // extension, which cannot read the app's preferences, can see it too.
+      QuietHours.write(
+        QuietHours(
+          isEnabled: args["enabled"] as? Bool ?? QuietHours.defaults.isEnabled,
+          startMinutes: args["start_minutes"] as? Int ?? QuietHours.defaults.startMinutes,
+          endMinutes: args["end_minutes"] as? Int ?? QuietHours.defaults.endMinutes,
+          criticalRingsThrough: args["critical_rings"] as? Bool
+            ?? QuietHours.defaults.criticalRingsThrough
+        ),
+        to: QuietHours.groupDefaults
+      )
+      result(nil)
+
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -440,6 +455,22 @@ import AlarmKit
 
     guard AlarmTriggerPath.chosen == .appBackgroundPush else {
       NSLog("CritAlarm: background_push_ignored reason=extension_owns_scheduling")
+      completionHandler(.noData)
+      return
+    }
+
+    // Quiet hours holds the ring and nothing else. This is the live gate: it
+    // is this handler that schedules the alarm on a real phone, so the same
+    // check in Dart and in the extension does nothing until one of those
+    // paths is the one in use. The notification has already been delivered by
+    // the time iOS calls this, so the page still arrives, the incident still
+    // opens and the card still shows; only the schedule call is skipped.
+    let quietHours = QuietHours.read(from: QuietHours.groupDefaults)
+    if quietHours.holdsRing(
+      minuteOfDay: QuietHours.minuteOf(Date()),
+      priority: push.priority
+    ) {
+      NSLog("CritAlarm: background_push_ignored reason=quiet_hours")
       completionHandler(.noData)
       return
     }

@@ -11,8 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// How an alarm rings: the default sound, quiet hours, and the call that
-/// follows a page nobody answered.
+/// How an alarm rings: the default sound and quiet hours.
 class AlarmSettingsScreen extends StatelessWidget {
   const AlarmSettingsScreen({super.key});
 
@@ -32,11 +31,50 @@ class AlarmSettingsScreen extends StatelessWidget {
 class _AlarmSettingsView extends StatelessWidget {
   const _AlarmSettingsView();
 
+  static TimeOfDay _timeOf(int minutes) =>
+      TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+
+  /// The window in whatever clock the phone is set to, 24 hour or 12 hour.
+  static String _label(BuildContext context, int minutes) =>
+      _timeOf(minutes).format(context);
+
+  /// Start first, then end. Either step can be backed out of, and nothing is
+  /// saved until both are answered.
+  Future<void> _pickWindow(
+    BuildContext context,
+    SettingsCubit cubit,
+    SettingsState state,
+  ) async {
+    final start = await showTimePicker(
+      context: context,
+      initialTime: _timeOf(state.quietHoursStartMinutes),
+      helpText: LocaleKeys.settings_quiet_hours_start_picker_help.tr(),
+    );
+    if (start == null || !context.mounted) return;
+
+    final end = await showTimePicker(
+      context: context,
+      initialTime: _timeOf(state.quietHoursEndMinutes),
+      helpText: LocaleKeys.settings_quiet_hours_end_picker_help.tr(),
+    );
+    if (end == null) return;
+
+    await cubit.setQuietHoursWindow(
+      startMinutes: start.hour * 60 + start.minute,
+      endMinutes: end.hour * 60 + end.minute,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) {
         final colors = context.appColors;
+        final cubit = context.read<SettingsCubit>();
+        final window = <String, String>{
+          'start': _label(context, state.quietHoursStartMinutes),
+          'end': _label(context, state.quietHoursEndMinutes),
+        };
 
         return AppScreenScaffold(
           topBar: AppTopBar(
@@ -73,22 +111,49 @@ class _AlarmSettingsView extends StatelessWidget {
                         ),
                         onTap: () => context.pushNamed(AppRoute.soundPicker),
                       ),
-                      // Quiet hours, "critical still rings" and the
-                      // escalation call are off this screen until they do
-                      // something. Nothing saved these, nothing read them, and
-                      // `SettingsCubit` is a factory, so leaving the screen
-                      // reset all three to off. The escalation row also
+                      const SizedBox(height: 8),
+                      AppToggleRow(
+                        title: LocaleKeys.settings_quiet_hours_label.tr(),
+                        subtitle: LocaleKeys.settings_quiet_hours_subtitle.tr(
+                          namedArgs: window,
+                        ),
+                        value: state.quietHoursEnabled,
+                        onChanged: (val) => unawaited(
+                          cubit.toggleQuietHours(isEnabled: val),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      AppListRow(
+                        name: LocaleKeys.settings_quiet_hours_window_row_title
+                            .tr(),
+                        meta: LocaleKeys.settings_quiet_hours_schedule.tr(
+                          namedArgs: window,
+                        ),
+                        faceState: null,
+                        trailing: AppGlyph(
+                          GlyphType.arrow,
+                          color: colors.ink3,
+                          size: 16,
+                        ),
+                        onTap: () =>
+                            unawaited(_pickWindow(context, cubit, state)),
+                      ),
+                      const SizedBox(height: 8),
+                      AppToggleRow(
+                        title: LocaleKeys.settings_critical_rings_title.tr(),
+                        subtitle: LocaleKeys.settings_critical_rings_subtitle
+                            .tr(),
+                        value: state.criticalRingsQuietHours,
+                        onChanged: (val) => unawaited(
+                          cubit.toggleCriticalRingsQuietHours(isEnabled: val),
+                        ),
+                      ),
+                      // The escalation call row is still off this screen. It
                       // advertised a phone call, with a placeholder number, to
                       // a server that has no such route: api.md accepts `call`
-                      // and ignores it.
-                      //
-                      // Quiet hours is written up as its own task. It needs
-                      // the same window check in two places, because on the
-                      // extension path the alarm is scheduled in Swift before
-                      // Dart hears about the push at all
-                      // (`incident_alarm_controller.dart`). The state and the
-                      // cubit methods stay, and so do the strings, so that
-                      // task is a wiring job rather than a rebuild.
+                      // and ignores it. Putting it back needs a contract
+                      // change first. Its state, cubit method and strings all
+                      // stay where they are.
                     ],
                   ),
                 ),
