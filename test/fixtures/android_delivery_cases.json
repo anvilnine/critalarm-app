@@ -141,6 +141,25 @@
       "valid": false
     },
     {
+      "name": "p5 forward carries no incident id",
+      "data": {
+        "server": "https://alerts.example.com",
+        "kind": "p5",
+        "priority": "5"
+      },
+      "valid": true
+    },
+    {
+      "name": "p5 that joined a live incident keeps the id",
+      "data": {
+        "incident_id": "inc-12",
+        "server": "https://alerts.example.com",
+        "kind": "p5",
+        "priority": "5"
+      },
+      "valid": true
+    },
+    {
       "name": "relay_content full carries title and body",
       "data": {
         "incident_id": "inc-11",
