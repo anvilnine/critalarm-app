@@ -1,3 +1,5 @@
+import 'package:critalarm/core/alarm/quiet_hours.dart';
+import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
@@ -32,6 +34,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     this.identityStore,
     this.apiSessions,
     this.getTopics,
+    this.quietHoursStore,
     ProOverride? proOverride,
   }) : _proOverride = proOverride ?? appProOverride,
        super(const SettingsState()) {
@@ -50,6 +53,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   final DeviceIdentityStore? identityStore;
   final ApiSessionStore? apiSessions;
   final GetTopicsUsecase? getTopics;
+
+  /// Where the quiet hours window lives. Null in the tests that do not care
+  /// about it, and then the three controls only move in memory.
+  final QuietHoursStore? quietHoursStore;
+
   final ProOverride _proOverride;
 
   /// The developer Force Pro switch moved. The plan row reads
@@ -77,6 +85,21 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   Future<void> load({bool forceDisconnected = false}) async {
     emit(state.copyWith(status: SettingsStatus.loading));
+
+    // The cubit is registered as a factory, so a fresh one arrives every time
+    // the screen opens. Reading the window here is what makes the three
+    // controls survive leaving the screen and relaunching.
+    final window = quietHoursStore?.read();
+    if (window != null) {
+      emit(
+        state.copyWith(
+          quietHoursEnabled: window.isEnabled,
+          quietHoursStartMinutes: window.startMinutes,
+          quietHoursEndMinutes: window.endMinutes,
+          criticalRingsQuietHours: window.criticalRingsThrough,
+        ),
+      );
+    }
 
     if (forceDisconnected) {
       emit(
@@ -174,12 +197,43 @@ class SettingsCubit extends Cubit<SettingsState> {
     );
   }
 
-  void toggleQuietHours({required bool isEnabled}) {
+  Future<void> toggleQuietHours({required bool isEnabled}) async {
     emit(state.copyWith(quietHoursEnabled: isEnabled));
+    await _saveQuietHours();
   }
 
-  void toggleCriticalRingsQuietHours({required bool isEnabled}) {
+  Future<void> toggleCriticalRingsQuietHours({
+    required bool isEnabled,
+  }) async {
     emit(state.copyWith(criticalRingsQuietHours: isEnabled));
+    await _saveQuietHours();
+  }
+
+  /// Both ends of the window, in minutes from local midnight.
+  Future<void> setQuietHoursWindow({
+    required int startMinutes,
+    required int endMinutes,
+  }) async {
+    emit(
+      state.copyWith(
+        quietHoursStartMinutes: startMinutes,
+        quietHoursEndMinutes: endMinutes,
+      ),
+    );
+    await _saveQuietHours();
+  }
+
+  /// Saves all four values on every change, so the window the push path reads
+  /// is never half of what the screen shows.
+  Future<void> _saveQuietHours() async {
+    await quietHoursStore?.write(
+      QuietHours(
+        isEnabled: state.quietHoursEnabled,
+        startMinutes: state.quietHoursStartMinutes,
+        endMinutes: state.quietHoursEndMinutes,
+        criticalRingsThrough: state.criticalRingsQuietHours,
+      ),
+    );
   }
 
   void toggleEscalationCall({required bool isEnabled}) {

@@ -10,6 +10,10 @@
 		05BDDBA0157A3EE529FEC613 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E03D7BEA0BF5A60A3DCFDC3 /* NotificationService.swift */; };
 		0617CFB82831F64DAE3C6E36 /* PushEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B43861F26AA39D52CC432E /* PushEventLog.swift */; };
 		0632154549508956E8E82937 /* AlarmTriggerPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */; };
+		A13F0C1E4B7D25A9E0114003 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
+		A13F0C1E4B7D25A9E0114004 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
+		A13F0C1E4B7D25A9E0114005 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
+		A13F0C1E4B7D25A9E0114006 /* QuietHoursTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114002 /* QuietHoursTests.swift */; };
 		0667D9BC1041B885CED760AE /* IncidentActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */; };
 		0CC17DA6DCACE81402DAB0A4 /* IncidentAlarmAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */; };
 		0D184790693B92A167F3BAAD /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
@@ -162,6 +166,8 @@
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmTriggerPath.swift; sourceTree = "<group>"; };
+		A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuietHours.swift; sourceTree = "<group>"; };
+		A13F0C1E4B7D25A9E0114002 /* QuietHoursTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuietHoursTests.swift; sourceTree = "<group>"; };
 		A001835E63EC097B270CFC7B /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		A471C6FA0F15B4693AAA2990 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NtfyEmoji.swift; sourceTree = "<group>"; };
@@ -250,6 +256,7 @@
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
 				78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */,
 				1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */,
+				A13F0C1E4B7D25A9E0114002 /* QuietHoursTests.swift */,
 			);
 			path = RunnerTests;
 			sourceTree = "<group>";
@@ -365,6 +372,7 @@
 				C1152E565D4F08BE1BD9C5C4 /* IncidentAlarmScheduler.swift */,
 				8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */,
 				9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */,
+				A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */,
 			);
 			path = Alarm;
 			sourceTree = "<group>";
@@ -702,6 +710,8 @@
 				6E372DAD65DA145D7B0F7BF5 /* IncidentAlarmScheduler.swift in Sources */,
 				A1497E3050226B8FD2727E0E /* IncidentIntents.swift in Sources */,
 				F6BAA4FB61319AC1D2D1ADA7 /* AlarmTriggerPath.swift in Sources */,
+				A13F0C1E4B7D25A9E0114003 /* QuietHours.swift in Sources */,
+				A13F0C1E4B7D25A9E0114006 /* QuietHoursTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -723,6 +733,7 @@
 				945DB746556DD27941C8DA6F /* IncidentAlarmScheduler.swift in Sources */,
 				5073401426B1F19765FDAE5F /* IncidentIntents.swift in Sources */,
 				0632154549508956E8E82937 /* AlarmTriggerPath.swift in Sources */,
+				A13F0C1E4B7D25A9E0114004 /* QuietHours.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -742,6 +753,7 @@
 				D1D0455B373B068D9BE01B47 /* IncidentIntents.swift in Sources */,
 				901DE32449E09CDC90C0829D /* AckQueueStore.swift in Sources */,
 				976B23E5DF5FDE6959EA0BDA /* AlarmTriggerPath.swift in Sources */,
+				A13F0C1E4B7D25A9E0114005 /* QuietHours.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

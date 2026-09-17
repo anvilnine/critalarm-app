@@ -356,6 +356,21 @@ import AlarmKit
     case "pushToStartReady":
       result(UserDefaults.standard.bool(forKey: "flutter.live_activity_push_to_start_ready"))
 
+    case "publishQuietHours":
+      // Dart owns the window. This copy is here so the notification
+      // extension, which cannot read the app's preferences, can see it too.
+      QuietHours.write(
+        QuietHours(
+          isEnabled: args["enabled"] as? Bool ?? QuietHours.defaults.isEnabled,
+          startMinutes: args["start_minutes"] as? Int ?? QuietHours.defaults.startMinutes,
+          endMinutes: args["end_minutes"] as? Int ?? QuietHours.defaults.endMinutes,
+          criticalRingsThrough: args["critical_rings"] as? Bool
+            ?? QuietHours.defaults.criticalRingsThrough
+        ),
+        to: QuietHours.groupDefaults
+      )
+      result(nil)
+
     default:
       result(FlutterMethodNotImplemented)
     }
