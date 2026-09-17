@@ -5,12 +5,12 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import app.critalarm.alarm.AlarmForegroundService
-import app.critalarm.alarm.AlarmStopRule
 import app.critalarm.storage.AckQueueStore
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.notifications.AlarmNotificationFactory
 import app.critalarm.notifications.IncidentCardState
+import app.critalarm.notifications.MessageNotificationFactory
 import app.critalarm.notifications.StatusNotificationFactory
 import app.critalarm.push.FcmIncidentPayload
 import app.critalarm.push.IncidentContent
@@ -58,25 +58,22 @@ class IncidentActionReceiver : BroadcastReceiver() {
             } else {
                 deliveries.markClosed(incidentId, ackedAtMillis)
             }
-            // One alarm service for the whole app, so stopping it stops
-            // whatever is ringing rather than the incident this button
-            // belongs to. A card can outlive its own alarm: a late enrichment
-            // re-posts the alarm card for an incident that stopped being the
-            // ringing one seconds ago. See AlarmStopRule.
-            if (AlarmStopRule.stopsService(incidentId, AlarmForegroundService.ringingIncidentId)) {
-                context.stopService(Intent(context, AlarmForegroundService::class.java))
-                Log.i(TAG, "alarm_service_stopped incident_id=$incidentId")
-            } else {
-                Log.i(
-                    TAG,
-                    "alarm_service_kept incident_id=$incidentId " +
-                        "ringing_incident_id=${AlarmForegroundService.ringingIncidentId}",
-                )
-            }
+            // One alarm service for the whole app, so stopping it outright
+            // stops whatever is ringing rather than the incident this button
+            // belongs to. The service holds every un-acked incident and hands
+            // over to the next one instead of going quiet. A card can outlive
+            // its own alarm: a late enrichment re-posts the alarm card for an
+            // incident that stopped being the ringing one seconds ago.
+            AlarmForegroundService.stopIncident(context, incidentId)
             // The alarm card goes whether or not a status card can take its
             // place. A promoted RINGING card left on a stopped alarm is worse
             // than a gap.
             manager.cancel(AlarmNotificationFactory.notificationId(incidentId))
+            // The heads-up that carried this ACK button goes with it. It is a
+            // separate id from the alarm card, and setAutoCancel does not fire
+            // on an action press, so without this the user keeps it and gains
+            // an ongoing status card on top: two cards for one incident.
+            manager.cancel(MessageNotificationFactory.notificationId(incidentId))
             // The alarm has stopped, so the card changes hands. SingleCardRule
             // gives one incident one card, and a promoted alarm card left
             // beside a promoted status card puts two chips in the status bar.

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.util.Log
 import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.notifications.AlarmNotificationFactory
+import app.critalarm.notifications.MessageNotificationFactory
 import app.critalarm.notifications.StatusNotificationFactory
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
@@ -126,9 +127,9 @@ class AlarmChannel(private val context: Context) {
      * notification. A close, or the onboarding demo alarm, ends it: both cards
      * come down and nothing replaces them.
      *
-     * The ring only stops when this incident is the one ringing. See
-     * [AlarmStopRule]: there is one service for the whole app, and cancelling
-     * an old incident used to silence a live alarm.
+     * The ring only stops when nothing un-acked is left. See [AlarmStopRule]:
+     * there is one service for the whole app, and cancelling an old incident
+     * used to silence a live alarm.
      */
     private fun stop(
         incidentId: String,
@@ -140,7 +141,18 @@ class AlarmChannel(private val context: Context) {
         val ackedAtMillis = System.currentTimeMillis()
         val deliveries = IncidentDeliveryStore(context)
         val manager = context.getSystemService(NotificationManager::class.java)
+        // This names the incident, and it runs before the cancels. The service
+        // holds every un-acked incident and hands over to the next rather than
+        // going quiet, so it never silences an alarm the caller did not ask
+        // about. It has to go first because Android refuses to cancel the
+        // notification that is holding a service in the foreground: the alarm
+        // card stops being that notification only once the service has stopped
+        // or moved its foreground card to the next incident. See AlarmStopRule.
+        val stopped = AlarmForegroundService.stopIncident(context, incidentId)
         manager?.cancel(AlarmNotificationFactory.notificationId(incidentId))
+        // Same reason as the notification's Stop button: the heads-up that
+        // carried the ACK action is its own id and nothing else takes it down.
+        manager?.cancel(MessageNotificationFactory.notificationId(incidentId))
         if (handOverToStatusCard) {
             deliveries.markAcknowledged(incidentId, ackedAtMillis)
             // Without this the user keeps a promoted RINGING card on an
@@ -161,16 +173,7 @@ class AlarmChannel(private val context: Context) {
             deliveries.markClosed(incidentId)
             manager?.cancel(StatusNotificationFactory.notificationId(incidentId))
         }
-        if (AlarmStopRule.stopsService(incidentId, AlarmForegroundService.ringingIncidentId)) {
-            stopService("incident_id=$incidentId")
-        } else {
-            Log.i(
-                TAG,
-                "alarm_service_kept incident_id=$incidentId " +
-                    "ringing_incident_id=${AlarmForegroundService.ringingIncidentId}",
-            )
-            true
-        }
+        stopped
     } catch (e: Exception) {
         Log.w(TAG, "alarm_stop_failed incident_id=$incidentId error=${e.message}")
         false

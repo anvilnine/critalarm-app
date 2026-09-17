@@ -3,7 +3,8 @@ enum IncidentPushKind {
   open,
   repeat,
   reopen,
-  p4;
+  p4,
+  p5;
 
   static IncidentPushKind? tryParse(String? value) {
     for (final kind in IncidentPushKind.values) {
@@ -11,6 +12,15 @@ enum IncidentPushKind {
     }
     return null;
   }
+
+  /// True when this kind never opens or continues an alarm, so it shows as a
+  /// heads-up instead of ringing.
+  ///
+  /// `p5` is priority 5 on a topic whose critical switch is off (api.md §4.1).
+  /// It may still carry an incident id, because the server names one when the
+  /// message joined an incident that was already live.
+  bool get isForward =>
+      this == IncidentPushKind.p4 || this == IncidentPushKind.p5;
 
   /// Priority the contract implies when the payload does not carry one.
   ///
@@ -38,7 +48,8 @@ final class IncidentPush {
     this.mutableContent = false,
   });
 
-  /// Null only for a `p4` forward: api.md §4.1 sends no incident id for those.
+  /// Null on a forward: api.md §4.1 sends no incident id for `p4`, and a `p5`
+  /// only carries one when the message joined a live incident.
   final String? incidentId;
 
   /// The server the message came from. One connection per app in v1, so a
@@ -70,7 +81,7 @@ final class IncidentPush {
       mutableContent || (title == null && body == null);
 
   /// This push opens or continues an incident, so the alarm path owns it.
-  bool get isIncident => kind != IncidentPushKind.p4 && incidentId != null;
+  bool get isIncident => !kind.isForward && incidentId != null;
 
   /// FCM data message, api.md §5.2. Every value arrives as a string.
   static IncidentPush? fromFcmData(Map<String, String> data) => _parse(
@@ -119,7 +130,7 @@ final class IncidentPush {
     if (parsedKind == null) return null;
 
     final id = (incidentId ?? '').isEmpty ? null : incidentId;
-    if (id == null && parsedKind != IncidentPushKind.p4) return null;
+    if (id == null && !parsedKind.isForward) return null;
 
     final uri = Uri.tryParse(server ?? '');
     if (uri == null ||
