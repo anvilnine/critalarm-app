@@ -560,6 +560,44 @@
       "one": "1 critical topic used · Unlimited",
       "other": "{} critical topics used · Unlimited"
     },
-    "critical_usage": "{count} of {limit} critical topics used"
+    "critical_usage": "{count} of {limit} critical topics used",
+    "header": "Account",
+    "row_title": "Account",
+    "row_subtitle": "Sign in to keep your alarms when you change phone",
+    "signed_out_pitch": "Sign in to get your alarms back on a new phone, and to use more than one device.",
+    "sign_in_apple": "Sign in with Apple",
+    "sign_in_google": "Continue with Google",
+    "provider_apple": "Apple",
+    "provider_google": "Google",
+    "provider_label": "Signed in with",
+    "email_missing": "No email address",
+    "account_id_label": "Account ID",
+    "sign_out": "Sign out",
+    "sign_out_failed": "Could not sign out. You are still signed in on this phone. Try again.",
+    "error_sign_in_failed": "Sign-in did not go through. Try again.",
+    "error_other_identity": "This phone already belongs to another account. Sign out of that one first, then sign in again.",
+    "choose_title": "You already have alarms on this phone",
+    "choose_body": "This phone holds {topics} and {incidents}. Choose what happens to them.",
+    "choose_topics": {
+      "one": "1 topic",
+      "other": "{} topics"
+    },
+    "choose_incidents": {
+      "one": "1 past alert",
+      "other": "{} past alerts"
+    },
+    "keep_both_title": "Keep both",
+    "keep_both_body": "The topics on this phone join the account you are signing in to. Your webhooks keep working. Alert history from both sides can be read from either one.",
+    "keep_both_button": "Keep both",
+    "start_fresh_title": "Start fresh",
+    "start_fresh_body": "You sign in to the other account and leave what is on this phone behind.",
+    "start_fresh_tokens": {
+      "one": "The webhook token for the 1 topic on this phone stops working. Whatever publishes to it goes quiet.",
+      "other": "The webhook tokens for the {} topics on this phone stop working. Whatever publishes to them goes quiet."
+    },
+    "start_fresh_button": "Start fresh",
+    "live_incident_title": "An alarm is still ringing",
+    "live_incident_body": "Acknowledge it, then try again.",
+    "live_incident_button": "Open the alarm"
   }
 }

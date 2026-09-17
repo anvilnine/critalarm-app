@@ -1,3 +1,4 @@
+import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/models/device_registration.dart';
@@ -120,12 +121,62 @@ class MockApiClient implements ApiClient {
     return server.pollMessages(topic, poll: poll, since: since);
   }
 
+  /// The device token this fake hands to the account routes.
+  ///
+  /// The real client reads it off the session store, which a widget test has
+  /// no reason to set up, so the fake uses whichever device registered last.
+  String? deviceToken;
+
+  @override
+  Future<AccountLinkResult> linkAccount({required String identityToken}) async {
+    return server.linkAccount(
+      deviceToken: deviceToken ?? '',
+      identityToken: identityToken,
+    );
+  }
+
+  @override
+  Future<AccountMergeResult> mergeAccount({
+    required String identityToken,
+    required String intoAccount,
+  }) async {
+    return server.mergeAccount(
+      deviceToken: deviceToken ?? '',
+      identityToken: identityToken,
+      intoAccount: intoAccount,
+    );
+  }
+
+  @override
+  Future<AccountSwitchResult> switchAccount({
+    required String identityToken,
+    required String intoAccount,
+  }) async {
+    return server.switchAccount(
+      deviceToken: deviceToken ?? '',
+      identityToken: identityToken,
+      intoAccount: intoAccount,
+    );
+  }
+
+  @override
+  Future<void> deleteDevice({
+    required String deviceId,
+    required String deviceToken,
+    Uri? relayUri,
+  }) async => server.deleteDevice(
+    deviceId: deviceId,
+    deviceToken: deviceToken,
+  );
+
   @override
   Future<DeviceRegistrationResponse> registerDevice(
     DeviceRegistration registration, {
     Uri? relayUri,
   }) async {
-    return server.registerDevice(registration);
+    final response = server.registerDevice(registration);
+    deviceToken = response.deviceToken;
+    return response;
   }
 
   @override

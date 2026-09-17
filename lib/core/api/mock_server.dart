@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/models/device_registration.dart';
@@ -29,6 +30,7 @@ class MockServer {
   /// Server metadata returned by /v1/info.
   ServerInfo serverInfo;
   final Map<String, Topic> _topics = {};
+
   /// Token id to when it was made. The value is never kept: the real
   /// server holds a hash of it, so neither can this.
   final Map<String, Map<String, DateTime>> _tokens = {};
@@ -37,6 +39,18 @@ class MockServer {
   final Map<String, Incident> _incidents = {};
   final Map<String, List<Message>> _messages = {};
   final Map<String, DeviceRegistrationResponse> _devices = {};
+
+  /// Identity tokens the auth surface has handed out, and the account each one
+  /// already belongs to. A token that is not in here has never signed in, so
+  /// linking it claims whatever account the handset brings.
+  final Map<String, String> identityAccounts = {};
+
+  /// Accounts that already hold an identity. A second, different identity on
+  /// one of these is the shared-handset refusal (api.md §3.7).
+  final Map<String, String> accountIdentities = {};
+
+  /// Accounts left behind by a merge or a switch.
+  final Set<String> tombstonedAccounts = {};
 
   int _counter = 1000;
 
@@ -59,6 +73,9 @@ class MockServer {
     _incidents.clear();
     _messages.clear();
     _devices.clear();
+    identityAccounts.clear();
+    accountIdentities.clear();
+    tombstonedAccounts.clear();
     _counter = 1000;
     failIncidentFetch = false;
   }
@@ -971,6 +988,136 @@ class MockServer {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Accounts and sign-in (api.md §3.7)
+  // ---------------------------------------------------------------------------
+
+  /// The account a device token speaks for, or 401 when no device holds it.
+  String _accountForDeviceToken(String deviceToken) {
+    for (final device in _devices.values) {
+      if (device.deviceToken == deviceToken) return device.accountId;
+    }
+    throw const ApiException(statusCode: 401, message: 'unauthorized');
+  }
+
+  /// Moves whichever device holds [deviceToken] onto [accountId].
+  void _pointDeviceAtAccount(String deviceToken, String accountId) {
+    for (final entry in _devices.entries) {
+      if (entry.value.deviceToken == deviceToken) {
+        _devices[entry.key] = entry.value.copyWith(accountId: accountId);
+        return;
+      }
+    }
+  }
+
+  /// A self-hosted server has one operator and no accounts to sign in to, so
+  /// every route here refuses with 501 rather than 404. The client has to be
+  /// able to tell "this server does not do sign-in" from "you typed the path
+  /// wrong".
+  void _requireAccountsSupported() {
+    if (serverInfo.mode == ServerModes.selfhosted) {
+      throw const ApiException(
+        statusCode: 501,
+        message: 'not supported in selfhosted mode',
+      );
+    }
+  }
+
+  /// The alarm that blocks a merge, if one is up. Only `open` and `acked`
+  /// count: nothing else is ringing or waiting on a person.
+  Incident? get _liveIncident {
+    for (final incident in _incidents.values) {
+      if (incident.isOpen || incident.isAcked) return incident;
+    }
+    return null;
+  }
+
+  /// POST /v1/account/link
+  AccountLinkResult linkAccount({
+    required String deviceToken,
+    required String identityToken,
+  }) {
+    _requireAccountsSupported();
+    final account = _accountForDeviceToken(deviceToken);
+    final owner = accountIdentities[account];
+    if (owner != null && owner != identityToken) {
+      return const AccountLinkResult.accountHasAnotherIdentity();
+    }
+    final identityAccount = identityAccounts[identityToken];
+    if (identityAccount == null || identityAccount == account) {
+      identityAccounts[identityToken] = account;
+      accountIdentities[account] = identityToken;
+      return AccountLinkResult.claimed(accountId: account);
+    }
+    // An empty account is one with no topics and no incidents. Registration
+    // runs long before any sign-in screen, so a device with no account cannot
+    // happen and this is the only "nothing to decide" case there is.
+    if (_topics.isEmpty && _incidents.isEmpty) {
+      tombstonedAccounts.add(account);
+      _pointDeviceAtAccount(deviceToken, identityAccount);
+      return AccountLinkResult.attached(accountId: identityAccount);
+    }
+    return AccountLinkResult.choose(
+      intoAccount: identityAccount,
+      topics: _topics.length,
+      incidents: _incidents.length,
+    );
+  }
+
+  /// POST /v1/account/merge
+  AccountMergeResult mergeAccount({
+    required String deviceToken,
+    required String identityToken,
+    required String intoAccount,
+  }) {
+    _requireAccountsSupported();
+    final account = _accountForDeviceToken(deviceToken);
+    if (!identityAccounts.containsKey(identityToken)) {
+      return const AccountMergeResult.unauthorized();
+    }
+    if (account == intoAccount) return const AccountMergeResult.sameAccount();
+    if (tombstonedAccounts.contains(account) ||
+        tombstonedAccounts.contains(intoAccount)) {
+      return const AccountMergeResult.alreadyMerged();
+    }
+    final live = _liveIncident;
+    if (live != null) {
+      return AccountMergeResult.liveIncident(incidentId: live.id);
+    }
+    tombstonedAccounts.add(account);
+    _pointDeviceAtAccount(deviceToken, intoAccount);
+    accountIdentities[intoAccount] = identityToken;
+    return AccountMergeResult.merged(
+      accountId: intoAccount,
+      mergedFrom: account,
+    );
+  }
+
+  /// POST /v1/account/switch
+  AccountSwitchResult switchAccount({
+    required String deviceToken,
+    required String identityToken,
+    required String intoAccount,
+  }) {
+    _requireAccountsSupported();
+    final account = _accountForDeviceToken(deviceToken);
+    if (!identityAccounts.containsKey(identityToken)) {
+      return const AccountSwitchResult.unauthorized();
+    }
+    tombstonedAccounts.add(account);
+    _pointDeviceAtAccount(deviceToken, intoAccount);
+    accountIdentities[intoAccount] = identityToken;
+    return AccountSwitchResult.switched(accountId: intoAccount);
+  }
+
+  /// DELETE /relay/v1/devices/{device_id}
+  void deleteDevice({required String deviceId, required String deviceToken}) {
+    _authorizedDevice(deviceId, deviceToken);
+    _devices.remove(deviceId);
+    subscriptions.remove(deviceId);
+    pushTokens.remove(deviceId);
+  }
+
   SendResult sendMessage(
     String topic, {
     required String message,
@@ -1152,7 +1299,44 @@ class MockServer {
         return _jsonResponse({'incident_id': incidentId}, 200);
       }
 
-      // 11. /relay/v1/devices
+      // 11. /v1/account/{link,merge,switch}
+      final accountMatch = RegExp(
+        r'^/v1/account/(link|merge|switch)$',
+      ).firstMatch(path);
+      if (accountMatch != null && method == 'POST') {
+        final body = bodyString.isEmpty
+            ? <String, dynamic>{}
+            : jsonDecode(bodyString) as Map<String, dynamic>;
+        // `dv_` stays in the header and the identity travels in the body.
+        final credential = (request.headers['authorization'] ?? '')
+            .replaceFirst('Bearer ', '');
+        final identityToken = body['identity_token'] as String? ?? '';
+        final intoAccount = body['into_account'] as String? ?? '';
+        return switch (accountMatch[1]) {
+          'link' => _linkResponse(
+            linkAccount(
+              deviceToken: credential,
+              identityToken: identityToken,
+            ),
+          ),
+          'merge' => _mergeResponse(
+            mergeAccount(
+              deviceToken: credential,
+              identityToken: identityToken,
+              intoAccount: intoAccount,
+            ),
+          ),
+          _ => _switchResponse(
+            switchAccount(
+              deviceToken: credential,
+              identityToken: identityToken,
+              intoAccount: intoAccount,
+            ),
+          ),
+        };
+      }
+
+      // 12. /relay/v1/devices
       if (path == '/relay/v1/devices' && method == 'POST') {
         final body = bodyString.isNotEmpty
             ? jsonDecode(bodyString) as Map<String, dynamic>
@@ -1172,6 +1356,10 @@ class MockServer {
         final body = bodyString.isEmpty
             ? <String, dynamic>{}
             : jsonDecode(bodyString) as Map<String, dynamic>;
+        if (deviceRoute[2] == null && method == 'DELETE') {
+          deleteDevice(deviceId: id, deviceToken: credential);
+          return http.Response('', 204);
+        }
         if (deviceRoute[2] == null && method == 'PATCH') {
           if (body.keys.toSet().difference({
                 'push_token',
@@ -1232,7 +1420,7 @@ class MockServer {
         return _jsonResponse(result.toJson(), 200);
       }
 
-      // 12. GET /{topic}/json?poll=1
+      // 13. GET /{topic}/json?poll=1
       final pollMatch = RegExp(r'^/([^/]+)/json$').firstMatch(path);
       if (pollMatch != null && method == 'GET') {
         final topic = Uri.decodeComponent(pollMatch[1]!);
@@ -1247,7 +1435,7 @@ class MockServer {
         );
       }
 
-      // 13. POST /{topic} or PUT /{topic}
+      // 14. POST /{topic} or PUT /{topic}
       final publishMatch = RegExp(r'^/([^/]+)$').firstMatch(path);
       if (publishMatch != null && (method == 'POST' || method == 'PUT')) {
         final topic = Uri.decodeComponent(publishMatch[1]!);
@@ -1357,6 +1545,69 @@ class MockServer {
       return _jsonResponse({'error': e.toString()}, 500);
     }
   }
+
+  static http.Response _linkResponse(AccountLinkResult result) =>
+      switch (result) {
+        AccountLinkClaimed(:final accountId) => _jsonResponse({
+          'account_id': accountId,
+          'outcome': 'claimed',
+        }, 200),
+        AccountLinkAttached(:final accountId) => _jsonResponse({
+          'account_id': accountId,
+          'outcome': 'attached',
+        }, 200),
+        AccountLinkChoose(
+          :final intoAccount,
+          :final topics,
+          :final incidents,
+        ) =>
+          _jsonResponse({
+            'error': 'choose',
+            'into_account': intoAccount,
+            'topics': topics,
+            'incidents': incidents,
+          }, 409),
+        AccountLinkAccountHasAnotherIdentity() => _jsonResponse({
+          'error': 'account has another identity',
+        }, 409),
+        AccountLinkUnauthorized() => _jsonResponse(
+          {'error': 'unauthorized'},
+          401,
+        ),
+      };
+
+  static http.Response _mergeResponse(AccountMergeResult result) =>
+      switch (result) {
+        AccountMerged(:final accountId, :final mergedFrom) => _jsonResponse({
+          'account_id': accountId,
+          'merged_from': mergedFrom,
+        }, 200),
+        AccountMergeLiveIncident(:final incidentId) => _jsonResponse({
+          'error': 'live incident',
+          'incident_id': incidentId,
+        }, 409),
+        AccountMergeAlreadyMerged() => _jsonResponse({
+          'error': 'already merged',
+        }, 409),
+        AccountMergeSameAccount() => _jsonResponse({
+          'error': 'same account',
+        }, 409),
+        AccountMergeUnauthorized() => _jsonResponse(
+          {'error': 'unauthorized'},
+          401,
+        ),
+      };
+
+  static http.Response _switchResponse(AccountSwitchResult result) =>
+      switch (result) {
+        AccountSwitched(:final accountId) => _jsonResponse({
+          'account_id': accountId,
+        }, 200),
+        AccountSwitchUnauthorized() => _jsonResponse(
+          {'error': 'unauthorized'},
+          401,
+        ),
+      };
 
   static int _parsePriority(dynamic value) {
     if (value is int) return value.clamp(1, 5);

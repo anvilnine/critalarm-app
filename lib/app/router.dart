@@ -1,6 +1,7 @@
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
+import 'package:critalarm/features/account/presentation/account_screen.dart';
 import 'package:critalarm/features/history/presentation/history_screen.dart';
 import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
 import 'package:critalarm/features/incidents/presentation/lock_screen.dart';
@@ -42,6 +43,7 @@ abstract final class AppRoute {
   static const soundPicker = 'soundPicker';
   static const alarmSettings = 'alarmSettings';
   static const serverSettings = 'serverSettings';
+  static const account = 'account';
   static const privacySettings = 'privacySettings';
   static const about = 'about';
   static const developerSettings = 'developerSettings';
@@ -169,6 +171,13 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   path: 'server',
                   name: AppRoute.serverSettings,
                   builder: (context, state) => const ServerSettingsScreen(),
+                ),
+                // Absent on a self-hosted server: Settings hides the row that
+                // leads here, because that server has no accounts.
+                GoRoute(
+                  path: 'account',
+                  name: AppRoute.account,
+                  builder: (context, state) => const AccountScreen(),
                 ),
                 GoRoute(
                   path: 'privacy',
