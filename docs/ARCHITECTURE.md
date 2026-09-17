@@ -1,4 +1,4 @@
-<!-- GENERATED from critalarm-server@6011572 — do not edit. Run scripts/sync-contract.sh -->
+<!-- GENERATED from critalarm-server@e768550 — do not edit. Run scripts/sync-contract.sh -->
 
 # Crit Alarm architecture
 
@@ -206,8 +206,15 @@ erDiagram
     ACCOUNT {
         text id PK
         text tier
-        text rc_app_user_id
+        text join_token_hash
+        text merged_into FK
         datetime created_at
+    }
+    ACCOUNT_BILLING_ID {
+        text app_user_id PK
+        text account_id FK
+        text entitled_tier
+        datetime last_event_at
     }
     DEVICE {
         text id PK
@@ -218,20 +225,43 @@ erDiagram
         datetime last_seen
     }
     SUBSCRIPTION {
-        text account_id FK
         text device_id FK
         text topic_hash
     }
 ```
 
-`ACCOUNT`, `DEVICE` and `SUBSCRIPTION` exist only in relay and hosted mode.
-Self-hosted never stores a device.
+`ACCOUNT`, `ACCOUNT_BILLING_ID`, `DEVICE` and `SUBSCRIPTION` exist only in relay
+and hosted mode. Self-hosted never stores a device, and has no tier, no caps and
+no billing at all.
+
+An account owns a subscription through its devices, not directly: a subscription
+names only the device. Holding the account on the row as well meant a device
+whose account changed kept a stale copy, so unsubscribing filtered on the old
+value, deleted nothing, and still answered 204.
+
+Billing is a lookup, not an identity. One account can hold several
+`ACCOUNT_BILLING_ID` rows, because merging two accounts brings both sides'
+subscriptions, and the account's tier is the highest live entitlement across
+them. `merged_into` is how a webhook that arrives after a merge still finds the
+surviving account.
 
 **Why the account row exists.** A device is a handset. It gets replaced, wiped
 and reinstalled. The account is the thing that owns topics, subscriptions, caps
 and the purchase, and it survives all three. Registration creates one silently,
 so there is still no sign-up screen. Adding sign-in later fills in one column
 and migrates nothing. See `docs/api.md` §4.2.
+
+**Deleting an account.** `DELETE /v1/account` and `critalarm account delete` run
+the same erase, `deleteAccount` in `src/v1/accounts.ts`, in one transaction. It
+takes the account, every tombstone whose `merged_into` chain ends at it, and
+everything that cascades from those rows. Two tables do not cascade and are
+handled by hand: `tier_changes` rows go, and `billing_events` rows stay with
+`account_id` cleared, because they are the dedup log a late webhook still has to
+land in. The better-auth `user` row is deleted by hand as well, since
+`account_identities` carries no foreign key to it, and deleting it takes the
+person's sessions and their stored OAuth tokens. Before the transaction the
+server asks Apple and Google to revoke those tokens. That call is best effort
+and never blocks the delete. See `docs/api.md` §3.7.
 
 **Two secrets, two jobs.** A topic token authorizes publishing and goes out to
 whatever monitoring tool fires the alert. A device token authorizes managing
