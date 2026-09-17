@@ -35,15 +35,25 @@ object MessageNotificationFactory {
      * every p4 from one server, so each forward replaced the last one.
      */
     fun notificationId(payload: FcmIncidentPayload): Int {
-        val key = payload.incidentId
-            ?: listOf(
-                payload.server.toString(),
-                payload.kind.wireValue,
-                payload.title.orEmpty(),
-                payload.body.orEmpty(),
-            ).joinToString("|")
+        payload.incidentId?.let { return notificationId(it) }
+        val key = listOf(
+            payload.server.toString(),
+            payload.kind.wireValue,
+            payload.title.orEmpty(),
+            payload.body.orEmpty(),
+        ).joinToString("|")
         return key.hashCode() xor MESSAGE_ID_SALT
     }
+
+    /**
+     * The message card for one incident, by id alone.
+     *
+     * Whoever takes an incident's cards down needs this. setAutoCancel fires on
+     * a content tap and not on an action press, so pressing ACK on a priority-4
+     * heads-up used to leave the message card up while an ongoing status card
+     * went on top of it: two cards and two status bar chips for one incident.
+     */
+    fun notificationId(incidentId: String): Int = incidentId.hashCode() xor MESSAGE_ID_SALT
 
     /** Any constant will do, as long as it is neither 0 nor the status card's. */
     private const val MESSAGE_ID_SALT = 0x2c9277b5
