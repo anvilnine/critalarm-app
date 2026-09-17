@@ -1,7 +1,6 @@
 package app.critalarm.actions
 
 import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 data class IncidentActionRoute(val action: IncidentAction, val path: String)
 
@@ -13,7 +12,10 @@ object IncidentActionRouter {
             "acknowledge" -> IncidentAction.CLOSE
             else -> return null
         }
-        val encodedId = URLEncoder.encode(incidentId, StandardCharsets.UTF_8)
+        // The Charset overload is API 33 and minSdk is 28, so on Android 9 to
+        // 12L it throws NoSuchMethodError and the Stop button does nothing
+        // while the alarm keeps ringing. The String overload is API 1.
+        val encodedId = URLEncoder.encode(incidentId, "UTF-8")
             .replace("+", "%20")
         return IncidentActionRoute(action, "/v1/incidents/$encodedId/${action.wireValue}")
     }
