@@ -152,8 +152,10 @@ void main() {
 
       await cubit.markAsRead();
 
-      // The very first native call markAsRead makes must be the silencing one.
-      expect(alarm.calls.first.method, 'stopRinging');
+      // The very first native call markAsRead makes must be the silencing
+      // one, and it must name its incident. Asking for "whatever is ringing"
+      // silenced an unacknowledged incident on another topic.
+      expect(alarm.calls.first.method, 'cancelAlarm');
     });
 
     test('a refused acknowledge still leaves the phone quiet', () async {
@@ -180,7 +182,7 @@ void main() {
       }
     });
 
-    test('stopRinging is asked for with no incident on the state', () async {
+    test('no incident on the state means no alarm is touched', () async {
       server.seedAlarmed();
       final cubit = TopicDetailCubit(
         incidentsCubit,
@@ -191,11 +193,30 @@ void main() {
       );
       alarm.calls.clear();
 
-      // No load(), so the cubit knows of no incident at all. The sound must
-      // still stop: the server can ring one the app never heard about.
+      // No load(), so the cubit knows of no incident at all. It must not reach
+      // for the un-scoped stop: Android runs one alarm service for the whole
+      // app, so that silenced whatever was ringing, on any topic, unacked.
       await cubit.markAsRead();
 
-      expect(alarm.callsTo('stopRinging'), isNotEmpty);
+      expect(alarm.callsTo('stopRinging'), isEmpty);
+      expect(alarm.callsTo('cancelAlarm'), isEmpty);
+    });
+
+    test('markAsRead never reaches for the un-scoped stop', () async {
+      server.seedAlarmed();
+      final cubit = TopicDetailCubit(
+        incidentsCubit,
+        topicsCubit,
+        updateTopicUsecase,
+        incidentRepo,
+        alarm: alarm.host,
+      );
+      await cubit.load('prod-db');
+      alarm.calls.clear();
+
+      await cubit.markAsRead();
+
+      expect(alarm.callsTo('stopRinging'), isEmpty);
     });
 
     test('a missing alarm host does not stop the acknowledge', () async {

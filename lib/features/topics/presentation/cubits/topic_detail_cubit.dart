@@ -271,10 +271,9 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     _acking = true;
     emit(state.copyWith(isMarkingAsRead: true));
 
-    // Kill the sound first, by asking for the sound rather than for an id.
-    // The server can ring an incident it already has as acknowledged, and then
-    // no id the app holds matches what the speaker is doing.
-    await _stopRinging();
+    // Every stop names its incident. Asking for "whatever is ringing" was how
+    // pressing Stop on topic X silenced an unacknowledged incident on topic Y:
+    // Android runs one alarm service for the whole app.
     await _silence(state.openIncidentIds);
 
     // What the page looked like while it was ringing. Whatever the server
@@ -376,15 +375,6 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   void _markUpstreamAccountedFor() {
     _builtFromIncidents = _incidents.state.incidents;
     _builtFromTopics = _topics.state.topics;
-  }
-
-  /// Stop whatever is ringing, whichever incident it belongs to.
-  Future<void> _stopRinging() async {
-    try {
-      await alarm?.stopRinging();
-    } on Object catch (_) {
-      // Nothing to do. The ack below is what the server cares about.
-    }
   }
 
   /// Stop the local alarm for each incident. Never throws: a platform channel
