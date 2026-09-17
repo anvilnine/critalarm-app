@@ -52,6 +52,10 @@ class MockServer {
   /// Accounts left behind by a merge or a switch.
   final Set<String> tombstonedAccounts = {};
 
+  /// Every `aj_` handed out, and the account it attaches a device to. One is
+  /// minted per account, on the call that created it (api.md §4.2).
+  final Map<String, String> accountJoinTokens = {};
+
   int _counter = 1000;
 
   /// Makes `GET /v1/incidents/{id}` answer 503, so the app's fallback path can
@@ -76,6 +80,7 @@ class MockServer {
     identityAccounts.clear();
     accountIdentities.clear();
     tombstonedAccounts.clear();
+    accountJoinTokens.clear();
     _counter = 1000;
     failIncidentFetch = false;
   }
@@ -907,17 +912,35 @@ class MockServer {
   }
 
   /// POST /relay/v1/devices
+  ///
+  /// With an [accountJoinToken] the device attaches to the account that token
+  /// belongs to and no new join token is handed back. Without one the call
+  /// creates an account and mints its join token (api.md §4.2).
   DeviceRegistrationResponse registerDevice(
     DeviceRegistration registration, {
     String? deviceToken,
+    String? accountJoinToken,
   }) {
-    final accountId = _nextId('acc');
     deviceToken ??= _nextId('dv');
     const caps = AccountCaps.free;
+    final String accountId;
+    String? joinToken;
+    if (accountJoinToken != null) {
+      final joined = accountJoinTokens[accountJoinToken];
+      if (joined == null) {
+        throw const ApiException(statusCode: 401, message: 'unauthorized');
+      }
+      accountId = joined;
+    } else {
+      accountId = _nextId('acc');
+      joinToken = _nextId('aj');
+      accountJoinTokens[joinToken] = accountId;
+    }
 
     final response = DeviceRegistrationResponse(
       deviceToken: deviceToken,
       accountId: accountId,
+      accountJoinToken: joinToken,
       caps: caps,
     );
 
@@ -933,8 +956,13 @@ class MockServer {
     return device;
   }
 
+  /// PATCH /relay/v1/devices/{device_id}. Neither secret comes back: the
+  /// caller already holds both (api.md §4.2).
   DeviceRegistrationResponse refreshDevice(String id, String token) =>
-      _authorizedDevice(id, token).copyWith(deviceToken: null);
+      _authorizedDevice(
+        id,
+        token,
+      ).copyWith(deviceToken: null, accountJoinToken: null);
 
   void subscribeTopic({
     required String deviceId,
@@ -1403,7 +1431,16 @@ class MockServer {
             ? jsonDecode(bodyString) as Map<String, dynamic>
             : <String, dynamic>{};
         final registration = DeviceRegistration.fromJson(body);
-        final response = registerDevice(registration);
+        // A bearer here is an `aj_`, never a `dv_`: it is the only auth
+        // api.md §4.2 accepts on a registration.
+        final join = (request.headers['authorization'] ?? '').replaceFirst(
+          'Bearer ',
+          '',
+        );
+        final response = registerDevice(
+          registration,
+          accountJoinToken: join.isEmpty ? null : join,
+        );
         return _jsonResponse(response.toJson(), 201);
       }
 

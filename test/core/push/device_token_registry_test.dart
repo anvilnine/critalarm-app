@@ -18,6 +18,7 @@ class _RecordingApi implements ApiClient {
   Future<DeviceRegistrationResponse> registerDevice(
     DeviceRegistration registration, {
     Uri? relayUri,
+    String? accountJoinToken,
   }) async {
     if (fail) throw Exception('relay unreachable');
     registrations.add(registration);
