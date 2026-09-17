@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
@@ -54,6 +55,10 @@ final class HttpApiClient implements ApiClient {
     Object? body,
     String? auth,
     String accept = 'application/json',
+    // Statuses the caller reads off the response itself. The account routes
+    // need it: a 409 carries the topic and incident counts the prompt shows,
+    // and turning it into an exception throws those away.
+    Set<int> tolerate = const {},
   }) async {
     final headers = <String, String>{'accept': accept};
     if (body != null) headers['content-type'] = 'application/json';
@@ -66,7 +71,8 @@ final class HttpApiClient implements ApiClient {
     final result = await http.Response.fromStream(response).timeout(
       requestTimeout,
     );
-    if (result.statusCode < 200 || result.statusCode >= 300) {
+    if ((result.statusCode < 200 || result.statusCode >= 300) &&
+        !tolerate.contains(result.statusCode)) {
       var json = <String, dynamic>{};
       try {
         json = jsonDecode(result.body) as Map<String, dynamic>;
@@ -254,6 +260,105 @@ final class HttpApiClient implements ApiClient {
         _json(await _send('POST', u, auth: s.managementCredential))
             as Map<String, dynamic>;
     return j['incident_id'] as String;
+  }
+
+  @override
+  Future<AccountLinkResult> linkAccount({required String identityToken}) async {
+    final (session, uri) = await _sessionUri(const ['account', 'link']);
+    final response = await _send(
+      'POST',
+      uri,
+      auth: session.managementCredential,
+      body: {'identity_token': identityToken},
+      tolerate: const {401, 409},
+    );
+    if (response.statusCode == 401) {
+      return const AccountLinkResult.unauthorized();
+    }
+    final json = _json(response) as Map<String, dynamic>;
+    if (response.statusCode == 409) {
+      if (json['error'] != 'choose') {
+        return const AccountLinkResult.accountHasAnotherIdentity();
+      }
+      return AccountLinkResult.choose(
+        intoAccount: json['into_account'] as String,
+        topics: (json['topics'] as num).toInt(),
+        incidents: (json['incidents'] as num).toInt(),
+      );
+    }
+    final accountId = json['account_id'] as String;
+    return json['outcome'] == 'attached'
+        ? AccountLinkResult.attached(accountId: accountId)
+        : AccountLinkResult.claimed(accountId: accountId);
+  }
+
+  @override
+  Future<AccountMergeResult> mergeAccount({
+    required String identityToken,
+    required String intoAccount,
+  }) async {
+    final (session, uri) = await _sessionUri(const ['account', 'merge']);
+    final response = await _send(
+      'POST',
+      uri,
+      auth: session.managementCredential,
+      body: {'identity_token': identityToken, 'into_account': intoAccount},
+      tolerate: const {401, 409},
+    );
+    if (response.statusCode == 401) {
+      return const AccountMergeResult.unauthorized();
+    }
+    final json = _json(response) as Map<String, dynamic>;
+    if (response.statusCode == 409) {
+      return switch (json['error']) {
+        'live incident' => AccountMergeResult.liveIncident(
+          incidentId: json['incident_id'] as String,
+        ),
+        'same account' => const AccountMergeResult.sameAccount(),
+        _ => const AccountMergeResult.alreadyMerged(),
+      };
+    }
+    return AccountMergeResult.merged(
+      accountId: json['account_id'] as String,
+      mergedFrom: json['merged_from'] as String,
+    );
+  }
+
+  @override
+  Future<AccountSwitchResult> switchAccount({
+    required String identityToken,
+    required String intoAccount,
+  }) async {
+    final (session, uri) = await _sessionUri(const ['account', 'switch']);
+    final response = await _send(
+      'POST',
+      uri,
+      auth: session.managementCredential,
+      body: {'identity_token': identityToken, 'into_account': intoAccount},
+      tolerate: const {401},
+    );
+    if (response.statusCode == 401) {
+      return const AccountSwitchResult.unauthorized();
+    }
+    final json = _json(response) as Map<String, dynamic>;
+    return AccountSwitchResult.switched(
+      accountId: json['account_id'] as String,
+    );
+  }
+
+  @override
+  Future<void> deleteDevice({
+    required String deviceId,
+    required String deviceToken,
+    Uri? relayUri,
+  }) async {
+    final base = relayUri ?? (await _sessions.read())?.relayUri;
+    if (base == null) throw StateError('No API session configured');
+    await _send(
+      'DELETE',
+      _rawPath(base, 'relay/v1/devices/${Uri.encodeComponent(deviceId)}'),
+      auth: deviceToken,
+    );
   }
 
   @override

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -101,6 +102,32 @@ abstract interface class ApiClient {
     String? since,
   });
 
+  /// POST /v1/account/link
+  ///
+  /// Sign up and sign in are the same call. `dv_` stays in the Authorization
+  /// header, because it says which account this handset brings, and the
+  /// identity travels in the body (api.md §3.7). One header cannot carry two
+  /// secrets.
+  Future<AccountLinkResult> linkAccount({required String identityToken});
+
+  /// POST /v1/account/merge
+  ///
+  /// Folds this phone's account into [intoAccount]. Every topic token on both
+  /// sides keeps working.
+  Future<AccountMergeResult> mergeAccount({
+    required String identityToken,
+    required String intoAccount,
+  });
+
+  /// POST /v1/account/switch
+  ///
+  /// Joins [intoAccount] and leaves this phone's old account behind, carrying
+  /// nothing. The tokens on the old topics stop working.
+  Future<AccountSwitchResult> switchAccount({
+    required String identityToken,
+    required String intoAccount,
+  });
+
   /// POST /relay/v1/devices
   Future<DeviceRegistrationResponse> registerDevice(
     DeviceRegistration registration, {
@@ -126,6 +153,17 @@ abstract interface class ApiClient {
     required String deviceId,
     required String deviceToken,
     required String topicHash,
+  });
+
+  /// DELETE /relay/v1/devices/{device_id}
+  ///
+  /// Half of signing out. api.md §3.7: the other half is registering again
+  /// with a new device id, because a phone that drops `dv_` and keeps its old
+  /// device id can never register again.
+  Future<void> deleteDevice({
+    required String deviceId,
+    required String deviceToken,
+    Uri? relayUri,
   });
 
   /// POST /relay/v1/devices/{device_id}/tokens. la_update requires activityId.
