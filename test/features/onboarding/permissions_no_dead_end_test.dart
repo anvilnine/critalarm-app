@@ -74,7 +74,7 @@ void main() {
 
   group('unsupported is not a grant', () {
     blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
-      'an OS with no alarm permission reports one step, not two',
+      'an OS with no alarm permission still reports two steps',
       setUp: () {
         fake.answers['requestAuthorization'] = 'unsupported';
       },
@@ -86,7 +86,7 @@ void main() {
       act: (cubit) => cubit.requestCriticalAlerts(),
       verify: (cubit) {
         expect(cubit.state.alarmSupported, isFalse);
-        expect(cubit.state.totalSteps, 1);
+        expect(cubit.state.totalSteps, 2);
         expect(cubit.state.canNavigate, isTrue);
       },
     );

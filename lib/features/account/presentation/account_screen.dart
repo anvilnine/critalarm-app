@@ -79,10 +79,26 @@ class AccountView extends StatelessWidget {
     if (state.status == AccountStatus.choosing) {
       return MergeOrFreshPanel(state: state);
     }
-    return AppSheet(
-      child: state.status == AccountStatus.signedIn
-          ? _SignedIn(state: state)
-          : _SignedOut(state: state),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: Spacing.s2),
+        const Center(
+          child: FaceWidget(
+            state: FaceState.calm,
+            size: 96,
+          ),
+        ),
+        const SizedBox(height: Spacing.s4),
+        AppSheet(
+          child: state.status == AccountStatus.signedIn
+              ? _SignedIn(state: state)
+              : _SignedOut(state: state),
+        ),
+        const SizedBox(height: Spacing.s4),
+        const _DeleteAccountButton(),
+      ],
     );
   }
 }
@@ -120,6 +136,7 @@ class _SignedOut extends StatelessWidget {
         if (cubit.supports(IdentityProvider.apple)) ...[
           AppButton(
             label: LocaleKeys.account_sign_in_apple.tr(),
+            icon: BrandIcon.apple(color: colors.canvas),
             variant: AppButtonVariant.ink,
             isFullWidth: true,
             isLoading: state.isBusy,
@@ -129,21 +146,40 @@ class _SignedOut extends StatelessWidget {
         ],
         AppButton(
           label: LocaleKeys.account_sign_in_google.tr(),
+          icon: const BrandIcon.google(),
           variant: AppButtonVariant.paper,
           isFullWidth: true,
           isLoading: state.isBusy,
           onPressed: () => unawaited(cubit.signIn(IdentityProvider.google)),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        AppButton(
+          label: LocaleKeys.account_sign_in_github.tr(),
+          icon: BrandIcon.github(color: colors.ink),
+          trailingIcon: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: colors.ink.withValues(alpha: 0.08),
+              borderRadius: Radii.fullAll,
+            ),
+            child: Text(
+              LocaleKeys.account_coming_soon.tr(),
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: colors.ink2,
+              ),
+            ),
+          ),
+          variant: AppButtonVariant.paper,
+          isFullWidth: true,
+        ),
+        const SizedBox(height: 14),
         // Apple wants the terms and the privacy policy reachable from the
         // screen that creates an account, not just buried in Settings.
         const _SignInLegalFooter(),
-        // Here as well as on the signed-in half. An account exists from the
-        // first registration, long before anyone signs in, and api.md §3.7
-        // deletes one with no identity on this phone's own credential. So
-        // nobody has to sign in to be able to leave.
-        const SizedBox(height: 16),
-        const _DeleteAccountButton(),
       ],
     );
   }
@@ -211,14 +247,13 @@ class _SignedIn extends StatelessWidget {
           isLoading: state.isBusy,
           onPressed: () => unawaited(cubit.signOut()),
         ),
-        const SizedBox(height: 8),
-        const _DeleteAccountButton(),
       ],
     );
   }
 }
 
-/// The way out, last on the sheet so nothing is reached past to get to it.
+/// The way out, located quietly below the sheet so nothing is reached past to
+/// get to it.
 ///
 /// It only leads to the confirm screen. Nothing is erased from here.
 class _DeleteAccountButton extends StatelessWidget {
@@ -226,12 +261,27 @@ class _DeleteAccountButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppButton(
-      label: LocaleKeys.account_delete_button.tr(),
-      variant: AppButtonVariant.ghost,
-      size: AppButtonSize.sm,
-      isFullWidth: true,
-      onPressed: () => context.push('/settings/account/delete'),
+    final colors = context.appColors;
+
+    return Center(
+      child: TextButton(
+        onPressed: () => context.push('/settings/account/delete'),
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Text(
+          LocaleKeys.account_delete_button.tr(),
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: colors.ink3,
+          ),
+        ),
+      ),
     );
   }
 }

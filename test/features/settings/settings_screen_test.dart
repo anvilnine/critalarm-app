@@ -1,6 +1,8 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/design/components/switches.dart';
 import 'package:critalarm/design/theme/theme.dart';
@@ -85,6 +87,16 @@ void main() {
           ),
         );
 
+        // Seed a self-hosted session so the badge reads its real mode.
+        await getIt<ApiSessionStore>().write(
+          ApiSession(
+            baseUri: Uri.parse('https://alerts.anvilnine.com'),
+            relayUri: Uri.parse('https://relay.critalarm.app'),
+            mode: ServerMode.selfhosted,
+            managementCredential: 'admin_test_token',
+          ),
+        );
+
         getIt<MockServer>().seedCalm();
 
         final router = buildRouter();
@@ -101,6 +113,39 @@ void main() {
         expect(find.text('Disconnect'), findsOneWidget);
       },
     );
+
+    testWidgets('a hosted server hides the Self-hosted badge', (tester) async {
+      tester.view.physicalSize = const Size(390 * 2, 844 * 2);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.reset);
+
+      await getIt<SaveConnectionUsecase>()(
+        const ServerConnection(
+          serverUrl: 'https://alerts.anvilnine.com',
+          adminToken: 'admin_test_token',
+        ),
+      );
+
+      await getIt<ApiSessionStore>().write(
+        ApiSession(
+          baseUri: Uri.parse('https://alerts.anvilnine.com'),
+          relayUri: Uri.parse('https://relay.critalarm.app'),
+          mode: ServerMode.hosted,
+          managementCredential: 'admin_test_token',
+        ),
+      );
+
+      getIt<MockServer>().seedCalm();
+
+      final router = buildRouter();
+      await tester.pumpWidget(buildTestApp(router));
+
+      router.go('/settings/server');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Connected'), findsOneWidget);
+      expect(find.text('Self-hosted'), findsNothing);
+    });
 
     testWidgets('tapping Edit opens edit server connection bottom sheet', (
       tester,
@@ -182,7 +227,8 @@ void main() {
 
       // Tapping Connect server navigates to /onboarding/connect
       await tester.tap(find.text('Connect server'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('Connect your server?'), findsOneWidget);
     });

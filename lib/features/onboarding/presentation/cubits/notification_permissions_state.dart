@@ -68,8 +68,11 @@ class NotificationPermissionsState {
   /// Step 2 on this phone is the battery step.
   bool get isBatteryStep => !alarmSupported && batteryNeeded;
 
-  /// How many steps the stepper really has on this phone.
-  int get totalSteps => alarmSupported || batteryNeeded ? 2 : 1;
+  /// How many steps the stepper really has on this phone. Both steps are
+  /// always presented: step 1 requests notification permission, and step 2
+  /// requests alarm permission, lifts battery optimisation on Android, or
+  /// explains the notification sound fallback.
+  int get totalSteps => 2;
 
   bool get isRequesting => step == NotificationPermissionStep.requesting;
   bool get isGranted => step == NotificationPermissionStep.granted;
