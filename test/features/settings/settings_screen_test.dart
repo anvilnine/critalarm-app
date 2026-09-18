@@ -4,6 +4,7 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/version/app_version.dart';
+import 'package:critalarm/design/components/dialogs.dart';
 import 'package:critalarm/design/components/switches.dart';
 import 'package:critalarm/design/theme/theme.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
@@ -215,7 +216,7 @@ void main() {
 
       // Tap Confirm Disconnect
       final disconnectButton = find.descendant(
-        of: find.byType(AlertDialog),
+        of: find.byType(AppDialog),
         matching: find.text('Disconnect'),
       );
       await tester.tap(disconnectButton);

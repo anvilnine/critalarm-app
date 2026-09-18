@@ -238,65 +238,49 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
     final colors = context.appColors;
     final word = LocaleKeys.account_delete_dialog_word.tr();
 
-    return AlertDialog(
-      backgroundColor: colors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: Radii.lgAll),
-      title: Text(
-        LocaleKeys.account_delete_dialog_title.tr(),
-        style: TextStyle(
-          fontFamily: AppTypography.fontDisplay,
-          fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          color: colors.ink,
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: AppDialog(
+        title: LocaleKeys.account_delete_dialog_title.tr(),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              LocaleKeys.account_delete_dialog_body.tr(
+                namedArgs: {'word': word},
+              ),
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                fontSize: 14,
+                color: colors.ink2,
+              ),
+            ),
+            const SizedBox(height: 12),
+            AppTextField(
+              controller: _controller,
+              placeholder: word,
+            ),
+          ],
         ),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            LocaleKeys.account_delete_dialog_body.tr(
-              namedArgs: {'word': word},
-            ),
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              fontFamilyFallback: AppTypography.fontBodyFallbacks,
-              fontSize: 14,
-              color: colors.ink2,
-            ),
+        actions: [
+          AppButton(
+            label: LocaleKeys.common_cancel.tr(),
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.sm,
+            onPressed: () => Navigator.of(context).pop(false),
           ),
-          const SizedBox(height: 12),
-          AppTextField(
-            controller: _controller,
-            placeholder: word,
+          AppButton(
+            label: LocaleKeys.account_delete_dialog_confirm.tr(),
+            variant: AppButtonVariant.crit,
+            size: AppButtonSize.sm,
+            onPressed: _matches ? () => Navigator.of(context).pop(true) : null,
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(
-            LocaleKeys.common_cancel.tr(),
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              color: colors.ink3,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: _matches ? () => Navigator.of(context).pop(true) : null,
-          child: Text(
-            LocaleKeys.account_delete_dialog_confirm.tr(),
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              color: _matches ? colors.crit : colors.ink3,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

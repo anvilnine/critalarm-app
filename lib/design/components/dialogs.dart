@@ -117,14 +117,12 @@ class AppDialog extends StatelessWidget {
               ),
             if (actions.isNotEmpty) ...[
               const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: alignActions,
-                children: [
-                  for (var i = 0; i < actions.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 8),
-                    actions[i],
-                  ],
-                ],
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: _wrapAlignment(alignActions),
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: actions,
               ),
             ],
           ],
@@ -221,3 +219,12 @@ Future<T?> showAppDialog<T>({
     },
   );
 }
+
+WrapAlignment _wrapAlignment(MainAxisAlignment a) => switch (a) {
+  MainAxisAlignment.start => WrapAlignment.start,
+  MainAxisAlignment.center => WrapAlignment.center,
+  MainAxisAlignment.spaceBetween => WrapAlignment.spaceBetween,
+  MainAxisAlignment.spaceAround => WrapAlignment.spaceAround,
+  MainAxisAlignment.spaceEvenly => WrapAlignment.spaceEvenly,
+  MainAxisAlignment.end => WrapAlignment.end,
+};
