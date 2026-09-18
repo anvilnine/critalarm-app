@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/design/components/jumping_text.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/faces/refresh_face.dart';
+import 'package:critalarm/design/faces/refresh_face_controller.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
@@ -62,10 +65,17 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
               );
 
         return AppScreenScaffold(
-          onRefresh: () => context.read<HistoryCubit>().refresh(),
+          onFaceRefresh: () => context.read<HistoryCubit>().refresh(),
           topBar: AppTopBar(
             title: LocaleKeys.history_title.tr(),
-            trailing: _FilterButton(filter: state.filter),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const RefreshActivityIndicator(),
+                const SizedBox(width: 8),
+                _FilterButton(filter: state.filter),
+              ],
+            ),
           ),
           detail: state.isEmpty
               ? null
@@ -84,10 +94,7 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
               child: Column(
                 children: [
                   const SizedBox(height: Spacing.s2),
-                  AppStage.horizontal(
-                    faceState: FaceState.acked,
-                    sub: summary,
-                  ),
+                  _HistoryStage(summary: summary),
                   const SizedBox(height: Spacing.s3),
                 ],
               ),
@@ -238,6 +245,99 @@ class _CappedNotice extends StatelessWidget {
 
 /// Opens the filter sheet, with a dot on it while a filter is on so the state
 /// is visible without opening the sheet.
+/// The small face and summary line at the top of History. The face is too
+/// small for its expression to carry a refresh alone, so while a pull to
+/// refresh runs the line beside it says what is going on.
+///
+/// When the refresh ends, the result and the summary come in together as one
+/// line ("Up to date. No alarms in the last 30 days."), then the result
+/// leaves and the summary slides into place.
+class _HistoryStage extends StatefulWidget {
+  const _HistoryStage({required this.summary});
+
+  final String summary;
+
+  @override
+  State<_HistoryStage> createState() => _HistoryStageState();
+}
+
+class _HistoryStageState extends State<_HistoryStage> {
+  /// How long the result stays in front of the summary.
+  static const Duration _resultHold = Duration(milliseconds: 1600);
+
+  RefreshFaceController? _refresh;
+  RefreshFacePhase _phase = RefreshFacePhase.idle;
+  String? _result;
+  Timer? _clearResult;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final refresh = RefreshFaceScope.maybeOf(context);
+    if (refresh == _refresh) return;
+    _refresh?.removeListener(_onRefresh);
+    _refresh = refresh?..addListener(_onRefresh);
+  }
+
+  @override
+  void dispose() {
+    _refresh?.removeListener(_onRefresh);
+    _clearResult?.cancel();
+    super.dispose();
+  }
+
+  void _onRefresh() {
+    final phase = _refresh!.phase;
+    if (phase == _phase) return;
+    _phase = phase;
+
+    final result = switch (phase) {
+      RefreshFacePhase.success => LocaleKeys.history_refresh_done.tr(),
+      RefreshFacePhase.failed => LocaleKeys.history_refresh_failed.tr(),
+      _ => null,
+    };
+    if (result != null) {
+      _clearResult?.cancel();
+      _clearResult = Timer(_resultHold, () {
+        if (mounted) setState(() => _result = null);
+      });
+      setState(() => _result = result);
+    } else if (phase == RefreshFacePhase.working) {
+      _clearResult?.cancel();
+      setState(() => _result = null);
+    } else {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_refresh == null) {
+      return AppStage.horizontal(
+        faceState: FaceState.acked,
+        sub: widget.summary,
+      );
+    }
+
+    final colors = context.appColors;
+    final text = _phase == RefreshFacePhase.working
+        ? LocaleKeys.history_refresh_checking.tr()
+        : _result == null
+        ? widget.summary
+        : '$_result ${widget.summary}';
+
+    return AppStage.horizontal(
+      faceState: FaceState.acked,
+      subWidget: JumpingText(
+        text,
+        style: AppStage.horizontalSubStyle(colors),
+        gradient: [colors.cobalt, colors.crit, colors.high],
+        wave: _phase == RefreshFacePhase.working,
+      ),
+    );
+  }
+}
+
 class _FilterButton extends StatelessWidget {
   const _FilterButton({required this.filter});
 

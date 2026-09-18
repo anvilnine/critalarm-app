@@ -3,6 +3,8 @@ import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -10,11 +12,23 @@ import 'package:critalarm/features/incidents/data/repositories/in_memory_inciden
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
+import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// A topic list that never loads.
+class _FailingTopics implements TopicRepository {
+  @override
+  Future<AppResult<List<Topic>>> getTopics() async =>
+      const Failure.api(statusCode: 500).toFailure();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
 
 void main() {
   late MockServer server;
@@ -39,6 +53,21 @@ void main() {
   });
 
   group('HomeCubit', () {
+    test('refresh reports true when both lists load', () async {
+      server.seedCalm();
+      final cubit = HomeCubit(incidentsCubit, topicsCubit, incidentRepo);
+      addTearDown(cubit.close);
+      expect(await cubit.refresh(), isTrue);
+    });
+
+    test('refresh reports false when the topic list fails', () async {
+      final failing = TopicsCubit(GetTopicsUsecase(_FailingTopics()));
+      addTearDown(failing.close);
+      final cubit = HomeCubit(incidentsCubit, failing, incidentRepo);
+      addTearDown(cubit.close);
+      expect(await cubit.refresh(), isFalse);
+    });
+
     test('initial state has calm face and no stage word yet', () {
       final cubit = HomeCubit(incidentsCubit, topicsCubit, incidentRepo);
       expect(cubit.state.status, HomeStatus.initial);

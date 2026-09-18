@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
@@ -170,8 +171,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
             // it. As a pane it never had one. Either way there is no bar to
             // leave room for.
             hasTabBar: false,
-            onRefresh: () =>
-                context.read<TopicDetailCubit>().load(state.topicName),
+            onFaceRefresh: () => context.read<TopicDetailCubit>().refresh(),
             withGhosts: !isPane,
             backgroundColor: isPane ? context.appColors.surface : null,
             // Pinned rather than trailing the message list, so acknowledging
@@ -205,17 +205,24 @@ class _TopicDetailScreenContent extends StatelessWidget {
                         }
                       },
                     ),
-              trailing: AppTopicChip(
-                text: 'POST /${state.topicName}',
-                onTap: () {
-                  unawaited(
-                    Clipboard.setData(
-                      ClipboardData(
-                        text: 'POST /${state.topicName}',
-                      ),
-                    ),
-                  );
-                },
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const RefreshActivityIndicator(),
+                  const SizedBox(width: 8),
+                  AppTopicChip(
+                    text: 'POST /${state.topicName}',
+                    onTap: () {
+                      unawaited(
+                        Clipboard.setData(
+                          ClipboardData(
+                            text: 'POST /${state.topicName}',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
             slivers: [
