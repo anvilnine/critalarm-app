@@ -1,5 +1,6 @@
 import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
@@ -19,6 +20,7 @@ class AppEmptyState extends StatelessWidget {
     this.faceState = FaceState.watching,
     this.isLive = true,
     this.showFace = true,
+    this.followsRefresh = false,
     super.key,
   });
 
@@ -32,6 +34,11 @@ class AppEmptyState extends StatelessWidget {
   /// Set false where the screen already shows a face above this card, so
   /// the user is not looking at two of them at once.
   final bool showFace;
+
+  /// Set true where this card is the only face on a screen with a refresh
+  /// face, so the card acts out the pull to refresh. Off by default, so a card
+  /// under a stage stays still while the stage face does it.
+  final bool followsRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -55,12 +62,18 @@ class AppEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (showFace) ...[
-              stageFace(
-                context,
-                state: faceState,
-                size: 120,
-                isLive: isLive,
-              ),
+              if (followsRefresh)
+                stageFace(
+                  context,
+                  state: faceState,
+                  size: 120,
+                  isLive: isLive,
+                )
+              else
+                FaceWidget(
+                  state: faceState,
+                  isLive: isLive,
+                ),
               const SizedBox(height: Spacing.s4),
             ],
             FittedBox(

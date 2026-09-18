@@ -239,11 +239,13 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                               title: LocaleKeys.home_loading_title.tr(),
                               description: '',
                               buttonLabel: null,
+                              followsRefresh: true,
                             ),
                           ] else if (state.isEmpty) ...[
                             AppEmptyState(
                               onButtonPressed: () =>
                                   context.push('/topics/new'),
+                              followsRefresh: true,
                             ),
                           ] else ...[
                             for (final topic in state.topicItems) ...[

@@ -88,6 +88,21 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     await _rebuildIfChanged();
   }
 
+  /// Pull-to-refresh. Asks the shared lists again, where [load] only makes
+  /// sure they are there. True when both loaded, so the face can say so.
+  Future<bool> refresh() async {
+    final authorization = await alarm?.authorizationStatus();
+    if (isClosed) return false;
+    if (authorization != null) {
+      emit(state.copyWith(alarm: authorization));
+    }
+
+    await Future.wait([_incidents.refresh(), _topics.refresh()]);
+    await _rebuildIfChanged();
+    return _incidents.state.status != AppDataStatus.failure &&
+        _topics.state.status != AppDataStatus.failure;
+  }
+
   @override
   Future<void> close() async {
     await _incidentsSub?.cancel();
