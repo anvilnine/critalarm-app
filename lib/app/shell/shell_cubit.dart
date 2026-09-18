@@ -1,6 +1,7 @@
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
+import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,6 +15,27 @@ class ShellHealth {
 
   int get missingCount => missing.length;
   bool get isHealthy => missing.isEmpty;
+
+  /// True if any hard-blocker permission (notifications, alarms, full-screen)
+  /// is missing.
+  bool get hasCriticalErrors =>
+      missing.any((p) => p.type != DevicePermissionType.batteryOptimization);
+
+  /// True if missing items contain only non-blocking warnings (such as battery
+  /// optimization).
+  bool get hasWarningsOnly => missing.isNotEmpty && !hasCriticalErrors;
+
+  bool get isBatteryOnlyWarning =>
+      missing.length == 1 &&
+      missing.first.type == DevicePermissionType.batteryOptimization;
+
+  List<DevicePermissionItem> get criticalMissing => missing
+      .where((p) => p.type != DevicePermissionType.batteryOptimization)
+      .toList();
+
+  List<DevicePermissionItem> get warningMissing => missing
+      .where((p) => p.type == DevicePermissionType.batteryOptimization)
+      .toList();
 
   @override
   bool operator ==(Object other) =>

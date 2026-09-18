@@ -90,6 +90,9 @@ import 'package:critalarm/features/permissions/domain/repositories/device_permis
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
+import 'package:critalarm/features/prompts/data/repositories/shared_prefs_home_prompt_repository.dart';
+import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
+import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/search/data/repositories/asset_docs_index_repository.dart';
 import 'package:critalarm/features/search/data/repositories/shared_prefs_recent_searches_repository.dart';
 import 'package:critalarm/features/search/domain/repositories/docs_index_repository.dart';
@@ -368,6 +371,9 @@ Future<void> configureDependencies({
             : () => getIt<RevenueCatService>().logOut(),
         stopAlarm: getIt<AlarmHost>().stopRinging,
       ),
+    )
+    ..registerLazySingleton<HomePromptRepository>(
+      () => SharedPrefsHomePromptRepository(getIt<SharedPreferences>()),
     )
     ..registerLazySingleton(
       () => DeviceTokenRegistry(
@@ -742,6 +748,15 @@ Future<void> configureDependencies({
           }
           await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
         },
+      ),
+    )
+    ..registerFactoryParam<HomePromptCubit, ShellCubit?, void>(
+      (shellCubit, _) => HomePromptCubit(
+        getConnectionUsecase: getIt<GetConnectionUsecase>(),
+        shellCubit: shellCubit ?? getIt<ShellCubit>(),
+        identityRepository: getIt<IdentityRepository>(),
+        accountRepository: getIt<AccountRepository>(),
+        homePromptRepository: getIt<HomePromptRepository>(),
       ),
     );
 }

@@ -184,7 +184,19 @@
     "retry_button": "Try again",
     "delivery_normal": "normal",
     "detail_empty_title": "No topic selected",
-    "detail_empty_body": "Pick a topic to see its details."
+    "detail_empty_body": "Pick a topic to see its details.",
+    "server_banner_title": "No server connected",
+    "server_banner_body": "Crit Alarm cannot receive alarms without a server. Connect to Crit Alarm Cloud or point to your own.",
+    "server_banner_button": "Connect server",
+    "account_prompt_title": "Back up your topics",
+    "account_prompt_body": "Sign in to keep your topics safe if you switch or lose your device.",
+    "account_prompt_button": "Sign in",
+    "pro_prompt_title": "Support Crit Alarm Pro",
+    "pro_prompt_subtitle": "Support solo development and remove limits:",
+    "pro_prompt_bullet_topics": "Unlimited critical topics (raise your limits)",
+    "pro_prompt_bullet_rings": "Rings repeatedly until acknowledged",
+    "pro_prompt_bullet_support": "Support independent development",
+    "pro_prompt_button": "See Pro plans"
   },
   "topics_list": {
     "back_aria_label": "Back",
@@ -452,6 +464,8 @@
   },
   "setup_health": {
     "banner_title": "Crit Alarm cannot reach you yet",
+    "banner_warning_title": "Pages may arrive late",
+    "banner_warning_battery": "Battery optimization is on. Turn off to receive alarms without delay.",
     "banner_one": "{name} is off.",
     "banner_many": "{count} settings are off.",
     "banner_button": "Fix this"

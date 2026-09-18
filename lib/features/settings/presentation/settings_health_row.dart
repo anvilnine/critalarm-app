@@ -31,7 +31,9 @@ class SettingsHealthRow {
     final missing = health.missing;
     return SettingsHealthRow._(
       isHealthy: false,
-      faceState: FaceState.worried,
+      faceState: health.hasWarningsOnly
+          ? FaceState.watching
+          : FaceState.worried,
       issueCount: missing.length,
       // Same wording as the banner on Home, so the two never disagree.
       subtitle: missing.length == 1

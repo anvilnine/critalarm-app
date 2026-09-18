@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/route_observer.dart';
+import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
-import 'package:critalarm/features/permissions/presentation/widgets/setup_health_banner.dart';
+import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
+import 'package:critalarm/features/prompts/presentation/widgets/home_prompt_slot.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
@@ -27,12 +29,25 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) {
-        final cubit = getIt<HomeCubit>();
-        unawaited(cubit.load());
-        return cubit;
-      },
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) {
+            final cubit = getIt<HomeCubit>();
+            unawaited(cubit.load());
+            return cubit;
+          },
+        ),
+        BlocProvider(
+          create: (context) {
+            final cubit = getIt<HomePromptCubit>(
+              param1: context.read<ShellCubit>(),
+            );
+            unawaited(cubit.load());
+            return cubit;
+          },
+        ),
+      ],
       child: const _HomeScreenContent(),
     );
   }
@@ -46,7 +61,7 @@ class _HomeScreenContent extends StatefulWidget {
 }
 
 class _HomeScreenContentState extends State<_HomeScreenContent>
-    with RouteAware {
+    with RouteAware, WidgetsBindingObserver {
   String? _selectedTopic;
 
   /// The incident this screen has already handed over for. Kept so backing out
@@ -59,6 +74,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // First run only. The tour waits for this screen to finish arriving
     // before it points at anything, so asking straight away is fine.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -75,8 +91,16 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     appRouteObserver.unsubscribe(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      unawaited(context.read<HomePromptCubit>().onAppResumed());
+    }
   }
 
   /// Back from creating a topic, from a topic, from anywhere. Whatever the
@@ -85,6 +109,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   void didPopNext() {
     if (!mounted) return;
     unawaited(context.read<HomeCubit>().refresh());
+    unawaited(context.read<HomePromptCubit>().refresh());
   }
 
   /// While anything is ringing, the app is the alarm. The list is no use to
@@ -152,7 +177,12 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     return SeverityScope(
       severity: state.severity,
       child: AppScreenScaffold(
-        onFaceRefresh: () => context.read<HomeCubit>().refresh(),
+        onFaceRefresh: () async {
+          final promptCubit = context.read<HomePromptCubit>();
+          final homeCubit = context.read<HomeCubit>();
+          await promptCubit.refresh();
+          return homeCubit.refresh();
+        },
         // Search is not up here any more. It lives next to the compose
         // button on the floating bar, so it is reachable from every tab
         // rather than only this one.
@@ -174,9 +204,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                       isPane: true,
                     )),
         slivers: [
-          // Ahead of everything: if a device setting is off, no page on
-          // this list can actually reach the user.
-          const SliverToBoxAdapter(child: SetupHealthBanner()),
+          // Single slot orchestrating blocker errors, health warnings,
+          // and dismissible growth prompts above the stage.
+          const SliverToBoxAdapter(child: HomePromptSlot()),
           if (state.topicItems.isNotEmpty)
             SliverToBoxAdapter(
               child: Column(

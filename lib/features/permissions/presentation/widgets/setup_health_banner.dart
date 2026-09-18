@@ -33,24 +33,42 @@ class _Banner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final missing = health.missing;
+    final isWarningOnly = health.hasWarningsOnly;
+    final isBatteryOnly = health.isBatteryOnlyWarning;
 
-    final detail = missing.length == 1
-        ? LocaleKeys.setup_health_banner_one.tr(
-            namedArgs: {'name': missing.first.title},
-          )
-        : LocaleKeys.setup_health_banner_many.tr(
-            namedArgs: {'count': '${missing.length}'},
-          );
+    final bannerColor = isWarningOnly ? colors.highCanvas : colors.critCanvas;
+    final bannerStroke = isWarningOnly ? colors.highStroke : colors.critStroke;
+    final faceState = isWarningOnly ? FaceState.watching : FaceState.worried;
+
+    final title = isWarningOnly
+        ? LocaleKeys.setup_health_banner_warning_title.tr()
+        : LocaleKeys.setup_health_banner_title.tr();
+
+    final String detail;
+    if (isBatteryOnly) {
+      detail = LocaleKeys.setup_health_banner_warning_battery.tr();
+    } else {
+      final relevantList =
+          isWarningOnly ? health.warningMissing : health.criticalMissing;
+      final effectiveList =
+          relevantList.isNotEmpty ? relevantList : health.missing;
+      detail = effectiveList.length == 1
+          ? LocaleKeys.setup_health_banner_one.tr(
+              namedArgs: {'name': effectiveList.first.title},
+            )
+          : LocaleKeys.setup_health_banner_many.tr(
+              namedArgs: {'count': '${effectiveList.length}'},
+            );
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, Spacing.s3, 12, 0),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: colors.critCanvas,
+          color: bannerColor,
           borderRadius: Radii.lgAll,
-          border: Border.all(color: colors.critStroke, width: 2),
+          border: Border.all(color: bannerStroke, width: 2),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -58,11 +76,11 @@ class _Banner extends StatelessWidget {
           children: [
             Row(
               children: [
-                const FaceWidget(state: FaceState.worried, size: 28),
+                FaceWidget(state: faceState, size: 28),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    LocaleKeys.setup_health_banner_title.tr(),
+                    title,
                     style: TextStyle(
                       fontFamily: AppTypography.fontDisplay,
                       fontFamilyFallback: AppTypography.fontDisplayFallbacks,
