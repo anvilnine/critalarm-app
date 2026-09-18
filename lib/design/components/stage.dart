@@ -23,7 +23,7 @@ class AppStage extends StatelessWidget {
     this.faceWidget,
     this.isHorizontal = false,
     super.key,
-  });
+  }) : subWidget = null;
 
   /// Horizontal stage matching index.html Settings mockup:
   /// 56px face aligned with subtext in a row.
@@ -31,6 +31,7 @@ class AppStage extends StatelessWidget {
     required this.faceState,
     this.faceSize = 56.0,
     this.sub,
+    this.subWidget,
     this.isLive = false,
     this.padding = const EdgeInsets.fromLTRB(24, Spacing.s3, 24, 0),
     this.faceWidget,
@@ -53,6 +54,19 @@ class AppStage extends StatelessWidget {
   final Widget? faceWidget;
   final bool isHorizontal;
 
+  /// Horizontal stage only: shown in place of [sub], for a line that moves.
+  /// Style it with [horizontalSubStyle] so it matches.
+  final Widget? subWidget;
+
+  /// The style of the line beside the face in a horizontal stage.
+  static TextStyle horizontalSubStyle(AppColors colors) => TextStyle(
+    fontFamily: AppTypography.fontBody,
+    fontFamilyFallback: AppTypography.fontBodyFallbacks,
+    fontWeight: FontWeight.w500,
+    fontSize: 15,
+    color: colors.onCanvasMuted,
+  );
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -72,19 +86,12 @@ class AppStage extends StatelessWidget {
                 size: faceSize,
                 isLive: isLive,
               ),
-            if (sub != null) ...[
+            if (subWidget != null || sub != null) ...[
               const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  sub!,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 15,
-                    color: colors.onCanvasMuted,
-                  ),
-                ),
+                child:
+                    subWidget ??
+                    Text(sub!, style: horizontalSubStyle(colors)),
               ),
             ],
           ],
