@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/permissions/presentation/widgets/setup_health_banner.dart';
@@ -149,7 +150,10 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             // Search is not up here any more. It lives next to the compose
             // button on the floating bar, so it is reachable from every tab
             // rather than only this one.
-            topBar: AppTopBar(title: LocaleKeys.topics_list_title.tr()),
+            topBar: AppTopBar(
+              title: LocaleKeys.topics_list_title.tr(),
+              trailing: const RefreshActivityIndicator(),
+            ),
             detail: state.topicItems.isEmpty
                 ? null
                 : (selected == null

@@ -5,7 +5,9 @@ import 'package:critalarm/design/faces/face_shape.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/faces/refresh_face_controller.dart';
+import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/durations.dart';
+import 'package:critalarm/design_system/haptics.dart';
 import 'package:flutter/material.dart';
 
 /// Hands a screen's refresh controller down to the face on its stage.
@@ -50,9 +52,10 @@ Widget stageFace(
   );
 }
 
-/// Owns the refresh controller for one scroll view and feeds it how far the
-/// list is pulled past its top.
+/// Owns the refresh controller for one screen, feeds it how far the list is
+/// pulled past its top, and buzzes the phone at the moments that matter.
 ///
+/// Wrap the list and anything that shows the refresh, such as the top bar.
 /// Needs bouncing scroll physics, which `AppScreenScaffold` uses by default:
 /// the pull is read from the list going past its top edge.
 class RefreshFaceHost extends StatefulWidget {
@@ -80,6 +83,28 @@ class _RefreshFaceHostState extends State<RefreshFaceHost> {
 
   /// True while a finger is on the list. The drag ending is the release.
   bool _dragging = false;
+
+  bool _wasArmed = false;
+  RefreshFacePhase _lastPhase = RefreshFacePhase.idle;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_buzz);
+  }
+
+  /// A tick when letting go would refresh, a thud when the refresh ends.
+  void _buzz() {
+    final armed = _controller.isArmed;
+    if (armed && !_wasArmed) AppHaptics.selection();
+    _wasArmed = armed;
+
+    final phase = _controller.phase;
+    if (phase == _lastPhase) return;
+    _lastPhase = phase;
+    if (phase == RefreshFacePhase.success) AppHaptics.done();
+    if (phase == RefreshFacePhase.failed) AppHaptics.failed();
+  }
 
   @override
   void didUpdateWidget(covariant RefreshFaceHost oldWidget) {
@@ -126,6 +151,47 @@ class _RefreshFaceHostState extends State<RefreshFaceHost> {
     return NotificationListener<ScrollNotification>(
       onNotification: _onScroll,
       child: RefreshFaceScope(controller: _controller, child: widget.child),
+    );
+  }
+}
+
+/// A small spinner for the top bar that shows while the refresh is running.
+/// Shows nothing on a screen without a refresh face.
+class RefreshActivityIndicator extends StatelessWidget {
+  /// Reads the controller from the nearest [RefreshFaceScope].
+  const RefreshActivityIndicator({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = RefreshFaceScope.maybeOf(context);
+    if (controller == null) return const SizedBox.shrink();
+    final color = context.appColors.onCanvas;
+
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final on = controller.phase == RefreshFacePhase.working;
+        return AnimatedOpacity(
+          opacity: on ? 1 : 0,
+          duration: AppDurations.quick,
+          child: AnimatedScale(
+            scale: on ? 1 : 0.6,
+            duration: AppDurations.quick,
+            curve: Curves.easeOutBack,
+            child: SizedBox.square(
+              dimension: 18,
+              // Standing still while hidden, so it does not keep a ticker
+              // running for nothing.
+              child: CircularProgressIndicator(
+                value: on ? null : 0.75,
+                strokeWidth: 2.5,
+                strokeCap: StrokeCap.round,
+                color: color,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

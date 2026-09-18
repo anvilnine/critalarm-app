@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 /// - [destructive] a delete is confirmed: heavy, so it registers as final.
 /// - [done] a run of work is finished: medium.
 /// - [selection] segmented and mode toggles, tab changes, accept and dismiss.
+/// - [failed] a refresh did not work: heavy, so it feels unlike [done].
 ///
 /// A0 maps these onto Crit Alarm's own moments. The alarm screen and the two
 /// acknowledge stages are the ones that matter here.
@@ -39,6 +40,11 @@ abstract final class AppHaptics {
   /// A run of work finished. Medium, matching the deliberate press.
   static void done() {
     if (_enabled) unawaited(HapticFeedback.mediumImpact());
+  }
+
+  /// A refresh did not work. Heavy, so it feels unlike [done].
+  static void failed() {
+    if (_enabled) unawaited(HapticFeedback.heavyImpact());
   }
 
   /// A discrete choice: toggle, tab, accept/dismiss — the lightest tick.
