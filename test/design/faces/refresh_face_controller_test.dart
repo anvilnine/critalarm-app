@@ -46,6 +46,15 @@ void main() {
       expect(c.progress, 1);
     });
 
+    test('armed only once the pull reaches 80', () {
+      final c = make(() async => true)..pull(79);
+      expect(c.isArmed, isFalse);
+      c.pull(80);
+      expect(c.isArmed, isTrue);
+      c.pull(60);
+      expect(c.isArmed, isFalse);
+    });
+
     test('back at 0 is idle again', () {
       final c = make(() async => true)
         ..pull(40)

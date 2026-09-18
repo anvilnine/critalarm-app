@@ -142,9 +142,7 @@ class AppScreenScaffold extends StatelessWidget {
       ],
     );
 
-    if (onFaceRefresh != null) {
-      list = RefreshFaceHost(onRefresh: onFaceRefresh!, child: list);
-    } else if (onRefresh != null) {
+    if (onRefresh != null) {
       list = RefreshIndicator(
         onRefresh: onRefresh!,
         edgeOffset: topInset,
@@ -230,6 +228,12 @@ class AppScreenScaffold extends StatelessWidget {
           ),
       ],
     );
+
+    // Around the list and the top bar, so a spinner in the bar can follow the
+    // refresh. The side pane stays outside: its face is not this refresh.
+    if (onFaceRefresh != null) {
+      body = RefreshFaceHost(onRefresh: onFaceRefresh!, child: body);
+    }
 
     if (twoPane) {
       body = Row(

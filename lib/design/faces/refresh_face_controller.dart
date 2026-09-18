@@ -51,6 +51,9 @@ class RefreshFaceController extends ChangeNotifier {
   double get progress => _progress;
   double _progress = 0;
 
+  /// True while the pull is far enough that letting go will refresh.
+  bool get isArmed => _phase == RefreshFacePhase.pulling && _progress >= 1;
+
   /// The list is pulled [distance] pixels past its top. Ignored while a
   /// refresh is running or finishing.
   void pull(double distance) {
