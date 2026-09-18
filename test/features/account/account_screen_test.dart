@@ -1,6 +1,6 @@
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_session.dart';
-import 'package:critalarm/design/theme/theme.dart';
+import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
@@ -287,5 +287,84 @@ void main() {
     expect(find.text('Continue with Google'), findsNothing);
     expect(find.text('Terms'), findsNothing);
     expect(find.text('Privacy Policy'), findsNothing);
+  });
+
+  testWidgets('renders the calm mascot face at the top when available', (
+    tester,
+  ) async {
+    final account = FakeAccountRepository(linkAnswers: const []);
+    final cubit = AccountCubit(
+      identities: FakeIdentityRepository(),
+      account: account,
+    );
+    addTearDown(cubit.close);
+    await cubit.load();
+
+    await tester.pumpWidget(wrap(cubit));
+    await tester.pumpAndSettle();
+
+    final face = tester.widget<FaceWidget>(find.byType(FaceWidget));
+    expect(face.state, FaceState.calm);
+    expect(face.size, 96);
+  });
+
+  testWidgets(
+    'offers GitHub in disabled coming-soon state and Google with brand icon',
+    (tester) async {
+      final account = FakeAccountRepository(linkAnswers: const []);
+      final cubit = AccountCubit(
+        identities: FakeIdentityRepository(),
+        account: account,
+      );
+      addTearDown(cubit.close);
+      await cubit.load();
+
+      await tester.pumpWidget(wrap(cubit));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Continue with GitHub'), findsOneWidget);
+      expect(find.text('Coming soon'), findsOneWidget);
+      expect(find.byType(BrandIcon), findsWidgets);
+
+      // GitHub button should be disabled (onPressed == null)
+      final buttons = tester.widgetList<AppButton>(find.byType(AppButton));
+      final githubBtn = buttons.firstWhere(
+        (b) => b.label == 'Continue with GitHub',
+      );
+      expect(githubBtn.onPressed, isNull);
+    },
+  );
+
+  testWidgets('delete account is placed outside the main auth sheet', (
+    tester,
+  ) async {
+    final account = FakeAccountRepository(linkAnswers: const []);
+    final cubit = AccountCubit(
+      identities: FakeIdentityRepository(),
+      account: account,
+    );
+    addTearDown(cubit.close);
+    await cubit.load();
+
+    await tester.pumpWidget(wrap(cubit));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete account'), findsOneWidget);
+    // Delete account should NOT be inside AppSheet
+    expect(
+      find.descendant(
+        of: find.byType(AppSheet),
+        matching: find.text('Delete account'),
+      ),
+      findsNothing,
+    );
+    // But Google sign in IS inside AppSheet
+    expect(
+      find.descendant(
+        of: find.byType(AppSheet),
+        matching: find.text('Continue with Google'),
+      ),
+      findsOneWidget,
+    );
   });
 }
