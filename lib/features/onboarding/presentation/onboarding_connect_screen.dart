@@ -188,15 +188,17 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           resizeForKeyboard: true,
           topBar: AppTopBar(
             title: LocaleKeys.app_title.tr(),
-            // Only when something pushed this screen, which means Settings.
-            // Onboarding itself arrives with `go` and has nothing to pop.
-            leading: context.canPop()
-                ? AppIconButton(
-                    glyph: GlyphType.arrow,
-                    ariaLabel: LocaleKeys.critical_alarm_back_aria_label.tr(),
-                    onPressed: context.pop,
-                  )
-                : null,
+            leading: AppIconButton(
+              glyph: GlyphType.back,
+              ariaLabel: LocaleKeys.common_back.tr(),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/onboarding');
+                }
+              },
+            ),
           ),
           bottomBar: state.isConnected
               ? _buildHookBottomBar(context, state, cubit)
