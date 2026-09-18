@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/design/components/jumping_text.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/faces/refresh_face_controller.dart';
@@ -258,16 +259,23 @@ class _HistoryStage extends StatelessWidget {
     if (refresh == null) {
       return AppStage.horizontal(faceState: FaceState.acked, sub: summary);
     }
+    final colors = context.appColors;
     return ListenableBuilder(
       listenable: refresh,
       builder: (context, _) => AppStage.horizontal(
         faceState: FaceState.acked,
-        sub: switch (refresh.phase) {
-          RefreshFacePhase.working => LocaleKeys.history_refresh_checking.tr(),
-          RefreshFacePhase.success => LocaleKeys.history_refresh_done.tr(),
-          RefreshFacePhase.failed => LocaleKeys.history_refresh_failed.tr(),
-          _ => summary,
-        },
+        subWidget: JumpingText(
+          switch (refresh.phase) {
+            RefreshFacePhase.working =>
+              LocaleKeys.history_refresh_checking.tr(),
+            RefreshFacePhase.success => LocaleKeys.history_refresh_done.tr(),
+            RefreshFacePhase.failed => LocaleKeys.history_refresh_failed.tr(),
+            _ => summary,
+          },
+          style: AppStage.horizontalSubStyle(colors),
+          gradient: [colors.cobalt, colors.crit, colors.high],
+          wave: refresh.phase == RefreshFacePhase.working,
+        ),
       ),
     );
   }
