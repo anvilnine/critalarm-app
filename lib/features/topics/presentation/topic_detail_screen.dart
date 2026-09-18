@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
-import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -147,7 +146,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
         // sit at the bottom of the sheet on every topic, whatever its state.
         final isRinging = state.openIncidentIds.isNotEmpty;
 
-        return SeverityScope(
+        final scaffold = SeverityScope(
           severity: state.severity,
           child: AppScreenScaffold(
             // Pushed, this screen covers the display and the tab bar goes with
@@ -294,9 +293,8 @@ class _TopicDetailScreenContent extends StatelessWidget {
                             color: context.appColors.ink3,
                             size: 16,
                           ),
-                          onTap: () => context.pushNamed(
-                            AppRoute.soundPicker,
-                            queryParameters: {'topic': state.topicName},
+                          onTap: () => context.push(
+                            '${GoRouterState.of(context).uri.path}/sounds',
                           ),
                         ),
                         AppSectionHeader(
@@ -333,7 +331,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
                             isFullWidth: true,
                             onPressed: () => unawaited(
                               context.push(
-                                '/topics/${state.topicName}/messages',
+                                '${GoRouterState.of(context).uri.path}/messages',
                               ),
                             ),
                           ),
@@ -358,6 +356,8 @@ class _TopicDetailScreenContent extends StatelessWidget {
             ],
           ),
         );
+
+        return scaffold;
       },
     );
   }

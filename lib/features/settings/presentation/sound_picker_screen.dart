@@ -61,8 +61,6 @@ class _SoundPickerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-
     return BlocConsumer<SoundPickerCubit, SoundPickerState>(
       listenWhen: (was, now) => now.errorCode != null && was.errorCode == null,
       listener: (context, state) {
@@ -74,9 +72,10 @@ class _SoundPickerView extends StatelessWidget {
         context.read<SoundPickerCubit>().clearError();
       },
       builder: (context, state) {
+        final colors = context.appColors;
         final cubit = context.read<SoundPickerCubit>();
         final selectedName = selectedSound(state)?.name ?? '';
-        return AppScreenScaffold(
+        final content = AppScreenScaffold(
           topBar: AppTopBar(
             leading: AppIconButton(
               glyph: GlyphType.back,
@@ -207,6 +206,8 @@ class _SoundPickerView extends StatelessWidget {
             ),
           ],
         );
+
+        return content;
       },
     );
   }

@@ -5,6 +5,8 @@ import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
+import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -58,6 +60,23 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     _urlController = TextEditingController(text: cubit.state.serverUrl);
     _tokenController = TextEditingController(text: cubit.state.adminToken);
     unawaited(_checkConnectivity());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncAmbientStep();
+    });
+  }
+
+  void _syncAmbientStep() {
+    final cubit = context.read<OnboardingConnectCubit>();
+    final ambient = OnboardingAmbientScope.maybeOf(context);
+    if (ambient == null) return;
+    if (cubit.state.isCountingDown) {
+      ambient.setStep(OnboardingAmbientStep.countdown);
+    } else if (cubit.state.isConnected) {
+      ambient.setStep(OnboardingAmbientStep.connected);
+    } else {
+      ambient.setStep(OnboardingAmbientStep.connect);
+    }
   }
 
   /// Coming back to the app is the usual moment someone has just turned wifi
@@ -97,18 +116,38 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     return BlocConsumer<OnboardingConnectCubit, OnboardingConnectState>(
       listenWhen: (prev, curr) =>
           (!prev.canNavigateToHome && curr.canNavigateToHome) ||
-          (!prev.canLaunchDemoAlarm && curr.canLaunchDemoAlarm),
+          (!prev.canLaunchDemoAlarm && curr.canLaunchDemoAlarm) ||
+          prev.isConnected != curr.isConnected ||
+          prev.isCountingDown != curr.isCountingDown,
       listener: (context, state) {
         final cubit = context.read<OnboardingConnectCubit>();
         if (state.canNavigateToHome) {
           cubit.navigationHandled();
           context.go('/');
+          return;
         } else if (state.canLaunchDemoAlarm) {
           cubit.demoAlarmHandled();
           // The demo alarm is a step forward in onboarding, not a detour, so
           // it replaces this screen. Pushing left it swipe-back-able into a
           // test the user has already run.
           context.go('/incidents/inc_demo');
+          return;
+        }
+        final ambient = OnboardingAmbientScope.maybeOf(context);
+        if (ambient != null) {
+          if (state.isCountingDown) {
+            ambient.setStep(
+              OnboardingAmbientStep.countdown,
+              AmbientDirection.push,
+            );
+          } else if (state.isConnected) {
+            ambient.setStep(
+              OnboardingAmbientStep.connected,
+              AmbientDirection.push,
+            );
+          } else {
+            ambient.setStep(OnboardingAmbientStep.connect);
+          }
         }
       },
       builder: (context, state) {
@@ -124,9 +163,6 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           _tokenController.text = state.adminToken;
         }
 
-        // Light mode draws the background shapes at nearly double the alpha
-        // dark mode does, and onboarding puts body text straight over them.
-        final isLight = Theme.of(context).brightness == Brightness.light;
         final bottomAligned = !state.isConnected && !state.isSelfHosting;
 
         // What the pinned bar takes off the bottom of the viewport: its own
@@ -144,9 +180,11 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
             barButtons + 12 + MediaQuery.paddingOf(context).bottom;
 
         return AppScreenScaffold(
+          backgroundColor: Colors.transparent,
+          withGhosts: false,
+          withFades: false,
           hasTabBar: false,
           resizeForKeyboard: true,
-          ghostOpacity: isLight ? 0.45 : 1,
           topBar: AppTopBar(
             title: LocaleKeys.app_title.tr(),
             // Only when something pushed this screen, which means Settings.
@@ -271,6 +309,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         if (!state.isSelfHosting) ...[
           // Default: Crit Alarm Cloud primary card
           AppSheet(
+            color: colors.surface.withValues(alpha: 0.88),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

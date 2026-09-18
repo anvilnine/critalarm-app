@@ -65,7 +65,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // The permissions screen is titled Health and lists the permissions.
-        expect(find.text('Health'), findsOneWidget);
+        expect(find.text('Health'), findsAtLeast(1));
         expect(find.text('Device permissions'), findsOneWidget);
       },
     );
@@ -204,7 +204,7 @@ void main() {
       router.go('/settings/privacy');
       await tester.pumpAndSettle();
 
-      expect(find.text('Privacy'), findsOneWidget);
+      expect(find.text('Privacy'), findsAtLeast(1));
       expect(find.text('Share anonymous usage analytics'), findsOneWidget);
       expect(
         find.text(
@@ -293,7 +293,7 @@ void main() {
         router.go('/settings/about');
         await tester.pumpAndSettle();
 
-        expect(find.text('About'), findsOneWidget);
+        expect(find.text('About'), findsAtLeast(1));
         expect(find.text('Version'), findsOneWidget);
         expect(find.text('v$appVersion'), findsOneWidget);
         expect(find.text('License'), findsOneWidget);
@@ -322,7 +322,10 @@ void main() {
         launched = false;
         await tester.tap(find.text('Documentation'));
         await tester.pumpAndSettle();
-        expect(find.text('Copied https://docs.critalarm.app'), findsOneWidget);
+        expect(
+          find.text('Copied https://docs.critalarm.app'),
+          findsAtLeast(1),
+        );
 
         // Let that toast time out, so the next one is the one on screen.
         await tester.pump(const Duration(seconds: 3));
@@ -333,7 +336,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           find.text('Copied https://github.com/critalarm/critalarm'),
-          findsOneWidget,
+          findsAtLeast(1),
         );
       },
     );

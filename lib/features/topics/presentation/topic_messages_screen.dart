@@ -66,7 +66,12 @@ class _TopicMessagesView extends StatelessWidget {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, Spacing.s3, 12, 16),
+                  padding: const EdgeInsets.fromLTRB(
+                    12,
+                    Spacing.s3,
+                    12,
+                    16,
+                  ),
                   child: AppSheet(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -83,7 +88,11 @@ class _TopicMessagesView extends StatelessWidget {
                             isLive: false,
                           ),
                         for (var i = 0; i < messages.length; i++) ...[
-                          _card(messages[i], state.topicName, isNewest: i == 0),
+                          _card(
+                            messages[i],
+                            state.topicName,
+                            isNewest: i == 0,
+                          ),
                           const SizedBox(height: 10),
                         ],
                       ],
