@@ -133,12 +133,75 @@ void main() {
 
     await tester.tap(find.byType(AppSwitch));
     await tester.pumpAndSettle();
+
+    // The armed button now opens a final confirmation that needs a word typed.
     await tester.tap(find.text('Delete my account'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete your account?'), findsOneWidget);
+    expect(account.deleteIdentityTokens, isEmpty);
+
+    await tester.enterText(find.byType(TextField), 'DELETE');
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Delete my account'),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(account.deleteIdentityTokens.length, 1);
     expect(find.text('An alarm is still ringing'), findsOneWidget);
     expect(find.text('Acknowledge it, then delete.'), findsOneWidget);
+  });
+
+  testWidgets('the final confirmation needs the word typed', (tester) async {
+    final (cubit, account) = await loaded(
+      deleteAnswers: const [
+        AccountDeleteResult.liveIncident(incidentId: 'inc_42'),
+      ],
+    );
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(wrapConfirm(cubit, onManage: () async {}));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(AppSwitch));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete my account'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('You will not get your topics back. Type DELETE to confirm.'),
+      findsOneWidget,
+    );
+
+    // A near miss does not arm the confirm button.
+    await tester.enterText(find.byType(TextField), 'DELET');
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Delete my account'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(account.deleteIdentityTokens, isEmpty);
+    expect(find.byType(AlertDialog), findsOneWidget);
+
+    // The word itself, in any case, does.
+    await tester.enterText(find.byType(TextField), 'delete');
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Delete my account'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(account.deleteIdentityTokens.length, 1);
   });
 
   testWidgets('the way out is on the account screen signed out', (
