@@ -33,6 +33,9 @@ class AppScrollFade extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = color ?? context.appColors.canvas;
+    if (base == Colors.transparent || base.a == 0) {
+      return const SizedBox.shrink();
+    }
     final isTop = edge == ScrollFadeEdge.top;
 
     // Solid canvas against the edge, easing off to nothing at the far end. The

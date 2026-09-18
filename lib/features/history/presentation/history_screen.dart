@@ -189,7 +189,9 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                                   setState(() => _selected = entry);
                                 } else {
                                   unawaited(
-                                    context.push('/topics/${entry.topic}'),
+                                    context.push(
+                                      '/history/topics/${entry.topic}',
+                                    ),
                                   );
                                 }
                               },

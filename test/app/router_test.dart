@@ -5,14 +5,15 @@ import 'package:go_router/go_router.dart';
 /// Walks a route and everything nested under it.
 Iterable<RouteBase> _flatten(RouteBase route) sync* {
   yield route;
-  for (final child in route.routes) {
-    yield* _flatten(child);
-  }
   if (route is StatefulShellRoute) {
     for (final branch in route.branches) {
       for (final child in branch.routes) {
         yield* _flatten(child);
       }
+    }
+  } else {
+    for (final child in route.routes) {
+      yield* _flatten(child);
     }
   }
 }
@@ -46,6 +47,31 @@ void main() {
           .map((r) => r.name);
 
       expect(names, isNot(contains(AppRoute.soundPicker)));
+    });
+  });
+
+  group('ambient transitions across application routes', () {
+    test('all visual routes define pageBuilder and not legacy builder', () {
+      final routes = buildRouter().configuration.routes
+          .expand(_flatten)
+          .whereType<GoRoute>()
+          .where((r) => r.pageBuilder != null || r.builder != null);
+
+      expect(routes, isNotEmpty);
+      for (final route in routes) {
+        expect(
+          route.pageBuilder,
+          isNotNull,
+          reason: 'Route ${route.name ?? route.path} must define pageBuilder',
+        );
+        expect(
+          route.builder,
+          isNull,
+          reason:
+              'Route ${route.name ?? route.path} should not define legacy '
+              'builder',
+        );
+      }
     });
   });
 }

@@ -1,5 +1,6 @@
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
+import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
 import 'package:critalarm/features/account/presentation/delete_account_screen.dart';
@@ -9,6 +10,7 @@ import 'package:critalarm/features/incidents/presentation/lock_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_connect_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
@@ -68,7 +70,10 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       path: '/topics/new',
       parentNavigatorKey: _rootKey,
       name: AppRoute.createTopic,
-      builder: (context, state) => const CreateTopicScreen(),
+      pageBuilder: (context, state) => AmbientPage(
+        key: state.pageKey,
+        child: const CreateTopicScreen(),
+      ),
     ),
     // One screen, two jobs. No `topic` sets the default sound;
     // `?topic=<name>` sets that topic only. Neither ever reaches the server.
@@ -80,10 +85,13 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       path: '/sounds',
       parentNavigatorKey: _rootKey,
       name: AppRoute.soundPicker,
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final topic = state.uri.queryParameters['topic'];
-        return SoundPickerScreen(
-          topicName: topic != null && topic.isNotEmpty ? topic : null,
+        return AmbientPage(
+          key: state.pageKey,
+          child: SoundPickerScreen(
+            topicName: topic != null && topic.isNotEmpty ? topic : null,
+          ),
         );
       },
     ),
@@ -99,31 +107,44 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
             GoRoute(
               path: '/',
               name: AppRoute.home,
-              builder: (context, state) => const HomeScreen(),
+              pageBuilder: (context, state) => AmbientPage(
+                key: state.pageKey,
+                child: const HomeScreen(),
+              ),
               routes: [
-                // A topic covers the display the same way creating one does,
-                // so it draws on the root navigator and the tab bar goes with
-                // it. Keeping it nested leaves the Topics list underneath, so
-                // back returns to the list instead of leaving the app, and
-                // History can push the same path.
                 GoRoute(
                   path: 'topics/:name',
-                  parentNavigatorKey: _rootKey,
                   name: AppRoute.topicDetail,
-                  builder: (context, state) {
+                  pageBuilder: (context, state) {
                     final name = state.pathParameters['name'] ?? '';
-                    return TopicDetailScreen(topicName: name);
+                    return AmbientPage(
+                      key: state.pageKey,
+                      child: TopicDetailScreen(topicName: name),
+                    );
                   },
                   routes: [
                     // The topic screen shows only the newest message so its
                     // acknowledge button stays on screen. The rest are here.
                     GoRoute(
                       path: 'messages',
-                      parentNavigatorKey: _rootKey,
                       name: AppRoute.topicMessages,
-                      builder: (context, state) {
+                      pageBuilder: (context, state) {
                         final name = state.pathParameters['name'] ?? '';
-                        return TopicMessagesScreen(topicName: name);
+                        return AmbientPage(
+                          key: state.pageKey,
+                          child: TopicMessagesScreen(topicName: name),
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: 'sounds',
+                      name: 'homeTopicSounds',
+                      pageBuilder: (context, state) {
+                        final name = state.pathParameters['name'] ?? '';
+                        return AmbientPage(
+                          key: state.pageKey,
+                          child: SoundPickerScreen(topicName: name),
+                        );
                       },
                     ),
                   ],
@@ -137,7 +158,47 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
             GoRoute(
               path: '/history',
               name: AppRoute.history,
-              builder: (context, state) => const HistoryScreen(),
+              pageBuilder: (context, state) => AmbientPage(
+                key: state.pageKey,
+                child: const HistoryScreen(),
+              ),
+              routes: [
+                GoRoute(
+                  path: 'topics/:name',
+                  name: 'historyTopicDetail',
+                  pageBuilder: (context, state) {
+                    final name = state.pathParameters['name'] ?? '';
+                    return AmbientPage(
+                      key: state.pageKey,
+                      child: TopicDetailScreen(topicName: name),
+                    );
+                  },
+                  routes: [
+                    GoRoute(
+                      path: 'messages',
+                      name: 'historyTopicMessages',
+                      pageBuilder: (context, state) {
+                        final name = state.pathParameters['name'] ?? '';
+                        return AmbientPage(
+                          key: state.pageKey,
+                          child: TopicMessagesScreen(topicName: name),
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: 'sounds',
+                      name: 'historyTopicSounds',
+                      pageBuilder: (context, state) {
+                        final name = state.pathParameters['name'] ?? '';
+                        return AmbientPage(
+                          key: state.pageKey,
+                          child: SoundPickerScreen(topicName: name),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -146,60 +207,96 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
             GoRoute(
               path: '/settings',
               name: AppRoute.settings,
-              builder: (context, state) {
+              pageBuilder: (context, state) {
                 final isDisconnected =
                     state.uri.queryParameters['disconnected'] == 'true';
-                return SettingsScreen(forceDisconnected: isDisconnected);
+                return AmbientPage(
+                  key: state.pageKey,
+                  child: SettingsScreen(forceDisconnected: isDisconnected),
+                );
               },
               routes: [
                 GoRoute(
                   path: 'disconnected',
                   name: AppRoute.settingsDisconnected,
-                  builder: (context, state) => const SettingsScreen(
-                    forceDisconnected: true,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    child: const SettingsScreen(
+                      forceDisconnected: true,
+                    ),
                   ),
                 ),
                 GoRoute(
                   path: 'permissions',
                   name: AppRoute.devicePermissions,
-                  builder: (context, state) => const DevicePermissionsScreen(),
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    child: const DevicePermissionsScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'alarms',
                   name: AppRoute.alarmSettings,
-                  builder: (context, state) => const AlarmSettingsScreen(),
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    child: const AlarmSettingsScreen(),
+                  ),
+                  routes: [
+                    GoRoute(
+                      path: 'sounds',
+                      name: 'alarmSounds',
+                      pageBuilder: (context, state) => AmbientPage(
+                        key: state.pageKey,
+                        child: const SoundPickerScreen(),
+                      ),
+                    ),
+                  ],
                 ),
                 GoRoute(
                   path: 'server',
                   name: AppRoute.serverSettings,
-                  builder: (context, state) => const ServerSettingsScreen(),
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    child: const ServerSettingsScreen(),
+                  ),
                 ),
                 // Absent on a self-hosted server: Settings hides the row that
                 // leads here, because that server has no accounts.
                 GoRoute(
                   path: 'account',
                   name: AppRoute.account,
-                  builder: (context, state) => const AccountScreen(),
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    child: const AccountScreen(),
+                  ),
                   routes: [
                     // Its own route rather than a dialog: there is too much
                     // to read before erasing an account.
                     GoRoute(
                       path: 'delete',
                       name: AppRoute.deleteAccount,
-                      builder: (context, state) =>
-                          const DeleteAccountScreen(),
+                      pageBuilder: (context, state) => AmbientPage(
+                        key: state.pageKey,
+                        child: const DeleteAccountScreen(),
+                      ),
                     ),
                   ],
                 ),
                 GoRoute(
                   path: 'privacy',
                   name: AppRoute.privacySettings,
-                  builder: (context, state) => const PrivacySettingsScreen(),
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    child: const PrivacySettingsScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'about',
                   name: AppRoute.about,
-                  builder: (context, state) => const AboutScreen(),
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    child: const AboutScreen(),
+                  ),
                 ),
                 // Only reachable in builds made with
                 // --dart-define=SKIP_PAYWALL=true, where Settings shows the
@@ -207,7 +304,10 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                 GoRoute(
                   path: 'developer',
                   name: AppRoute.developerSettings,
-                  builder: (context, state) => const DeveloperSettingsScreen(),
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    child: const DeveloperSettingsScreen(),
+                  ),
                 ),
               ],
             ),
@@ -227,64 +327,96 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     GoRoute(
       path: '/paywall',
       name: AppRoute.paywall,
-      builder: (context, state) => const PaywallScreen(),
+      pageBuilder: (context, state) => AmbientPage(
+        key: state.pageKey,
+        child: const PaywallScreen(),
+      ),
     ),
     GoRoute(
       path: '/gallery',
       name: AppRoute.gallery,
-      builder: (context, state) => const GalleryScreen(),
-    ),
-    GoRoute(
-      path: '/onboarding',
-      name: AppRoute.onboarding,
-      builder: (context, state) {
-        final isDenied = state.uri.queryParameters['denied'] == 'true';
-        // `?demo=true` comes from the developer menu. It shows every step,
-        // including the ones this phone has already granted, because the
-        // point is looking at the screens rather than getting through them.
-        final replay = state.uri.queryParameters['demo'] == 'true';
-        return OnboardingPermissionsScreen(
-          replayForDemo: replay,
-          initialStep: isDenied
-              ? NotificationPermissionStep.denied
-              : NotificationPermissionStep.initial,
-        );
-      },
-    ),
-    GoRoute(
-      path: '/onboarding/denied',
-      name: AppRoute.onboardingDenied,
-      builder: (context, state) => const OnboardingPermissionsScreen(
-        initialStep: NotificationPermissionStep.denied,
+      pageBuilder: (context, state) => AmbientPage(
+        key: state.pageKey,
+        child: const GalleryScreen(),
       ),
     ),
-    GoRoute(
-      path: '/onboarding/connect',
-      name: AppRoute.onboardingConnect,
-      builder: (context, state) => const OnboardingConnectScreen(),
-    ),
-    GoRoute(
-      path: '/onboarding/permissions',
-      name: AppRoute.onboardingPermissions,
-      builder: (context, state) => const OnboardingPermissionsScreen(),
+    ShellRoute(
+      builder: (context, state, child) => OnboardingShell(
+        state: state,
+        child: child,
+      ),
+      routes: [
+        GoRoute(
+          path: '/onboarding',
+          name: AppRoute.onboarding,
+          pageBuilder: (context, state) {
+            final isDenied = state.uri.queryParameters['denied'] == 'true';
+            final replay = state.uri.queryParameters['demo'] == 'true';
+            return AmbientPage(
+              key: state.pageKey,
+              child: OnboardingPermissionsScreen(
+                replayForDemo: replay,
+                initialStep: isDenied
+                    ? NotificationPermissionStep.denied
+                    : NotificationPermissionStep.initial,
+              ),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/onboarding/denied',
+          name: AppRoute.onboardingDenied,
+          pageBuilder: (context, state) => AmbientPage(
+            key: state.pageKey,
+            child: const OnboardingPermissionsScreen(
+              initialStep: NotificationPermissionStep.denied,
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/onboarding/connect',
+          name: AppRoute.onboardingConnect,
+          pageBuilder: (context, state) => AmbientPage(
+            key: state.pageKey,
+            child: const OnboardingConnectScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/onboarding/permissions',
+          name: AppRoute.onboardingPermissions,
+          pageBuilder: (context, state) => AmbientPage(
+            key: state.pageKey,
+            child: const OnboardingPermissionsScreen(),
+          ),
+        ),
+      ],
     ),
     GoRoute(
       path: '/alarm',
       name: AppRoute.alarm,
-      builder: (context, state) => const CriticalAlarmScreen(),
+      pageBuilder: (context, state) => AmbientPage(
+        key: state.pageKey,
+        child: const CriticalAlarmScreen(),
+      ),
     ),
     GoRoute(
       path: '/incidents/:id',
       name: AppRoute.incidentDetail,
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final id = state.pathParameters['id'];
-        return CriticalAlarmScreen(incidentId: id);
+        return AmbientPage(
+          key: state.pageKey,
+          child: CriticalAlarmScreen(incidentId: id),
+        );
       },
     ),
     GoRoute(
       path: '/lockscreen',
       name: AppRoute.lockScreen,
-      builder: (context, state) => const LockScreen(),
+      pageBuilder: (context, state) => AmbientPage(
+        key: state.pageKey,
+        child: const LockScreen(),
+      ),
     ),
   ],
 );

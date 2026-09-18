@@ -4,6 +4,8 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
+import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/permission_dialog_preview.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -62,6 +64,23 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncAmbientStep();
+    });
+  }
+
+  void _syncAmbientStep() {
+    final cubit = context.read<NotificationPermissionsCubit>();
+    final ambient = OnboardingAmbientScope.maybeOf(context);
+    if (ambient == null) return;
+    if (cubit.state.isDenied) {
+      ambient.setStep(OnboardingAmbientStep.denied);
+    } else if (cubit.state.activeSubstep == 1) {
+      ambient.setStep(OnboardingAmbientStep.alarms, AmbientDirection.right);
+    } else {
+      ambient.setStep(OnboardingAmbientStep.notifications);
+    }
   }
 
   @override
@@ -89,10 +108,32 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
       NotificationPermissionsCubit,
       NotificationPermissionsState
     >(
-      listenWhen: (prev, curr) => !prev.canNavigate && curr.canNavigate,
+      listenWhen: (prev, curr) =>
+          (!prev.canNavigate && curr.canNavigate) ||
+          prev.activeSubstep != curr.activeSubstep ||
+          prev.isDenied != curr.isDenied,
       listener: (context, state) {
-        context.read<NotificationPermissionsCubit>().navigationHandled();
-        context.go('/onboarding/connect');
+        if (state.canNavigate) {
+          context.read<NotificationPermissionsCubit>().navigationHandled();
+          context.go('/onboarding/connect');
+          return;
+        }
+        final ambient = OnboardingAmbientScope.maybeOf(context);
+        if (ambient != null) {
+          if (state.isDenied) {
+            ambient.setStep(OnboardingAmbientStep.denied);
+          } else if (state.activeSubstep == 1) {
+            ambient.setStep(
+              OnboardingAmbientStep.alarms,
+              AmbientDirection.right,
+            );
+          } else {
+            ambient.setStep(
+              OnboardingAmbientStep.notifications,
+              AmbientDirection.left,
+            );
+          }
+        }
       },
       builder: (context, state) {
         final cubit = context.read<NotificationPermissionsCubit>();
@@ -108,10 +149,6 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         final previewHint =
             LocaleKeys.onboarding_permissions_preview_hint.tr();
 
-        // Light mode draws the background shapes at nearly double the alpha
-        // dark mode does, and onboarding puts body text straight over them.
-        final isLight = Theme.of(context).brightness == Brightness.light;
-
         // What the pinned bar takes off the bottom of the viewport: its own
         // buttons, the 12 the scaffold puts under them, and the home
         // indicator. Denied shows lg + Spacing.s3 + md, the rest just lg.
@@ -120,8 +157,10 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
             barButtons + 12 + MediaQuery.paddingOf(context).bottom;
 
         return AppScreenScaffold(
+          backgroundColor: Colors.transparent,
+          withGhosts: false,
+          withFades: false,
           hasTabBar: false,
-          ghostOpacity: isLight ? 0.45 : 1,
           topBar: AppTopBar(
             title: LocaleKeys.app_title.tr(),
             trailing: _StepPill(

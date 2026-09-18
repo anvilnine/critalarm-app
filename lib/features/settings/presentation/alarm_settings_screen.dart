@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
-import 'package:critalarm/app/router.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
@@ -109,7 +108,7 @@ class _AlarmSettingsView extends StatelessWidget {
                           color: colors.ink3,
                           size: 16,
                         ),
-                        onTap: () => context.pushNamed(AppRoute.soundPicker),
+                        onTap: () => context.push('/settings/alarms/sounds'),
                       ),
                       const SizedBox(height: 8),
                       AppToggleRow(

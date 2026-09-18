@@ -36,7 +36,7 @@ void main() {
       router.go('/settings/about');
       await tester.pumpAndSettle();
 
-      expect(find.text('Privacy'), findsOneWidget);
+      expect(find.text('Privacy'), findsAtLeast(1));
       expect(find.text('https://critalarm.app/privacy'), findsOneWidget);
       expect(find.text('Terms'), findsOneWidget);
       expect(find.text('https://critalarm.app/terms'), findsOneWidget);

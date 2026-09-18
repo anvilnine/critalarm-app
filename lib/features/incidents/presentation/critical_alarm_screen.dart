@@ -33,21 +33,39 @@ class CriticalAlarmScreen extends StatelessWidget {
   }
 }
 
-class _CriticalAlarmView extends StatelessWidget {
+class _CriticalAlarmView extends StatefulWidget {
   const _CriticalAlarmView();
+
+  @override
+  State<_CriticalAlarmView> createState() => _CriticalAlarmViewState();
+}
+
+class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
+  AmbientDirection _direction = AmbientDirection.push;
 
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<CriticalAlarmCubit, CriticalAlarmState>(
       listenWhen: (previous, current) =>
           !previous.isAcknowledged && current.isAcknowledged,
-      listener: (context, state) => AppHaptics.success(),
+      listener: (context, state) {
+        AppHaptics.success();
+        setState(() {
+          _direction = AmbientDirection.push;
+        });
+      },
       builder: (context, state) {
+        final colors = context.appColors;
+        final profile = state.isAcknowledged
+            ? AmbientAppProfiles.criticalAlarmAcknowledged(colors)
+            : AmbientAppProfiles.criticalAlarmRinging(colors);
+
+        Widget content;
         if (!state.isLive && !state.isAcknowledged) {
           final isLoading = state.status == CriticalAlarmStatus.loading;
           final didFail = !isLoading && state.errorMessage != null;
 
-          return AppScreenScaffold(
+          content = AppScreenScaffold(
             hasTabBar: false,
             topBar: AppTopBar(
               title: LocaleKeys.critical_alarm_screen_title.tr(),
@@ -112,23 +130,43 @@ class _CriticalAlarmView extends StatelessWidget {
               ),
             ],
           );
+        } else {
+          content = SeverityScope(
+            mode: state.severityMode,
+            child: Builder(
+              builder: (context) {
+                final colors = context.appColors;
+                if (state.isAcknowledged) {
+                  return _AcknowledgedScreen(state: state, colors: colors);
+                }
+                // While it is ringing this screen holds the only Stop control.
+                // An Android back press or an edge swipe used to dismiss it and
+                // leave the phone screaming with no way back.
+                return PopScope(
+                  canPop: false,
+                  child: _RingingScreen(state: state, colors: colors),
+                );
+              },
+            ),
+          );
         }
-        return SeverityScope(
-          mode: state.severityMode,
-          child: Builder(
-            builder: (context) {
-              final colors = context.appColors;
-              if (state.isAcknowledged) {
-                return _AcknowledgedScreen(state: state, colors: colors);
-              }
-              // While it is ringing this screen holds the only Stop control.
-              // An Android back press or an edge swipe used to dismiss it and
-              // leave the phone screaming with no way back.
-              return PopScope(
-                canPop: false,
-                child: _RingingScreen(state: state, colors: colors),
-              );
-            },
+
+        return AmbientScope(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AmbientCanvas(
+                    key: const ValueKey('critical-alarm-ambient-canvas'),
+                    profile: profile,
+                    direction: _direction,
+                    variant: AmbientMotionVariant.drift,
+                    reduceMotion: context.reduceMotion,
+                  ),
+                ),
+              ),
+              Positioned.fill(child: content),
+            ],
           ),
         );
       },
@@ -415,6 +453,7 @@ class _AcknowledgedScreen extends StatelessWidget {
           ? [
               AppButton(
                 label: LocaleKeys.onboarding_connect_celebration_finish.tr(),
+                variant: AppButtonVariant.paper,
                 isFullWidth: true,
                 onPressed: () {
                   AppHaptics.capture();
@@ -428,6 +467,7 @@ class _AcknowledgedScreen extends StatelessWidget {
                 label: LocaleKeys
                     .onboarding_connect_create_first_topic_button
                     .tr(),
+                variant: AppButtonVariant.paper,
                 isFullWidth: true,
                 onPressed: () async {
                   AppHaptics.capture();
@@ -456,6 +496,7 @@ class _AcknowledgedScreen extends StatelessWidget {
                 label: LocaleKeys.critical_alarm_open_topic_button.tr(
                   namedArgs: {'topic': state.topic},
                 ),
+                variant: AppButtonVariant.paper,
                 isFullWidth: true,
                 onPressed: () {
                   AppHaptics.capture();

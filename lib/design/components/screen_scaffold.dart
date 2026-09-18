@@ -1,3 +1,4 @@
+import 'package:critalarm/design/ambient/ambient_scope.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/nav_rail.dart';
 import 'package:critalarm/design/components/scroll_fade.dart';
@@ -25,6 +26,7 @@ class AppScreenScaffold extends StatelessWidget {
     this.scrollController,
     this.backgroundColor,
     this.withGhosts = true,
+    this.withFades = true,
     this.ghostOpacity = 1,
     this.resizeForKeyboard = false,
     super.key,
@@ -54,6 +56,7 @@ class AppScreenScaffold extends StatelessWidget {
   final ScrollController? scrollController;
   final Color? backgroundColor;
   final bool withGhosts;
+  final bool withFades;
 
   /// Dials the background shapes down, for a screen whose text sits straight
   /// on top of them.
@@ -85,7 +88,11 @@ class AppScreenScaffold extends StatelessWidget {
   Widget _build(BuildContext context, double boxWidth) {
     final colors = context.appColors;
     final padding = MediaQuery.paddingOf(context);
-    final canvas = backgroundColor ?? colors.canvas;
+    final inAmbient = AmbientScope.isInAmbientScope(context);
+    final effectiveWithGhosts = !inAmbient && withGhosts;
+    final effectiveWithFades = !inAmbient && withFades;
+    final canvas = backgroundColor ??
+        (inAmbient ? Colors.transparent : colors.canvas);
     final size = AppSize.of(context);
     final twoPane = size.isExpanded && detail != null;
 
@@ -138,7 +145,7 @@ class AppScreenScaffold extends StatelessWidget {
         // The tab bar floats over every branch screen, so the fade behind it
         // lives here rather than in the shell: this side of the tree is inside
         // the screen's SeverityScope, so the wash follows the retint.
-        if (hasTabBar && !size.isExpanded)
+        if (effectiveWithFades && hasTabBar && !size.isExpanded)
           Positioned(
             bottom: 0,
             left: 0,
@@ -151,7 +158,7 @@ class AppScreenScaffold extends StatelessWidget {
           ),
         // The list runs under the top bar, so wash the canvas over the last
         // few pixels and let rows dissolve instead of meeting a hard edge.
-        if (topBar != null)
+        if (effectiveWithFades && topBar != null)
           Positioned(
             top: 0,
             left: 0,
@@ -183,11 +190,12 @@ class AppScreenScaffold extends StatelessWidget {
             child: Stack(
               alignment: Alignment.bottomCenter,
               children: [
-                AppScrollFade(
-                  edge: ScrollFadeEdge.bottom,
-                  height: padding.bottom + 116,
-                  color: canvas,
-                ),
+                if (effectiveWithFades)
+                  AppScrollFade(
+                    edge: ScrollFadeEdge.bottom,
+                    height: padding.bottom + 116,
+                    color: canvas,
+                  ),
                 SafeArea(
                   top: false,
                   child: Padding(
@@ -225,7 +233,9 @@ class AppScreenScaffold extends StatelessWidget {
       );
     }
 
-    if (withGhosts) body = GhostField(opacity: ghostOpacity, child: body);
+    if (effectiveWithGhosts) {
+      body = GhostField(opacity: ghostOpacity, child: body);
+    }
 
     return Scaffold(
       backgroundColor: canvas,

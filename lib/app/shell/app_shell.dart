@@ -226,6 +226,12 @@ class _AppShellContentState extends State<_AppShellContent>
     final panelMaxHeight = screen.height - panelBottom - padding.top - 16;
     final width = (screen.width - _gutter * 2).clamp(0.0, _maxWidth);
 
+    final currentPath = GoRouterState.of(context).uri.path;
+    final hideTabBar = !_isSearching &&
+        (currentPath.contains('/topics/') ||
+            currentPath.contains('/messages') ||
+            currentPath.contains('/sounds'));
+
     return BlocBuilder<ShellCubit, ShellHealth>(
       builder: (context, health) {
         final items = [
@@ -243,7 +249,9 @@ class _AppShellContentState extends State<_AppShellContent>
 
         return Stack(
           children: [
-            Positioned.fill(child: widget.navigationShell),
+            Positioned.fill(
+              child: widget.navigationShell,
+            ),
 
             if (_isSearching) ...[
               Positioned.fill(child: _scrim()),
@@ -276,11 +284,23 @@ class _AppShellContentState extends State<_AppShellContent>
                 ),
               )
             else if (!size.isExpanded || _isSearching)
-              Positioned(
+              AnimatedPositioned(
+                duration: AppDurations.slow,
+                curve: AppCurves.easeOut,
                 left: 0,
                 right: 0,
-                bottom: barBottom,
-                child: Center(child: _bar(items, size, width)),
+                bottom: hideTabBar ? -100 : barBottom,
+                child: Center(
+                  child: IgnorePointer(
+                    ignoring: hideTabBar,
+                    child: AnimatedOpacity(
+                      duration: AppDurations.slow,
+                      curve: AppCurves.easeOut,
+                      opacity: hideTabBar ? 0.0 : 1.0,
+                      child: _bar(items, size, width),
+                    ),
+                  ),
+                ),
               ),
           ],
         );

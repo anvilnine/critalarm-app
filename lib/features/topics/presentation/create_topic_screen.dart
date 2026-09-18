@@ -82,7 +82,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
 
         // Tapping anywhere outside a field puts the keyboard away. Translucent
         // so the button and the text field still get their own taps.
-        return GestureDetector(
+        final content = GestureDetector(
           behavior: HitTestBehavior.translucent,
           onTap: () => FocusScope.of(context).unfocus(),
           child: AppScreenScaffold(
@@ -255,6 +255,27 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                   ),
                 ),
               ),
+            ],
+          ),
+        );
+
+        final profile = AmbientAppProfiles.createTopic(colors);
+
+        return AmbientScope(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AmbientCanvas(
+                    key: const ValueKey('create-topic-ambient-canvas'),
+                    profile: profile,
+                    direction: AmbientDirection.push,
+                    variant: AmbientMotionVariant.drift,
+                    reduceMotion: context.reduceMotion,
+                  ),
+                ),
+              ),
+              Positioned.fill(child: content),
             ],
           ),
         );

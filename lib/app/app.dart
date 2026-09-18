@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/push_bindings.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/push/push_host.dart';
@@ -88,6 +89,10 @@ class _CritAlarmAppState extends State<CritAlarmApp>
           supportedLocales: context.supportedLocales,
           locale: context.locale,
           routerConfig: _router,
+          builder: (context, child) => AppAmbientShell(
+            router: _router,
+            child: child ?? const SizedBox.shrink(),
+          ),
         ),
       ),
     );
