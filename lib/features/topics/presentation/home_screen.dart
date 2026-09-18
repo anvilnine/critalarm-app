@@ -145,7 +145,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         return SeverityScope(
           severity: state.severity,
           child: AppScreenScaffold(
-            onRefresh: () => context.read<HomeCubit>().refresh(),
+            onFaceRefresh: () => context.read<HomeCubit>().refresh(),
             // Search is not up here any more. It lives next to the compose
             // button on the floating bar, so it is reachable from every tab
             // rather than only this one.
