@@ -18,6 +18,16 @@ abstract final class AppDurations {
   /// Watching face pupil drift cadence (4000ms).
   static const Duration look = Duration(milliseconds: 4000);
 
+  /// Shortest time the refresh face stays on "working", so it never just
+  /// flashes (600ms).
+  static const Duration faceWorkingMin = Duration(milliseconds: 600);
+
+  /// How long the refresh face holds "success" (700ms).
+  static const Duration faceSuccessHold = Duration(milliseconds: 700);
+
+  /// How long the refresh face holds "worried" after a failed refresh (1000ms).
+  static const Duration faceFailedHold = Duration(milliseconds: 1000);
+
   // Backwards compatibility aliases
   static const Duration tap = Duration(milliseconds: 120);
   static const Duration fast = quick;
