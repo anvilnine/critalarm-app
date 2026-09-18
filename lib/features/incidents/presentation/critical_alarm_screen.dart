@@ -121,9 +121,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
                         ? ''
                         : LocaleKeys.critical_alarm_no_alarm_body.tr(),
                     buttonLabel: null,
-                    faceState: didFail
-                        ? FaceState.worried
-                        : FaceState.calm,
+                    faceState: didFail ? FaceState.worried : FaceState.calm,
                     isLive: isLoading,
                   ),
                 ),
@@ -304,6 +302,7 @@ class _RingingScreen extends StatelessWidget {
   }
 
   Widget _face(double faceSize) {
+    final isDemo = state.incident?.id == 'inc_demo';
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: SizedBox(
@@ -314,10 +313,16 @@ class _RingingScreen extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             PulseRingWidget(size: faceSize),
-            FaceWidget(
-              state: state.faceState,
-              size: faceSize,
-              isLive: state.isLive,
+            Hero(
+              tag: isDemo
+                  ? 'onboarding-face'
+                  : 'alarm-face-${state.incident?.id}',
+              flightShuttleBuilder: faceFlightShuttleBuilder,
+              child: FaceWidget(
+                state: state.faceState,
+                size: faceSize,
+                isLive: state.isLive,
+              ),
             ),
           ],
         ),
@@ -464,8 +469,7 @@ class _AcknowledgedScreen extends StatelessWidget {
           : isDemo
           ? [
               AppButton(
-                label: LocaleKeys
-                    .onboarding_connect_create_first_topic_button
+                label: LocaleKeys.onboarding_connect_create_first_topic_button
                     .tr(),
                 variant: AppButtonVariant.paper,
                 isFullWidth: true,
@@ -524,7 +528,13 @@ class _AcknowledgedScreen extends StatelessWidget {
             hasScrollBody: false,
             child: Row(
               children: [
-                FaceWidget(state: state.faceState, size: 260),
+                Hero(
+                  tag: isDemo
+                      ? 'onboarding-face'
+                      : 'alarm-face-${state.incident?.id}',
+                  flightShuttleBuilder: faceFlightShuttleBuilder,
+                  child: FaceWidget(state: state.faceState, size: 260),
+                ),
                 const SizedBox(width: 40),
                 Expanded(
                   child: ConstrainedBox(
@@ -561,7 +571,13 @@ class _AcknowledgedScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                FaceWidget(state: state.faceState, size: 224),
+                Hero(
+                  tag: isDemo
+                      ? 'onboarding-face'
+                      : 'alarm-face-${state.incident?.id}',
+                  flightShuttleBuilder: faceFlightShuttleBuilder,
+                  child: FaceWidget(state: state.faceState, size: 224),
+                ),
                 const SizedBox(height: Spacing.s4),
                 _title(TextAlign.center, isDemo),
                 const SizedBox(height: Spacing.s2),

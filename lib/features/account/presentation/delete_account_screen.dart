@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
@@ -63,6 +65,13 @@ class _DeleteAccountViewState extends State<DeleteAccountView> {
         // The account screen behind this one is showing an account that no
         // longer exists, so it is rebuilt from scratch on the fresh anonymous
         // account rather than popped back to.
+        //
+        // The shared topic and incident lists still hold the deleted account's
+        // data, so they are refreshed onto the fresh anonymous account now.
+        // Leave them alone and the home screen comes back showing topics that
+        // are gone.
+        unawaited(getIt<TopicsCubit>().refresh());
+        unawaited(getIt<IncidentsCubit>().refresh());
         context.go('/settings/account');
       },
       builder: (context, state) {
@@ -94,6 +103,19 @@ class _DeleteAccountViewState extends State<DeleteAccountView> {
     );
   }
 
+  /// The third deliberate action. The toggle arms the button, the button
+  /// opens this prompt, and the prompt only confirms once the word is typed,
+  /// so erasing an account is never a single tap.
+  Future<void> _confirmAndDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _DeleteConfirmDialog(),
+    );
+    if (confirmed != true || !context.mounted) return;
+    AppHaptics.destructive();
+    await context.read<AccountCubit>().deleteAccount();
+  }
+
   Widget _body(BuildContext context, AccountState state) {
     // Self-hosted servers have one operator and no accounts, so there is
     // nothing here to erase. Same gate the account screen uses.
@@ -101,7 +123,6 @@ class _DeleteAccountViewState extends State<DeleteAccountView> {
       return const SizedBox.shrink();
     }
     final colors = context.appColors;
-    final cubit = context.read<AccountCubit>();
 
     return AppSheet(
       child: Column(
@@ -169,14 +190,113 @@ class _DeleteAccountViewState extends State<DeleteAccountView> {
             isFullWidth: true,
             isLoading: state.isBusy,
             onPressed: _understood
-                ? () {
-                    AppHaptics.destructive();
-                    unawaited(cubit.deleteAccount());
-                  }
+                ? () => unawaited(_confirmAndDelete(context))
                 : null,
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The last word. The person has to type it out, so deleting an account can
+/// never happen by accident or by mashing through a dialog. The confirm button
+/// stays dead until the field matches, case-insensitive.
+class _DeleteConfirmDialog extends StatefulWidget {
+  const _DeleteConfirmDialog();
+
+  @override
+  State<_DeleteConfirmDialog> createState() => _DeleteConfirmDialogState();
+}
+
+class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
+  final TextEditingController _controller = TextEditingController();
+  bool _matches = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    _controller
+      ..removeListener(_onChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onChanged() {
+    final word = LocaleKeys.account_delete_dialog_word.tr();
+    final matches = _controller.text.trim().toUpperCase() == word.toUpperCase();
+    if (matches != _matches) setState(() => _matches = matches);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final word = LocaleKeys.account_delete_dialog_word.tr();
+
+    return AlertDialog(
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: Radii.lgAll),
+      title: Text(
+        LocaleKeys.account_delete_dialog_title.tr(),
+        style: TextStyle(
+          fontFamily: AppTypography.fontDisplay,
+          fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: colors.ink,
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            LocaleKeys.account_delete_dialog_body.tr(
+              namedArgs: {'word': word},
+            ),
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontFamilyFallback: AppTypography.fontBodyFallbacks,
+              fontSize: 14,
+              color: colors.ink2,
+            ),
+          ),
+          const SizedBox(height: 12),
+          AppTextField(
+            controller: _controller,
+            placeholder: word,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(
+            LocaleKeys.common_cancel.tr(),
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              color: colors.ink3,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: _matches ? () => Navigator.of(context).pop(true) : null,
+          child: Text(
+            LocaleKeys.account_delete_dialog_confirm.tr(),
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              color: _matches ? colors.crit : colors.ink3,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

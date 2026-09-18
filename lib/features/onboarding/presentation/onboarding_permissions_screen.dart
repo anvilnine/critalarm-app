@@ -155,10 +155,10 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         final previewMessage = battery
             ? LocaleKeys.onboarding_permissions_preview_battery_desc.tr()
             : _previewMessage(isApple, isStep2);
-        final summaryLabel =
-            LocaleKeys.onboarding_permissions_preview_allow_summary.tr();
-        final previewHint =
-            LocaleKeys.onboarding_permissions_preview_hint.tr();
+        final summaryLabel = LocaleKeys
+            .onboarding_permissions_preview_allow_summary
+            .tr();
+        final previewHint = LocaleKeys.onboarding_permissions_preview_hint.tr();
 
         // What the pinned bar takes off the bottom of the viewport: its own
         // buttons, the 12 the scaffold puts under them, and the home
@@ -244,8 +244,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                   child: state.isDenied
                       ? AppEmptyState(
                           faceState: FaceState.worried,
-                          title: LocaleKeys
-                              .onboarding_permissions_denied_title
+                          title: LocaleKeys.onboarding_permissions_denied_title
                               .tr(),
                           description: LocaleKeys
                               .onboarding_permissions_denied_description
@@ -256,12 +255,16 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Center(
-                              child: FaceWidget(
-                                state: isStep2
-                                    ? FaceState.watching
-                                    : FaceState.alarmed,
-                                size: 80,
-                                isLive: true,
+                              child: Hero(
+                                tag: 'onboarding-face',
+                                flightShuttleBuilder: faceFlightShuttleBuilder,
+                                child: FaceWidget(
+                                  state: isStep2
+                                      ? FaceState.watching
+                                      : FaceState.alarmed,
+                                  size: 80,
+                                  isLive: true,
+                                ),
                               ),
                             ),
                             const SizedBox(height: Spacing.s3),
@@ -275,8 +278,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                                     ? LocaleKeys
                                           .onboarding_permissions_badge_step2
                                           .tr()
-                                    : LocaleKeys
-                                          .onboarding_permissions_badge
+                                    : LocaleKeys.onboarding_permissions_badge
                                           .tr(),
                                 faceState: isStep2
                                     ? FaceState.watching
