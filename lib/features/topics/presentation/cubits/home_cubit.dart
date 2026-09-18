@@ -52,10 +52,12 @@ class HomeCubit extends Cubit<HomeState> {
   int _buildId = 0;
 
   /// Pull-to-refresh. Asks the shared lists again; the rebuild follows from
-  /// what they answer.
-  Future<void> refresh() async {
+  /// what they answer. True when both lists loaded, so the face can say so.
+  Future<bool> refresh() async {
     await Future.wait([_incidents.refresh(), _topics.refresh()]);
     await _rebuildIfChanged();
+    return _incidents.state.status != AppDataStatus.failure &&
+        _topics.state.status != AppDataStatus.failure;
   }
 
   Future<void> load() async {

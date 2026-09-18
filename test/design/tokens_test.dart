@@ -213,7 +213,7 @@ void main() {
   });
 
   group('FaceState', () {
-    test('contains all 5 canonical states', () {
+    test('contains all 7 canonical states', () {
       expect(
         FaceState.values,
         containsAll([
@@ -222,9 +222,11 @@ void main() {
           FaceState.worried,
           FaceState.alarmed,
           FaceState.acked,
+          FaceState.working,
+          FaceState.success,
         ]),
       );
-      expect(FaceState.values.length, 5);
+      expect(FaceState.values.length, 7);
     });
   });
 }
