@@ -182,7 +182,8 @@ void main() {
 
       // Tapping Connect server navigates to /onboarding/connect
       await tester.tap(find.text('Connect server'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('Connect your server?'), findsOneWidget);
     });

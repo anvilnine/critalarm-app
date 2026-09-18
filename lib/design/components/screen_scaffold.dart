@@ -24,6 +24,7 @@ class AppScreenScaffold extends StatelessWidget {
     this.hasTabBar = true,
     this.detail,
     this.scrollController,
+    this.physics,
     this.backgroundColor,
     this.withGhosts = true,
     this.withFades = true,
@@ -54,6 +55,7 @@ class AppScreenScaffold extends StatelessWidget {
   final Widget? detail;
 
   final ScrollController? scrollController;
+  final ScrollPhysics? physics;
   final Color? backgroundColor;
   final bool withGhosts;
   final bool withFades;
@@ -91,8 +93,8 @@ class AppScreenScaffold extends StatelessWidget {
     final inAmbient = AmbientScope.isInAmbientScope(context);
     final effectiveWithGhosts = !inAmbient && withGhosts;
     final effectiveWithFades = !inAmbient && withFades;
-    final canvas = backgroundColor ??
-        (inAmbient ? Colors.transparent : colors.canvas);
+    final canvas =
+        backgroundColor ?? (inAmbient ? Colors.transparent : colors.canvas);
     final size = AppSize.of(context);
     final twoPane = size.isExpanded && detail != null;
 
@@ -116,9 +118,11 @@ class AppScreenScaffold extends StatelessWidget {
 
     Widget list = CustomScrollView(
       controller: scrollController,
-      physics: const AlwaysScrollableScrollPhysics(
-        parent: BouncingScrollPhysics(),
-      ),
+      physics:
+          physics ??
+          const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
       slivers: [
         SliverPadding(padding: EdgeInsets.only(top: topInset)),
         SliverPadding(

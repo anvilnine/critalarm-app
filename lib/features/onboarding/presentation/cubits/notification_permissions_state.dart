@@ -55,8 +55,10 @@ class NotificationPermissionsState {
   /// Re-reading the system state after the user came back from Settings.
   final bool isChecking;
 
-  /// How many steps the stepper really has on this phone.
-  int get totalSteps => alarmSupported ? 2 : 1;
+  /// How many steps the stepper really has on this phone. Both steps are
+  /// always presented: step 1 requests notification permission, and step 2
+  /// requests alarm permission or explains the notification sound fallback.
+  int get totalSteps => 2;
 
   bool get isRequesting => step == NotificationPermissionStep.requesting;
   bool get isGranted => step == NotificationPermissionStep.granted;
