@@ -102,5 +102,53 @@ void main() {
             ),
       ],
     );
+    blocTest<CreateTopicCubit, CreateTopicState>(
+      'createTopic succeeds with valid 64-character topic name',
+      build: () => CreateTopicCubit(createTopicUsecase),
+      seed: () => CreateTopicState(name: 'a' * 64),
+      act: (cubit) => cubit.createTopic(),
+      expect: () => [
+        CreateTopicState(
+          name: 'a' * 64,
+          status: CreateTopicStatus.submitting,
+        ),
+        isA<CreateTopicState>()
+            .having((s) => s.status, 'status', CreateTopicStatus.success)
+            .having((s) => s.createdTopic?.name, 'created name', 'a' * 64),
+      ],
+    );
+
+    blocTest<CreateTopicCubit, CreateTopicState>(
+      'createTopic with name exceeding 64 characters emits validation error',
+      build: () => CreateTopicCubit(createTopicUsecase),
+      seed: () => CreateTopicState(name: 'a' * 65),
+      act: (cubit) => cubit.createTopic(),
+      expect: () => [
+        CreateTopicState(
+          name: 'a' * 65,
+          errorMessage:
+              'Use 1 to 64 lowercase letters, digits and hyphens. Try prod-db.',
+        ),
+      ],
+    );
+
+    test('criticalRemaining helper computes correctly', () {
+      const freeState = CreateTopicState(
+        criticalUsed: 1,
+      );
+      expect(freeState.criticalRemaining, 1);
+
+      const exhaustedState = CreateTopicState(
+        criticalUsed: 2,
+      );
+      expect(exhaustedState.criticalRemaining, 0);
+
+      const proState = CreateTopicState(
+        isFreeTier: false,
+        criticalLimit: null,
+        criticalUsed: 5,
+      );
+      expect(proState.criticalRemaining, isNull);
+    });
   });
 }
