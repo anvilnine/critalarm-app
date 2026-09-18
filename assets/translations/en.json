@@ -94,6 +94,13 @@
     "step2_unsupported_title": "Your phone can still page you",
     "step2_unsupported_subtitle": "Alarms that ring through silent mode need iOS 26. On this phone a page arrives as a notification with sound.",
     "step2_unsupported_button": "Continue",
+    "step2_battery_title": "Keep Crit Alarm awake",
+    "step2_battery_subtitle": "Android puts apps to sleep to save battery. A sleeping app can miss a page, so let Crit Alarm run in the background.",
+    "step2_battery_button": "Allow background use",
+    "step2_battery_skip": "Skip for now",
+    "badge_battery": "Never misses a page",
+    "preview_battery_title": "Let app always run in background?",
+    "preview_battery_desc": "Allowing Crit Alarm to always run in the background may reduce battery life.",
     "denied_skip": "Continue without this"
   },
   "showcase": {

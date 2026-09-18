@@ -140,10 +140,21 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         final isStep2 = state.activeSubstep == 1;
         // Step 2 asks for an alarm permission that only iOS 26 has. Elsewhere
         // the screen says what the phone can do instead of promising a ring.
-        final alarmless = isStep2 && !state.alarmSupported;
+        // On Android step 2 asks to lift battery optimisation instead.
+        final battery = isStep2 && state.isBatteryStep;
+        final alarmless = isStep2 && !state.alarmSupported && !battery;
+        final requestStep = battery
+            ? cubit.requestBatteryExemption
+            : (isStep2
+                  ? cubit.requestCriticalAlerts
+                  : cubit.requestNotifications);
 
-        final previewTitle = _previewTitle(isApple, isStep2);
-        final previewMessage = _previewMessage(isApple, isStep2);
+        final previewTitle = battery
+            ? LocaleKeys.onboarding_permissions_preview_battery_title.tr()
+            : _previewTitle(isApple, isStep2);
+        final previewMessage = battery
+            ? LocaleKeys.onboarding_permissions_preview_battery_desc.tr()
+            : _previewMessage(isApple, isStep2);
         final summaryLabel =
             LocaleKeys.onboarding_permissions_preview_allow_summary.tr();
         final previewHint =
@@ -152,7 +163,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         // What the pinned bar takes off the bottom of the viewport: its own
         // buttons, the 12 the scaffold puts under them, and the home
         // indicator. Denied shows lg + Spacing.s3 + md, the rest just lg.
-        final barButtons = state.isDenied ? 60.0 + 12 + 48 : 60.0;
+        final barButtons = state.isDenied || battery ? 60.0 + 12 + 48 : 60.0;
         final bottomBarHeight =
             barButtons + 12 + MediaQuery.paddingOf(context).bottom;
 
@@ -199,10 +210,22 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                       isLoading: state.isRequesting,
                       onPressed: alarmless
                           ? cubit.continueWithout
-                          : (isStep2
-                                ? cubit.requestCriticalAlerts
-                                : cubit.requestNotifications),
+                          : requestStep,
                     ),
+                    // Never a wall here either. The health banner keeps
+                    // asking about battery after onboarding.
+                    if (battery) ...[
+                      const SizedBox(height: Spacing.s3),
+                      AppButton(
+                        label: LocaleKeys
+                            .onboarding_permissions_step2_battery_skip
+                            .tr(),
+                        variant: AppButtonVariant.paper,
+                        isFullWidth: true,
+                        isLoading: state.isChecking,
+                        onPressed: cubit.continueWithout,
+                      ),
+                    ],
                   ],
           ),
           slivers: [
@@ -244,7 +267,11 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                             const SizedBox(height: Spacing.s3),
                             Center(
                               child: AppBadge(
-                                text: isStep2
+                                text: battery
+                                    ? LocaleKeys
+                                          .onboarding_permissions_badge_battery
+                                          .tr()
+                                    : isStep2
                                     ? LocaleKeys
                                           .onboarding_permissions_badge_step2
                                           .tr()
@@ -292,11 +319,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                                     : null,
                                 isCritical: isStep2,
                                 semanticLabel: '$previewTitle. $previewHint',
-                                onTap: state.isRequesting
-                                    ? null
-                                    : (isStep2
-                                          ? cubit.requestCriticalAlerts
-                                          : cubit.requestNotifications),
+                                onTap: state.isRequesting ? null : requestStep,
                               ),
                               const SizedBox(height: 12),
                               Center(
@@ -328,6 +351,9 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     bool isStep2,
     bool alarmless,
   ) {
+    if (isStep2 && state.isBatteryStep) {
+      return LocaleKeys.onboarding_permissions_step2_battery_title.tr();
+    }
     if (alarmless) {
       return LocaleKeys.onboarding_permissions_step2_unsupported_title.tr();
     }
@@ -341,6 +367,9 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     bool isStep2,
     bool alarmless,
   ) {
+    if (isStep2 && state.isBatteryStep) {
+      return LocaleKeys.onboarding_permissions_step2_battery_subtitle.tr();
+    }
     if (alarmless) {
       return LocaleKeys.onboarding_permissions_step2_unsupported_subtitle.tr();
     }
@@ -354,6 +383,9 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     bool isStep2,
     bool alarmless,
   ) {
+    if (isStep2 && state.isBatteryStep) {
+      return LocaleKeys.onboarding_permissions_step2_battery_button.tr();
+    }
     if (alarmless) {
       return LocaleKeys.onboarding_permissions_step2_unsupported_button.tr();
     }

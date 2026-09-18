@@ -6,6 +6,10 @@ import 'package:critalarm/features/onboarding/domain/usecases/check_notification
 import 'package:critalarm/features/onboarding/domain/usecases/open_notification_settings_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/request_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
+import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
+import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
+import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
+import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing the Screen 1 Permissions step (Option B: 2-step stepper).
@@ -15,6 +19,8 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     this._openSettings, {
     this.alarm,
     this.checkPermission,
+    this.getDevicePermissions,
+    this.openPermissionSettings,
     this.replayForDemo = false,
     NotificationPermissionStep initialStep = NotificationPermissionStep.initial,
   }) : super(NotificationPermissionsState(step: initialStep));
@@ -27,6 +33,13 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
 
   /// Null in tests that do not exercise the skip-what-is-granted path.
   final CheckNotificationPermissionUsecase? checkPermission;
+
+  /// Reads the battery row. It only lists one on Android, so a null battery
+  /// row means this phone has no battery step. Null in tests that skip it.
+  final GetDevicePermissionsUsecase? getDevicePermissions;
+
+  /// Opens Android's "stop optimising battery usage" prompt.
+  final OpenPermissionSettingsUsecase? openPermissionSettings;
 
   /// True when the developer menu opened onboarding to look at it. Then every
   /// step is shown even where the permission is already granted, because the
@@ -47,7 +60,10 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   Future<void> refresh() async {
     final check = checkPermission;
     final alarmHost = alarm;
-    if (check == null && alarmHost == null) return;
+    final devicePermissions = getDevicePermissions;
+    if (check == null && alarmHost == null && devicePermissions == null) {
+      return;
+    }
 
     emit(state.copyWith(isChecking: true));
 
@@ -70,6 +86,20 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
         alarmHost != null && authorization != AlarmAuthorization.unsupported;
     final alarmGranted = authorization == AlarmAuthorization.authorized;
 
+    var batteryNeeded = state.batteryNeeded;
+    var batteryGranted = state.batteryGranted;
+    if (devicePermissions != null) {
+      final items = (await devicePermissions(const NoParams())).getOrNull();
+      final battery = items
+          ?.where((p) => p.type == DevicePermissionType.batteryOptimization)
+          .firstOrNull;
+      if (items != null) {
+        batteryNeeded = battery != null;
+        batteryGranted = battery?.status == DevicePermissionStatus.granted;
+      }
+    }
+    final hasStep2 = alarmSupported || batteryNeeded;
+
     if (isClosed) return;
 
     if (replayForDemo) {
@@ -79,13 +109,17 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
           alarm: authorization,
           alarmSupported: alarmSupported,
           notificationsGranted: notificationsGranted,
+          batteryNeeded: batteryNeeded,
+          batteryGranted: batteryGranted,
         ),
       );
       return;
     }
 
-    final everythingGranted =
-        notificationsGranted && (!alarmSupported || alarmGranted);
+    final step2Granted = alarmSupported
+        ? alarmGranted
+        : (!batteryNeeded || batteryGranted);
+    final everythingGranted = notificationsGranted && step2Granted;
 
     emit(
       state.copyWith(
@@ -94,9 +128,11 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
         alarmSupported: alarmSupported,
         notificationsGranted: notificationsGranted,
         criticalAlertsGranted: alarmGranted || !alarmSupported,
+        batteryNeeded: batteryNeeded,
+        batteryGranted: batteryGranted,
         // A granted step is not worth a screen. Land on the first one that
         // still needs an answer.
-        activeSubstep: notificationsGranted && alarmSupported ? 1 : 0,
+        activeSubstep: notificationsGranted && hasStep2 ? 1 : 0,
         step: everythingGranted
             ? NotificationPermissionStep.granted
             : NotificationPermissionStep.initial,
@@ -147,7 +183,9 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
 
   void _afterNotificationsGranted() {
     final alarmHost = alarm;
-    if (alarmHost == null) {
+    final batteryDone = state.batteryGranted || !state.batteryNeeded;
+    if ((alarmHost == null && !state.batteryNeeded) ||
+        (state.isBatteryStep && batteryDone)) {
       emit(
         state.copyWith(
           notificationsGranted: true,
@@ -222,6 +260,18 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
         clearError: true,
       ),
     );
+  }
+
+  /// Step 2 on Android: asks the system to stop optimising battery for the
+  /// app. The answer comes back through [refresh] when the app resumes, which
+  /// moves on by itself once the exemption is on.
+  Future<void> requestBatteryExemption() async {
+    final open = openPermissionSettings;
+    if (open == null) {
+      continueWithout();
+      return;
+    }
+    await open(DevicePermissionType.batteryOptimization);
   }
 
   /// Leaves the permission unanswered and carries on. The app says what it
