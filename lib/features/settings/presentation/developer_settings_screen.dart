@@ -52,6 +52,20 @@ class DeveloperSettingsScreen extends StatelessWidget {
                           unawaited(proSwitch.setPro(isPro: val)),
                     ),
                   ),
+                  const SizedBox(height: 14),
+                  AppListRow(
+                    name: LocaleKeys.settings_developer_dialog_sheet_title.tr(),
+                    meta: LocaleKeys.settings_developer_dialog_sheet_subtitle
+                        .tr(),
+                    faceState: null,
+                    trailing: AppGlyph(
+                      GlyphType.arrow,
+                      color: context.appColors.ink3,
+                      size: 16,
+                    ),
+                    onTap: () =>
+                        context.push('/settings/developer/dialog-sheet'),
+                  ),
                 ],
               ),
             ),

@@ -338,13 +338,10 @@ class _TourHostState extends State<TourHost> {
               ),
               duration: context.motion(AppDurations.base),
               curve: AppCurves.easeOut,
-              builder: (context, rect, _) => CustomPaint(
-                size: screen,
-                painter: _ScrimPainter(
-                  hole: rect,
-                  scrim: Colors.black.withValues(alpha: 0.62),
-                  ring: context.appColors.highlight,
-                ),
+              builder: (context, rect, _) => AppScrim(
+                hole: rect,
+                scrim: Colors.black.withValues(alpha: 0.62),
+                ring: context.appColors.highlight,
               ),
             ),
           ),
@@ -498,7 +495,7 @@ class _TourCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              _TourBody(
+              AppBulletedText(
                 step.bodyKeyFor(usingExamples: tour.usingExamples).tr(),
                 style: TextStyle(
                   fontFamily: AppTypography.fontBody,
@@ -534,84 +531,4 @@ class _TourCard extends StatelessWidget {
       ),
     );
   }
-}
-
-/// The step's text. A line starting with "• " is drawn as a bullet, with the
-/// wrapped part lined up under its first word rather than under the dot.
-class _TourBody extends StatelessWidget {
-  const _TourBody(this.text, {required this.style});
-
-  final String text;
-  final TextStyle style;
-
-  static const _bullet = '• ';
-
-  @override
-  Widget build(BuildContext context) {
-    final lines = text.split('\n');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < lines.length; i++)
-          Padding(
-            padding: EdgeInsets.only(top: i == 0 ? 0 : 4),
-            child: lines[i].startsWith(_bullet)
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(_bullet, style: style),
-                      Expanded(
-                        child: Text(
-                          lines[i].substring(_bullet.length),
-                          style: style,
-                        ),
-                      ),
-                    ],
-                  )
-                : Text(lines[i], style: style),
-          ),
-      ],
-    );
-  }
-}
-
-/// Dims the screen and cuts a rounded hole where the spotlit widget is.
-class _ScrimPainter extends CustomPainter {
-  const _ScrimPainter({
-    required this.hole,
-    required this.scrim,
-    required this.ring,
-  });
-
-  final Rect? hole;
-  final Color scrim;
-  final Color ring;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final screen = Path()..addRect(Offset.zero & size);
-    final rect = hole;
-    if (rect == null || rect.isEmpty) {
-      canvas.drawPath(screen, Paint()..color = scrim);
-      return;
-    }
-    final cut = RRect.fromRectAndRadius(rect, const Radius.circular(16));
-    canvas
-      ..drawPath(
-        Path.combine(PathOperation.difference, screen, Path()..addRRect(cut)),
-        Paint()..color = scrim,
-      )
-      ..drawRRect(
-        cut,
-        Paint()
-          ..color = ring
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
-      );
-  }
-
-  @override
-  bool shouldRepaint(_ScrimPainter old) =>
-      old.hole != hole || old.scrim != scrim || old.ring != ring;
 }

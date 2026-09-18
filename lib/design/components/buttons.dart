@@ -49,6 +49,7 @@ class AppButton extends StatefulWidget {
     this.icon,
     this.trailingIcon,
     this.isFocused = false,
+    this.foregroundColor,
     super.key,
   });
 
@@ -61,6 +62,10 @@ class AppButton extends StatefulWidget {
   final Widget? icon;
   final Widget? trailingIcon;
   final bool isFocused;
+
+  /// Overrides the variant's computed foreground colour, and the ghost
+  /// variant's border with it. Lets a ghost button sit on the dark panel.
+  final Color? foregroundColor;
 
   @override
   State<AppButton> createState() => _AppButtonState();
@@ -109,6 +114,13 @@ class _AppButtonState extends State<AppButton> {
         bg = colors.panel;
         fg = colors.onPanel;
         shadows = AppShadows.lightSm;
+    }
+
+    if (widget.foregroundColor != null) {
+      fg = widget.foregroundColor!;
+      if (widget.variant == AppButtonVariant.ghost) {
+        border = BorderSide(color: fg, width: 2);
+      }
     }
 
     // Scale / translation transforms for tactile interaction
