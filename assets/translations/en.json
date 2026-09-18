@@ -624,6 +624,10 @@
     "delete_confirm_toggle": "I understand this cannot be undone",
     "delete_confirm_button": "Delete my account",
     "delete_failed": "Could not delete your account. Nothing on this phone has changed. Try again.",
-    "delete_live_incident_body": "Acknowledge it, then delete."
+    "delete_live_incident_body": "Acknowledge it, then delete.",
+    "delete_dialog_title": "Delete your account?",
+    "delete_dialog_body": "You will not get your topics back. Type {word} to confirm.",
+    "delete_dialog_word": "DELETE",
+    "delete_dialog_confirm": "Delete my account"
   }
 }
