@@ -3,6 +3,7 @@ import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Text field component following the Crit Alarm Design System.
 class AppTextField extends StatefulWidget {
@@ -21,6 +22,11 @@ class AppTextField extends StatefulWidget {
     this.focusNode,
     this.onChanged,
     this.onSubmitted,
+    this.inputFormatters,
+    this.maxLength,
+    this.headerTrailing,
+    this.textCapitalization = TextCapitalization.none,
+    this.textInputAction,
     super.key,
   });
 
@@ -42,6 +48,11 @@ class AppTextField extends StatefulWidget {
   final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
+  final List<TextInputFormatter>? inputFormatters;
+  final int? maxLength;
+  final Widget? headerTrailing;
+  final TextCapitalization textCapitalization;
+  final TextInputAction? textInputAction;
 
   @override
   State<AppTextField> createState() => _AppTextFieldState();
@@ -63,6 +74,17 @@ class _AppTextFieldState extends State<AppTextField> {
   void _onFocusChange() {
     if (mounted) {
       setState(() => _hasFocus = _focusNode.hasFocus);
+    }
+  }
+
+  @override
+  void didUpdateWidget(AppTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller == null &&
+        widget.initialValue != null &&
+        widget.initialValue != oldWidget.initialValue &&
+        widget.initialValue != _controller.text) {
+      _controller.text = widget.initialValue!;
     }
   }
 
@@ -117,12 +139,22 @@ class _AppTextFieldState extends State<AppTextField> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (widget.label != null) ...[
-          Text(
-            widget.label!,
-            style: AppTypography.small(colors.onCanvas).copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+        if (widget.label != null || widget.headerTrailing != null) ...[
+          Row(
+            children: [
+              if (widget.label != null)
+                Expanded(
+                  child: Text(
+                    widget.label!,
+                    style: AppTypography.small(colors.onCanvas).copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                )
+              else
+                const Spacer(),
+              if (widget.headerTrailing != null) widget.headerTrailing!,
+            ],
           ),
           const SizedBox(height: 6),
         ],
@@ -154,9 +186,19 @@ class _AppTextFieldState extends State<AppTextField> {
               minLines: 1,
               maxLines: widget.growToFit ? null : 1,
               keyboardType: widget.growToFit ? TextInputType.multiline : null,
-              textInputAction: widget.growToFit
-                  ? TextInputAction.done
-                  : null,
+              textInputAction:
+                  widget.textInputAction ??
+                  (widget.growToFit ? TextInputAction.done : null),
+              inputFormatters: widget.inputFormatters,
+              maxLength: widget.maxLength,
+              buildCounter:
+                  (
+                    context, {
+                    required currentLength,
+                    required isFocused,
+                    maxLength,
+                  }) => null,
+              textCapitalization: widget.textCapitalization,
               onChanged: widget.onChanged,
               onSubmitted: widget.onSubmitted,
               decoration: InputDecoration(

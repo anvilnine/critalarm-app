@@ -17,6 +17,9 @@ class CreateTopicState {
     this.createdTopic,
     this.errorMessage,
     this.serverUrl = '',
+    this.isFreeTier = true,
+    this.criticalLimit = 2,
+    this.criticalUsed = 0,
   });
 
   final CapReached? capReached;
@@ -34,6 +37,20 @@ class CreateTopicState {
   final Topic? createdTopic;
   final String? errorMessage;
 
+  /// Whether the user is on the free tier.
+  final bool isFreeTier;
+
+  /// Limit of critical topics allowed on this plan (null for unlimited).
+  final int? criticalLimit;
+
+  /// Current number of critical topics the user has.
+  final int criticalUsed;
+
+  /// Remaining critical topics allowance, or null if unlimited.
+  int? get criticalRemaining => criticalLimit == null
+      ? null
+      : (criticalLimit! - criticalUsed).clamp(0, criticalLimit!);
+
   CreateTopicState copyWith({
     CapReached? capReached,
     CreateTopicStatus? status,
@@ -43,6 +60,9 @@ class CreateTopicState {
     Topic? createdTopic,
     String? errorMessage,
     String? serverUrl,
+    bool? isFreeTier,
+    int? criticalLimit,
+    int? criticalUsed,
     bool clearError = false,
   }) {
     return CreateTopicState(
@@ -54,6 +74,9 @@ class CreateTopicState {
       createdTopic: createdTopic ?? this.createdTopic,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       serverUrl: serverUrl ?? this.serverUrl,
+      isFreeTier: isFreeTier ?? this.isFreeTier,
+      criticalLimit: criticalLimit ?? this.criticalLimit,
+      criticalUsed: criticalUsed ?? this.criticalUsed,
     );
   }
 
@@ -68,7 +91,11 @@ class CreateTopicState {
           isCritical == other.isCritical &&
           createdToken == other.createdToken &&
           createdTopic == other.createdTopic &&
-          errorMessage == other.errorMessage;
+          errorMessage == other.errorMessage &&
+          serverUrl == other.serverUrl &&
+          isFreeTier == other.isFreeTier &&
+          criticalLimit == other.criticalLimit &&
+          criticalUsed == other.criticalUsed;
 
   @override
   int get hashCode => Object.hash(
@@ -79,5 +106,9 @@ class CreateTopicState {
     createdToken,
     createdTopic,
     errorMessage,
+    serverUrl,
+    isFreeTier,
+    criticalLimit,
+    criticalUsed,
   );
 }

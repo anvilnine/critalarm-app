@@ -661,6 +661,8 @@ Future<void> configureDependencies({
       () => CreateTopicCubit(
         getIt<CreateTopicUsecase>(),
         getIt<GetConnectionUsecase>(),
+        getIt<DeviceIdentityStore>(),
+        getIt<GetTopicsUsecase>(),
       ),
     )
     ..registerFactory(
