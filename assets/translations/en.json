@@ -164,6 +164,9 @@
     "meta_quiet": "Quiet"
   },
   "history": {
+    "refresh_checking": "Checking for new alarms…",
+    "refresh_done": "Up to date.",
+    "refresh_failed": "Could not refresh.",
     "title": "History",
     "loading_title": "Loading your history",
     "load_failed": "Could not reach your server.",

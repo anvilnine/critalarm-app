@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/result/result.dart';
@@ -25,6 +26,20 @@ class _FixedIncidents implements IncidentRepository {
     String? state,
     String? topic,
   }) async => all.take(limit).toList().toSuccess();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
+
+/// A server that is not answering.
+class _FailingIncidents implements IncidentRepository {
+  @override
+  Future<AppResult<List<Incident>>> getIncidents({
+    required int limit,
+    String? state,
+    String? topic,
+  }) async => const Failure.api(statusCode: 500).toFailure();
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -257,6 +272,21 @@ void main() {
     test('longest ring is null when nothing rang', () {
       const state = HistoryState();
       expect(state.longestRing, isNull);
+    });
+  });
+
+  group('HistoryCubit.refresh', () {
+    test('reports true when the list loads', () async {
+      final history = await historyFor(manyIncidents(3), _paid);
+      expect(await history.refresh(), isTrue);
+    });
+
+    test('reports false when the server does not answer', () async {
+      final shared = IncidentsCubit(GetIncidentsUsecase(_FailingIncidents()));
+      addTearDown(shared.close);
+      final history = HistoryCubit(shared, now: () => now);
+      addTearDown(history.close);
+      expect(await history.refresh(), isFalse);
     });
   });
 }

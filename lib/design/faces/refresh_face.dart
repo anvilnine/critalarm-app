@@ -5,9 +5,9 @@ import 'package:critalarm/design/faces/face_shape.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/faces/refresh_face_controller.dart';
+import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/durations.dart';
-import 'package:critalarm/design_system/haptics.dart';
 import 'package:flutter/material.dart';
 
 /// Hands a screen's refresh controller down to the face on its stage.

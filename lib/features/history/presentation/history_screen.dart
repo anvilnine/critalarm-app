@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/faces/refresh_face.dart';
+import 'package:critalarm/design/faces/refresh_face_controller.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
@@ -62,10 +64,17 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
               );
 
         return AppScreenScaffold(
-          onRefresh: () => context.read<HistoryCubit>().refresh(),
+          onFaceRefresh: () => context.read<HistoryCubit>().refresh(),
           topBar: AppTopBar(
             title: LocaleKeys.history_title.tr(),
-            trailing: _FilterButton(filter: state.filter),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const RefreshActivityIndicator(),
+                const SizedBox(width: 8),
+                _FilterButton(filter: state.filter),
+              ],
+            ),
           ),
           detail: state.isEmpty
               ? null
@@ -84,10 +93,7 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
               child: Column(
                 children: [
                   const SizedBox(height: Spacing.s2),
-                  AppStage.horizontal(
-                    faceState: FaceState.acked,
-                    sub: summary,
-                  ),
+                  _HistoryStage(summary: summary),
                   const SizedBox(height: Spacing.s3),
                 ],
               ),
@@ -238,6 +244,35 @@ class _CappedNotice extends StatelessWidget {
 
 /// Opens the filter sheet, with a dot on it while a filter is on so the state
 /// is visible without opening the sheet.
+/// The small face and summary line at the top of History. The face is too
+/// small for its expression to carry a refresh alone, so while a pull to
+/// refresh runs the line beside it says what is going on.
+class _HistoryStage extends StatelessWidget {
+  const _HistoryStage({required this.summary});
+
+  final String summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final refresh = RefreshFaceScope.maybeOf(context);
+    if (refresh == null) {
+      return AppStage.horizontal(faceState: FaceState.acked, sub: summary);
+    }
+    return ListenableBuilder(
+      listenable: refresh,
+      builder: (context, _) => AppStage.horizontal(
+        faceState: FaceState.acked,
+        sub: switch (refresh.phase) {
+          RefreshFacePhase.working => LocaleKeys.history_refresh_checking.tr(),
+          RefreshFacePhase.success => LocaleKeys.history_refresh_done.tr(),
+          RefreshFacePhase.failed => LocaleKeys.history_refresh_failed.tr(),
+          _ => summary,
+        },
+      ),
+    );
+  }
+}
+
 class _FilterButton extends StatelessWidget {
   const _FilterButton({required this.filter});
 
