@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:critalarm/design/faces/face_painter.dart';
+import 'package:critalarm/design/faces/face_shape.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/durations.dart';
@@ -16,6 +17,7 @@ class FaceWidget extends StatefulWidget {
     this.overrideFillColor,
     this.overrideStrokeColor,
     this.overrideInkColor,
+    this.shape,
     super.key,
   });
 
@@ -25,6 +27,10 @@ class FaceWidget extends StatefulWidget {
   final Color? overrideFillColor;
   final Color? overrideStrokeColor;
   final Color? overrideInkColor;
+
+  /// Draws this shape instead of [state]'s own eyes and mouth, standing
+  /// still. The head colours still follow [state].
+  final FaceShape? shape;
 
   @override
   State<FaceWidget> createState() => _FaceWidgetState();
@@ -116,7 +122,7 @@ class _FaceWidgetState extends State<FaceWidget> with TickerProviderStateMixin {
         };
     final ink = widget.overrideInkColor ?? colors.faceInk;
 
-    if (reduceMotion || !widget.isLive) {
+    if (reduceMotion || !widget.isLive || widget.shape != null) {
       return SizedBox(
         width: widget.size,
         height: widget.size,
@@ -127,6 +133,7 @@ class _FaceWidgetState extends State<FaceWidget> with TickerProviderStateMixin {
             fillColor: fill,
             strokeColor: stroke,
             inkColor: ink,
+            shape: widget.shape,
           ),
         ),
       );

@@ -2,10 +2,12 @@
 library;
 
 export 'badges.dart';
+export 'bottom_sheets.dart';
 export 'brand_icons.dart';
 export 'buttons.dart';
 export 'chips.dart';
 export 'code_block.dart';
+export 'dialogs.dart';
 export 'empty_state.dart';
 export 'floating_tab_bar.dart';
 export 'glyphs.dart';
@@ -18,6 +20,7 @@ export 'nav_rail.dart';
 export 'notification_cards.dart';
 export 'radios.dart';
 export 'screen_scaffold.dart';
+export 'scrim.dart';
 export 'scroll_fade.dart';
 export 'segmented_control.dart';
 export 'sheets.dart';

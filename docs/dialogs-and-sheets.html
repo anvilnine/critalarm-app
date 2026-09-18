@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crit Alarm · Dialogs &amp; Bottom Sheets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* ============ TOKENS (mirrors docs/design-system/index.html) ============ */
+:root{
+  --canvas:#FFC93C; --canvas-alt:#FFD866; --canvas-ghost:rgba(26,20,15,.07); --canvas-ghost-strong:rgba(26,20,15,.12);
+  --surface:#FFFFFF; --cream:#F7F2E9; --ash:#F1EFEC; --panel:#1A140F; --on-panel:#F7F1EA; --on-panel-muted:#CBBDAF;
+  --ink:#1A140F; --ink-2:#3E2C21; --ink-3:#6E543F; --ink-hover:#322820; --on-canvas:#1A140F; --on-canvas-muted:#3A2A12;
+  --cobalt:#2A3BD8; --cobalt-hover:#1F2EB8; --cobalt-tint:#DCE0FF; --highlight:#2A3BD8; --highlight-hover:#1F2EB8; --on-highlight:#FFFFFF;
+  --high:#FF8A1F; --crit:#F5473A; --crit-tint:rgba(245,71,58,.18);
+  --hairline:rgba(26,20,15,.14); --focus:#2A3BD8; --focus-gap:var(--canvas);
+  --shadow-sm:0 2px 6px rgba(38,22,10,.10),0 1px 2px rgba(38,22,10,.06);
+  --shadow-md:0 8px 22px rgba(38,22,10,.14),0 2px 6px rgba(38,22,10,.08);
+  --shadow-lg:0 18px 44px rgba(38,22,10,.18),0 6px 14px rgba(38,22,10,.10);
+  --r-sm:10px; --r-md:18px; --r-lg:24px; --r-xl:32px; --r-full:9999px;
+  --font-display:'Bricolage Grotesque',system-ui,sans-serif;
+  --font-body:'Instrument Sans',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  color-scheme:light;
+}
+[data-theme="dark"]{
+  --canvas:#171310; --canvas-alt:#201A15; --surface:#241D18; --cream:#241D18; --ash:#2E2620; --panel:#0E0B09;
+  --on-panel:#F7F1EA; --on-panel-muted:#CBBDAF; --ink:#F7F1EA; --ink-2:#CBBDAF; --ink-3:#9A8877; --ink-hover:#FFFFFF;
+  --on-canvas:#F7F1EA; --on-canvas-muted:#CBBDAF; --cobalt:#7C8AFF; --cobalt-hover:#98A3FF; --cobalt-tint:rgba(124,138,255,.16);
+  --highlight:#2A3BD8; --highlight-hover:#3E4FE6; --hairline:rgba(255,255,255,.14); --focus:#7C8AFF; --focus-gap:var(--canvas);
+  --shadow-sm:0 2px 6px rgba(0,0,0,.3); --shadow-md:0 8px 20px rgba(0,0,0,.4); --shadow-lg:0 18px 40px rgba(0,0,0,.5);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--canvas);color:var(--on-canvas);font-family:var(--font-body);font-size:16px;line-height:1.6;transition:background .4s,color .4s}
+h1,h2,h3{font-family:var(--font-display);font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:0}
+p{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+.mono{font-family:var(--font-mono);font-weight:500;letter-spacing:-.01em}
+
+/* header */
+.topbar{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--canvas) 82%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--hairline)}
+.topbar-inner{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;max-width:1080px;margin:0 auto}
+.topbar h1{font-size:22px}
+.pill{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-full);padding:6px 14px;font-size:13px;font-weight:600}
+.pill .dot{width:14px;height:14px;border-radius:50%;background:var(--ink)}
+.intro{max-width:720px;margin:32px 0;font-size:18px;color:var(--on-canvas-muted)}
+.intro strong{color:var(--on-canvas)}
+
+/* sections */
+section{margin:48px 0}
+section h2{font-size:28px;margin-bottom:6px}
+section .lead{color:var(--on-canvas-muted);margin-bottom:20px;font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:24px}
+
+/* phone frame */
+.phone{position:relative;aspect-ratio:9/18.5;background:var(--canvas);border-radius:36px;overflow:hidden;border:6px solid var(--ink);box-shadow:var(--shadow-lg);transition:background .4s}
+.phone::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:44%;height:22px;background:var(--ink);border-radius:0 0 14px 14px;z-index:6}
+.phone .app{position:absolute;inset:0;padding:44px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.app .stage{margin:auto;text-align:center}
+.app .stage .word{font-family:var(--font-display);font-weight:800;font-size:34px;letter-spacing:-.04em;line-height:1}
+.app .stage .sub{font-size:12px;color:var(--on-canvas-muted)}
+.app .row{background:var(--surface);border-radius:var(--r-md);padding:10px 12px;font-family:var(--font-mono);font-weight:700;font-size:12px;color:var(--ink);box-shadow:var(--shadow-sm)}
+
+/* scrim */
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:2;display:flex;align-items:center;justify-content:center;padding:20px}
+.scrim.bottom{align-items:flex-end;padding:12px}
+
+/* card / dialog */
+.dialog{width:100%;max-width:320px;background:var(--surface);color:var(--ink);border-radius:var(--r-xl);box-shadow:var(--shadow-lg);padding:20px;animation:pop .28s cubic-bezier(.16,1,.3,1)}
+.dialog--panel{background:var(--panel);color:var(--on-panel);border:1px solid rgba(255,255,255,.22)}
+.dialog .kicker{font-size:11px;font-weight:600;color:var(--ink-3);letter-spacing:.4px}
+.dialog--panel .kicker{color:var(--on-panel-muted)}
+.dialog .title{font-family:var(--font-display);font-weight:700;font-size:20px;letter-spacing:-.02em;margin:6px 0 6px;color:var(--ink)}
+.dialog--panel .title{color:var(--on-panel)}
+.dialog .body{font-size:14px;color:var(--ink-2);line-height:1.45}
+.dialog--panel .body{color:var(--on-panel)}
+.dialog .body .b{display:flex;gap:8px;margin-top:4px}
+.dialog .body .b::before{content:"• "}
+.dialog .actions{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
+.dialog .actions.space{justify-content:space-between}
+.dialog .spacer{flex:1}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:var(--r-full);font-family:var(--font-display);font-weight:700;font-size:14px;letter-spacing:-.01em;padding:10px 20px;min-height:40px;line-height:1;transition:transform .15s,background .15s}
+.btn:active{transform:scale(.97)}
+.btn--primary{background:var(--highlight);color:var(--on-highlight);box-shadow:var(--shadow-sm)}
+.btn--primary:hover{background:var(--highlight-hover)}
+.btn--ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink)}
+.btn--paper{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
+.btn--crit{background:var(--crit);color:#fff;box-shadow:var(--shadow-sm)}
+.btn--sm{padding:8px 14px;min-height:34px;font-size:13px}
+
+/* input */
+.field{display:block}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--on-canvas);margin-bottom:6px}
+.field input{width:100%;border:1.5px solid var(--hairline);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font-family:var(--font-mono);font-size:14px;padding:12px 14px;outline:none;transition:border .15s,box-shadow .15s}
+.field input:focus{border-color:var(--cobalt);box-shadow:0 0 0 3px var(--cobalt-tint)}
+
+/* bottom sheet */
+.sheet{width:100%;background:var(--surface);color:var(--ink);border-radius:var(--r-xl) var(--r-xl) 0 0;box-shadow:var(--shadow-lg);padding:10px 16px 18px;animation:rise .3s cubic-bezier(.16,1,.3,1)}
+.sheet .handle{width:44px;height:5px;border-radius:var(--r-full);background:var(--hairline);margin:2px auto 14px}
+.sheet .title{font-family:var(--font-display);font-weight:700;font-size:19px;letter-spacing:-.02em;margin-bottom:4px}
+.sheet .sub{font-size:13px;color:var(--ink-3);margin-bottom:8px}
+.sheet .option{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:transparent;border:none;padding:13px 6px;font-size:15px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--hairline)}
+.sheet .option:last-of-type{border-bottom:none}
+.sheet .option .ico{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--cream);border:1.5px solid var(--hairline);flex:none}
+.sheet .option.sel .ico{background:var(--cobalt-tint);border-color:var(--cobalt);color:var(--cobalt)}
+.sheet .option .meta{font-size:12px;color:var(--ink-3);font-weight:400}
+.sheet .option--danger{color:var(--crit)}
+.sheet .grow{display:none}
+.sheet.expanded .grow{display:block;margin-top:12px}
+.sheet.expanded .grow .line{background:var(--cream);border-radius:var(--r-md);padding:10px 12px;font-size:13px;color:var(--ink-2);margin-bottom:8px}
+
+/* captions under phones */
+.cap{margin-top:10px;font-size:12px;color:var(--on-canvas-muted)}
+.cap b{color:var(--on-canvas)}
+
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes rise{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+  <h1>Dialogs &amp; Bottom Sheets</h1>
+  <button class="pill" id="themeToggle" type="button"><span class="dot"></span><span id="themeLabel">Light</span></button>
+</div></div>
+
+<div class="wrap">
+  <p class="intro">Two skins share one construction: the <strong>surface</strong> card (white, 32px radius) for confirm and input prompts, and the <strong>panel</strong> card (dark ink) lifted from the tour's spotlight card. Sheets share the same surface card, pinned to the bottom with a drag handle.</p>
+
+  <section>
+    <h2>Dialogs</h2>
+    <p class="lead">Centered over a dimmed scrim. Actions sit right-aligned; the primary is cobalt, the escape is ghost.</p>
+    <div class="grid">
+
+      <div>
+        <div class="phone">
+          <div class="app">
+            <div class="stage"><div class="word">prod-db</div><div class="sub">Primary database down · 03:14</div></div>
+            <div class="row">uptime-kuma</div>
+            <div class="row">nas-backup</div>
+          </div>
+          <div class="scrim">
+            <div class="dialog">
+              <div class="kicker">CONFIRM</div>
+              <div class="title">Disconnect server?</div>
+              <div class="body">You will stop receiving pages until you connect again.</div>
+              <div class="actions">
+                <button class="btn btn--ghost btn--sm" type="button">Cancel</button>
+                <button class="btn btn--primary btn--sm" type="button">Disconnect</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Confirm</b> · yes/no, surface skin</div>
+      </div>
+
+      <div>
+        <div class="phone">
+          <div class="app">
+            <div class="stage"><div class="word">payments-api</div><div class="sub">Critical · ringing</div></div>
+            <div class="row">prod-db</div>
+            <div class="row">nightly-backup</div>
+          </div>
+          <div class="scrim">
+            <div class="dialog">
+              <div class="kicker" style="color:var(--crit)">DESTRUCTIVE</div>
+              <div class="title">Delete topic?</div>
+              <div class="body">payments-api and its history are gone forever. Tokens stop working.</div>
+              <div class="actions">
+                <button class="btn btn--ghost btn--sm" type="button">Keep</button>
+                <button class="btn btn--crit btn--sm" type="button">Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Destructive</b> · crit primary</div>
+      </div>
+
+      <div>
+        <div class="phone">
+          <div class="app">
+            <div class="stage"><div class="word">Settings</div><div class="sub">Server connection</div></div>
+          </div>
+          <div class="scrim">
+            <div class="dialog">
+              <div class="kicker">EDIT SERVER</div>
+              <div class="title">Connect a server</div>
+              <div class="body" style="margin-bottom:14px">
+                <label class="field" style="margin-bottom:10px">
+                  <label>SERVER URL</label>
+                  <input value="https://api.critalarm.app">
+                </label>
+                <label class="field">
+                  <label>ADMIN TOKEN</label>
+                  <input placeholder="ad_...">
+                </label>
+              </div>
+              <div class="actions">
+                <button class="btn btn--ghost btn--sm" type="button">Cancel</button>
+                <button class="btn btn--primary btn--sm" type="button">Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>With input</b> · embeds the text field</div>
+      </div>
+
+      <div>
+        <div class="phone">
+          <div class="app">
+            <div class="stage"><div class="word">prod-db</div><div class="sub">Search</div></div>
+            <div class="row">payments-api</div>
+          </div>
+          <div class="scrim bottom" style="align-items:center">
+            <div class="dialog dialog--panel">
+              <div class="kicker">STEP 1 OF 3</div>
+              <div class="title">One alarm line per topic</div>
+              <div class="body">
+                A topic is one alarm line. Your server sends it a message and your phone rings.
+                <span class="b">Calm face: all quiet</span>
+                <span class="b">Red, alarmed face: ringing now</span>
+              </div>
+              <div class="actions space">
+                <button class="btn btn--ghost btn--sm" style="color:var(--on-panel);box-shadow:inset 0 0 0 2px var(--on-panel)" type="button">Back</button>
+                <button class="btn btn--primary btn--sm" type="button">Next</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Spotlight / panel skin</b> · reused from the tour card</div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Bottom sheets</h2>
+    <p class="lead">Same surface card, pinned to the bottom. Rows return a value; a drag handle signals it can be dismissed or expanded.</p>
+    <div class="grid">
+
+      <div>
+        <div class="phone">
+          <div class="app">
+            <div class="stage"><div class="word">nas-backup</div><div class="sub">Repeat interval</div></div>
+          </div>
+          <div class="scrim bottom">
+            <div class="sheet">
+              <div class="handle"></div>
+              <div class="title">Ring every</div>
+              <div class="sub">How long before the alarm repeats</div>
+              <button class="option sel" type="button"><span class="ico">✓</span><span>30 seconds<span class="meta">· default</span></span></button>
+              <button class="option" type="button"><span class="ico"></span><span>1 minute</span></button>
+              <button class="option" type="button"><span class="ico"></span><span>5 minutes</span></button>
+              <button class="option" type="button"><span class="ico"></span><span>Never</span></button>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Multi-option</b> · single-select rows</div>
+      </div>
+
+      <div>
+        <div class="phone">
+          <div class="app">
+            <div class="stage"><div class="word">payments-api</div><div class="sub">Topic</div></div>
+            <div class="row">Copy endpoint</div>
+          </div>
+          <div class="scrim bottom">
+            <div class="sheet">
+              <div class="handle"></div>
+              <div class="title">payments-api</div>
+              <button class="option" type="button"><span class="ico">⧉</span><span>Copy endpoint</span></button>
+              <button class="option" type="button"><span class="ico">⚙</span><span>Critical delivery</span></button>
+              <button class="option option--danger" type="button"><span class="ico">🗑</span><span>Delete topic</span></button>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Action list</b> · destructive last</div>
+      </div>
+
+      <div>
+        <div class="phone">
+          <div class="app">
+            <div class="stage"><div class="word">New topic</div><div class="sub">Compose</div></div>
+          </div>
+          <div class="scrim bottom">
+            <div class="sheet">
+              <div class="handle"></div>
+              <div class="title">Create a topic</div>
+              <div class="sub">Lowercase, digits, hyphens. This becomes the URL.</div>
+              <label class="field" style="margin:4px 0 16px">
+                <input placeholder="prod-db">
+              </label>
+              <button class="btn btn--primary" style="width:100%" type="button">Create</button>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>With input</b> · sheet + field + full-width action</div>
+      </div>
+
+      <div>
+        <div class="phone">
+          <div class="app">
+            <div class="stage"><div class="word">prod-db</div><div class="sub">Primary database down</div></div>
+            <div class="row">pg_isready failed 3× in 90 s</div>
+          </div>
+          <div class="scrim bottom">
+            <div class="sheet" id="autoSheet">
+              <div class="handle"></div>
+              <div class="title">Message detail</div>
+              <div class="sub">Tap to expand · drag the handle</div>
+              <div class="grow">
+                <div class="line">pg_isready failed 3 times in 90 s. Replica promoted on db-2.</div>
+                <div class="line">Source: cron@prod / critical</div>
+                <div class="line">Token: ca_live_7Hq2mN9xPz4wKd8</div>
+                <button class="btn btn--primary" style="width:100%" type="button">Acknowledge</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Auto-expanding</b> · peek → full (click the sheet)</div>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+<script>
+  var theme = document.documentElement.getAttribute('data-theme') || 'light';
+  document.getElementById('themeToggle').addEventListener('click', function () {
+    theme = theme === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    document.getElementById('themeLabel').textContent = theme === 'light' ? 'Light' : 'Dark';
+  });
+  var sheet = document.getElementById('autoSheet');
+  sheet.addEventListener('click', function () {
+    sheet.classList.toggle('expanded');
+  });
+</script>
+</body>
+</html>

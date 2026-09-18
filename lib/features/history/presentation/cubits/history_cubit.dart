@@ -66,9 +66,11 @@ class HistoryCubit extends Cubit<HistoryState> {
     _rebuildIfChanged();
   }
 
-  Future<void> refresh() async {
+  /// True when the list loaded, so the face can say so.
+  Future<bool> refresh() async {
     await _incidents.refresh();
     _rebuildIfChanged();
+    return _incidents.state.status != AppDataStatus.failure;
   }
 
   @override
