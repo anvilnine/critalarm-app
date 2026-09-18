@@ -84,6 +84,15 @@ because it is derived from `pubspec.yaml` rather than from source. After a clone
 from build_runner, so `make l10n` is a separate step and skipping it breaks
 every `LocaleKeys` reference.
 
+**Run `make gen` after every merge that touched an annotated source file.**
+Because the generated file is ignored, git never updates it, so a merge can
+leave new source next to an old `.g.dart`. It shows up as every widget test
+failing to load with `Error: Member not found`, which reads like a broken merge
+and is not one. Seen on 2026-09-18: a branch renaming a field in
+`lib/core/env/env.dart` was green on its own and put 9 tests on the floor the
+moment it reached `main`, because `env.g.dart` in the working copy still held
+the old field. One `make gen` fixed all 9.
+
 **Folder layout** (ARCHITECTURE §12):
 
 ```
