@@ -11,6 +11,7 @@ import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/theme_mode_mapper.dart';
+import 'package:critalarm/features/tour/presentation/tour_host.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -89,9 +90,12 @@ class _CritAlarmAppState extends State<CritAlarmApp>
           supportedLocales: context.supportedLocales,
           locale: context.locale,
           routerConfig: _router,
-          builder: (context, child) => AppAmbientShell(
+          builder: (context, child) => TourHost(
             router: _router,
-            child: child ?? const SizedBox.shrink(),
+            child: AppAmbientShell(
+              router: _router,
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         ),
       ),

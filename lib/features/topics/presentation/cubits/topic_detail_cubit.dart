@@ -88,6 +88,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     await _rebuildIfChanged();
   }
 
+  /// Draws [example] and nothing else: no server, no updates. The tour uses
+  /// it for a topic that only exists to be shown.
+  void showExample(TopicDetailState example) => emit(example);
+
   @override
   Future<void> close() async {
     await _incidentsSub?.cancel();

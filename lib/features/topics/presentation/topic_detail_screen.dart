@@ -8,6 +8,10 @@ import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_tokens_section.dart';
+import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
+import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
+import 'package:critalarm/features/tour/presentation/tour_examples.dart';
+import 'package:critalarm/features/tour/presentation/tour_steps.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -31,21 +35,34 @@ class TopicDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The tour's made-up topic is not on the server, so it is drawn from the
+    // example instead of being asked for.
+    final isExample = getIt<TourCubit>().state.showsExampleTopic(topicName);
     return BlocProvider(
       create: (_) {
         final cubit = getIt<TopicDetailCubit>();
-        unawaited(cubit.load(topicName));
+        if (isExample) {
+          cubit.showExample(TourExamples.topicDetail());
+        } else {
+          unawaited(cubit.load(topicName));
+        }
         return cubit;
       },
-      child: _TopicDetailScreenContent(isPane: isPane),
+      child: _TopicDetailScreenContent(isPane: isPane, isExample: isExample),
     );
   }
 }
 
 class _TopicDetailScreenContent extends StatelessWidget {
-  const _TopicDetailScreenContent({required this.isPane});
+  const _TopicDetailScreenContent({
+    required this.isPane,
+    required this.isExample,
+  });
 
   final bool isPane;
+
+  /// The tour's example topic. It has no tokens on the server to list.
+  final bool isExample;
 
   /// Asks first, then deletes, then leaves.
   ///
@@ -257,44 +274,52 @@ class _TopicDetailScreenContent extends StatelessWidget {
                           ),
                           const SizedBox(height: 10),
                         ],
-                        AppToggleRow(
-                          title: LocaleKeys.topic_detail_critical_toggle_title
-                              .tr(),
-                          subtitle: state.canEditCritical
-                              ? LocaleKeys.topic_detail_critical_toggle_subtitle
-                                    .tr()
-                              : LocaleKeys.topic_detail_critical_needs_alarm
-                                    .tr(),
-                          value: state.critical,
-                          // No alarm permission, no critical delivery: the
-                          // push would arrive as a plain notification and
-                          // never ring.
-                          onChanged: state.canEditCritical
-                              ? (val) {
-                                  AppHaptics.selection();
-                                  unawaited(
-                                    context
-                                        .read<TopicDetailCubit>()
-                                        .toggleCriticalDelivery(
-                                          isCritical: val,
-                                        ),
-                                  );
-                                }
-                              : null,
+                        TourAnchor(
+                          id: TourAnchorId.topicCritical,
+                          child: AppToggleRow(
+                            title: LocaleKeys.topic_detail_critical_toggle_title
+                                .tr(),
+                            subtitle: state.canEditCritical
+                                ? LocaleKeys
+                                      .topic_detail_critical_toggle_subtitle
+                                      .tr()
+                                : LocaleKeys.topic_detail_critical_needs_alarm
+                                      .tr(),
+                            value: state.critical,
+                            // No alarm permission, no critical delivery: the
+                            // push would arrive as a plain notification and
+                            // never ring.
+                            onChanged: state.canEditCritical
+                                ? (val) {
+                                    AppHaptics.selection();
+                                    unawaited(
+                                      context
+                                          .read<TopicDetailCubit>()
+                                          .toggleCriticalDelivery(
+                                            isCritical: val,
+                                          ),
+                                    );
+                                  }
+                                : null,
+                          ),
                         ),
                         const SizedBox(height: 10),
                         // Per-topic sound. Stored on the device only, so it
                         // is not part of the topic the server knows about.
-                        AppListRow(
-                          name: LocaleKeys.topic_detail_sound_row_title.tr(),
-                          meta: LocaleKeys.topic_detail_sound_row_default.tr(),
-                          trailing: AppGlyph(
-                            GlyphType.arrow,
-                            color: context.appColors.ink3,
-                            size: 16,
-                          ),
-                          onTap: () => context.push(
-                            '${GoRouterState.of(context).uri.path}/sounds',
+                        TourAnchor(
+                          id: TourAnchorId.topicSound,
+                          child: AppListRow(
+                            name: LocaleKeys.topic_detail_sound_row_title.tr(),
+                            meta: LocaleKeys.topic_detail_sound_row_default
+                                .tr(),
+                            trailing: AppGlyph(
+                              GlyphType.arrow,
+                              color: context.appColors.ink3,
+                              size: 16,
+                            ),
+                            onTap: () => context.push(
+                              '${GoRouterState.of(context).uri.path}/sounds',
+                            ),
                           ),
                         ),
                         AppSectionHeader(
@@ -335,17 +360,21 @@ class _TopicDetailScreenContent extends StatelessWidget {
                               ),
                             ),
                           ),
-                        TopicTokensSection(topicName: state.topicName),
+                        if (!isExample)
+                          TopicTokensSection(topicName: state.topicName),
                         const SizedBox(height: Spacing.s5),
                         // Last on the sheet, so nothing is reached past to
                         // get to it.
-                        AppButton(
-                          label: LocaleKeys.topic_detail_delete_button.tr(),
-                          variant: AppButtonVariant.ghost,
-                          size: AppButtonSize.sm,
-                          isFullWidth: true,
-                          onPressed: () => unawaited(
-                            _confirmDelete(context, state.topicName),
+                        TourAnchor(
+                          id: TourAnchorId.topicDelete,
+                          child: AppButton(
+                            label: LocaleKeys.topic_detail_delete_button.tr(),
+                            variant: AppButtonVariant.ghost,
+                            size: AppButtonSize.sm,
+                            isFullWidth: true,
+                            onPressed: () => unawaited(
+                              _confirmDelete(context, state.topicName),
+                            ),
                           ),
                         ),
                       ],

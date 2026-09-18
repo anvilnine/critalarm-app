@@ -128,6 +128,9 @@ import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
+import 'package:critalarm/features/tour/data/repositories/shared_prefs_tour_repository.dart';
+import 'package:critalarm/features/tour/domain/repositories/tour_repository.dart';
+import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
 import 'package:critalarm/firebase_options.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -508,6 +511,11 @@ Future<void> configureDependencies({
     ..registerLazySingleton<DocsIndexRepository>(
       AssetDocsIndexRepository.new,
     )
+    ..registerLazySingleton<TourRepository>(
+      () => SharedPrefsTourRepository(getIt<SharedPreferences>()),
+    )
+    // One for the whole app: the tour walks across screens.
+    ..registerLazySingleton(() => TourCubit(getIt<TourRepository>()))
     ..registerLazySingleton(
       () => GetRecentSearchesUsecase(getIt<RecentSearchesRepository>()),
     )

@@ -27,6 +27,13 @@ class AppTabItem {
   final bool showFlag;
 }
 
+/// The two buttons after the tabs, on both the bar and the rail.
+enum AppNavButton { search, compose }
+
+/// Lets the shell wrap one slot of the bar or the rail, such as to mark it for
+/// the tour, without the bar knowing why.
+typedef AppNavSlotWrapper<T> = Widget Function(T slot, Widget child);
+
 /// The floating pill bar: three destinations and one primary action, sitting
 /// clear of the list so content can scroll all the way to the bottom edge.
 class AppFloatingTabBar extends StatelessWidget {
@@ -45,6 +52,8 @@ class AppFloatingTabBar extends StatelessWidget {
     this.searchPlaceholder,
     this.onSearchChanged,
     this.onSearchClose,
+    this.wrapTab,
+    this.wrapButton,
     super.key,
   });
 
@@ -91,6 +100,9 @@ class AppFloatingTabBar extends StatelessWidget {
   final ValueChanged<String>? onSearchChanged;
   final VoidCallback? onSearchClose;
 
+  final AppNavSlotWrapper<int>? wrapTab;
+  final AppNavSlotWrapper<AppNavButton>? wrapButton;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -121,30 +133,46 @@ class AppFloatingTabBar extends StatelessWidget {
                 children: [
                   for (var i = 0; i < items.length; i++) ...[
                     if (i > 0) const SizedBox(width: 2),
-                    _TabSlot(
-                      item: items[i],
-                      isCurrent: i == currentIndex,
-                      iconsOnly: iconsOnly,
-                      // Tapping the tab already showing still calls onSelect:
-                      // that is how the user gets back to its first screen.
-                      onTap: () {
-                        AppHaptics.selection();
-                        onSelect(i);
-                      },
+                    _wrap(
+                      wrapTab,
+                      i,
+                      _TabSlot(
+                        item: items[i],
+                        isCurrent: i == currentIndex,
+                        iconsOnly: iconsOnly,
+                        // Tapping the tab already showing still calls
+                        // onSelect: that is how the user gets back to its
+                        // first screen.
+                        onTap: () {
+                          AppHaptics.selection();
+                          onSelect(i);
+                        },
+                      ),
                     ),
                   ],
                   const SizedBox(width: 4),
                   if (onSearch != null) ...[
-                    _SearchSlot(label: searchLabel, onTap: onSearch!),
+                    _wrap(
+                      wrapButton,
+                      AppNavButton.search,
+                      _SearchSlot(label: searchLabel, onTap: onSearch!),
+                    ),
                     const SizedBox(width: 4),
                   ],
-                  _ComposeSlot(label: composeLabel, onTap: onCompose),
+                  _wrap(
+                    wrapButton,
+                    AppNavButton.compose,
+                    _ComposeSlot(label: composeLabel, onTap: onCompose),
+                  ),
                 ],
               ),
       ),
     );
   }
 }
+
+Widget _wrap<T>(AppNavSlotWrapper<T>? wrapper, T slot, Widget child) =>
+    wrapper == null ? child : wrapper(slot, child);
 
 /// What the pill holds while searching: the same 44px slots, with the field
 /// stretched across the middle where the tabs were.
