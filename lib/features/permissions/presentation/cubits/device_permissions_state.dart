@@ -22,7 +22,17 @@ class DevicePermissionsState {
   final List<DevicePermissionItem>? _permissions;
   final String? errorMessage;
 
-  static List<DevicePermissionItem> get defaultPermissions => [
+  /// What the screen shows before the first load answers. Only this
+  /// platform's rows, so an iPhone never flashes Android's battery row.
+  static List<DevicePermissionItem> get defaultPermissions {
+    final types = devicePermissionTypesFor(
+      defaultTargetPlatform,
+      isWeb: kIsWeb,
+    );
+    return _allPermissions.where((p) => types.contains(p.type)).toList();
+  }
+
+  static List<DevicePermissionItem> get _allPermissions => [
     DevicePermissionItem(
       type: DevicePermissionType.notifications,
       title: LocaleKeys.device_permissions_item_notifications_title.tr(),
@@ -46,6 +56,21 @@ class DevicePermissionsState {
       description: LocaleKeys
           .device_permissions_item_battery_optimization_description
           .tr(),
+      status: DevicePermissionStatus.notDetermined,
+      canFix: true,
+    ),
+    DevicePermissionItem(
+      type: DevicePermissionType.timeSensitive,
+      title: LocaleKeys.device_permissions_item_time_sensitive_title.tr(),
+      description: LocaleKeys.device_permissions_item_time_sensitive_description
+          .tr(),
+      status: DevicePermissionStatus.notDetermined,
+      canFix: true,
+    ),
+    DevicePermissionItem(
+      type: DevicePermissionType.alarms,
+      title: LocaleKeys.device_permissions_item_alarms_title.tr(),
+      description: LocaleKeys.device_permissions_item_alarms_description.tr(),
       status: DevicePermissionStatus.notDetermined,
       canFix: true,
     ),
