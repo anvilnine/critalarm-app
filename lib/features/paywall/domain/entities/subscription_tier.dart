@@ -8,13 +8,20 @@ enum SubscriptionTier {
   yearly,
   monthly;
 
-  /// Identifier for the Crit Alarm Pro entitlement in RevenueCat.
-  static const String proEntitlement = 'crit_alarm_pro';
+  /// The paid entitlement in the RevenueCat dashboard. Both `hosted` store
+  /// products hand it out, and the relay webhook turns it into
+  /// `accounts.tier = 'hosted'`. The dashboard also has a `relay` entitlement
+  /// with no products attached, so it never fires and the app never reads it.
+  static const String proEntitlement = 'hosted';
 
-  /// Package / product identifiers used in RevenueCat.
-  static const String lifetimeId = 'lifetime';
-  static const String yearlyId = 'yearly';
-  static const String monthlyId = 'monthly';
+  /// RevenueCat package identifiers in the `default` offering. The standard
+  /// durations keep their `$rc_` names, so a comparison against
+  /// `Package.identifier` has to use these and not 'monthly' or 'yearly'.
+  /// `$rc_lifetime` exists in the offering editor with no product behind it,
+  /// because nothing lifetime is sold at launch.
+  static const String lifetimeId = r'$rc_lifetime';
+  static const String yearlyId = r'$rc_annual';
+  static const String monthlyId = r'$rc_monthly';
 
   /// Display title for the tier.
   String get displayName {

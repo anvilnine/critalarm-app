@@ -4,11 +4,15 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 
 void main() {
   group('SubscriptionTier', () {
-    test('constants match required RevenueCat configuration', () {
-      expect(SubscriptionTier.proEntitlement, equals('crit_alarm_pro'));
-      expect(SubscriptionTier.lifetimeId, equals('lifetime'));
-      expect(SubscriptionTier.yearlyId, equals('yearly'));
-      expect(SubscriptionTier.monthlyId, equals('monthly'));
+    // These four strings are typed into the RevenueCat dashboard, so a rename
+    // there has to land here too. `hosted` is the entitlement the two paid
+    // products hand out; the other three are package identifiers in the
+    // `default` offering.
+    test('constants match the RevenueCat dashboard', () {
+      expect(SubscriptionTier.proEntitlement, equals('hosted'));
+      expect(SubscriptionTier.lifetimeId, equals(r'$rc_lifetime'));
+      expect(SubscriptionTier.yearlyId, equals(r'$rc_annual'));
+      expect(SubscriptionTier.monthlyId, equals(r'$rc_monthly'));
     });
 
     test('displayName returns user-friendly label', () {
@@ -17,23 +21,38 @@ void main() {
       expect(SubscriptionTier.monthly.displayName, equals('Monthly'));
     });
 
-    test('fromPackage resolves predefined package types', () {
+    // The packages and store products the `default` offering really holds.
+    test('fromPackage resolves the packages in the default offering', () {
       const lifetimePkg = Package(
-        'lifetime',
+        r'$rc_lifetime',
         PackageType.lifetime,
         StoreProduct('lifetime', 'L', 'L', 49.99, r'$49.99', 'USD'),
         PresentedOfferingContext('default', null, null),
       );
       const annualPkg = Package(
-        'yearly',
+        r'$rc_annual',
         PackageType.annual,
-        StoreProduct('yearly', 'Y', 'Y', 19.99, r'$19.99', 'USD'),
+        StoreProduct(
+          'app.critalarm.hosted.annual',
+          'Y',
+          'Y',
+          19.99,
+          r'$19.99',
+          'USD',
+        ),
         PresentedOfferingContext('default', null, null),
       );
       const monthlyPkg = Package(
-        'monthly',
+        r'$rc_monthly',
         PackageType.monthly,
-        StoreProduct('monthly', 'M', 'M', 2.99, r'$2.99', 'USD'),
+        StoreProduct(
+          'app.critalarm.hosted.monthly',
+          'M',
+          'M',
+          2.99,
+          r'$2.99',
+          'USD',
+        ),
         PresentedOfferingContext('default', null, null),
       );
 
