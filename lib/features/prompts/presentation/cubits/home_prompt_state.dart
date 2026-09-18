@@ -1,0 +1,53 @@
+import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
+import 'package:flutter/foundation.dart';
+
+enum HomePromptType {
+  none,
+  noServer,
+  criticalHealth,
+  batteryWarning,
+  accountBackup,
+  proSupport,
+}
+
+@immutable
+class HomePromptState {
+  const HomePromptState({
+    this.promptType = HomePromptType.none,
+    this.isDismissing = false,
+    this.missingPermissions = const [],
+  });
+
+  final HomePromptType promptType;
+  final bool isDismissing;
+  final List<DevicePermissionItem> missingPermissions;
+
+  bool get isVisible => promptType != HomePromptType.none;
+
+  HomePromptState copyWith({
+    HomePromptType? promptType,
+    bool? isDismissing,
+    List<DevicePermissionItem>? missingPermissions,
+  }) {
+    return HomePromptState(
+      promptType: promptType ?? this.promptType,
+      isDismissing: isDismissing ?? this.isDismissing,
+      missingPermissions: missingPermissions ?? this.missingPermissions,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HomePromptState &&
+          promptType == other.promptType &&
+          isDismissing == other.isDismissing &&
+          listEquals(missingPermissions, other.missingPermissions);
+
+  @override
+  int get hashCode => Object.hash(
+    promptType,
+    isDismissing,
+    Object.hashAll(missingPermissions),
+  );
+}
