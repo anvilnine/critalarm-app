@@ -160,6 +160,10 @@ class MockServer {
         seedAlarmed();
       case FaceState.acked:
         seedAcked();
+      // Refresh faces only show during a pull. There is no fixture for them.
+      case FaceState.working:
+      case FaceState.success:
+        seedCalm();
     }
   }
 
