@@ -22,6 +22,21 @@ void main() {
     });
   });
 
+  group('letterLeave', () {
+    test('a letter is in place before it starts leaving', () {
+      expect(letterLeave(Duration.zero, 0), 0);
+      expect(letterLeave(letterHopStagger * 2, 3), 0);
+    });
+
+    test('halfway through its leave it is half gone', () {
+      expect(letterLeave(half, 0), closeTo(0.5, 0.0001));
+    });
+
+    test('after its leave it stays gone', () {
+      expect(letterLeave(letterHopDuration * 3, 0), 1);
+    });
+  });
+
   group('gradientAt', () {
     const red = Color(0xFFFF0000);
     const green = Color(0xFF00FF00);
