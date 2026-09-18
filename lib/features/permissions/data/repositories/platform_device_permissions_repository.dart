@@ -35,24 +35,8 @@ class PlatformDevicePermissionsRepository
   final MethodChannel _channel;
   final TargetPlatform _platform;
 
-  bool get _isApple =>
-      !kIsWeb &&
-      (_platform == TargetPlatform.iOS || _platform == TargetPlatform.macOS);
-
-  /// What this platform can actually be wrong about. Asking Android whether
-  /// Time Sensitive is on, or iOS about battery optimisation, only produces a
-  /// row the user can never fix.
-  List<DevicePermissionType> get _typesForPlatform => _isApple
-      ? const [
-          DevicePermissionType.notifications,
-          DevicePermissionType.timeSensitive,
-          DevicePermissionType.alarms,
-        ]
-      : const [
-          DevicePermissionType.notifications,
-          DevicePermissionType.fullScreenIntent,
-          DevicePermissionType.batteryOptimization,
-        ];
+  List<DevicePermissionType> get _typesForPlatform =>
+      devicePermissionTypesFor(_platform, isWeb: kIsWeb);
 
   static String _titleFor(DevicePermissionType type) => switch (type) {
     DevicePermissionType.notifications =>

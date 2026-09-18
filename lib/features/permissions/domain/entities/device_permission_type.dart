@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// System permission types required for Crit Alarm to operate reliably.
 enum DevicePermissionType {
   /// Notification permission. POST_NOTIFICATIONS on Android, the
@@ -18,4 +20,29 @@ enum DevicePermissionType {
   /// iOS only. AlarmKit, the permission that lets a page ring through the
   /// silent switch and Do Not Disturb.
   alarms,
+}
+
+/// The permissions [platform] can actually be wrong about, in display order.
+///
+/// Asking Android whether Time Sensitive is on, or iOS about battery
+/// optimisation, only produces a row the user can never fix. The web
+/// dashboard has no alarm and no battery, so it lists notifications alone.
+List<DevicePermissionType> devicePermissionTypesFor(
+  TargetPlatform platform, {
+  required bool isWeb,
+}) {
+  if (isWeb) return const [DevicePermissionType.notifications];
+  return switch (platform) {
+    TargetPlatform.iOS || TargetPlatform.macOS => const [
+      DevicePermissionType.notifications,
+      DevicePermissionType.timeSensitive,
+      DevicePermissionType.alarms,
+    ],
+    TargetPlatform.android => const [
+      DevicePermissionType.notifications,
+      DevicePermissionType.fullScreenIntent,
+      DevicePermissionType.batteryOptimization,
+    ],
+    _ => const [DevicePermissionType.notifications],
+  };
 }
