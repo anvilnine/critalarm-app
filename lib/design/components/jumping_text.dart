@@ -121,7 +121,11 @@ class _JumpingTextState extends State<JumpingText>
         letterHopDuration + letterHopStagger * math.max(0, _leaving - 1);
     unawaited(
       _hops.forward(from: 0).whenComplete(() {
-        if (mounted) setState(() => _outgoing = null);
+        if (!mounted) return;
+        // Back to the start, or the letters that stay would be drawn at the
+        // leave's end time and freeze partway through a hop.
+        _hops.value = 0;
+        setState(() => _outgoing = null);
       }),
     );
   }
