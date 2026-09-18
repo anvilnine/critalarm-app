@@ -498,7 +498,7 @@ class _TourCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
+              _TourBody(
                 step.bodyKeyFor(usingExamples: tour.usingExamples).tr(),
                 style: TextStyle(
                   fontFamily: AppTypography.fontBody,
@@ -532,6 +532,46 @@ class _TourCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The step's text. A line starting with "• " is drawn as a bullet, with the
+/// wrapped part lined up under its first word rather than under the dot.
+class _TourBody extends StatelessWidget {
+  const _TourBody(this.text, {required this.style});
+
+  final String text;
+  final TextStyle style;
+
+  static const _bullet = '• ';
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = text.split('\n');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < lines.length; i++)
+          Padding(
+            padding: EdgeInsets.only(top: i == 0 ? 0 : 4),
+            child: lines[i].startsWith(_bullet)
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_bullet, style: style),
+                      Expanded(
+                        child: Text(
+                          lines[i].substring(_bullet.length),
+                          style: style,
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(lines[i], style: style),
+          ),
+      ],
     );
   }
 }

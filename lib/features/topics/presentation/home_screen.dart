@@ -121,16 +121,26 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     HomeState real,
     TourState tour,
   ) {
-    // Someone with no topics yet gets two example ones while the tour runs,
-    // so it has a list to point at. They go as soon as the tour does.
-    final state = tour.isRunning && tour.usingExamples && real.isEmpty
+    // While the tour runs, the list gets an example topic that is ringing,
+    // so the user sees what trouble looks like before it happens. Someone
+    // with no topics yet also gets two calm ones. They all go when the tour
+    // does.
+    final showExamples = tour.isRunning && real.status == HomeStatus.success;
+    final state = !showExamples
+        ? real
+        : real.isEmpty
         ? real.copyWith(
-            topicItems: TourExamples.homeTopics(),
+            topicItems: [
+              TourExamples.troubleTopic(),
+              ...TourExamples.homeTopics(),
+            ],
             faceState: FaceState.calm,
             word: LocaleKeys.home_stage_word_clear.tr(),
             subText: LocaleKeys.tour_example_topic_sub.tr(),
           )
-        : real;
+        : real.copyWith(
+            topicItems: [TourExamples.troubleTopic(), ...real.topicItems],
+          );
     // A deleted topic leaves the pane pointing at a name the list no
     // longer has, so the selection is read back off the list every build
     // rather than trusted.
