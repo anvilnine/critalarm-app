@@ -217,3 +217,18 @@ class _FaceWidgetState extends State<FaceWidget> with TickerProviderStateMixin {
     );
   }
 }
+
+/// Standard Hero flight shuttle builder for [FaceWidget] ensuring smooth
+/// scaling across size changes during route transitions without clipping.
+Widget faceFlightShuttleBuilder(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroFlightDirection flightDirection,
+  BuildContext fromHeroContext,
+  BuildContext toHeroContext,
+) {
+  final toHero = toHeroContext.widget as Hero;
+  return FittedBox(
+    child: toHero.child,
+  );
+}

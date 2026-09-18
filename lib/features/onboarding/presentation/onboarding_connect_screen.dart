@@ -173,13 +173,14 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           // lg + Spacing.s3 + sm, on both the connected bar and the
           // self-hosted form's Connect + "use the cloud instead" pair.
           _ when state.isConnected || state.isSelfHosting => 60.0 + 12 + 36,
-          // The cloud bar is the self-host toggle plus the way out.
-          _ => 36.0 + 8 + 36,
+          // The cloud bar is the self-host toggle plus the text button.
+          _ => 36.0 + 4 + 36,
         };
         final bottomBarHeight =
             barButtons + 12 + MediaQuery.paddingOf(context).bottom;
 
         return AppScreenScaffold(
+          physics: bottomAligned ? const NeverScrollableScrollPhysics() : null,
           backgroundColor: Colors.transparent,
           withGhosts: false,
           withFades: false,
@@ -222,7 +223,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                   ? SliverFillRemaining(
                       hasScrollBody: false,
                       child: Padding(
-                        padding: EdgeInsets.only(bottom: bottomBarHeight),
+                        padding: EdgeInsets.only(bottom: bottomBarHeight + 12),
                         child: _buildConnectOptions(context, state, cubit),
                       ),
                     )
@@ -262,10 +263,25 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           LocaleKeys.onboarding_connect_subtitle.tr(),
           style: AppTypography.lead(colors.onCanvasMuted, fontSize: 15),
         ),
-        const SizedBox(height: Spacing.s6),
 
-        // Everything above sits at the top; the card drops to the bottom.
-        if (!state.isSelfHosting) const Spacer(),
+        // Everything above sits at the top; the card drops to the bottom,
+        // with the face centered in the middle area.
+        if (!state.isSelfHosting) ...[
+          const Spacer(),
+          const Center(
+            child: Hero(
+              tag: 'onboarding-face',
+              flightShuttleBuilder: faceFlightShuttleBuilder,
+              child: FaceWidget(
+                state: FaceState.watching,
+                size: 80,
+                isLive: true,
+              ),
+            ),
+          ),
+          const Spacer(),
+        ] else
+          const SizedBox(height: Spacing.s6),
 
         // Says why a tap is about to fail, without stopping the user taking
         // it. Onboarding never blocks on the network.
@@ -433,14 +449,26 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     OnboardingConnectState state,
     OnboardingConnectCubit cubit,
   ) {
+    final colors = context.appColors;
     // No server has answered yet, so offer the way out. Without it a user who
     // is offline or has the address wrong has no forward exit and no back.
-    final skipButton = AppButton(
-      label: LocaleKeys.onboarding_connect_skip_for_now.tr(),
-      variant: AppButtonVariant.ghost,
-      size: AppButtonSize.sm,
-      isFullWidth: true,
+    final skipButton = TextButton(
       onPressed: cubit.navigateToHome,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(double.infinity, 36),
+        padding: EdgeInsets.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(
+        LocaleKeys.onboarding_connect_skip_for_now.tr(),
+        style: TextStyle(
+          fontFamily: AppTypography.fontBody,
+          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: colors.onCanvas,
+        ),
+      ),
     );
 
     if (!state.isSelfHosting) {
@@ -454,7 +482,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
             isFullWidth: true,
             onPressed: cubit.toggleSelfHosting,
           ),
-          const SizedBox(height: Spacing.s2),
+          const SizedBox(height: Spacing.s1),
           skipButton,
         ],
       );
@@ -501,12 +529,16 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         ),
         const SizedBox(height: Spacing.s5),
 
-        FaceWidget(
-          state: state.isCountingDown
-              ? FaceState.alarmed
-              : FaceState.watching,
-          size: 88,
-          isLive: true,
+        Hero(
+          tag: 'onboarding-face',
+          flightShuttleBuilder: faceFlightShuttleBuilder,
+          child: FaceWidget(
+            state: state.isCountingDown
+                ? FaceState.alarmed
+                : FaceState.watching,
+            size: 88,
+            isLive: true,
+          ),
         ),
         const SizedBox(height: Spacing.s4),
 
