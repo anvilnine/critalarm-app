@@ -423,6 +423,8 @@
     "developer_header": "Developer options",
     "developer_pro_title": "Pro plan",
     "developer_pro_subtitle": "Unlock Pro features",
+    "developer_dialog_sheet_title": "Dialogs & bottom sheets",
+    "developer_dialog_sheet_subtitle": "Preview the dialog and sheet library",
     "alarms_row_title": "Alarms",
     "alarms_row_subtitle": "Sound, quiet hours, escalation",
     "server_row_title": "Server",
