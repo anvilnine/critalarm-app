@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
@@ -246,16 +247,17 @@ class _ServerSettingsView extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                Text(
-                  LocaleKeys.settings_server_self_hosted.tr(),
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: colors.ink3,
+                if (state.serverMode == ServerMode.selfhosted)
+                  Text(
+                    LocaleKeys.settings_server_self_hosted.tr(),
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontBody,
+                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: colors.ink3,
+                    ),
                   ),
-                ),
               ],
             ),
             const SizedBox(height: 6),
