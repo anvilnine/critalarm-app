@@ -1,5 +1,5 @@
 import 'package:critalarm/design/faces/face_state.dart';
-import 'package:critalarm/design/faces/face_widget.dart';
+import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
@@ -66,7 +66,8 @@ class AppStage extends StatelessWidget {
             if (faceWidget != null)
               faceWidget!
             else if (faceState != null)
-              FaceWidget(
+              stageFace(
+                context,
                 state: faceState!,
                 size: faceSize,
                 isLive: isLive,
@@ -104,7 +105,8 @@ class AppStage extends StatelessWidget {
             if (faceWidget != null)
               faceWidget!
             else if (faceState != null)
-              FaceWidget(
+              stageFace(
+                context,
                 state: faceState!,
                 size: faceSize.clamp(0.0, 96.0),
                 isLive: isLive,
@@ -147,7 +149,8 @@ class AppStage extends StatelessWidget {
           if (faceWidget != null)
             faceWidget!
           else if (faceState != null)
-            FaceWidget(
+            stageFace(
+              context,
               state: faceState!,
               size: faceSize,
               isLive: isLive,

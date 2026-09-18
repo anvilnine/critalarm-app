@@ -1,6 +1,6 @@
 import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/faces/face_state.dart';
-import 'package:critalarm/design/faces/face_widget.dart';
+import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
@@ -55,8 +55,10 @@ class AppEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (showFace) ...[
-              FaceWidget(
+              stageFace(
+                context,
                 state: faceState,
+                size: 120,
                 isLive: isLive,
               ),
               const SizedBox(height: Spacing.s4),

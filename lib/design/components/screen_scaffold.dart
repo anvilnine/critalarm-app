@@ -3,6 +3,7 @@ import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/nav_rail.dart';
 import 'package:critalarm/design/components/scroll_fade.dart';
 import 'package:critalarm/design/faces/ghost_field.dart';
+import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
@@ -21,6 +22,7 @@ class AppScreenScaffold extends StatelessWidget {
     this.topBar,
     this.bottomBar,
     this.onRefresh,
+    this.onFaceRefresh,
     this.hasTabBar = true,
     this.detail,
     this.scrollController,
@@ -31,7 +33,10 @@ class AppScreenScaffold extends StatelessWidget {
     this.ghostOpacity = 1,
     this.resizeForKeyboard = false,
     super.key,
-  });
+  }) : assert(
+         onRefresh == null || onFaceRefresh == null,
+         'Pick one: the spinner (onRefresh) or the face (onFaceRefresh).',
+       );
 
   /// The body. Plain slivers, no padding of their own at the edges.
   final List<Widget> slivers;
@@ -44,6 +49,10 @@ class AppScreenScaffold extends StatelessWidget {
   final Widget? bottomBar;
 
   final Future<void> Function()? onRefresh;
+
+  /// Pull to refresh acted out by the face on the stage instead of a
+  /// spinner. Return true when the refresh worked.
+  final Future<bool> Function()? onFaceRefresh;
 
   /// True when the floating tab bar is on screen, so the list leaves room for
   /// it below the last row.
@@ -133,7 +142,9 @@ class AppScreenScaffold extends StatelessWidget {
       ],
     );
 
-    if (onRefresh != null) {
+    if (onFaceRefresh != null) {
+      list = RefreshFaceHost(onRefresh: onFaceRefresh!, child: list);
+    } else if (onRefresh != null) {
       list = RefreshIndicator(
         onRefresh: onRefresh!,
         edgeOffset: topInset,
