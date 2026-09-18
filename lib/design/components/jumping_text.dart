@@ -21,6 +21,15 @@ double letterHop(Duration elapsed, int index) {
   return math.sin(math.pi * local);
 }
 
+/// How far letter [index] is through leaving, [elapsed] into a run where
+/// letters leave one after another: 0 still in place, 1 gone.
+double letterLeave(Duration elapsed, int index) {
+  final start = letterHopStagger * index;
+  final local =
+      (elapsed - start).inMicroseconds / letterHopDuration.inMicroseconds;
+  return local.clamp(0.0, 1.0);
+}
+
 /// The colour at [position] (0 to 1) along a gradient through [stops].
 Color gradientAt(List<Color> stops, double position) {
   if (stops.length == 1) return stops.first;
@@ -32,6 +41,9 @@ Color gradientAt(List<Color> stops, double position) {
 /// Text whose letters hop one after another when it changes, wearing a
 /// gradient colour at the top of each hop. With [wave] on, a slow wave keeps
 /// rolling through the letters until it is turned off.
+///
+/// When the new text is the old text with its start cut off, only the cut
+/// letters move: they hop up, fade and shrink away, and the rest slides over.
 ///
 /// The first text shown does not hop, so opening a screen stays calm. Wraps
 /// between words, never inside one. Screen readers get the whole line once.
@@ -72,7 +84,13 @@ class _JumpingTextState extends State<JumpingText>
   /// The pause between two waves, so a wave reads as a wave.
   static const Duration _wavePause = Duration(milliseconds: 500);
 
-  int get _letterCount => widget.text.length;
+  /// The old text, shown while its first [_leaving] letters leave.
+  String? _outgoing;
+  int _leaving = 0;
+
+  String get _shown => _outgoing ?? widget.text;
+
+  int get _letterCount => _shown.length;
 
   Duration get _runLength =>
       letterHopDuration + letterHopStagger * math.max(0, _letterCount - 1);
@@ -86,12 +104,30 @@ class _JumpingTextState extends State<JumpingText>
   @override
   void didUpdateWidget(covariant JumpingText oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.text != widget.text || oldWidget.wave != widget.wave) {
+    final old = oldWidget.text;
+    final cutFromStart =
+        old.length > widget.text.length && old.endsWith(widget.text);
+    if (old != widget.text && cutFromStart && !widget.wave) {
+      _leave(old);
+    } else if (old != widget.text || oldWidget.wave != widget.wave) {
       _play();
     }
   }
 
+  void _leave(String old) {
+    _outgoing = old;
+    _leaving = old.length - widget.text.length;
+    _hops.duration =
+        letterHopDuration + letterHopStagger * math.max(0, _leaving - 1);
+    unawaited(
+      _hops.forward(from: 0).whenComplete(() {
+        if (mounted) setState(() => _outgoing = null);
+      }),
+    );
+  }
+
   void _play() {
+    _outgoing = null;
     if (widget.wave) {
       _hops.duration = _runLength + _wavePause;
       _hops.value = 0;
@@ -117,7 +153,7 @@ class _JumpingTextState extends State<JumpingText>
 
     // Each word keeps its trailing space, so the Wrap breaks only between
     // words and the spacing stays the font's own.
-    final words = widget.text.split(' ');
+    final words = _shown.split(' ');
     var index = 0;
     return Wrap(
       children: [
@@ -128,7 +164,12 @@ class _JumpingTextState extends State<JumpingText>
               for (final letter
                   in (w < words.length - 1 ? '${words[w]} ' : words[w])
                       .split(''))
-                _letter(letter, index++, elapsed, lift, resting, last),
+                if (_outgoing != null && index < _leaving)
+                  _leavingLetter(letter, index++, elapsed, resting, last)
+                else if (_outgoing != null)
+                  _still(letter, index++)
+                else
+                  _letter(letter, index++, elapsed, lift, resting, last),
             ],
           ),
       ],
@@ -150,6 +191,36 @@ class _JumpingTextState extends State<JumpingText>
       child: Text(
         letter,
         style: widget.style.copyWith(color: Color.lerp(resting, tint, hop)),
+      ),
+    );
+  }
+
+  Widget _still(String letter, int index) => Text(letter, style: widget.style);
+
+  Widget _leavingLetter(
+    String letter,
+    int index,
+    Duration elapsed,
+    Color resting,
+    int last,
+  ) {
+    final out = letterLeave(elapsed, index);
+    final tint = gradientAt(widget.gradient, index / last);
+    // Shrinking the width is what slides the rest of the line over.
+    return Align(
+      alignment: Alignment.centerLeft,
+      widthFactor: 1 - Curves.easeInOut.transform(out),
+      child: Opacity(
+        opacity: 1 - out,
+        child: Transform.translate(
+          offset: Offset(0, -out * _lift),
+          child: Text(
+            letter,
+            style: widget.style.copyWith(
+              color: Color.lerp(resting, tint, math.sin(math.pi * out)),
+            ),
+          ),
+        ),
       ),
     );
   }

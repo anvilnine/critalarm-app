@@ -248,34 +248,91 @@ class _CappedNotice extends StatelessWidget {
 /// The small face and summary line at the top of History. The face is too
 /// small for its expression to carry a refresh alone, so while a pull to
 /// refresh runs the line beside it says what is going on.
-class _HistoryStage extends StatelessWidget {
+///
+/// When the refresh ends, the result and the summary come in together as one
+/// line ("Up to date. No alarms in the last 30 days."), then the result
+/// leaves and the summary slides into place.
+class _HistoryStage extends StatefulWidget {
   const _HistoryStage({required this.summary});
 
   final String summary;
 
   @override
-  Widget build(BuildContext context) {
+  State<_HistoryStage> createState() => _HistoryStageState();
+}
+
+class _HistoryStageState extends State<_HistoryStage> {
+  /// How long the result stays in front of the summary.
+  static const Duration _resultHold = Duration(milliseconds: 1600);
+
+  RefreshFaceController? _refresh;
+  RefreshFacePhase _phase = RefreshFacePhase.idle;
+  String? _result;
+  Timer? _clearResult;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     final refresh = RefreshFaceScope.maybeOf(context);
-    if (refresh == null) {
-      return AppStage.horizontal(faceState: FaceState.acked, sub: summary);
+    if (refresh == _refresh) return;
+    _refresh?.removeListener(_onRefresh);
+    _refresh = refresh?..addListener(_onRefresh);
+  }
+
+  @override
+  void dispose() {
+    _refresh?.removeListener(_onRefresh);
+    _clearResult?.cancel();
+    super.dispose();
+  }
+
+  void _onRefresh() {
+    final phase = _refresh!.phase;
+    if (phase == _phase) return;
+    _phase = phase;
+
+    final result = switch (phase) {
+      RefreshFacePhase.success => LocaleKeys.history_refresh_done.tr(),
+      RefreshFacePhase.failed => LocaleKeys.history_refresh_failed.tr(),
+      _ => null,
+    };
+    if (result != null) {
+      _clearResult?.cancel();
+      _clearResult = Timer(_resultHold, () {
+        if (mounted) setState(() => _result = null);
+      });
+      setState(() => _result = result);
+    } else if (phase == RefreshFacePhase.working) {
+      _clearResult?.cancel();
+      setState(() => _result = null);
+    } else {
+      setState(() {});
     }
-    final colors = context.appColors;
-    return ListenableBuilder(
-      listenable: refresh,
-      builder: (context, _) => AppStage.horizontal(
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_refresh == null) {
+      return AppStage.horizontal(
         faceState: FaceState.acked,
-        subWidget: JumpingText(
-          switch (refresh.phase) {
-            RefreshFacePhase.working =>
-              LocaleKeys.history_refresh_checking.tr(),
-            RefreshFacePhase.success => LocaleKeys.history_refresh_done.tr(),
-            RefreshFacePhase.failed => LocaleKeys.history_refresh_failed.tr(),
-            _ => summary,
-          },
-          style: AppStage.horizontalSubStyle(colors),
-          gradient: [colors.cobalt, colors.crit, colors.high],
-          wave: refresh.phase == RefreshFacePhase.working,
-        ),
+        sub: widget.summary,
+      );
+    }
+
+    final colors = context.appColors;
+    final text = _phase == RefreshFacePhase.working
+        ? LocaleKeys.history_refresh_checking.tr()
+        : _result == null
+        ? widget.summary
+        : '$_result ${widget.summary}';
+
+    return AppStage.horizontal(
+      faceState: FaceState.acked,
+      subWidget: JumpingText(
+        text,
+        style: AppStage.horizontalSubStyle(colors),
+        gradient: [colors.cobalt, colors.crit, colors.high],
+        wave: _phase == RefreshFacePhase.working,
       ),
     );
   }
