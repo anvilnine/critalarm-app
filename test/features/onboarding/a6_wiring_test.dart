@@ -20,6 +20,8 @@ import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart
 import 'package:critalarm/features/paywall/domain/usecases/purchase_package_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/restore_purchases_usecase.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -52,6 +54,11 @@ void main() {
   var mode = 'hosted';
   String? responseToken = 'dv_registered';
   Completer<void>? setupGate;
+  // RevenueCat's webhook reaches the relay after the purchase returns, so a
+  // re-registration can still read the old tier. This is how many PATCHes
+  // answer 'free' before the webhook has landed.
+  var freePatches = 0;
+  var patches = 0;
   final customerInfo = <String, Object?>{
     'entitlements': {'all': <String, Object?>{}, 'active': <String, Object?>{}},
     'allPurchaseDates': <String, Object?>{},
@@ -74,6 +81,8 @@ void main() {
     mode = 'hosted';
     responseToken = 'dv_registered';
     setupGate = null;
+    freePatches = 0;
+    patches = 0;
     messenger.setMockMethodCallHandler(sdkChannel, (call) async {
       sdkCalls.add(call);
       if (call.method == 'setupPurchases') await setupGate?.future;
@@ -100,12 +109,15 @@ void main() {
         }
         expect(request.url.host, 'relay.example');
         expect(request.url.path, startsWith('/prefix/relay/v1/devices'));
+        if (request.method == 'PATCH') patches++;
         return http.Response(
           jsonEncode({
             if (request.method == 'POST' || responseToken == '')
               'device_token': responseToken,
             'account_id': 'acc_registered',
-            'tier': request.method == 'PATCH' ? 'hosted' : 'free',
+            'tier': request.method == 'PATCH' && patches > freePatches
+                ? 'hosted'
+                : 'free',
             'caps': {'devices': 5, 'critical_topics': 2, 'p4_daily': 1000},
           }),
           request.method == 'POST' ? 201 : 200,
@@ -268,6 +280,72 @@ void main() {
         expect(requests.where((r) => r.method == 'PATCH'), hasLength(1));
         expect(requests.last.headers['authorization'], 'Bearer dv_registered');
         expect((await identity.readOrCreate()).tier, 'hosted');
+        await paywall.close();
+        await connection.close();
+        await repository.dispose();
+      },
+    );
+  }
+
+  // How long the user stares at a free tier after paying. The purchase returns
+  // before RevenueCat's webhook reaches the relay (api.md 4.3), so the first
+  // re-registration reads the old tier and the app has to ask again.
+  for (final lateBy in [2, 99]) {
+    test(
+      lateBy == 2
+          ? 'a late webhook is picked up by a retry'
+          : 'a webhook that never lands gives up without claiming paid',
+      () async {
+        freePatches = lateBy;
+        final connection = connectCubit()
+          ..serverUrlChanged('https://typed.example');
+        await connection.connect();
+        await revenueCat.initialize(apiKey: 'test');
+        final repository = InMemorySubscriptionRepository();
+        final paywall = PaywallCubit(
+          identityStore: identity,
+          purchasePackageUsecase: PurchasePackageUsecase(repository),
+          restorePurchasesUsecase: RestorePurchasesUsecase(repository),
+          // Four zero waits, so the test runs the real five tries instantly.
+          tierRefreshWaits: const [
+            Duration.zero,
+            Duration.zero,
+            Duration.zero,
+            Duration.zero,
+          ],
+          refreshRegistration: () async {
+            await revenueCat.invalidateCustomerInfoCache();
+            await register(appVersion: '1.0');
+          },
+        );
+        const package = Package(
+          'test',
+          PackageType.annual,
+          StoreProduct('test', 'Test', 'Test', 0, '', 'USD'),
+          PresentedOfferingContext('test', null, null),
+        );
+        await paywall.upgradeToPro(package);
+
+        if (lateBy == 2) {
+          // Two PATCHes answered free, the third carried the new tier.
+          expect(requests.where((r) => r.method == 'PATCH'), hasLength(3));
+          expect(paywall.state.isPro, isTrue);
+          expect((await identity.readOrCreate()).tier, 'hosted');
+          expect(
+            paywall.state.feedbackMessage,
+            LocaleKeys.paywall_feedback_upgraded.tr(),
+          );
+        } else {
+          // Five tries and no more, and the app says the plan has not
+          // switched over rather than calling it an upgrade.
+          expect(requests.where((r) => r.method == 'PATCH'), hasLength(5));
+          expect(paywall.state.isPro, isFalse);
+          expect((await identity.readOrCreate()).tier, 'free');
+          expect(
+            paywall.state.feedbackMessage,
+            LocaleKeys.paywall_feedback_purchase_completed.tr(),
+          );
+        }
         await paywall.close();
         await connection.close();
         await repository.dispose();

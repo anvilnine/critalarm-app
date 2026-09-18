@@ -3,3 +3,17 @@
 // a test API key cannot pop the "Wrong API Key" dialog that closes the app.
 // Defaults to false, so shipping builds always talk to RevenueCat.
 const buildSkipsPaywall = bool.fromEnvironment('SKIP_PAYWALL');
+
+/// Whether a build is about to ship with no way to take money.
+///
+/// A release build with an empty RevenueCat key never configures the SDK, so
+/// there is no paywall and nothing to buy, and that looks exactly like a
+/// working build nobody has bought from yet. [buildSkipsPaywall] is the one
+/// way to mean it: a `--dart-define=SKIP_PAYWALL=true` build wires the
+/// in-memory repository on purpose. Kept out of the composition root so a
+/// test can check the three inputs without a release build.
+bool releaseBuildCannotSell({
+  required bool isRelease,
+  required bool skipsPaywall,
+  required String apiKey,
+}) => isRelease && !skipsPaywall && apiKey.isEmpty;

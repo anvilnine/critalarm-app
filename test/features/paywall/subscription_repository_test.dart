@@ -35,7 +35,7 @@ void main() {
 
       final customerInfo = await customerInfoFuture;
       expect(
-        customerInfo.entitlements.all['crit_alarm_pro']?.isActive,
+        customerInfo.entitlements.all['hosted']?.isActive,
         isTrue,
       );
 
