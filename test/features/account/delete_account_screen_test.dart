@@ -1,5 +1,6 @@
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/design/components/dialogs.dart';
 import 'package:critalarm/design/components/switches.dart';
 import 'package:critalarm/design/theme/theme.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
@@ -145,7 +146,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(
       find.descendant(
-        of: find.byType(AlertDialog),
+        of: find.byType(AppDialog),
         matching: find.text('Delete my account'),
       ),
     );
@@ -182,20 +183,20 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(
       find.descendant(
-        of: find.byType(AlertDialog),
+        of: find.byType(AppDialog),
         matching: find.text('Delete my account'),
       ),
     );
     await tester.pumpAndSettle();
     expect(account.deleteIdentityTokens, isEmpty);
-    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byType(AppDialog), findsOneWidget);
 
     // The word itself, in any case, does.
     await tester.enterText(find.byType(TextField), 'delete');
     await tester.pumpAndSettle();
     await tester.tap(
       find.descendant(
-        of: find.byType(AlertDialog),
+        of: find.byType(AppDialog),
         matching: find.text('Delete my account'),
       ),
     );

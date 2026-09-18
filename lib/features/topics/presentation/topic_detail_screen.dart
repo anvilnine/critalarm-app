@@ -73,58 +73,24 @@ class _TopicDetailScreenContent extends StatelessWidget {
   /// topic back and says why on the screen underneath, which by then is the
   /// topics list.
   Future<void> _confirmDelete(BuildContext context, String topicName) async {
-    final colors = context.appColors;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: colors.surface,
-        shape: const RoundedRectangleBorder(borderRadius: Radii.lgAll),
-        title: Text(
-          LocaleKeys.topic_detail_delete_dialog_title.tr(
-            namedArgs: {'topic': topicName},
-          ),
-          style: TextStyle(
-            fontFamily: AppTypography.fontDisplay,
-            fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: colors.ink,
-          ),
-        ),
-        content: Text(
-          LocaleKeys.topic_detail_delete_dialog_content.tr(),
-          style: TextStyle(
-            fontFamily: AppTypography.fontBody,
-            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-            fontSize: 14,
-            color: colors.ink2,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(
-              LocaleKeys.common_cancel.tr(),
-              style: TextStyle(
-                fontFamily: AppTypography.fontBody,
-                color: colors.ink3,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(
-              LocaleKeys.topic_detail_delete_dialog_confirm.tr(),
-              style: TextStyle(
-                fontFamily: AppTypography.fontBody,
-                color: colors.crit,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
+      title: LocaleKeys.topic_detail_delete_dialog_title.tr(
+        namedArgs: {'topic': topicName},
       ),
+      body: LocaleKeys.topic_detail_delete_dialog_content.tr(),
+      actions: [
+        AppDialogAction(
+          label: LocaleKeys.common_cancel.tr(),
+          value: false,
+          variant: AppButtonVariant.ghost,
+        ),
+        AppDialogAction(
+          label: LocaleKeys.topic_detail_delete_dialog_confirm.tr(),
+          value: true,
+          variant: AppButtonVariant.crit,
+        ),
+      ],
     );
     if (confirmed != true || !context.mounted) return;
 

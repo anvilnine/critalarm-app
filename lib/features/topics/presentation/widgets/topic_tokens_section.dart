@@ -44,56 +44,22 @@ class _TopicTokensSectionContent extends StatelessWidget {
     TopicTokensCubit cubit,
     String tokenId,
   ) async {
-    final colors = context.appColors;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: colors.surface,
-        shape: const RoundedRectangleBorder(borderRadius: Radii.lgAll),
-        title: Text(
-          LocaleKeys.topic_tokens_revoke_dialog_title.tr(),
-          style: TextStyle(
-            fontFamily: AppTypography.fontDisplay,
-            fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: colors.ink,
-          ),
+      title: LocaleKeys.topic_tokens_revoke_dialog_title.tr(),
+      body: LocaleKeys.topic_tokens_revoke_dialog_content.tr(),
+      actions: [
+        AppDialogAction(
+          label: LocaleKeys.common_cancel.tr(),
+          value: false,
+          variant: AppButtonVariant.ghost,
         ),
-        content: Text(
-          LocaleKeys.topic_tokens_revoke_dialog_content.tr(),
-          style: TextStyle(
-            fontFamily: AppTypography.fontBody,
-            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-            fontSize: 14,
-            color: colors.ink2,
-          ),
+        AppDialogAction(
+          label: LocaleKeys.topic_tokens_revoke_dialog_confirm.tr(),
+          value: true,
+          variant: AppButtonVariant.crit,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(
-              LocaleKeys.common_cancel.tr(),
-              style: TextStyle(
-                fontFamily: AppTypography.fontBody,
-                color: colors.ink3,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(
-              LocaleKeys.topic_tokens_revoke_dialog_confirm.tr(),
-              style: TextStyle(
-                fontFamily: AppTypography.fontBody,
-                color: colors.crit,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
+      ],
     );
     if (confirmed != true) return;
     AppHaptics.destructive();
