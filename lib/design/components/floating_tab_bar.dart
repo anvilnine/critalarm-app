@@ -125,8 +125,9 @@ class AppFloatingTabBar extends StatelessWidget {
                       item: items[i],
                       isCurrent: i == currentIndex,
                       iconsOnly: iconsOnly,
+                      // Tapping the tab already showing still calls onSelect:
+                      // that is how the user gets back to its first screen.
                       onTap: () {
-                        if (i == currentIndex) return;
                         AppHaptics.selection();
                         onSelect(i);
                       },
