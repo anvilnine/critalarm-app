@@ -2,6 +2,7 @@
 library;
 
 export 'badges.dart';
+export 'brand_icons.dart';
 export 'buttons.dart';
 export 'chips.dart';
 export 'code_block.dart';
