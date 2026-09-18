@@ -1,5 +1,6 @@
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/design/components/chips.dart';
+import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
@@ -24,6 +25,19 @@ abstract final class TourExamples {
       priority: PriorityLevel.defaultPriority,
     ),
   ];
+
+  /// A topic in the middle of a page: alarmed face, critical chip. Shown to
+  /// everyone during the tour, next to their own topics, so the list has
+  /// something going wrong on it to point at.
+  static HomeTopicItem troubleTopic() => HomeTopicItem(
+    name: 'payments-api',
+    meta: LocaleKeys.home_meta_alert_active.tr(),
+    priority: PriorityLevel.critical,
+    faceState: FaceState.alarmed,
+    isCrit: true,
+    isLive: true,
+    ringsThroughSilent: true,
+  );
 
   /// The example topic's own screen.
   static TopicDetailState topicDetail() => TopicDetailState(
