@@ -32,7 +32,6 @@ dependencies:
   result_dart: ^2.2.0
   share_plus: ^12.0.2
   shared_preferences: ^2.5.5
-  showcase_tutorial: ^1.15.1
   sign_in_with_apple: ^8.2.0
   timezone: ^0.11.1
   url_launcher: ^6.3.2

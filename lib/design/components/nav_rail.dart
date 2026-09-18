@@ -21,6 +21,8 @@ class AppNavRail extends StatelessWidget {
     this.onSearch,
     this.composeLabel,
     this.searchLabel,
+    this.wrapTab,
+    this.wrapButton,
     super.key,
   });
 
@@ -45,6 +47,15 @@ class AppNavRail extends StatelessWidget {
   final String? composeLabel;
   final String? searchLabel;
 
+  final AppNavSlotWrapper<int>? wrapTab;
+  final AppNavSlotWrapper<AppNavButton>? wrapButton;
+
+  Widget _wrapTab(int index, Widget child) =>
+      wrapTab == null ? child : wrapTab!(index, child);
+
+  Widget _wrapButton(AppNavButton button, Widget child) =>
+      wrapButton == null ? child : wrapButton!(button, child);
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -67,23 +78,32 @@ class AppNavRail extends StatelessWidget {
           children: [
             for (var i = 0; i < items.length; i++) ...[
               if (i > 0) const SizedBox(height: 2),
-              _RailSlot(
-                item: items[i],
-                isCurrent: i == currentIndex,
-                // Tapping the current tab still calls onSelect, so it pops
-                // back to that tab's first screen.
-                onTap: () {
-                  AppHaptics.selection();
-                  onSelect(i);
-                },
+              _wrapTab(
+                i,
+                _RailSlot(
+                  item: items[i],
+                  isCurrent: i == currentIndex,
+                  // Tapping the current tab still calls onSelect, so it pops
+                  // back to that tab's first screen.
+                  onTap: () {
+                    AppHaptics.selection();
+                    onSelect(i);
+                  },
+                ),
               ),
             ],
             const SizedBox(height: 6),
             if (onSearch != null) ...[
-              _RailSearch(label: searchLabel, onTap: onSearch!),
+              _wrapButton(
+                AppNavButton.search,
+                _RailSearch(label: searchLabel, onTap: onSearch!),
+              ),
               const SizedBox(height: 6),
             ],
-            _RailCompose(label: composeLabel, onTap: onCompose),
+            _wrapButton(
+              AppNavButton.compose,
+              _RailCompose(label: composeLabel, onTap: onCompose),
+            ),
           ],
         ),
       ),

@@ -1133,14 +1133,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"
-  showcase_tutorial:
-    dependency: "direct main"
-    description:
-      name: showcase_tutorial
-      sha256: "42141fcbee14260819b4f5a61cfa165dd435a94ca1946639822bc11e132986b3"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.15.1"
   sign_in_with_apple:
     dependency: "direct main"
     description:

@@ -6,6 +6,8 @@ import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:critalarm/features/topics/presentation/widgets/token_actions.dart';
+import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
+import 'package:critalarm/features/tour/presentation/tour_steps.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -122,30 +124,33 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                   AppToast(message: message),
                   const SizedBox(height: Spacing.s2),
                 ],
-                AppButton(
-                  label: state.status == CreateTopicStatus.success
-                      ? 'Done'
-                      : LocaleKeys.create_topic_create_button.tr(),
-                  isFullWidth: true,
-                  isLoading: state.status == CreateTopicStatus.submitting,
-                  onPressed: () {
-                    AppHaptics.capture();
-                    if (state.status == CreateTopicStatus.success) {
-                      final name = state.createdTopic!.name;
-                      // Pop back to the list first so it reloads and the new
-                      // topic is on it, then open the topic. Going straight
-                      // there replaces this route instead of popping it, and
-                      // the list never hears that anything changed.
-                      if (context.canPop()) {
-                        context.pop();
-                        unawaited(context.push('/topics/$name'));
+                TourAnchor(
+                  id: TourAnchorId.createButton,
+                  child: AppButton(
+                    label: state.status == CreateTopicStatus.success
+                        ? 'Done'
+                        : LocaleKeys.create_topic_create_button.tr(),
+                    isFullWidth: true,
+                    isLoading: state.status == CreateTopicStatus.submitting,
+                    onPressed: () {
+                      AppHaptics.capture();
+                      if (state.status == CreateTopicStatus.success) {
+                        final name = state.createdTopic!.name;
+                        // Pop back to the list first so it reloads and the new
+                        // topic is on it, then open the topic. Going straight
+                        // there replaces this route instead of popping it, and
+                        // the list never hears that anything changed.
+                        if (context.canPop()) {
+                          context.pop();
+                          unawaited(context.push('/topics/$name'));
+                        } else {
+                          context.go('/topics/$name');
+                        }
                       } else {
-                        context.go('/topics/$name');
+                        unawaited(cubit.createTopic());
                       }
-                    } else {
-                      unawaited(cubit.createTopic());
-                    }
-                  },
+                    },
+                  ),
                 ),
               ],
             ),
@@ -176,29 +181,36 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                             showFace: false,
                           ),
                         if (state.status != CreateTopicStatus.success) ...[
-                          AppTextField(
-                            label: LocaleKeys.create_topic_name_label.tr(),
-                            initialValue: state.name,
-                            placeholder: LocaleKeys
-                                .create_topic_name_placeholder
-                                .tr(),
-                            helperText: LocaleKeys.create_topic_name_helper
-                                .tr(),
-                            errorText: state.errorMessage,
-                            onChanged: cubit.nameChanged,
+                          TourAnchor(
+                            id: TourAnchorId.createName,
+                            child: AppTextField(
+                              label: LocaleKeys.create_topic_name_label.tr(),
+                              initialValue: state.name,
+                              placeholder: LocaleKeys
+                                  .create_topic_name_placeholder
+                                  .tr(),
+                              helperText: LocaleKeys.create_topic_name_helper
+                                  .tr(),
+                              errorText: state.errorMessage,
+                              onChanged: cubit.nameChanged,
+                            ),
                           ),
                           const SizedBox(height: 14),
-                          AppToggleRow(
-                            title: LocaleKeys.create_topic_critical_toggle_title
-                                .tr(),
-                            subtitle: LocaleKeys
-                                .create_topic_critical_toggle_subtitle
-                                .tr(),
-                            value: state.isCritical,
-                            onChanged: (val) {
-                              AppHaptics.selection();
-                              cubit.criticalToggled(isCritical: val);
-                            },
+                          TourAnchor(
+                            id: TourAnchorId.createCritical,
+                            child: AppToggleRow(
+                              title: LocaleKeys
+                                  .create_topic_critical_toggle_title
+                                  .tr(),
+                              subtitle: LocaleKeys
+                                  .create_topic_critical_toggle_subtitle
+                                  .tr(),
+                              value: state.isCritical,
+                              onChanged: (val) {
+                                AppHaptics.selection();
+                                cubit.criticalToggled(isCritical: val);
+                              },
+                            ),
                           ),
                         ],
                         if (token != null) ...[

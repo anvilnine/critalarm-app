@@ -11,6 +11,9 @@ import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.d
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/settings_health_row.dart';
+import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
+import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
+import 'package:critalarm/features/tour/presentation/tour_steps.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -197,21 +200,25 @@ class _SettingsScreenContent extends StatelessWidget {
                       BlocBuilder<ShellCubit, ShellHealth>(
                         builder: (context, health) {
                           final row = SettingsHealthRow.from(health);
-                          return AppListRow(
-                            name: LocaleKeys.settings_health_row_title.tr(),
-                            meta: row.subtitle,
-                            faceState: row.faceState,
-                            trailing: row.isHealthy
-                                ? AppGlyph(
-                                    GlyphType.arrow,
-                                    color: colors.ink3,
-                                    size: 16,
-                                  )
-                                : _buildHealthIssuesChip(
-                                    context,
-                                    row.issueCount,
-                                  ),
-                            onTap: () => context.push('/settings/permissions'),
+                          return TourAnchor(
+                            id: TourAnchorId.settingsHealth,
+                            child: AppListRow(
+                              name: LocaleKeys.settings_health_row_title.tr(),
+                              meta: row.subtitle,
+                              faceState: row.faceState,
+                              trailing: row.isHealthy
+                                  ? AppGlyph(
+                                      GlyphType.arrow,
+                                      color: colors.ink3,
+                                      size: 16,
+                                    )
+                                  : _buildHealthIssuesChip(
+                                      context,
+                                      row.issueCount,
+                                    ),
+                              onTap: () =>
+                                  context.push('/settings/permissions'),
+                            ),
                           );
                         },
                       ),
@@ -287,6 +294,21 @@ class _SettingsScreenContent extends StatelessWidget {
                       AppSectionHeader(
                         LocaleKeys.settings_setup_header.tr(),
                       ),
+                      TourAnchor(
+                        id: TourAnchorId.settingsTour,
+                        child: AppListRow(
+                          name: LocaleKeys.settings_tour_row_title.tr(),
+                          meta: LocaleKeys.settings_tour_row_subtitle.tr(),
+                          faceState: null,
+                          trailing: AppGlyph(
+                            GlyphType.arrow,
+                            color: colors.ink3,
+                            size: 16,
+                          ),
+                          onTap: () => getIt<TourCubit>().request(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       AppListRow(
                         name: LocaleKeys.settings_redo_onboarding_title.tr(),
                         meta: LocaleKeys.settings_redo_onboarding_subtitle.tr(),

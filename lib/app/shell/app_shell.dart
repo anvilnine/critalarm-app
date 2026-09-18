@@ -19,6 +19,10 @@ import 'package:critalarm/features/search/domain/entities/search_scope.dart';
 import 'package:critalarm/features/search/presentation/cubits/search_cubit.dart';
 import 'package:critalarm/features/search/presentation/cubits/search_state.dart';
 import 'package:critalarm/features/search/presentation/widgets/search_panel.dart';
+import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
+import 'package:critalarm/features/tour/presentation/cubits/tour_state.dart';
+import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
+import 'package:critalarm/features/tour/presentation/tour_steps.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -99,6 +103,11 @@ class _AppShellContentState extends State<_AppShellContent>
 
   bool _isSearching = false;
 
+  /// The tour opened search to show it off, so the tour closes it again.
+  bool _tourOpenedSearch = false;
+
+  StreamSubscription<TourState>? _tourSub;
+
   @override
   void initState() {
     super.initState();
@@ -107,10 +116,14 @@ class _AppShellContentState extends State<_AppShellContent>
       duration: AppDurations.enter,
       reverseDuration: AppDurations.quick,
     );
+    // A stream, not a BlocListener, for the same reason search is a field:
+    // a widget above the branch navigators would reparent their GlobalKeys.
+    _tourSub = getIt<TourCubit>().stream.listen(_followTour);
   }
 
   @override
   void dispose() {
+    unawaited(_tourSub?.cancel());
     _controller.dispose();
     _focusNode.dispose();
     _reveal.dispose();
@@ -123,17 +136,39 @@ class _AppShellContentState extends State<_AppShellContent>
     return index >= 0 && index < _scopes.length ? _scopes[index] : null;
   }
 
-  void _openSearch() {
+  void _openSearch({bool focus = true}) {
     if (_isSearching) return;
     setState(() => _isSearching = true);
     _reveal.duration = context.motion(AppDurations.enter);
     _reveal.reverseDuration = context.motion(AppDurations.quick);
     unawaited(_reveal.forward());
     unawaited(_search.load(scope: _scope));
+    if (!focus) return;
     // After the frame that swaps the bar over, so the field exists to take it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _isSearching) _focusNode.requestFocus();
     });
+  }
+
+  /// A tour step that talks about search types its example in, so real
+  /// results are on screen while the step explains them. No keyboard: it
+  /// would cover the results the step is pointing at.
+  void _followTour(TourState tour) {
+    if (!mounted) return;
+    final query = tour.isRunning ? tour.step.searchQuery : null;
+    if (query == null) {
+      if (_tourOpenedSearch) {
+        _tourOpenedSearch = false;
+        _closeSearch();
+      }
+      return;
+    }
+    _tourOpenedSearch = true;
+    _openSearch(focus: false);
+    _controller
+      ..text = query
+      ..selection = TextSelection.collapsed(offset: query.length);
+    _search.updateQuery(query);
   }
 
   void _closeSearch() {
@@ -227,7 +262,8 @@ class _AppShellContentState extends State<_AppShellContent>
     final width = (screen.width - _gutter * 2).clamp(0.0, _maxWidth);
 
     final currentPath = GoRouterState.of(context).uri.path;
-    final hideTabBar = !_isSearching &&
+    final hideTabBar =
+        !_isSearching &&
         (currentPath.contains('/topics/') ||
             currentPath.contains('/messages') ||
             currentPath.contains('/sounds'));
@@ -275,6 +311,8 @@ class _AppShellContentState extends State<_AppShellContent>
                   child: AppNavRail(
                     currentIndex: widget.navigationShell.currentIndex,
                     items: items,
+                    wrapTab: _tourTab,
+                    wrapButton: _tourButton,
                     onSelect: _goBranch,
                     composeLabel: LocaleKeys.nav_new_topic.tr(),
                     onCompose: () => context.pushNamed(AppRoute.createTopic),
@@ -352,18 +390,35 @@ class _AppShellContentState extends State<_AppShellContent>
         child: Center(
           child: SizedBox(
             width: width,
-            child: SearchPanel(
-              state: state,
-              maxHeight: maxHeight < 0 ? 0 : maxHeight,
-              onTapResult: (result) => unawaited(_openResult(result)),
-              onTapRecent: _fillFromRecent,
-              onClearRecent: () => unawaited(_search.clearRecent()),
+            child: TourAnchor(
+              id: TourAnchorId.searchResults,
+              child: SearchPanel(
+                state: state,
+                maxHeight: maxHeight < 0 ? 0 : maxHeight,
+                onTapResult: (result) => unawaited(_openResult(result)),
+                onTapRecent: _fillFromRecent,
+                onClearRecent: () => unawaited(_search.clearRecent()),
+              ),
             ),
           ),
         ),
       ),
     );
   }
+
+  /// Marks the History tab for the tour. The other two tabs are not pointed
+  /// at: the tour is already standing on them.
+  static Widget _tourTab(int index, Widget child) => index == 1
+      ? TourAnchor(id: TourAnchorId.historyTab, child: child)
+      : child;
+
+  static Widget _tourButton(AppNavButton button, Widget child) => TourAnchor(
+    id: switch (button) {
+      AppNavButton.search => TourAnchorId.search,
+      AppNavButton.compose => TourAnchorId.compose,
+    },
+    child: child,
+  );
 
   Widget _bar(List<AppTabItem> items, AppSize size, double width) {
     final bar = AppFloatingTabBar(
@@ -381,6 +436,8 @@ class _AppShellContentState extends State<_AppShellContent>
       searchPlaceholder: _placeholder,
       onSearchChanged: _search.updateQuery,
       onSearchClose: _closeSearch,
+      wrapTab: _tourTab,
+      wrapButton: _tourButton,
     );
 
     // While searching the pill stretches to the full content width. The rest
