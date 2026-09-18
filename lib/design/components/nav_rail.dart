@@ -70,8 +70,9 @@ class AppNavRail extends StatelessWidget {
               _RailSlot(
                 item: items[i],
                 isCurrent: i == currentIndex,
+                // Tapping the current tab still calls onSelect, so it pops
+                // back to that tab's first screen.
                 onTap: () {
-                  if (i == currentIndex) return;
                   AppHaptics.selection();
                   onSelect(i);
                 },
