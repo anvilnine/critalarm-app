@@ -29,6 +29,8 @@ class NotificationPermissionsState {
     this.liveActivityStarted = false,
     this.alarmSupported = true,
     this.isChecking = false,
+    this.batteryNeeded = false,
+    this.batteryGranted = false,
   });
 
   final NotificationPermissionStep step;
@@ -55,8 +57,19 @@ class NotificationPermissionsState {
   /// Re-reading the system state after the user came back from Settings.
   final bool isChecking;
 
+  /// True on Android, where battery optimisation can put the app to sleep and
+  /// hold a page back. Step 2 there asks to lift it instead of asking for an
+  /// alarm permission Android does not have.
+  final bool batteryNeeded;
+
+  /// True once the app is exempt from battery optimisation.
+  final bool batteryGranted;
+
+  /// Step 2 on this phone is the battery step.
+  bool get isBatteryStep => !alarmSupported && batteryNeeded;
+
   /// How many steps the stepper really has on this phone.
-  int get totalSteps => alarmSupported ? 2 : 1;
+  int get totalSteps => alarmSupported || batteryNeeded ? 2 : 1;
 
   bool get isRequesting => step == NotificationPermissionStep.requesting;
   bool get isGranted => step == NotificationPermissionStep.granted;
@@ -73,6 +86,8 @@ class NotificationPermissionsState {
     bool? liveActivityStarted,
     bool? alarmSupported,
     bool? isChecking,
+    bool? batteryNeeded,
+    bool? batteryGranted,
     bool clearError = false,
   }) {
     return NotificationPermissionsState(
@@ -87,6 +102,8 @@ class NotificationPermissionsState {
       liveActivityStarted: liveActivityStarted ?? this.liveActivityStarted,
       alarmSupported: alarmSupported ?? this.alarmSupported,
       isChecking: isChecking ?? this.isChecking,
+      batteryNeeded: batteryNeeded ?? this.batteryNeeded,
+      batteryGranted: batteryGranted ?? this.batteryGranted,
     );
   }
 
@@ -104,7 +121,9 @@ class NotificationPermissionsState {
           alarm == other.alarm &&
           liveActivityStarted == other.liveActivityStarted &&
           alarmSupported == other.alarmSupported &&
-          isChecking == other.isChecking;
+          isChecking == other.isChecking &&
+          batteryNeeded == other.batteryNeeded &&
+          batteryGranted == other.batteryGranted;
 
   @override
   int get hashCode => Object.hash(
@@ -118,5 +137,7 @@ class NotificationPermissionsState {
     liveActivityStarted,
     alarmSupported,
     isChecking,
+    batteryNeeded,
+    batteryGranted,
   );
 }
