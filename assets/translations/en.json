@@ -450,6 +450,8 @@
     "developer_pro_subtitle": "Unlock Pro features",
     "developer_dialog_sheet_title": "Dialogs & bottom sheets",
     "developer_dialog_sheet_subtitle": "Preview the dialog and sheet library",
+    "developer_faces_title": "Face expressions",
+    "developer_faces_subtitle": "Demo all character faces, tilts and animations",
     "alarms_row_title": "Alarms",
     "alarms_row_subtitle": "Sound, quiet hours, escalation",
     "server_row_title": "Server",

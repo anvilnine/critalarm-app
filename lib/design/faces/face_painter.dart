@@ -12,6 +12,8 @@ class FacePainter extends CustomPainter {
     required this.strokeColor,
     required this.inkColor,
     this.lookDx = 0.0,
+    this.spiralRotation = 0.0,
+    this.tongueColor,
     this.shape,
   });
 
@@ -22,6 +24,12 @@ class FacePainter extends CustomPainter {
 
   /// Horizontal pupil offset in 200-unit coordinates for the watching face.
   final double lookDx;
+
+  /// Rotation angle in radians for spiral eyes in dizzy state.
+  final double spiralRotation;
+
+  /// Optional tongue color override (defaults to coral #FA7970).
+  final Color? tongueColor;
 
   /// When set, the eyes and mouth come from this shape instead of [state].
   /// The refresh face uses it to blend between faces.
@@ -35,7 +43,7 @@ class FacePainter extends CustomPainter {
       ..save()
       ..scale(scale, scale);
 
-    final isAlarmed = state == FaceState.alarmed;
+    final isAlarmed = state == FaceState.alarmed || state == FaceState.shocked;
 
     // Head fill
     const headRect = Rect.fromLTWH(12, 12, 176, 176);
@@ -49,7 +57,7 @@ class FacePainter extends CustomPainter {
       ..color = fillColor;
     canvas.drawRRect(headRRect, headFillPaint);
 
-    // Head stroke (12 units for alarmed, 10 units for all others)
+    // Head stroke (12 units for alarmed and shocked, 10 units for all others)
     final headStrokePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = isAlarmed ? 12.0 : 10.0
@@ -59,9 +67,13 @@ class FacePainter extends CustomPainter {
     canvas.drawRRect(headRRect, headStrokePaint);
 
     // Feature paints
+    final isBold =
+        isAlarmed ||
+        state == FaceState.determined ||
+        state == FaceState.laughing;
     final featureStrokePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = isAlarmed ? 11.0 : 10.0
+      ..strokeWidth = isBold ? 11.0 : 10.0
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..color = inkColor;
@@ -69,6 +81,12 @@ class FacePainter extends CustomPainter {
     final featureFillPaint = Paint()
       ..style = PaintingStyle.fill
       ..color = inkColor;
+
+    final whiteFillPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = const Color(0xFFFFFFFF);
+
+    final effectiveTongueColor = tongueColor ?? const Color(0xFFFA7970);
 
     final faceShape = shape ?? _ownShape;
     if (faceShape != null) {
@@ -174,6 +192,339 @@ class FacePainter extends CustomPainter {
           ..moveTo(76, 128)
           ..quadraticBezierTo(100, 146, 124, 128);
         canvas.drawPath(mouth, featureStrokePaint);
+
+      case FaceState.shocked:
+        // Fierce downward angled eyebrows
+        canvas.drawLine(
+          const Offset(46, 62),
+          const Offset(88, 80),
+          featureStrokePaint,
+        );
+        canvas.drawLine(
+          const Offset(154, 62),
+          const Offset(112, 80),
+          featureStrokePaint,
+        );
+
+        // Furrow crease mark between eyebrows
+        final furrow = Path()
+          ..moveTo(96, 64)
+          ..lineTo(100, 73)
+          ..lineTo(104, 64)
+          ..moveTo(100, 73)
+          ..lineTo(100, 83);
+        canvas.drawPath(
+          furrow,
+          Paint()
+            ..color = inkColor
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 4.0
+            ..strokeCap = StrokeCap.round
+            ..strokeJoin = StrokeJoin.round,
+        );
+
+        // Huge wide eyes: white sclera + black border + black pupil + shine
+        const leftEyeCenter = Offset(68, 102);
+        const rightEyeCenter = Offset(132, 102);
+        final eyeBorder = Paint()
+          ..color = inkColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4.5;
+
+        canvas.drawCircle(leftEyeCenter, 21, whiteFillPaint);
+        canvas.drawCircle(leftEyeCenter, 21, eyeBorder);
+        canvas.drawCircle(leftEyeCenter, 10.5, featureFillPaint);
+        canvas.drawCircle(const Offset(64, 98), 3.5, whiteFillPaint);
+
+        canvas.drawCircle(rightEyeCenter, 21, whiteFillPaint);
+        canvas.drawCircle(rightEyeCenter, 21, eyeBorder);
+        canvas.drawCircle(rightEyeCenter, 10.5, featureFillPaint);
+        canvas.drawCircle(const Offset(128, 98), 3.5, whiteFillPaint);
+
+        // Subtle under-eye shading arc
+        final underEye = Paint()
+          ..color = inkColor.withValues(alpha: 0.18)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.5
+          ..strokeCap = StrokeCap.round;
+        canvas.drawArc(
+          Rect.fromCircle(center: leftEyeCenter, radius: 25),
+          0.5,
+          1,
+          false,
+          underEye,
+        );
+        canvas.drawArc(
+          Rect.fromCircle(center: rightEyeCenter, radius: 25),
+          1.64,
+          1,
+          false,
+          underEye,
+        );
+
+        // Open screaming mouth
+        final shockedMouth = Path()
+          ..moveTo(82, 134)
+          ..quadraticBezierTo(100, 122, 118, 134)
+          ..quadraticBezierTo(126, 148, 124, 168)
+          ..quadraticBezierTo(100, 172, 76, 168)
+          ..quadraticBezierTo(74, 148, 82, 134)
+          ..close();
+        canvas.drawPath(shockedMouth, featureFillPaint);
+
+        // Coral tongue at bottom of mouth
+        canvas.save();
+        canvas.clipPath(shockedMouth);
+        final shockedTongue = Path()
+          ..addOval(
+            Rect.fromCenter(
+              center: const Offset(100, 172),
+              width: 36,
+              height: 24,
+            ),
+          );
+        canvas.drawPath(
+          shockedTongue,
+          Paint()
+            ..color = effectiveTongueColor
+            ..style = PaintingStyle.fill,
+        );
+        canvas.restore();
+
+      case FaceState.laughing:
+        // Squeezed > < eyes
+        final leftEye = Path()
+          ..moveTo(48, 74)
+          ..lineTo(82, 90)
+          ..lineTo(48, 106);
+        canvas.drawPath(leftEye, featureStrokePaint);
+
+        final rightEye = Path()
+          ..moveTo(152, 74)
+          ..lineTo(118, 90)
+          ..lineTo(152, 106);
+        canvas.drawPath(rightEye, featureStrokePaint);
+
+        // Joyful wide laugh mouth
+        final laughingMouth = Path()
+          ..moveTo(52, 120)
+          ..quadraticBezierTo(100, 126, 148, 120)
+          ..quadraticBezierTo(148, 168, 100, 168)
+          ..quadraticBezierTo(52, 168, 52, 120)
+          ..close();
+        canvas.drawPath(laughingMouth, featureFillPaint);
+
+        // Tongue visible at base of mouth
+        canvas.save();
+        canvas.clipPath(laughingMouth);
+        final laughingTongue = Path()
+          ..addOval(
+            Rect.fromCenter(
+              center: const Offset(100, 170),
+              width: 58,
+              height: 34,
+            ),
+          );
+        canvas.drawPath(
+          laughingTongue,
+          Paint()
+            ..color = effectiveTongueColor
+            ..style = PaintingStyle.fill,
+        );
+        canvas.restore();
+
+      case FaceState.surprised:
+        // Raised curved eyebrows
+        final leftBrow = Path()
+          ..moveTo(44, 58)
+          ..quadraticBezierTo(62, 34, 84, 48);
+        canvas.drawPath(leftBrow, featureStrokePaint);
+
+        final rightBrow = Path()
+          ..moveTo(116, 48)
+          ..quadraticBezierTo(138, 34, 156, 58);
+        canvas.drawPath(rightBrow, featureStrokePaint);
+
+        // Big glossy cute eyes with shine highlight
+        canvas.drawCircle(const Offset(68, 92), 21, featureFillPaint);
+        canvas.drawCircle(const Offset(75, 84), 7.5, whiteFillPaint);
+
+        canvas.drawCircle(const Offset(132, 92), 21, featureFillPaint);
+        canvas.drawCircle(const Offset(139, 84), 7.5, whiteFillPaint);
+
+        // Round open 'O' mouth
+        canvas.drawCircle(const Offset(100, 144), 14, featureFillPaint);
+
+      case FaceState.skeptical:
+        // Cocked eyebrows (lowered left, raised right)
+        final leftBrow = Path()
+          ..moveTo(46, 70)
+          ..quadraticBezierTo(66, 76, 86, 74);
+        canvas.drawPath(leftBrow, featureStrokePaint);
+
+        final rightBrow = Path()
+          ..moveTo(110, 66)
+          ..quadraticBezierTo(126, 42, 148, 58);
+        canvas.drawPath(rightBrow, featureStrokePaint);
+
+        // Round solid eyes
+        canvas.drawCircle(const Offset(68, 94), 11, featureFillPaint);
+        canvas.drawCircle(const Offset(126, 92), 11, featureFillPaint);
+
+        // Slanted smirk mouth
+        final mouth = Path()
+          ..moveTo(72, 146)
+          ..lineTo(126, 138);
+        canvas.drawPath(mouth, featureStrokePaint);
+
+      case FaceState.dizzy:
+        // Worried drooping eyebrows
+        final leftBrow = Path()
+          ..moveTo(50, 66)
+          ..quadraticBezierTo(70, 42, 82, 58);
+        canvas.drawPath(leftBrow, featureStrokePaint);
+
+        final rightBrow = Path()
+          ..moveTo(118, 58)
+          ..quadraticBezierTo(130, 42, 150, 66);
+        canvas.drawPath(rightBrow, featureStrokePaint);
+
+        // Hypnotic spiral swirl eyes
+        final spiralPaint = Paint()
+          ..color = inkColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 6.0
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
+        _drawSpiral(
+          canvas,
+          const Offset(72, 94),
+          spiralPaint,
+          rotation: spiralRotation,
+        );
+        _drawSpiral(
+          canvas,
+          const Offset(128, 94),
+          spiralPaint,
+          rotation: spiralRotation,
+        );
+
+        // Wavy wobbly mouth
+        final mouth = Path()..moveTo(68, 146);
+        mouth.cubicTo(74, 156, 82, 156, 88, 146);
+        mouth.cubicTo(94, 136, 102, 136, 108, 146);
+        mouth.cubicTo(114, 156, 122, 156, 128, 146);
+        mouth.lineTo(132, 146);
+        canvas.drawPath(
+          mouth,
+          Paint()
+            ..color = inkColor
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 9.0
+            ..strokeCap = StrokeCap.round
+            ..strokeJoin = StrokeJoin.round,
+        );
+
+      case FaceState.determined:
+        // Fierce downward V-brows
+        final leftBrow = Path()
+          ..moveTo(54, 46)
+          ..lineTo(88, 70);
+        canvas.drawPath(leftBrow, featureStrokePaint);
+
+        final rightBrow = Path()
+          ..moveTo(146, 46)
+          ..lineTo(112, 70);
+        canvas.drawPath(rightBrow, featureStrokePaint);
+
+        // Sparkling anime eyes
+        final eyeBorder = Paint()
+          ..color = inkColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4.5;
+
+        canvas.drawCircle(const Offset(70, 92), 20, whiteFillPaint);
+        canvas.drawCircle(const Offset(70, 92), 20, eyeBorder);
+        canvas.drawCircle(const Offset(70, 94), 14, featureFillPaint);
+        canvas.drawCircle(const Offset(74, 86), 5.5, whiteFillPaint);
+        canvas.drawCircle(const Offset(64, 98), 2.5, whiteFillPaint);
+
+        canvas.drawCircle(const Offset(130, 92), 20, whiteFillPaint);
+        canvas.drawCircle(const Offset(130, 92), 20, eyeBorder);
+        canvas.drawCircle(const Offset(130, 94), 14, featureFillPaint);
+        canvas.drawCircle(const Offset(134, 86), 5.5, whiteFillPaint);
+        canvas.drawCircle(const Offset(124, 98), 2.5, whiteFillPaint);
+
+        // Open yelling mouth with tongue
+        final mouth = Path()
+          ..moveTo(84, 134)
+          ..quadraticBezierTo(100, 130, 116, 134)
+          ..quadraticBezierTo(118, 156, 100, 158)
+          ..quadraticBezierTo(82, 156, 84, 134)
+          ..close();
+        canvas.drawPath(mouth, featureFillPaint);
+
+        canvas.save();
+        canvas.clipPath(mouth);
+        final tongue = Path()
+          ..addOval(
+            Rect.fromCenter(
+              center: const Offset(100, 160),
+              width: 28,
+              height: 18,
+            ),
+          );
+        canvas.drawPath(
+          tongue,
+          Paint()
+            ..color = effectiveTongueColor
+            ..style = PaintingStyle.fill,
+        );
+        canvas.restore();
+
+      case FaceState.confused:
+        // Asymmetrical puzzled brows
+        final leftBrow = Path()
+          ..moveTo(44, 76)
+          ..quadraticBezierTo(62, 54, 82, 68);
+        canvas.drawPath(leftBrow, featureStrokePaint);
+
+        final rightBrow = Path()
+          ..moveTo(122, 68)
+          ..quadraticBezierTo(136, 68, 148, 76);
+        canvas.drawPath(rightBrow, featureStrokePaint);
+
+        // Round solid eyes
+        canvas.drawCircle(const Offset(74, 98), 11, featureFillPaint);
+        canvas.drawCircle(const Offset(126, 92), 11, featureFillPaint);
+
+        // Slanted flat mouth
+        final mouth = Path()
+          ..moveTo(78, 142)
+          ..lineTo(126, 134);
+        canvas.drawPath(mouth, featureStrokePaint);
+
+      case FaceState.sad:
+        // Sad drooping brows
+        final leftBrow = Path()
+          ..moveTo(44, 86)
+          ..quadraticBezierTo(60, 64, 82, 66);
+        canvas.drawPath(leftBrow, featureStrokePaint);
+
+        final rightBrow = Path()
+          ..moveTo(118, 66)
+          ..quadraticBezierTo(140, 64, 156, 86);
+        canvas.drawPath(rightBrow, featureStrokePaint);
+
+        // Round solid eyes
+        canvas.drawCircle(const Offset(70, 98), 11, featureFillPaint);
+        canvas.drawCircle(const Offset(130, 98), 11, featureFillPaint);
+
+        // Downward frown mouth
+        final mouth = Path()
+          ..moveTo(66, 150)
+          ..quadraticBezierTo(100, 126, 134, 150);
+        canvas.drawPath(mouth, featureStrokePaint);
     }
 
     canvas.restore();
@@ -185,6 +536,30 @@ class FacePainter extends CustomPainter {
     FaceState.working || FaceState.success => FaceShape.of(state),
     _ => null,
   };
+
+  void _drawSpiral(
+    Canvas canvas,
+    Offset center,
+    Paint paint, {
+    double rotation = 0.0,
+  }) {
+    final path = Path();
+    const steps = 60;
+    const turns = 1.75;
+    const maxR = 19.0;
+    for (var i = 0; i <= steps; i++) {
+      final t = i / steps;
+      final angle = t * turns * 2 * math.pi + rotation;
+      final r = 3.0 + t * (maxR - 3.0);
+      final pt = center + Offset(math.cos(angle) * r, math.sin(angle) * r);
+      if (i == 0) {
+        path.moveTo(pt.dx, pt.dy);
+      } else {
+        path.lineTo(pt.dx, pt.dy);
+      }
+    }
+    canvas.drawPath(path, paint);
+  }
 
   Paint _pen(Color color, double width) => Paint()
     ..style = PaintingStyle.stroke
@@ -248,6 +623,8 @@ class FacePainter extends CustomPainter {
         oldDelegate.strokeColor != strokeColor ||
         oldDelegate.inkColor != inkColor ||
         oldDelegate.lookDx != lookDx ||
+        oldDelegate.spiralRotation != spiralRotation ||
+        oldDelegate.tongueColor != tongueColor ||
         oldDelegate.shape != shape;
   }
 }

@@ -160,9 +160,18 @@ class MockServer {
         seedAlarmed();
       case FaceState.acked:
         seedAcked();
-      // Refresh faces only show during a pull. There is no fixture for them.
+      // Refresh and expression faces only show during gestures or previews.
+      // There is no dedicated server fixture for them.
       case FaceState.working:
       case FaceState.success:
+      case FaceState.shocked:
+      case FaceState.laughing:
+      case FaceState.surprised:
+      case FaceState.skeptical:
+      case FaceState.dizzy:
+      case FaceState.determined:
+      case FaceState.confused:
+      case FaceState.sad:
         seedCalm();
     }
   }

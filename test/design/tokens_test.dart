@@ -213,7 +213,7 @@ void main() {
   });
 
   group('FaceState', () {
-    test('contains all 7 canonical states', () {
+    test('contains all canonical and new expression states', () {
       expect(
         FaceState.values,
         containsAll([
@@ -224,9 +224,17 @@ void main() {
           FaceState.acked,
           FaceState.working,
           FaceState.success,
+          FaceState.shocked,
+          FaceState.laughing,
+          FaceState.surprised,
+          FaceState.skeptical,
+          FaceState.dizzy,
+          FaceState.determined,
+          FaceState.confused,
+          FaceState.sad,
         ]),
       );
-      expect(FaceState.values.length, 7);
+      expect(FaceState.values.length, 15);
     });
   });
 }

@@ -27,6 +27,7 @@ class AppSegmentedControl<T> extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(3),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: colors.cream,
         borderRadius: Radii.fullAll,
@@ -69,7 +70,7 @@ class _SegmentItem extends StatelessWidget {
         child: AnimatedContainer(
           duration: AppDurations.quick,
           curve: AppCurves.easeSpring,
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           decoration: BoxDecoration(
             color: isSelected ? colors.surface : Colors.transparent,
             borderRadius: Radii.fullAll,
@@ -78,6 +79,9 @@ class _SegmentItem extends StatelessWidget {
           alignment: Alignment.center,
           child: Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: AppTypography.fontBody,
               fontFamilyFallback: AppTypography.fontBodyFallbacks,
