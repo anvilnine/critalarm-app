@@ -66,6 +66,18 @@ class DeveloperSettingsScreen extends StatelessWidget {
                     onTap: () =>
                         context.push('/settings/developer/dialog-sheet'),
                   ),
+                  const SizedBox(height: 8),
+                  AppListRow(
+                    name: LocaleKeys.settings_developer_faces_title.tr(),
+                    meta: LocaleKeys.settings_developer_faces_subtitle.tr(),
+                    faceState: null,
+                    trailing: AppGlyph(
+                      GlyphType.arrow,
+                      color: context.appColors.ink3,
+                      size: 16,
+                    ),
+                    onTap: () => context.push('/settings/developer/faces'),
+                  ),
                 ],
               ),
             ),

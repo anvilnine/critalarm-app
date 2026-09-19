@@ -17,6 +17,7 @@ import 'package:critalarm/features/settings/presentation/about_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/dialog_sheet_gallery_screen.dart';
+import 'package:critalarm/features/settings/presentation/face_gallery_screen.dart';
 import 'package:critalarm/features/settings/presentation/privacy_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/server_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/settings_screen.dart';
@@ -53,6 +54,7 @@ abstract final class AppRoute {
   static const about = 'about';
   static const developerSettings = 'developerSettings';
   static const dialogSheetGallery = 'dialogSheetGallery';
+  static const faceGallery = 'faceGallery';
   static const paywall = 'paywall';
   static const alarm = 'alarm';
   static const incidentDetail = 'incidentDetail';
@@ -317,6 +319,14 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                       pageBuilder: (context, state) => AmbientPage(
                         key: state.pageKey,
                         child: const DialogSheetGalleryScreen(),
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'faces',
+                      name: AppRoute.faceGallery,
+                      pageBuilder: (context, state) => AmbientPage(
+                        key: state.pageKey,
+                        child: const FaceGalleryScreen(),
                       ),
                     ),
                   ],
