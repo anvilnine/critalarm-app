@@ -134,7 +134,7 @@ void main() {
           (s) =>
               s.status == PaywallStatus.success &&
               s.isPro &&
-              s.feedbackMessage == 'Upgraded to Crit Alarm Pro',
+              s.feedbackMessage == 'Crit Alarm Hosted is on.',
         ),
       ],
     );
@@ -152,7 +152,7 @@ void main() {
           (s) =>
               s.status == PaywallStatus.success &&
               s.isPro &&
-              s.feedbackMessage == 'Crit Alarm Pro restored.',
+              s.feedbackMessage == 'Crit Alarm Hosted restored.',
         ),
       ],
     );

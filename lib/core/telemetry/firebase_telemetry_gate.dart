@@ -28,9 +28,11 @@ class FirebaseTelemetryGate implements TelemetryGate {
   static const Duration defaultFetchTimeout = Duration(seconds: 10);
   static const Duration minimumFetchInterval = Duration(hours: 1);
   static const String paywallEnabledKey = 'paywall_enabled';
+  static const String paywallVariantKeyName = 'paywall_variant';
 
   static const Map<String, dynamic> remoteConfigDefaults = {
     paywallEnabledKey: false,
+    paywallVariantKeyName: 'straight',
   };
 
   bool _isInitialized = false;
@@ -163,4 +165,13 @@ class FirebaseTelemetryGate implements TelemetryGate {
 
   @override
   bool get isPaywallEnabled => paywallEnabled;
+
+  @override
+  String get paywallVariantKey {
+    try {
+      return remoteConfig?.getString(paywallVariantKeyName) ?? '';
+    } on Object catch (_) {
+      return '';
+    }
+  }
 }
