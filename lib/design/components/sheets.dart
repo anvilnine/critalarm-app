@@ -72,6 +72,30 @@ class AppSectionHeader extends StatelessWidget {
   }
 }
 
+/// Thin rule between sections inside a sheet, so the card reads as one list.
+class AppSectionDivider extends StatelessWidget {
+  const AppSectionDivider({
+    this.padding = const EdgeInsets.symmetric(vertical: 8),
+    super.key,
+  });
+
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Padding(
+      padding: padding,
+      child: Container(
+        height: 1,
+        width: double.infinity,
+        color: colors.hairline,
+      ),
+    );
+  }
+}
+
 /// Feature bullet row used on paywall/feature lists matching index.html .price li / .critband li.
 class AppFeatureBullet extends StatelessWidget {
   const AppFeatureBullet({

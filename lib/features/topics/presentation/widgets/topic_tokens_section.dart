@@ -50,6 +50,10 @@ class _TopicTokensSectionContent extends StatelessWidget {
       content: (sheetContext) => _TokenEditSheet(
         token: token,
         canRevoke: cubit.state.canRevoke,
+        otherNames: [
+          for (final other in cubit.state.tokens)
+            if (other.tokenId != token.tokenId) other.name,
+        ],
         onSave: (name) {
           Navigator.of(sheetContext).pop();
           unawaited(cubit.rename(token.tokenId, name));
@@ -101,6 +105,7 @@ class _TopicTokensSectionContent extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const AppSectionDivider(),
             AppSectionHeader(LocaleKeys.topic_tokens_header.tr()),
             if (state.status == TopicTokensStatus.loading &&
                 state.tokens.isEmpty)
@@ -238,6 +243,7 @@ class _TokenEditSheet extends StatefulWidget {
   const _TokenEditSheet({
     required this.token,
     required this.canRevoke,
+    required this.otherNames,
     required this.onSave,
     required this.onRevoke,
   });
@@ -247,6 +253,10 @@ class _TokenEditSheet extends StatefulWidget {
   /// False on a topic's last token. The server refuses to take it, so the
   /// sheet does not offer to.
   final bool canRevoke;
+
+  /// What the other tokens on this topic are called. Names do not have to be
+  /// unique, so a match is only worth a note.
+  final List<String> otherNames;
   final ValueChanged<String> onSave;
   final VoidCallback onRevoke;
 
@@ -259,10 +269,28 @@ class _TokenEditSheetState extends State<_TokenEditSheet> {
     text: widget.token.name,
   );
 
+  /// Another token on this topic already goes by the name being typed.
+  bool _isNameTaken = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onNameChanged);
+  }
+
   @override
   void dispose() {
-    _controller.dispose();
+    _controller
+      ..removeListener(_onNameChanged)
+      ..dispose();
     super.dispose();
+  }
+
+  void _onNameChanged() {
+    final name = _controller.text.trim();
+    final taken = name.isNotEmpty && widget.otherNames.contains(name);
+    if (taken == _isNameTaken) return;
+    setState(() => _isNameTaken = taken);
   }
 
   void _save() {
@@ -287,29 +315,38 @@ class _TokenEditSheetState extends State<_TokenEditSheet> {
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _save(),
         ),
+        // A heads-up, not a stop sign. The server allows two tokens with the
+        // same name on one topic, so Save keeps working.
+        if (_isNameTaken) ...[
+          const SizedBox(height: 8),
+          _Note(
+            LocaleKeys.topic_tokens_name_taken_warning.tr(
+              namedArgs: {'name': _controller.text.trim()},
+            ),
+          ),
+        ],
         const SizedBox(height: 14),
         AppButton(
           label: LocaleKeys.topic_tokens_edit_save_button.tr(),
           isFullWidth: true,
           onPressed: _save,
         ),
-        const SizedBox(height: 10),
-        if (widget.canRevoke)
+        if (widget.canRevoke) ...[
+          const SizedBox(height: 10),
           AppButton(
             label: LocaleKeys.topic_tokens_edit_revoke_button.tr(),
             variant: AppButtonVariant.crit,
             isFullWidth: true,
             onPressed: widget.onRevoke,
-          )
-        else
-          _Note(LocaleKeys.topic_tokens_last_token_note.tr()),
+          ),
+        ],
       ],
     );
   }
 }
 
 /// A line of small muted text. Used for the loading line, an error the list
-/// survived, the last-token note, and the save-it-now warning.
+/// survived, the name-already-used note, and the save-it-now warning.
 class _Note extends StatelessWidget {
   const _Note(this.text);
 

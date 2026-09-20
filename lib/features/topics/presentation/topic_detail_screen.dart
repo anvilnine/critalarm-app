@@ -215,6 +215,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
                   padding: EdgeInsets.fromLTRB(12, 0, 12, isRinging ? 88 : 16),
                   child: AppSheet(
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (state.capReached != null)
@@ -229,9 +230,13 @@ class _TopicDetailScreenContent extends StatelessWidget {
                         else if (state.errorMessage != null) ...[
                           // Was a bare Text dropped in the middle of the
                           // sheet, with no way to try the thing again.
-                          AppToast(
-                            faceState: FaceState.worried,
-                            message: state.errorMessage,
+                          // The toast is a pill that sizes to its text, so it
+                          // stays centred while the rest of the card stretches.
+                          Center(
+                            child: AppToast(
+                              faceState: FaceState.worried,
+                              message: state.errorMessage,
+                            ),
                           ),
                           const SizedBox(height: 10),
                           AppButton(
@@ -295,6 +300,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
                             ),
                           ),
                         ),
+                        const AppSectionDivider(),
                         AppSectionHeader(
                           LocaleKeys.topic_detail_messages_header.tr(),
                         ),
