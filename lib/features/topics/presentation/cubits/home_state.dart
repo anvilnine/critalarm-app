@@ -75,6 +75,8 @@ class HomeState {
     this.severity = SeverityMode.none,
     this.ringingIncidentId,
     this.errorMessage,
+    this.isStale = false,
+    this.lastKnownGoodAt,
   });
 
   final HomeStatus status;
@@ -90,6 +92,16 @@ class HomeState {
   final String? ringingIncidentId;
   final String? errorMessage;
 
+  /// True when the rows on screen are an old copy: a server is set up, the app
+  /// cannot reach it right now, and this is what the list looked like the last
+  /// time it answered. False whenever the list is live, and false when there
+  /// is no old copy to show.
+  final bool isStale;
+
+  /// When the list on screen last came back from the server. Set on every good
+  /// build, so a later failure can say how old the rows are.
+  final DateTime? lastKnownGoodAt;
+
   bool get isEmpty => topicItems.isEmpty && status == HomeStatus.success;
 
   HomeState copyWith({
@@ -103,6 +115,9 @@ class HomeState {
     bool clearRinging = false,
     String? errorMessage,
     bool clearError = false,
+    bool? isStale,
+    DateTime? lastKnownGoodAt,
+    bool clearLastKnownGood = false,
   }) {
     return HomeState(
       status: status ?? this.status,
@@ -115,6 +130,10 @@ class HomeState {
           ? null
           : (ringingIncidentId ?? this.ringingIncidentId),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      isStale: isStale ?? this.isStale,
+      lastKnownGoodAt: clearLastKnownGood
+          ? null
+          : (lastKnownGoodAt ?? this.lastKnownGoodAt),
     );
   }
 
@@ -130,7 +149,9 @@ class HomeState {
           subText == other.subText &&
           severity == other.severity &&
           ringingIncidentId == other.ringingIncidentId &&
-          errorMessage == other.errorMessage;
+          errorMessage == other.errorMessage &&
+          isStale == other.isStale &&
+          lastKnownGoodAt == other.lastKnownGoodAt;
 
   @override
   int get hashCode => Object.hash(
@@ -142,5 +163,7 @@ class HomeState {
     severity,
     ringingIncidentId,
     errorMessage,
+    isStale,
+    lastKnownGoodAt,
   );
 }

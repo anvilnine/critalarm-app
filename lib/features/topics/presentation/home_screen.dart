@@ -2,13 +2,16 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/route_observer.dart';
+import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
+import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/home_prompt_slot.dart';
+import 'package:critalarm/features/prompts/presentation/widgets/prompt_detail_sheet.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
@@ -136,7 +139,11 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       listener: (context, state) => _handOverIfRinging(state),
       builder: (context, state) => BlocBuilder<TourCubit, TourState>(
         bloc: _tour,
-        builder: (context, tour) => _build(context, size, state, tour),
+        builder: (context, tour) =>
+            BlocBuilder<HomePromptCubit, HomePromptState>(
+              builder: (context, prompt) =>
+                  _build(context, size, state, tour, prompt),
+            ),
       ),
     );
   }
@@ -146,6 +153,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     AppSize size,
     HomeState real,
     TourState tour,
+    HomePromptState prompt,
   ) {
     // While the tour runs, the list gets an example topic that is ringing,
     // so the user sees what trouble looks like before it happens. Someone
@@ -174,6 +182,42 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         ? _selectedTopic
         : null;
 
+    // Built once, because a list that cannot be reached shows the same rows
+    // as a live one, only dimmed.
+    final rows = <Widget>[
+      for (final topic in state.topicItems) ...[
+        AppListRow(
+          name: topic.name,
+          meta: topic.meta,
+          isSelected: size.isExpanded && topic.name == selected,
+          faceState: topic.faceState,
+          isCrit: topic.isCrit,
+          isQuiet: topic.isQuiet,
+          // The priority that came in is only shown while there is
+          // something live. Once the alarm is acknowledged the row goes
+          // back to saying how the topic is set up, so a red chip never
+          // contradicts the calm face above.
+          trailing: topic.isLive
+              ? AppPriorityChip(priority: topic.priority)
+              : AppDeliveryChip(
+                  rings: topic.ringsThroughSilent,
+                  label: topic.ringsThroughSilent
+                      ? LocaleKeys.home_delivery_rings.tr()
+                      : LocaleKeys.home_delivery_normal.tr(),
+                ),
+          onTap: () {
+            if (size.isExpanded) {
+              AppHaptics.selection();
+              setState(() => _selectedTopic = topic.name);
+            } else {
+              unawaited(context.push('/topics/${topic.name}'));
+            }
+          },
+        ),
+        const SizedBox(height: 10),
+      ],
+    ];
+
     return SeverityScope(
       severity: state.severity,
       child: AppScreenScaffold(
@@ -190,6 +234,33 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           title: LocaleKeys.topics_list_title.tr(),
           trailing: const RefreshActivityIndicator(),
         ),
+        // The backup nudge floats above the tab bar rather than sitting in
+        // the list, so it stays put however many topics there are and never
+        // pushes one off the screen.
+        bottomBar: prompt.promptType != HomePromptType.accountBackup
+            ? null
+            : AppPinnedNudgeBar(
+                face: FaceState.watching,
+                title: LocaleKeys.home_account_prompt_title.tr(),
+                linkLabel: LocaleKeys.home_prompt_why.tr(),
+                onTap: () => unawaited(
+                  showPromptDetailSheet(
+                    context: context,
+                    face: FaceState.watching,
+                    title: LocaleKeys.home_account_prompt_title.tr(),
+                    body: LocaleKeys.home_account_prompt_body.tr(),
+                    actionLabel: LocaleKeys.home_account_prompt_button.tr(),
+                    onAction: () =>
+                        openAppPath(context, '/settings/account'),
+                    onDismiss: () => unawaited(
+                      context.read<HomePromptCubit>().dismissCurrent(),
+                    ),
+                  ),
+                ),
+                onDismiss: () => unawaited(
+                  context.read<HomePromptCubit>().dismissCurrent(),
+                ),
+              ),
         detail: state.topicItems.isEmpty
             ? null
             : (selected == null
@@ -207,7 +278,10 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           // Single slot orchestrating blocker errors, health warnings,
           // and dismissible growth prompts above the stage.
           const SliverToBoxAdapter(child: HomePromptSlot()),
-          if (state.topicItems.isNotEmpty)
+          // A failed load has something to say too, and it says it up here
+          // rather than leaving the face out and the screen silent.
+          if (state.topicItems.isNotEmpty ||
+              state.status == HomeStatus.failure)
             SliverToBoxAdapter(
               child: Column(
                 children: [
@@ -218,6 +292,12 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                       faceState: state.faceState,
                       word: state.word,
                       sub: state.subText,
+                      // Nothing is happening, so the face gets something to
+                      // do. Any other state means something real, and those
+                      // faces are left alone to say it.
+                      faceWidget: state.faceState != FaceState.calm
+                          ? null
+                          : const IdleFace(size: 190),
                     ),
                   ),
                   const SizedBox(height: Spacing.s4),
@@ -242,7 +322,47 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                       // the empty state, so a slow network or a dead
                       // server told the user every topic they own was
                       // gone, and the error was never shown at all.
-                      if (state.status == HomeStatus.failure) ...[
+                      // No server is already said loudly by the red card
+                      // above, with the button that fixes it. Saying it
+                      // twice on one screen helps nobody.
+                      if (state.status == HomeStatus.failure &&
+                          prompt.promptType == HomePromptType.noServer) ...[
+                        const SizedBox.shrink(),
+                      ] else if (state.isStale) ...[
+                        AppToast(
+                          faceState: FaceState.watching,
+                          message: LocaleKeys.home_unreachable_strip.tr(
+                            namedArgs: {
+                              'time': DateFormat.Hm().format(
+                                state.lastKnownGoodAt!.toLocal(),
+                              ),
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        AppButton(
+                          label: LocaleKeys.home_retry_button.tr(),
+                          variant: AppButtonVariant.ghost,
+                          size: AppButtonSize.sm,
+                          isFullWidth: true,
+                          onPressed: () => unawaited(
+                            context.read<HomeCubit>().refresh(),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        // The rows are the user's own, just old, so they
+                        // stay. Dimmed and dead to the touch, because
+                        // opening one would show numbers from then, not now.
+                        Opacity(
+                          opacity: 0.45,
+                          child: IgnorePointer(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: rows,
+                            ),
+                          ),
+                        ),
+                      ] else if (state.status == HomeStatus.failure) ...[
                         AppToast(
                           faceState: FaceState.worried,
                           message:
@@ -273,45 +393,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                           followsRefresh: true,
                         ),
                       ] else ...[
-                        for (final topic in state.topicItems) ...[
-                          AppListRow(
-                            name: topic.name,
-                            meta: topic.meta,
-                            isSelected:
-                                size.isExpanded && topic.name == selected,
-                            faceState: topic.faceState,
-                            isCrit: topic.isCrit,
-                            isQuiet: topic.isQuiet,
-                            // The priority that came in is only shown
-                            // while there is something live. Once the
-                            // alarm is acknowledged the row goes back to
-                            // saying how the topic is set up, so a red
-                            // chip never contradicts the calm face above.
-                            trailing: topic.isLive
-                                ? AppPriorityChip(
-                                    priority: topic.priority,
-                                  )
-                                : AppDeliveryChip(
-                                    rings: topic.ringsThroughSilent,
-                                    label: topic.ringsThroughSilent
-                                        ? LocaleKeys.home_delivery_rings.tr()
-                                        : LocaleKeys.home_delivery_normal.tr(),
-                                  ),
-                            onTap: () {
-                              if (size.isExpanded) {
-                                AppHaptics.selection();
-                                setState(
-                                  () => _selectedTopic = topic.name,
-                                );
-                              } else {
-                                unawaited(
-                                  context.push('/topics/${topic.name}'),
-                                );
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 10),
-                        ],
+                        ...rows,
                       ],
                     ],
                   ),

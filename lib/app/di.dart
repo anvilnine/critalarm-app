@@ -92,6 +92,7 @@ import 'package:critalarm/features/permissions/domain/usecases/get_device_permis
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
 import 'package:critalarm/features/prompts/data/repositories/shared_prefs_home_prompt_repository.dart';
+import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/search/data/repositories/asset_docs_index_repository.dart';
@@ -377,6 +378,12 @@ Future<void> configureDependencies({
     ..registerLazySingleton<HomePromptRepository>(
       () => SharedPrefsHomePromptRepository(getIt<SharedPreferences>()),
     )
+    ..registerLazySingleton<ProPromptRules>(
+      () => ProPromptRules(
+        homePromptRepository: getIt<HomePromptRepository>(),
+        accountRepository: getIt<AccountRepository>(),
+      ),
+    )
     ..registerLazySingleton(
       () => DeviceTokenRegistry(
         prefs: getIt<SharedPreferences>(),
@@ -634,6 +641,7 @@ Future<void> configureDependencies({
         getIt<TopicsCubit>(),
         getIt<IncidentRepository>(),
         getIt<MessageSyncService>(),
+        getIt<GetConnectionUsecase>(),
       ),
     )
     ..registerFactory(

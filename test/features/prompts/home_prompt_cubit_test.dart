@@ -26,6 +26,8 @@ class FakeHomePromptRepository implements HomePromptRepository {
   DateTime? proDismissedAt;
   DateTime? lastResolvedAt;
 
+  int proDismissCount = 0;
+
   int dismissAccountCalls = 0;
   int dismissProCalls = 0;
   int markResolvedCalls = 0;
@@ -44,8 +46,12 @@ class FakeHomePromptRepository implements HomePromptRepository {
   DateTime? getProPromptDismissedAt() => proDismissedAt;
 
   @override
+  int getProPromptDismissCount() => proDismissCount;
+
+  @override
   Future<void> dismissProPrompt() async {
     dismissProCalls++;
+    proDismissCount++;
     proDismissedAt = DateTime.now();
     await markBannerResolvedOrDismissed();
   }
@@ -369,8 +375,8 @@ void main() {
       // Wait for cooldown to expire
       await Future<void>.delayed(const Duration(milliseconds: 60));
 
-      // Account was snoozed -> falls through to Priority 5 (Pro support)
-      expect(cubit.state.promptType, HomePromptType.proSupport);
+      // Account was snoozed and Pro never takes the slot -> all clear
+      expect(cubit.state.promptType, HomePromptType.none);
       await cubit.close();
     });
 
@@ -398,39 +404,29 @@ void main() {
       await pumpEventQueue();
 
       expect(cubit.state.promptType, isNot(HomePromptType.accountBackup));
-      expect(cubit.state.promptType, HomePromptType.proSupport);
+      expect(cubit.state.promptType, HomePromptType.none);
       await cubit.close();
     });
 
-    test('Priority 5: dismissCurrent snoozes Pro prompt for 7 days', () async {
+    test('Pro never takes the home slot, even unpaid and signed in', () async {
       getConnection.result = const ServerConnection(
         serverUrl: 'https://api.critalarm.app',
         adminToken: 'token123',
       ).toSuccess();
       shellCubit.setHealth(const ShellHealth());
 
-      // User already signed in
+      // User already signed in, nothing dismissed, not paying
       identityRepo.identity = const AccountIdentity(
         provider: IdentityProvider.google,
         accountId: 'acc_signed_in',
         email: 'user@test.com',
       );
 
-      final cubit = buildCubit(cooldown: const Duration(milliseconds: 50));
+      final cubit = buildCubit();
       await cubit.load();
-      expect(cubit.state.promptType, HomePromptType.proSupport);
 
-      // Dismiss Pro prompt
-      await cubit.dismissCurrent();
-      expect(promptRepo.dismissProCalls, 1);
-      expect(promptRepo.proDismissedAt, isNotNull);
       expect(cubit.state.promptType, HomePromptType.none);
-
-      // Wait for cooldown to expire
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-
-      // Both snoozed / signed in -> all clear (none)
-      expect(cubit.state.promptType, HomePromptType.none);
+      expect(promptRepo.dismissProCalls, 0);
       await cubit.close();
     });
 
@@ -466,8 +462,8 @@ void main() {
       final cubit = buildCubit();
       await cubit.load();
 
-      // Account backup prompt is skipped, shows Pro prompt directly
-      expect(cubit.state.promptType, HomePromptType.proSupport);
+      // Account backup prompt is skipped and Pro is not a slot prompt
+      expect(cubit.state.promptType, HomePromptType.none);
       await cubit.close();
     });
   });
