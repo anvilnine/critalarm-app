@@ -11,10 +11,14 @@ final class TopicToken {
   /// The name arrives under two keys. `POST /v1/topics/{name}/tokens` calls it
   /// `name`; `POST /v1/topics` calls it `token_name` for the token it mints
   /// with the topic (api.md §3.1).
+  ///
+  /// `token_name` is read first on purpose. A create-topic body carries both,
+  /// and there `name` is the topic (`prod`), so reading `name` first would
+  /// label the token after its topic.
   factory TopicToken.fromJson(Map<String, dynamic> json) => TopicToken(
     token: json['token'] as String,
     tokenId: json['token_id'] as String,
-    name: (json['name'] ?? json['token_name']) as String? ?? '',
+    name: (json['token_name'] ?? json['name']) as String? ?? '',
   );
   final String token;
   final String tokenId;

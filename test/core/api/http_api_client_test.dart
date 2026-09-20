@@ -110,7 +110,7 @@ void main() {
           requests.add(request);
           if (request.url.path.endsWith('/tokens')) {
             return http.Response(
-              '{"token":"tk_new","token_id":"tok_new"}',
+              '{"token":"tk_new","token_id":"tok_new","name":"CI server"}',
               201,
             );
           }
@@ -126,7 +126,9 @@ void main() {
         sessionStore,
       );
 
-      expect((await client.createTopicToken('prod db')).tokenId, 'tok_new');
+      final madeToken = await client.createTopicToken('prod db');
+      expect(madeToken.tokenId, 'tok_new');
+      expect(madeToken.name, 'CI server');
       await client.deleteTopicToken('prod db', 'token/id');
       await client.ackIncident('inc/a');
 
@@ -241,5 +243,100 @@ void main() {
     );
 
     await expectLater(client.getTopics(), throwsA(isA<http.ClientException>()));
+  });
+
+  test('create topic sends the token name under token_name', () async {
+    late http.Request captured;
+    final client = HttpApiClient(
+      MockClient((request) async {
+        captured = request;
+        return http.Response(
+          '{"name":"prod","critical":false,"token":"tk_new",'
+          '"token_id":"tok_new","token_name":"CI server"}',
+          201,
+        );
+      }),
+      sessionStore,
+    );
+
+    final topic = await client.createTopic(
+      name: 'prod',
+      tokenName: 'CI server',
+    );
+
+    expect(captured.method, 'POST');
+    expect(captured.url.path, '/base/v1/topics');
+    expect(
+      jsonDecode(captured.body),
+      containsPair('token_name', 'CI server'),
+    );
+    expect(topic.tokenName, 'CI server');
+  });
+
+  test('create topic leaves token_name out when there is no name', () async {
+    late http.Request captured;
+    final client = HttpApiClient(
+      MockClient((request) async {
+        captured = request;
+        return http.Response(
+          '{"name":"prod","critical":false,"token":"tk_new",'
+          '"token_id":"tok_new","token_name":"Token 1"}',
+          201,
+        );
+      }),
+      sessionStore,
+    );
+
+    await client.createTopic(name: 'prod');
+
+    expect(jsonDecode(captured.body), isNot(contains('token_name')));
+  });
+
+  test('add token sends the name under name and reads it back', () async {
+    late http.Request captured;
+    final client = HttpApiClient(
+      MockClient((request) async {
+        captured = request;
+        return http.Response(
+          '{"token":"tk_new","token_id":"tok_new","name":"CI server"}',
+          201,
+        );
+      }),
+      sessionStore,
+    );
+
+    final token = await client.createTopicToken('prod', tokenName: 'CI server');
+
+    expect(captured.method, 'POST');
+    expect(captured.url.path, '/base/v1/topics/prod/tokens');
+    expect(jsonDecode(captured.body), containsPair('name', 'CI server'));
+    expect(token.name, 'CI server');
+    expect(token.token, 'tk_new');
+  });
+
+  test('rename token PATCHes the token path with the new name', () async {
+    late http.Request captured;
+    final client = HttpApiClient(
+      MockClient((request) async {
+        captured = request;
+        return http.Response(
+          '{"token_id":"tok_1","name":"Grafana prod","created_at":1700000000}',
+          200,
+        );
+      }),
+      sessionStore,
+    );
+
+    final info = await client.renameTopicToken(
+      'prod',
+      'tok_1',
+      'Grafana prod',
+    );
+
+    expect(captured.method, 'PATCH');
+    expect(captured.url.path, '/base/v1/topics/prod/tokens/tok_1');
+    expect(jsonDecode(captured.body), containsPair('name', 'Grafana prod'));
+    expect(info.tokenId, 'tok_1');
+    expect(info.name, 'Grafana prod');
   });
 }
