@@ -30,6 +30,7 @@ class MockApiClient implements ApiClient {
     int maxRingS = 1800,
     int deskTimerS = 600,
     String relayContent = 'none',
+    String? tokenName,
   }) async {
     return server.createTopic(
       name: name,
@@ -38,6 +39,7 @@ class MockApiClient implements ApiClient {
       maxRingS: maxRingS,
       deskTimerS: deskTimerS,
       relayContent: relayContent,
+      tokenName: tokenName,
     );
   }
 
@@ -66,8 +68,15 @@ class MockApiClient implements ApiClient {
       server.getTopicTokens(name);
 
   @override
-  Future<TopicToken> createTopicToken(String name) async =>
-      server.createTopicToken(name);
+  Future<TopicToken> createTopicToken(String name, {String? tokenName}) async =>
+      server.createTopicToken(name, tokenName: tokenName);
+
+  @override
+  Future<TopicTokenInfo> renameTopicToken(
+    String name,
+    String tokenId,
+    String tokenName,
+  ) async => server.renameTopicToken(name, tokenId, tokenName);
 
   @override
   Future<void> deleteTopicToken(String name, String tokenId) async =>

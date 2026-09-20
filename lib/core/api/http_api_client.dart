@@ -158,6 +158,7 @@ final class HttpApiClient implements ApiClient {
     int maxRingS = 1800,
     int deskTimerS = 600,
     String relayContent = 'none',
+    String? tokenName,
   }) async {
     final (session, uri) = await _sessionUri(const ['topics']);
     final response = await _send(
@@ -167,6 +168,7 @@ final class HttpApiClient implements ApiClient {
       body: {
         'name': name,
         'critical': critical,
+        'token_name': ?tokenName,
       },
     );
     return Topic.fromJson(_json(response) as Map<String, dynamic>);
@@ -217,12 +219,39 @@ final class HttpApiClient implements ApiClient {
   }
 
   @override
-  Future<TopicToken> createTopicToken(String name) async {
+  Future<TopicToken> createTopicToken(String name, {String? tokenName}) async {
     final (s, u) = await _sessionUri(['topics', name, 'tokens']);
     final j =
-        _json(await _send('POST', u, auth: s.managementCredential))
+        _json(
+              await _send(
+                'POST',
+                u,
+                auth: s.managementCredential,
+                body: tokenName == null ? null : {'name': tokenName},
+              ),
+            )
             as Map<String, dynamic>;
     return TopicToken.fromJson(j);
+  }
+
+  @override
+  Future<TopicTokenInfo> renameTopicToken(
+    String name,
+    String tokenId,
+    String tokenName,
+  ) async {
+    final (s, u) = await _sessionUri(['topics', name, 'tokens', tokenId]);
+    final j =
+        _json(
+              await _send(
+                'PATCH',
+                u,
+                auth: s.managementCredential,
+                body: {'name': tokenName},
+              ),
+            )
+            as Map<String, dynamic>;
+    return TopicTokenInfo.fromJson(j);
   }
 
   @override

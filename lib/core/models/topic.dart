@@ -21,6 +21,7 @@ abstract class Topic with _$Topic {
     DateTime? createdAt,
     String? token,
     @JsonKey(name: 'token_id') String? tokenId,
+    @JsonKey(name: 'token_name') String? tokenName,
   }) = _Topic;
 
   factory Topic.fromJson(Map<String, dynamic> json) => _$TopicFromJson(json);

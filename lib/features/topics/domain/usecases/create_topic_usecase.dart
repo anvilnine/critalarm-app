@@ -15,6 +15,7 @@ class CreateTopicParams {
     this.maxRingS = 1800,
     this.deskTimerS = 600,
     this.relayContent = 'none',
+    this.tokenName,
   });
 
   final String name;
@@ -23,6 +24,10 @@ class CreateTopicParams {
   final int maxRingS;
   final int deskTimerS;
   final String relayContent;
+
+  /// What to call the token the server mints with the topic. Optional: leave
+  /// it off and the server calls it `Token 1`.
+  final String? tokenName;
 }
 
 /// Usecase to create a new topic on the server.
@@ -40,5 +45,6 @@ class CreateTopicUsecase implements UseCase<CreateTopicParams, Topic> {
         maxRingS: params.maxRingS,
         deskTimerS: params.deskTimerS,
         relayContent: params.relayContent,
+        tokenName: params.tokenName,
       );
 }
