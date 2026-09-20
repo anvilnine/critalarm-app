@@ -104,21 +104,15 @@ class HomePromptCubit extends Cubit<HomePromptState> {
       return;
     }
 
-    if (currentHealth.hasWarningsOnly) {
-      emit(
-        state.copyWith(
-          promptType: HomePromptType.batteryWarning,
-          missingPermissions: currentHealth.warningMissing,
-        ),
-      );
-      return;
-    }
+    // Battery optimisation never banners here. It is a warning, not a
+    // blocker, and the home screen asking about it on every launch reads as
+    // nagging. It stays on the Settings health row, where the user goes to
+    // look.
 
-    // Operational errors/warnings are clear. Check anti-daisy-chaining:
+    // Operational errors are clear. Check anti-daisy-chaining:
     final wasOperationalIssue =
         state.promptType == HomePromptType.noServer ||
-        state.promptType == HomePromptType.criticalHealth ||
-        state.promptType == HomePromptType.batteryWarning;
+        state.promptType == HomePromptType.criticalHealth;
 
     if (wasOperationalIssue && !isResumed) {
       _lastResolvedOrDismissedAt = DateTime.now();

@@ -150,6 +150,54 @@ void main() {
       },
     );
 
+    testWidgets(
+      'Battery says what it is about before the system screen opens',
+      (tester) async {
+        await tester.pumpWidget(buildTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Turn on').last);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Let Crit Alarm run in the background'),
+          findsOneWidget,
+        );
+        verifyNever(
+          () => mockOpenSettings(DevicePermissionType.batteryOptimization),
+        );
+
+        await tester.tap(find.text('Open battery settings'));
+        await tester.pumpAndSettle();
+
+        verify(
+          () => mockOpenSettings(DevicePermissionType.batteryOptimization),
+        ).called(1);
+      },
+    );
+
+    testWidgets(
+      'Not now leaves battery optimisation alone',
+      (tester) async {
+        await tester.pumpWidget(buildTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Turn on').last);
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Not now'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Let Crit Alarm run in the background'),
+          findsNothing,
+        );
+        verifyNever(
+          () => mockOpenSettings(DevicePermissionType.batteryOptimization),
+        );
+      },
+    );
+
     testWidgets('re-checks permissions on app lifecycle resumed', (
       tester,
     ) async {

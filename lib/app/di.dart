@@ -597,8 +597,6 @@ Future<void> configureDependencies({
         getIt<OpenNotificationSettingsUsecase>(),
         alarm: getIt<AlarmHost>(),
         checkPermission: getIt<CheckNotificationPermissionUsecase>(),
-        getDevicePermissions: getIt<GetDevicePermissionsUsecase>(),
-        openPermissionSettings: getIt<OpenPermissionSettingsUsecase>(),
         replayForDemo: replayForDemo ?? false,
         initialStep: initialStep ?? NotificationPermissionStep.initial,
       ),

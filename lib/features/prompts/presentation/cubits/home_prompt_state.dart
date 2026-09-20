@@ -5,7 +5,6 @@ enum HomePromptType {
   none,
   noServer,
   criticalHealth,
-  batteryWarning,
   accountBackup,
 }
 
