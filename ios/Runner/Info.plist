@@ -48,8 +48,6 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>Crit Alarm needs alarm access so an alarm can ring through silent mode and Do Not Disturb until you stop it.</string>
 	<key>NSAppTransportSecurity</key>
@@ -84,13 +82,12 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Push only. Nothing in this app or its plugins registers a BGTask, so a
+	     background processing mode would be a service the app never uses. -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
-		<string>processing</string>
 	</array>
-	<key>UIFileSharingEnabled</key>
-	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
