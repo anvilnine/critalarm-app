@@ -179,6 +179,27 @@ class MockServer {
       case FaceState.determined:
       case FaceState.confused:
       case FaceState.sad:
+      case FaceState.blink:
+      case FaceState.happy:
+      case FaceState.content:
+      case FaceState.curious:
+      case FaceState.lookLeft:
+      case FaceState.lookRight:
+      case FaceState.thinking:
+      case FaceState.interested:
+      case FaceState.concerned:
+      case FaceState.realization:
+      case FaceState.yawn:
+      case FaceState.sleepy:
+      case FaceState.dozing:
+      case FaceState.wakesUp:
+      case FaceState.shakeHead:
+      case FaceState.breatheIn:
+      case FaceState.breatheOut:
+      case FaceState.proud:
+      case FaceState.cheeky:
+      case FaceState.confident:
+      case FaceState.love:
         seedCalm();
     }
   }

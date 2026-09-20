@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:flutter/foundation.dart';
 
@@ -118,3 +120,21 @@ class RefreshFaceController extends ChangeNotifier {
     super.dispose();
   }
 }
+
+/// How fast the head rocks side to side while the list is being pulled, in
+/// rocks per second. Slow near the top, quick at the point where letting go
+/// starts a refresh.
+double pullWobbleHz(double progress) => 1.2 + 4.8 * progress.clamp(0.0, 1.0);
+
+/// How far the head rocks either side while the list is being pulled, in
+/// degrees. It grows with the pull the same way the speed does.
+double pullWobbleDegrees(double progress) =>
+    1.5 + 3.5 * progress.clamp(0.0, 1.0);
+
+/// The head angle in radians [turns] rocks into a pull that is [progress] of
+/// the way to refreshing.
+double pullWobbleAngle({required double progress, required double turns}) =>
+    pullWobbleDegrees(progress) *
+    math.sin(2 * math.pi * turns) *
+    math.pi /
+    180;

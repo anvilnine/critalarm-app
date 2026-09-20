@@ -22,6 +22,7 @@ class AppStage extends StatelessWidget {
     this.padding = const EdgeInsets.fromLTRB(24, Spacing.s4, 24, 0),
     this.faceWidget,
     this.isHorizontal = false,
+    this.idleWhenCalm = false,
     super.key,
   }) : subWidget = null;
 
@@ -40,7 +41,8 @@ class AppStage extends StatelessWidget {
        wordIsBig = false,
        wordFontSize = null,
        topicName = null,
-       isHorizontal = true;
+       isHorizontal = true,
+       idleWhenCalm = false;
 
   final FaceState? faceState;
   final double faceSize;
@@ -53,6 +55,10 @@ class AppStage extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final Widget? faceWidget;
   final bool isHorizontal;
+
+  /// True lets a calm face play the small idle expressions while nothing is
+  /// happening. Any other face means something real and is left alone.
+  final bool idleWhenCalm;
 
   /// Horizontal stage only: shown in place of [sub], for a line that moves.
   /// Style it with [horizontalSubStyle] so it matches.
@@ -117,6 +123,7 @@ class AppStage extends StatelessWidget {
                 state: faceState!,
                 size: faceSize.clamp(0.0, 96.0),
                 isLive: isLive,
+                idleWhenCalm: idleWhenCalm,
               ),
             const SizedBox(width: 16),
             Expanded(
@@ -161,6 +168,7 @@ class AppStage extends StatelessWidget {
               state: faceState!,
               size: faceSize,
               isLive: isLive,
+              idleWhenCalm: idleWhenCalm,
             ),
           if (word != null) ...[
             SizedBox(height: faceSize > 120 ? Spacing.s5 : Spacing.s3),

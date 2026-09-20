@@ -26,25 +26,55 @@ class FaceGalleryScreen extends StatefulWidget {
 }
 
 class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
-  static const List<FaceState> _featuredExpressions = [
-    FaceState.shocked,
-    FaceState.laughing,
-    FaceState.surprised,
-    FaceState.skeptical,
-    FaceState.dizzy,
-    FaceState.determined,
-    FaceState.confused,
-    FaceState.sad,
-  ];
-
-  static const List<FaceState> _classicExpressions = [
-    FaceState.calm,
-    FaceState.watching,
-    FaceState.worried,
-    FaceState.alarmed,
-    FaceState.acked,
-    FaceState.working,
-    FaceState.success,
+  /// The faces, in the order the expression sheets lay them out. Every state
+  /// appears in exactly one group, so nothing is left out of the gallery.
+  static const List<_FaceGroup> _groups = [
+    _FaceGroup('APP FACES', [
+      FaceState.calm,
+      FaceState.watching,
+      FaceState.worried,
+      FaceState.alarmed,
+      FaceState.acked,
+      FaceState.working,
+      FaceState.success,
+    ]),
+    _FaceGroup('CORE', [
+      FaceState.blink,
+      FaceState.happy,
+      FaceState.content,
+      FaceState.curious,
+      FaceState.lookLeft,
+      FaceState.lookRight,
+      FaceState.love,
+    ]),
+    _FaceGroup('THINKING', [
+      FaceState.thinking,
+      FaceState.interested,
+      FaceState.realization,
+      FaceState.surprised,
+      FaceState.concerned,
+      FaceState.confused,
+      FaceState.skeptical,
+    ]),
+    _FaceGroup('TIRED AND RESTING', [
+      FaceState.yawn,
+      FaceState.sleepy,
+      FaceState.dozing,
+      FaceState.wakesUp,
+      FaceState.shakeHead,
+      FaceState.breatheIn,
+      FaceState.breatheOut,
+    ]),
+    _FaceGroup('BIG FEELINGS', [
+      FaceState.laughing,
+      FaceState.proud,
+      FaceState.cheeky,
+      FaceState.confident,
+      FaceState.determined,
+      FaceState.shocked,
+      FaceState.dizzy,
+      FaceState.sad,
+    ]),
   ];
 
   FaceState _selectedFace = FaceState.laughing;
@@ -227,142 +257,78 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
           ),
         ),
 
-        // Featured Expressions Grid Header
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Row(
-              children: [
-                Text(
-                  'NEW EXPRESSIONS',
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.1,
-                    color: colors.ink3,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.primary.withValues(alpha: 0.12),
-                    borderRadius: Radii.smAll,
-                  ),
-                  child: Text(
-                    '8 faces',
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: colors.primary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // 8 Featured Expressions (matches the 4x2 screenshot reference)
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-          sliver: SliverLayoutBuilder(
-            builder: (context, constraints) {
-              final crossAxisCount = constraints.crossAxisExtent > 540 ? 4 : 2;
-              return SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 0.88,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final face = _featuredExpressions[index];
-                    final isSelected = face == _selectedFace;
-                    return _buildFaceCard(face, isSelected, colors);
-                  },
-                  childCount: _featuredExpressions.length,
-                ),
-              );
-            },
-          ),
-        ),
-
-        // Classic Faces Header
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Row(
-              children: [
-                Text(
-                  'CLASSIC APP FACES',
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.1,
-                    color: colors.ink3,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.hairline,
-                    borderRadius: Radii.smAll,
-                  ),
-                  child: Text(
-                    '7 faces',
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: colors.ink2,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // Classic expressions
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 32),
-          sliver: SliverLayoutBuilder(
-            builder: (context, constraints) {
-              final crossAxisCount = constraints.crossAxisExtent > 540 ? 4 : 2;
-              return SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 0.88,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final face = _classicExpressions[index];
-                    final isSelected = face == _selectedFace;
-                    return _buildFaceCard(face, isSelected, colors);
-                  },
-                  childCount: _classicExpressions.length,
-                ),
-              );
-            },
-          ),
-        ),
+        for (final group in _groups) ...[
+          _groupHeader(group, colors),
+          _groupGrid(group, colors),
+        ],
       ],
     );
   }
+
+  Widget _groupHeader(_FaceGroup group, AppColors colors) =>
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Row(
+            children: [
+              Text(
+                group.title,
+                style: TextStyle(
+                  fontFamily: AppTypography.fontBody,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.1,
+                  color: colors.ink3,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.hairline,
+                  borderRadius: Radii.smAll,
+                ),
+                child: Text(
+                  '${group.faces.length} faces',
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontBody,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: colors.ink2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Widget _groupGrid(_FaceGroup group, AppColors colors) => SliverPadding(
+    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+    sliver: SliverLayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.crossAxisExtent > 540 ? 4 : 2;
+        return SliverGrid(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.88,
+          ),
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final face = group.faces[index];
+              return _buildFaceCard(face, face == _selectedFace, colors);
+            },
+            childCount: group.faces.length,
+          ),
+        );
+      },
+    ),
+  );
 
   Widget _buildHeroStage(AppColors colors) {
     final tilt = _getEffectiveTilt(_selectedFace);
@@ -490,4 +456,15 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
       ),
     );
   }
+}
+
+/// One titled row of faces in the gallery.
+class _FaceGroup {
+  const _FaceGroup(this.title, this.faces);
+
+  /// The heading above the grid.
+  final String title;
+
+  /// What is in it.
+  final List<FaceState> faces;
 }

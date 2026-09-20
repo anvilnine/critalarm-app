@@ -15,7 +15,7 @@ void main() {
       expect(FaceState.values, contains(FaceState.determined));
       expect(FaceState.values, contains(FaceState.confused));
       expect(FaceState.values, contains(FaceState.sad));
-      expect(FaceState.values.length, 15);
+      expect(FaceState.values.length, 36);
     });
 
     test('FaceStatePresentation provides metadata for all states', () {
@@ -41,7 +41,7 @@ void main() {
   });
 
   group('FacePainter canvas rendering', () {
-    test('paints all 15 states cleanly on canvas without error', () {
+    test('paints every state cleanly on canvas without error', () {
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
       const size = Size(200, 200);

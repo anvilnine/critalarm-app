@@ -48,6 +48,69 @@ enum FaceState {
 
   /// Downward drooping sad brows, deep frown mouth.
   sad,
+
+  /// Eyes shut mid blink, everything else where calm leaves it.
+  blink,
+
+  /// Delighted. Eyes curved shut with a warm smile.
+  happy,
+
+  /// Relaxed. Eyes gently closed, small easy smile.
+  content,
+
+  /// Eyes up and over, one brow lifted, soft smile.
+  curious,
+
+  /// Pupils slid to the left, noticing something.
+  lookLeft,
+
+  /// Pupils slid to the right, noticing something.
+  lookRight,
+
+  /// One brow up, eyes off to the side, mouth flat.
+  thinking,
+
+  /// Wide eyes, both brows up, small open mouth.
+  interested,
+
+  /// Brows tipped in, eyes down, mouth curved down.
+  concerned,
+
+  /// Eyes wide, brows up, small round mouth, pop lines.
+  realization,
+
+  /// Eyes squeezed shut, mouth stretched wide open.
+  yawn,
+
+  /// Heavy lids drooping, small pursed mouth.
+  sleepy,
+
+  /// Eyes shut, small round mouth, Zzz drifting up.
+  dozing,
+
+  /// Eyes snapped open, brows up, small round mouth.
+  wakesUp,
+
+  /// Eyes squeezed shut, wavy mouth, head rocked over.
+  shakeHead,
+
+  /// Eyes closed, small round mouth drawing air in.
+  breatheIn,
+
+  /// Eyes closed, mouth pursed, a puff beside it.
+  breatheOut,
+
+  /// Brows up, eyes up and away, pleased little smile.
+  proud,
+
+  /// One eye winked shut, the other open, smirking.
+  cheeky,
+
+  /// Brows level and low, eyes to one side, smirk.
+  confident,
+
+  /// Soft eyes, warm smile, a heart above the head.
+  love,
 }
 
 /// Metadata and presentation helpers for [FaceState].
@@ -69,6 +132,27 @@ extension FaceStatePresentation on FaceState {
     FaceState.determined => 'Determined',
     FaceState.confused => 'Confused',
     FaceState.sad => 'Sad',
+    FaceState.blink => 'Blink',
+    FaceState.happy => 'Happy',
+    FaceState.content => 'Content',
+    FaceState.curious => 'Curious',
+    FaceState.lookLeft => 'Look left',
+    FaceState.lookRight => 'Look right',
+    FaceState.thinking => 'Thinking',
+    FaceState.interested => 'Interested',
+    FaceState.concerned => 'Concerned',
+    FaceState.realization => 'Realization',
+    FaceState.yawn => 'Yawn',
+    FaceState.sleepy => 'Sleepy',
+    FaceState.dozing => 'Dozing',
+    FaceState.wakesUp => 'Wakes up',
+    FaceState.shakeHead => 'Shake head',
+    FaceState.breatheIn => 'Breathe in',
+    FaceState.breatheOut => 'Breathe out',
+    FaceState.proud => 'Proud',
+    FaceState.cheeky => 'Cheeky',
+    FaceState.confident => 'Confident',
+    FaceState.love => 'Love',
   };
 
   /// A short descriptive summary of the expression's features.
@@ -88,6 +172,28 @@ extension FaceStatePresentation on FaceState {
     FaceState.determined => 'Sharp V-brows, sparkly manga eyes, open shout.',
     FaceState.confused => 'Asymmetrical brows, slanted mouth, tilted head.',
     FaceState.sad => 'Drooping inverted brows, downward curved frown.',
+    FaceState.blink => 'Eyes shut mid blink, the rest left alone.',
+    FaceState.happy => 'Delighted. Eyes curved shut with a warm smile.',
+    FaceState.content => 'Relaxed. Eyes gently closed, small easy smile.',
+    FaceState.curious => 'Eyes up and over, one brow lifted, soft smile.',
+    FaceState.lookLeft => 'Pupils slid to the left, noticing something.',
+    FaceState.lookRight => 'Pupils slid to the right, noticing something.',
+    FaceState.thinking => 'One brow up, eyes off to the side, mouth flat.',
+    FaceState.interested => 'Wide eyes, both brows up, small open mouth.',
+    FaceState.concerned => 'Brows tipped in, eyes down, mouth curved down.',
+    FaceState.realization =>
+      'Eyes wide, brows up, small round mouth, pop lines.',
+    FaceState.yawn => 'Eyes squeezed shut, mouth stretched wide open.',
+    FaceState.sleepy => 'Heavy lids drooping, small pursed mouth.',
+    FaceState.dozing => 'Eyes shut, small round mouth, Zzz drifting up.',
+    FaceState.wakesUp => 'Eyes snapped open, brows up, small round mouth.',
+    FaceState.shakeHead => 'Eyes squeezed shut, wavy mouth, head rocked over.',
+    FaceState.breatheIn => 'Eyes closed, small round mouth drawing air in.',
+    FaceState.breatheOut => 'Eyes closed, mouth pursed, a puff beside it.',
+    FaceState.proud => 'Brows up, eyes up and away, pleased little smile.',
+    FaceState.cheeky => 'One eye winked shut, the other open, smirking.',
+    FaceState.confident => 'Brows level and low, eyes to one side, smirk.',
+    FaceState.love => 'Soft eyes, warm smile, a heart above the head.',
   };
 
   /// Authentic sample screenshot accent color (e.g. Cyan Blue for laughing,

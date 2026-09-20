@@ -137,6 +137,27 @@ class _FaceWidgetState extends State<FaceWidget> with TickerProviderStateMixin {
       case FaceState.skeptical:
       case FaceState.determined:
       case FaceState.sad:
+      case FaceState.blink:
+      case FaceState.happy:
+      case FaceState.content:
+      case FaceState.curious:
+      case FaceState.lookLeft:
+      case FaceState.lookRight:
+      case FaceState.thinking:
+      case FaceState.interested:
+      case FaceState.concerned:
+      case FaceState.realization:
+      case FaceState.yawn:
+      case FaceState.sleepy:
+      case FaceState.dozing:
+      case FaceState.wakesUp:
+      case FaceState.shakeHead:
+      case FaceState.breatheIn:
+      case FaceState.breatheOut:
+      case FaceState.proud:
+      case FaceState.cheeky:
+      case FaceState.confident:
+      case FaceState.love:
         break;
     }
   }
@@ -166,7 +187,12 @@ class _FaceWidgetState extends State<FaceWidget> with TickerProviderStateMixin {
     final ink = widget.overrideInkColor ?? colors.faceInk;
     final tongue = widget.overrideTongueColor;
 
-    final baseTilt = widget.tiltAngle ?? widget.state.defaultTilt;
+    // A shape can turn and shift the whole head. That happens out here
+    // rather than in the painter so the head and everything drawn on it move
+    // together.
+    final shape = widget.shape;
+    final baseTilt =
+        (widget.tiltAngle ?? widget.state.defaultTilt) + (shape?.tilt ?? 0);
 
     Widget buildPaintedFace({
       double lookDx = 0.0,
@@ -200,8 +226,19 @@ class _FaceWidgetState extends State<FaceWidget> with TickerProviderStateMixin {
       );
     }
 
-    if (reduceMotion || !widget.isLive || widget.shape != null) {
-      return applyTilt(buildPaintedFace(), baseTilt);
+    /// Moves the head by the shape's nudge, which is written in the painter's
+    /// 200 unit box and so has to be scaled to the size on screen.
+    Widget applyNudge(Widget child) {
+      final nudge = shape?.nudge ?? Offset.zero;
+      if (nudge == Offset.zero) return child;
+      return Transform.translate(
+        offset: nudge * (widget.size / 200),
+        child: child,
+      );
+    }
+
+    if (reduceMotion || !widget.isLive || shape != null) {
+      return applyNudge(applyTilt(buildPaintedFace(), baseTilt));
     }
 
     // Alarmed: shake -3deg to +3deg
