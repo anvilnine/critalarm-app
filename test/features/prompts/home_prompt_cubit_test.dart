@@ -256,8 +256,7 @@ void main() {
       await cubit.close();
     });
 
-    test('Priority 3: emits batteryWarning when only battery opt is missing',
-        () async {
+    test('Battery on its own never takes the home slot', () async {
       getConnection.result = const ServerConnection(
         serverUrl: 'https://api.critalarm.app',
         adminToken: 'token123',
@@ -280,8 +279,8 @@ void main() {
       final cubit = buildCubit();
       await cubit.load();
 
-      expect(cubit.state.promptType, HomePromptType.batteryWarning);
-      expect(cubit.state.missingPermissions.length, 1);
+      expect(cubit.state.promptType, HomePromptType.accountBackup);
+      expect(cubit.state.missingPermissions, isEmpty);
       await cubit.close();
     });
 
@@ -291,15 +290,15 @@ void main() {
         adminToken: 'token123',
       ).toSuccess();
 
-      // Start with battery warning
+      // Start with a blocker the banner does show
       shellCubit.setHealth(
         const ShellHealth(
           missing: [
             DevicePermissionItem(
-              type: DevicePermissionType.batteryOptimization,
+              type: DevicePermissionType.notifications,
               status: DevicePermissionStatus.denied,
-              title: 'Battery optimization',
-              description: 'May delay alerts',
+              title: 'Notifications',
+              description: 'No page reaches you',
               canFix: true,
             ),
           ],
@@ -308,9 +307,9 @@ void main() {
 
       final cubit = buildCubit(cooldown: const Duration(milliseconds: 50));
       await cubit.load();
-      expect(cubit.state.promptType, HomePromptType.batteryWarning);
+      expect(cubit.state.promptType, HomePromptType.criticalHealth);
 
-      // Now resolve battery warning
+      // Now resolve it
       shellCubit.setHealth(const ShellHealth());
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
@@ -336,10 +335,10 @@ void main() {
         const ShellHealth(
           missing: [
             DevicePermissionItem(
-              type: DevicePermissionType.batteryOptimization,
+              type: DevicePermissionType.notifications,
               status: DevicePermissionStatus.denied,
-              title: 'Battery optimization',
-              description: 'May delay alerts',
+              title: 'Notifications',
+              description: 'No page reaches you',
               canFix: true,
             ),
           ],

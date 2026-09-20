@@ -60,6 +60,40 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
     }
   }
 
+  /// Opens the system screen for one permission.
+  ///
+  /// Battery is the one row that says what it is about first. Android's screen
+  /// for it asks a blunt yes or no with no context, and nothing else in the
+  /// app asks for that permission, so the ask happens here or not at all.
+  Future<void> _turnOn(
+    BuildContext context,
+    DevicePermissionsCubit cubit,
+    DevicePermissionType type,
+  ) async {
+    if (type != DevicePermissionType.batteryOptimization) {
+      await cubit.openSettings(type);
+      return;
+    }
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      title: LocaleKeys.device_permissions_battery_explain_title.tr(),
+      body: LocaleKeys.device_permissions_battery_explain_body.tr(),
+      actions: [
+        AppDialogAction(
+          label: LocaleKeys.device_permissions_battery_explain_cancel.tr(),
+          value: false,
+          variant: AppButtonVariant.ghost,
+        ),
+        AppDialogAction(
+          label: LocaleKeys.device_permissions_battery_explain_confirm.tr(),
+          value: true,
+        ),
+      ],
+    );
+    if (confirmed != true) return;
+    await cubit.openSettings(type);
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<DevicePermissionsCubit, DevicePermissionsState>(
@@ -122,7 +156,7 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
                           item: item,
                           onTurnOn: () {
                             AppHaptics.capture();
-                            unawaited(cubit.openSettings(item.type));
+                            unawaited(_turnOn(context, cubit, item.type));
                           },
                         ),
                         const SizedBox(height: 8),

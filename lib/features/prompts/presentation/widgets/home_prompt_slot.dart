@@ -25,7 +25,6 @@ class HomePromptSlot extends StatelessWidget {
             case HomePromptType.noServer:
               child = const NoServerPromptCard(key: ValueKey('no_server'));
             case HomePromptType.criticalHealth:
-            case HomePromptType.batteryWarning:
               child = const SetupHealthBanner(key: ValueKey('health_banner'));
             // The backup nudge is not a card up here any more. It is a line
             // pinned above the tab bar, so it never pushes a topic off the

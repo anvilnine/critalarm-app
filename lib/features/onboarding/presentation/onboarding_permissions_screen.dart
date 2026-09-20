@@ -140,21 +140,13 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         final isStep2 = state.activeSubstep == 1;
         // Step 2 asks for an alarm permission that only iOS 26 has. Elsewhere
         // the screen says what the phone can do instead of promising a ring.
-        // On Android step 2 asks to lift battery optimisation instead.
-        final battery = isStep2 && state.isBatteryStep;
-        final alarmless = isStep2 && !state.alarmSupported && !battery;
-        final requestStep = battery
-            ? cubit.requestBatteryExemption
-            : (isStep2
-                  ? cubit.requestCriticalAlerts
-                  : cubit.requestNotifications);
+        final alarmless = isStep2 && !state.alarmSupported;
+        final requestStep = isStep2
+            ? cubit.requestCriticalAlerts
+            : cubit.requestNotifications;
 
-        final previewTitle = battery
-            ? LocaleKeys.onboarding_permissions_preview_battery_title.tr()
-            : _previewTitle(isApple, isStep2);
-        final previewMessage = battery
-            ? LocaleKeys.onboarding_permissions_preview_battery_desc.tr()
-            : _previewMessage(isApple, isStep2);
+        final previewTitle = _previewTitle(isApple, isStep2);
+        final previewMessage = _previewMessage(isApple, isStep2);
         final summaryLabel = LocaleKeys
             .onboarding_permissions_preview_allow_summary
             .tr();
@@ -197,7 +189,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                   ]
                 : [
                     AppButton(
-                      label: _primaryLabel(state, isStep2, alarmless),
+                      label: _primaryLabel(isStep2, alarmless),
                       size: AppButtonSize.lg,
                       isFullWidth: true,
                       isLoading: state.isRequesting,
@@ -205,20 +197,6 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                           ? cubit.continueWithout
                           : requestStep,
                     ),
-                    // Never a wall here either. The health banner keeps
-                    // asking about battery after onboarding.
-                    if (battery) ...[
-                      const SizedBox(height: Spacing.s3),
-                      AppButton(
-                        label: LocaleKeys
-                            .onboarding_permissions_step2_battery_skip
-                            .tr(),
-                        variant: AppButtonVariant.paper,
-                        isFullWidth: true,
-                        isLoading: state.isChecking,
-                        onPressed: cubit.continueWithout,
-                      ),
-                    ],
                   ],
           ),
           slivers: [
@@ -259,11 +237,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                           const SizedBox(height: Spacing.s3),
                           Center(
                             child: AppBadge(
-                              text: battery
-                                  ? LocaleKeys
-                                        .onboarding_permissions_badge_battery
-                                        .tr()
-                                  : isStep2
+                              text: isStep2
                                   ? LocaleKeys
                                         .onboarding_permissions_badge_step2
                                         .tr()
@@ -277,7 +251,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                           const SizedBox(height: Spacing.s4),
 
                           Text(
-                            _title(state, isStep2, alarmless),
+                            _title(isStep2, alarmless),
                             style: AppTypography.display(
                               colors.onCanvas,
                               fontSize: 32,
@@ -285,7 +259,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                           ),
                           const SizedBox(height: Spacing.s2),
                           Text(
-                            _subtitle(state, isStep2, alarmless),
+                            _subtitle(isStep2, alarmless),
                             style: AppTypography.lead(
                               colors.onCanvasMuted,
                               fontSize: 15,
@@ -336,14 +310,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     );
   }
 
-  String _title(
-    NotificationPermissionsState state,
-    bool isStep2,
-    bool alarmless,
-  ) {
-    if (isStep2 && state.isBatteryStep) {
-      return LocaleKeys.onboarding_permissions_step2_battery_title.tr();
-    }
+  String _title(bool isStep2, bool alarmless) {
     if (alarmless) {
       return LocaleKeys.onboarding_permissions_step2_unsupported_title.tr();
     }
@@ -352,14 +319,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         : LocaleKeys.onboarding_permissions_step1_title.tr();
   }
 
-  String _subtitle(
-    NotificationPermissionsState state,
-    bool isStep2,
-    bool alarmless,
-  ) {
-    if (isStep2 && state.isBatteryStep) {
-      return LocaleKeys.onboarding_permissions_step2_battery_subtitle.tr();
-    }
+  String _subtitle(bool isStep2, bool alarmless) {
     if (alarmless) {
       return LocaleKeys.onboarding_permissions_step2_unsupported_subtitle.tr();
     }
@@ -368,14 +328,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         : LocaleKeys.onboarding_permissions_step1_subtitle.tr();
   }
 
-  String _primaryLabel(
-    NotificationPermissionsState state,
-    bool isStep2,
-    bool alarmless,
-  ) {
-    if (isStep2 && state.isBatteryStep) {
-      return LocaleKeys.onboarding_permissions_step2_battery_button.tr();
-    }
+  String _primaryLabel(bool isStep2, bool alarmless) {
     if (alarmless) {
       return LocaleKeys.onboarding_permissions_step2_unsupported_button.tr();
     }
