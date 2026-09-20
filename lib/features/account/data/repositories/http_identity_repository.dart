@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
@@ -14,17 +15,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// The account routes want an `identity_token` issued by our server, so the
 /// provider sheet is only the first half of signing in.
 final class HttpIdentityRepository implements IdentityRepository {
-  const HttpIdentityRepository({
+  HttpIdentityRepository({
     required this.httpClient,
     required this.sessions,
     required this.prefs,
     required this.providers,
-  });
+    AccountIdentityChanges? identityChanges,
+  }) : identityChanges = identityChanges ?? appAccountIdentityChanges;
 
   final http.Client httpClient;
   final ApiSessionStore sessions;
   final SharedPreferences prefs;
   final ProviderSignIn providers;
+
+  /// Bumped whenever the stored identity changes, so screens that show a
+  /// signed-in or signed-out state look again on their own.
+  final AccountIdentityChanges identityChanges;
 
   static const _tokenKey = 'identity_session_token';
   static const _providerKey = 'identity_provider';
@@ -124,6 +130,7 @@ final class HttpIdentityRepository implements IdentityRepository {
     } else {
       await prefs.setString(_emailKey, email);
     }
+    identityChanges.bump();
   }
 
   @override
@@ -134,6 +141,7 @@ final class HttpIdentityRepository implements IdentityRepository {
     await prefs.remove(_accountKey);
     await prefs.remove(_providersKey);
     await providers.signOut();
+    identityChanges.bump();
   }
 
   /// The saved provider set, or null when nothing was saved, which is every
