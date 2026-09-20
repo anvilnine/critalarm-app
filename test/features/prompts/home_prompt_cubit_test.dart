@@ -278,7 +278,7 @@ void main() {
       expect(cubit.state.promptType, HomePromptType.batteryWarning);
 
       // Now resolve battery warning
-      shellCubit.setHealth(const ShellHealth(missing: []));
+      shellCubit.setHealth(const ShellHealth());
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
       // Should be in cooldown (none) and mark banner resolved
@@ -313,11 +313,11 @@ void main() {
         ),
       );
 
-      final cubit = buildCubit(cooldown: const Duration(seconds: 45));
+      final cubit = buildCubit();
       await cubit.load();
 
       // Clear health issue
-      shellCubit.setHealth(const ShellHealth(missing: []));
+      shellCubit.setHealth(const ShellHealth());
       await Future<void>.delayed(const Duration(milliseconds: 10));
       expect(cubit.state.promptType, HomePromptType.none);
 
@@ -333,7 +333,7 @@ void main() {
         serverUrl: 'https://api.critalarm.app',
         adminToken: 'token123',
       ).toSuccess();
-      shellCubit.setHealth(const ShellHealth(missing: []));
+      shellCubit.setHealth(const ShellHealth());
 
       final cubit = buildCubit(cooldown: const Duration(milliseconds: 50));
       await cubit.load();
@@ -358,7 +358,7 @@ void main() {
         serverUrl: 'https://api.critalarm.app',
         adminToken: 'token123',
       ).toSuccess();
-      shellCubit.setHealth(const ShellHealth(missing: []));
+      shellCubit.setHealth(const ShellHealth());
 
       // User already signed in
       identityRepo.identity = const AccountIdentity(
@@ -390,7 +390,7 @@ void main() {
         serverUrl: 'https://api.critalarm.app',
         adminToken: 'token123',
       ).toSuccess();
-      shellCubit.setHealth(const ShellHealth(missing: []));
+      shellCubit.setHealth(const ShellHealth());
 
       // User signed in and paid
       identityRepo.identity = const AccountIdentity(
@@ -411,7 +411,7 @@ void main() {
         serverUrl: 'https://selfhost.critalarm.test',
         adminToken: 'token123',
       ).toSuccess();
-      shellCubit.setHealth(const ShellHealth(missing: []));
+      shellCubit.setHealth(const ShellHealth());
       accountRepo.serverMode = ServerMode.selfhosted;
 
       final cubit = buildCubit();
