@@ -1,5 +1,6 @@
 import 'package:critalarm/core/alarm/quiet_hours.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
@@ -9,7 +10,9 @@ import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
@@ -33,6 +36,8 @@ class SettingsCubit extends Cubit<SettingsState> {
     this.telemetryGate,
     this.identityStore,
     this.apiSessions,
+    this.getServerInfo,
+    this.establishSession,
     this.getTopics,
     this.quietHoursStore,
     ProOverride? proOverride,
@@ -52,6 +57,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   final TelemetryGate? telemetryGate;
   final DeviceIdentityStore? identityStore;
   final ApiSessionStore? apiSessions;
+
+  /// The two halves of re-establishing the session when the server changes.
+  /// Null in the tests that only care about the saved URL.
+  final GetServerInfoUsecase? getServerInfo;
+  final EstablishApiSessionUsecase? establishSession;
   final GetTopicsUsecase? getTopics;
 
   /// Where the quiet hours window lives. Null in the tests that do not care
@@ -271,6 +281,11 @@ class SettingsCubit extends Cubit<SettingsState> {
     } else if (connectionRepository != null) {
       await connectionRepository!.clearConnection();
     }
+    // Clearing the URL is not disconnecting. Left behind, the session keeps
+    // pointing requests at the old server and the device identity hands it a
+    // credential the next server never issued.
+    await apiSessions?.clear();
+    await identityStore?.clear();
     emit(
       state.copyWith(
         isDisconnecting: false,
@@ -297,13 +312,38 @@ class SettingsCubit extends Cubit<SettingsState> {
       await connectionRepository!.saveConnection(connection);
     }
 
+    final session = await _establishSession(serverUrl, adminToken);
+
     emit(
       state.copyWith(
         isSavingConnection: false,
         isConnected: true,
         serverUrl: serverUrl,
         adminToken: adminToken,
+        serverMode: session?.mode,
       ),
     );
+  }
+
+  /// Rewrites the stored session so the very next request goes to the server
+  /// that was just saved. Without this the screen shows the new server while
+  /// every request still goes to the old one until the app restarts.
+  ///
+  /// Returns null when the new server cannot be reached. The URL is saved
+  /// either way, and the next launch establishes the session from it.
+  Future<ApiSession?> _establishSession(
+    String serverUrl,
+    String adminToken,
+  ) async {
+    if (getServerInfo == null || establishSession == null) return null;
+    final uri = Uri.tryParse(serverUrl);
+    if (uri == null) return null;
+    final info = (await getServerInfo!(uri)).getOrNull();
+    if (info == null) return null;
+    try {
+      return await establishSession!(info, adminToken);
+    } on Object {
+      return null;
+    }
   }
 }

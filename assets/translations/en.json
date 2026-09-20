@@ -385,6 +385,8 @@
     "admin_token_placeholder": "ad_...",
     "server_status_connected": "Connected",
     "server_self_hosted": "Self-hosted",
+    "server_relay": "Relay",
+    "server_hosted": "Hosted",
     "server_edit_button": "Edit",
     "server_disconnect_button": "Disconnect",
     "server_status_disconnected": "Disconnected",
