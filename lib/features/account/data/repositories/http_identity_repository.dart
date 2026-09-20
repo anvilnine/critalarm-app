@@ -31,6 +31,11 @@ final class HttpIdentityRepository implements IdentityRepository {
   static const _emailKey = 'identity_email';
   static const _accountKey = 'identity_account_id';
 
+  /// Every provider that reaches the account, comma separated. Missing on an
+  /// install saved before linking existed, which reads as the one provider in
+  /// [_providerKey].
+  static const _providersKey = 'identity_providers';
+
   /// The auth surface answers 200 here whenever it is mounted at all, so it
   /// is the cheap way to ask whether sign-in exists. The session itself is at
   /// `/api/auth/get-session`, never `/api/auth/session`, which 404s and reads
@@ -101,6 +106,7 @@ final class HttpIdentityRepository implements IdentityRepository {
       provider: provider,
       accountId: accountId,
       email: prefs.getString(_emailKey),
+      providers: _readProviders(),
     );
   }
 
@@ -108,6 +114,10 @@ final class HttpIdentityRepository implements IdentityRepository {
   Future<void> saveIdentity(AccountIdentity identity) async {
     await prefs.setString(_providerKey, identity.provider.wireValue);
     await prefs.setString(_accountKey, identity.accountId);
+    await prefs.setString(
+      _providersKey,
+      identity.providers.map((p) => p.wireValue).join(','),
+    );
     final email = identity.email;
     if (email == null) {
       await prefs.remove(_emailKey);
@@ -122,7 +132,22 @@ final class HttpIdentityRepository implements IdentityRepository {
     await prefs.remove(_providerKey);
     await prefs.remove(_emailKey);
     await prefs.remove(_accountKey);
+    await prefs.remove(_providersKey);
     await providers.signOut();
+  }
+
+  /// The saved provider set, or null when nothing was saved, which is every
+  /// install made before linking existed.
+  Set<IdentityProvider>? _readProviders() {
+    final raw = prefs.getString(_providersKey);
+    if (raw == null || raw.isEmpty) return null;
+    final saved = <IdentityProvider>{};
+    for (final name in raw.split(',')) {
+      for (final provider in IdentityProvider.values) {
+        if (provider.wireValue == name) saved.add(provider);
+      }
+    }
+    return saved.isEmpty ? null : saved;
   }
 
   IdentityProvider? _readProvider() {

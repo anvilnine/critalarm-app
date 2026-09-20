@@ -289,13 +289,19 @@ final class HttpApiClient implements ApiClient {
   }
 
   @override
-  Future<AccountLinkResult> linkAccount({required String identityToken}) async {
+  Future<AccountLinkResult> linkAccount({
+    required String identityToken,
+    AccountLinkIntent intent = AccountLinkIntent.signIn,
+  }) async {
     final (session, uri) = await _sessionUri(const ['account', 'link']);
     final response = await _send(
       'POST',
       uri,
       auth: session.managementCredential,
-      body: {'identity_token': identityToken},
+      body: {
+        'identity_token': identityToken,
+        'intent': intent.wireValue,
+      },
       tolerate: const {401, 409},
     );
     if (response.statusCode == 401) {
@@ -303,19 +309,47 @@ final class HttpApiClient implements ApiClient {
     }
     final json = _json(response) as Map<String, dynamic>;
     if (response.statusCode == 409) {
-      if (json['error'] != 'choose') {
-        return const AccountLinkResult.accountHasAnotherIdentity();
-      }
-      return AccountLinkResult.choose(
-        intoAccount: json['into_account'] as String,
-        topics: (json['topics'] as num).toInt(),
-        incidents: (json['incidents'] as num).toInt(),
-      );
+      return switch (json['error']) {
+        'choose' => AccountLinkResult.choose(
+          intoAccount: json['into_account'] as String,
+          topics: (json['topics'] as num).toInt(),
+          incidents: (json['incidents'] as num).toInt(),
+        ),
+        'identity has another account' =>
+          const AccountLinkResult.identityHasAnotherAccount(),
+        _ => const AccountLinkResult.accountHasAnotherIdentity(),
+      };
     }
     final accountId = json['account_id'] as String;
-    return json['outcome'] == 'attached'
-        ? AccountLinkResult.attached(accountId: accountId)
-        : AccountLinkResult.claimed(accountId: accountId);
+    // Read as a string, never an enum: a 200 always carries `account_id` and
+    // always means the phone is on that account, so an outcome this build has
+    // not heard of must still sign the person in rather than raise an error.
+    // `already_linked` arrives under both intents, so the sign-in screen gets
+    // it too after a dropped reply.
+    return switch (json['outcome']) {
+      'attached' => AccountLinkResult.attached(accountId: accountId),
+      'linked' => AccountLinkResult.linked(accountId: accountId),
+      'already_linked' => AccountLinkResult.alreadyLinked(accountId: accountId),
+      _ => AccountLinkResult.claimed(accountId: accountId),
+    };
+  }
+
+  @override
+  Future<AccountJoinTokenResult> mintAccountJoinToken() async {
+    final (session, uri) = await _sessionUri(const ['account', 'join-token']);
+    final response = await _send(
+      'POST',
+      uri,
+      auth: session.managementCredential,
+      tolerate: const {401},
+    );
+    if (response.statusCode == 401) {
+      return const AccountJoinTokenResult.unauthorized();
+    }
+    final json = _json(response) as Map<String, dynamic>;
+    return AccountJoinTokenResult.minted(
+      joinToken: json['join_token'] as String,
+    );
   }
 
   @override

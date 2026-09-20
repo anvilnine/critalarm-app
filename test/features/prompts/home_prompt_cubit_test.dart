@@ -121,8 +121,14 @@ class FakeAccountRepo implements AccountRepository {
   Future<ServerMode?> readServerMode() async => serverMode;
 
   @override
-  Future<AccountLinkResult> link(String identityToken) async =>
-      const AccountLinkResult.claimed(accountId: 'acc1');
+  Future<AccountLinkResult> link(
+    String identityToken, {
+    AccountLinkIntent intent = AccountLinkIntent.signIn,
+  }) async => const AccountLinkResult.claimed(accountId: 'acc1');
+
+  @override
+  Future<AccountJoinTokenResult> mintJoinToken() async =>
+      const AccountJoinTokenResult.minted(joinToken: 'aj_1');
 
   @override
   Future<AccountMergeResult> merge({
