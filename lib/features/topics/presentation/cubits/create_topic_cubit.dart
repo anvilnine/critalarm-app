@@ -127,7 +127,12 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     final trimmedName = state.name.trim();
     final nameError = _nameError(trimmedName);
     if (nameError != null) {
-      emit(state.copyWith(errorMessage: nameError));
+      emit(
+        state.copyWith(
+          step: CreateTopicStep.topic,
+          errorMessage: nameError,
+        ),
+      );
       return;
     }
 
@@ -163,6 +168,10 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
         emit(
           state.copyWith(
             status: CreateTopicStatus.failure,
+            // Every error a create can raise is about the topic, never the
+            // token, so send the user back to step 1 where the topic name
+            // field is. The typed token name is kept.
+            step: CreateTopicStep.topic,
             // failure.message is the server's wire code, e.g. "cap". Never
             // put that under a text field.
             errorMessage: apiErrorMessage(failure.message, cap: cap?.name),

@@ -383,7 +383,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                             helperText: LocaleKeys
                                 .create_topic_token_name_helper
                                 .tr(),
-                            errorText: state.errorMessage,
+                            // No errorText here. A failed create is always
+                            // about the topic, and the cubit sends the user
+                            // back to step 1 so the message sits under the
+                            // topic name field.
                             enabled: !isSubmitting,
                             isMono: false,
                             maxLength: 40,

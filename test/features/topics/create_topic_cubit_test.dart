@@ -192,6 +192,29 @@ void main() {
       expect(server.getTopicTokens('prod-api').single.name, 'Token 1');
     });
 
+    test('a failed create sends the user back to step 1', () async {
+      // The name is taken, so the server answers 409. The message belongs
+      // under the topic name field, which only step 1 shows.
+      server.createTopic(name: 'prod');
+
+      final cubit = CreateTopicCubit(createTopicUsecase)
+        ..nameChanged('prod')
+        ..nextStep()
+        ..tokenNameChanged('CI server');
+      expect(cubit.state.step, CreateTopicStep.token);
+
+      await cubit.createTopic();
+
+      expect(cubit.state.status, CreateTopicStatus.failure);
+      expect(cubit.state.step, CreateTopicStep.topic);
+      expect(
+        cubit.state.errorMessage,
+        'A topic with that name already exists.',
+      );
+      // The typed token name survives, so pressing Next again does not lose it.
+      expect(cubit.state.tokenName, 'CI server');
+    });
+
     test('criticalRemaining helper computes correctly', () {
       const freeState = CreateTopicState(
         criticalUsed: 1,
