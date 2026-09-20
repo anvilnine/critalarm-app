@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/state/app_data_status.dart';
+import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/api_client.dart' show maxIncidentLimit;
 import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/core/notifications/incident_update_order.dart';
@@ -96,8 +97,12 @@ class IncidentsCubit extends Cubit<IncidentsState> {
     this._getIncidents, {
     this.badge,
     DateTime Function()? now,
+    AccountIdentityChanges? identityChanges,
   }) : _now = now ?? DateTime.now,
-       super(const IncidentsState());
+       _identityChanges = identityChanges ?? appAccountIdentityChanges,
+       super(const IncidentsState()) {
+    _identityChanges.addListener(_onIdentityChanged);
+  }
 
   /// How many incidents the shared list asks for.
   ///
@@ -114,6 +119,16 @@ class IncidentsCubit extends Cubit<IncidentsState> {
   final AppBadge? badge;
 
   final DateTime Function() _now;
+
+  final AccountIdentityChanges _identityChanges;
+
+  /// Same reason as the topic list: incidents belong to the account, so the
+  /// history in memory is somebody else's once the identity changes, and
+  /// [ensureLoaded] answers "already ready" rather than going back for it.
+  void _onIdentityChanged() {
+    if (isClosed) return;
+    unawaited(refresh());
+  }
 
   /// When the newest update in the state was asked for. An update asked for
   /// before that one is older than what the app already has, so it is dropped
@@ -265,5 +280,11 @@ class IncidentsCubit extends Cubit<IncidentsState> {
     final next = change.nextState.incidents;
     if (identical(next, change.currentState.incidents)) return;
     unawaited(badge?.setCount(next.where((i) => i.isOpen).length));
+  }
+
+  @override
+  Future<void> close() {
+    _identityChanges.removeListener(_onIdentityChanged);
+    return super.close();
   }
 }

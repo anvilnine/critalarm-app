@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:critalarm/app/state/app_data_status.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/notifications/incident_update_order.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -92,8 +95,12 @@ class TopicsCubit extends Cubit<TopicsState> {
     this._deleteTopic,
     this._incidents,
     DateTime Function()? now,
+    AccountIdentityChanges? identityChanges,
   }) : _now = now ?? DateTime.now,
-       super(const TopicsState());
+       _identityChanges = identityChanges ?? appAccountIdentityChanges,
+       super(const TopicsState()) {
+    _identityChanges.addListener(_onIdentityChanged);
+  }
 
   final GetTopicsUsecase _getTopics;
 
@@ -107,6 +114,19 @@ class TopicsCubit extends Cubit<TopicsState> {
   final IncidentsCubit? _incidents;
 
   final DateTime Function() _now;
+
+  final AccountIdentityChanges _identityChanges;
+
+  /// Somebody signed in, signed out, linked another provider or deleted the
+  /// account. Topics belong to the account, so the list in memory is somebody
+  /// else's now. [ensureLoaded] would not notice: it answers "already ready"
+  /// even when what it is holding is an empty list from the account that was
+  /// just left, which is how signing in used to show "No topics yet" until the
+  /// app was killed.
+  void _onIdentityChanged() {
+    if (isClosed) return;
+    unawaited(refresh());
+  }
 
   /// When the newest update in the state was asked for. Same guard the
   /// incidents use, and for the same reason: a list read that went out before
@@ -247,5 +267,11 @@ class TopicsCubit extends Cubit<TopicsState> {
         ),
       ),
     );
+  }
+
+  @override
+  Future<void> close() {
+    _identityChanges.removeListener(_onIdentityChanged);
+    return super.close();
   }
 }
