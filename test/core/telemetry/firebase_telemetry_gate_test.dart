@@ -102,6 +102,7 @@ void main() {
         verify(
           () => remoteConfig.setDefaults(const {
             'paywall_enabled': false,
+            'paywall_variant': 'straight',
           }),
         ).called(1);
 

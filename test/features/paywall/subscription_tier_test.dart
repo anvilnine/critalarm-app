@@ -4,31 +4,31 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 
 void main() {
   group('SubscriptionTier', () {
-    // These four strings are typed into the RevenueCat dashboard, so a rename
+    // These three strings are typed into the RevenueCat dashboard, so a rename
     // there has to land here too. `hosted` is the entitlement the two paid
-    // products hand out; the other three are package identifiers in the
+    // products hand out; the other two are package identifiers in the
     // `default` offering.
     test('constants match the RevenueCat dashboard', () {
       expect(SubscriptionTier.proEntitlement, equals('hosted'));
-      expect(SubscriptionTier.lifetimeId, equals(r'$rc_lifetime'));
       expect(SubscriptionTier.yearlyId, equals(r'$rc_annual'));
       expect(SubscriptionTier.monthlyId, equals(r'$rc_monthly'));
     });
 
-    test('displayName returns user-friendly label', () {
-      expect(SubscriptionTier.lifetime.displayName, equals('Lifetime'));
-      expect(SubscriptionTier.yearly.displayName, equals('Yearly'));
-      expect(SubscriptionTier.monthly.displayName, equals('Monthly'));
+    test('there are two plans, because the stores hold two products', () {
+      expect(SubscriptionTier.values, hasLength(2));
+      expect(
+        SubscriptionTier.values,
+        containsAll([SubscriptionTier.yearly, SubscriptionTier.monthly]),
+      );
+    });
+
+    test('analyticsKey names the plan for the A/B funnel', () {
+      expect(SubscriptionTier.yearly.analyticsKey, equals('yearly'));
+      expect(SubscriptionTier.monthly.analyticsKey, equals('monthly'));
     });
 
     // The packages and store products the `default` offering really holds.
     test('fromPackage resolves the packages in the default offering', () {
-      const lifetimePkg = Package(
-        r'$rc_lifetime',
-        PackageType.lifetime,
-        StoreProduct('lifetime', 'L', 'L', 49.99, r'$49.99', 'USD'),
-        PresentedOfferingContext('default', null, null),
-      );
       const annualPkg = Package(
         r'$rc_annual',
         PackageType.annual,
@@ -36,8 +36,8 @@ void main() {
           'app.critalarm.hosted.annual',
           'Y',
           'Y',
-          19.99,
-          r'$19.99',
+          39.99,
+          r'$39.99',
           'USD',
         ),
         PresentedOfferingContext('default', null, null),
@@ -49,17 +49,13 @@ void main() {
           'app.critalarm.hosted.monthly',
           'M',
           'M',
-          2.99,
-          r'$2.99',
+          4.99,
+          r'$4.99',
           'USD',
         ),
         PresentedOfferingContext('default', null, null),
       );
 
-      expect(
-        SubscriptionTier.fromPackage(lifetimePkg),
-        equals(SubscriptionTier.lifetime),
-      );
       expect(
         SubscriptionTier.fromPackage(annualPkg),
         equals(SubscriptionTier.yearly),
@@ -70,30 +66,41 @@ void main() {
       );
     });
 
-    test('fromPackage resolves custom packages by identifier substring', () {
+    // `$rc_lifetime` sits in the offering editor with no product behind it,
+    // and neither store sells a lifetime product. Anything lifetime shaped has
+    // to come back null so the paywall never draws a row nobody can buy.
+    test('fromPackage answers null for a lifetime package', () {
+      const lifetimePkg = Package(
+        r'$rc_lifetime',
+        PackageType.lifetime,
+        StoreProduct('lifetime', 'L', 'L', 49.99, r'$49.99', 'USD'),
+        PresentedOfferingContext('default', null, null),
+      );
       const customLifetime = Package(
         'my_lifetime_tier',
         PackageType.custom,
         StoreProduct('c1', 'C1', 'C1', 49.99, r'$49.99', 'USD'),
         PresentedOfferingContext('default', null, null),
       );
+
+      expect(SubscriptionTier.fromPackage(lifetimePkg), isNull);
+      expect(SubscriptionTier.fromPackage(customLifetime), isNull);
+    });
+
+    test('fromPackage resolves custom packages by identifier substring', () {
       const customYearly = Package(
         'crit_alarm_yearly',
         PackageType.custom,
-        StoreProduct('c2', 'C2', 'C2', 19.99, r'$19.99', 'USD'),
+        StoreProduct('c2', 'C2', 'C2', 39.99, r'$39.99', 'USD'),
         PresentedOfferingContext('default', null, null),
       );
       const customMonthly = Package(
         'crit_alarm_monthly_sub',
         PackageType.custom,
-        StoreProduct('c3', 'C3', 'C3', 2.99, r'$2.99', 'USD'),
+        StoreProduct('c3', 'C3', 'C3', 4.99, r'$4.99', 'USD'),
         PresentedOfferingContext('default', null, null),
       );
 
-      expect(
-        SubscriptionTier.fromPackage(customLifetime),
-        equals(SubscriptionTier.lifetime),
-      );
       expect(
         SubscriptionTier.fromPackage(customYearly),
         equals(SubscriptionTier.yearly),
