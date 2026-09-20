@@ -25,11 +25,7 @@ class PaywallScreen extends StatelessWidget {
     return BlocProvider(
       create: (_) {
         final cubit = getIt<PaywallCubit>();
-        unawaited(
-          cubit.loadSubscriptionData().then(
-            (_) => cubit.maybePresentHostedTemplate(),
-          ),
-        );
+        unawaited(cubit.loadSubscriptionData());
         return cubit;
       },
       child: const _PaywallScreenContent(),
@@ -188,8 +184,7 @@ class _PaywallScreenContent extends StatelessWidget {
                               const SizedBox(height: 10),
                               _TierCard(
                                 title: SubscriptionTier.yearly.displayName,
-                                duration:
-                                    SubscriptionTier.yearly.durationName,
+                                duration: SubscriptionTier.yearly.durationName,
                                 badge: LocaleKeys.paywall_badge_best_value.tr(),
                                 price: _getPriceString(
                                   state,
@@ -205,8 +200,7 @@ class _PaywallScreenContent extends StatelessWidget {
                               const SizedBox(height: 8),
                               _TierCard(
                                 title: SubscriptionTier.monthly.displayName,
-                                duration:
-                                    SubscriptionTier.monthly.durationName,
+                                duration: SubscriptionTier.monthly.durationName,
                                 price: _getPriceString(
                                   state,
                                   SubscriptionTier.monthly,
@@ -217,14 +211,6 @@ class _PaywallScreenContent extends StatelessWidget {
                                     SubscriptionTier.monthly,
                                 onTap: () =>
                                     cubit.selectTier(SubscriptionTier.monthly),
-                              ),
-                              const SizedBox(height: 12),
-                              AppButton(
-                                label: LocaleKeys.paywall_present_paywall_button
-                                    .tr(),
-                                variant: AppButtonVariant.ghost,
-                                isFullWidth: true,
-                                onPressed: cubit.presentNativePaywall,
                               ),
                             ],
                           ],
@@ -250,9 +236,7 @@ class _PaywallScreenContent extends StatelessWidget {
                 children: [
                   if (state.isPro)
                     AppButton(
-                      label: LocaleKeys
-                          .paywall_manage_subscription_button
-                          .tr(),
+                      label: LocaleKeys.paywall_manage_subscription_button.tr(),
                       size: AppButtonSize.lg,
                       isFullWidth: true,
                       onPressed: cubit.presentCustomerCenter,
@@ -262,14 +246,12 @@ class _PaywallScreenContent extends StatelessWidget {
                       label: LocaleKeys.paywall_upgrade_button.tr(),
                       size: AppButtonSize.lg,
                       isFullWidth: true,
-                      isLoading:
-                          state.status == PaywallStatus.loading,
+                      isLoading: state.status == PaywallStatus.loading,
                       onPressed: cubit.upgradeToPro,
                     ),
                   const SizedBox(height: 10),
                   AppButton(
-                    label: LocaleKeys.paywall_restore_purchases_button
-                        .tr(),
+                    label: LocaleKeys.paywall_restore_purchases_button.tr(),
                     variant: AppButtonVariant.ghost,
                     isFullWidth: true,
                     isLoading:
