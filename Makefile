@@ -1,4 +1,4 @@
-.PHONY: gen regen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios worktree-new worktree-list worktree-clean release-ios release-ios-dry
+.PHONY: gen regen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios worktree-new worktree-list worktree-clean release-ios release-ios-dry release-android release-android-dry
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -102,6 +102,16 @@ release-ios:
 # duplicate build number or a bad entitlement in a minute instead of ten.
 release-ios-dry:
 	./scripts/release-ios.sh --dry-run
+
+# Push to Play internal testing. Live in minutes, no review, 100 testers.
+# Pass a different track through the script for closed or open testing.
+release-android:
+	./scripts/release-android.sh --bump
+
+# Build and walk the whole Play upload without committing the edit. An
+# uncommitted edit changes nothing, so this is safe to run any time.
+release-android-dry:
+	./scripts/release-android.sh --dry-run
 
 # --- Worktrees ---------------------------------------------------------------
 # One folder per branch under worktrees/. See worktrees/README.md for the flow.
