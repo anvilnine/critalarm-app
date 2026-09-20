@@ -9,12 +9,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// Its own cubit rather than more fields on the topic screen's, because it
 /// reads a different route and nothing else on that screen depends on it.
 class TopicTokensCubit extends Cubit<TopicTokensState> {
-  TopicTokensCubit(this._getTokens, this._createToken, this._revokeToken)
-    : super(const TopicTokensState());
+  TopicTokensCubit(
+    this._getTokens,
+    this._createToken,
+    this._revokeToken,
+    this._renameToken,
+  ) : super(const TopicTokensState());
 
   final GetTopicTokensUsecase _getTokens;
   final CreateTopicTokenUsecase _createToken;
   final RevokeTopicTokenUsecase _revokeToken;
+  final RenameTopicTokenUsecase _renameToken;
 
   late String _topicName;
 
@@ -51,13 +56,15 @@ class TopicTokensCubit extends Cubit<TopicTokensState> {
   ///
   /// The value is only in this answer. Nothing can ask for it again, so it
   /// stays in the state until the person dismisses it.
-  Future<void> createToken() async {
+  Future<void> createToken({String? name}) async {
     if (isClosed || state.isWorking) return;
     emit(
       state.copyWith(isWorking: true, clearError: true, clearNewToken: true),
     );
 
-    final result = await _createToken(_topicName);
+    final result = await _createToken(
+      CreateTopicTokenParams(topicName: _topicName, name: name),
+    );
     if (isClosed) return;
 
     result.fold(
@@ -65,8 +72,12 @@ class TopicTokensCubit extends Cubit<TopicTokensState> {
         state.copyWith(
           isWorking: false,
           status: TopicTokensStatus.ready,
-          tokens: [...state.tokens, TopicTokenInfo(tokenId: made.tokenId)],
+          tokens: [
+            ...state.tokens,
+            TopicTokenInfo(tokenId: made.tokenId, name: made.name),
+          ],
           newToken: made.token,
+          newTokenName: made.name,
         ),
       ),
       (failure) => emit(
@@ -111,6 +122,48 @@ class TopicTokensCubit extends Cubit<TopicTokensState> {
           isWorking: false,
           tokens: [...state.tokens]
             ..insert(at.clamp(0, state.tokens.length), removed),
+          errorMessage: failureMessage(failure),
+        ),
+      ),
+    );
+  }
+
+  /// Renames one token.
+  ///
+  /// The list is not touched until the server answers, so a refused rename
+  /// leaves the old name on screen and puts the reason under it.
+  Future<void> rename(String tokenId, String name) async {
+    if (isClosed || state.isWorking) return;
+
+    final at = state.tokens.indexWhere((t) => t.tokenId == tokenId);
+    if (at < 0) return;
+
+    emit(state.copyWith(isWorking: true, clearError: true));
+
+    final result = await _renameToken(
+      RenameTopicTokenParams(
+        topicName: _topicName,
+        tokenId: tokenId,
+        name: name,
+      ),
+    );
+    if (isClosed) return;
+
+    result.fold(
+      (renamed) => emit(
+        state.copyWith(
+          isWorking: false,
+          tokens: [...state.tokens]
+            ..[at] = TopicTokenInfo(
+              tokenId: renamed.tokenId,
+              name: renamed.name,
+              createdAt: renamed.createdAt ?? state.tokens[at].createdAt,
+            ),
+        ),
+      ),
+      (failure) => emit(
+        state.copyWith(
+          isWorking: false,
           errorMessage: failureMessage(failure),
         ),
       ),
