@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/api_session.dart';
-import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
@@ -29,16 +28,13 @@ class HomePromptCubit extends Cubit<HomePromptState> {
     required this.identityRepository,
     required this.accountRepository,
     required this.homePromptRepository,
-    ProOverride? proOverride,
     AccountIdentityChanges? identityChanges,
     this.cooldownDuration = const Duration(seconds: 45),
-  })  : _proOverride = proOverride ?? appProOverride,
-        _identityChanges = identityChanges ?? appAccountIdentityChanges,
+  })  : _identityChanges = identityChanges ?? appAccountIdentityChanges,
         super(const HomePromptState()) {
     _shellSub = shellCubit.stream.listen((health) {
       unawaited(_evaluate(health: health));
     });
-    _proOverride.listenable?.addListener(_onForceProChanged);
     _identityChanges.addListener(_onIdentityChanged);
   }
 
@@ -47,18 +43,12 @@ class HomePromptCubit extends Cubit<HomePromptState> {
   final IdentityRepository identityRepository;
   final AccountRepository accountRepository;
   final HomePromptRepository homePromptRepository;
-  final ProOverride _proOverride;
   final AccountIdentityChanges _identityChanges;
   final Duration cooldownDuration;
 
   StreamSubscription<ShellHealth>? _shellSub;
   Timer? _cooldownTimer;
   DateTime? _lastResolvedOrDismissedAt;
-
-  void _onForceProChanged() {
-    if (isClosed) return;
-    unawaited(_evaluate());
-  }
 
   /// Somebody signed in, signed out, linked another provider or deleted the
   /// account. Priority 4 reads the identity, so ask again right away instead
@@ -235,7 +225,6 @@ class HomePromptCubit extends Cubit<HomePromptState> {
   Future<void> close() {
     unawaited(_shellSub?.cancel());
     _cooldownTimer?.cancel();
-    _proOverride.listenable?.removeListener(_onForceProChanged);
     _identityChanges.removeListener(_onIdentityChanged);
     return super.close();
   }

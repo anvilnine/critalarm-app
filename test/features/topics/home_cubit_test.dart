@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_state.dart';
@@ -46,6 +49,37 @@ class _FlakyTopics implements TopicRepository {
   Future<AppResult<List<Topic>>> getTopics() async => fails
       ? const Failure.api(statusCode: 500).toFailure()
       : _inner.getTopics();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
+
+/// Wraps the incident repository so a test can hold the per-topic message
+/// poll open. That poll runs inside the build, so holding it holds the whole
+/// build without blocking the shared lists the cubit also waits on.
+class _GatedIncidents implements IncidentRepository {
+  _GatedIncidents(this._inner);
+
+  final IncidentRepository _inner;
+
+  /// Set to hold the next poll open. Cleared as soon as it is used, so only
+  /// one poll waits.
+  Completer<void>? hold;
+
+  @override
+  Future<AppResult<List<Message>>> pollMessages(
+    String topic, {
+    required int poll,
+    String? since,
+  }) async {
+    final gate = hold;
+    if (gate != null) {
+      hold = null;
+      await gate.future;
+    }
+    return _inner.pollMessages(topic, poll: poll, since: since);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -283,6 +317,7 @@ void main() {
     late _FlakyTopics flakyTopics;
     late TopicsCubit flakyTopicsCubit;
     late _FakeConnections connections;
+    late _GatedIncidents gatedIncidents;
     late HomeCubit cubit;
 
     /// Loads once against the calm fixture with a server saved, so every test
@@ -293,10 +328,11 @@ void main() {
       flakyTopicsCubit = TopicsCubit(GetTopicsUsecase(flakyTopics));
       addTearDown(flakyTopicsCubit.close);
       connections = _FakeConnections(_savedServer);
+      gatedIncidents = _GatedIncidents(incidentRepo);
       cubit = HomeCubit(
         incidentsCubit,
         flakyTopicsCubit,
-        incidentRepo,
+        gatedIncidents,
         null,
         GetConnectionUsecase(connections),
       );
@@ -379,6 +415,60 @@ void main() {
       final freshAt = cubit.state.lastKnownGoodAt;
       expect(freshAt, isNotNull);
       expect(freshAt!.isAfter(seenAt), isTrue);
+    });
+
+    test('no server saved also clears the has-server flag', () async {
+      await loadOnce();
+      expect(cubit.state.hasServer, isTrue);
+
+      flakyTopics.fails = true;
+      connections.connection = null;
+      await cubit.refresh();
+      await _settle();
+
+      // The screen reads this to decide whether to draw the topic sheet at
+      // all. An empty sheet is a blank white card with a shadow under it.
+      expect(cubit.state.hasServer, isFalse);
+    });
+
+    test('a server it cannot reach still counts as a server', () async {
+      await loadOnce();
+
+      flakyTopics.fails = true;
+      await cubit.refresh();
+      await _settle();
+
+      expect(cubit.state.isStale, isTrue);
+      expect(cubit.state.hasServer, isTrue);
+    });
+
+    test('a slow good build cannot land on top of a failure', () async {
+      await loadOnce();
+
+      // Hold the build open partway through. The lists have arrived and it
+      // is working out what to draw, which is where the old code left a gap.
+      final gate = Completer<void>();
+      gatedIncidents.hold = gate;
+      final slow = cubit.refresh();
+      await _settle();
+
+      // The server goes away while that build is still running.
+      flakyTopics.fails = true;
+      await cubit.refresh();
+      await _settle();
+      expect(cubit.state.status, HomeStatus.failure, reason: 'failure first');
+
+      // Now let the older build finish. Its answer is out of date, so it has
+      // to be thrown away. Without the build id check the screen goes back to
+      // smiling at a list it can no longer reach.
+      gate.complete();
+      await slow;
+      await _settle();
+
+      expect(cubit.state.status, HomeStatus.failure);
+      expect(cubit.state.isStale, isTrue);
+      expect(cubit.state.faceState, FaceState.watching);
+      expect(cubit.state.word, 'Out of touch');
     });
   });
 

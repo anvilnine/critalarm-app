@@ -7,14 +7,20 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-/// Opens the Pro sheet. It asks once, at a moment that earned the ask, and
-/// "Not now" is stored so the next ask waits or never comes.
+/// Opens the Pro sheet at a moment that earned the ask.
+///
+/// Opening it is what starts the quiet period, not the button the user
+/// picks. Tapping "See Pro plans", swiping the sheet away and tapping
+/// outside it are all answers, and none of them should bring it straight
+/// back. "Not now" does one thing more: it counts, and the second one turns
+/// the sheet off for good.
 ///
 /// Ask `ProPromptRules.shouldAsk` before calling this.
 Future<void> showProPromptSheet({
   required BuildContext context,
   required HomePromptRepository repository,
 }) {
+  unawaited(repository.markProPromptAsked());
   return showAppSheet<void>(
     context: context,
     content: (sheetContext) => ProPromptSheet(
@@ -32,9 +38,6 @@ Future<void> showProPromptSheet({
 
 /// The body of the Pro sheet: the happy face, what Pro gives, and the two
 /// ways out.
-///
-/// `home_prompt_slot.dart` still names this widget, but the cubit never asks
-/// for a Pro prompt any more, so the slot never builds it.
 class ProPromptSheet extends StatelessWidget {
   const ProPromptSheet({this.onSeePlans, this.onNotNow, super.key});
 

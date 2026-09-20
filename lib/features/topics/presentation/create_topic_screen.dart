@@ -101,15 +101,12 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
   /// Asked once per refusal, and only if the rules say this user still wants
   /// to hear it. Somebody who already pays, or who has said no twice, never
   /// sees it.
-  Future<void> _askAboutPro(
-    BuildContext context,
-    ProAskTrigger trigger,
-  ) async {
+  Future<void> _askAboutPro(BuildContext context) async {
     if (_hasAskedAboutPro) return;
     _hasAskedAboutPro = true;
     final rules = getIt<ProPromptRules>();
     final repository = getIt<HomePromptRepository>();
-    if (!await rules.shouldAsk(trigger)) return;
+    if (!await rules.shouldAsk()) return;
     if (!context.mounted) return;
     await showProPromptSheet(context: context, repository: repository);
   }
@@ -415,17 +412,15 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
           // the wall than they may know, so this is a fair time to mention
           // it, after the topic they came for is safely made.
           if (state.isFreeTier && state.criticalRemaining == 1) {
-            unawaited(
-              _askAboutPro(context, ProAskTrigger.nearCriticalTopicLimit),
-            );
+            unawaited(_askAboutPro(context));
           }
         }
         // Hitting the limit is the one moment the user is actually thinking
-        // about limits, so it is the moment worth asking about Pro.
-        if (state.capReached != null) {
-          unawaited(
-            _askAboutPro(context, ProAskTrigger.criticalTopicCapReached),
-          );
+        // about limits, so it is the moment worth asking about Pro. Only the
+        // critical topic cap: a device or daily cap is a different problem
+        // and Pro is not the answer to it.
+        if (state.capReached?.name == 'critical_topics') {
+          unawaited(_askAboutPro(context));
         }
       },
       builder: (context, state) {

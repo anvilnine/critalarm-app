@@ -77,6 +77,7 @@ class HomeState {
     this.errorMessage,
     this.isStale = false,
     this.lastKnownGoodAt,
+    this.hasServer = true,
   });
 
   final HomeStatus status;
@@ -102,6 +103,11 @@ class HomeState {
   /// build, so a later failure can say how old the rows are.
   final DateTime? lastKnownGoodAt;
 
+  /// False when no server is saved at all. The screen has one job then, which
+  /// the red card above already does, so the list below it draws nothing.
+  /// True by default, because every other state has a server to talk about.
+  final bool hasServer;
+
   bool get isEmpty => topicItems.isEmpty && status == HomeStatus.success;
 
   HomeState copyWith({
@@ -118,6 +124,7 @@ class HomeState {
     bool? isStale,
     DateTime? lastKnownGoodAt,
     bool clearLastKnownGood = false,
+    bool? hasServer,
   }) {
     return HomeState(
       status: status ?? this.status,
@@ -134,6 +141,7 @@ class HomeState {
       lastKnownGoodAt: clearLastKnownGood
           ? null
           : (lastKnownGoodAt ?? this.lastKnownGoodAt),
+      hasServer: hasServer ?? this.hasServer,
     );
   }
 
@@ -151,7 +159,8 @@ class HomeState {
           ringingIncidentId == other.ringingIncidentId &&
           errorMessage == other.errorMessage &&
           isStale == other.isStale &&
-          lastKnownGoodAt == other.lastKnownGoodAt;
+          lastKnownGoodAt == other.lastKnownGoodAt &&
+          hasServer == other.hasServer;
 
   @override
   int get hashCode => Object.hash(
@@ -165,5 +174,6 @@ class HomeState {
     errorMessage,
     isStale,
     lastKnownGoodAt,
+    hasServer,
   );
 }

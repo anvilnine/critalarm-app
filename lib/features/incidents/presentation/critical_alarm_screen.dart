@@ -55,9 +55,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
     if (!mounted) return;
     final rules = getIt<ProPromptRules>();
     final repository = getIt<HomePromptRepository>();
-    if (!await rules.shouldAsk(ProAskTrigger.firstIncidentAcknowledged)) {
-      return;
-    }
+    if (!await rules.shouldAsk()) return;
     if (!mounted) return;
     await showProPromptSheet(context: context, repository: repository);
   }

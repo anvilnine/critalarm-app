@@ -31,7 +31,6 @@ class HomePromptSlot extends StatelessWidget {
             // pinned above the tab bar, so it never pushes a topic off the
             // screen. Pro is not in this slot at all: it asks as a sheet.
             case HomePromptType.accountBackup:
-            case HomePromptType.proSupport:
             case HomePromptType.none:
               child = const SizedBox.shrink(key: ValueKey('empty_prompt'));
           }

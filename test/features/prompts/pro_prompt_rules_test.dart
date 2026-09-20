@@ -6,8 +6,17 @@ import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repos
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeHomePromptRepository implements HomePromptRepository {
+  DateTime? proAskedAt;
   DateTime? proDismissedAt;
   int proDismissCount = 0;
+
+  @override
+  DateTime? getProPromptAskedAt() => proAskedAt;
+
+  @override
+  Future<void> markProPromptAsked() async {
+    proAskedAt = DateTime.now();
+  }
 
   @override
   DateTime? getProPromptDismissedAt() => proDismissedAt;
@@ -19,6 +28,7 @@ class FakeHomePromptRepository implements HomePromptRepository {
   Future<void> dismissProPrompt() async {
     proDismissCount++;
     proDismissedAt = DateTime.now();
+    proAskedAt = proDismissedAt;
   }
 
   @override
@@ -88,32 +98,27 @@ void main() {
   final today = DateTime(2026, 9, 20, 9);
 
   group('ProPromptRules.decide', () {
-    test('asks at every trigger when nothing has been dismissed', () {
-      for (final trigger in ProAskTrigger.values) {
-        expect(
-          ProPromptRules.decide(
-            trigger: trigger,
-            isPaid: false,
-            isSelfHosted: false,
-            dismissCount: 0,
-            lastDismissedAt: null,
-            now: today,
-          ),
-          isTrue,
-          reason: 'should ask at $trigger',
-        );
-      }
+    test('asks a free hosted user who has never been asked', () {
+      expect(
+        ProPromptRules.decide(
+          isPaid: false,
+          isSelfHosted: false,
+          dismissCount: 0,
+          lastAskedAt: null,
+          now: today,
+        ),
+        isTrue,
+      );
     });
 
-    test('the first "Not now" buys 30 days of quiet', () {
+    test('being asked once buys 30 days of quiet', () {
       bool askAfter(Duration since) => ProPromptRules.decide(
-            trigger: ProAskTrigger.nearCriticalTopicLimit,
-            isPaid: false,
-            isSelfHosted: false,
-            dismissCount: 1,
-            lastDismissedAt: today.subtract(since),
-            now: today,
-          );
+        isPaid: false,
+        isSelfHosted: false,
+        dismissCount: 0,
+        lastAskedAt: today.subtract(since),
+        now: today,
+      );
 
       expect(askAfter(const Duration(days: 1)), isFalse);
       expect(askAfter(const Duration(days: 29, hours: 23)), isFalse);
@@ -124,11 +129,10 @@ void main() {
     test('a second "Not now" means never again', () {
       expect(
         ProPromptRules.decide(
-          trigger: ProAskTrigger.criticalTopicCapReached,
           isPaid: false,
           isSelfHosted: false,
           dismissCount: 2,
-          lastDismissedAt: today.subtract(const Duration(days: 365)),
+          lastAskedAt: today.subtract(const Duration(days: 365)),
           now: today,
         ),
         isFalse,
@@ -138,11 +142,10 @@ void main() {
     test('somebody who already pays is never asked', () {
       expect(
         ProPromptRules.decide(
-          trigger: ProAskTrigger.firstIncidentAcknowledged,
           isPaid: true,
           isSelfHosted: false,
           dismissCount: 0,
-          lastDismissedAt: null,
+          lastAskedAt: null,
           now: today,
         ),
         isFalse,
@@ -152,11 +155,10 @@ void main() {
     test('a self hosted server is never asked', () {
       expect(
         ProPromptRules.decide(
-          trigger: ProAskTrigger.firstIncidentAcknowledged,
           isPaid: false,
           isSelfHosted: true,
           dismissCount: 0,
-          lastDismissedAt: null,
+          lastAskedAt: null,
           now: today,
         ),
         isFalse,
@@ -170,10 +172,10 @@ void main() {
     late DateTime clock;
 
     ProPromptRules buildRules() => ProPromptRules(
-          homePromptRepository: promptRepo,
-          accountRepository: accountRepo,
-          now: () => clock,
-        );
+      homePromptRepository: promptRepo,
+      accountRepository: accountRepo,
+      now: () => clock,
+    );
 
     setUp(() {
       promptRepo = FakeHomePromptRepository();
@@ -182,59 +184,52 @@ void main() {
     });
 
     test('asks a free hosted user who has dismissed nothing', () async {
-      expect(
-        await buildRules().shouldAsk(ProAskTrigger.nearCriticalTopicLimit),
-        isTrue,
-      );
+      expect(await buildRules().shouldAsk(), isTrue);
+    });
+
+    test('walking away from the sheet still buys quiet', () async {
+      // Nobody tapped "Not now". The sheet was shown and swiped away, or
+      // "See Pro plans" was tapped and the paywall backed out of. Showing it
+      // is the ask, so it must not come straight back.
+      await promptRepo.markProPromptAsked();
+
+      final rules = buildRules();
+      clock = today.add(const Duration(days: 2));
+      expect(await rules.shouldAsk(), isFalse);
+
+      clock = today.add(const Duration(days: 31));
+      expect(await rules.shouldAsk(), isTrue);
     });
 
     test('goes quiet for 30 days after one "Not now", then asks again',
         () async {
-      promptRepo
-        ..proDismissCount = 1
-        ..proDismissedAt = today;
+      await promptRepo.dismissProPrompt();
 
       final rules = buildRules();
       clock = today.add(const Duration(days: 29));
-      expect(
-        await rules.shouldAsk(ProAskTrigger.criticalTopicCapReached),
-        isFalse,
-      );
+      expect(await rules.shouldAsk(), isFalse);
 
       clock = today.add(const Duration(days: 31));
-      expect(
-        await rules.shouldAsk(ProAskTrigger.criticalTopicCapReached),
-        isTrue,
-      );
+      expect(await rules.shouldAsk(), isTrue);
     });
 
     test('stays quiet for good after a second "Not now"', () async {
-      promptRepo
-        ..proDismissCount = 2
-        ..proDismissedAt = today;
+      await promptRepo.dismissProPrompt();
+      await promptRepo.dismissProPrompt();
 
       final rules = buildRules();
       clock = today.add(const Duration(days: 400));
-      expect(
-        await rules.shouldAsk(ProAskTrigger.firstIncidentAcknowledged),
-        isFalse,
-      );
+      expect(await rules.shouldAsk(), isFalse);
     });
 
     test('never asks a paid user', () async {
       accountRepo.isPaid = true;
-      expect(
-        await buildRules().shouldAsk(ProAskTrigger.nearCriticalTopicLimit),
-        isFalse,
-      );
+      expect(await buildRules().shouldAsk(), isFalse);
     });
 
     test('never asks in self hosted mode', () async {
       accountRepo.serverMode = ServerMode.selfhosted;
-      expect(
-        await buildRules().shouldAsk(ProAskTrigger.nearCriticalTopicLimit),
-        isFalse,
-      );
+      expect(await buildRules().shouldAsk(), isFalse);
     });
 
     test('dismissProPrompt records the time and adds one to the count',
@@ -242,6 +237,7 @@ void main() {
       await promptRepo.dismissProPrompt();
       expect(promptRepo.getProPromptDismissCount(), 1);
       expect(promptRepo.getProPromptDismissedAt(), isNotNull);
+      expect(promptRepo.getProPromptAskedAt(), isNotNull);
     });
   });
 }

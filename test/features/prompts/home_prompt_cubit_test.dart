@@ -3,7 +3,6 @@ import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
-import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
@@ -23,6 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 class FakeHomePromptRepository implements HomePromptRepository {
   DateTime? accountDismissedAt;
+  DateTime? proAskedAt;
   DateTime? proDismissedAt;
   DateTime? lastResolvedAt;
 
@@ -40,6 +40,14 @@ class FakeHomePromptRepository implements HomePromptRepository {
     dismissAccountCalls++;
     accountDismissedAt = DateTime.now();
     await markBannerResolvedOrDismissed();
+  }
+
+  @override
+  DateTime? getProPromptAskedAt() => proAskedAt;
+
+  @override
+  Future<void> markProPromptAsked() async {
+    proAskedAt = DateTime.now();
   }
 
   @override
@@ -198,7 +206,6 @@ void main() {
 
   HomePromptCubit buildCubit({
     Duration cooldown = const Duration(seconds: 45),
-    ProOverride? proOverride,
   }) {
     return HomePromptCubit(
       getConnectionUsecase: getConnection,
@@ -207,7 +214,6 @@ void main() {
       accountRepository: accountRepo,
       homePromptRepository: promptRepo,
       cooldownDuration: cooldown,
-      proOverride: proOverride ?? const NoProOverride(),
       identityChanges: identityChanges,
     );
   }
@@ -430,7 +436,7 @@ void main() {
       await cubit.close();
     });
 
-    test('Paid or ProOverride hides Pro support prompt', () async {
+    test('a signed in paid user gets no prompt at all', () async {
       getConnection.result = const ServerConnection(
         serverUrl: 'https://api.critalarm.app',
         adminToken: 'token123',

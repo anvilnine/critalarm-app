@@ -7,7 +7,6 @@ enum HomePromptType {
   criticalHealth,
   batteryWarning,
   accountBackup,
-  proSupport,
 }
 
 @immutable
