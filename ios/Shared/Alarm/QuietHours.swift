@@ -50,8 +50,11 @@ struct QuietHours {
     /// What a device with nothing saved yet runs. The same four values are the
     /// fallback in `QuietHours.defaults` in Dart, so the app and the extension
     /// agree before the first save has happened.
+    ///
+    /// Off, because the settings rows that switch it on are off the alarm
+    /// settings screen. Flip this back with those rows.
     static let defaults = QuietHours(
-        isEnabled: true,
+        isEnabled: false,
         startMinutes: 22 * 60,
         endMinutes: 7 * 60,
         criticalRingsThrough: true

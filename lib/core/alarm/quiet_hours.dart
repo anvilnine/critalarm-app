@@ -18,8 +18,11 @@ final class QuietHours {
   /// What a device with nothing saved yet runs. The same four values are the
   /// fallback in `QuietHours.swift`, so the app and the extension agree before
   /// the first save has happened.
+  ///
+  /// Off, because the settings rows that switch it on are off the alarm
+  /// settings screen. Flip this back with those rows.
   static const QuietHours defaults = QuietHours(
-    isEnabled: true,
+    isEnabled: false,
     startMinutes: defaultStartMinutes,
     endMinutes: defaultEndMinutes,
     criticalRingsThrough: true,

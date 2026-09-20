@@ -257,9 +257,14 @@ void main() {
   });
 
   group('quiet hours', () {
-    /// 22:00 to 07:00 with critical ringing through, which is what a device
-    /// with nothing saved runs.
-    const night = QuietHours.defaults;
+    /// 22:00 to 07:00, switched on, with critical ringing through. The
+    /// saved defaults are off, so this window is spelled out.
+    const night = QuietHours(
+      isEnabled: true,
+      startMinutes: QuietHours.defaultStartMinutes,
+      endMinutes: QuietHours.defaultEndMinutes,
+      criticalRingsThrough: true,
+    );
 
     /// A page that does not open an incident on a critical topic. The relay
     /// sends priority 5 for the pager case, so anything under that is the
