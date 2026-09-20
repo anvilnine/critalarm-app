@@ -111,6 +111,15 @@ class SettingsCubit extends Cubit<SettingsState> {
       );
     }
 
+    // Which mode the server runs in decides whether the Account row is drawn.
+    // It comes out of preferences, so read it before anything that waits on
+    // the network: bundled with the topics call below, the row only appeared
+    // once the server answered, and it popped in under the Server row.
+    final session = await apiSessions?.read();
+    if (session != null) {
+      emit(state.copyWith(serverMode: session.mode));
+    }
+
     if (forceDisconnected) {
       emit(
         state.copyWith(
@@ -199,7 +208,6 @@ class SettingsCubit extends Cubit<SettingsState> {
     emit(
       state.copyWith(
         status: SettingsStatus.success,
-        serverMode: (await apiSessions?.read())?.mode,
         access: AccountAccess(identity, proOverride: _proOverride),
         topics: result?.getOrNull() ?? [],
         errorMessage: result?.exceptionOrNull()?.message,

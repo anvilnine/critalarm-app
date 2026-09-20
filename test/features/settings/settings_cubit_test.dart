@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/result/result.dart';
+import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
@@ -15,6 +19,9 @@ import 'package:critalarm/features/settings/domain/usecases/set_analytics_enable
 import 'package:critalarm/features/settings/domain/usecases/set_crash_reporting_enabled_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
+import 'package:critalarm/features/topics/domain/entities/topic.dart';
+import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
+import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -23,6 +30,24 @@ class MockConnectionRepository extends Mock implements ConnectionRepository {}
 class MockPrivacyRepository extends Mock implements PrivacyRepository {}
 
 class MockTelemetryGate extends Mock implements TelemetryGate {}
+
+class MockTopicRepository extends Mock implements TopicRepository {}
+
+/// Answers straight away, the way the real preferences-backed store does.
+class FakeApiSessionStore implements ApiSessionStore {
+  FakeApiSessionStore(this.session);
+
+  final ApiSession? session;
+
+  @override
+  Future<ApiSession?> read() async => session;
+
+  @override
+  Future<void> write(ApiSession session) async {}
+
+  @override
+  Future<void> clear() async {}
+}
 
 void main() {
   late MockConnectionRepository connectionRepo;
@@ -377,5 +402,70 @@ void main() {
         ),
       ],
     );
+  });
+
+  group('SettingsCubit server mode', () {
+    ApiSession sessionIn(ServerMode mode) => ApiSession(
+      baseUri: Uri.parse('https://api.example.test'),
+      relayUri: Uri.parse('https://relay.example.test'),
+      mode: mode,
+      managementCredential: 'token',
+    );
+
+    /// The Account row is drawn off `serverMode`. Reading it used to ride
+    /// along with the topics call, so the row appeared only once the server
+    /// answered. Here the topics call is held open and the row is already
+    /// known.
+    test('is known before the topics call answers', () async {
+      final topicRepo = MockTopicRepository();
+      final topics = Completer<AppResult<List<Topic>>>();
+      when(topicRepo.getTopics).thenAnswer((_) => topics.future);
+
+      final cubit = SettingsCubit(
+        apiSessions: FakeApiSessionStore(sessionIn(ServerMode.hosted)),
+        getTopics: GetTopicsUsecase(topicRepo),
+      );
+      addTearDown(cubit.close);
+
+      final loading = cubit.load();
+      await pumpEventQueue();
+
+      expect(cubit.state.status, SettingsStatus.loading);
+      expect(cubit.state.hasAccounts, isTrue);
+
+      topics.complete(const <Topic>[].toSuccess());
+      await loading;
+
+      expect(cubit.state.status, SettingsStatus.success);
+      expect(cubit.state.hasAccounts, isTrue);
+    });
+
+    test('a self-hosted server never gets the Account row', () async {
+      final topicRepo = MockTopicRepository();
+      when(topicRepo.getTopics).thenAnswer(
+        (_) async => const <Topic>[].toSuccess(),
+      );
+
+      final cubit = SettingsCubit(
+        apiSessions: FakeApiSessionStore(sessionIn(ServerMode.selfhosted)),
+        getTopics: GetTopicsUsecase(topicRepo),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.load();
+
+      expect(cubit.state.serverMode, ServerMode.selfhosted);
+      expect(cubit.state.hasAccounts, isFalse);
+    });
+
+    test('nothing saved leaves the mode unknown', () async {
+      final cubit = SettingsCubit(apiSessions: FakeApiSessionStore(null));
+      addTearDown(cubit.close);
+
+      await cubit.load();
+
+      expect(cubit.state.serverMode, isNull);
+      expect(cubit.state.hasAccounts, isFalse);
+    });
   });
 }
