@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/failures/failure.dart';
@@ -45,6 +46,64 @@ Topic _topic({bool critical = false}) =>
     Topic(name: 'prod-db', critical: critical);
 
 void main() {
+  group('the shared list follows the signed-in account', () {
+    // Reproduces the handset bug from 2026-09-20: sign out, sign back in, and
+    // the Topics tab said "No topics yet" until the app was killed. Nothing was
+    // lost. The list just never went back for the new account's topics, because
+    // ensureLoaded answers "already ready" even when what it holds is the empty
+    // list the signed-out device saw.
+    test('reloads when the stored identity changes', () async {
+      final scripted = _ScriptedTopics();
+      final identityChanges = AccountIdentityChanges();
+      final cubit = TopicsCubit(
+        GetTopicsUsecase(scripted),
+        identityChanges: identityChanges,
+      );
+      addTearDown(cubit.close);
+
+      // Signed out: the device sits on a fresh anonymous account with nothing
+      // on it, and the list is loaded and empty.
+      final first = cubit.ensureLoaded();
+      scripted.pending[0].complete(<Topic>[].toSuccess());
+      await first;
+      expect(cubit.state.topics, isEmpty);
+      expect(cubit.state.isReady, isTrue);
+      expect(scripted.pending, hasLength(1));
+
+      // Sign in. The identity repository bumps this, and nothing else tells
+      // the list anything happened.
+      identityChanges.bump();
+      await Future<void>.delayed(Duration.zero);
+
+      // Without the fix no second read is ever asked for, and this is the line
+      // that fails.
+      expect(
+        scripted.pending,
+        hasLength(2),
+        reason: 'signing in has to send the list back to the server',
+      );
+
+      scripted.pending[1].complete([_topic()].toSuccess());
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.topics.single.name, 'prod-db');
+    });
+
+    test('stops listening once it is closed', () async {
+      final scripted = _ScriptedTopics();
+      final identityChanges = AccountIdentityChanges();
+      final cubit = TopicsCubit(
+        GetTopicsUsecase(scripted),
+        identityChanges: identityChanges,
+      );
+
+      await cubit.close();
+      identityChanges.bump();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(scripted.pending, isEmpty);
+    });
+  });
+
   group('the stale-write guard', () {
     test(
       'a list read asked for before the switch was flipped is dropped',
