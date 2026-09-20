@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+	The Release build's entitlements. Identical to Runner.entitlements except
+	for aps-environment.
+
+	A TestFlight or App Store build has to say production, or the device
+	registers with the sandbox APNs and every push the production server sends
+	is dropped with no error anyone sees. Debug and Profile keep development,
+	so a locally signed build still talks to the sandbox.
+
+	The server side has to agree: APNS_ENVIRONMENT must be production for the
+	deployment that serves this build. That is S27.
+-->
+<plist version="1.0">
+<dict>
+	<key>aps-environment</key>
+	<string>production</string>
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.app.critalarm</string>
+	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)app.critalarm</string>
+	</array>
+</dict>
+</plist>
