@@ -1,3 +1,4 @@
+import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:flutter/foundation.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -17,6 +18,7 @@ class PaywallState {
     this.customerInfo,
     this.selectedTier = SubscriptionTier.yearly,
     this.selectedPackage,
+    this.variant = PaywallVariant.fallback,
   });
 
   final PaywallStatus status;
@@ -29,6 +31,9 @@ class PaywallState {
   final SubscriptionTier selectedTier;
   final Package? selectedPackage;
 
+  /// Which paywall layout this device is showing.
+  final PaywallVariant variant;
+
   PaywallState copyWith({
     PaywallStatus? status,
     bool? isPro,
@@ -39,6 +44,7 @@ class PaywallState {
     CustomerInfo? customerInfo,
     SubscriptionTier? selectedTier,
     Package? selectedPackage,
+    PaywallVariant? variant,
     bool clearFeedback = false,
     bool clearError = false,
   }) {
@@ -54,6 +60,7 @@ class PaywallState {
       customerInfo: customerInfo ?? this.customerInfo,
       selectedTier: selectedTier ?? this.selectedTier,
       selectedPackage: selectedPackage ?? this.selectedPackage,
+      variant: variant ?? this.variant,
     );
   }
 
@@ -70,7 +77,8 @@ class PaywallState {
           offerings == other.offerings &&
           customerInfo == other.customerInfo &&
           selectedTier == other.selectedTier &&
-          selectedPackage == other.selectedPackage;
+          selectedPackage == other.selectedPackage &&
+          variant == other.variant;
 
   @override
   int get hashCode => Object.hash(
@@ -83,5 +91,6 @@ class PaywallState {
     customerInfo,
     selectedTier,
     selectedPackage,
+    variant,
   );
 }

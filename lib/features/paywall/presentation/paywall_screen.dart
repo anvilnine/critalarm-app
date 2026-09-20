@@ -1,10 +1,14 @@
 import 'dart:async';
+
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
+import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/domain/entities/store_account_label.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_state.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/paywall_pitch.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +25,11 @@ class PaywallScreen extends StatelessWidget {
     return BlocProvider(
       create: (_) {
         final cubit = getIt<PaywallCubit>();
-        unawaited(cubit.loadSubscriptionData());
+        unawaited(
+          cubit.loadSubscriptionData().then(
+            (_) => cubit.maybePresentHostedTemplate(),
+          ),
+        );
         return cubit;
       },
       child: const _PaywallScreenContent(),
@@ -104,13 +112,9 @@ class _PaywallScreenContent extends StatelessWidget {
                             ? FaceState.calm
                             : FaceState.acked,
                         faceSize: 140,
-                        word: state.isPro
-                            ? LocaleKeys.paywall_stage_word_pro_active.tr()
-                            : LocaleKeys.paywall_stage_word_pro.tr(),
+                        word: LocaleKeys.paywall_stage_word.tr(),
                         wordFontSize: 36,
-                        sub: state.isPro
-                            ? LocaleKeys.paywall_stage_sub_pro_active.tr()
-                            : LocaleKeys.paywall_stage_sub_pro.tr(),
+                        sub: _stageSub(state),
                         padding: const EdgeInsets.fromLTRB(
                           24,
                           Spacing.s2,
@@ -138,31 +142,7 @@ class _PaywallScreenContent extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            AppFeatureBullet(
-                              text: LocaleKeys.paywall_feature_rings_until_ack
-                                  .tr(),
-                              glyph: GlyphType.bell,
-                            ),
-                            const SizedBox(height: 12),
-                            AppFeatureBullet(
-                              text: LocaleKeys.paywall_feature_repeat_loop.tr(),
-                              glyph: GlyphType.repeat,
-                            ),
-                            const SizedBox(height: 12),
-                            AppFeatureBullet(
-                              text: LocaleKeys.paywall_feature_escalate_call
-                                  .tr(),
-                              glyph: GlyphType.arrow,
-                            ),
-                            const SizedBox(height: 12),
-                            AppFeatureBullet(
-                              text: LocaleKeys.paywall_feature_unlimited_topics
-                                  .tr(),
-                            ),
-                            const SizedBox(height: 18),
-                            AppNote(
-                              text: LocaleKeys.paywall_self_hosted_note.tr(),
-                            ),
+                            PaywallPitch(variant: state.variant),
                             const SizedBox(height: 20),
                             if (state.isPro) ...[
                               Container(
@@ -207,15 +187,14 @@ class _PaywallScreenContent extends StatelessWidget {
                               ),
                               const SizedBox(height: 10),
                               _TierCard(
-                                tier: SubscriptionTier.yearly,
-                                title: LocaleKeys.paywall_tier_yearly.tr(),
+                                title: SubscriptionTier.yearly.displayName,
+                                duration:
+                                    SubscriptionTier.yearly.durationName,
                                 badge: LocaleKeys.paywall_badge_best_value.tr(),
-                                priceDescription: _getPriceString(
+                                price: _getPriceString(
                                   state,
                                   SubscriptionTier.yearly,
-                                  fallback: LocaleKeys.paywall_price_yearly.tr(
-                                    namedArgs: {'price': r'$19.99'},
-                                  ),
+                                  fallback: r'$39.99',
                                 ),
                                 isSelected:
                                     state.selectedTier ==
@@ -225,39 +204,19 @@ class _PaywallScreenContent extends StatelessWidget {
                               ),
                               const SizedBox(height: 8),
                               _TierCard(
-                                tier: SubscriptionTier.monthly,
-                                title: LocaleKeys.paywall_tier_monthly.tr(),
-                                priceDescription: _getPriceString(
+                                title: SubscriptionTier.monthly.displayName,
+                                duration:
+                                    SubscriptionTier.monthly.durationName,
+                                price: _getPriceString(
                                   state,
                                   SubscriptionTier.monthly,
-                                  fallback: LocaleKeys.paywall_price_monthly.tr(
-                                    namedArgs: {'price': r'$2.99'},
-                                  ),
+                                  fallback: r'$4.99',
                                 ),
                                 isSelected:
                                     state.selectedTier ==
                                     SubscriptionTier.monthly,
                                 onTap: () =>
                                     cubit.selectTier(SubscriptionTier.monthly),
-                              ),
-                              const SizedBox(height: 8),
-                              _TierCard(
-                                tier: SubscriptionTier.lifetime,
-                                title: LocaleKeys.paywall_tier_lifetime.tr(),
-                                priceDescription: _getPriceString(
-                                  state,
-                                  SubscriptionTier.lifetime,
-                                  fallback: LocaleKeys.paywall_price_lifetime
-                                      .tr(
-                                        namedArgs: {'price': r'$49.99'},
-                                      ),
-                                ),
-                                isSelected:
-                                    state.selectedTier ==
-                                    SubscriptionTier.lifetime,
-                                onTap: () => cubit.selectTier(
-                                  SubscriptionTier.lifetime,
-                                ),
                               ),
                               const SizedBox(height: 12),
                               AppButton(
@@ -300,11 +259,7 @@ class _PaywallScreenContent extends StatelessWidget {
                     )
                   else
                     AppButton(
-                      label: LocaleKeys.paywall_upgrade_button.tr(
-                        namedArgs: {
-                          'tier': state.selectedTier.displayName,
-                        },
-                      ),
+                      label: LocaleKeys.paywall_upgrade_button.tr(),
                       size: AppButtonSize.lg,
                       isFullWidth: true,
                       isLoading:
@@ -322,6 +277,8 @@ class _PaywallScreenContent extends StatelessWidget {
                         state.feedbackMessage == null,
                     onPressed: cubit.restorePurchases,
                   ),
+                  const SizedBox(height: 8),
+                  const _RenewalDisclosure(),
                   const SizedBox(height: 8),
                   const _LegalLinksRow(),
                 ],
@@ -344,27 +301,53 @@ class _PaywallScreenContent extends StatelessWidget {
         case SubscriptionTier.yearly:
           final p = currentOffering.annual;
           if (p != null) {
-            return LocaleKeys.paywall_price_yearly.tr(
-              namedArgs: {'price': p.storeProduct.priceString},
-            );
+            return p.storeProduct.priceString;
           }
         case SubscriptionTier.monthly:
           final p = currentOffering.monthly;
           if (p != null) {
-            return LocaleKeys.paywall_price_monthly.tr(
-              namedArgs: {'price': p.storeProduct.priceString},
-            );
-          }
-        case SubscriptionTier.lifetime:
-          final p = currentOffering.lifetime;
-          if (p != null) {
-            return LocaleKeys.paywall_price_lifetime.tr(
-              namedArgs: {'price': p.storeProduct.priceString},
-            );
+            return p.storeProduct.priceString;
           }
       }
     }
     return fallback;
+  }
+
+  /// The line under the word on the stage. Only the one job layout needs one;
+  /// the others say it in the pitch right below and would repeat themselves.
+  static String? _stageSub(PaywallState state) {
+    if (state.isPro) {
+      return LocaleKeys.paywall_stage_sub_active.tr();
+    }
+    return state.variant == PaywallVariant.oneJob
+        ? LocaleKeys.paywall_stage_sub_one_job.tr()
+        : null;
+  }
+}
+
+/// What the store charges and when it charges again. App Store review
+/// guideline 3.1.2 wants this on the screen that sells the subscription, not
+/// one tap away.
+class _RenewalDisclosure extends StatelessWidget {
+  const _RenewalDisclosure();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Text(
+      LocaleKeys.paywall_renewal_disclosure.tr(
+        namedArgs: {'store': storeAccountLabelFor(Theme.of(context).platform)},
+      ),
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontFamily: AppTypography.fontBody,
+        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+        fontSize: 11,
+        height: 1.35,
+        color: colors.ink3,
+      ),
+    );
   }
 }
 
@@ -429,19 +412,22 @@ class _LegalLink extends StatelessWidget {
   }
 }
 
+/// One plan row. The billed amount is the biggest thing in it, because App
+/// Store review guideline 3.1.2 asks for the amount that will actually be
+/// charged to be the most prominent price element.
 class _TierCard extends StatelessWidget {
   const _TierCard({
-    required this.tier,
     required this.title,
-    required this.priceDescription,
+    required this.duration,
+    required this.price,
     required this.isSelected,
     required this.onTap,
     this.badge,
   });
 
-  final SubscriptionTier tier;
   final String title;
-  final String priceDescription;
+  final String duration;
+  final String price;
   final bool isSelected;
   final VoidCallback onTap;
   final String? badge;
@@ -477,12 +463,14 @@ class _TierCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: colors.ink,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            color: colors.ink,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                       if (badge != null) ...[
@@ -510,13 +498,23 @@ class _TierCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    priceDescription,
+                    duration,
                     style: TextStyle(
-                      color: colors.ink2,
-                      fontSize: 13,
+                      color: colors.ink3,
+                      fontSize: 12,
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              price,
+              style: TextStyle(
+                color: colors.ink,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ],

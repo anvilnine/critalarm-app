@@ -16,8 +16,10 @@ import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
+import 'package:critalarm/core/paywall/dev_paywall_variant_switch.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/push/apns_push_token_provider.dart';
 import 'package:critalarm/core/push/firebase_push_token_provider.dart';
@@ -32,6 +34,7 @@ import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
+import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
@@ -179,6 +182,18 @@ Future<void> configureDependencies({
     // The only place the switch is handed to the rest of the app. In a store
     // build appProOverride is a NoProOverride and this call does nothing.
     appProOverride.watch(getIt<DevProSwitch>());
+  }
+
+  if (buildHasPaywallLab) {
+    if (!getIt.isRegistered<DevPaywallVariantSwitch>()) {
+      getIt.registerSingleton<DevPaywallVariantSwitch>(
+        DevPaywallVariantSwitch(prefs),
+      );
+    }
+    // Same shape as the Force Pro switch. A store build compiles
+    // appPaywallVariantOverride as a NoPaywallVariantOverride, so this call
+    // does nothing and Remote Config stays in charge.
+    appPaywallVariantOverride.watch(getIt<DevPaywallVariantSwitch>());
   }
 
   final identityStore = DeviceIdentityStore.forPlatform(prefs);
@@ -652,7 +667,7 @@ Future<void> configureDependencies({
         clearRecentSearches: getIt<ClearRecentSearchesUsecase>(),
         // A release build never offers the developer screen, so search must
         // never find it either.
-        includeDevOnlySettings: buildSkipsPaywall,
+        includeDevOnlySettings: buildSkipsPaywall || buildHasPaywallLab,
       ),
     )
     ..registerFactory(
@@ -756,6 +771,9 @@ Future<void> configureDependencies({
         restorePurchasesUsecase: getIt<RestorePurchasesUsecase>(),
         getCustomerInfoUsecase: getIt<GetCustomerInfoUsecase>(),
         subscriptionRepository: getIt<SubscriptionRepository>(),
+        analytics: getIt.isRegistered<TelemetryGate>()
+            ? PaywallAnalytics(getIt<TelemetryGate>())
+            : null,
         refreshRegistration: () async {
           if (!buildSkipsPaywall) {
             await getIt<RevenueCatService>().invalidateCustomerInfoCache();
