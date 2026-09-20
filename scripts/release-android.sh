@@ -19,13 +19,27 @@
 # service account already in secrets/ must not be given this power: it is held
 # by a third party, and publish rights would let them ship the app.
 #
-#   1. Google Cloud Console, project crit-alarm, IAM and Admin, Service Accounts
+# Two different consoles, and mixing them up is the usual stumble. Google Cloud
+# creates the account and holds the key. Play Console decides what it may do.
+# The permissions below are PLAY CONSOLE permissions. They will never appear in
+# the Google Cloud role picker, however you spell them.
+#
+# In Google Cloud Console:
+#
+#   1. Project crit-alarm, IAM and Admin, Service Accounts
 #   2. Create a service account, for example crit-alarm-publisher
-#   3. Keys, Add key, Create new key, JSON. Save it as
-#      secrets/play-publisher.json
-#   4. Play Console, Users and permissions, Invite new users, paste the service
-#      account email
-#   5. Grant these three app permissions on Crit Alarm, and nothing more:
+#   3. Skip the "grant this service account access to project" step. It needs
+#      no Google Cloud role at all. Its whole job is to hold a key.
+#   4. Keys, Add key, Create new key, JSON. Save it as
+#      secrets/play-publisher.json, and copy the account email while you are
+#      there. It looks like
+#      crit-alarm-publisher@crit-alarm.iam.gserviceaccount.com
+#
+# In Play Console:
+#
+#   5. Users and permissions, Invite new users, paste that email
+#   6. Under App permissions add Crit Alarm, then tick these three, and nothing
+#      more:
 #
 #        View app information and download bulk reports (read-only)
 #          Reading the app and its edits. Nothing works without it.
@@ -37,10 +51,13 @@
 #          Production. Also what lets Play re-sign the bundle with the app
 #          signing key, which every upload needs.
 #
-#      Grant them as APP permissions on Crit Alarm, not account permissions.
-#      An account permission would cover all three apps on the account.
+#      App permissions on Crit Alarm, not account permissions. There are three
+#      apps on this developer account and an account permission hands the key
+#      all of them.
 #
-#   6. Play Console, Setup, API access, and confirm the account is linked
+#   7. Play Console, Setup, API access, and confirm the account is listed. If
+#      it is not, the Google Cloud project is not linked to this Play account
+#      yet, and that link is a one time thing on the same page.
 #
 # Not needed, and deliberately not granted:
 #   Manage store presence      only if a script should ever edit the listing
