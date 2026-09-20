@@ -44,7 +44,16 @@ class AccountView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AccountCubit, AccountState>(
+    return BlocConsumer<AccountCubit, AccountState>(
+      // A sign-in that did not work is worth interrupting for. It used to be
+      // a note under the buttons, which reads like a caption rather than a
+      // failure, so people carried on thinking the tap had done nothing.
+      listenWhen: (previous, current) =>
+          current.errorMessage != null &&
+          current.errorMessage != previous.errorMessage,
+      listener: (context, state) => unawaited(
+        _showErrorDialog(context, state.errorMessage!),
+      ),
       builder: (context, state) {
         return AppScreenScaffold(
           topBar: AppTopBar(
@@ -137,10 +146,6 @@ class _SignedOut extends StatelessWidget {
             height: 1.4,
           ),
         ),
-        if (state.errorMessage != null) ...[
-          const SizedBox(height: 12),
-          AppNote(text: state.errorMessage!),
-        ],
         const SizedBox(height: 16),
         // Apple is iOS only. Android gets Google alone, not a dead button.
         if (cubit.supports(IdentityProvider.apple)) ...[
@@ -248,10 +253,6 @@ class _SignedIn extends StatelessWidget {
           showCopyButton: true,
         ),
         _AddProviderRows(state: state),
-        if (state.errorMessage != null) ...[
-          const SizedBox(height: 12),
-          AppNote(text: state.errorMessage!),
-        ],
         const SizedBox(height: 16),
         AppButton(
           label: LocaleKeys.account_sign_out.tr(),
@@ -266,6 +267,23 @@ class _SignedIn extends StatelessWidget {
 }
 
 /// What a provider is called on screen.
+/// Puts a failed sign-in in front of the person, then clears it.
+///
+/// The cubit is read before the dialog opens, because the screen can be gone
+/// by the time it closes and a dead context cannot find it.
+Future<void> _showErrorDialog(BuildContext context, String message) async {
+  final cubit = context.read<AccountCubit>();
+  await showAppDialog<void>(
+    context: context,
+    title: LocaleKeys.account_error_dialog_title.tr(),
+    body: message,
+    actions: [
+      AppDialogAction<void>(label: LocaleKeys.common_close.tr()),
+    ],
+  );
+  cubit.dismissError();
+}
+
 String providerName(IdentityProvider provider) => switch (provider) {
   IdentityProvider.apple => LocaleKeys.account_provider_apple.tr(),
   IdentityProvider.google => LocaleKeys.account_provider_google.tr(),
