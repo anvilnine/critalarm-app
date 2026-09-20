@@ -96,17 +96,26 @@ class AppScrollScrim extends StatelessWidget {
   /// strongest the wash gets, right at the bottom edge.
   final Color tint;
 
-  /// One entry per blur layer: how much of the strip it covers, measured from
-  /// the bottom edge, and how hard it blurs.
+  /// One entry per blur layer: how much of the strip it covers measured from
+  /// the bottom edge, how hard it blurs, and how much of it is blended in.
   ///
-  /// Each layer blurs what the one under it already blurred, so the strength
-  /// builds towards the bottom edge instead of starting at the hard line a
-  /// single blur would leave. The first layer is weak on purpose: its own top
-  /// edge is the one that lands on sharp content.
-  static const List<(double, double)> _blurLayers = [
-    (1, 1.5),
-    (0.78, 4),
-    (0.5, 11),
+  /// A blur does not ramp, it stops, so a layer laid on at full strength
+  /// leaves a line across the content at its own top edge. Two things keep
+  /// that line off the screen. The layer that reaches the top of the strip is
+  /// blended in at 6 percent, too little to make a line anyone can find, and
+  /// the layers that blend in harder stop at or below the top of the button,
+  /// which is opaque and covers the edge. Only the first two tops land in the
+  /// open, whatever the safe area and the button add up to.
+  ///
+  /// The opacity has to come from an [Opacity] and never from a [ShaderMask]:
+  /// a shader mask paints its child into a layer of its own, and a backdrop
+  /// filter inside one finds nothing behind it to blur.
+  static const List<(double, double, double)> _blurLayers = [
+    (1, 5, 0.06),
+    (0.86, 8, 0.2),
+    (0.74, 10, 0.45),
+    (0.62, 12, 0.7),
+    (0.5, 14, 1),
   ];
 
   @override
@@ -118,15 +127,18 @@ class AppScrollScrim extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            for (final (run, sigma) in _blurLayers)
+            for (final (run, sigma, alpha) in _blurLayers)
               Align(
                 alignment: Alignment.bottomCenter,
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-                    child: SizedBox(
-                      height: height * run,
-                      width: double.infinity,
+                child: Opacity(
+                  opacity: alpha,
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+                      child: SizedBox(
+                        height: height * run,
+                        width: double.infinity,
+                      ),
                     ),
                   ),
                 ),
