@@ -16,10 +16,8 @@ import 'package:critalarm/features/permissions/domain/usecases/get_device_permis
 import 'package:critalarm/features/permissions/presentation/widgets/setup_health_banner.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/account_prompt_card.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/home_prompt_slot.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/no_server_prompt_card.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/pro_prompt_card.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -178,101 +176,6 @@ void main() {
     });
   });
 
-  group('AccountPromptCard', () {
-    testWidgets('renders account backup copy and dismiss button calls cubit',
-        (tester) async {
-      final stubCubit = StubHomePromptCubit(
-        const HomePromptState(promptType: HomePromptType.accountBackup),
-      );
-
-      await tester.pumpWidget(
-        wrapWithTheme(
-          BlocProvider<HomePromptCubit>.value(
-            value: stubCubit,
-            child: const AccountPromptCard(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Back up your topics'), findsOneWidget);
-      expect(
-        find.text(
-          'Sign in to keep your topics safe if you switch or lose your device.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Sign in'), findsOneWidget);
-
-      final face = tester.widget<FaceWidget>(find.byType(FaceWidget));
-      expect(face.state, FaceState.calm);
-
-      // Tap close button (X)
-      final closeButton = find.byType(AppIconButton);
-      expect(closeButton, findsOneWidget);
-      await tester.tap(closeButton);
-      await tester.pump();
-
-      expect(stubCubit.dismissCalls, 1);
-    });
-  });
-
-  group('ProPromptCard (Bulleted)', () {
-    testWidgets('renders title, PRO badge, 3 bullet points, and dismiss button',
-        (tester) async {
-      final stubCubit = StubHomePromptCubit(
-        const HomePromptState(promptType: HomePromptType.proSupport),
-      );
-
-      await tester.pumpWidget(
-        wrapWithTheme(
-          BlocProvider<HomePromptCubit>.value(
-            value: stubCubit,
-            child: const ProPromptCard(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Support Crit Alarm Pro'), findsOneWidget);
-      expect(find.text('PRO'), findsOneWidget);
-      expect(
-        find.text('Support solo development and remove limits:'),
-        findsOneWidget,
-      );
-
-      // Verify the 3 bullets requested by user
-      expect(
-        find.text('Unlimited critical topics (raise your limits)'),
-        findsOneWidget,
-      );
-      expect(
-        find.text('Rings repeatedly until acknowledged'),
-        findsOneWidget,
-      );
-      expect(
-        find.text('Support independent development'),
-        findsOneWidget,
-      );
-
-      expect(find.text('See Pro plans'), findsOneWidget);
-
-      // Verify checkmark glyphs
-      final checkGlyphs = find.byWidgetPredicate(
-        (w) => w is AppGlyph && w.glyph == GlyphType.check,
-      );
-      expect(checkGlyphs, findsNWidgets(3));
-
-      // Tap close button
-      final closeButton = find.byType(AppIconButton);
-      expect(closeButton, findsOneWidget);
-      await tester.tap(closeButton);
-      await tester.pump();
-
-      expect(stubCubit.dismissCalls, 1);
-    });
-  });
-
   group('HomePromptSlot', () {
     testWidgets('renders active prompt and collapses when none',
         (tester) async {
@@ -297,7 +200,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(NoServerPromptCard), findsNothing);
-      expect(find.byType(AccountPromptCard), findsNothing);
     });
   });
 

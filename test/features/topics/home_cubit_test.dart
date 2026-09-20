@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_state.dart';
@@ -11,12 +14,16 @@ import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
+import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A topic list that never loads.
@@ -29,6 +36,82 @@ class _FailingTopics implements TopicRepository {
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName}');
 }
+
+/// A topic list that answers until [fails] is turned on, so one test can load
+/// a real list and then lose the server.
+class _FlakyTopics implements TopicRepository {
+  _FlakyTopics(this._inner);
+
+  final TopicRepository _inner;
+  bool fails = false;
+
+  @override
+  Future<AppResult<List<Topic>>> getTopics() async => fails
+      ? const Failure.api(statusCode: 500).toFailure()
+      : _inner.getTopics();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
+
+/// Wraps the incident repository so a test can hold the per-topic message
+/// poll open. That poll runs inside the build, so holding it holds the whole
+/// build without blocking the shared lists the cubit also waits on.
+class _GatedIncidents implements IncidentRepository {
+  _GatedIncidents(this._inner);
+
+  final IncidentRepository _inner;
+
+  /// Set to hold the next poll open. Cleared as soon as it is used, so only
+  /// one poll waits.
+  Completer<void>? hold;
+
+  @override
+  Future<AppResult<List<Message>>> pollMessages(
+    String topic, {
+    required int poll,
+    String? since,
+  }) async {
+    final gate = hold;
+    if (gate != null) {
+      hold = null;
+      await gate.future;
+    }
+    return _inner.pollMessages(topic, poll: poll, since: since);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
+
+/// A saved connection the test can take away mid-run.
+class _FakeConnections implements ConnectionRepository {
+  _FakeConnections(this.connection);
+
+  ServerConnection? connection;
+
+  @override
+  Future<AppResult<ServerConnection>> getConnection() async {
+    final saved = connection;
+    return saved == null
+        ? const Failure.notFound().toFailure()
+        : saved.toSuccess();
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
+
+const _savedServer = ServerConnection(
+  serverUrl: 'https://api.critalarm.app',
+  adminToken: 'tk_test',
+);
+
+/// Lets the listeners on the shared lists finish before the state is read.
+Future<void> _settle() => Future<void>.delayed(Duration.zero);
 
 void main() {
   late MockServer server;
@@ -228,5 +311,186 @@ void main() {
             .having((s) => s.topicItems.isEmpty, 'topics empty', isTrue),
       ],
     );
+  });
+
+  group('a failed load says which of the two failures it was', () {
+    late _FlakyTopics flakyTopics;
+    late TopicsCubit flakyTopicsCubit;
+    late _FakeConnections connections;
+    late _GatedIncidents gatedIncidents;
+    late HomeCubit cubit;
+
+    /// Loads once against the calm fixture with a server saved, so every test
+    /// below starts from a real list and a real last-known-good time.
+    Future<DateTime> loadOnce() async {
+      server.seedCalm();
+      flakyTopics = _FlakyTopics(topicRepo);
+      flakyTopicsCubit = TopicsCubit(GetTopicsUsecase(flakyTopics));
+      addTearDown(flakyTopicsCubit.close);
+      connections = _FakeConnections(_savedServer);
+      gatedIncidents = _GatedIncidents(incidentRepo);
+      cubit = HomeCubit(
+        incidentsCubit,
+        flakyTopicsCubit,
+        gatedIncidents,
+        null,
+        GetConnectionUsecase(connections),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.load();
+      await _settle();
+      expect(cubit.state.status, HomeStatus.success);
+      expect(cubit.state.topicItems, isNotEmpty);
+      expect(cubit.state.faceState, FaceState.calm);
+      expect(cubit.state.isStale, isFalse);
+      final seenAt = cubit.state.lastKnownGoodAt;
+      expect(seenAt, isNotNull);
+      return seenAt!;
+    }
+
+    test(
+      'no server saved: the old list goes and the face stops smiling',
+      () async {
+        await loadOnce();
+
+        // The user pointed the app somewhere else. Those rows live on the
+        // server they left, so they are not this user's list any more.
+        flakyTopics.fails = true;
+        connections.connection = null;
+        await cubit.refresh();
+        await _settle();
+
+        expect(cubit.state.status, HomeStatus.failure);
+        expect(cubit.state.topicItems, isEmpty);
+        expect(cubit.state.faceState, FaceState.watching);
+        expect(cubit.state.word, 'Nothing can reach you');
+        expect(
+          cubit.state.subText,
+          'Connect a server and your topics load from it.',
+        );
+        expect(cubit.state.severity, SeverityMode.none);
+        expect(cubit.state.isStale, isFalse);
+        expect(cubit.state.lastKnownGoodAt, isNull);
+      },
+    );
+
+    test('server saved but silent: the list stays and is marked old', () async {
+      final seenAt = await loadOnce();
+      final items = cubit.state.topicItems;
+
+      flakyTopics.fails = true;
+      await cubit.refresh();
+      await _settle();
+
+      expect(cubit.state.status, HomeStatus.failure);
+      expect(cubit.state.topicItems, items);
+      expect(cubit.state.isStale, isTrue);
+      expect(cubit.state.faceState, FaceState.watching);
+      expect(cubit.state.word, 'Out of touch');
+      expect(cubit.state.lastKnownGoodAt, seenAt);
+      expect(
+        cubit.state.subText,
+        'This is what it looked like at '
+        '${DateFormat.Hm().format(seenAt.toLocal())}.',
+      );
+    });
+
+    test('a good load drops the old mark and moves the time on', () async {
+      final seenAt = await loadOnce();
+
+      flakyTopics.fails = true;
+      await cubit.refresh();
+      await _settle();
+      expect(cubit.state.isStale, isTrue);
+
+      flakyTopics.fails = false;
+      await cubit.refresh();
+      await _settle();
+
+      expect(cubit.state.status, HomeStatus.success);
+      expect(cubit.state.isStale, isFalse);
+      expect(cubit.state.faceState, FaceState.calm);
+      expect(cubit.state.topicItems, isNotEmpty);
+      final freshAt = cubit.state.lastKnownGoodAt;
+      expect(freshAt, isNotNull);
+      expect(freshAt!.isAfter(seenAt), isTrue);
+    });
+
+    test('no server saved also clears the has-server flag', () async {
+      await loadOnce();
+      expect(cubit.state.hasServer, isTrue);
+
+      flakyTopics.fails = true;
+      connections.connection = null;
+      await cubit.refresh();
+      await _settle();
+
+      // The screen reads this to decide whether to draw the topic sheet at
+      // all. An empty sheet is a blank white card with a shadow under it.
+      expect(cubit.state.hasServer, isFalse);
+    });
+
+    test('a server it cannot reach still counts as a server', () async {
+      await loadOnce();
+
+      flakyTopics.fails = true;
+      await cubit.refresh();
+      await _settle();
+
+      expect(cubit.state.isStale, isTrue);
+      expect(cubit.state.hasServer, isTrue);
+    });
+
+    test('a slow good build cannot land on top of a failure', () async {
+      await loadOnce();
+
+      // Hold the build open partway through. The lists have arrived and it
+      // is working out what to draw, which is where the old code left a gap.
+      final gate = Completer<void>();
+      gatedIncidents.hold = gate;
+      final slow = cubit.refresh();
+      await _settle();
+
+      // The server goes away while that build is still running.
+      flakyTopics.fails = true;
+      await cubit.refresh();
+      await _settle();
+      expect(cubit.state.status, HomeStatus.failure, reason: 'failure first');
+
+      // Now let the older build finish. Its answer is out of date, so it has
+      // to be thrown away. Without the build id check the screen goes back to
+      // smiling at a list it can no longer reach.
+      gate.complete();
+      await slow;
+      await _settle();
+
+      expect(cubit.state.status, HomeStatus.failure);
+      expect(cubit.state.isStale, isTrue);
+      expect(cubit.state.faceState, FaceState.watching);
+      expect(cubit.state.word, 'Out of touch');
+    });
+  });
+
+  group('HomeState equality covers the new fields', () {
+    test('the old-list mark alone makes two states different', () {
+      const live = HomeState(status: HomeStatus.success);
+      const stale = HomeState(status: HomeStatus.success, isStale: true);
+      expect(live == stale, isFalse);
+    });
+
+    test('the last known good time alone makes two states different', () {
+      final at = DateTime.utc(2026, 9, 20, 6, 12);
+      final one = HomeState(status: HomeStatus.success, lastKnownGoodAt: at);
+      final two = HomeState(
+        status: HomeStatus.success,
+        lastKnownGoodAt: at.add(const Duration(minutes: 1)),
+      );
+      expect(one == two, isFalse);
+      expect(
+        one == HomeState(status: HomeStatus.success, lastKnownGoodAt: at),
+        isTrue,
+      );
+    });
   });
 }

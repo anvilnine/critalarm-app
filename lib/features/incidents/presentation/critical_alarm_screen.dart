@@ -8,6 +8,9 @@ import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
+import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
+import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
+import 'package:critalarm/features/prompts/presentation/widgets/pro_prompt_sheet.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -43,6 +46,20 @@ class _CriticalAlarmView extends StatefulWidget {
 class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   AmbientDirection _direction = AmbientDirection.push;
 
+  /// The alarm just stopped screaming, which is the day the app proved it
+  /// works. Wait for the acknowledged screen to settle before asking about
+  /// Pro, and let the rules decide whether to ask at all. Somebody who pays,
+  /// or who has said no twice, never sees it.
+  Future<void> _askAboutPro() async {
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    if (!mounted) return;
+    final rules = getIt<ProPromptRules>();
+    final repository = getIt<HomePromptRepository>();
+    if (!await rules.shouldAsk()) return;
+    if (!mounted) return;
+    await showProPromptSheet(context: context, repository: repository);
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<CriticalAlarmCubit, CriticalAlarmState>(
@@ -53,6 +70,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
         setState(() {
           _direction = AmbientDirection.push;
         });
+        unawaited(_askAboutPro());
       },
       builder: (context, state) {
         final colors = context.appColors;

@@ -178,6 +178,12 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
             status: CreateTopicStatus.success,
             createdTopic: topic,
             createdToken: topic.token,
+            // The count was read when the screen opened, so it is one behind
+            // the moment a critical topic is made. Move it on, or anything
+            // reading it right after a create reads a stale number.
+            criticalUsed: topic.critical
+                ? state.criticalUsed + 1
+                : state.criticalUsed,
           ),
         );
       },

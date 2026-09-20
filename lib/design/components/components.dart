@@ -18,6 +18,7 @@ export 'list_rows.dart';
 export 'message_cards.dart';
 export 'nav_rail.dart';
 export 'notification_cards.dart';
+export 'pinned_nudge_bar.dart';
 export 'radios.dart';
 export 'screen_scaffold.dart';
 export 'scrim.dart';

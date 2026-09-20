@@ -1,9 +1,7 @@
 import 'package:critalarm/features/permissions/presentation/widgets/setup_health_banner.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/account_prompt_card.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/no_server_prompt_card.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/pro_prompt_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -29,10 +27,10 @@ class HomePromptSlot extends StatelessWidget {
             case HomePromptType.criticalHealth:
             case HomePromptType.batteryWarning:
               child = const SetupHealthBanner(key: ValueKey('health_banner'));
+            // The backup nudge is not a card up here any more. It is a line
+            // pinned above the tab bar, so it never pushes a topic off the
+            // screen. Pro is not in this slot at all: it asks as a sheet.
             case HomePromptType.accountBackup:
-              child = const AccountPromptCard(key: ValueKey('account_prompt'));
-            case HomePromptType.proSupport:
-              child = const ProPromptCard(key: ValueKey('pro_prompt'));
             case HomePromptType.none:
               child = const SizedBox.shrink(key: ValueKey('empty_prompt'));
           }

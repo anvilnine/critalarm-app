@@ -75,6 +75,9 @@ class HomeState {
     this.severity = SeverityMode.none,
     this.ringingIncidentId,
     this.errorMessage,
+    this.isStale = false,
+    this.lastKnownGoodAt,
+    this.hasServer = true,
   });
 
   final HomeStatus status;
@@ -90,6 +93,21 @@ class HomeState {
   final String? ringingIncidentId;
   final String? errorMessage;
 
+  /// True when the rows on screen are an old copy: a server is set up, the app
+  /// cannot reach it right now, and this is what the list looked like the last
+  /// time it answered. False whenever the list is live, and false when there
+  /// is no old copy to show.
+  final bool isStale;
+
+  /// When the list on screen last came back from the server. Set on every good
+  /// build, so a later failure can say how old the rows are.
+  final DateTime? lastKnownGoodAt;
+
+  /// False when no server is saved at all. The screen has one job then, which
+  /// the red card above already does, so the list below it draws nothing.
+  /// True by default, because every other state has a server to talk about.
+  final bool hasServer;
+
   bool get isEmpty => topicItems.isEmpty && status == HomeStatus.success;
 
   HomeState copyWith({
@@ -103,6 +121,10 @@ class HomeState {
     bool clearRinging = false,
     String? errorMessage,
     bool clearError = false,
+    bool? isStale,
+    DateTime? lastKnownGoodAt,
+    bool clearLastKnownGood = false,
+    bool? hasServer,
   }) {
     return HomeState(
       status: status ?? this.status,
@@ -115,6 +137,11 @@ class HomeState {
           ? null
           : (ringingIncidentId ?? this.ringingIncidentId),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      isStale: isStale ?? this.isStale,
+      lastKnownGoodAt: clearLastKnownGood
+          ? null
+          : (lastKnownGoodAt ?? this.lastKnownGoodAt),
+      hasServer: hasServer ?? this.hasServer,
     );
   }
 
@@ -130,7 +157,10 @@ class HomeState {
           subText == other.subText &&
           severity == other.severity &&
           ringingIncidentId == other.ringingIncidentId &&
-          errorMessage == other.errorMessage;
+          errorMessage == other.errorMessage &&
+          isStale == other.isStale &&
+          lastKnownGoodAt == other.lastKnownGoodAt &&
+          hasServer == other.hasServer;
 
   @override
   int get hashCode => Object.hash(
@@ -142,5 +172,8 @@ class HomeState {
     severity,
     ringingIncidentId,
     errorMessage,
+    isStale,
+    lastKnownGoodAt,
+    hasServer,
   );
 }

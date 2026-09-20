@@ -14,7 +14,8 @@
     "retry": "Retry",
     "save": "Save",
     "close": "Close",
-    "back": "Back"
+    "back": "Back",
+    "not_now": "Not now"
   },
   "onboarding_connect": {
     "title": "Connect your server?",
@@ -196,7 +197,15 @@
     "pro_prompt_bullet_topics": "Unlimited critical topics (raise your limits)",
     "pro_prompt_bullet_rings": "Rings repeatedly until acknowledged",
     "pro_prompt_bullet_support": "Support independent development",
-    "pro_prompt_button": "See Pro plans"
+    "pro_prompt_button": "See Pro plans",
+    "pro_prompt_fed": "Going Pro keeps a solo developer fed.",
+    "prompt_why": "Why?",
+    "stage_word_no_server": "Nothing can reach you",
+    "stage_sub_no_server": "Connect a server and your topics load from it.",
+    "stage_word_unreachable": "Out of touch",
+    "stage_sub_unreachable": "This is what it looked like at {time}.",
+    "unreachable_strip": "Cannot reach the server. Last seen {time}.",
+    "stale_list_label": "Last seen {time}"
   },
   "topics_list": {
     "back_aria_label": "Back",

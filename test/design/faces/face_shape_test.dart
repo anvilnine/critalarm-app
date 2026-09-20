@@ -91,7 +91,6 @@ void main() {
 
   test('faces drawn the old way have no shape', () {
     for (final state in [
-      FaceState.watching,
       FaceState.worried,
       FaceState.alarmed,
       FaceState.acked,

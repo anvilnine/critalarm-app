@@ -276,6 +276,34 @@ void main() {
       },
     );
 
+    test('making a critical topic moves the used count on', () async {
+      final cubit = CreateTopicCubit(createTopicUsecase)
+        ..nameChanged('prod-api')
+        ..criticalToggled(isCritical: true)
+        ..nextStep();
+
+      await cubit.createTopic();
+
+      expect(cubit.state.status, CreateTopicStatus.success);
+      // The count was read when the screen opened, so without the bump
+      // anything asking "how many are left" right after a create is told
+      // one too many.
+      expect(cubit.state.criticalUsed, 1);
+      expect(cubit.state.criticalRemaining, 1);
+    });
+
+    test('making a topic that is not critical leaves the count alone',
+        () async {
+      final cubit = CreateTopicCubit(createTopicUsecase)
+        ..nameChanged('prod-api')
+        ..nextStep();
+
+      await cubit.createTopic();
+
+      expect(cubit.state.status, CreateTopicStatus.success);
+      expect(cubit.state.criticalUsed, 0);
+    });
+
     test('criticalRemaining helper computes correctly', () {
       const freeState = CreateTopicState(
         criticalUsed: 1,
