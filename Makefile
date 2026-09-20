@@ -1,4 +1,4 @@
-.PHONY: gen regen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios worktree-new worktree-list worktree-clean
+.PHONY: gen regen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios worktree-new worktree-list worktree-clean release-ios release-ios-dry
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -89,6 +89,19 @@ build-release-apk:
 
 build-release-ios: google-xcconfig
 	fvm flutter build ios --release --dart-define=SKIP_PAYWALL=true
+
+# --- Store upload -------------------------------------------------------------
+# One command from a clean main to a build sitting in App Store Connect.
+# Auth is an App Store Connect API key, so there is no password and no two
+# factor prompt. Run `./scripts/release-ios.sh --help` for the one time setup.
+
+release-ios:
+	./scripts/release-ios.sh --bump
+
+# Build and validate against App Store Connect without uploading. Catches a
+# duplicate build number or a bad entitlement in a minute instead of ten.
+release-ios-dry:
+	./scripts/release-ios.sh --dry-run
 
 # --- Worktrees ---------------------------------------------------------------
 # One folder per branch under worktrees/. See worktrees/README.md for the flow.
