@@ -209,10 +209,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
               ),
               SliverToBoxAdapter(
                 child: Padding(
-                  // The acknowledge button floats over the bottom of the
-                  // list, so the sheet leaves room for it rather than sliding
-                  // its last row underneath.
-                  padding: EdgeInsets.fromLTRB(12, 0, 12, isRinging ? 88 : 16),
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                   child: AppSheet(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
