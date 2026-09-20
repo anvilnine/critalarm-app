@@ -107,6 +107,11 @@ scripts/push/apns.env
 # Session-scoped agent scratch. Never committed.
 .superpowers/
 docs/superpowers/
+.commandcode/
+
+# Session-scoped planning notes. Kept on disk for the session, never shipped.
+docs/hardcoded-audit.md
+docs/home-prompts.html
 
 # Git worktrees. One folder per branch under /worktrees, nothing inside tracked.
 /worktrees/*
