@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/shell/shell_cubit.dart';
+import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -26,13 +27,16 @@ class HomePromptCubit extends Cubit<HomePromptState> {
     required this.accountRepository,
     required this.homePromptRepository,
     ProOverride? proOverride,
+    AccountIdentityChanges? identityChanges,
     this.cooldownDuration = const Duration(seconds: 45),
   })  : _proOverride = proOverride ?? appProOverride,
+        _identityChanges = identityChanges ?? appAccountIdentityChanges,
         super(const HomePromptState()) {
     _shellSub = shellCubit.stream.listen((health) {
       unawaited(_evaluate(health: health));
     });
     _proOverride.listenable?.addListener(_onForceProChanged);
+    _identityChanges.addListener(_onIdentityChanged);
   }
 
   final GetConnectionUsecase getConnectionUsecase;
@@ -41,6 +45,7 @@ class HomePromptCubit extends Cubit<HomePromptState> {
   final AccountRepository accountRepository;
   final HomePromptRepository homePromptRepository;
   final ProOverride _proOverride;
+  final AccountIdentityChanges _identityChanges;
   final Duration cooldownDuration;
 
   StreamSubscription<ShellHealth>? _shellSub;
@@ -48,6 +53,14 @@ class HomePromptCubit extends Cubit<HomePromptState> {
   DateTime? _lastResolvedOrDismissedAt;
 
   void _onForceProChanged() {
+    if (isClosed) return;
+    unawaited(_evaluate());
+  }
+
+  /// Somebody signed in, signed out, linked another provider or deleted the
+  /// account. Priority 4 reads the identity, so ask again right away instead
+  /// of waiting for a resume or a pull to refresh.
+  void _onIdentityChanged() {
     if (isClosed) return;
     unawaited(_evaluate());
   }
@@ -240,6 +253,7 @@ class HomePromptCubit extends Cubit<HomePromptState> {
     unawaited(_shellSub?.cancel());
     _cooldownTimer?.cancel();
     _proOverride.listenable?.removeListener(_onForceProChanged);
+    _identityChanges.removeListener(_onIdentityChanged);
     return super.close();
   }
 }
