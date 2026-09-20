@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_state.dart';
 import 'package:critalarm/features/account/presentation/widgets/merge_or_fresh_panel.dart';
+import 'package:critalarm/features/topics/presentation/widgets/token_actions.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -96,6 +98,10 @@ class AccountView extends StatelessWidget {
               ? _SignedIn(state: state)
               : _SignedOut(state: state),
         ),
+        const SizedBox(height: Spacing.s4),
+        // Any device on the account may mint a join code, signed in or not,
+        // so this sits outside the sheet that switches on sign-in.
+        AppSheet(child: _JoinCode(state: state)),
         const SizedBox(height: Spacing.s4),
         const _DeleteAccountButton(),
       ],
@@ -195,17 +201,19 @@ class _SignedIn extends StatelessWidget {
     final cubit = context.read<AccountCubit>();
     final colors = context.appColors;
     final identity = state.identity!;
-    final provider = switch (identity.provider) {
-      IdentityProvider.apple => LocaleKeys.account_provider_apple.tr(),
-      IdentityProvider.google => LocaleKeys.account_provider_google.tr(),
-    };
+    // Every way in the account holds, not just the one this phone used. A
+    // second provider is added by the rows below.
+    final names = identity.providers.map(providerName).join(', ');
+    final label = identity.providers.length > 1
+        ? LocaleKeys.account_providers_label.tr()
+        : LocaleKeys.account_provider_label.tr();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          '${LocaleKeys.account_provider_label.tr()} $provider',
+          '$label $names',
           style: TextStyle(
             fontFamily: AppTypography.fontBody,
             fontFamilyFallback: AppTypography.fontBodyFallbacks,
@@ -235,6 +243,7 @@ class _SignedIn extends StatelessWidget {
           value: identity.accountId,
           showCopyButton: true,
         ),
+        _AddProviderRows(state: state),
         if (state.errorMessage != null) ...[
           const SizedBox(height: 12),
           AppNote(text: state.errorMessage!),
@@ -246,6 +255,181 @@ class _SignedIn extends StatelessWidget {
           isFullWidth: true,
           isLoading: state.isBusy,
           onPressed: () => unawaited(cubit.signOut()),
+        ),
+      ],
+    );
+  }
+}
+
+/// What a provider is called on screen.
+String providerName(IdentityProvider provider) => switch (provider) {
+  IdentityProvider.apple => LocaleKeys.account_provider_apple.tr(),
+  IdentityProvider.google => LocaleKeys.account_provider_google.tr(),
+};
+
+/// One button per way in the account does not hold yet.
+///
+/// Apple is missing from this list on Android, the same way it is missing
+/// from the sign-in buttons: the cubit asks whether the platform offers it at
+/// all before offering to add it.
+class _AddProviderRows extends StatelessWidget {
+  const _AddProviderRows({required this.state});
+
+  final AccountState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<AccountCubit>();
+    final colors = context.appColors;
+    final addable = cubit.addableProviders;
+    if (addable.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 18),
+        Text(
+          LocaleKeys.account_link_header.tr(),
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: colors.ink3,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          LocaleKeys.account_link_body.tr(),
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 13,
+            color: colors.ink2,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 10),
+        for (final provider in addable) ...[
+          AppButton(
+            label: switch (provider) {
+              IdentityProvider.apple => LocaleKeys.account_link_add_apple.tr(),
+              IdentityProvider.google =>
+                LocaleKeys.account_link_add_google.tr(),
+            },
+            icon: switch (provider) {
+              IdentityProvider.apple => BrandIcon.apple(color: colors.ink),
+              IdentityProvider.google => const BrandIcon.google(),
+            },
+            variant: AppButtonVariant.paper,
+            isFullWidth: true,
+            // One row spins, not the whole screen, so it is obvious which
+            // sheet is open.
+            isLoading: state.linkingProvider == provider,
+            onPressed: state.isBusy
+                ? null
+                : () => unawaited(cubit.addProvider(provider)),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
+/// Mint a join code and show it once.
+///
+/// The server keeps a hash and not the value, so the reply is the only place
+/// the code ever appears. Minting again retires the one before it, which the
+/// warning says before the button is pressed rather than after.
+class _JoinCode extends StatelessWidget {
+  const _JoinCode({required this.state});
+
+  final AccountState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<AccountCubit>();
+    final colors = context.appColors;
+    final code = state.joinToken;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          LocaleKeys.account_join_code_header.tr(),
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: colors.ink3,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          LocaleKeys.account_join_code_body.tr(),
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 13,
+            color: colors.ink2,
+            height: 1.4,
+          ),
+        ),
+        // The one moment the value exists on screen, with the warning beside
+        // it rather than on a screen the person has to go back to.
+        if (code != null) ...[
+          const SizedBox(height: 12),
+          AppKeyValueRow(
+            label: LocaleKeys.account_join_code_label.tr(),
+            value: code,
+            trailing: TokenActions(
+              value: code,
+              onCopied: (_) => AppHaptics.selection(),
+            ),
+          ),
+          const SizedBox(height: 6),
+          AppNote(text: LocaleKeys.account_join_code_shown_once.tr()),
+          if (state.hasRetiredAJoinToken) ...[
+            const SizedBox(height: 6),
+            AppNote(text: LocaleKeys.account_join_code_retired.tr()),
+          ],
+          const SizedBox(height: 8),
+          AppButton(
+            label: LocaleKeys.account_join_code_saved_button.tr(),
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.sm,
+            isFullWidth: true,
+            onPressed: cubit.dismissJoinToken,
+          ),
+        ],
+        if (state.joinTokenError != null) ...[
+          const SizedBox(height: 12),
+          AppNote(text: state.joinTokenError!),
+        ],
+        const SizedBox(height: 10),
+        Text(
+          LocaleKeys.account_join_code_retire_warning.tr(),
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: colors.ink3,
+          ),
+        ),
+        const SizedBox(height: 8),
+        AppButton(
+          label: state.joinTokenMints > 0
+              ? LocaleKeys.account_join_code_again_button.tr()
+              : LocaleKeys.account_join_code_button.tr(),
+          variant: AppButtonVariant.paper,
+          isFullWidth: true,
+          isLoading: state.isMintingJoinToken,
+          onPressed: () => unawaited(cubit.mintJoinToken()),
         ),
       ],
     );

@@ -128,11 +128,20 @@ class MockApiClient implements ApiClient {
   String? deviceToken;
 
   @override
-  Future<AccountLinkResult> linkAccount({required String identityToken}) async {
+  Future<AccountLinkResult> linkAccount({
+    required String identityToken,
+    AccountLinkIntent intent = AccountLinkIntent.signIn,
+  }) async {
     return server.linkAccount(
       deviceToken: deviceToken ?? '',
       identityToken: identityToken,
+      intent: intent,
     );
+  }
+
+  @override
+  Future<AccountJoinTokenResult> mintAccountJoinToken() async {
+    return server.mintAccountJoinToken(deviceToken: deviceToken ?? '');
   }
 
   @override

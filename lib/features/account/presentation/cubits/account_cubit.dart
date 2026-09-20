@@ -30,6 +30,20 @@ class AccountCubit extends Cubit<AccountState> {
 
   bool supports(IdentityProvider provider) => identities.supports(provider);
 
+  /// The providers this phone can offer that the account does not hold yet.
+  ///
+  /// Empty when nobody is signed in, and never holds Apple on Android, which
+  /// [IdentityRepository.supports] already rules out for the sign-in buttons.
+  List<IdentityProvider> get addableProviders {
+    final identity = state.identity;
+    if (identity == null) return const [];
+    return [
+      for (final provider in IdentityProvider.values)
+        if (identities.supports(provider) && !identity.holds(provider))
+          provider,
+    ];
+  }
+
   Future<void> load() async {
     final mode = await account.readServerMode();
     final identity = await identities.readIdentity();
@@ -119,6 +133,169 @@ class AccountCubit extends Cubit<AccountState> {
       case AccountSwitchUnauthorized():
         _failSignedOut(LocaleKeys.account_error_sign_in_failed.tr());
     }
+  }
+
+  /// Adds another way in to the account this phone already has.
+  ///
+  /// Same provider sheet the sign-in screen runs, then the same route with
+  /// `intent: link`, which is the only thing that tells the server this is
+  /// somebody adding their second provider rather than a second person
+  /// signing in on a borrowed handset (api.md §3.7).
+  Future<void> addProvider(IdentityProvider provider) async {
+    if (state.identity == null || state.isBusy) return;
+    emit(
+      state.copyWith(
+        status: AccountStatus.working,
+        linkingProvider: provider,
+        clearError: true,
+      ),
+    );
+    final IdentitySession session;
+    try {
+      session = await identities.signIn(provider);
+    } on IdentitySignInCancelled {
+      // Backing out of the sheet is not a failure, so nothing is said about
+      // it.
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          status: AccountStatus.signedIn,
+          clearLinkingProvider: true,
+        ),
+      );
+      return;
+    } on Object catch (_) {
+      _failAddProvider(LocaleKeys.account_error_sign_in_failed.tr());
+      return;
+    }
+    if (isClosed) return;
+    await _addProviderOnce(session, canRetry: true);
+  }
+
+  Future<void> _addProviderOnce(
+    IdentitySession session, {
+    required bool canRetry,
+  }) async {
+    final result = await account.link(
+      session.token,
+      intent: AccountLinkIntent.link,
+    );
+    if (isClosed) return;
+    switch (result) {
+      // `already_linked` is a retry after a dropped reply landing on work
+      // that is already done, so it looks like success and says nothing.
+      case AccountLinkLinked(:final accountId) ||
+          AccountLinkAlreadyLinked(:final accountId) ||
+          AccountLinkClaimed(:final accountId) ||
+          AccountLinkAttached(:final accountId):
+        await _providerAdded(session, accountId);
+      case AccountLinkIdentityHasAnotherAccount():
+        _failAddProvider(LocaleKeys.account_error_identity_taken.tr());
+      case AccountLinkChoose() || AccountLinkAccountHasAnotherIdentity():
+        // api.md §3.7 answers neither of these to `intent: link`. If a server
+        // ever does, the person is told the add did not happen rather than
+        // being shown a prompt built for the sign-in screen.
+        _failAddProvider(LocaleKeys.account_error_sign_in_failed.tr());
+      case AccountLinkUnauthorized():
+        if (!canRetry) {
+          _failAddProvider(LocaleKeys.account_error_sign_in_failed.tr());
+          return;
+        }
+        // The session died rather than the person being refused. Drop it and
+        // run the provider sheet once more. One retry, never a loop.
+        await identities.clearSession();
+        final IdentitySession retried;
+        try {
+          retried = await identities.signIn(session.provider);
+        } on Object catch (_) {
+          _failAddProvider(LocaleKeys.account_error_sign_in_failed.tr());
+          return;
+        }
+        if (isClosed) return;
+        await _addProviderOnce(retried, canRetry: false);
+    }
+  }
+
+  /// The account now holds one more way in, and this phone holds the session
+  /// that came with it.
+  Future<void> _providerAdded(IdentitySession session, String accountId) async {
+    final identity = AccountIdentity(
+      provider: session.provider,
+      accountId: accountId,
+      email: session.email ?? state.identity?.email,
+      providers: {...?state.identity?.providers, session.provider},
+    );
+    await identities.saveIdentity(identity);
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        status: AccountStatus.signedIn,
+        identity: identity,
+        clearLinkingProvider: true,
+        clearError: true,
+      ),
+    );
+  }
+
+  void _failAddProvider(String message) {
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        status: AccountStatus.signedIn,
+        errorMessage: message,
+        clearLinkingProvider: true,
+      ),
+    );
+  }
+
+  /// Mints a join code and holds it for the screen to show once.
+  ///
+  /// Every call retires the code before it, and the server keeps a hash
+  /// rather than the value, so nothing can read this back later.
+  Future<void> mintJoinToken() async {
+    if (state.isMintingJoinToken) return;
+    emit(
+      state.copyWith(
+        isMintingJoinToken: true,
+        clearJoinToken: true,
+        clearJoinTokenError: true,
+      ),
+    );
+    final AccountJoinTokenResult result;
+    try {
+      result = await account.mintJoinToken();
+    } on Object catch (_) {
+      _failJoinToken();
+      return;
+    }
+    if (isClosed) return;
+    switch (result) {
+      case AccountJoinTokenMinted(:final joinToken):
+        emit(
+          state.copyWith(
+            isMintingJoinToken: false,
+            joinToken: joinToken,
+            joinTokenMints: state.joinTokenMints + 1,
+          ),
+        );
+      case AccountJoinTokenUnauthorized():
+        _failJoinToken();
+    }
+  }
+
+  /// Takes the code off the screen once the person says they have it.
+  void dismissJoinToken() {
+    emit(state.copyWith(clearJoinToken: true));
+  }
+
+  void _failJoinToken() {
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        isMintingJoinToken: false,
+        joinTokenError: LocaleKeys.account_join_code_failed.tr(),
+      ),
+    );
   }
 
   Future<void> signOut() async {
@@ -247,8 +424,13 @@ class AccountCubit extends Cubit<AccountState> {
     final result = await account.link(session.token);
     if (isClosed) return;
     switch (result) {
+      // `already_linked` is this identity arriving on the account it already
+      // points at, which is what a retry after a dropped reply looks like. It
+      // lands on the account screen with no error.
       case AccountLinkClaimed(:final accountId) ||
-          AccountLinkAttached(:final accountId):
+          AccountLinkAttached(:final accountId) ||
+          AccountLinkAlreadyLinked(:final accountId) ||
+          AccountLinkLinked(:final accountId):
         await _signedIn(session, accountId);
       case AccountLinkChoose():
         if (result.topics == 0) {
@@ -261,6 +443,10 @@ class AccountCubit extends Cubit<AccountState> {
         emit(state.copyWith(status: AccountStatus.choosing, choice: result));
       case AccountLinkAccountHasAnotherIdentity():
         _failSignedOut(LocaleKeys.account_error_other_identity.tr());
+      case AccountLinkIdentityHasAnotherAccount():
+        // api.md §3.7 answers this to `intent: link` only, so the sign-in
+        // screen never sees it. Said plainly rather than left silent.
+        _failSignedOut(LocaleKeys.account_error_identity_taken.tr());
       case AccountLinkUnauthorized():
         if (!canRetry) {
           _failSignedOut(LocaleKeys.account_error_sign_in_failed.tr());

@@ -64,6 +64,15 @@ class DeviceIdentityStore {
     return identity;
   }
 
+  /// Forgets this handset's identity. Disconnecting from a server has to do
+  /// this, or the next connect reuses a device id and a credential the new
+  /// server never issued. The next [readOrCreate] mints a fresh one.
+  Future<void> clear() async {
+    for (final key in legacyKeys) {
+      await _prefs.remove(key);
+    }
+  }
+
   Future<void> saveRegistration({
     required String deviceToken,
     required String accountId,
@@ -301,6 +310,16 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
     }
     _current = identity;
     return identity;
+  }
+
+  /// Only the device item goes. The synced account item stays where it is:
+  /// whether disconnect should take that too is a question for A14, and
+  /// deleting it here would sync the delete to every other handset.
+  @override
+  Future<void> clear() async {
+    await _delete(deviceService, false);
+    await super.clear();
+    _current = null;
   }
 
   @override

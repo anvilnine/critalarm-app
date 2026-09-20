@@ -45,15 +45,19 @@ class MockServer {
   /// linking it claims whatever account the handset brings.
   final Map<String, String> identityAccounts = {};
 
-  /// Accounts that already hold an identity. A second, different identity on
-  /// one of these is the shared-handset refusal (api.md §3.7).
-  final Map<String, String> accountIdentities = {};
+  /// Accounts that already hold an identity, and every identity on each one.
+  /// Since 1.14.0 an account may hold more than one, so the same person can
+  /// use Apple on an iPhone and Google on an Android phone (api.md §3.7). A
+  /// second, different identity arriving with intent `sign_in` is still the
+  /// shared-handset refusal.
+  final Map<String, Set<String>> accountIdentities = {};
 
   /// Accounts left behind by a merge or a switch.
   final Set<String> tombstonedAccounts = {};
 
-  /// Every `aj_` handed out, and the account it attaches a device to. One is
-  /// minted per account, on the call that created it (api.md §4.2).
+  /// Every live `aj_`, and the account it attaches a device to. One is minted
+  /// per account on the call that created it (api.md §4.2), and
+  /// `POST /v1/account/join-token` replaces it with a fresh one (api.md §3.7).
   final Map<String, String> accountJoinTokens = {};
 
   int _counter = 1000;
@@ -1077,17 +1081,35 @@ class MockServer {
   AccountLinkResult linkAccount({
     required String deviceToken,
     required String identityToken,
+    AccountLinkIntent intent = AccountLinkIntent.signIn,
   }) {
     _requireAccountsSupported();
     final account = _accountForDeviceToken(deviceToken);
-    final owner = accountIdentities[account];
-    if (owner != null && owner != identityToken) {
+    final owners = accountIdentities[account] ?? const <String>{};
+    final identityAccount = identityAccounts[identityToken];
+    // The identity already points at this handset's own account, so there is
+    // nothing left to do. Both intents answer this, which is what a retry
+    // after a dropped reply looks like. Before 1.14.0 the same request
+    // answered `claimed`.
+    if (identityAccount == account) {
+      return AccountLinkResult.alreadyLinked(accountId: account);
+    }
+    if (intent == AccountLinkIntent.link) {
+      // Adding a second way in. The identity joins the account this handset
+      // already has, unless it is spoken for somewhere else.
+      if (identityAccount != null) {
+        return const AccountLinkResult.identityHasAnotherAccount();
+      }
+      identityAccounts[identityToken] = account;
+      (accountIdentities[account] ??= <String>{}).add(identityToken);
+      return AccountLinkResult.linked(accountId: account);
+    }
+    if (owners.isNotEmpty) {
       return const AccountLinkResult.accountHasAnotherIdentity();
     }
-    final identityAccount = identityAccounts[identityToken];
-    if (identityAccount == null || identityAccount == account) {
+    if (identityAccount == null) {
       identityAccounts[identityToken] = account;
-      accountIdentities[account] = identityToken;
+      (accountIdentities[account] ??= <String>{}).add(identityToken);
       return AccountLinkResult.claimed(accountId: account);
     }
     // An empty account is one with no topics and no incidents. Registration
@@ -1127,7 +1149,7 @@ class MockServer {
     }
     tombstonedAccounts.add(account);
     _pointDeviceAtAccount(deviceToken, intoAccount);
-    accountIdentities[intoAccount] = identityToken;
+    (accountIdentities[intoAccount] ??= <String>{}).add(identityToken);
     return AccountMergeResult.merged(
       accountId: intoAccount,
       mergedFrom: account,
@@ -1147,7 +1169,7 @@ class MockServer {
     }
     tombstonedAccounts.add(account);
     _pointDeviceAtAccount(deviceToken, intoAccount);
-    accountIdentities[intoAccount] = identityToken;
+    (accountIdentities[intoAccount] ??= <String>{}).add(identityToken);
     return AccountSwitchResult.switched(accountId: intoAccount);
   }
 
@@ -1170,11 +1192,12 @@ class MockServer {
   }) {
     _requireAccountsSupported();
     final account = _accountForDeviceToken(deviceToken);
-    final owner = accountIdentities[account];
+    final owners = accountIdentities[account] ?? const <String>{};
     // An account with no identity goes on the device token alone. One that
-    // holds an identity needs that identity too, so a handset left in a
-    // drawer cannot wipe a signed-in account.
-    if (owner != null && owner != identityToken) {
+    // holds identities needs one of them too, so a handset left in a drawer
+    // cannot wipe a signed-in account. Any one of them is enough: they all
+    // belong to the same person.
+    if (owners.isNotEmpty && !owners.contains(identityToken)) {
       return const AccountDeleteResult.unauthorized();
     }
     final open = _openIncident;
@@ -1195,6 +1218,25 @@ class MockServer {
     accountIdentities.remove(account);
     identityAccounts.removeWhere((_, owned) => owned == account);
     return const AccountDeleteResult.deleted();
+  }
+
+  /// POST /v1/account/join-token
+  ///
+  /// Mints a fresh `aj_` for the account this device belongs to and retires
+  /// whichever one the account held before, so only the newest value ever
+  /// works (api.md §3.7).
+  AccountJoinTokenResult mintAccountJoinToken({required String deviceToken}) {
+    _requireAccountsSupported();
+    final String account;
+    try {
+      account = _accountForDeviceToken(deviceToken);
+    } on ApiException {
+      return const AccountJoinTokenResult.unauthorized();
+    }
+    accountJoinTokens.removeWhere((_, owner) => owner == account);
+    final joinToken = _nextId('aj');
+    accountJoinTokens[joinToken] = account;
+    return AccountJoinTokenResult.minted(joinToken: joinToken);
   }
 
   /// DELETE /relay/v1/devices/{device_id}
@@ -1401,7 +1443,16 @@ class MockServer {
         );
       }
 
-      // 12. /v1/account/{link,merge,switch}
+      // 12. /v1/account/join-token
+      if (path == '/v1/account/join-token' && method == 'POST') {
+        final credential = (request.headers['authorization'] ?? '')
+            .replaceFirst('Bearer ', '');
+        return _joinTokenResponse(
+          mintAccountJoinToken(deviceToken: credential),
+        );
+      }
+
+      // 13. /v1/account/{link,merge,switch}
       final accountMatch = RegExp(
         r'^/v1/account/(link|merge|switch)$',
       ).firstMatch(path);
@@ -1419,6 +1470,10 @@ class MockServer {
             linkAccount(
               deviceToken: credential,
               identityToken: identityToken,
+              // Absent reads as "sign_in", exactly as api.md §3.7 says.
+              intent: body['intent'] == AccountLinkIntent.link.wireValue
+                  ? AccountLinkIntent.link
+                  : AccountLinkIntent.signIn,
             ),
           ),
           'merge' => _mergeResponse(
@@ -1438,7 +1493,7 @@ class MockServer {
         };
       }
 
-      // 13. /relay/v1/devices
+      // 14. /relay/v1/devices
       if (path == '/relay/v1/devices' && method == 'POST') {
         final body = bodyString.isNotEmpty
             ? jsonDecode(bodyString) as Map<String, dynamic>
@@ -1531,7 +1586,7 @@ class MockServer {
         return _jsonResponse(result.toJson(), 200);
       }
 
-      // 13. GET /{topic}/json?poll=1
+      // 15. GET /{topic}/json?poll=1
       final pollMatch = RegExp(r'^/([^/]+)/json$').firstMatch(path);
       if (pollMatch != null && method == 'GET') {
         final topic = Uri.decodeComponent(pollMatch[1]!);
@@ -1546,7 +1601,7 @@ class MockServer {
         );
       }
 
-      // 14. POST /{topic} or PUT /{topic}
+      // 16. POST /{topic} or PUT /{topic}
       final publishMatch = RegExp(r'^/([^/]+)$').firstMatch(path);
       if (publishMatch != null && (method == 'POST' || method == 'PUT')) {
         final topic = Uri.decodeComponent(publishMatch[1]!);
@@ -1678,8 +1733,19 @@ class MockServer {
             'topics': topics,
             'incidents': incidents,
           }, 409),
+        AccountLinkLinked(:final accountId) => _jsonResponse({
+          'account_id': accountId,
+          'outcome': 'linked',
+        }, 200),
+        AccountLinkAlreadyLinked(:final accountId) => _jsonResponse({
+          'account_id': accountId,
+          'outcome': 'already_linked',
+        }, 200),
         AccountLinkAccountHasAnotherIdentity() => _jsonResponse({
           'error': 'account has another identity',
+        }, 409),
+        AccountLinkIdentityHasAnotherAccount() => _jsonResponse({
+          'error': 'identity has another account',
         }, 409),
         AccountLinkUnauthorized() => _jsonResponse(
           {'error': 'unauthorized'},
@@ -1718,6 +1784,17 @@ class MockServer {
           'incident_id': incidentId,
         }, 409),
         AccountDeleteUnauthorized() => _jsonResponse(
+          {'error': 'unauthorized'},
+          401,
+        ),
+      };
+
+  static http.Response _joinTokenResponse(AccountJoinTokenResult result) =>
+      switch (result) {
+        AccountJoinTokenMinted(:final joinToken) => _jsonResponse({
+          'join_token': joinToken,
+        }, 200),
+        AccountJoinTokenUnauthorized() => _jsonResponse(
           {'error': 'unauthorized'},
           401,
         ),
