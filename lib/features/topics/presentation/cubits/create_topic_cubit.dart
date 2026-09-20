@@ -10,6 +10,7 @@ import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dar
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state and topic creation on CreateTopicScreen.
@@ -82,6 +83,15 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     emit(state.copyWith(tokenName: name, clearError: true));
   }
 
+  /// Feeds in the names of the topics the app already holds, so a name that is
+  /// taken is caught on step 1 as the user types. The screen passes these from
+  /// the shared topic list, so nothing here asks the server again.
+  void existingNamesChanged(Iterable<String> names) {
+    final lowered = names.map((name) => name.trim().toLowerCase()).toSet();
+    if (setEquals(lowered, state.existingNames)) return;
+    emit(state.copyWith(existingNames: lowered));
+  }
+
   /// Why this topic name cannot be used, or null when it can.
   String? _nameError(String trimmedName) {
     if (trimmedName.isEmpty) {
@@ -100,6 +110,14 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     final error = _nameError(state.name.trim());
     if (error != null) {
       emit(state.copyWith(errorMessage: error));
+      return;
+    }
+    if (state.isDuplicateName) {
+      emit(
+        state.copyWith(
+          errorMessage: LocaleKeys.api_errors_topic_already_exists.tr(),
+        ),
+      );
       return;
     }
     emit(state.copyWith(step: CreateTopicStep.token, clearError: true));

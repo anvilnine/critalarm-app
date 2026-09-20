@@ -75,7 +75,14 @@ abstract final class AmbientAppProfiles {
   }
 
   /// Profile for the Create Topic modal/screen.
-  static AmbientProfile createTopic(AppColors colors) {
+  ///
+  /// [step] is 1 for the topic name step and 2 for the token step. Step 2 keeps
+  /// the same three shapes, colours and opacities, and only moves and resizes
+  /// them, so handing this to the canvas drifts the background along with the
+  /// card instead of swapping the screen out.
+  static AmbientProfile createTopic(AppColors colors, {int step = 1}) {
+    final isTokenStep = step >= 2;
+
     return AmbientProfile(
       canvas: colors.canvas,
       surfaceOpacity: 0.82,
@@ -83,25 +90,31 @@ abstract final class AmbientAppProfiles {
         AmbientShape(
           color: colors.cobalt,
           opacity: 0.22,
-          anchor: const Alignment(0.80, -0.70),
-          scale: 0.46,
-          turns: 0.05,
+          anchor: isTokenStep
+              ? const Alignment(0.42, -0.90)
+              : const Alignment(0.80, -0.70),
+          scale: isTokenStep ? 0.52 : 0.46,
+          turns: isTokenStep ? 0.11 : 0.05,
           depth: 0.25,
         ),
         AmbientShape(
           color: colors.high,
           opacity: 0.18,
-          anchor: const Alignment(-0.75, 0.20),
-          scale: 0.38,
-          turns: -0.10,
+          anchor: isTokenStep
+              ? const Alignment(-0.92, -0.12)
+              : const Alignment(-0.75, 0.20),
+          scale: isTokenStep ? 0.33 : 0.38,
+          turns: isTokenStep ? -0.18 : -0.10,
           depth: 0.55,
         ),
         AmbientShape(
           color: colors.crit,
           opacity: 0.14,
-          anchor: const Alignment(0.10, 0.85),
-          scale: 0.28,
-          turns: 0.16,
+          anchor: isTokenStep
+              ? const Alignment(0.40, 0.68)
+              : const Alignment(0.10, 0.85),
+          scale: isTokenStep ? 0.34 : 0.28,
+          turns: isTokenStep ? 0.24 : 0.16,
           depth: 0.85,
         ),
       ]),
