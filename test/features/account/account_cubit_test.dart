@@ -219,4 +219,19 @@ void main() {
     expect(cubit.state.identity?.accountId, 'acc_1');
     expect(cubit.state.errorMessage, isNotNull);
   });
+
+  test('dismissing the error drops the message and nothing else', () async {
+    final account = FakeAccountRepository(
+      linkAnswers: const [AccountLinkResult.claimed(accountId: 'acc_1')],
+    )..signOutError = Exception('delete refused');
+    final cubit = cubitFor(account);
+    await cubit.signIn(IdentityProvider.google);
+    await cubit.signOut();
+
+    cubit.dismissError();
+
+    expect(cubit.state.errorMessage, isNull);
+    expect(cubit.state.status, AccountStatus.signedIn);
+    expect(cubit.state.identity?.accountId, 'acc_1');
+  });
 }
