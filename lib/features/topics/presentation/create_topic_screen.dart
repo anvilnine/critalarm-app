@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -26,12 +27,23 @@ class CreateTopicScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) {
+      create: (context) {
         final cubit = getIt<CreateTopicCubit>();
         unawaited(cubit.loadConnection());
+        // The shared topic list is already in memory, so a name that is taken
+        // can be caught on step 1 instead of by the server after step 2.
+        cubit.existingNamesChanged(
+          context.read<TopicsCubit>().state.topics.map((topic) => topic.name),
+        );
         return cubit;
       },
-      child: const _CreateTopicScreenContent(),
+      child: BlocListener<TopicsCubit, TopicsState>(
+        listener: (context, topicsState) =>
+            context.read<CreateTopicCubit>().existingNamesChanged(
+              topicsState.topics.map((topic) => topic.name),
+            ),
+        child: const _CreateTopicScreenContent(),
+      ),
     );
   }
 }
@@ -224,6 +236,147 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     }
   }
 
+  /// Step 1: the topic name, the critical toggle and the free tier note.
+  Widget _topicStepBody(BuildContext context, CreateTopicState state) {
+    final colors = context.appColors;
+    final cubit = context.read<CreateTopicCubit>();
+    final isSubmitting = state.status == CreateTopicStatus.submitting;
+    // The typed name matches a topic the app already holds. Say so here, so
+    // the user is not told about it by the server after filling in step 2.
+    final duplicateError = state.isDuplicateName
+        ? LocaleKeys.api_errors_topic_already_exists.tr()
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TourAnchor(
+          id: TourAnchorId.createName,
+          child: AppTextField(
+            label: LocaleKeys.create_topic_name_label.tr(),
+            controller: _nameController,
+            placeholder: LocaleKeys.create_topic_name_placeholder.tr(),
+            helperText: LocaleKeys.create_topic_name_helper.tr(),
+            errorText: state.errorMessage ?? duplicateError,
+            enabled: !isSubmitting,
+            maxLength: 100,
+            textInputAction: TextInputAction.done,
+            inputFormatters: const [
+              TopicNameInputFormatter(),
+            ],
+            headerTrailing: AppButton(
+              label: LocaleKeys.create_topic_paste_button.tr(),
+              size: AppButtonSize.sm,
+              variant: AppButtonVariant.paper,
+              icon: AppGlyph(
+                GlyphType.copy,
+                size: 13,
+                color: colors.ink,
+              ),
+              onPressed: isSubmitting ? null : _handlePaste,
+            ),
+            onChanged: cubit.nameChanged,
+            onSubmitted: (_) => _next(),
+          ),
+        ),
+        const SizedBox(height: 14),
+        TourAnchor(
+          id: TourAnchorId.createCritical,
+          child: AppToggleRow(
+            title: LocaleKeys.create_topic_critical_toggle_title.tr(),
+            subtitle: LocaleKeys.create_topic_critical_toggle_subtitle.tr(),
+            value: state.isCritical,
+            onChanged: isSubmitting
+                ? null
+                : (val) {
+                    AppHaptics.selection();
+                    cubit.criticalToggled(isCritical: val);
+                  },
+          ),
+        ),
+        if (state.isFreeTier) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+            decoration: BoxDecoration(
+              color: colors.cream,
+              borderRadius: Radii.mdAll,
+              border: Border.all(color: colors.hairline),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _criticalRemainingText(state),
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: colors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        LocaleKeys.create_topic_free_tier_pro_hint.tr(),
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 12,
+                          color: colors.ink3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                AppButton(
+                  label: LocaleKeys.create_topic_go_pro_button.tr(),
+                  size: AppButtonSize.sm,
+                  onPressed: () {
+                    AppHaptics.capture();
+                    unawaited(context.push('/paywall'));
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Step 2: what to call the first token.
+  Widget _tokenStepBody(BuildContext context, CreateTopicState state) {
+    final cubit = context.read<CreateTopicCubit>();
+    final isSubmitting = state.status == CreateTopicStatus.submitting;
+
+    return AppTextField(
+      label: LocaleKeys.create_topic_token_name_label.tr(),
+      controller: _tokenNameController,
+      placeholder: LocaleKeys.create_topic_token_name_placeholder.tr(),
+      helperText: LocaleKeys.create_topic_token_name_helper.tr(),
+      // No errorText here. A failed create is always
+      // about the topic, and the cubit sends the user
+      // back to step 1 so the message sits under the
+      // topic name field.
+      enabled: !isSubmitting,
+      isMono: false,
+      maxLength: 40,
+      textInputAction: TextInputAction.done,
+      onChanged: cubit.tokenNameChanged,
+      onSubmitted: (_) => _handleEnterSubmit(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -247,6 +400,12 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
         final isSubmitting = state.status == CreateTopicStatus.submitting;
         final isSuccess = state.status == CreateTopicStatus.success;
         final isTokenStep = state.step == CreateTopicStep.token;
+        final stepKey = ValueKey<CreateTopicStep>(state.step);
+        // Duration.zero under reduce motion, so the step swaps instead of
+        // sliding. Same flag the ambient canvas below is handed.
+        final stepDuration = context.motion(AppDurations.base);
+        // Nothing to do on step 2 with a name the app already knows is taken.
+        final isNameTaken = !isSuccess && !isTokenStep && state.isDuplicateName;
 
         final content = GestureDetector(
           behavior: HitTestBehavior.translucent,
@@ -307,22 +466,24 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                     },
                     isFullWidth: true,
                     isLoading: isSubmitting,
-                    onPressed: () {
-                      AppHaptics.capture();
-                      if (isSuccess) {
-                        final name = state.createdTopic!.name;
-                        if (context.canPop()) {
-                          context.pop();
-                          unawaited(context.push('/topics/$name'));
-                        } else {
-                          context.go('/topics/$name');
-                        }
-                      } else if (isTokenStep) {
-                        _submit();
-                      } else {
-                        _next();
-                      }
-                    },
+                    onPressed: isNameTaken
+                        ? null
+                        : () {
+                            AppHaptics.capture();
+                            if (isSuccess) {
+                              final name = state.createdTopic!.name;
+                              if (context.canPop()) {
+                                context.pop();
+                                unawaited(context.push('/topics/$name'));
+                              } else {
+                                context.go('/topics/$name');
+                              }
+                            } else if (isTokenStep) {
+                              _submit();
+                            } else {
+                              _next();
+                            }
+                          },
                   ),
                 ),
               ],
@@ -372,143 +533,53 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                           ),
                           const SizedBox(height: 12),
                         ],
-                        if (!isSuccess && isTokenStep)
-                          AppTextField(
-                            label: LocaleKeys.create_topic_token_name_label
-                                .tr(),
-                            controller: _tokenNameController,
-                            placeholder: LocaleKeys
-                                .create_topic_token_name_placeholder
-                                .tr(),
-                            helperText: LocaleKeys
-                                .create_topic_token_name_helper
-                                .tr(),
-                            // No errorText here. A failed create is always
-                            // about the topic, and the cubit sends the user
-                            // back to step 1 so the message sits under the
-                            // topic name field.
-                            enabled: !isSubmitting,
-                            isMono: false,
-                            maxLength: 40,
-                            textInputAction: TextInputAction.done,
-                            onChanged: cubit.tokenNameChanged,
-                            onSubmitted: (_) => _handleEnterSubmit(),
-                          ),
-                        if (!isSuccess && !isTokenStep) ...[
-                          TourAnchor(
-                            id: TourAnchorId.createName,
-                            child: AppTextField(
-                              label: LocaleKeys.create_topic_name_label.tr(),
-                              controller: _nameController,
-                              placeholder: LocaleKeys
-                                  .create_topic_name_placeholder
-                                  .tr(),
-                              helperText: LocaleKeys.create_topic_name_helper
-                                  .tr(),
-                              errorText: state.errorMessage,
-                              enabled: !isSubmitting,
-                              maxLength: 100,
-                              textInputAction: TextInputAction.done,
-                              inputFormatters: const [
-                                TopicNameInputFormatter(),
-                              ],
-                              headerTrailing: AppButton(
-                                label: LocaleKeys.create_topic_paste_button
-                                    .tr(),
-                                size: AppButtonSize.sm,
-                                variant: AppButtonVariant.paper,
-                                icon: AppGlyph(
-                                  GlyphType.copy,
-                                  size: 13,
-                                  color: colors.ink,
-                                ),
-                                onPressed: isSubmitting ? null : _handlePaste,
-                              ),
-                              onChanged: cubit.nameChanged,
-                              onSubmitted: (_) => _next(),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          TourAnchor(
-                            id: TourAnchorId.createCritical,
-                            child: AppToggleRow(
-                              title: LocaleKeys
-                                  .create_topic_critical_toggle_title
-                                  .tr(),
-                              subtitle: LocaleKeys
-                                  .create_topic_critical_toggle_subtitle
-                                  .tr(),
-                              value: state.isCritical,
-                              onChanged: isSubmitting
-                                  ? null
-                                  : (val) {
-                                      AppHaptics.selection();
-                                      cubit.criticalToggled(isCritical: val);
-                                    },
-                            ),
-                          ),
-                          if (state.isFreeTier) ...[
-                            const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colors.cream,
-                                borderRadius: Radii.mdAll,
-                                border: Border.all(color: colors.hairline),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          _criticalRemainingText(state),
-                                          style: TextStyle(
-                                            fontFamily: AppTypography.fontBody,
-                                            fontFamilyFallback:
-                                                AppTypography.fontBodyFallbacks,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: colors.ink,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          LocaleKeys
-                                              .create_topic_free_tier_pro_hint
-                                              .tr(),
-                                          style: TextStyle(
-                                            fontFamily: AppTypography.fontBody,
-                                            fontFamilyFallback:
-                                                AppTypography.fontBodyFallbacks,
-                                            fontSize: 12,
-                                            color: colors.ink3,
-                                          ),
-                                        ),
-                                      ],
+                        if (!isSuccess)
+                          AnimatedSize(
+                            duration: stepDuration,
+                            curve: AppCurves.easeOut,
+                            alignment: Alignment.topCenter,
+                            child: AnimatedSwitcher(
+                              duration: stepDuration,
+                              switchInCurve: AppCurves.easeOut,
+                              switchOutCurve: AppCurves.easeOut,
+                              layoutBuilder: (currentChild, previousChildren) =>
+                                  Stack(
+                                    alignment: Alignment.topLeft,
+                                    children: [
+                                      ...previousChildren,
+                                      ?currentChild,
+                                    ],
+                                  ),
+                              transitionBuilder: (child, animation) {
+                                // Next slides the new step in from the right
+                                // and the old one out to the left. Back runs
+                                // the other way, so the movement matches the
+                                // travel.
+                                final isIncoming = child.key == stepKey;
+                                final fromRight = isTokenStep == isIncoming;
+                                return SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: Offset(
+                                      fromRight ? 0.12 : -0.12,
+                                      0,
                                     ),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: FadeTransition(
+                                    opacity: animation,
+                                    child: child,
                                   ),
-                                  const SizedBox(width: 12),
-                                  AppButton(
-                                    label: LocaleKeys.create_topic_go_pro_button
-                                        .tr(),
-                                    size: AppButtonSize.sm,
-                                    onPressed: () {
-                                      AppHaptics.capture();
-                                      unawaited(context.push('/paywall'));
-                                    },
-                                  ),
-                                ],
+                                );
+                              },
+                              child: SizedBox(
+                                key: stepKey,
+                                width: double.infinity,
+                                child: isTokenStep
+                                    ? _tokenStepBody(context, state)
+                                    : _topicStepBody(context, state),
                               ),
                             ),
-                          ],
-                        ],
+                          ),
                         if (token != null) ...[
                           const SizedBox(height: 14),
                           Text(
@@ -599,7 +670,12 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
           ),
         );
 
-        final profile = AmbientAppProfiles.createTopic(colors);
+        // A different profile per step, so the canvas drifts the background
+        // along with the card instead of holding still.
+        final profile = AmbientAppProfiles.createTopic(
+          colors,
+          step: isTokenStep ? 2 : 1,
+        );
 
         return AmbientScope(
           child: Stack(

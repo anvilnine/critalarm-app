@@ -28,6 +28,7 @@ class CreateTopicState {
     this.isFreeTier = true,
     this.criticalLimit = 2,
     this.criticalUsed = 0,
+    this.existingNames = const <String>{},
   });
 
   final CapReached? capReached;
@@ -59,6 +60,18 @@ class CreateTopicState {
   /// Current number of critical topics the user has.
   final int criticalUsed;
 
+  /// Names of the topics the app already holds, trimmed and lowercased. Fed in
+  /// from the shared topic list, so nothing here asks the server again.
+  final Set<String> existingNames;
+
+  /// True when the typed name matches a topic the app already holds. The
+  /// server still checks on create: this list can be stale and two devices can
+  /// race, so it only saves the user a round trip through step 2.
+  bool get isDuplicateName {
+    final trimmed = name.trim().toLowerCase();
+    return trimmed.isNotEmpty && existingNames.contains(trimmed);
+  }
+
   /// Remaining critical topics allowance, or null if unlimited.
   int? get criticalRemaining => criticalLimit == null
       ? null
@@ -78,6 +91,7 @@ class CreateTopicState {
     bool? isFreeTier,
     int? criticalLimit,
     int? criticalUsed,
+    Set<String>? existingNames,
     bool clearError = false,
   }) {
     return CreateTopicState(
@@ -94,6 +108,7 @@ class CreateTopicState {
       isFreeTier: isFreeTier ?? this.isFreeTier,
       criticalLimit: criticalLimit ?? this.criticalLimit,
       criticalUsed: criticalUsed ?? this.criticalUsed,
+      existingNames: existingNames ?? this.existingNames,
     );
   }
 
@@ -114,7 +129,8 @@ class CreateTopicState {
           serverUrl == other.serverUrl &&
           isFreeTier == other.isFreeTier &&
           criticalLimit == other.criticalLimit &&
-          criticalUsed == other.criticalUsed;
+          criticalUsed == other.criticalUsed &&
+          setEquals(existingNames, other.existingNames);
 
   @override
   int get hashCode => Object.hash(
@@ -131,5 +147,6 @@ class CreateTopicState {
     isFreeTier,
     criticalLimit,
     criticalUsed,
+    Object.hashAllUnordered(existingNames),
   );
 }

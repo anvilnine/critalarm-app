@@ -215,6 +215,67 @@ void main() {
       expect(cubit.state.tokenName, 'CI server');
     });
 
+    test('a name already in the topic list is caught on step 1', () {
+      final cubit = CreateTopicCubit(createTopicUsecase)
+        ..existingNamesChanged(['prod-api', 'staging'])
+        ..nameChanged('  PROD-API  ');
+
+      // The screen disables Next while this is true and shows the message
+      // under the topic name field.
+      expect(cubit.state.isDuplicateName, isTrue);
+
+      cubit.nextStep();
+
+      expect(cubit.state.step, CreateTopicStep.topic);
+      expect(
+        cubit.state.errorMessage,
+        'A topic with that name already exists.',
+      );
+    });
+
+    test('editing the name to a free one lets Next through again', () {
+      final cubit = CreateTopicCubit(createTopicUsecase)
+        ..existingNamesChanged(['prod-api'])
+        ..nameChanged('prod-api');
+      expect(cubit.state.isDuplicateName, isTrue);
+
+      cubit.nameChanged('prod-api-2');
+      expect(cubit.state.isDuplicateName, isFalse);
+
+      cubit.nextStep();
+
+      expect(cubit.state.step, CreateTopicStep.token);
+      expect(cubit.state.errorMessage, isNull);
+    });
+
+    test(
+      'the server still decides: a 409 returns to step 1 with the error and '
+      'the typed token name',
+      () async {
+        // The list in memory does not hold this name, so nothing stops the
+        // user before step 2. The server does. Z hit this on a real device.
+        server.createTopic(name: 'prod');
+
+        final cubit = CreateTopicCubit(createTopicUsecase)
+          ..existingNamesChanged(['something-else'])
+          ..nameChanged('prod')
+          ..nextStep()
+          ..tokenNameChanged('CI server');
+        expect(cubit.state.isDuplicateName, isFalse);
+        expect(cubit.state.step, CreateTopicStep.token);
+
+        await cubit.createTopic();
+
+        expect(cubit.state.status, CreateTopicStatus.failure);
+        expect(cubit.state.step, CreateTopicStep.topic);
+        expect(
+          cubit.state.errorMessage,
+          'A topic with that name already exists.',
+        );
+        expect(cubit.state.tokenName, 'CI server');
+      },
+    );
+
     test('criticalRemaining helper computes correctly', () {
       const freeState = CreateTopicState(
         criticalUsed: 1,
