@@ -284,15 +284,7 @@ class _RingingScreen extends StatelessWidget {
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              Spacing.s4,
-              16,
-              _AcknowledgedScreen._pinnedBarHeight(
-                context,
-                twoButtons: state.incident?.id != 'inc_demo',
-              ),
-            ),
+            padding: const EdgeInsets.fromLTRB(16, Spacing.s4, 16, 0),
             child: _detailSheet(),
           ),
         ),
@@ -599,30 +591,13 @@ class _AcknowledgedScreen extends StatelessWidget {
         ),
         SliverToBoxAdapter(
           child: Padding(
-            // The pinned bar floats over the list, so leave room for its two
-            // buttons, the gap between them and the home indicator.
-            padding: EdgeInsets.fromLTRB(
-              16,
-              Spacing.s4,
-              16,
-              _pinnedBarHeight(context, twoButtons: !isRetest),
-            ),
+            padding: const EdgeInsets.fromLTRB(16, Spacing.s4, 16, 0),
             child: _detailSheet(startedLabel, ackedLabel),
           ),
         ),
       ],
       bottomBar: bottomBar,
     );
-  }
-
-  /// What the floating bar takes off the bottom: its buttons, the 12 the
-  /// scaffold puts under them, and the home indicator.
-  static double _pinnedBarHeight(
-    BuildContext context, {
-    required bool twoButtons,
-  }) {
-    final buttons = twoButtons ? 48.0 + 8 + 48 : 48.0;
-    return buttons + 12 + MediaQuery.paddingOf(context).bottom;
   }
 
   Widget _title(TextAlign align, bool isDemo) {

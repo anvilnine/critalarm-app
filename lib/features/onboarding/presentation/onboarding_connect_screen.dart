@@ -211,12 +211,10 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                 Spacing.s5,
                 0,
               ),
-              // The pinned bar floats over the list, so the content leaves
-              // room for it. That room goes on the child, not on this
-              // SliverPadding: SliverFillRemaining measures itself against the
-              // whole viewport and ignores padding that comes after it, so a
-              // bottom pad out here lands below the fold instead of above the
-              // bar.
+              // The scaffold leaves room for the pinned bar under the list,
+              // but SliverFillRemaining measures itself against the whole
+              // viewport and ignores anything that comes after it, so the
+              // bottom aligned state carries that room on its own child.
               //
               // The cloud card fills the viewport so it can sit at the bottom,
               // within thumb reach, and still scroll once the content outgrows
@@ -230,12 +228,9 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                       ),
                     )
                   : SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: bottomBarHeight),
-                        child: state.isConnected
-                            ? _buildHookTestState(context, state, cubit)
-                            : _buildConnectOptions(context, state, cubit),
-                      ),
+                      child: state.isConnected
+                          ? _buildHookTestState(context, state, cubit)
+                          : _buildConnectOptions(context, state, cubit),
                     ),
             ),
           ],

@@ -160,13 +160,6 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
             .tr();
         final previewHint = LocaleKeys.onboarding_permissions_preview_hint.tr();
 
-        // What the pinned bar takes off the bottom of the viewport: its own
-        // buttons, the 12 the scaffold puts under them, and the home
-        // indicator. Denied shows lg + Spacing.s3 + md, the rest just lg.
-        final barButtons = state.isDenied || battery ? 60.0 + 12 + 48 : 60.0;
-        final bottomBarHeight =
-            barButtons + 12 + MediaQuery.paddingOf(context).bottom;
-
         return AppScreenScaffold(
           backgroundColor: Colors.transparent,
           withGhosts: false,
@@ -237,109 +230,104 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                 0,
               ),
               sliver: SliverToBoxAdapter(
-                child: Padding(
-                  // The pinned bar floats over the list, so the content leaves
-                  // room for it rather than running underneath.
-                  padding: EdgeInsets.only(bottom: bottomBarHeight),
-                  child: state.isDenied
-                      ? AppEmptyState(
-                          faceState: FaceState.worried,
-                          title: LocaleKeys.onboarding_permissions_denied_title
-                              .tr(),
-                          description: LocaleKeys
-                              .onboarding_permissions_denied_description
-                              .tr(),
-                          buttonLabel: null,
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Center(
-                              child: Hero(
-                                tag: 'onboarding-face',
-                                flightShuttleBuilder: faceFlightShuttleBuilder,
-                                child: FaceWidget(
-                                  state: isStep2
-                                      ? FaceState.watching
-                                      : FaceState.alarmed,
-                                  size: 80,
-                                  isLive: true,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: Spacing.s3),
-                            Center(
-                              child: AppBadge(
-                                text: battery
-                                    ? LocaleKeys
-                                          .onboarding_permissions_badge_battery
-                                          .tr()
-                                    : isStep2
-                                    ? LocaleKeys
-                                          .onboarding_permissions_badge_step2
-                                          .tr()
-                                    : LocaleKeys.onboarding_permissions_badge
-                                          .tr(),
-                                faceState: isStep2
+                child: state.isDenied
+                    ? AppEmptyState(
+                        faceState: FaceState.worried,
+                        title: LocaleKeys.onboarding_permissions_denied_title
+                            .tr(),
+                        description: LocaleKeys
+                            .onboarding_permissions_denied_description
+                            .tr(),
+                        buttonLabel: null,
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Center(
+                            child: Hero(
+                              tag: 'onboarding-face',
+                              flightShuttleBuilder: faceFlightShuttleBuilder,
+                              child: FaceWidget(
+                                state: isStep2
                                     ? FaceState.watching
                                     : FaceState.alarmed,
+                                size: 80,
+                                isLive: true,
                               ),
                             ),
-                            const SizedBox(height: Spacing.s4),
+                          ),
+                          const SizedBox(height: Spacing.s3),
+                          Center(
+                            child: AppBadge(
+                              text: battery
+                                  ? LocaleKeys
+                                        .onboarding_permissions_badge_battery
+                                        .tr()
+                                  : isStep2
+                                  ? LocaleKeys
+                                        .onboarding_permissions_badge_step2
+                                        .tr()
+                                  : LocaleKeys.onboarding_permissions_badge
+                                        .tr(),
+                              faceState: isStep2
+                                  ? FaceState.watching
+                                  : FaceState.alarmed,
+                            ),
+                          ),
+                          const SizedBox(height: Spacing.s4),
 
-                            Text(
-                              _title(state, isStep2, alarmless),
-                              style: AppTypography.display(
-                                colors.onCanvas,
-                                fontSize: 32,
-                              ),
+                          Text(
+                            _title(state, isStep2, alarmless),
+                            style: AppTypography.display(
+                              colors.onCanvas,
+                              fontSize: 32,
                             ),
-                            const SizedBox(height: Spacing.s2),
-                            Text(
-                              _subtitle(state, isStep2, alarmless),
-                              style: AppTypography.lead(
-                                colors.onCanvasMuted,
-                                fontSize: 15,
-                              ),
+                          ),
+                          const SizedBox(height: Spacing.s2),
+                          Text(
+                            _subtitle(state, isStep2, alarmless),
+                            style: AppTypography.lead(
+                              colors.onCanvasMuted,
+                              fontSize: 15,
                             ),
+                          ),
 
-                            // No prompt is coming on this phone, so there is
-                            // no dialog to preview.
-                            if (!alarmless) ...[
-                              const SizedBox(height: Spacing.s5),
-                              PermissionDialogPreview(
-                                title: previewTitle,
-                                message: previewMessage,
-                                allowLabel: LocaleKeys
-                                    .onboarding_permissions_preview_allow
-                                    .tr(),
-                                denyLabel: LocaleKeys
-                                    .onboarding_permissions_preview_dont_allow
-                                    .tr(),
-                                summaryLabel: isApple && !isStep2
-                                    ? summaryLabel
-                                    : null,
-                                isCritical: isStep2,
-                                semanticLabel: '$previewTitle. $previewHint',
-                                onTap: state.isRequesting ? null : requestStep,
-                              ),
-                              const SizedBox(height: 12),
-                              Center(
-                                child: Text(
-                                  previewHint,
-                                  style: TextStyle(
-                                    fontFamily: AppTypography.fontMono,
-                                    fontFamilyFallback:
-                                        AppTypography.fontMonoFallbacks,
-                                    fontSize: 11,
-                                    color: colors.onCanvasMuted,
-                                  ),
+                          // No prompt is coming on this phone, so there is
+                          // no dialog to preview.
+                          if (!alarmless) ...[
+                            const SizedBox(height: Spacing.s5),
+                            PermissionDialogPreview(
+                              title: previewTitle,
+                              message: previewMessage,
+                              allowLabel: LocaleKeys
+                                  .onboarding_permissions_preview_allow
+                                  .tr(),
+                              denyLabel: LocaleKeys
+                                  .onboarding_permissions_preview_dont_allow
+                                  .tr(),
+                              summaryLabel: isApple && !isStep2
+                                  ? summaryLabel
+                                  : null,
+                              isCritical: isStep2,
+                              semanticLabel: '$previewTitle. $previewHint',
+                              onTap: state.isRequesting ? null : requestStep,
+                            ),
+                            const SizedBox(height: 12),
+                            Center(
+                              child: Text(
+                                previewHint,
+                                style: TextStyle(
+                                  fontFamily: AppTypography.fontMono,
+                                  fontFamilyFallback:
+                                      AppTypography.fontMonoFallbacks,
+                                  fontSize: 11,
+                                  color: colors.onCanvasMuted,
                                 ),
                               ),
-                            ],
+                            ),
                           ],
-                        ),
-                ),
+                        ],
+                      ),
               ),
             ),
           ],

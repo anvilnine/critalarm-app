@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/design/ambient/ambient_scope.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/components/nav_rail.dart';
@@ -9,6 +11,7 @@ import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 /// The standard Crit Alarm screen: one scroll view that runs from the very top
 /// of the display to the very bottom of it.
@@ -16,7 +19,7 @@ import 'package:flutter/material.dart';
 /// Nothing is clamped inside the safe area. The top bar and any pinned bottom
 /// actions float over the list, and the list passes behind them through a fade
 /// so rows dissolve instead of being cut by a hard edge.
-class AppScreenScaffold extends StatelessWidget {
+class AppScreenScaffold extends StatefulWidget {
   const AppScreenScaffold({
     required this.slivers,
     this.topBar,
@@ -45,7 +48,8 @@ class AppScreenScaffold extends StatelessWidget {
   final Widget? topBar;
 
   /// Floats over the bottom of the list, on top of a fade. Use it for pinned
-  /// actions on screens that have no tab bar.
+  /// actions on screens that have no tab bar. The list leaves room for it, so
+  /// the screen adds no bottom padding of its own.
   final Widget? bottomBar;
 
   final Future<void> Function()? onRefresh;
@@ -82,10 +86,35 @@ class AppScreenScaffold extends StatelessWidget {
   /// Height of the top bar itself, before the status bar inset.
   static const double topBarHeight = 56;
 
+  /// The gap under the pinned bottom bar, inside the safe area.
+  static const double bottomBarGap = 12;
+
+  /// How far the wash behind the pinned bar runs above the bar itself, so rows
+  /// start dissolving before they reach the button.
+  static const double _bottomBarFadeRun = 56;
+
   /// How wide the list pane gets when two panes are showing. It keeps a
   /// readable column without starving the detail beside it.
   static double listPaneWidth(double available) =>
       (available * 0.38).clamp(340.0, 460.0);
+
+  @override
+  State<AppScreenScaffold> createState() => _AppScreenScaffoldState();
+}
+
+class _AppScreenScaffoldState extends State<AppScreenScaffold> {
+  /// How tall the pinned bottom bar came out, once it has laid out.
+  ///
+  /// The bar is whatever the screen handed over, so its height is not known
+  /// before layout. The list leaves this much room under its last row, which
+  /// is why it is measured rather than guessed at.
+  final ValueNotifier<double> _bottomBarHeight = ValueNotifier<double>(0);
+
+  @override
+  void dispose() {
+    _bottomBarHeight.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,139 +129,191 @@ class AppScreenScaffold extends StatelessWidget {
     final colors = context.appColors;
     final padding = MediaQuery.paddingOf(context);
     final inAmbient = AmbientScope.isInAmbientScope(context);
-    final effectiveWithGhosts = !inAmbient && withGhosts;
-    final effectiveWithFades = !inAmbient && withFades;
+    final effectiveWithGhosts = !inAmbient && widget.withGhosts;
+    final effectiveWithFades = !inAmbient && widget.withFades;
     final canvas =
-        backgroundColor ?? (inAmbient ? Colors.transparent : colors.canvas);
+        widget.backgroundColor ??
+        (inAmbient ? Colors.transparent : colors.canvas);
     final size = AppSize.of(context);
-    final twoPane = size.isExpanded && detail != null;
+    final twoPane = size.isExpanded && widget.detail != null;
 
     // On an expanded display the tab bar stands up as a rail on the left, so
     // the screen keeps clear of it sideways instead of above the bottom edge.
-    final railGap = size.isExpanded && hasTabBar ? AppNavRail.contentGap : 0.0;
+    final railGap = size.isExpanded && widget.hasTabBar
+        ? AppNavRail.contentGap
+        : 0.0;
     final available = boxWidth - railGap;
 
     // A long row is hard to read, the eye has to travel, so cap the column.
     // Two panes have already narrowed it, so they need no gutter of their own.
-    final paneWidth = twoPane ? listPaneWidth(available) : available;
+    final paneWidth = twoPane
+        ? AppScreenScaffold.listPaneWidth(available)
+        : available;
     final gutter = twoPane || paneWidth <= AppSize.contentMaxWidth
         ? 0.0
         : (paneWidth - AppSize.contentMaxWidth) / 2;
 
-    final topInset = padding.top + (topBar == null ? 0 : topBarHeight);
-    var bottomInset = padding.bottom + 16;
-    if (hasTabBar && !size.isExpanded) {
-      bottomInset += AppFloatingTabBar.contentGap;
-    }
+    final topInset =
+        padding.top +
+        (widget.topBar == null ? 0 : AppScreenScaffold.topBarHeight);
 
-    Widget list = CustomScrollView(
-      controller: scrollController,
-      physics:
-          physics ??
-          const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
+    // The tab bar leaves room for itself, and so does a pinned bar. A screen
+    // that somehow has both gets room for the taller of the two, because they
+    // sit on the same edge rather than stacking.
+    final tabBarRoom = widget.hasTabBar && !size.isExpanded
+        ? AppFloatingTabBar.contentGap
+        : 0.0;
+
+    Widget buildBody(double barHeight) {
+      final bottomBarRoom = widget.bottomBar == null
+          ? 0.0
+          : barHeight + AppScreenScaffold.bottomBarGap;
+      final bottomInset =
+          padding.bottom + 16 + math.max(tabBarRoom, bottomBarRoom);
+
+      Widget list = CustomScrollView(
+        controller: widget.scrollController,
+        physics:
+            widget.physics ??
+            const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+        slivers: [
+          SliverPadding(padding: EdgeInsets.only(top: topInset)),
+          SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: gutter),
+            sliver: SliverMainAxisGroup(slivers: widget.slivers),
           ),
-      slivers: [
-        SliverPadding(padding: EdgeInsets.only(top: topInset)),
-        SliverPadding(
-          padding: EdgeInsets.symmetric(horizontal: gutter),
-          sliver: SliverMainAxisGroup(slivers: slivers),
-        ),
-        SliverPadding(padding: EdgeInsets.only(top: bottomInset)),
-      ],
-    );
-
-    if (onRefresh != null) {
-      list = RefreshIndicator(
-        onRefresh: onRefresh!,
-        edgeOffset: topInset,
-        color: colors.cobalt,
-        backgroundColor: colors.surface,
-        child: list,
+          SliverPadding(padding: EdgeInsets.only(top: bottomInset)),
+        ],
       );
-    }
 
-    Widget body = Stack(
-      children: [
-        Positioned.fill(child: list),
-        // The tab bar floats over every branch screen, so the fade behind it
-        // lives here rather than in the shell: this side of the tree is inside
-        // the screen's SeverityScope, so the wash follows the retint.
-        if (effectiveWithFades && hasTabBar && !size.isExpanded)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: AppScrollFade(
-              edge: ScrollFadeEdge.bottom,
-              height: padding.bottom + AppFloatingTabBar.fadeHeight,
-              color: canvas,
-            ),
-          ),
-        // The list runs under the top bar, so wash the canvas over the last
-        // few pixels and let rows dissolve instead of meeting a hard edge.
-        if (effectiveWithFades && topBar != null)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: AppScrollFade(
-              edge: ScrollFadeEdge.top,
-              height: padding.top + topBarHeight + 16,
-              color: canvas,
-            ),
-          ),
-        if (topBar != null)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: gutter),
-                child: SizedBox(height: topBarHeight, child: topBar),
+      if (widget.onRefresh != null) {
+        list = RefreshIndicator(
+          onRefresh: widget.onRefresh!,
+          edgeOffset: topInset,
+          color: colors.cobalt,
+          backgroundColor: colors.surface,
+          child: list,
+        );
+      }
+
+      return Stack(
+        children: [
+          Positioned.fill(child: list),
+          // The tab bar floats over every branch screen, so the fade behind it
+          // lives here rather than in the shell: this side of the tree is
+          // inside the screen's SeverityScope, so the wash follows the retint.
+          if (effectiveWithFades && widget.hasTabBar && !size.isExpanded)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: AppScrollFade(
+                edge: ScrollFadeEdge.bottom,
+                height: padding.bottom + AppFloatingTabBar.fadeHeight,
+                color: canvas,
               ),
             ),
-          ),
-        if (bottomBar != null)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Stack(
-              alignment: Alignment.bottomCenter,
-              children: [
-                if (effectiveWithFades)
-                  AppScrollFade(
-                    edge: ScrollFadeEdge.bottom,
-                    height: padding.bottom + 116,
-                    color: canvas,
+          // The list runs under the top bar, so wash the canvas over the last
+          // few pixels and let rows dissolve instead of meeting a hard edge.
+          if (effectiveWithFades && widget.topBar != null)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: AppScrollFade(
+                edge: ScrollFadeEdge.top,
+                height: padding.top + AppScreenScaffold.topBarHeight + 16,
+                color: canvas,
+              ),
+            ),
+          if (widget.topBar != null)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: gutter),
+                  child: SizedBox(
+                    height: AppScreenScaffold.topBarHeight,
+                    child: widget.topBar,
                   ),
-                SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: AppSize.contentMaxWidth,
+                ),
+              ),
+            ),
+          if (widget.bottomBar != null)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Stack(
+                alignment: Alignment.bottomCenter,
+                children: [
+                  // Gated on the screen's own flag, not on effectiveWithFades.
+                  // A screen that draws an ambient canvas leaves this scaffold
+                  // transparent, and that is exactly the screen where the
+                  // button floats over a white card with nothing behind it.
+                  if (widget.withFades)
+                    AppScrollScrim(
+                      height:
+                          padding.bottom +
+                          barHeight +
+                          AppScreenScaffold.bottomBarGap +
+                          AppScreenScaffold._bottomBarFadeRun,
+                      // The wash only reads when the canvas is what sits
+                      // behind the bar. With the canvas transparent, tint with
+                      // the page colour at part strength and let the blur do
+                      // the rest.
+                      tint: canvas.a == 0
+                          ? colors.canvas.withValues(alpha: 0.55)
+                          : canvas,
+                    ),
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        12,
+                        0,
+                        12,
+                        AppScreenScaffold.bottomBarGap,
+                      ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: AppSize.contentMaxWidth,
+                          ),
+                          child: _MeasureHeight(
+                            onHeight: (height) {
+                              if (!mounted) return;
+                              _bottomBarHeight.value = height;
+                            },
+                            child: widget.bottomBar!,
+                          ),
                         ),
-                        child: bottomBar,
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-      ],
-    );
+        ],
+      );
+    }
+
+    var body = widget.bottomBar == null
+        ? buildBody(0)
+        : ValueListenableBuilder<double>(
+            valueListenable: _bottomBarHeight,
+            builder: (context, barHeight, _) => buildBody(barHeight),
+          );
 
     // Around the list and the top bar, so a spinner in the bar can follow the
     // refresh. The side pane stays outside: its face is not this refresh.
-    if (onFaceRefresh != null) {
-      body = RefreshFaceHost(onRefresh: onFaceRefresh!, child: body);
+    if (widget.onFaceRefresh != null) {
+      body = RefreshFaceHost(onRefresh: widget.onFaceRefresh!, child: body);
     }
 
     if (twoPane) {
@@ -240,7 +321,7 @@ class AppScreenScaffold extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(width: paneWidth, child: body),
-          Expanded(child: AppDetailPane(child: detail!)),
+          Expanded(child: AppDetailPane(child: widget.detail!)),
         ],
       );
     }
@@ -253,16 +334,53 @@ class AppScreenScaffold extends StatelessWidget {
     }
 
     if (effectiveWithGhosts) {
-      body = GhostField(opacity: ghostOpacity, child: body);
+      body = GhostField(opacity: widget.ghostOpacity, child: body);
     }
 
     return Scaffold(
       backgroundColor: canvas,
       extendBody: true,
       extendBodyBehindAppBar: true,
-      resizeToAvoidBottomInset: resizeForKeyboard,
+      resizeToAvoidBottomInset: widget.resizeForKeyboard,
       body: body,
     );
+  }
+}
+
+/// Hands over how tall its child came out, once per change.
+class _MeasureHeight extends SingleChildRenderObjectWidget {
+  const _MeasureHeight({required this.onHeight, required Widget super.child});
+
+  final ValueChanged<double> onHeight;
+
+  @override
+  _RenderMeasureHeight createRenderObject(BuildContext context) =>
+      _RenderMeasureHeight(onHeight);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderMeasureHeight renderObject,
+  ) {
+    renderObject.onHeight = onHeight;
+  }
+}
+
+class _RenderMeasureHeight extends RenderProxyBox {
+  _RenderMeasureHeight(this.onHeight);
+
+  ValueChanged<double> onHeight;
+  double? _reported;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    if (_reported == size.height) return;
+    _reported = size.height;
+    // Handing the number over mid-layout would rebuild the list while it is
+    // laying out, so wait for the frame to finish.
+    final height = size.height;
+    WidgetsBinding.instance.addPostFrameCallback((_) => onHeight(height));
   }
 }
 
