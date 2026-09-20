@@ -293,7 +293,7 @@
     "load_failed": "Could not read this topic's tokens.",
     "made_on": "Made {date}",
     "made_just_now": "Made just now",
-    "last_token_note": "A topic keeps at least one token. To replace this one, make a new token first, then revoke this one.",
+    "name_taken_warning": "This topic already has a token called {name}.",
     "new_button": "New token",
     "new_label": "YOUR NEW TOKEN",
     "saved_button": "I have saved it",
