@@ -159,9 +159,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         padding.top +
         (widget.topBar == null ? 0 : AppScreenScaffold.topBarHeight);
 
-    // The tab bar leaves room for itself, and so does a pinned bar. A screen
-    // that somehow has both gets room for the taller of the two, because they
-    // sit on the same edge rather than stacking.
+    // The tab bar leaves room for itself, and so does a pinned bar.
     final tabBarRoom = widget.hasTabBar && !size.isExpanded
         ? AppFloatingTabBar.contentGap
         : 0.0;
@@ -170,8 +168,14 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       final bottomBarRoom = widget.bottomBar == null
           ? 0.0
           : barHeight + AppScreenScaffold.bottomBarGap;
+      // A screen with both sits the pinned bar on top of the tab bar rather
+      // than behind it, so the content has to clear both of them.
       final bottomInset =
-          padding.bottom + 16 + math.max(tabBarRoom, bottomBarRoom);
+          padding.bottom +
+          16 +
+          (tabBarRoom > 0 && bottomBarRoom > 0
+              ? tabBarRoom + bottomBarRoom
+              : math.max(tabBarRoom, bottomBarRoom));
 
       Widget list = CustomScrollView(
         controller: widget.scrollController,
@@ -262,6 +266,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                     AppScrollScrim(
                       height:
                           padding.bottom +
+                          tabBarRoom +
                           barHeight +
                           AppScreenScaffold.bottomBarGap +
                           AppScreenScaffold._bottomBarFadeRun,
@@ -276,11 +281,13 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                   SafeArea(
                     top: false,
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
+                      // On a screen with tabs the bar sits above the floating
+                      // tab bar, not behind it.
+                      padding: EdgeInsets.fromLTRB(
                         12,
                         0,
                         12,
-                        AppScreenScaffold.bottomBarGap,
+                        AppScreenScaffold.bottomBarGap + tabBarRoom,
                       ),
                       child: Center(
                         child: ConstrainedBox(

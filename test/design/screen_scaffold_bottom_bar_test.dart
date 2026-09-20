@@ -86,25 +86,20 @@ void main() {
     expect(bottomInset(), base + AppFloatingTabBar.contentGap);
   });
 
-  testWidgets('a tab bar and a pinned bar are not counted twice', (
-    tester,
-  ) async {
+  testWidgets('a pinned bar stacks on top of the tab bar', (tester) async {
     const tallBar = SizedBox(height: 100, width: 200);
     await pumpScaffold(tester, hasTabBar: true, bottomBar: tallBar);
 
-    // They sit on the same edge, so the room is the taller of the two.
+    // Home puts the backup nudge above the floating tab bar rather than
+    // behind it, so the content has to clear both. Before the nudge existed
+    // nothing had a tab bar and a pinned bar at once, and the room was the
+    // taller of the two.
     expect(
       bottomInset(),
-      base + 100 + AppScreenScaffold.bottomBarGap,
-    );
-    expect(
-      bottomInset(),
-      lessThan(
-        base +
-            AppFloatingTabBar.contentGap +
-            100 +
-            AppScreenScaffold.bottomBarGap,
-      ),
+      base +
+          AppFloatingTabBar.contentGap +
+          100 +
+          AppScreenScaffold.bottomBarGap,
     );
   });
 

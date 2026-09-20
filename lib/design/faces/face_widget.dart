@@ -36,8 +36,8 @@ class FaceWidget extends StatefulWidget {
   /// [FaceState.confused], 0 for others).
   final double? tiltAngle;
 
-  /// Draws this shape instead of [state]'s own eyes and mouth, standing
-  /// still. The head colours still follow [state].
+  /// Draws this shape instead of [state]'s own brows, eyes and mouth,
+  /// standing still. The head colours still follow [state].
   final FaceShape? shape;
 
   @override

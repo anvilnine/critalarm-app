@@ -530,8 +530,9 @@ class FacePainter extends CustomPainter {
     canvas.restore();
   }
 
-  /// Working and success only exist as shapes. Calm keeps its old drawing
-  /// unless a shape is passed in.
+  /// Working and success only exist as shapes. Every other face keeps its own
+  /// drawing below unless a shape is passed in, even the ones that now have a
+  /// shape for blending.
   FaceShape? get _ownShape => switch (state) {
     FaceState.working || FaceState.success => FaceShape.of(state),
     _ => null,
@@ -569,6 +570,21 @@ class FacePainter extends CustomPainter {
     ..color = color;
 
   void _paintShape(Canvas canvas, FaceShape shape, Paint fill) {
+    for (final brow in [shape.leftBrow, shape.rightBrow]) {
+      final alpha = brow.alpha.clamp(0.0, 1.0);
+      if (alpha <= 0) continue;
+      final p = brow.points;
+      // The middle point sits on the curve itself, so the control point is
+      // pulled back out to make the curve pass through it.
+      final control = p[1] * 2 - (p[0] + p[2]) / 2;
+      canvas.drawPath(
+        Path()
+          ..moveTo(p[0].dx, p[0].dy)
+          ..quadraticBezierTo(control.dx, control.dy, p[2].dx, p[2].dy),
+        _pen(inkColor.withValues(alpha: inkColor.a * alpha), brow.width),
+      );
+    }
+
     for (final eye in [shape.leftEye, shape.rightEye]) {
       if (eye.isDot) {
         // A zero length line would lean on how Skia caps it. Draw the dot.

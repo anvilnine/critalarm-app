@@ -4,11 +4,13 @@ import 'package:critalarm/app/state/app_data_status.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
+import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -26,6 +28,7 @@ class HomeCubit extends Cubit<HomeState> {
     this._topics,
     this._incidentRepository, [
     this._messageSync,
+    this._getConnection,
   ]) : super(const HomeState());
 
   final IncidentsCubit _incidents;
@@ -37,6 +40,11 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// Catches up on priority 1-3, which push never delivers (api.md 1.7).
   final MessageSyncService? _messageSync;
+
+  /// Tells a load that failed because no server is set up from a load that
+  /// failed because the server that is set up did not answer. Topics live on
+  /// the server, so the two need different screens.
+  final GetConnectionUsecase? _getConnection;
 
   StreamSubscription<IncidentsState>? _incidentsSub;
   StreamSubscription<TopicsState>? _topicsSub;
@@ -100,7 +108,13 @@ class HomeCubit extends Cubit<HomeState> {
       // the lists come back unchanged.
       _builtFromIncidents = null;
       _builtFromTopics = null;
-      emit(state.copyWith(status: HomeStatus.failure, errorMessage: failure));
+      // A build that is still running belongs to the answer before this one.
+      // Retire it, or its success lands on top of this failure and the screen
+      // goes back to smiling at a list it can no longer reach.
+      final id = ++_buildId;
+      final next = await _failureState(failure);
+      if (isClosed || id != _buildId) return;
+      emit(next);
       return;
     }
 
@@ -119,6 +133,62 @@ class HomeCubit extends Cubit<HomeState> {
     emit(next);
   }
 
+  /// The screen to show when the lists did not load. There are two of them,
+  /// because a load fails for two different reasons.
+  ///
+  /// No server set up at all: the rows on screen came from a server the user
+  /// has left, and nothing on the phone re-creates them, so drop them. This is
+  /// a setup problem, not an alarm, so the severity stays at none and the red
+  /// card above the stage carries the message.
+  ///
+  /// A server is set up but did not answer: the rows are still the user's,
+  /// only old. Keep them, mark them old, and say when they were last true.
+  Future<HomeState> _failureState(String? message) async {
+    if (!await _hasServer()) {
+      return state.copyWith(
+        status: HomeStatus.failure,
+        errorMessage: message,
+        topicItems: const [],
+        faceState: FaceState.watching,
+        word: LocaleKeys.home_stage_word_no_server.tr(),
+        subText: LocaleKeys.home_stage_sub_no_server.tr(),
+        severity: SeverityMode.none,
+        clearRinging: true,
+        isStale: false,
+        clearLastKnownGood: true,
+        hasServer: false,
+      );
+    }
+
+    final seenAt = state.lastKnownGoodAt;
+    return state.copyWith(
+      status: HomeStatus.failure,
+      errorMessage: message,
+      faceState: FaceState.watching,
+      word: LocaleKeys.home_stage_word_unreachable.tr(),
+      // No last good time means the list never loaded here, so there is
+      // nothing old on screen to put a time on.
+      subText: seenAt == null
+          ? LocaleKeys.home_load_failed.tr()
+          : LocaleKeys.home_stage_sub_unreachable.tr(
+              namedArgs: {'time': DateFormat.Hm().format(seenAt.toLocal())},
+            ),
+      severity: SeverityMode.none,
+      clearRinging: true,
+      isStale: seenAt != null,
+      hasServer: true,
+    );
+  }
+
+  /// A server counts as set up when the saved connection has a URL, the same
+  /// test the home prompts use.
+  Future<bool> _hasServer() async {
+    final getConnection = _getConnection;
+    if (getConnection == null) return true;
+    final connection = (await getConnection(const NoParams())).getOrNull();
+    return connection != null && connection.serverUrl.trim().isNotEmpty;
+  }
+
   Future<HomeState> _buildState(
     List<Incident> incidents,
     List<Topic> topics,
@@ -133,6 +203,9 @@ class HomeCubit extends Cubit<HomeState> {
         severity: SeverityMode.none,
         clearRinging: true,
         clearError: true,
+        isStale: false,
+        lastKnownGoodAt: DateTime.now(),
+        hasServer: true,
       );
     }
 
@@ -153,10 +226,13 @@ class HomeCubit extends Cubit<HomeState> {
         poll: 1,
       );
       if (pollResult.isError()) {
-        return state.copyWith(
-          status: HomeStatus.failure,
-          errorMessage: pollResult.exceptionOrNull()?.message,
-        );
+        // The lists themselves arrived, so the guard above has already
+        // recorded them as drawn. Forget that, or the next answer carrying
+        // the same list objects is skipped and the screen stays stuck on
+        // this failure.
+        _builtFromIncidents = null;
+        _builtFromTopics = null;
+        return _failureState(pollResult.exceptionOrNull()?.message);
       }
       final msgs = pollResult.getOrNull() ?? [];
       final latest = msgs.isEmpty
@@ -250,6 +326,9 @@ class HomeCubit extends Cubit<HomeState> {
       ringingIncidentId: ringingIncidentId,
       clearRinging: ringingIncidentId == null,
       clearError: true,
+      isStale: false,
+      lastKnownGoodAt: DateTime.now(),
+      hasServer: true,
     );
   }
 
