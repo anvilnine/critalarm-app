@@ -22,6 +22,9 @@ Usage:
                  --package app.critalarm \\
                  --key ../secrets/play-publisher.json \\
                  --track internal
+
+Tracks are internal, closed, open and production. Production also accepts
+--rollout to stage the release, for example --rollout 0.1 for a tenth of users.
 """
 
 import argparse
@@ -176,10 +179,19 @@ def main():
         help="completed makes the build live on the track. draft leaves it for "
              "a human to roll out in Play Console.")
     parser.add_argument(
+        "--rollout", type=float, default=None,
+        help="stage the release to a fraction of users, for example 0.1 for a "
+             "tenth. Play calls this an in progress release, and you finish it "
+             "later in Play Console. Only meaningful on production and open "
+             "tracks.")
+    parser.add_argument(
         "--validate-only", action="store_true",
         help="do everything except commit, then throw the edit away. Nothing "
              "reaches the track.")
     args = parser.parse_args()
+
+    if args.rollout is not None and not 0 < args.rollout <= 1:
+        die("--rollout is a fraction between 0 and 1, so 0.1 is a tenth of users.")
 
     if not os.path.isfile(args.aab):
         die("no bundle at %s" % args.aab)
@@ -203,18 +215,25 @@ def main():
         version_code = bundle["versionCode"]
         print("   version code %s" % version_code)
 
-        say("Pointing the %s track at version code %s" % (args.track, version_code))
+        release = {"versionCodes": [str(version_code)]}
+        if args.rollout is not None:
+            # Play calls a staged rollout "inProgress" and wants the share of
+            # users as a fraction. A completed release is the whole audience,
+            # and the two cannot both be set.
+            release["status"] = "inProgress"
+            release["userFraction"] = args.rollout
+            say("Pointing the %s track at version code %s, rolling out to %.0f%%"
+                % (args.track, version_code, args.rollout * 100))
+        else:
+            release["status"] = args.status
+            say("Pointing the %s track at version code %s"
+                % (args.track, version_code))
+
         call(
             token, "PUT",
             "%s/applications/%s/edits/%s/tracks/%s"
             % (API, args.package, edit_id, args.track),
-            payload={
-                "track": args.track,
-                "releases": [{
-                    "versionCodes": [str(version_code)],
-                    "status": args.status,
-                }],
-            },
+            payload={"track": args.track, "releases": [release]},
         )
 
         if args.validate_only:

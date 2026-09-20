@@ -11,12 +11,13 @@
 #   ./scripts/release-android.sh --build-only just build the aab
 #   ./scripts/release-android.sh --dry-run    do everything except commit
 #   ./scripts/release-android.sh --track closed
+#   ./scripts/release-android.sh --track production --rollout 0.1
 #
 # WHAT YOU NEED ONCE
 #
-# A service account that may release to testing tracks. The RevenueCat service
-# account already in secrets/ cannot do this and must not be given the power:
-# it is held by a third party, and release rights would let them publish.
+# A service account that may publish, all the way to production. The RevenueCat
+# service account already in secrets/ must not be given this power: it is held
+# by a third party, and publish rights would let them ship the app.
 #
 #   1. Google Cloud Console, project crit-alarm, IAM and Admin, Service Accounts
 #   2. Create a service account, for example crit-alarm-publisher
@@ -24,10 +25,30 @@
 #      secrets/play-publisher.json
 #   4. Play Console, Users and permissions, Invite new users, paste the service
 #      account email
-#   5. Give it these app permissions on Crit Alarm, and nothing more:
+#   5. Grant these three app permissions on Crit Alarm, and nothing more:
+#
+#        View app information and download bulk reports (read-only)
+#          Reading the app and its edits. Nothing works without it.
+#
 #        Release apps to testing tracks
-#        View app information and download bulk reports
+#          Internal, closed and open testing.
+#
+#        Release to production, exclude devices, and use Play App Signing
+#          Production. Also what lets Play re-sign the bundle with the app
+#          signing key, which every upload needs.
+#
+#      Grant them as APP permissions on Crit Alarm, not account permissions.
+#      An account permission would cover all three apps on the account.
+#
 #   6. Play Console, Setup, API access, and confirm the account is linked
+#
+# Not needed, and deliberately not granted:
+#   Manage store presence      only if a script should ever edit the listing
+#   Manage production releases, exclude devices, and use Play App Signing
+#                              the wider variant, covers apps this one should
+#                              not touch
+#   Manage orders and subscriptions, View financial data
+#                              RevenueCat's job, not the publisher's
 #
 # Google warns that new Play service credentials can take up to 36 hours to
 # start working. It is usually minutes. Saving any product description in Play
@@ -38,7 +59,9 @@
 #   internal   up to 100 testers, live in minutes, no review
 #   closed     the track that counts toward the 12 testers for 14 days rule
 #   open       public beta
-#   production locked until that rule is satisfied
+#   production the real thing. Locked until the closed testing rule is
+#              satisfied, and this script makes you type the word production
+#              before it will go there.
 
 set -euo pipefail
 
@@ -54,6 +77,8 @@ build_only=0
 dry_run=0
 allow_dirty=0
 status="completed"
+rollout=""
+assume_yes=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -63,6 +88,8 @@ while [ $# -gt 0 ]; do
     --dry-run) dry_run=1 ;;
     --allow-dirty) allow_dirty=1 ;;
     --draft) status="draft" ;;
+    --rollout) shift; rollout="${1:?--rollout needs a fraction, for example 0.1}" ;;
+    --yes) assume_yes=1 ;;
     --track) shift; track="${1:?--track needs a value}" ;;
     -h|--help) awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "$0"; exit 0 ;;
     *) echo "release-android: unknown option $1" >&2; exit 2 ;;
@@ -72,6 +99,24 @@ done
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 die() { printf '\033[31mrelease-android: %s\033[0m\n' "$1" >&2; exit 1; }
+
+case "$track" in
+  internal|closed|open|production) ;;
+  *) die "unknown track '$track'. Use internal, closed, open or production." ;;
+esac
+
+# Production is the whole world. A typo in --track should not ship the app, so
+# it asks, unless somebody said --yes on purpose.
+if [ "$track" = "production" ] && [ "$dry_run" -eq 0 ] && [ "$assume_yes" -eq 0 ]; then
+  if [ -n "$rollout" ]; then
+    printf '\n\033[31mThis will release to PRODUCTION, rolling out to %s of users.\033[0m\n' "$rollout"
+  else
+    printf '\n\033[31mThis will release to PRODUCTION, to everyone, at once.\033[0m\n'
+  fi
+  printf 'Type the word production to continue: '
+  read -r confirm
+  [ "$confirm" = "production" ] || die "stopped."
+fi
 
 # ---------------------------------------------------------------- preconditions
 
@@ -155,6 +200,7 @@ key_file="$secrets_dir/play-publisher.json"
 
 extra=""
 [ "$dry_run" -eq 1 ] && extra="--validate-only"
+[ -n "$rollout" ] && extra="$extra --rollout $rollout"
 
 # shellcheck disable=SC2086
 python3 scripts/play_upload.py \
