@@ -12,13 +12,16 @@ import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repos
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Orchestrates home alerts, warnings, and growth prompts following the
-/// priority hierarchy, anti-fatigue cooldowns, and 7-day snoozing rules:
+/// Runs home alerts, warnings, and growth prompts following the priority
+/// hierarchy, anti-fatigue cooldowns, and 7-day snoozing rules:
 /// 1. No server connected (Crit blocker error)
 /// 2. Critical health issues (Crit blocker error)
 /// 3. Battery optimization off (Warning)
 /// 4. Account backup prompt (Engagement, 7-day snooze)
-/// 5. Pro support prompt (Monetization, 7-day snooze)
+///
+/// Pro is not on this list. It is a sheet now, asked for by `ProPromptRules`
+/// in `lib/features/prompts/domain/pro_prompt_rules.dart` at a moment that
+/// earns the ask, never a card sitting on the home screen.
 class HomePromptCubit extends Cubit<HomePromptState> {
   HomePromptCubit({
     required this.getConnectionUsecase,
@@ -183,24 +186,6 @@ class HomePromptCubit extends Cubit<HomePromptState> {
       }
     }
 
-    // Priority 5: Pro Support Prompt
-    final isPaid =
-        (await accountRepository.readIsPaid()) || _proOverride.isForcingPro;
-    if (!isPaid) {
-      final proDismissedAt = homePromptRepository.getProPromptDismissedAt();
-      final isProSnoozed = proDismissedAt != null &&
-          DateTime.now().difference(proDismissedAt).inDays < 7;
-      if (!isProSnoozed) {
-        emit(
-          state.copyWith(
-            promptType: HomePromptType.proSupport,
-            missingPermissions: const [],
-          ),
-        );
-        return;
-      }
-    }
-
     emit(
       state.copyWith(
         promptType: HomePromptType.none,
@@ -226,8 +211,6 @@ class HomePromptCubit extends Cubit<HomePromptState> {
 
     if (current == HomePromptType.accountBackup) {
       await homePromptRepository.dismissAccountPrompt();
-    } else if (current == HomePromptType.proSupport) {
-      await homePromptRepository.dismissProPrompt();
     } else {
       await homePromptRepository.markBannerResolvedOrDismissed();
     }

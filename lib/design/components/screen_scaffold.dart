@@ -87,6 +87,24 @@ class AppScreenScaffold extends StatelessWidget {
   static double listPaneWidth(double available) =>
       (available * 0.38).clamp(340.0, 460.0);
 
+  /// Gap between the bottom of the [bottomBar] slot and whatever is under it.
+  static const double bottomBarGap = 12;
+
+  /// How far the [bottomBar] slot sits above the bottom edge of the display.
+  ///
+  /// The shell draws the floating tab bar over the same edge, so a screen that
+  /// has one lifts the slot clear of it. On an expanded display the tab bar
+  /// stands up as a rail on the left, so the slot stays where it is. A screen
+  /// with no tab bar keeps the safe area and the gap it always had.
+  static double bottomBarInset({
+    required bool hasTabBar,
+    required bool isExpanded,
+    required double safeAreaBottom,
+  }) {
+    final lift = hasTabBar && !isExpanded ? AppFloatingTabBar.contentGap : 0.0;
+    return safeAreaBottom + bottomBarGap + lift;
+  }
+
   @override
   Widget build(BuildContext context) {
     // Width comes from the box this scaffold was given, not from the display,
@@ -203,23 +221,40 @@ class AppScreenScaffold extends StatelessWidget {
             child: Stack(
               alignment: Alignment.bottomCenter,
               children: [
+                // The fade has to reach the top of the slot, so it grows by
+                // whatever the slot was lifted to clear the tab bar.
                 if (effectiveWithFades)
                   AppScrollFade(
                     edge: ScrollFadeEdge.bottom,
-                    height: padding.bottom + 116,
+                    height:
+                        padding.bottom +
+                        116 +
+                        (hasTabBar && !size.isExpanded
+                            ? AppFloatingTabBar.contentGap
+                            : 0.0),
                     color: canvas,
                   ),
-                SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: AppSize.contentMaxWidth,
-                        ),
-                        child: bottomBar,
+                // The bottom padding carries the safe area itself, so the slot
+                // can also be lifted over the floating tab bar in one number.
+                // The sides still need the inset a notch takes in landscape,
+                // the same one the top bar keeps.
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    12 + padding.left,
+                    0,
+                    12 + padding.right,
+                    bottomBarInset(
+                      hasTabBar: hasTabBar,
+                      isExpanded: size.isExpanded,
+                      safeAreaBottom: padding.bottom,
+                    ),
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: AppSize.contentMaxWidth,
                       ),
+                      child: bottomBar,
                     ),
                   ),
                 ),

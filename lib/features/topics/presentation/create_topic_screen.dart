@@ -5,6 +5,9 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
+import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
+import 'package:critalarm/features/prompts/presentation/widgets/pro_prompt_sheet.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/topic_name_formatter.dart';
@@ -68,6 +71,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
   String? _toast;
   Timer? _toastTimer;
 
+  /// The cubit reports the refused create on every rebuild, so remember that
+  /// the sheet already went up and do not stack a second one.
+  bool _hasAskedAboutPro = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +96,22 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     _toastTimer = Timer(const Duration(seconds: 2), () {
       if (mounted) setState(() => _toast = null);
     });
+  }
+
+  /// Asked once per refusal, and only if the rules say this user still wants
+  /// to hear it. Somebody who already pays, or who has said no twice, never
+  /// sees it.
+  Future<void> _askAboutPro(
+    BuildContext context,
+    ProAskTrigger trigger,
+  ) async {
+    if (_hasAskedAboutPro) return;
+    _hasAskedAboutPro = true;
+    final rules = getIt<ProPromptRules>();
+    final repository = getIt<HomePromptRepository>();
+    if (!await rules.shouldAsk(trigger)) return;
+    if (!context.mounted) return;
+    await showProPromptSheet(context: context, repository: repository);
   }
 
   void _submit() {
@@ -387,6 +410,21 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
           AppHaptics.success();
           _showToast(
             '${LocaleKeys.create_topic_toast_created.tr()} ${state.name}',
+          );
+          // One critical topic left on the free plan. The user is closer to
+          // the wall than they may know, so this is a fair time to mention
+          // it, after the topic they came for is safely made.
+          if (state.isFreeTier && state.criticalRemaining == 1) {
+            unawaited(
+              _askAboutPro(context, ProAskTrigger.nearCriticalTopicLimit),
+            );
+          }
+        }
+        // Hitting the limit is the one moment the user is actually thinking
+        // about limits, so it is the moment worth asking about Pro.
+        if (state.capReached != null) {
+          unawaited(
+            _askAboutPro(context, ProAskTrigger.criticalTopicCapReached),
           );
         }
       },
