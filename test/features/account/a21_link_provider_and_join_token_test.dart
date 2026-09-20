@@ -127,8 +127,6 @@ void main() {
 
       expect(cubit.state.status, AccountStatus.signedIn);
       expect(cubit.state.errorMessage, contains('another account'));
-      // The way over is signing in, which is a different button.
-      expect(cubit.state.errorMessage, contains('Sign out'));
       // Nothing was added, so the row is still there to try again.
       expect(cubit.state.identity?.providers, {IdentityProvider.google});
     });

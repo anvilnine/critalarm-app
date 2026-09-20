@@ -701,7 +701,7 @@
     "link_add_apple": "Add Apple",
     "link_add_google": "Add Google",
     "error_dialog_title": "That did not work",
-    "error_identity_taken": "That sign-in already belongs to another account, so it cannot be added to this one. Signing in with it instead would move this phone over to that account and leave this one behind. That is the Sign out button, not this one.",
+    "error_identity_taken": "That email already belongs to another account.",
     "join_code_header": "Join code",
     "join_code_body": "A second phone can join this account with a code, without signing in.",
     "join_code_button": "Make a join code",
