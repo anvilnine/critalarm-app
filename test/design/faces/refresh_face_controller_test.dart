@@ -16,6 +16,8 @@ class _Clock {
 }
 
 void main() {
+  _wobbleTests();
+
   late _Clock clock;
   late List<RefreshFacePhase> seen;
 
@@ -168,5 +170,47 @@ void main() {
     // Would throw "used after being disposed" if it kept notifying.
     await run;
     expect(clock.waits, isEmpty);
+  });
+}
+
+void _wobbleTests() {
+  group('the head rock while the list is pulled', () {
+    test('starts slow at the top and is quick at the refresh point', () {
+      expect(pullWobbleHz(0), closeTo(1.2, 0.001));
+      expect(pullWobbleHz(1), closeTo(6, 0.001));
+      expect(pullWobbleHz(0.5), greaterThan(pullWobbleHz(0)));
+      expect(pullWobbleHz(0.5), lessThan(pullWobbleHz(1)));
+    });
+
+    test('never goes faster than the refresh point', () {
+      expect(pullWobbleHz(4), closeTo(6, 0.001));
+      expect(pullWobbleHz(-1), closeTo(1.2, 0.001));
+    });
+
+    test('rocks further the further the list is pulled', () {
+      expect(pullWobbleDegrees(0), closeTo(1.5, 0.001));
+      expect(pullWobbleDegrees(1), closeTo(5, 0.001));
+      expect(pullWobbleDegrees(2), closeTo(5, 0.001));
+    });
+
+    test('passes through the middle twice a rock', () {
+      expect(pullWobbleAngle(progress: 1, turns: 0), closeTo(0, 0.0001));
+      expect(pullWobbleAngle(progress: 1, turns: 0.5), closeTo(0, 0.0001));
+      expect(pullWobbleAngle(progress: 1, turns: 1), closeTo(0, 0.0001));
+    });
+
+    test('leans one way then the other', () {
+      final left = pullWobbleAngle(progress: 1, turns: 0.25);
+      final right = pullWobbleAngle(progress: 1, turns: 0.75);
+      expect(left, greaterThan(0));
+      expect(right, lessThan(0));
+      expect(left, closeTo(-right, 0.0001));
+    });
+
+    test('leans further at the refresh point than at the top', () {
+      final top = pullWobbleAngle(progress: 0, turns: 0.25);
+      final apex = pullWobbleAngle(progress: 1, turns: 0.25);
+      expect(apex, greaterThan(top));
+    });
   });
 }

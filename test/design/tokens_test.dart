@@ -234,7 +234,7 @@ void main() {
           FaceState.sad,
         ]),
       );
-      expect(FaceState.values.length, 15);
+      expect(FaceState.values.length, 36);
     });
   });
 }

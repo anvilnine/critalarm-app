@@ -294,10 +294,10 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                       sub: state.subText,
                       // Nothing is happening, so the face gets something to
                       // do. Any other state means something real, and those
-                      // faces are left alone to say it.
-                      faceWidget: state.faceState != FaceState.calm
-                          ? null
-                          : const IdleFace(size: 190),
+                      // faces are left alone to say it. The stage hands this
+                      // to the refresh face rather than replacing it, so
+                      // pulling the list still moves the face.
+                      idleWhenCalm: true,
                     ),
                   ),
                   const SizedBox(height: Spacing.s4),

@@ -1,14 +1,15 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:critalarm/design/faces/face_shape.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
+import 'package:critalarm/design/faces/idle_face.dart';
 import 'package:critalarm/design/faces/refresh_face_controller.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 /// Hands a screen's refresh controller down to the face on its stage.
 class RefreshFaceScope extends InheritedWidget {
@@ -34,14 +35,22 @@ class RefreshFaceScope extends InheritedWidget {
 
 /// The face a stage shows: the refresh face when the screen has one, the
 /// plain face otherwise.
+///
+/// Pass true for [idleWhenCalm] on a screen where a calm face has nothing to
+/// say, and it plays the small idle expressions instead of standing still.
+/// It stops the moment the refresh takes the face over.
 Widget stageFace(
   BuildContext context, {
   required FaceState state,
   required double size,
   required bool isLive,
+  bool idleWhenCalm = false,
 }) {
   final controller = RefreshFaceScope.maybeOf(context);
   if (controller == null) {
+    if (idleWhenCalm && state == FaceState.calm) {
+      return IdleFace(size: size);
+    }
     return FaceWidget(state: state, size: size, isLive: isLive);
   }
   return RefreshFace(
@@ -49,6 +58,7 @@ Widget stageFace(
     state: state,
     size: size,
     isLive: isLive,
+    idleWhenCalm: idleWhenCalm,
   );
 }
 
@@ -206,6 +216,7 @@ class RefreshFace extends StatefulWidget {
     required this.state,
     required this.size,
     this.isLive = false,
+    this.idleWhenCalm = false,
     super.key,
   });
 
@@ -221,6 +232,9 @@ class RefreshFace extends StatefulWidget {
   /// Passed through to the plain face.
   final bool isLive;
 
+  /// True lets a calm face play the small idle expressions between refreshes.
+  final bool idleWhenCalm;
+
   @override
   State<RefreshFace> createState() => _RefreshFaceState();
 }
@@ -228,17 +242,21 @@ class RefreshFace extends StatefulWidget {
 class _RefreshFaceState extends State<RefreshFace>
     with TickerProviderStateMixin {
   late final AnimationController _morph = AnimationController(vsync: this);
-  late final AnimationController _shake = AnimationController(
-    vsync: this,
-    duration: AppDurations.shake,
-  );
 
   late RefreshFacePhase _phase = widget.controller.phase;
   RefreshFacePhase _previous = RefreshFacePhase.idle;
 
-  static final FaceShape _calm = FaceShape.of(FaceState.calm)!;
-  static final FaceShape _working = FaceShape.of(FaceState.working)!;
-  static final FaceShape _success = FaceShape.of(FaceState.success)!;
+  /// Drives the side to side rock while a finger is pulling the list. It is
+  /// its own ticker rather than a repeating controller because the speed
+  /// changes with the pull, and restarting a controller to change its
+  /// duration would jump the head back to centre every time.
+  Ticker? _wobble;
+  double _turns = 0;
+  Duration _lastTick = Duration.zero;
+
+  static final FaceShape _calm = faceFor(FaceState.calm);
+  static final FaceShape _working = faceFor(FaceState.working);
+  static final FaceShape _success = faceFor(FaceState.success);
 
   @override
   void initState() {
@@ -258,8 +276,8 @@ class _RefreshFaceState extends State<RefreshFace>
   @override
   void dispose() {
     widget.controller.removeListener(_onChange);
+    _wobble?.dispose();
     _morph.dispose();
-    _shake.dispose();
     super.dispose();
   }
 
@@ -280,18 +298,56 @@ class _RefreshFaceState extends State<RefreshFace>
         unawaited(_morph.forward(from: 0));
       }
 
-      if (phase == RefreshFacePhase.working) {
-        unawaited(_shake.repeat(reverse: true));
-      } else {
-        _shake.stop();
-      }
+      // The rock carries on through the refresh at the speed the apex
+      // earned, so letting go does not drop the head into a slower shake.
+      _setWobble(
+        on:
+            phase == RefreshFacePhase.pulling ||
+            phase == RefreshFacePhase.working,
+      );
     }
     // Progress moves without the phase changing, so always rebuild.
     setState(() {});
   }
 
-  Widget _plain(FaceState state, {bool live = false}) =>
-      FaceWidget(state: state, size: widget.size, isLive: live);
+  /// Runs the rock only while the list is being pulled, and only on a phone
+  /// that allows animations.
+  void _setWobble({required bool on}) {
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (on && !reduceMotion) {
+      if (_wobble != null) return;
+      _turns = 0;
+      _lastTick = Duration.zero;
+      final ticker = _wobble = createTicker(_onTick);
+      unawaited(ticker.start());
+      return;
+    }
+    _wobble?.dispose();
+    _wobble = null;
+    _turns = 0;
+  }
+
+  /// Moves the rock on by however long the frame took, at the speed the pull
+  /// has earned.
+  void _onTick(Duration elapsed) {
+    final seconds = (elapsed - _lastTick).inMicroseconds / 1000000;
+    _lastTick = elapsed;
+    _turns += seconds * pullWobbleHz(widget.controller.progress);
+    setState(() {});
+  }
+
+  /// The face between refreshes. A calm one on a screen that asked for idle
+  /// expressions plays them, and stops as soon as a pull starts.
+  Widget _plain(FaceState state, {bool live = false}) {
+    if (widget.idleWhenCalm && state == FaceState.calm) {
+      return IdleFace(
+        size: widget.size,
+        isEnabled: _phase == RefreshFacePhase.idle,
+      );
+    }
+    return FaceWidget(state: state, size: widget.size, isLive: live);
+  }
 
   Widget _shaped(FaceShape shape) =>
       FaceWidget(state: FaceState.calm, shape: shape, size: widget.size);
@@ -314,20 +370,29 @@ class _RefreshFaceState extends State<RefreshFace>
 
       case RefreshFacePhase.pulling:
         final p = widget.controller.progress;
-        final pulled = _shaped(FaceShape.lerp(_calm, _working, p));
+        var pulled = _shaped(FaceShape.lerp(_calm, _working, p));
+        // The head rocks side to side as it is dragged down, slow at the top
+        // and quick once the pull is far enough to refresh, so letting go at
+        // the right moment is something you can see as well as feel.
+        if (!reduceMotion) {
+          pulled = Transform.rotate(
+            angle: pullWobbleAngle(progress: p, turns: _turns),
+            alignment: const FractionalOffset(0.5, 0.6),
+            child: pulled,
+          );
+        }
         if (baseIsCalm) return pulled;
         // Not calm, so there is no shape to blend from. Fade across over the
         // first fifth of the pull.
         return _fade(_plain(widget.state), pulled, (p / 0.2).clamp(0.0, 1.0));
 
       case RefreshFacePhase.working:
-        final angle = reduceMotion
-            ? 0.0
-            : (-2 + 4 * _shake.value) * math.pi / 180;
+        final shaped = _shaped(_working);
+        if (reduceMotion) return shaped;
         return Transform.rotate(
-          angle: angle,
+          angle: pullWobbleAngle(progress: 1, turns: _turns),
           alignment: const FractionalOffset(0.5, 0.6),
-          child: _shaped(_working),
+          child: shaped,
         );
 
       case RefreshFacePhase.success:
@@ -354,7 +419,7 @@ class _RefreshFaceState extends State<RefreshFace>
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return AnimatedBuilder(
-      animation: Listenable.merge([_morph, _shake]),
+      animation: _morph,
       builder: (context, _) => _face(reduceMotion: reduceMotion),
     );
   }
