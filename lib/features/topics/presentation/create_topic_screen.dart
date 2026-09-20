@@ -62,6 +62,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
   late final TextEditingController _nameController;
   late final TextEditingController _tokenNameController;
 
+  /// One field per step, so the keyboard never has to come down between them.
+  late final FocusNode _nameFocus;
+  late final FocusNode _tokenNameFocus;
+
   /// Shown just above the pinned button, in the layout rather than floating
   /// over it. A SnackBar is a Material idea and lands on top of the button
   /// the user is reaching for.
@@ -73,6 +77,11 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     super.initState();
     _nameController = TextEditingController();
     _tokenNameController = TextEditingController();
+    _nameFocus = FocusNode();
+    _tokenNameFocus = FocusNode();
+    // Step 1 is a single field, so open with the keyboard already on it
+    // instead of making the user tap it first.
+    _focusNameField();
   }
 
   @override
@@ -80,7 +89,32 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     _toastTimer?.cancel();
     _nameController.dispose();
     _tokenNameController.dispose();
+    _nameFocus.dispose();
+    _tokenNameFocus.dispose();
     super.dispose();
+  }
+
+  /// Moves focus once the frame that builds the field has run.
+  ///
+  /// The steps swap through an AnimatedSwitcher, so the field being focused
+  /// is not in the tree yet at the moment the step changes. Waiting for the
+  /// frame works whether the swap animates or, under reduce motion, takes
+  /// zero time.
+  void _focusAfterBuild(FocusNode node) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || node.context == null) return;
+      node.requestFocus();
+    });
+  }
+
+  /// Focus the topic name field with the caret after the text already there,
+  /// so coming back to a typed name carries on from the end rather than
+  /// jumping to the front.
+  void _focusNameField() {
+    _nameController.selection = TextSelection.collapsed(
+      offset: _nameController.text.length,
+    );
+    _focusAfterBuild(_nameFocus);
   }
 
   void _showToast(String message) {
@@ -98,8 +132,16 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
 
   /// Step 1 to step 2. No network call: the topic is created on step 2.
   void _next() {
-    FocusScope.of(context).unfocus();
-    context.read<CreateTopicCubit>().nextStep();
+    final cubit = context.read<CreateTopicCubit>()..nextStep();
+    if (cubit.state.step == CreateTopicStep.token) {
+      // Both steps are one text field, so the keyboard stays up and moves to
+      // the new field.
+      _focusAfterBuild(_tokenNameFocus);
+    } else {
+      // nextStep turned the name down. Put the keyboard back on the field
+      // that has to be fixed.
+      _focusNameField();
+    }
   }
 
   String _criticalRemainingText(CreateTopicState state) {
@@ -256,6 +298,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
           child: AppTextField(
             label: LocaleKeys.create_topic_name_label.tr(),
             controller: _nameController,
+            focusNode: _nameFocus,
             placeholder: LocaleKeys.create_topic_name_placeholder.tr(),
             helperText: LocaleKeys.create_topic_name_helper.tr(),
             errorText: state.errorMessage ?? duplicateError,
@@ -362,6 +405,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     return AppTextField(
       label: LocaleKeys.create_topic_token_name_label.tr(),
       controller: _tokenNameController,
+      focusNode: _tokenNameFocus,
       placeholder: LocaleKeys.create_topic_token_name_placeholder.tr(),
       helperText: LocaleKeys.create_topic_token_name_helper.tr(),
       // No errorText here. A failed create is always
@@ -382,12 +426,21 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     final colors = context.appColors;
 
     return BlocConsumer<CreateTopicCubit, CreateTopicState>(
+      // Only on a change of status, so typing after a failed create does not
+      // drag the caret back to the end of the name on every keystroke.
+      listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) {
         if (state.status == CreateTopicStatus.success) {
           AppHaptics.success();
           _showToast(
             '${LocaleKeys.create_topic_toast_created.tr()} ${state.name}',
           );
+        }
+        if (state.status == CreateTopicStatus.failure) {
+          // A failed create sends the user back to step 1 with the message
+          // under the topic name field. Focus it, so the keyboard is up on
+          // the field they have to fix.
+          _focusNameField();
         }
       },
       builder: (context, state) {
@@ -420,8 +473,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                       glyph: GlyphType.back,
                       ariaLabel: LocaleKeys.create_topic_back_aria_label.tr(),
                       onPressed: () {
-                        FocusScope.of(context).unfocus();
                         cubit.previousStep();
+                        // Step 1 is one field too, so the keyboard moves back
+                        // to it instead of coming down.
+                        _focusNameField();
                       },
                     )
                   : null,
