@@ -16,7 +16,14 @@ sync-contract:
 test:
 	fvm flutter test
 
-run:
+# Fill ios/Flutter/Google.xcconfig from .env. Google Sign-In on iOS needs the
+# reversed client id registered as a URL scheme in the bundle, and Xcode reads
+# it from there. Every target that can build iOS depends on this, because a
+# missing value builds an app whose sign-in fails silently.
+google-xcconfig:
+	./scripts/gen-google-xcconfig.sh
+
+run: google-xcconfig
 	fvm flutter run
 
 analyze:
@@ -49,13 +56,13 @@ doctor:
 # Release build for UI work on a device. Skips RevenueCat, so the test API key
 # cannot pop the "Wrong API Key" dialog that closes the app.
 # Pass a device with DEVICE=<id>, e.g. make run-release DEVICE=R5CXB30NDRV
-run-release:
+run-release: google-xcconfig
 	fvm flutter run --release --dart-define=SKIP_PAYWALL=true $(if $(DEVICE),-d $(DEVICE),)
 
 # Release build that rings quietly: no volume override, and a ring that stops
 # itself after a few seconds. For testing an alarm at a desk in daylight.
 # Pass a device with DEVICE=<id>, e.g. make run-quiet DEVICE=R5CXB30NDRV
-run-quiet:
+run-quiet: google-xcconfig
 	fvm flutter run --release --dart-define=SKIP_PAYWALL=true --dart-define=QUIET_ALARM=true $(if $(DEVICE),-d $(DEVICE),)
 
 # Same, as an installable artifact.
@@ -66,7 +73,7 @@ build-quiet-apk:
 build-release-apk:
 	fvm flutter build apk --release --dart-define=SKIP_PAYWALL=true
 
-build-release-ios:
+build-release-ios: google-xcconfig
 	fvm flutter build ios --release --dart-define=SKIP_PAYWALL=true
 
 # --- Worktrees ---------------------------------------------------------------

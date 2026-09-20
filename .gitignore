@@ -24,6 +24,9 @@ migrate_working_dir/
 # Flutter/Dart/Pub
 **/doc/api/
 **/ios/Flutter/.last_build_id
+# Generated from .env by scripts/gen-google-xcconfig.sh. Holds the Google iOS
+# client id, which this public repo does not carry.
+**/ios/Flutter/Google.xcconfig
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies

@@ -32,11 +32,14 @@ while read -r wt; do
   # Carry over the files git cannot: all git-ignored, all machine-local.
   # google-services.json and GoogleService-Info.plist are kept out of this
   # public repo on purpose, and without them an Android release build fails at
-  # :app:processReleaseGoogleServices.
+  # :app:processReleaseGoogleServices. Google.xcconfig is generated, not
+  # tracked, and is regenerated below from the copied .env anyway; it is in this
+  # list only so a worktree made without a .env still inherits a working one.
   for f in .env .env.local .claude/settings.local.json \
            android/app/google-services.json \
            android/key.properties \
-           ios/Runner/GoogleService-Info.plist; do
+           ios/Runner/GoogleService-Info.plist \
+           ios/Flutter/Google.xcconfig; do
     if [ -f "$main/$f" ] && [ ! -e "$wt/$f" ]; then
       mkdir -p "$(dirname "$wt/$f")"
       cp "$main/$f" "$wt/$f"
@@ -47,6 +50,17 @@ while read -r wt; do
     cd "$1" || exit 1
     {
       echo "prep started $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      # iOS only. Info.plist reads GOOGLE_REVERSED_CLIENT_ID from this file to
+      # register the URL scheme Google Sign-In needs, and it is gitignored, so a
+      # fresh worktree has none. Regenerated from the .env copied above rather
+      # than copied, so it always matches that worktree'"'"'s .env.
+      #
+      # Not fatal: Dart work does not need it, and every Makefile target that
+      # builds iOS depends on google-xcconfig, so an iOS build regenerates it
+      # and fails loudly there if .env is short a value.
+      if ! ./scripts/gen-google-xcconfig.sh; then
+        echo "WARNING: gen-google-xcconfig failed. iOS Google sign-in will not work in this worktree until .env has GOOGLE_IOS_CLIENT_ID."
+      fi
       fvm flutter pub get && make gen && make l10n && touch .worktree-ready
       echo "prep finished $(date -u +%Y-%m-%dT%H:%M:%SZ) exit=$?"
     } >> .worktree-prep.log 2>> .worktree-prep.err
