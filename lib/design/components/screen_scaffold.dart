@@ -90,8 +90,10 @@ class AppScreenScaffold extends StatefulWidget {
   static const double bottomBarGap = 12;
 
   /// How far the wash behind the pinned bar runs above the bar itself, so rows
-  /// start dissolving before they reach the button.
-  static const double _bottomBarFadeRun = 56;
+  /// start dissolving before they reach the button. Short on purpose: any
+  /// more and the strip reads as a second surface laid over the page rather
+  /// than as the button's own backdrop.
+  static const double _bottomBarFadeRun = 20;
 
   /// How wide the list pane gets when two panes are showing. It keeps a
   /// readable column without starving the detail beside it.
