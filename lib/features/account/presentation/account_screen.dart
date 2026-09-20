@@ -94,7 +94,11 @@ class AccountView extends StatelessWidget {
         ),
         const SizedBox(height: Spacing.s4),
         AppSheet(
-          child: state.status == AccountStatus.signedIn
+          // Whether anyone is signed in, not what the screen is busy doing.
+          // `working` covers adding a second provider, and keying off the
+          // status showed a signed-in person the signed-out pitch for as long
+          // as the link took. Every path that signs out clears the identity.
+          child: state.identity != null
               ? _SignedIn(state: state)
               : _SignedOut(state: state),
         ),
