@@ -14,6 +14,9 @@ import 'package:critalarm/design/faces/face_state.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+/// One token this fake server holds: the name it shows and when it was made.
+typedef _HeldToken = ({String name, DateTime createdAt});
+
 /// In-memory mock server that implements the full Crit Alarm API contract from
 /// `docs/api.md`.
 class MockServer {
@@ -31,9 +34,9 @@ class MockServer {
   ServerInfo serverInfo;
   final Map<String, Topic> _topics = {};
 
-  /// Token id to when it was made. The value is never kept: the real
-  /// server holds a hash of it, so neither can this.
-  final Map<String, Map<String, DateTime>> _tokens = {};
+  /// Token id to its name and when it was made. The value is never kept: the
+  /// real server holds a hash of it, so neither can this.
+  final Map<String, Map<String, _HeldToken>> _tokens = {};
   final Map<String, Set<String>> subscriptions = {};
   final Map<String, Map<String, Map<String, String>>> pushTokens = {};
   final Map<String, Incident> _incidents = {};
@@ -210,10 +213,18 @@ class MockServer {
     _topics[uptimeKuma.name] = uptimeKuma;
     _topics[homeHa.name] = homeHa;
 
-    _tokens[prodDb.name] = {'tok_calm_proddb': _seedTime};
-    _tokens[nasBackup.name] = {'tok_calm_nasbackup': _seedTime};
-    _tokens[uptimeKuma.name] = {'tok_calm_uptimekuma': _seedTime};
-    _tokens[homeHa.name] = {'tok_calm_homeha': _seedTime};
+    _tokens[prodDb.name] = {
+      'tok_calm_proddb': (name: 'Token 1', createdAt: _seedTime),
+    };
+    _tokens[nasBackup.name] = {
+      'tok_calm_nasbackup': (name: 'Token 1', createdAt: _seedTime),
+    };
+    _tokens[uptimeKuma.name] = {
+      'tok_calm_uptimekuma': (name: 'Token 1', createdAt: _seedTime),
+    };
+    _tokens[homeHa.name] = {
+      'tok_calm_homeha': (name: 'Token 1', createdAt: _seedTime),
+    };
 
     // Last alert acknowledged and closed (0 open incidents)
     final closedMsg = Message(
@@ -266,8 +277,12 @@ class MockServer {
 
     _topics[nasBackup.name] = nasBackup;
     _topics[prodDb.name] = prodDb;
-    _tokens[nasBackup.name] = {'tok_worried_nas': _seedTime};
-    _tokens[prodDb.name] = {'tok_worried_prod': _seedTime};
+    _tokens[nasBackup.name] = {
+      'tok_worried_nas': (name: 'Token 1', createdAt: _seedTime),
+    };
+    _tokens[prodDb.name] = {
+      'tok_worried_prod': (name: 'Token 1', createdAt: _seedTime),
+    };
 
     final warningMsg = Message(
       id: 'm_worried_nas_1',
@@ -309,9 +324,15 @@ class MockServer {
     _topics[nasBackup.name] = nasBackup;
     _topics[uptimeKuma.name] = uptimeKuma;
 
-    _tokens[prodDb.name] = {'tok_alarmed_proddb': _seedTime};
-    _tokens[nasBackup.name] = {'tok_alarmed_nas': _seedTime};
-    _tokens[uptimeKuma.name] = {'tok_alarmed_kuma': _seedTime};
+    _tokens[prodDb.name] = {
+      'tok_alarmed_proddb': (name: 'Token 1', createdAt: _seedTime),
+    };
+    _tokens[nasBackup.name] = {
+      'tok_alarmed_nas': (name: 'Token 1', createdAt: _seedTime),
+    };
+    _tokens[uptimeKuma.name] = {
+      'tok_alarmed_kuma': (name: 'Token 1', createdAt: _seedTime),
+    };
 
     const incidentId = 'inc_alarmed_proddb';
     final openedAt = now.subtract(const Duration(seconds: 134));
@@ -414,8 +435,12 @@ class MockServer {
 
     _topics[prodDb.name] = prodDb;
     _topics[nasBackup.name] = nasBackup;
-    _tokens[prodDb.name] = {'tok_acked_prod': _seedTime};
-    _tokens[nasBackup.name] = {'tok_acked_nas': _seedTime};
+    _tokens[prodDb.name] = {
+      'tok_acked_prod': (name: 'Token 1', createdAt: _seedTime),
+    };
+    _tokens[nasBackup.name] = {
+      'tok_acked_nas': (name: 'Token 1', createdAt: _seedTime),
+    };
 
     const incidentId = 'inc_acked_proddb';
     final ackedMsg = Message(
@@ -454,7 +479,10 @@ class MockServer {
       for (final t in topics) {
         _topics[t.name] = t;
         if (t.token != null) {
-          (_tokens[t.name] ??= {})[t.tokenId ?? t.token!] = _seedTime;
+          (_tokens[t.name] ??= {})[t.tokenId ?? t.token!] = (
+            name: t.tokenName ?? 'Token 1',
+            createdAt: _seedTime,
+          );
         }
       }
     }
@@ -496,6 +524,7 @@ class MockServer {
     int maxRingS = 1800,
     int deskTimerS = 600,
     String relayContent = 'none',
+    String? tokenName,
   }) {
     if (!_topicRegex.hasMatch(name)) {
       throw const ApiException(
@@ -514,6 +543,7 @@ class MockServer {
     }
     final token = _nextId('tk');
     final tokenId = _nextId('tok');
+    final heldName = _defaultedTokenName(name, tokenName);
     final topic = Topic(
       name: name,
       critical: critical,
@@ -524,12 +554,35 @@ class MockServer {
       createdAt: DateTime.now().toUtc(),
       token: token,
       tokenId: tokenId,
+      tokenName: heldName,
     );
 
-    _topics[name] = topic.copyWith(token: null, tokenId: null);
-    (_tokens[name] ??= {})[tokenId] = DateTime.now().toUtc();
+    _topics[name] = topic.copyWith(
+      token: null,
+      tokenId: null,
+      tokenName: null,
+    );
+    (_tokens[name] ??= {})[tokenId] = (
+      name: heldName,
+      createdAt: DateTime.now().toUtc(),
+    );
 
     return topic;
+  }
+
+  /// The name a token ends up with, the way the real server works it out.
+  ///
+  /// api.md §3.1: trim it, cut it to 40 characters, and when nothing is left
+  /// call it `Token N`, where N is the topic's current token count plus one.
+  /// The cut can land on a space, so trim once more after it: a 41-character
+  /// name whose 40th character is a space must not be stored with a trailing
+  /// space.
+  String _defaultedTokenName(String topicName, String? wanted) {
+    final trimmed = (wanted ?? '').trim();
+    if (trimmed.isEmpty) {
+      return 'Token ${(_tokens[topicName]?.length ?? 0) + 1}';
+    }
+    return trimmed.length > 40 ? trimmed.substring(0, 40).trim() : trimmed;
   }
 
   /// PATCH /v1/topics/{name}
@@ -575,30 +628,73 @@ class MockServer {
 
   /// GET /v1/topics/{name}/tokens
   ///
-  /// Ids and dates, oldest first. No value, the same as the real server, which
-  /// only ever stored a hash of it.
+  /// Ids, names and dates, oldest first. No value, the same as the real
+  /// server, which only ever stored a hash of it.
   List<TopicTokenInfo> getTopicTokens(String name) {
     if (!_topics.containsKey(name)) {
       throw const ApiException(statusCode: 404, message: 'topic not found');
     }
-    final held = _tokens[name] ?? const <String, DateTime>{};
+    final held = _tokens[name] ?? const <String, _HeldToken>{};
     return [
       for (final entry in held.entries)
-        TopicTokenInfo(tokenId: entry.key, createdAt: entry.value),
+        TopicTokenInfo(
+          tokenId: entry.key,
+          name: entry.value.name,
+          createdAt: entry.value.createdAt,
+        ),
     ]..sort((a, b) => a.createdAt!.compareTo(b.createdAt!));
   }
 
   /// POST /v1/topics/{name}/tokens
-  TopicToken createTopicToken(String name) {
+  TopicToken createTopicToken(String name, {String? tokenName}) {
     if (!_topics.containsKey(name)) {
       throw const ApiException(
         statusCode: 404,
         message: 'topic not found',
       );
     }
-    final token = TopicToken(token: _nextId('tk'), tokenId: _nextId('tok'));
-    (_tokens[name] ??= {})[token.tokenId] = DateTime.now().toUtc();
+    final token = TopicToken(
+      token: _nextId('tk'),
+      tokenId: _nextId('tok'),
+      name: _defaultedTokenName(name, tokenName),
+    );
+    (_tokens[name] ??= {})[token.tokenId] = (
+      name: token.name,
+      createdAt: DateTime.now().toUtc(),
+    );
     return token;
+  }
+
+  /// PATCH /v1/topics/{name}/tokens/{token_id}
+  ///
+  /// The name is required here. Unlike creation, a blank one does not fall
+  /// back to `Token N`: api.md §3.1 says `name` on the PATCH may not be left
+  /// off, so a name that is empty after trimming is a bad request.
+  TopicTokenInfo renameTopicToken(
+    String name,
+    String tokenId,
+    String tokenName,
+  ) {
+    // The real router reads the body before it looks anything up, so a blank
+    // name answers 400 even when the token does not exist.
+    if (tokenName.trim().isEmpty) {
+      throw const ApiException(statusCode: 400, message: 'invalid request');
+    }
+    if (!_topics.containsKey(name) ||
+        !(_tokens[name] ?? const {}).containsKey(tokenId)) {
+      throw const ApiException(statusCode: 404, message: 'not found');
+    }
+    final held = _tokens[name]![tokenId]!;
+    final renamed = (
+      name: _defaultedTokenName(name, tokenName),
+      createdAt: held.createdAt,
+    );
+    _tokens[name]![tokenId] = renamed;
+    return TopicTokenInfo(
+      tokenId: tokenId,
+      name: renamed.name,
+      createdAt: renamed.createdAt,
+    );
   }
 
   /// DELETE /v1/topics/{name}/tokens/{token_id}
@@ -1317,6 +1413,7 @@ class MockServer {
             maxRingS: maxRingS,
             deskTimerS: deskTimerS,
             relayContent: relayContent,
+            tokenName: body['token_name'] as String?,
           );
           return _jsonResponse(topic.toJson(), 201);
         }
@@ -1329,7 +1426,13 @@ class MockServer {
       if (tokensMatch != null) {
         final topicName = Uri.decodeComponent(tokensMatch[1]!);
         if (method == 'POST') {
-          final token = createTopicToken(topicName);
+          final body = bodyString.isNotEmpty
+              ? jsonDecode(bodyString) as Map<String, dynamic>
+              : <String, dynamic>{};
+          final token = createTopicToken(
+            topicName,
+            tokenName: body['name'] as String?,
+          );
           return _jsonResponse(token.toJson(), 201);
         }
         if (method == 'GET') {
@@ -1341,14 +1444,27 @@ class MockServer {
       }
 
       // 4. /v1/topics/{name}/tokens/{token_id}
-      final deleteTokenMatch = RegExp(
+      final oneTokenMatch = RegExp(
         r'^/v1/topics/([^/]+)/tokens/([^/]+)$',
       ).firstMatch(path);
-      if (deleteTokenMatch != null && method == 'DELETE') {
-        final topicName = Uri.decodeComponent(deleteTokenMatch[1]!);
-        final tokenId = Uri.decodeComponent(deleteTokenMatch[2]!);
-        deleteTopicToken(topicName, tokenId);
-        return http.Response('', 204);
+      if (oneTokenMatch != null) {
+        final topicName = Uri.decodeComponent(oneTokenMatch[1]!);
+        final tokenId = Uri.decodeComponent(oneTokenMatch[2]!);
+        if (method == 'DELETE') {
+          deleteTopicToken(topicName, tokenId);
+          return http.Response('', 204);
+        }
+        if (method == 'PATCH') {
+          final body = bodyString.isNotEmpty
+              ? jsonDecode(bodyString) as Map<String, dynamic>
+              : <String, dynamic>{};
+          final renamed = renameTopicToken(
+            topicName,
+            tokenId,
+            body['name'] as String? ?? '',
+          );
+          return _jsonResponse(renamed.toJson(), 200);
+        }
       }
 
       // 5. /v1/topics/{name}

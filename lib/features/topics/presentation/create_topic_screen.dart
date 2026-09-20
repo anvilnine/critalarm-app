@@ -48,6 +48,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
   static const String _prefAskAgainOnEnter = 'create_topic_ask_again_on_enter';
 
   late final TextEditingController _nameController;
+  late final TextEditingController _tokenNameController;
 
   /// Shown just above the pinned button, in the layout rather than floating
   /// over it. A SnackBar is a Material idea and lands on top of the button
@@ -59,12 +60,14 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
   void initState() {
     super.initState();
     _nameController = TextEditingController();
+    _tokenNameController = TextEditingController();
   }
 
   @override
   void dispose() {
     _toastTimer?.cancel();
     _nameController.dispose();
+    _tokenNameController.dispose();
     super.dispose();
   }
 
@@ -79,6 +82,12 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
   void _submit() {
     FocusScope.of(context).unfocus();
     unawaited(context.read<CreateTopicCubit>().createTopic());
+  }
+
+  /// Step 1 to step 2. No network call: the topic is created on step 2.
+  void _next() {
+    FocusScope.of(context).unfocus();
+    context.read<CreateTopicCubit>().nextStep();
   }
 
   String _criticalRemainingText(CreateTopicState state) {
@@ -237,6 +246,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
 
         final isSubmitting = state.status == CreateTopicStatus.submitting;
         final isSuccess = state.status == CreateTopicStatus.success;
+        final isTokenStep = state.step == CreateTopicStep.token;
 
         final content = GestureDetector(
           behavior: HitTestBehavior.translucent,
@@ -246,6 +256,16 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
             resizeForKeyboard: true,
             topBar: AppTopBar(
               title: LocaleKeys.create_topic_title.tr(),
+              leading: isTokenStep && !isSuccess
+                  ? AppIconButton(
+                      glyph: GlyphType.back,
+                      ariaLabel: LocaleKeys.create_topic_back_aria_label.tr(),
+                      onPressed: () {
+                        FocusScope.of(context).unfocus();
+                        cubit.previousStep();
+                      },
+                    )
+                  : null,
               trailing: AppIconButton(
                 glyph: GlyphType.close,
                 ariaLabel: LocaleKeys.create_topic_cancel_aria_label.tr(),
@@ -278,9 +298,13 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                 TourAnchor(
                   id: TourAnchorId.createButton,
                   child: AppButton(
-                    label: isSuccess
-                        ? 'Done'
-                        : LocaleKeys.create_topic_create_button.tr(),
+                    label: switch ((isSuccess, isTokenStep)) {
+                      (true, _) => 'Done',
+                      (false, true) =>
+                        LocaleKeys.create_topic_create_button.tr(),
+                      (false, false) =>
+                        LocaleKeys.create_topic_next_button.tr(),
+                    },
                     isFullWidth: true,
                     isLoading: isSubmitting,
                     onPressed: () {
@@ -293,8 +317,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                         } else {
                           context.go('/topics/$name');
                         }
-                      } else {
+                      } else if (isTokenStep) {
                         _submit();
+                      } else {
+                        _next();
                       }
                     },
                   ),
@@ -328,6 +354,47 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                             showFace: false,
                           ),
                         if (!isSuccess) ...[
+                          Text(
+                            LocaleKeys.create_topic_step_label.tr(
+                              namedArgs: {
+                                'current': isTokenStep ? '2' : '1',
+                                'total': '2',
+                              },
+                            ),
+                            style: TextStyle(
+                              fontFamily: AppTypography.fontBody,
+                              fontFamilyFallback:
+                                  AppTypography.fontBodyFallbacks,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: colors.ink3,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        if (!isSuccess && isTokenStep)
+                          AppTextField(
+                            label: LocaleKeys.create_topic_token_name_label
+                                .tr(),
+                            controller: _tokenNameController,
+                            placeholder: LocaleKeys
+                                .create_topic_token_name_placeholder
+                                .tr(),
+                            helperText: LocaleKeys
+                                .create_topic_token_name_helper
+                                .tr(),
+                            // No errorText here. A failed create is always
+                            // about the topic, and the cubit sends the user
+                            // back to step 1 so the message sits under the
+                            // topic name field.
+                            enabled: !isSubmitting,
+                            isMono: false,
+                            maxLength: 40,
+                            textInputAction: TextInputAction.done,
+                            onChanged: cubit.tokenNameChanged,
+                            onSubmitted: (_) => _handleEnterSubmit(),
+                          ),
+                        if (!isSuccess && !isTokenStep) ...[
                           TourAnchor(
                             id: TourAnchorId.createName,
                             child: AppTextField(
@@ -358,7 +425,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                                 onPressed: isSubmitting ? null : _handlePaste,
                               ),
                               onChanged: cubit.nameChanged,
-                              onSubmitted: (_) => _handleEnterSubmit(),
+                              onSubmitted: (_) => _next(),
                             ),
                           ),
                           const SizedBox(height: 14),
@@ -465,6 +532,22 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                               ),
                             ),
                             const SizedBox(height: 8),
+                          ],
+                          if (state.createdTopic?.tokenName
+                              case final tokenName?
+                              when tokenName.isNotEmpty) ...[
+                            Text(
+                              tokenName,
+                              style: TextStyle(
+                                fontFamily: AppTypography.fontBody,
+                                fontFamilyFallback:
+                                    AppTypography.fontBodyFallbacks,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: colors.ink,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
                           ],
                           AppKeyValueRow(
                             value: token,

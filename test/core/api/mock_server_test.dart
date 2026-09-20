@@ -102,6 +102,33 @@ void main() {
       server.deleteTopicToken('prod', token2.tokenId);
     });
 
+    test('/v1/topics/{name}/tokens/{id} PATCH refuses a blank name', () {
+      server.createTopic(name: 'prod');
+      final tokenId = server.getTopicTokens('prod').single.tokenId;
+
+      // api.md §3.1: `name` is required on the PATCH. Unlike creation it does
+      // not fall back to `Token N`.
+      expect(
+        () => server.renameTopicToken('prod', tokenId, '   '),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 400)
+              .having((e) => e.message, 'message', 'invalid request'),
+        ),
+      );
+      expect(server.getTopicTokens('prod').single.name, 'Token 1');
+    });
+
+    test('a token name longer than 40 characters keeps no trailing space', () {
+      // 39 characters, then a space, then more: the cut lands on the space.
+      final wanted = '${'a' * 39} bcd';
+      server.createTopic(name: 'prod', tokenName: wanted);
+
+      final stored = server.getTopicTokens('prod').single.name;
+      expect(stored, 'a' * 39);
+      expect(stored, isNot(endsWith(' ')));
+    });
+
     test('/v1/test throws 409 if topic is not critical', () {
       server.createTopic(name: 'non-crit');
 

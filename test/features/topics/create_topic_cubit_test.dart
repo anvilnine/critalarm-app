@@ -132,6 +132,89 @@ void main() {
       ],
     );
 
+    test('Next moves step 1 to step 2 without creating anything', () async {
+      final cubit = CreateTopicCubit(createTopicUsecase)
+        ..nameChanged('prod-api')
+        ..nextStep();
+
+      expect(cubit.state.step, CreateTopicStep.token);
+      expect(cubit.state.errorMessage, isNull);
+      // Nothing reached the server: backing out now leaves no orphan topic.
+      expect(server.getTopics(), isEmpty);
+    });
+
+    test('Next refuses a topic name the server would not take', () {
+      final cubit = CreateTopicCubit(createTopicUsecase)
+        ..nameChanged('invalid name!')
+        ..nextStep();
+
+      expect(cubit.state.step, CreateTopicStep.topic);
+      expect(
+        cubit.state.errorMessage,
+        'Use 1 to 64 lowercase letters, digits and hyphens. Try prod-db.',
+      );
+    });
+
+    test('Back from step 2 keeps the typed topic name', () {
+      final cubit = CreateTopicCubit(createTopicUsecase)
+        ..nameChanged('prod-api')
+        ..criticalToggled(isCritical: true)
+        ..nextStep()
+        ..previousStep();
+
+      expect(cubit.state.step, CreateTopicStep.topic);
+      expect(cubit.state.name, 'prod-api');
+      expect(cubit.state.isCritical, isTrue);
+    });
+
+    test('Create sends the topic name and the token name', () async {
+      final cubit = CreateTopicCubit(createTopicUsecase)
+        ..nameChanged('prod-api')
+        ..nextStep()
+        ..tokenNameChanged('CI server');
+
+      await cubit.createTopic();
+
+      expect(cubit.state.status, CreateTopicStatus.success);
+      expect(cubit.state.createdTopic?.name, 'prod-api');
+      expect(cubit.state.createdTopic?.tokenName, 'CI server');
+      expect(server.getTopicTokens('prod-api').single.name, 'CI server');
+    });
+
+    test('an empty token name leaves the server to call it Token 1', () async {
+      final cubit = CreateTopicCubit(createTopicUsecase)
+        ..nameChanged('prod-api')
+        ..nextStep();
+
+      await cubit.createTopic();
+
+      expect(cubit.state.status, CreateTopicStatus.success);
+      expect(server.getTopicTokens('prod-api').single.name, 'Token 1');
+    });
+
+    test('a failed create sends the user back to step 1', () async {
+      // The name is taken, so the server answers 409. The message belongs
+      // under the topic name field, which only step 1 shows.
+      server.createTopic(name: 'prod');
+
+      final cubit = CreateTopicCubit(createTopicUsecase)
+        ..nameChanged('prod')
+        ..nextStep()
+        ..tokenNameChanged('CI server');
+      expect(cubit.state.step, CreateTopicStep.token);
+
+      await cubit.createTopic();
+
+      expect(cubit.state.status, CreateTopicStatus.failure);
+      expect(cubit.state.step, CreateTopicStep.topic);
+      expect(
+        cubit.state.errorMessage,
+        'A topic with that name already exists.',
+      );
+      // The typed token name survives, so pressing Next again does not lose it.
+      expect(cubit.state.tokenName, 'CI server');
+    });
+
     test('criticalRemaining helper computes correctly', () {
       const freeState = CreateTopicState(
         criticalUsed: 1,

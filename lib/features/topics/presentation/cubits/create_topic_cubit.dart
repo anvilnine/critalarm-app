@@ -78,6 +78,38 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     emit(state.copyWith(name: name, clearError: true));
   }
 
+  void tokenNameChanged(String name) {
+    emit(state.copyWith(tokenName: name, clearError: true));
+  }
+
+  /// Why this topic name cannot be used, or null when it can.
+  String? _nameError(String trimmedName) {
+    if (trimmedName.isEmpty) {
+      return LocaleKeys.create_topic_name_error_empty.tr();
+    }
+    if (!_topicRegex.hasMatch(trimmedName)) {
+      return LocaleKeys.create_topic_name_error_invalid.tr();
+    }
+    return null;
+  }
+
+  /// Step 1 to step 2. Nothing reaches the server here: the topic and its
+  /// first token are made together when step 2 submits, so backing out of
+  /// step 2 leaves nothing behind.
+  void nextStep() {
+    final error = _nameError(state.name.trim());
+    if (error != null) {
+      emit(state.copyWith(errorMessage: error));
+      return;
+    }
+    emit(state.copyWith(step: CreateTopicStep.token, clearError: true));
+  }
+
+  /// Step 2 back to step 1. The topic name stays where it was typed.
+  void previousStep() {
+    emit(state.copyWith(step: CreateTopicStep.topic, clearError: true));
+  }
+
   void criticalToggled({required bool isCritical}) {
     emit(
       state.copyWith(
@@ -93,19 +125,12 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
       return;
     }
     final trimmedName = state.name.trim();
-    if (trimmedName.isEmpty) {
+    final nameError = _nameError(trimmedName);
+    if (nameError != null) {
       emit(
         state.copyWith(
-          errorMessage: LocaleKeys.create_topic_name_error_empty.tr(),
-        ),
-      );
-      return;
-    }
-
-    if (!_topicRegex.hasMatch(trimmedName)) {
-      emit(
-        state.copyWith(
-          errorMessage: LocaleKeys.create_topic_name_error_invalid.tr(),
+          step: CreateTopicStep.topic,
+          errorMessage: nameError,
         ),
       );
       return;
@@ -118,10 +143,13 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
       ),
     );
 
+    final trimmedTokenName = state.tokenName.trim();
     final result = await _createTopicUsecase(
       CreateTopicParams(
         name: trimmedName,
         critical: state.isCritical,
+        // Left off when it is blank, so the server falls back to `Token 1`.
+        tokenName: trimmedTokenName.isEmpty ? null : trimmedTokenName,
       ),
     );
 
@@ -140,6 +168,10 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
         emit(
           state.copyWith(
             status: CreateTopicStatus.failure,
+            // Every error a create can raise is about the topic, never the
+            // token, so send the user back to step 1 where the topic name
+            // field is. The typed token name is kept.
+            step: CreateTopicStep.topic,
             // failure.message is the server's wire code, e.g. "cap". Never
             // put that under a text field.
             errorMessage: apiErrorMessage(failure.message, cap: cap?.name),

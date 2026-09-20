@@ -21,6 +21,7 @@ void main() {
       GetTopicTokensUsecase(repository),
       CreateTopicTokenUsecase(repository),
       RevokeTopicTokenUsecase(repository),
+      RenameTopicTokenUsecase(repository),
     );
     addTearDown(cubit.close);
   });
@@ -122,6 +123,48 @@ void main() {
         'Make a new token first, then revoke this one.',
       );
       expect(cubit.state.isWorking, isFalse);
+    });
+
+    test('renaming puts the new name on the list', () async {
+      await cubit.load('prod-db');
+      final target = cubit.state.tokens.first.tokenId;
+
+      await cubit.rename(target, 'CI server');
+
+      expect(cubit.state.tokens.first.name, 'CI server');
+      expect(cubit.state.errorMessage, isNull);
+      expect(cubit.state.isWorking, isFalse);
+
+      // What the server holds agrees with what is on screen.
+      await cubit.load('prod-db');
+      expect(cubit.state.tokens.first.name, 'CI server');
+    });
+
+    test('a refused rename keeps the old name and says why', () async {
+      await cubit.load('prod-db');
+      final target = cubit.state.tokens.first.tokenId;
+      final before = cubit.state.tokens.first.name;
+
+      // Another device revoked it. This screen has not heard, so it still
+      // offers to rename a token the server no longer has.
+      server
+        ..createTopicToken('prod-db')
+        ..deleteTopicToken('prod-db', target);
+
+      await cubit.rename(target, 'CI server');
+
+      expect(cubit.state.tokens.first.name, before);
+      expect(cubit.state.errorMessage, isNotNull);
+      expect(cubit.state.isWorking, isFalse);
+    });
+
+    test('renaming a token the list never held does nothing', () async {
+      await cubit.load('prod-db');
+      final before = cubit.state;
+
+      await cubit.rename('tok_not_here', 'CI server');
+
+      expect(cubit.state, before);
     });
 
     test('revoking a token the list never held does nothing', () async {

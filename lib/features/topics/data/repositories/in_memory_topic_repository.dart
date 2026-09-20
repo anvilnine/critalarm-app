@@ -81,6 +81,7 @@ class InMemoryTopicRepository implements TopicRepository {
     int maxRingS = 1800,
     int deskTimerS = 600,
     String relayContent = 'none',
+    String? tokenName,
   }) async {
     try {
       final topic = await _client.createTopic(
@@ -90,6 +91,7 @@ class InMemoryTopicRepository implements TopicRepository {
         maxRingS: maxRingS,
         deskTimerS: deskTimerS,
         relayContent: relayContent,
+        tokenName: tokenName,
       );
       try {
         await _subscriptions(name, remove: false);
@@ -184,10 +186,34 @@ class InMemoryTopicRepository implements TopicRepository {
   }
 
   @override
-  Future<AppResult<TopicToken>> createTopicToken(String name) async {
+  Future<AppResult<TopicToken>> createTopicToken(
+    String name, {
+    String? tokenName,
+  }) async {
     try {
-      final token = await _client.createTopicToken(name);
+      final token = await _client.createTopicToken(name, tokenName: tokenName);
       return token.toSuccess();
+    } on ApiException catch (e) {
+      return Failure.api(
+        statusCode: e.statusCode,
+        message: e.message,
+        code: e.code,
+        cap: e.cap,
+      ).toFailure();
+    } on Exception catch (e) {
+      return Failure.unexpected(message: e.toString()).toFailure();
+    }
+  }
+
+  @override
+  Future<AppResult<TopicTokenInfo>> renameTopicToken(
+    String name,
+    String tokenId,
+    String tokenName,
+  ) async {
+    try {
+      final renamed = await _client.renameTopicToken(name, tokenId, tokenName);
+      return renamed.toSuccess();
     } on ApiException catch (e) {
       return Failure.api(
         statusCode: e.statusCode,

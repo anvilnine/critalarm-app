@@ -32,26 +32,66 @@ void main() {
   }
 
   group('TopicTokensSection', () {
-    testWidgets('one token says why there is nothing to revoke', (
+    testWidgets('a row shows the token name, never its id', (tester) async {
+      await tester.pumpWidget(buildTestApp());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Token 1'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Text && (w.data?.contains('tok_') ?? false),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('tapping a row opens the sheet and saving renames it', (
       tester,
     ) async {
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 
-      expect(find.text(note), findsOneWidget);
-      expect(find.bySemanticsLabel('Revoke this token'), findsNothing);
+      await tester.tap(find.text('Token 1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Save'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'CI server');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('CI server'), findsOneWidget);
+      expect(find.text('Token 1'), findsNothing);
+      expect(
+        getIt<MockServer>().getTopicTokens('prod-db').first.name,
+        'CI server',
+      );
     });
 
-    testWidgets('two tokens drop the note, the revoke control is there', (
+    testWidgets('the last token has no Revoke button, it says why instead', (
       tester,
     ) async {
+      await tester.pumpWidget(buildTestApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Token 1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Revoke'), findsNothing);
+      expect(find.text(note), findsOneWidget);
+    });
+
+    testWidgets('a second token brings the Revoke button back', (tester) async {
       getIt<MockServer>().createTopicToken('prod-db');
 
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 
+      await tester.tap(find.text('Token 1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Revoke'), findsOneWidget);
       expect(find.text(note), findsNothing);
-      expect(find.bySemanticsLabel('Revoke this token'), findsNWidgets(2));
     });
   });
 }

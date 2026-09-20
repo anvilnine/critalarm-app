@@ -30,6 +30,9 @@ abstract interface class ApiClient {
   Future<List<Topic>> getTopics();
 
   /// POST /v1/topics
+  ///
+  /// [tokenName] names the token the server mints with the topic. Leave it off
+  /// and the server calls it `Token 1` (api.md §3.1).
   Future<Topic> createTopic({
     required String name,
     bool critical = false,
@@ -37,6 +40,7 @@ abstract interface class ApiClient {
     int maxRingS = 1800,
     int deskTimerS = 600,
     String relayContent = 'none',
+    String? tokenName,
   });
 
   /// PATCH /v1/topics/{name}
@@ -53,11 +57,22 @@ abstract interface class ApiClient {
 
   /// GET /v1/topics/{name}/tokens
   ///
-  /// Ids and dates only. The server has no token values to give back.
+  /// Ids, names and dates only. The server has no token values to give back.
   Future<List<TopicTokenInfo>> getTopicTokens(String name);
 
   /// POST /v1/topics/{name}/tokens
-  Future<TopicToken> createTopicToken(String name);
+  ///
+  /// [tokenName] is optional. A missing or blank one becomes `Token N`.
+  Future<TopicToken> createTopicToken(String name, {String? tokenName});
+
+  /// PATCH /v1/topics/{name}/tokens/{token_id}
+  ///
+  /// Renames one token. The name is required here, unlike on creation.
+  Future<TopicTokenInfo> renameTopicToken(
+    String name,
+    String tokenId,
+    String tokenName,
+  );
 
   /// DELETE /v1/topics/{name}/tokens/{token_id}
   Future<void> deleteTopicToken(String name, String tokenId);
