@@ -27,14 +27,25 @@ abstract interface class TelemetryGate {
 
   /// Alias for [paywallEnabled].
   bool get isPaywallEnabled;
+
+  /// Which paywall layout Remote Config picked for this device, as the raw
+  /// string under `paywall_variant`. `PaywallVariant.fromKey` turns an
+  /// unknown value into the default, so this getter never has to validate.
+  String get paywallVariantKey;
 }
 
 /// A no-op implementation of [TelemetryGate] used for testing or fallback.
 class NoopTelemetryGate implements TelemetryGate {
-  const NoopTelemetryGate({this.paywallEnabled = false});
+  const NoopTelemetryGate({
+    this.paywallEnabled = false,
+    this.paywallVariantKey = '',
+  });
 
   @override
   final bool paywallEnabled;
+
+  @override
+  final String paywallVariantKey;
 
   @override
   bool get isPaywallEnabled => paywallEnabled;

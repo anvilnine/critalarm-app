@@ -325,7 +325,7 @@ class _SettingsScreenContent extends StatelessWidget {
                           queryParameters: const {'demo': 'true'},
                         ),
                       ),
-                      if (buildSkipsPaywall) ...[
+                      if (buildSkipsPaywall || buildHasPaywallLab) ...[
                         const SizedBox(height: 8),
                         _buildNavRow(
                           context,

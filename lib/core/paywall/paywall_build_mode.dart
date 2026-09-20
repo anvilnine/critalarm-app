@@ -4,6 +4,12 @@
 // Defaults to false, so shipping builds always talk to RevenueCat.
 const buildSkipsPaywall = bool.fromEnvironment('SKIP_PAYWALL');
 
+// Set with --dart-define=PAYWALL_LAB=true to get the variant picker in
+// Settings, so one build can show every paywall layout without waiting on a
+// Remote Config fetch. Defaults to false, so a shipping build takes its
+// variant from Remote Config and nothing else.
+const buildHasPaywallLab = bool.fromEnvironment('PAYWALL_LAB');
+
 /// Whether a build is about to ship with no way to take money.
 ///
 /// A release build with an empty RevenueCat key never configures the SDK, so

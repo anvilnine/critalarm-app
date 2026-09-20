@@ -9,6 +9,11 @@ abstract final class AnalyticsEvents {
   static const timeToAckMs = 'time_to_ack_ms';
   static const pushReceived = 'push_received';
   static const pushDropped = 'push_dropped';
+  static const paywallViewed = 'paywall_viewed';
+  static const paywallPlanSelected = 'paywall_plan_selected';
+  static const paywallPurchaseStarted = 'paywall_purchase_started';
+  static const paywallPurchaseCompleted = 'paywall_purchase_completed';
+  static const paywallPurchaseFailed = 'paywall_purchase_failed';
 }
 
 /// Thin wrapper so callers name an event instead of building a params map.

@@ -71,10 +71,16 @@ void main() {
           equals(const Duration(seconds: 10)),
         );
 
-        // Typed defaults map: {'paywall_enabled': false}
+        // Typed defaults map: paywall_enabled false, paywall_variant
+        // straight.
         expect(
           FirebaseTelemetryGate.remoteConfigDefaults,
-          equals(const {'paywall_enabled': false}),
+          equals(
+            const {
+              'paywall_enabled': false,
+              'paywall_variant': 'straight',
+            },
+          ),
         );
         expect(
           FirebaseTelemetryGate.remoteConfigDefaults['paywall_enabled'],
@@ -110,6 +116,7 @@ void main() {
         verify(
           () => mockRemoteConfig.setDefaults(const {
             'paywall_enabled': false,
+            'paywall_variant': 'straight',
           }),
         ).called(1);
 

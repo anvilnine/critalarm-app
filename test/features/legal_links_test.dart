@@ -56,8 +56,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Restore purchases'), findsOneWidget);
-      expect(find.text('Terms'), findsOneWidget);
-      expect(find.text('Privacy'), findsOneWidget);
+      expect(find.text('Terms of Use'), findsOneWidget);
+      expect(find.text('Privacy Policy'), findsOneWidget);
     });
   });
 }
