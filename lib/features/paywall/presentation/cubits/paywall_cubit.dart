@@ -363,23 +363,6 @@ class PaywallCubit extends Cubit<PaywallState> {
     return result;
   }
 
-  /// Opens the RevenueCat dashboard paywall when that is the variant this
-  /// device drew. Any other variant is drawn by this app and needs nothing.
-  ///
-  /// Called once after the screen loads. The Dart paywall stays underneath, so
-  /// closing the RevenueCat sheet leaves a working screen rather than a blank
-  /// one.
-  Future<void> maybePresentHostedTemplate() async {
-    if (state.variant != PaywallVariant.hostedTemplate || state.isPro) {
-      return;
-    }
-    if (_hostedTemplateShown) return;
-    _hostedTemplateShown = true;
-    await presentNativePaywall();
-  }
-
-  bool _hostedTemplateShown = false;
-
   /// Presents the native RevenueCat Customer Center UI.
   Future<void> presentCustomerCenter() async {
     await RevenueCatUI.presentCustomerCenter(
