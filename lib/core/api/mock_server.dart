@@ -574,12 +574,15 @@ class MockServer {
   ///
   /// api.md §3.1: trim it, cut it to 40 characters, and when nothing is left
   /// call it `Token N`, where N is the topic's current token count plus one.
+  /// The cut can land on a space, so trim once more after it: a 41-character
+  /// name whose 40th character is a space must not be stored with a trailing
+  /// space.
   String _defaultedTokenName(String topicName, String? wanted) {
     final trimmed = (wanted ?? '').trim();
     if (trimmed.isEmpty) {
       return 'Token ${(_tokens[topicName]?.length ?? 0) + 1}';
     }
-    return trimmed.length > 40 ? trimmed.substring(0, 40) : trimmed;
+    return trimmed.length > 40 ? trimmed.substring(0, 40).trim() : trimmed;
   }
 
   /// PATCH /v1/topics/{name}
@@ -664,13 +667,19 @@ class MockServer {
 
   /// PATCH /v1/topics/{name}/tokens/{token_id}
   ///
-  /// The name is required here. A blank one still falls back to `Token N`,
-  /// the same rule creation uses.
+  /// The name is required here. Unlike creation, a blank one does not fall
+  /// back to `Token N`: api.md §3.1 says `name` on the PATCH may not be left
+  /// off, so a name that is empty after trimming is a bad request.
   TopicTokenInfo renameTopicToken(
     String name,
     String tokenId,
     String tokenName,
   ) {
+    // The real router reads the body before it looks anything up, so a blank
+    // name answers 400 even when the token does not exist.
+    if (tokenName.trim().isEmpty) {
+      throw const ApiException(statusCode: 400, message: 'invalid request');
+    }
     if (!_topics.containsKey(name) ||
         !(_tokens[name] ?? const {}).containsKey(tokenId)) {
       throw const ApiException(statusCode: 404, message: 'not found');
