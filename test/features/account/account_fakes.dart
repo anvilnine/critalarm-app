@@ -17,8 +17,16 @@ final class FakeIdentityRepository implements IdentityRepository {
   @override
   bool supports(IdentityProvider provider) => available.contains(provider);
 
+  /// Set to make the next sheet come back cancelled, which is what backing
+  /// out of Apple's or Google's dialog looks like.
+  bool cancelNextSignIn = false;
+
   @override
   Future<IdentitySession> signIn(IdentityProvider provider) async {
+    if (cancelNextSignIn) {
+      cancelNextSignIn = false;
+      throw const IdentitySignInCancelled();
+    }
     signInCalls++;
     return IdentitySession(
       token: 'session_$signInCalls',
@@ -79,14 +87,40 @@ final class FakeAccountRepository implements AccountRepository {
   bool isPaid = false;
 
   final List<String> linkTokens = [];
+
+  /// The intent sent with each link call, in order, so a test can prove the
+  /// account screen said `link` and the sign-in screen said `sign_in`.
+  final List<AccountLinkIntent> linkIntents = [];
+
+  /// One answer per join-token call, in order.
+  List<AccountJoinTokenResult> joinTokenAnswers = const [
+    AccountJoinTokenResult.minted(joinToken: 'aj_first'),
+  ];
+
+  /// Thrown instead of answering, which is what offline looks like.
+  Exception? joinTokenError;
+
+  int joinTokenCalls = 0;
   int mergeCalls = 0;
   int switchCalls = 0;
   int signOutCalls = 0;
 
   @override
-  Future<AccountLinkResult> link(String identityToken) async {
+  Future<AccountLinkResult> link(
+    String identityToken, {
+    AccountLinkIntent intent = AccountLinkIntent.signIn,
+  }) async {
     linkTokens.add(identityToken);
+    linkIntents.add(intent);
     return linkAnswers[linkTokens.length - 1];
+  }
+
+  @override
+  Future<AccountJoinTokenResult> mintJoinToken() async {
+    joinTokenCalls++;
+    final error = joinTokenError;
+    if (error != null) throw error;
+    return joinTokenAnswers[joinTokenCalls - 1];
   }
 
   @override

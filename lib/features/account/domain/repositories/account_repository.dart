@@ -1,10 +1,21 @@
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_session.dart';
 
-/// The four account routes, plus signing out and starting over.
+/// The account routes, plus signing out and starting over.
 abstract interface class AccountRepository {
   /// Sign up and sign in are one call.
-  Future<AccountLinkResult> link(String identityToken);
+  ///
+  /// [intent] says which screen the person was on. The sign-in screen sends
+  /// `sign_in`; the account screen, under the button that adds another way in,
+  /// sends `link` (api.md §3.7).
+  Future<AccountLinkResult> link(
+    String identityToken, {
+    AccountLinkIntent intent,
+  });
+
+  /// Mints a fresh join code for this account and hands it back once. The
+  /// code before it stops working, and nothing can read the new one back.
+  Future<AccountJoinTokenResult> mintJoinToken();
 
   /// Keep both: this phone's account folds into the identity's.
   Future<AccountMergeResult> merge({

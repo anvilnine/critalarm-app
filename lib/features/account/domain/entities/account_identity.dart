@@ -8,8 +8,10 @@ final class AccountIdentity {
     required this.provider,
     required this.accountId,
     this.email,
-  });
+    Set<IdentityProvider>? providers,
+  }) : knownProviders = providers;
 
+  /// The way this phone signed in with. It is the one whose email is shown.
   final IdentityProvider provider;
 
   /// The account the phone belongs to after signing in.
@@ -19,6 +21,21 @@ final class AccountIdentity {
   /// real address, so it is shown exactly as given.
   final String? email;
 
+  /// Every way in the app has watched land on this account, or null on an
+  /// account saved before linking existed. Read [providers] instead, which
+  /// fills the null in with the one provider this phone signed in with.
+  final Set<IdentityProvider>? knownProviders;
+
+  /// Every way in that reaches this account, this phone's own included.
+  ///
+  /// The contract has no route that lists them, so this is what the app has
+  /// watched happen on this handset: the provider it signed in with, plus
+  /// each one a link added.
+  Set<IdentityProvider> get providers => knownProviders ?? {provider};
+
+  /// Whether [candidate] already reaches this account.
+  bool holds(IdentityProvider candidate) => providers.contains(candidate);
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -26,10 +43,16 @@ final class AccountIdentity {
           runtimeType == other.runtimeType &&
           provider == other.provider &&
           accountId == other.accountId &&
-          email == other.email;
+          email == other.email &&
+          setEquals(providers, other.providers);
 
   @override
-  int get hashCode => Object.hash(provider, accountId, email);
+  int get hashCode => Object.hash(
+    provider,
+    accountId,
+    email,
+    Object.hashAllUnordered(providers),
+  );
 }
 
 /// The person closed the provider sheet without signing in.
