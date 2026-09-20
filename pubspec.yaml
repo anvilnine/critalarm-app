@@ -1,7 +1,7 @@
 name: critalarm
 description: "Crit Alarm — a self-hostable, ntfy-compatible alarm that rings through Do Not Disturb until you acknowledge it."
 publish_to: 'none'
-version: 0.1.0+2
+version: 0.1.0+3
 
 environment:
   sdk: ^3.12.2
