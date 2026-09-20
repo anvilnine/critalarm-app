@@ -304,7 +304,11 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                 ],
               ),
             ),
-          SliverToBoxAdapter(
+          // With no server saved there is nothing to list and nothing to say
+          // that the red card above is not already saying, so the sheet does
+          // not draw at all. An empty one is a blank white box with a shadow.
+          if (state.hasServer)
+            SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
                 12,
@@ -322,13 +326,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                       // the empty state, so a slow network or a dead
                       // server told the user every topic they own was
                       // gone, and the error was never shown at all.
-                      // No server is already said loudly by the red card
-                      // above, with the button that fixes it. Saying it
-                      // twice on one screen helps nobody.
-                      if (state.status == HomeStatus.failure &&
-                          prompt.promptType == HomePromptType.noServer) ...[
-                        const SizedBox.shrink(),
-                      ] else if (state.isStale) ...[
+                      if (state.isStale) ...[
                         AppToast(
                           faceState: FaceState.watching,
                           message: LocaleKeys.home_unreachable_strip.tr(
@@ -350,6 +348,23 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                           ),
                         ),
                         const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            LocaleKeys.home_stale_list_label.tr(
+                              namedArgs: {
+                                'time': DateFormat.Hm().format(
+                                  state.lastKnownGoodAt!.toLocal(),
+                                ),
+                              },
+                            ),
+                            style: AppTypography.mono(
+                              context.appColors.ink3,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
                         // The rows are the user's own, just old, so they
                         // stay. Dimmed and dead to the touch, because
                         // opening one would show numbers from then, not now.

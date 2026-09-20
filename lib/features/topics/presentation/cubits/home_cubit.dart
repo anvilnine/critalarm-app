@@ -156,6 +156,7 @@ class HomeCubit extends Cubit<HomeState> {
         clearRinging: true,
         isStale: false,
         clearLastKnownGood: true,
+        hasServer: false,
       );
     }
 
@@ -175,6 +176,7 @@ class HomeCubit extends Cubit<HomeState> {
       severity: SeverityMode.none,
       clearRinging: true,
       isStale: seenAt != null,
+      hasServer: true,
     );
   }
 
@@ -203,6 +205,7 @@ class HomeCubit extends Cubit<HomeState> {
         clearError: true,
         isStale: false,
         lastKnownGoodAt: DateTime.now(),
+        hasServer: true,
       );
     }
 
@@ -223,6 +226,12 @@ class HomeCubit extends Cubit<HomeState> {
         poll: 1,
       );
       if (pollResult.isError()) {
+        // The lists themselves arrived, so the guard above has already
+        // recorded them as drawn. Forget that, or the next answer carrying
+        // the same list objects is skipped and the screen stays stuck on
+        // this failure.
+        _builtFromIncidents = null;
+        _builtFromTopics = null;
         return _failureState(pollResult.exceptionOrNull()?.message);
       }
       final msgs = pollResult.getOrNull() ?? [];
@@ -319,6 +328,7 @@ class HomeCubit extends Cubit<HomeState> {
       clearError: true,
       isStale: false,
       lastKnownGoodAt: DateTime.now(),
+      hasServer: true,
     );
   }
 

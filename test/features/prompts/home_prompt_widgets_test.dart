@@ -16,7 +16,6 @@ import 'package:critalarm/features/permissions/domain/usecases/get_device_permis
 import 'package:critalarm/features/permissions/presentation/widgets/setup_health_banner.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/account_prompt_card.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/home_prompt_slot.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/no_server_prompt_card.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
@@ -177,45 +176,6 @@ void main() {
     });
   });
 
-  group('AccountPromptCard', () {
-    testWidgets('renders account backup copy and dismiss button calls cubit',
-        (tester) async {
-      final stubCubit = StubHomePromptCubit(
-        const HomePromptState(promptType: HomePromptType.accountBackup),
-      );
-
-      await tester.pumpWidget(
-        wrapWithTheme(
-          BlocProvider<HomePromptCubit>.value(
-            value: stubCubit,
-            child: const AccountPromptCard(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Back up your topics'), findsOneWidget);
-      expect(
-        find.text(
-          'Sign in to keep your topics safe if you switch or lose your device.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Sign in'), findsOneWidget);
-
-      final face = tester.widget<FaceWidget>(find.byType(FaceWidget));
-      expect(face.state, FaceState.calm);
-
-      // Tap close button (X)
-      final closeButton = find.byType(AppIconButton);
-      expect(closeButton, findsOneWidget);
-      await tester.tap(closeButton);
-      await tester.pump();
-
-      expect(stubCubit.dismissCalls, 1);
-    });
-  });
-
   group('HomePromptSlot', () {
     testWidgets('renders active prompt and collapses when none',
         (tester) async {
@@ -240,7 +200,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(NoServerPromptCard), findsNothing);
-      expect(find.byType(AccountPromptCard), findsNothing);
     });
   });
 

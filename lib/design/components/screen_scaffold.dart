@@ -176,7 +176,12 @@ class AppScreenScaffold extends StatelessWidget {
         // The tab bar floats over every branch screen, so the fade behind it
         // lives here rather than in the shell: this side of the tree is inside
         // the screen's SeverityScope, so the wash follows the retint.
-        if (effectiveWithFades && hasTabBar && !size.isExpanded)
+        // A screen with a pinned bottom slot draws its own, taller fade
+        // below, so drawing this one too would wash the canvas twice.
+        if (effectiveWithFades &&
+            hasTabBar &&
+            !size.isExpanded &&
+            bottomBar == null)
           Positioned(
             bottom: 0,
             left: 0,
