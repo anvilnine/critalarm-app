@@ -237,6 +237,13 @@ class AccountCubit extends Cubit<AccountState> {
     );
   }
 
+  /// The person has read the error dialog. Drops the message so closing and
+  /// reopening the screen does not show it a second time.
+  void dismissError() {
+    if (isClosed || state.errorMessage == null) return;
+    emit(state.copyWith(clearError: true));
+  }
+
   void _failAddProvider(String message) {
     if (isClosed) return;
     emit(
