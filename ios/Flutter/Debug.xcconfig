@@ -1,2 +1,5 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
+// Written by scripts/gen-google-xcconfig.sh. Gitignored, so a fresh checkout has
+// to run that script (or any make target that builds iOS) before Xcode.
+#include "Google.xcconfig"
