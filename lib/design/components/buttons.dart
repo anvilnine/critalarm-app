@@ -116,6 +116,26 @@ class _AppButtonState extends State<AppButton> {
         shadows = AppShadows.lightSm;
     }
 
+    // An off button keeps flat colours of its own. It used to be wrapped in an
+    // Opacity, which made a filled button see-through, so whatever sat behind
+    // it showed through the fill.
+    if (!_isEnabled) {
+      switch (widget.variant) {
+        case AppButtonVariant.primary:
+        case AppButtonVariant.ink:
+        case AppButtonVariant.paper:
+        case AppButtonVariant.crit:
+          bg = colors.ash;
+          fg = colors.ink2;
+          shadows = const <BoxShadow>[];
+        case AppButtonVariant.ghost:
+          // A ghost button has no fill to see through, so it only needs a
+          // quieter label and stroke.
+          fg = colors.ink3;
+          border = BorderSide(color: fg, width: 2);
+      }
+    }
+
     if (widget.foregroundColor != null) {
       fg = widget.foregroundColor!;
       if (widget.variant == AppButtonVariant.ghost) {
@@ -230,33 +250,30 @@ class _AppButtonState extends State<AppButton> {
       enabled: _isEnabled,
       label: widget.label,
       excludeSemantics: true,
-      child: Opacity(
-        opacity: _isEnabled ? 1.0 : 0.45,
-        child: MouseRegion(
-          cursor: _isEnabled
-              ? SystemMouseCursors.click
-              : SystemMouseCursors.basic,
-          onEnter: (_) {
-            if (_isEnabled) setState(() => _isHovered = true);
+      child: MouseRegion(
+        cursor: _isEnabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        onEnter: (_) {
+          if (_isEnabled) setState(() => _isHovered = true);
+        },
+        onExit: (_) {
+          if (_isEnabled) setState(() => _isHovered = false);
+        },
+        child: GestureDetector(
+          onTapDown: (_) {
+            if (_isEnabled) setState(() => _isActive = true);
           },
-          onExit: (_) {
-            if (_isEnabled) setState(() => _isHovered = false);
+          onTapUp: (_) {
+            if (_isEnabled) setState(() => _isActive = false);
           },
-          child: GestureDetector(
-            onTapDown: (_) {
-              if (_isEnabled) setState(() => _isActive = true);
-            },
-            onTapUp: (_) {
-              if (_isEnabled) setState(() => _isActive = false);
-            },
-            onTapCancel: () {
-              if (_isEnabled) setState(() => _isActive = false);
-            },
-            onTap: _isEnabled ? widget.onPressed : null,
-            child: widget.isFullWidth
-                ? SizedBox(width: double.infinity, child: buttonCore)
-                : buttonCore,
-          ),
+          onTapCancel: () {
+            if (_isEnabled) setState(() => _isActive = false);
+          },
+          onTap: _isEnabled ? widget.onPressed : null,
+          child: widget.isFullWidth
+              ? SizedBox(width: double.infinity, child: buttonCore)
+              : buttonCore,
         ),
       ),
     );
@@ -295,7 +312,9 @@ class _AppIconButtonState extends State<AppIconButton> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final fg = widget.color ?? colors.onCanvas;
+    // An off icon button has no fill to see through, so a quieter glyph and
+    // stroke stand in for the Opacity this used to be wrapped in.
+    final fg = widget.color ?? (_isEnabled ? colors.onCanvas : colors.ink3);
 
     final bg = _isActive
         ? colors.canvasGhostStrong
@@ -334,31 +353,26 @@ class _AppIconButtonState extends State<AppIconButton> {
       );
     }
 
-    return Opacity(
-      opacity: _isEnabled ? 1.0 : 0.45,
-      child: MouseRegion(
-        cursor: _isEnabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        onEnter: (_) {
-          if (_isEnabled) setState(() => _isHovered = true);
+    return MouseRegion(
+      cursor: _isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) {
+        if (_isEnabled) setState(() => _isHovered = true);
+      },
+      onExit: (_) {
+        if (_isEnabled) setState(() => _isHovered = false);
+      },
+      child: GestureDetector(
+        onTapDown: (_) {
+          if (_isEnabled) setState(() => _isActive = true);
         },
-        onExit: (_) {
-          if (_isEnabled) setState(() => _isHovered = false);
+        onTapUp: (_) {
+          if (_isEnabled) setState(() => _isActive = false);
         },
-        child: GestureDetector(
-          onTapDown: (_) {
-            if (_isEnabled) setState(() => _isActive = true);
-          },
-          onTapUp: (_) {
-            if (_isEnabled) setState(() => _isActive = false);
-          },
-          onTapCancel: () {
-            if (_isEnabled) setState(() => _isActive = false);
-          },
-          onTap: _isEnabled ? widget.onPressed : null,
-          child: button,
-        ),
+        onTapCancel: () {
+          if (_isEnabled) setState(() => _isActive = false);
+        },
+        onTap: _isEnabled ? widget.onPressed : null,
+        child: button,
       ),
     );
   }
