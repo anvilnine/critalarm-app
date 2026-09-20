@@ -109,8 +109,9 @@ void main() {
     });
   });
 
-  test('the defaults are 22:00 to 07:00 with critical ringing through', () {
-    expect(QuietHours.defaults.isEnabled, isTrue);
+  test('the defaults are off, 22:00 to 07:00, critical ringing through', () {
+    // Off while the settings rows are off the alarm settings screen.
+    expect(QuietHours.defaults.isEnabled, isFalse);
     expect(QuietHours.defaults.startMinutes, 1320);
     expect(QuietHours.defaults.endMinutes, 420);
     expect(QuietHours.defaults.criticalRingsThrough, isTrue);

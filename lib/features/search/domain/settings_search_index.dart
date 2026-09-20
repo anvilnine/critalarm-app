@@ -107,26 +107,9 @@ abstract final class SettingsSearchIndex {
       parentTitleKey: LocaleKeys.settings_alarms_header,
       keywords: <String>['sound', 'ringtone', 'tone', 'siren', 'noise'],
     ),
-    SettingsDestination(
-      id: 'quiet_hours',
-      routePath: '/settings/alarms',
-      titleKey: LocaleKeys.settings_quiet_hours_label,
-      parentTitleKey: LocaleKeys.settings_alarms_header,
-      keywords: <String>[
-        'quiet',
-        'do not disturb',
-        'night',
-        'schedule',
-        'silence',
-      ],
-    ),
-    SettingsDestination(
-      id: 'critical_rings',
-      routePath: '/settings/alarms',
-      titleKey: LocaleKeys.settings_critical_rings_title,
-      parentTitleKey: LocaleKeys.settings_alarms_header,
-      keywords: <String>['critical', 'override', 'silent', 'loud'],
-    ),
+    // 'quiet_hours' and 'critical_rings' are out while their rows are off
+    // the alarm settings screen. Searching for them would land on a screen
+    // that no longer shows them.
     SettingsDestination(
       id: 'escalation_call',
       routePath: '/settings/alarms',
