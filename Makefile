@@ -1,9 +1,23 @@
-.PHONY: gen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios worktree-new worktree-list worktree-clean
+.PHONY: gen regen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios worktree-new worktree-list worktree-clean
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
 gen:
 	fvm dart run build_runner build
+
+# Codegen from scratch. Use this whenever .env changed.
+#
+# `make gen` is incremental, and build_runner decides what to redo from its own
+# cache. On 2026-09-20 that cache went stale against .env: four new keys were
+# filled in and envied still reported "no-op", leaving env.g.dart holding
+# `<int>[]` for every one of them. That builds an app with no RevenueCat key and
+# no Google client id, which fails at runtime with nothing naming the cause.
+#
+# env.g.dart is gitignored, so git status will not warn you either. After
+# touching .env, run this, not `make gen`.
+regen:
+	fvm dart run build_runner clean
+	fvm dart run build_runner build --delete-conflicting-outputs
 
 # Regenerate type-safe locale keys from assets/translations.
 l10n:

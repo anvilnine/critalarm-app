@@ -48,7 +48,7 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>NSAlarmKitUsageDescription</key>
-	<string>Crit Alarm needs alarm access so a critical alert can ring through silent mode and Do Not Disturb until you stop it.</string>
+	<string>Crit Alarm needs alarm access so an alarm can ring through silent mode and Do Not Disturb until you stop it.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
