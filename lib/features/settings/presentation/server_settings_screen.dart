@@ -12,6 +12,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+/// The label next to the connected dot, one per mode. The screen used to
+/// print "Self-hosted" whatever the server said, which hid a stale mode.
+String serverModeLabelKey(ServerMode mode) => switch (mode) {
+  ServerMode.selfhosted => LocaleKeys.settings_server_self_hosted,
+  ServerMode.relay => LocaleKeys.settings_server_relay,
+  ServerMode.hosted => LocaleKeys.settings_server_hosted,
+};
+
 /// The server this phone is paged by: which host, and the admin token used
 /// to talk to it.
 class ServerSettingsScreen extends StatelessWidget {
@@ -213,9 +221,9 @@ class _ServerSettingsView extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                if (state.serverMode == ServerMode.selfhosted)
+                if (state.serverMode != null)
                   Text(
-                    LocaleKeys.settings_server_self_hosted.tr(),
+                    serverModeLabelKey(state.serverMode!).tr(),
                     style: TextStyle(
                       fontFamily: AppTypography.fontBody,
                       fontFamilyFallback: AppTypography.fontBodyFallbacks,

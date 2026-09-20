@@ -701,6 +701,8 @@ Future<void> configureDependencies({
       () => SettingsCubit(
         identityStore: getIt<DeviceIdentityStore>(),
         apiSessions: getIt<ApiSessionStore>(),
+        getServerInfo: getIt<GetServerInfoUsecase>(),
+        establishSession: getIt<EstablishApiSessionUsecase>(),
         getTopics: getIt<GetTopicsUsecase>(),
         getConnectionUsecase: getIt<GetConnectionUsecase>(),
         clearConnectionUsecase: getIt<ClearConnectionUsecase>(),
