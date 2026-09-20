@@ -26,6 +26,7 @@ import 'package:critalarm/features/topics/presentation/create_topic_screen.dart'
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -354,14 +355,18 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         child: const PaywallScreen(),
       ),
     ),
-    GoRoute(
-      path: '/gallery',
-      name: AppRoute.gallery,
-      pageBuilder: (context, state) => AmbientPage(
-        key: state.pageKey,
-        child: const GalleryScreen(),
+    // Debug builds only. Nothing in the shipping UI links here, and a store
+    // reviewer who finds a reachable screen the app never mentions calls it a
+    // hidden feature.
+    if (kDebugMode)
+      GoRoute(
+        path: '/gallery',
+        name: AppRoute.gallery,
+        pageBuilder: (context, state) => AmbientPage(
+          key: state.pageKey,
+          child: const GalleryScreen(),
+        ),
       ),
-    ),
     ShellRoute(
       builder: (context, state, child) => OnboardingShell(
         state: state,
