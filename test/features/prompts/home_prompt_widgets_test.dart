@@ -1,7 +1,6 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
-import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/components/buttons.dart';
@@ -15,7 +14,6 @@ import 'package:critalarm/features/permissions/domain/entities/device_permission
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/widgets/setup_health_banner.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/account_prompt_card.dart';
@@ -117,8 +115,8 @@ void main() {
     testWidgets(
         'renders warning orange with watching face when only battery opt off',
         (tester) async {
-      final fakePerms = FakePermissionsUsecase();
-      fakePerms.items = [
+      final fakePerms = FakePermissionsUsecase()
+        ..items = [
         const DevicePermissionItem(
           type: DevicePermissionType.batteryOptimization,
           status: DevicePermissionStatus.denied,
@@ -150,10 +148,11 @@ void main() {
       expect(face.state, FaceState.watching);
     });
 
-    testWidgets('renders critical error with worried face when notifications denied',
-        (tester) async {
-      final fakePerms = FakePermissionsUsecase();
-      fakePerms.items = [
+    testWidgets(
+        'renders critical error with worried face when '
+        'notifications denied', (tester) async {
+      final fakePerms = FakePermissionsUsecase()
+        ..items = [
         const DevicePermissionItem(
           type: DevicePermissionType.notifications,
           status: DevicePermissionStatus.denied,
@@ -294,7 +293,7 @@ void main() {
       expect(find.byType(NoServerPromptCard), findsOneWidget);
 
       // Switch to none
-      stubCubit.emit(const HomePromptState(promptType: HomePromptType.none));
+      stubCubit.emit(const HomePromptState());
       await tester.pumpAndSettle();
 
       expect(find.byType(NoServerPromptCard), findsNothing);

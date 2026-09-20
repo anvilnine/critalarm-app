@@ -63,8 +63,13 @@ final class ApiAccountRepository implements AccountRepository {
   bool _recovering = false;
 
   @override
-  Future<AccountLinkResult> link(String identityToken) =>
-      api.linkAccount(identityToken: identityToken);
+  Future<AccountLinkResult> link(
+    String identityToken, {
+    AccountLinkIntent intent = AccountLinkIntent.signIn,
+  }) => api.linkAccount(identityToken: identityToken, intent: intent);
+
+  @override
+  Future<AccountJoinTokenResult> mintJoinToken() => api.mintAccountJoinToken();
 
   @override
   Future<AccountMergeResult> merge({

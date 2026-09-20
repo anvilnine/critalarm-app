@@ -108,7 +108,21 @@ abstract interface class ApiClient {
   /// header, because it says which account this handset brings, and the
   /// identity travels in the body (api.md §3.7). One header cannot carry two
   /// secrets.
-  Future<AccountLinkResult> linkAccount({required String identityToken});
+  ///
+  /// [intent] says which screen the person was on. `sign_in` is the sign-in
+  /// screen and behaves as it always has; `link` is the account screen adding
+  /// a second way in. The server cannot tell them apart on its own.
+  Future<AccountLinkResult> linkAccount({
+    required String identityToken,
+    AccountLinkIntent intent = AccountLinkIntent.signIn,
+  });
+
+  /// POST /v1/account/join-token
+  ///
+  /// Mints a fresh `aj_` for the account this device already belongs to. The
+  /// value comes back once and nothing can read it back, because the server
+  /// keeps a hash of it. Every call retires the token before it.
+  Future<AccountJoinTokenResult> mintAccountJoinToken();
 
   /// POST /v1/account/merge
   ///

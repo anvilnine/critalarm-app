@@ -2,6 +2,27 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'account_results.freezed.dart';
 
+/// Which screen the person was on when the app called `POST /v1/account/link`
+/// (api.md §3.7).
+///
+/// Two calls can carry the same device token and the same brand new identity
+/// and mean opposite things, and the server has no way to tell them apart, so
+/// the app says which it meant. Leaving it out reads as [signIn] on the
+/// server, which is what every client before 1.14.0 sent.
+enum AccountLinkIntent {
+  /// The sign-in screen. "This is me, put me on my account."
+  signIn('sign_in'),
+
+  /// The account screen, under the button that adds another way to sign in.
+  /// "Also let me in with this one."
+  link('link');
+
+  const AccountLinkIntent(this.wireValue);
+
+  /// What goes in the `intent` field.
+  final String wireValue;
+}
+
 /// What `POST /v1/account/link` answered (api.md §3.7).
 ///
 /// Every documented answer is its own variant, including the ones the happy
@@ -33,6 +54,23 @@ sealed class AccountLinkResult with _$AccountLinkResult {
   /// handset and signing out first is the way through.
   const factory AccountLinkResult.accountHasAnotherIdentity() =
       AccountLinkAccountHasAnotherIdentity;
+
+  /// 200 `linked`. Intent `link` only. The identity was new and this phone's
+  /// account already held one, so the account now holds both. Nothing moved.
+  const factory AccountLinkResult.linked({required String accountId}) =
+      AccountLinkLinked;
+
+  /// 200 `already_linked`. The identity already points at this phone's own
+  /// account, so the work is done. A retry after a dropped reply lands here,
+  /// and it is a success, not an error.
+  const factory AccountLinkResult.alreadyLinked({required String accountId}) =
+      AccountLinkAlreadyLinked;
+
+  /// 409 `identity has another account`. Intent `link` only. That Apple ID or
+  /// Google account is already somebody's account, so adding it here would
+  /// mean deciding whose data wins.
+  const factory AccountLinkResult.identityHasAnotherAccount() =
+      AccountLinkIdentityHasAnotherAccount;
 
   /// 401. A bad device token, or a session that has died.
   const factory AccountLinkResult.unauthorized() = AccountLinkUnauthorized;
@@ -96,4 +134,17 @@ sealed class AccountDeleteResult with _$AccountDeleteResult {
   /// 401. A dead device token, or an account that holds an identity whose
   /// token was missing, invalid, or somebody else's.
   const factory AccountDeleteResult.unauthorized() = AccountDeleteUnauthorized;
+}
+
+/// What `POST /v1/account/join-token` answered (api.md §3.7).
+@freezed
+sealed class AccountJoinTokenResult with _$AccountJoinTokenResult {
+  /// 200. A fresh `aj_`. Every call mints a new one and retires the one
+  /// before it, so this reply is the only place the value ever appears.
+  const factory AccountJoinTokenResult.minted({required String joinToken}) =
+      AccountJoinTokenMinted;
+
+  /// 401. A device token the server no longer knows.
+  const factory AccountJoinTokenResult.unauthorized() =
+      AccountJoinTokenUnauthorized;
 }
