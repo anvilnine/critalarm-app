@@ -692,7 +692,7 @@
     "email_missing": "No email address",
     "account_id_label": "Account ID",
     "sign_out": "Sign out",
-    "sign_out_failed": "Could not sign out. You are still signed in on this phone. Try again.",
+    "sign_out_failed": "Could not sign out. Try again.",
     "error_sign_in_failed": "Sign-in did not go through. Try again.",
     "error_other_identity": "This phone already belongs to another account. Sign out of that one first, then sign in again.",
     "providers_label": "Ways you can sign in",
