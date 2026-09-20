@@ -574,7 +574,6 @@
     "price_monthly": "{price}",
     "price_per_month": "{price} / month",
     "upgrade_button": "Get Hosted",
-    "present_paywall_button": "See all plans",
     "restore_purchases_button": "Restore purchases",
     "renewal_disclosure": "Payment is charged to your {store} at confirmation of purchase. The subscription renews automatically unless cancelled at least 24 hours before the end of the period. Manage or cancel in Settings.",
     "store_apple": "Apple Account",

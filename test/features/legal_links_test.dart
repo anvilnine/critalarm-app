@@ -42,22 +42,8 @@ void main() {
       expect(find.text('https://critalarm.app/terms'), findsOneWidget);
     });
 
-    testWidgets('the paywall shows both under Restore purchases', (
-      tester,
-    ) async {
-      tester.view.physicalSize = const Size(390 * 2, 844 * 2);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(tester.view.reset);
-
-      final router = buildRouter();
-      await tester.pumpWidget(buildTestApp(router));
-
-      router.go('/paywall');
-      await tester.pumpAndSettle();
-
-      expect(find.text('Restore purchases'), findsOneWidget);
-      expect(find.text('Terms of Use'), findsOneWidget);
-      expect(find.text('Privacy Policy'), findsOneWidget);
-    });
+    // The paywall used to be checked here too. RevenueCat draws it now, so
+    // Restore Purchases, Terms of Use and Privacy Policy come from the
+    // dashboard template and no Flutter test can see them.
   });
 }

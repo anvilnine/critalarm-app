@@ -1,5 +1,6 @@
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
+import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
@@ -11,6 +12,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/notification_p
 import 'package:critalarm/features/onboarding/presentation/onboarding_connect_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
+import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
@@ -350,9 +352,14 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     GoRoute(
       path: '/paywall',
       name: AppRoute.paywall,
+      // RevenueCat draws the paywall. The Flutter one in PaywallScreen is only
+      // for a --dart-define=SKIP_PAYWALL=true build, where the RevenueCat SDK
+      // is never configured and so has nothing to show.
       pageBuilder: (context, state) => AmbientPage(
         key: state.pageKey,
-        child: const PaywallScreen(),
+        child: buildSkipsPaywall
+            ? const PaywallScreen()
+            : const HostedPaywallScreen(),
       ),
     ),
     // Debug builds only. Nothing in the shipping UI links here, and a store
