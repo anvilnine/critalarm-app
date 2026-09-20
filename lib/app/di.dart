@@ -2,6 +2,7 @@ import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/alarm_build_mode.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
@@ -353,6 +354,7 @@ Future<void> configureDependencies({
         sessions: getIt<ApiSessionStore>(),
         prefs: getIt<SharedPreferences>(),
         providers: getIt<ProviderSignIn>(),
+        identityChanges: appAccountIdentityChanges,
       ),
     )
     ..registerLazySingleton<AccountRepository>(
@@ -759,6 +761,7 @@ Future<void> configureDependencies({
         identityRepository: getIt<IdentityRepository>(),
         accountRepository: getIt<AccountRepository>(),
         homePromptRepository: getIt<HomePromptRepository>(),
+        identityChanges: appAccountIdentityChanges,
       ),
     );
 }

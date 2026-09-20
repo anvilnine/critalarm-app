@@ -1,4 +1,5 @@
 import 'package:critalarm/app/shell/shell_cubit.dart';
+import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
@@ -83,6 +84,12 @@ class FakeGetDevicePermissionsUsecase implements GetDevicePermissionsUsecase {
 }
 
 class FakeIdentityRepo implements IdentityRepository {
+  FakeIdentityRepo(this.changes);
+
+  /// The real repository bumps this from its two write points, so the fake
+  /// does too.
+  final AccountIdentityChanges changes;
+
   AccountIdentity? identity;
 
   @override
@@ -103,11 +110,16 @@ class FakeIdentityRepo implements IdentityRepository {
   Future<AccountIdentity?> readIdentity() async => identity;
 
   @override
-  Future<void> saveIdentity(AccountIdentity identity) async =>
-      this.identity = identity;
+  Future<void> saveIdentity(AccountIdentity identity) async {
+    this.identity = identity;
+    changes.bump();
+  }
 
   @override
-  Future<void> clearSession() async => identity = null;
+  Future<void> clearSession() async {
+    identity = null;
+    changes.bump();
+  }
 }
 
 class FakeAccountRepo implements AccountRepository {
@@ -167,12 +179,14 @@ void main() {
   late FakeShellCubit shellCubit;
   late FakeIdentityRepo identityRepo;
   late FakeAccountRepo accountRepo;
+  late AccountIdentityChanges identityChanges;
 
   setUp(() {
     promptRepo = FakeHomePromptRepository();
     getConnection = FakeGetConnectionUsecase();
     shellCubit = FakeShellCubit();
-    identityRepo = FakeIdentityRepo();
+    identityChanges = AccountIdentityChanges();
+    identityRepo = FakeIdentityRepo(identityChanges);
     accountRepo = FakeAccountRepo();
   });
 
@@ -188,6 +202,7 @@ void main() {
       homePromptRepository: promptRepo,
       cooldownDuration: cooldown,
       proOverride: proOverride ?? const NoProOverride(),
+      identityChanges: identityChanges,
     );
   }
 
@@ -355,6 +370,34 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 60));
 
       // Account was snoozed -> falls through to Priority 5 (Pro support)
+      expect(cubit.state.promptType, HomePromptType.proSupport);
+      await cubit.close();
+    });
+
+    test('Signing in drops the account prompt with no restart or refresh',
+        () async {
+      getConnection.result = const ServerConnection(
+        serverUrl: 'https://api.critalarm.app',
+        adminToken: 'token123',
+      ).toSuccess();
+      shellCubit.setHealth(const ShellHealth());
+
+      final cubit = buildCubit();
+      await cubit.load();
+      expect(cubit.state.promptType, HomePromptType.accountBackup);
+
+      // Sign in. Nothing else happens: no app restart, no resume, no pull to
+      // refresh, no route pop.
+      await identityRepo.saveIdentity(
+        const AccountIdentity(
+          provider: IdentityProvider.google,
+          accountId: 'acc_just_signed_in',
+          email: 'user@test.com',
+        ),
+      );
+      await pumpEventQueue();
+
+      expect(cubit.state.promptType, isNot(HomePromptType.accountBackup));
       expect(cubit.state.promptType, HomePromptType.proSupport);
       await cubit.close();
     });
