@@ -399,25 +399,62 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
 
   /// Step 2: what to call the first token.
   Widget _tokenStepBody(BuildContext context, CreateTopicState state) {
+    final colors = context.appColors;
     final cubit = context.read<CreateTopicCubit>();
     final isSubmitting = state.status == CreateTopicStatus.submitting;
 
-    return AppTextField(
-      label: LocaleKeys.create_topic_token_name_label.tr(),
-      controller: _tokenNameController,
-      focusNode: _tokenNameFocus,
-      placeholder: LocaleKeys.create_topic_token_name_placeholder.tr(),
-      helperText: LocaleKeys.create_topic_token_name_helper.tr(),
-      // No errorText here. A failed create is always
-      // about the topic, and the cubit sends the user
-      // back to step 1 so the message sits under the
-      // topic name field.
-      enabled: !isSubmitting,
-      isMono: false,
-      maxLength: 40,
-      textInputAction: TextInputAction.done,
-      onChanged: cubit.tokenNameChanged,
-      onSubmitted: (_) => _handleEnterSubmit(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // What step 1 holds, so the topic this token belongs to is still on
+        // screen. A reminder, not a control: the top bar already has Back.
+        Row(
+          children: [
+            Text(
+              LocaleKeys.create_topic_token_recap_label.tr(),
+              style: AppTypography.small(colors.ink3, fontSize: 12),
+            ),
+            const SizedBox(width: 6),
+            // A name runs to 64 characters. It shrinks and ellipsizes so it
+            // stays on one line and the card does not grow under it.
+            Flexible(
+              child: Text(
+                state.name.trim(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.mono(colors.ink2, fontSize: 12),
+              ),
+            ),
+            // Only when it is on. Off is the default, so saying so every time
+            // is noise; on is the thing worth remembering.
+            if (state.isCritical) ...[
+              const SizedBox(width: 8),
+              Text(
+                LocaleKeys.create_topic_token_recap_critical.tr(),
+                style: AppTypography.small(colors.crit, fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 10),
+        AppTextField(
+          label: LocaleKeys.create_topic_token_name_label.tr(),
+          controller: _tokenNameController,
+          focusNode: _tokenNameFocus,
+          placeholder: LocaleKeys.create_topic_token_name_placeholder.tr(),
+          helperText: LocaleKeys.create_topic_token_name_helper.tr(),
+          // No errorText here. A failed create is always about the topic, and
+          // the cubit sends the user back to step 1 so the message sits under
+          // the topic name field.
+          enabled: !isSubmitting,
+          isMono: false,
+          maxLength: 40,
+          textInputAction: TextInputAction.done,
+          onChanged: cubit.tokenNameChanged,
+          onSubmitted: (_) => _handleEnterSubmit(),
+        ),
+      ],
     );
   }
 
@@ -460,232 +497,136 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
         // Nothing to do on step 2 with a name the app already knows is taken.
         final isNameTaken = !isSuccess && !isTokenStep && state.isDuplicateName;
 
-        final content = GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () => FocusScope.of(context).unfocus(),
-          child: AppScreenScaffold(
-            hasTabBar: false,
-            resizeForKeyboard: true,
-            topBar: AppTopBar(
-              title: LocaleKeys.create_topic_title.tr(),
-              leading: isTokenStep && !isSuccess
-                  ? AppIconButton(
-                      glyph: GlyphType.back,
-                      ariaLabel: LocaleKeys.create_topic_back_aria_label.tr(),
-                      onPressed: () {
-                        cubit.previousStep();
-                        // Step 1 is one field too, so the keyboard moves back
-                        // to it instead of coming down.
-                        _focusNameField();
-                      },
-                    )
-                  : null,
-              trailing: AppIconButton(
-                glyph: GlyphType.close,
-                ariaLabel: LocaleKeys.create_topic_cancel_aria_label.tr(),
-                onPressed: () {
-                  final created = state.createdTopic;
-                  if (created != null) {
+        // The system back button and the back gesture do what the top bar's
+        // Back does: on step 2 they return to step 1 with everything typed
+        // still there. Once the topic exists the form is over, so back leaves
+        // the screen like it does on step 1.
+        final canPop = !isTokenStep || isSuccess;
+
+        final content = PopScope(
+          canPop: canPop,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            cubit.previousStep();
+            _focusNameField();
+          },
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: AppScreenScaffold(
+              hasTabBar: false,
+              resizeForKeyboard: true,
+              topBar: AppTopBar(
+                title: LocaleKeys.create_topic_title.tr(),
+                leading: isTokenStep && !isSuccess
+                    ? AppIconButton(
+                        glyph: GlyphType.back,
+                        ariaLabel: LocaleKeys.create_topic_back_aria_label.tr(),
+                        onPressed: () {
+                          cubit.previousStep();
+                          // Step 1 is one field too, so the keyboard moves back
+                          // to it instead of coming down.
+                          _focusNameField();
+                        },
+                      )
+                    : null,
+                trailing: AppIconButton(
+                  glyph: GlyphType.close,
+                  ariaLabel: LocaleKeys.create_topic_cancel_aria_label.tr(),
+                  onPressed: () {
+                    final created = state.createdTopic;
+                    if (created != null) {
+                      if (context.canPop()) {
+                        context.pop();
+                        unawaited(context.push('/topics/${created.name}'));
+                      } else {
+                        context.go('/topics/${created.name}');
+                      }
+                      return;
+                    }
                     if (context.canPop()) {
                       context.pop();
-                      unawaited(context.push('/topics/${created.name}'));
                     } else {
-                      context.go('/topics/${created.name}');
+                      context.go('/');
                     }
-                    return;
-                  }
-                  if (context.canPop()) {
-                    context.pop();
-                  } else {
-                    context.go('/');
-                  }
-                },
+                  },
+                ),
               ),
-            ),
-            bottomBar: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_toast case final message?) ...[
-                  AppToast(message: message),
-                  const SizedBox(height: Spacing.s2),
-                ],
-                TourAnchor(
-                  id: TourAnchorId.createButton,
-                  child: AppButton(
-                    label: switch ((isSuccess, isTokenStep)) {
-                      (true, _) => 'Done',
-                      (false, true) =>
-                        LocaleKeys.create_topic_create_button.tr(),
-                      (false, false) =>
-                        LocaleKeys.create_topic_next_button.tr(),
-                    },
-                    isFullWidth: true,
-                    isLoading: isSubmitting,
-                    onPressed: isNameTaken
-                        ? null
-                        : () {
-                            AppHaptics.capture();
-                            if (isSuccess) {
-                              final name = state.createdTopic!.name;
-                              if (context.canPop()) {
-                                context.pop();
-                                unawaited(context.push('/topics/$name'));
+              bottomBar: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_toast case final message?) ...[
+                    AppToast(message: message),
+                    const SizedBox(height: Spacing.s2),
+                  ],
+                  TourAnchor(
+                    id: TourAnchorId.createButton,
+                    child: AppButton(
+                      label: switch ((isSuccess, isTokenStep)) {
+                        (true, _) => 'Done',
+                        (false, true) =>
+                          LocaleKeys.create_topic_create_button.tr(),
+                        (false, false) =>
+                          LocaleKeys.create_topic_next_button.tr(),
+                      },
+                      isFullWidth: true,
+                      isLoading: isSubmitting,
+                      onPressed: isNameTaken
+                          ? null
+                          : () {
+                              AppHaptics.capture();
+                              if (isSuccess) {
+                                final name = state.createdTopic!.name;
+                                if (context.canPop()) {
+                                  context.pop();
+                                  unawaited(context.push('/topics/$name'));
+                                } else {
+                                  context.go('/topics/$name');
+                                }
+                              } else if (isTokenStep) {
+                                _submit();
                               } else {
-                                context.go('/topics/$name');
+                                _next();
                               }
-                            } else if (isTokenStep) {
-                              _submit();
-                            } else {
-                              _next();
-                            }
-                          },
+                            },
+                    ),
+                  ),
+                ],
+              ),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: AppStage(
+                    faceState: stageFace,
+                    faceSize: 110,
+                    isLive: true,
+                    padding: const EdgeInsets.fromLTRB(24, Spacing.s3, 24, 0),
                   ),
                 ),
-              ],
-            ),
-            slivers: [
-              SliverToBoxAdapter(
-                child: AppStage(
-                  faceState: stageFace,
-                  faceSize: 110,
-                  isLive: true,
-                  padding: const EdgeInsets.fromLTRB(24, Spacing.s3, 24, 0),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, Spacing.s4, 12, 16),
-                  child: AppSheet(
-                    border: Border.all(color: colors.hairline, width: 2),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (state.capReached != null)
-                          AppEmptyState(
-                            title: state.capReached!.message,
-                            description:
-                                'Review your plan to increase this limit.',
-                            buttonLabel: null,
-                            showFace: false,
-                          ),
-                        if (!isSuccess) ...[
-                          Text(
-                            LocaleKeys.create_topic_step_label.tr(
-                              namedArgs: {
-                                'current': isTokenStep ? '2' : '1',
-                                'total': '2',
-                              },
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, Spacing.s4, 12, 16),
+                    child: AppSheet(
+                      border: Border.all(color: colors.hairline, width: 2),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (state.capReached != null)
+                            AppEmptyState(
+                              title: state.capReached!.message,
+                              description:
+                                  'Review your plan to increase this limit.',
+                              buttonLabel: null,
+                              showFace: false,
                             ),
-                            style: TextStyle(
-                              fontFamily: AppTypography.fontBody,
-                              fontFamilyFallback:
-                                  AppTypography.fontBodyFallbacks,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: colors.ink3,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        if (!isSuccess)
-                          AnimatedSize(
-                            duration: stepDuration,
-                            curve: AppCurves.easeOut,
-                            alignment: Alignment.topCenter,
-                            child: AnimatedSwitcher(
-                              duration: stepDuration,
-                              switchInCurve: AppCurves.easeOut,
-                              switchOutCurve: AppCurves.easeOut,
-                              layoutBuilder: (currentChild, previousChildren) =>
-                                  Stack(
-                                    alignment: Alignment.topLeft,
-                                    children: [
-                                      ...previousChildren,
-                                      ?currentChild,
-                                    ],
-                                  ),
-                              transitionBuilder: (child, animation) {
-                                // Next slides the new step in from the right
-                                // and the old one out to the left. Back runs
-                                // the other way, so the movement matches the
-                                // travel.
-                                final isIncoming = child.key == stepKey;
-                                final fromRight = isTokenStep == isIncoming;
-                                return SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: Offset(
-                                      fromRight ? 0.12 : -0.12,
-                                      0,
-                                    ),
-                                    end: Offset.zero,
-                                  ).animate(animation),
-                                  child: FadeTransition(
-                                    opacity: animation,
-                                    child: child,
-                                  ),
-                                );
-                              },
-                              child: SizedBox(
-                                key: stepKey,
-                                width: double.infinity,
-                                child: isTokenStep
-                                    ? _tokenStepBody(context, state)
-                                    : _topicStepBody(context, state),
-                              ),
-                            ),
-                          ),
-                        if (token != null) ...[
-                          const SizedBox(height: 14),
-                          Text(
-                            LocaleKeys.create_topic_generated_label.tr(),
-                            style: TextStyle(
-                              fontFamily: AppTypography.fontBody,
-                              fontFamilyFallback:
-                                  AppTypography.fontBodyFallbacks,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: colors.ink3,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          if (state.serverUrl.isNotEmpty) ...[
-                            AppKeyValueRow(
-                              value: '${state.serverUrl}/${state.name}',
-                              trailing: TokenActions(
-                                value: '${state.serverUrl}/${state.name}',
-                                onCopied: _showToast,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                          if (state.createdTopic?.tokenName
-                              case final tokenName?
-                              when tokenName.isNotEmpty) ...[
+                          if (!isSuccess) ...[
                             Text(
-                              tokenName,
-                              style: TextStyle(
-                                fontFamily: AppTypography.fontBody,
-                                fontFamilyFallback:
-                                    AppTypography.fontBodyFallbacks,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: colors.ink,
+                              LocaleKeys.create_topic_step_label.tr(
+                                namedArgs: {
+                                  'current': isTokenStep ? '2' : '1',
+                                  'total': '2',
+                                },
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                          ],
-                          AppKeyValueRow(
-                            value: token,
-                            trailing: TokenActions(
-                              value: token,
-                              onCopied: _showToast,
-                            ),
-                          ),
-                          ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              LocaleKeys.create_topic_token_warning.tr(),
                               style: TextStyle(
                                 fontFamily: AppTypography.fontBody,
                                 fontFamilyFallback:
@@ -695,33 +636,143 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                                 color: colors.ink3,
                               ),
                             ),
+                            const SizedBox(height: 12),
+                          ],
+                          if (!isSuccess)
+                            AnimatedSize(
+                              duration: stepDuration,
+                              curve: AppCurves.easeOut,
+                              alignment: Alignment.topCenter,
+                              child: AnimatedSwitcher(
+                                duration: stepDuration,
+                                switchInCurve: AppCurves.easeOut,
+                                switchOutCurve: AppCurves.easeOut,
+                                layoutBuilder:
+                                    (currentChild, previousChildren) => Stack(
+                                      alignment: Alignment.topLeft,
+                                      children: [
+                                        ...previousChildren,
+                                        ?currentChild,
+                                      ],
+                                    ),
+                                transitionBuilder: (child, animation) {
+                                  // Next slides the new step in from the right
+                                  // and the old one out to the left. Back runs
+                                  // the other way, so the movement matches the
+                                  // travel.
+                                  final isIncoming = child.key == stepKey;
+                                  final fromRight = isTokenStep == isIncoming;
+                                  return SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: Offset(
+                                        fromRight ? 0.12 : -0.12,
+                                        0,
+                                      ),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: FadeTransition(
+                                      opacity: animation,
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: SizedBox(
+                                  key: stepKey,
+                                  width: double.infinity,
+                                  child: isTokenStep
+                                      ? _tokenStepBody(context, state)
+                                      : _topicStepBody(context, state),
+                                ),
+                              ),
+                            ),
+                          if (token != null) ...[
+                            const SizedBox(height: 14),
+                            Text(
+                              LocaleKeys.create_topic_generated_label.tr(),
+                              style: TextStyle(
+                                fontFamily: AppTypography.fontBody,
+                                fontFamilyFallback:
+                                    AppTypography.fontBodyFallbacks,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: colors.ink3,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            if (state.serverUrl.isNotEmpty) ...[
+                              AppKeyValueRow(
+                                value: '${state.serverUrl}/${state.name}',
+                                trailing: TokenActions(
+                                  value: '${state.serverUrl}/${state.name}',
+                                  onCopied: _showToast,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                            if (state.createdTopic?.tokenName
+                                case final tokenName?
+                                when tokenName.isNotEmpty) ...[
+                              Text(
+                                tokenName,
+                                style: TextStyle(
+                                  fontFamily: AppTypography.fontBody,
+                                  fontFamilyFallback:
+                                      AppTypography.fontBodyFallbacks,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: colors.ink,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                            ],
+                            AppKeyValueRow(
+                              value: token,
+                              trailing: TokenActions(
+                                value: token,
+                                onCopied: _showToast,
+                              ),
+                            ),
+                            ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                LocaleKeys.create_topic_token_warning.tr(),
+                                style: TextStyle(
+                                  fontFamily: AppTypography.fontBody,
+                                  fontFamilyFallback:
+                                      AppTypography.fontBodyFallbacks,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: colors.ink3,
+                                ),
+                              ),
+                            ],
                           ],
                         ],
+                      ),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _LegalLink(
+                          label: LocaleKeys.create_topic_terms_link.tr(),
+                          url: termsUrl,
+                        ),
+                        const SizedBox(width: 16),
+                        _LegalLink(
+                          label: LocaleKeys.create_topic_privacy_link.tr(),
+                          url: privacyUrl,
+                        ),
                       ],
                     ),
                   ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _LegalLink(
-                        label: LocaleKeys.create_topic_terms_link.tr(),
-                        url: termsUrl,
-                      ),
-                      const SizedBox(width: 16),
-                      _LegalLink(
-                        label: LocaleKeys.create_topic_privacy_link.tr(),
-                        url: privacyUrl,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
 
