@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/design/design.dart';
@@ -366,5 +368,50 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('adding a provider keeps the account on screen while it runs', (
+    tester,
+  ) async {
+    // Signed in with Apple, then Add Google, with the link call held open so
+    // the screen can be read while the work is still going.
+    final account = FakeAccountRepository(
+      linkAnswers: const [
+        AccountLinkResult.claimed(accountId: 'acc_1'),
+        AccountLinkResult.linked(accountId: 'acc_1'),
+      ],
+    );
+    final cubit = AccountCubit(
+      identities: FakeIdentityRepository(),
+      account: account,
+    );
+    addTearDown(cubit.close);
+    await cubit.load();
+    await cubit.signIn(IdentityProvider.apple);
+
+    await tester.pumpWidget(wrap(cubit));
+    await tester.pumpAndSettle();
+    expect(find.text('Account ID'), findsOneWidget);
+
+    final gate = Completer<void>();
+    account.linkGate = gate;
+    unawaited(cubit.addProvider(IdentityProvider.google));
+    await tester.pump();
+    await tester.pump();
+
+    // Mid-link the account has to stay on screen. Falling back to the
+    // signed-out pitch tells someone who is signed in that they are not.
+    expect(
+      find.textContaining('Sign in to get your alarms back'),
+      findsNothing,
+    );
+    expect(find.text('Account ID'), findsOneWidget);
+    expect(find.text('Add Google'), findsOneWidget);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Account ID'), findsOneWidget);
+    expect(find.text('Add Google'), findsNothing);
   });
 }

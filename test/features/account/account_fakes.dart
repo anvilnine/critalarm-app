@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
@@ -88,6 +90,10 @@ final class FakeAccountRepository implements AccountRepository {
 
   final List<String> linkTokens = [];
 
+  /// Held open by a test that wants to look at the screen while a link is
+  /// still in flight. Null means link answers straight away.
+  Completer<void>? linkGate;
+
   /// The intent sent with each link call, in order, so a test can prove the
   /// account screen said `link` and the sign-in screen said `sign_in`.
   final List<AccountLinkIntent> linkIntents = [];
@@ -112,7 +118,10 @@ final class FakeAccountRepository implements AccountRepository {
   }) async {
     linkTokens.add(identityToken);
     linkIntents.add(intent);
-    return linkAnswers[linkTokens.length - 1];
+    final answer = linkTokens.length - 1;
+    final gate = linkGate;
+    if (gate != null) await gate.future;
+    return linkAnswers[answer];
   }
 
   @override
