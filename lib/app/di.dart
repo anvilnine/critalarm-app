@@ -557,11 +557,15 @@ Future<void> configureDependencies({
     ..registerLazySingleton(
       () => RevokeTopicTokenUsecase(getIt<TopicRepository>()),
     )
+    ..registerLazySingleton(
+      () => RenameTopicTokenUsecase(getIt<TopicRepository>()),
+    )
     ..registerFactory(
       () => TopicTokensCubit(
         getIt<GetTopicTokensUsecase>(),
         getIt<CreateTopicTokenUsecase>(),
         getIt<RevokeTopicTokenUsecase>(),
+        getIt<RenameTopicTokenUsecase>(),
       ),
     )
     ..registerLazySingleton(

@@ -11,21 +11,25 @@ class TopicTokensState {
     this.tokens = const <TopicTokenInfo>[],
     this.isWorking = false,
     this.newToken,
+    this.newTokenName,
     this.errorMessage,
   });
 
   final TopicTokensStatus status;
 
-  /// Ids and dates, oldest first. No values: the server holds a hash of each
-  /// token and has nothing to show twice.
+  /// Ids, names and dates, oldest first. No values: the server holds a hash of
+  /// each token and has nothing to show twice.
   final List<TopicTokenInfo> tokens;
 
-  /// A token is being made or revoked right now.
+  /// A token is being made, renamed or revoked right now.
   final bool isWorking;
 
   /// The one-time value of a token just made. Shown until it is dismissed,
   /// and never fetched again, because nothing can fetch it.
   final String? newToken;
+
+  /// What that token is called, shown above its value.
+  final String? newTokenName;
 
   final String? errorMessage;
 
@@ -40,6 +44,7 @@ class TopicTokensState {
     List<TopicTokenInfo>? tokens,
     bool? isWorking,
     String? newToken,
+    String? newTokenName,
     String? errorMessage,
     bool clearNewToken = false,
     bool clearError = false,
@@ -49,6 +54,7 @@ class TopicTokensState {
       tokens: tokens ?? this.tokens,
       isWorking: isWorking ?? this.isWorking,
       newToken: clearNewToken ? null : (newToken ?? this.newToken),
+      newTokenName: clearNewToken ? null : (newTokenName ?? this.newTokenName),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
@@ -61,6 +67,7 @@ class TopicTokensState {
           status == other.status &&
           isWorking == other.isWorking &&
           newToken == other.newToken &&
+          newTokenName == other.newTokenName &&
           errorMessage == other.errorMessage &&
           listEquals(tokens, other.tokens);
 
@@ -69,6 +76,7 @@ class TopicTokensState {
     status,
     isWorking,
     newToken,
+    newTokenName,
     errorMessage,
     Object.hashAll(tokens),
   );

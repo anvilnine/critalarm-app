@@ -13,6 +13,7 @@ abstract interface class TopicRepository {
     int maxRingS = 1800,
     int deskTimerS = 600,
     String relayContent = 'none',
+    String? tokenName,
   });
 
   Future<AppResult<Topic>> updateTopic(
@@ -25,10 +26,19 @@ abstract interface class TopicRepository {
 
   Future<AppResult<Unit>> deleteTopic(String name);
 
-  /// Ids and dates. The server never gives a token value back.
+  /// Ids, names and dates. The server never gives a token value back.
   Future<AppResult<List<TopicTokenInfo>>> getTopicTokens(String name);
 
-  Future<AppResult<TopicToken>> createTopicToken(String name);
+  Future<AppResult<TopicToken>> createTopicToken(
+    String name, {
+    String? tokenName,
+  });
+
+  Future<AppResult<TopicTokenInfo>> renameTopicToken(
+    String name,
+    String tokenId,
+    String tokenName,
+  );
 
   Future<AppResult<Unit>> deleteTopicToken(String name, String tokenId);
 }
