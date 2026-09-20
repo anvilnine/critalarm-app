@@ -269,7 +269,7 @@
       "one": "1 message. Rings at {priority} priority.",
       "other": "{count} messages. Rings at {priority} priority."
     },
-    "critical_needs_alarm": "Turn on Alarms in Settings first. Without it a critical alert arrives as a quiet notification.",
+    "critical_needs_alarm": "Turn on Alarms in Settings first. Without it an alarm arrives as a quiet notification.",
     "sound_row_title": "Alarm sound",
     "sound_row_default": "Using the default",
     "messages_header": "Messages",
