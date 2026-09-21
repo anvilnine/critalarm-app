@@ -1,5 +1,6 @@
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -12,17 +13,32 @@ void main() {
           fileName: 'honk.mp3',
           sizeBytes: oneMb,
           duration: const Duration(seconds: 12),
+          platform: TargetPlatform.android,
         ),
         isNull,
       );
     });
 
-    test('exactly 60 seconds passes, a millisecond over does not', () {
+    test('the clip cap is 29.5 seconds on iOS and 60 everywhere else', () {
+      expect(
+        SoundImportLimits.maxClipDuration(TargetPlatform.iOS),
+        const Duration(milliseconds: 29500),
+      );
+      expect(
+        SoundImportLimits.maxClipDuration(TargetPlatform.android),
+        const Duration(seconds: 60),
+      );
+    });
+
+    test('on Android exactly 60 seconds passes, a millisecond over does not',
+        () {
+      const cap = Duration(seconds: 60);
       expect(
         checkSoundImport(
           fileName: 'honk.mp3',
           sizeBytes: oneMb,
-          duration: SoundImportLimits.maxDuration,
+          duration: cap,
+          platform: TargetPlatform.android,
         ),
         isNull,
       );
@@ -30,10 +46,56 @@ void main() {
         checkSoundImport(
           fileName: 'honk.mp3',
           sizeBytes: oneMb,
-          duration:
-              SoundImportLimits.maxDuration + const Duration(milliseconds: 1),
+          duration: cap + const Duration(milliseconds: 1),
+          platform: TargetPlatform.android,
         ),
         SoundImportRejection.tooLong,
+      );
+    });
+
+    test('on iOS exactly 29.5 seconds passes, a millisecond over does not', () {
+      const cap = Duration(milliseconds: 29500);
+      expect(
+        checkSoundImport(
+          fileName: 'honk.mp3',
+          sizeBytes: oneMb,
+          duration: cap,
+          platform: TargetPlatform.iOS,
+        ),
+        isNull,
+      );
+      expect(
+        checkSoundImport(
+          fileName: 'honk.mp3',
+          sizeBytes: oneMb,
+          duration: cap + const Duration(milliseconds: 1),
+          platform: TargetPlatform.iOS,
+        ),
+        SoundImportRejection.tooLong,
+      );
+    });
+
+    test('an iOS sound of 30 seconds or more is too long to ring', () {
+      expect(
+        SoundImportLimits.tooLongToRing(
+          TargetPlatform.iOS,
+          const Duration(seconds: 30),
+        ),
+        isTrue,
+      );
+      expect(
+        SoundImportLimits.tooLongToRing(
+          TargetPlatform.iOS,
+          const Duration(milliseconds: 29999),
+        ),
+        isFalse,
+      );
+      expect(
+        SoundImportLimits.tooLongToRing(
+          TargetPlatform.android,
+          const Duration(seconds: 90),
+        ),
+        isFalse,
       );
     });
 
@@ -43,6 +105,7 @@ void main() {
           fileName: 'honk.mp3',
           sizeBytes: SoundImportLimits.maxBytes,
           duration: const Duration(seconds: 5),
+          platform: TargetPlatform.android,
         ),
         isNull,
       );
@@ -51,6 +114,7 @@ void main() {
           fileName: 'honk.mp3',
           sizeBytes: SoundImportLimits.maxBytes + 1,
           duration: const Duration(seconds: 5),
+          platform: TargetPlatform.android,
         ),
         SoundImportRejection.tooLarge,
       );
@@ -62,6 +126,7 @@ void main() {
           fileName: 'clip.mov',
           sizeBytes: oneMb,
           duration: const Duration(seconds: 5),
+          platform: TargetPlatform.android,
         ),
         SoundImportRejection.unsupportedFormat,
       );
@@ -70,6 +135,7 @@ void main() {
           fileName: 'noextension',
           sizeBytes: oneMb,
           duration: const Duration(seconds: 5),
+          platform: TargetPlatform.android,
         ),
         SoundImportRejection.unsupportedFormat,
       );
@@ -81,6 +147,7 @@ void main() {
           fileName: 'honk.mp3',
           sizeBytes: 0,
           duration: const Duration(seconds: 5),
+          platform: TargetPlatform.android,
         ),
         SoundImportRejection.unreadable,
       );
@@ -89,6 +156,7 @@ void main() {
           fileName: 'honk.mp3',
           sizeBytes: oneMb,
           duration: Duration.zero,
+          platform: TargetPlatform.android,
         ),
         SoundImportRejection.unreadable,
       );
@@ -100,6 +168,7 @@ void main() {
           fileName: 'honk.mp3',
           sizeBytes: SoundImportLimits.maxBytes + 1,
           duration: const Duration(minutes: 5),
+          platform: TargetPlatform.android,
         ),
         SoundImportRejection.tooLong,
       );
