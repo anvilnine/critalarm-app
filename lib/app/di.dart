@@ -537,9 +537,7 @@ Future<void> configureDependencies({
       ),
     )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and
-    // nothing is ringing. Android's alarm service says whether it is ringing;
-    // iOS rings through the system, so there an open incident counts, since
-    // its alarm keeps going until it is acknowledged.
+    // no alarm is going off.
     ..registerLazySingleton(
       () => IncomingAudio(
         canImportSounds: () async =>
@@ -549,9 +547,7 @@ Future<void> configureDependencies({
               const NoParams(),
             )).getOrNull() ??
             false,
-        isRinging: () async =>
-            await getIt<AlarmHost>().isRinging() ??
-            getIt<IncidentsCubit>().state.openIncidents.isNotEmpty,
+        isRinging: getIt<AlarmHost>().isRinging,
         discard: getIt<SoundFilePicker>().discard,
         platform: defaultTargetPlatform,
       ),

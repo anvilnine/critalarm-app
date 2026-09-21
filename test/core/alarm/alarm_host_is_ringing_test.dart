@@ -19,7 +19,12 @@ void main() {
     expect(await AlarmHost(channel).isRinging(), isTrue);
   });
 
-  test('null when the platform cannot tell', () async {
-    expect(await AlarmHost(channel).isRinging(), isNull);
+  test('no handler reads as not ringing', () async {
+    expect(await AlarmHost(channel).isRinging(), isFalse);
+  });
+
+  test('a null answer reads as not ringing', () async {
+    messenger.setMockMethodCallHandler(channel, (call) async => null);
+    expect(await AlarmHost(channel).isRinging(), isFalse);
   });
 }
