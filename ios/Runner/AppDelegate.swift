@@ -1017,6 +1017,7 @@ extension AppDelegate {
     SoundPreviewPlayer.shared.onEnded = { [weak channel] path in
       channel?.invokeMethod("previewEnded", arguments: ["path": path])
     }
+    IncomingAudioInbox.channel = channel
     channel.setMethodCallHandler { call, result in
       let args = call.arguments as? [String: Any] ?? [:]
       switch call.method {
@@ -1085,6 +1086,8 @@ extension AppDelegate {
         }
       case "publishSoundAssignments":
         SoundLibrary.inBackground(result) { SoundLibrary.publishToExtension() }
+      case "takeIncomingAudio":
+        result(IncomingAudioInbox.take())
       default:
         result(FlutterMethodNotImplemented)
       }
