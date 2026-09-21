@@ -1,6 +1,8 @@
+import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
@@ -26,6 +28,7 @@ import 'package:critalarm/features/settings/presentation/server_settings_screen.
 import 'package:critalarm/features/settings/presentation/settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_crop_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_picker_screen.dart';
+import 'package:critalarm/features/settings/presentation/sound_recorder_screen.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
@@ -52,6 +55,7 @@ abstract final class AppRoute {
   static const devicePermissions = 'devicePermissions';
   static const soundPicker = 'soundPicker';
   static const soundCrop = 'soundCrop';
+  static const soundRecord = 'soundRecord';
   static const alarmSettings = 'alarmSettings';
   static const serverSettings = 'serverSettings';
   static const account = 'account';
@@ -125,6 +129,23 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           child: SoundCropScreen(file: file is PickedSoundFile ? file : null),
         );
       },
+    ),
+    // The recorder. Pops with the recorded file, which the sound list then
+    // opens in the cropper, so back from the cropper lands on the list.
+    // Leaves at once where the platform cannot import sounds.
+    GoRoute(
+      path: '/sounds/record',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.soundRecord,
+      redirect: (context, state) async =>
+          (await getIt<SoundHost>().capabilities()).canImportSounds
+          ? null
+          : '/sounds',
+      pageBuilder: (context, state) => AmbientPage(
+        key: state.pageKey,
+        opaque: true,
+        child: const SoundRecorderScreen(),
+      ),
     ),
     // The three root destinations live inside the shell, so the floating tab
     // bar stays on screen and each tab keeps its own back stack. Anything that
