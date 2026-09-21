@@ -3,27 +3,35 @@ import 'dart:math' as math;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/route_observer.dart';
+import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/settings/presentation/cubits/recorder_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/recorder_state.dart';
+import 'package:critalarm/features/settings/presentation/sound_crop_screen.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Records a clip from the microphone.
+/// Records a clip from the microphone, then turns into the cropper for it.
 ///
-/// Pops with the recorded `PickedSoundFile`, which the sound list opens in
-/// the cropper, or with null when the user leaves without one.
+/// Both live in this one route, so back from the cropper lands on the sound
+/// list. The route pops with whatever the cropper pops with (a future for a
+/// save that may still be running), or null when the user leaves before the
+/// cropper opens.
 class SoundRecorderScreen extends StatelessWidget {
   const SoundRecorderScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => getIt<RecorderCubit>(),
+      create: (_) {
+        final cubit = getIt<RecorderCubit>();
+        unawaited(cubit.checkRinging());
+        return cubit;
+      },
       child: const RecorderView(),
     );
   }
@@ -43,6 +51,11 @@ class RecorderView extends StatefulWidget {
 class _RecorderViewState extends State<RecorderView>
     with WidgetsBindingObserver, RouteAware {
   ModalRoute<void>? _route;
+  Timer? _toCropper;
+
+  /// Set once the cropper has taken the file. The body is the cropper from
+  /// then on.
+  PickedSoundFile? _cropping;
 
   @override
   void initState() {
@@ -63,6 +76,7 @@ class _RecorderViewState extends State<RecorderView>
 
   @override
   void dispose() {
+    _toCropper?.cancel();
     appRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -72,6 +86,9 @@ class _RecorderViewState extends State<RecorderView>
   /// permission prompt and the control centre both cause it.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(context.read<RecorderCubit>().checkRinging());
+    }
     if (state == AppLifecycleState.hidden ||
         state == AppLifecycleState.paused) {
       unawaited(context.read<RecorderCubit>().interrupt());
@@ -84,6 +101,12 @@ class _RecorderViewState extends State<RecorderView>
     unawaited(context.read<RecorderCubit>().interrupt());
   }
 
+  /// Whatever was on top closed, perhaps an alarm that was acknowledged.
+  @override
+  void didPopNext() {
+    unawaited(context.read<RecorderCubit>().checkRinging());
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<RecorderCubit, RecorderState>(
@@ -94,12 +117,14 @@ class _RecorderViewState extends State<RecorderView>
             AppHaptics.capture();
           case RecorderStatus.stopped:
             AppHaptics.success();
-            final file = state.recorded;
-            unawaited(
-              Future<void>.delayed(RecorderView.successPause, () {
-                if (context.mounted) Navigator.of(context).pop(file);
-              }),
-            );
+            // Swaps the body, never pops, so nothing else on the stack can
+            // be closed by mistake.
+            _toCropper?.cancel();
+            _toCropper = Timer(RecorderView.successPause, () {
+              if (!mounted) return;
+              final file = context.read<RecorderCubit>().handOff();
+              if (file != null) setState(() => _cropping = file);
+            });
           case RecorderStatus.ready ||
               RecorderStatus.starting ||
               RecorderStatus.stopping ||
@@ -108,7 +133,17 @@ class _RecorderViewState extends State<RecorderView>
             break;
         }
       },
-      builder: (context, state) => _RecorderBody(state: state),
+      builder: (context, state) {
+        final cropping = _cropping;
+        return AnimatedSwitcher(
+          duration: MediaQuery.of(context).disableAnimations
+              ? Duration.zero
+              : const Duration(milliseconds: 250),
+          child: cropping == null
+              ? _RecorderBody(state: state)
+              : SoundCropScreen(key: ValueKey(cropping.path), file: cropping),
+        );
+      },
     );
   }
 }
@@ -221,6 +256,7 @@ class _RecorderBody extends StatelessWidget {
                 const SizedBox(height: 26),
                 _RecordButton(
                   isRecording: state.isRecording,
+                  looksDisabled: state.alarmRinging,
                   onPressed: busy
                       ? null
                       : () {
@@ -316,9 +352,17 @@ class _CenteredBarsPainter extends CustomPainter {
 
 /// The big round button. A red dot to start, a red square to stop.
 class _RecordButton extends StatelessWidget {
-  const _RecordButton({required this.isRecording, required this.onPressed});
+  const _RecordButton({
+    required this.isRecording,
+    required this.onPressed,
+    this.looksDisabled = false,
+  });
 
   final bool isRecording;
+
+  /// Greyed out while an alarm rings. Still tappable, so a tap can check
+  /// again once the alarm is acknowledged.
+  final bool looksDisabled;
   final VoidCallback? onPressed;
 
   @override
@@ -334,22 +378,25 @@ class _RecordButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onPressed,
         behavior: HitTestBehavior.opaque,
-        child: Container(
-          width: 84,
-          height: 84,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: colors.surface,
-            border: Border.all(color: colors.ink, width: 4),
-          ),
-          alignment: Alignment.center,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            width: isRecording ? 30 : 60,
-            height: isRecording ? 30 : 60,
+        child: Opacity(
+          opacity: onPressed == null || looksDisabled ? .5 : 1,
+          child: Container(
+            width: 84,
+            height: 84,
             decoration: BoxDecoration(
-              color: colors.crit,
-              borderRadius: BorderRadius.circular(isRecording ? 8 : 30),
+              shape: BoxShape.circle,
+              color: colors.surface,
+              border: Border.all(color: colors.ink, width: 4),
+            ),
+            alignment: Alignment.center,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: isRecording ? 30 : 60,
+              height: isRecording ? 30 : 60,
+              decoration: BoxDecoration(
+                color: colors.crit,
+                borderRadius: BorderRadius.circular(isRecording ? 8 : 30),
+              ),
             ),
           ),
         ),

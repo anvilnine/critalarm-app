@@ -73,20 +73,15 @@ class _SoundPickerView extends StatelessWidget {
     await cubit.reloadAfterCrop(result is Future<void> ? result : null);
   }
 
-  /// Record a clip, crop it, then read the list again. The recorder pops
-  /// with the file and the list opens the cropper, so back from the cropper
-  /// comes here, not to the recorder.
+  /// Record a clip, crop it, then read the list again. The recorder turns
+  /// into the cropper inside its own route and pops the way the cropper
+  /// does, with a future for a save that may still be running.
   static Future<void> _recordAndCrop(BuildContext context) async {
     final cubit = context.read<SoundPickerCubit>();
     await cubit.stopPreview();
     if (!context.mounted) return;
-    final file = await context.pushNamed<Object?>(AppRoute.soundRecord);
-    if (file is! PickedSoundFile || !context.mounted) return;
-    final result = await context.pushNamed<Object?>(
-      AppRoute.soundCrop,
-      extra: file,
-    );
-    await cubit.reloadAfterCrop(result is Future<void> ? result : null);
+    final result = await context.pushNamed<Object?>(AppRoute.soundRecord);
+    if (result is Future<void>) await cubit.reloadAfterCrop(result);
   }
 
   static AlarmSound? selectedSound(SoundPickerState state) {

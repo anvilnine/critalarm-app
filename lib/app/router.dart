@@ -130,8 +130,8 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         );
       },
     ),
-    // The recorder. Pops with the recorded file, which the sound list then
-    // opens in the cropper, so back from the cropper lands on the list.
+    // The recorder. Once a clip is recorded the same route shows the
+    // cropper for it, so back from the cropper lands on the sound list.
     // Leaves at once where the platform cannot import sounds.
     GoRoute(
       path: '/sounds/record',
