@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:critalarm/core/sound/alarm_sound.dart';
+import 'package:critalarm/core/sound/incoming_audio.dart';
+import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:flutter/services.dart';
 
 /// What this platform can do with a sound the user brought in themselves.
@@ -89,6 +91,7 @@ final class SoundHost {
 
   final MethodChannel _channel;
   final _previewEnded = StreamController<String>.broadcast();
+  final _incomingAudio = StreamController<PickedSoundFile>.broadcast();
 
   /// The path of a preview that stopped on its own: it played to the end, or
   /// a call or another app took the audio. Not fired for [stopPreview]. The
@@ -96,14 +99,28 @@ final class SoundHost {
   /// preview can be told apart from the one playing now.
   Stream<String> get previewEnded => _previewEnded.stream;
 
+  /// A sound file another app shared while this one was running, already
+  /// copied into the app's cache. A share that started the app is held
+  /// natively instead, for [takeIncomingAudio].
+  Stream<PickedSoundFile> get incomingAudio => _incomingAudio.stream;
+
   Future<Object?> _handle(MethodCall call) async {
-    if (call.method == 'previewEnded') {
-      final args = call.arguments;
-      final path = args is Map ? args['path'] : null;
-      _previewEnded.add(path is String ? path : '');
+    switch (call.method) {
+      case 'previewEnded':
+        final args = call.arguments;
+        final path = args is Map ? args['path'] : null;
+        _previewEnded.add(path is String ? path : '');
+      case 'incomingAudio':
+        final file = pickedSoundFileFrom(call.arguments);
+        if (file != null) _incomingAudio.add(file);
     }
     return null;
   }
+
+  /// The shared file the platform is holding, taken once and cleared. Null
+  /// when there is none.
+  Future<PickedSoundFile?> takeIncomingAudio() async =>
+      pickedSoundFileFrom(await _invoke<Object?>('takeIncomingAudio'));
 
   /// Copies the eight bundled sounds where the OS alarm and notification APIs
   /// can find them by name. Safe to call on every launch.

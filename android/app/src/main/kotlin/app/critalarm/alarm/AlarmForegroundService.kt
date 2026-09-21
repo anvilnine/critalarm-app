@@ -132,6 +132,14 @@ class AlarmForegroundService : Service() {
         private val ringingIncidentId: String?
             get() = synchronized(held) { held.lastOrNull()?.incidentId }
 
+        /**
+         * True while any un-acked incident is holding the alarm. Dart asks
+         * before it opens a shared sound in the cropper, so the cropper never
+         * covers an alarm that still needs acknowledging.
+         */
+        val isRinging: Boolean
+            get() = ringingIncidentId != null
+
         private fun push(next: Ringing) = synchronized(held) {
             held.removeAll { it.incidentId == next.incidentId }
             held.add(next)
