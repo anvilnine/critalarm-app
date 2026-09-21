@@ -8,7 +8,6 @@ import 'package:critalarm/features/settings/domain/repositories/sound_file_picke
 import 'package:critalarm/features/settings/domain/usecases/delete_user_sound_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -79,7 +78,8 @@ void main() {
   late _FixedPicker picker;
   late SoundPickerCubit cubit;
 
-  int publishCount() => calls.where((m) => m == 'publishSoundAssignments').length;
+  int publishCount() =>
+      calls.where((m) => m == 'publishSoundAssignments').length;
 
   const userSound = AlarmSound(
     id: 'user_1',
@@ -158,17 +158,19 @@ void main() {
     expect(publishCount(), 1);
   });
 
-  test('an iOS import over 29.5 seconds is turned away and publishes nothing',
-      () async {
-    probedMs = 29501;
-    picker.next = const PickedSoundFile(
-      path: '/tmp/long.mp3',
-      name: 'long.mp3',
-      sizeBytes: 1024,
-    );
-    await cubit.importSound();
-    expect(cubit.state.errorCode, 'tooLong');
-    expect(cubit.state.userSounds, isEmpty);
-    expect(publishCount(), 0);
-  });
+  test(
+    'an iOS import over 29.5 seconds is turned away and publishes nothing',
+    () async {
+      probedMs = 29501;
+      picker.next = const PickedSoundFile(
+        path: '/tmp/long.mp3',
+        name: 'long.mp3',
+        sizeBytes: 1024,
+      );
+      await cubit.importSound();
+      expect(cubit.state.errorCode, 'tooLong');
+      expect(cubit.state.userSounds, isEmpty);
+      expect(publishCount(), 0);
+    },
+  );
 }
