@@ -367,6 +367,7 @@ class _SoundRowState extends State<_SoundRow>
           waveform: WaveformBars(
             peaks: sound.peaks ?? const [],
             progress: progress,
+            loading: state.isLoadingPeaks,
           ),
           onTap: () {
             AppHaptics.selection();
