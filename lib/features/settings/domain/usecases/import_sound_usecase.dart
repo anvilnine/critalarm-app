@@ -4,6 +4,7 @@ import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
+import 'package:flutter/foundation.dart';
 
 /// A file the user picked, before anything has been checked.
 class PickedSoundFile {
@@ -25,10 +26,14 @@ class PickedSoundFile {
 /// Order matters: check the size and the format before asking the platform to
 /// decode anything, so a 400 MB video never gets opened.
 class ImportSoundUsecase {
-  const ImportSoundUsecase(this._repository, this._host);
+  ImportSoundUsecase(this._repository, this._host, {TargetPlatform? platform})
+    : _platform = platform ?? defaultTargetPlatform;
 
   final AlarmSoundRepository _repository;
   final SoundHost _host;
+
+  /// Decides the length cap. Tests pass one in.
+  final TargetPlatform _platform;
 
   Future<AppResult<AlarmSound>> call(PickedSoundFile file) async {
     if (file.sizeBytes > SoundImportLimits.maxBytes) {
@@ -41,6 +46,7 @@ class ImportSoundUsecase {
       fileName: file.name,
       sizeBytes: file.sizeBytes,
       duration: duration,
+      platform: _platform,
     );
     if (rejection != null) {
       return BadRequestFailure(
