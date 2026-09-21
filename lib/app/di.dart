@@ -755,6 +755,7 @@ Future<void> configureDependencies({
         getIt<ImportSoundUsecase>(),
         getIt<DeleteUserSoundUsecase>(),
         getIt<SoundFilePicker>(),
+        getIt<SoundPeaksCache>(),
         nameOf: (id) => 'sound_library.names.$id'.tr(),
       ),
     )
