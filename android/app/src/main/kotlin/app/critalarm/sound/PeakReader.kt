@@ -24,6 +24,10 @@ object PeakReader {
     private const val FRAMES_PER_SECOND_READ = 8000
     private const val TIMEOUT_US = 10_000L
 
+    /** A decoder that stops making progress must not hold the sound thread. */
+    private const val MAX_READ_MS = 10_000L
+    private const val MAX_EMPTY_DEQUEUES = 500
+
     /** RMS per slice, the loudest slice at 1. Empty when nothing could read it. */
     fun read(context: Context, path: String, isAsset: Boolean, count: Int): List<Double> {
         if (count <= 0) return emptyList()
@@ -63,8 +67,16 @@ object PeakReader {
             val info = MediaCodec.BufferInfo()
             var inputDone = false
             var outputDone = false
+            val startedAt = System.currentTimeMillis()
+            var emptyDequeues = 0
 
             while (!outputDone) {
+                if (System.currentTimeMillis() - startedAt > MAX_READ_MS ||
+                    emptyDequeues > MAX_EMPTY_DEQUEUES
+                ) {
+                    Log.w(TAG, "peaks_gave_up path=$path empty_dequeues=$emptyDequeues")
+                    return emptyList()
+                }
                 if (!inputDone) {
                     val inIndex = decoder.dequeueInputBuffer(TIMEOUT_US)
                     if (inIndex >= 0) {
@@ -80,6 +92,7 @@ object PeakReader {
                     }
                 }
                 val outIndex = decoder.dequeueOutputBuffer(info, TIMEOUT_US)
+                if (outIndex == MediaCodec.INFO_TRY_AGAIN_LATER) emptyDequeues += 1 else emptyDequeues = 0
                 when {
                     outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                         // The real rate and layout come from here, not the extractor.
