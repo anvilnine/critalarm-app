@@ -80,6 +80,17 @@ class SoundCropCubit extends Cubit<SoundCropState> {
       cancelToken: _peaksToken,
     );
     if (isClosed) return;
+    // A file with a length but no waveform could not be decoded, or took
+    // too long to read. Opening a flat editor at 0 would hide that.
+    if (peaks.isEmpty) {
+      emit(
+        state.copyWith(
+          status: SoundCropStatus.failed,
+          errorCode: SoundImportRejection.unreadable.name,
+        ),
+      );
+      return;
+    }
     emit(
       state.copyWith(
         status: SoundCropStatus.ready,
@@ -95,6 +106,7 @@ class SoundCropCubit extends Cubit<SoundCropState> {
 
   /// An empty name goes back to the file name.
   void rename(String name) {
+    if (isClosed) return;
     final trimmed = name.trim();
     final file = _file;
     emit(
@@ -180,7 +192,9 @@ class SoundCropCubit extends Cubit<SoundCropState> {
     return save;
   }
 
-  void clearError() => emit(state.copyWith(clearError: true));
+  void clearError() {
+    if (!isClosed) emit(state.copyWith(clearError: true));
+  }
 
   @override
   Future<void> close() async {
