@@ -115,6 +115,8 @@ class SoundChannel(private val context: Context, private val channel: MethodChan
                 call.argument<String>("token")?.let { cancelledPeaks.add(it) }
                 result.success(null)
             }
+            // A file shared from another app that Dart has not taken yet.
+            "takeIncomingAudio" -> result.success(IncomingAudioHolder.take())
             "deleteSound" -> {
                 val path = call.argument<String>("path")
                 inBackground(result) { path != null && File(path).delete() }
