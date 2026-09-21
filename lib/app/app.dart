@@ -10,6 +10,7 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
+import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
@@ -58,8 +59,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     host: getIt<SoundHost>(),
     routeChanges: _router.routerDelegate,
     incidentChanges: getIt<IncidentsCubit>().stream,
-    open: (file) =>
-        unawaited(_router.pushNamed(AppRoute.soundCrop, extra: file)),
+    open: _openCropper,
     showMessage: (message) => _messenger.currentState
       ?..clearSnackBars()
       ..showSnackBar(
@@ -76,6 +76,19 @@ class _CritAlarmAppState extends State<CritAlarmApp>
         ),
       ),
   );
+
+  /// A share that lands while a cropper is already open replaces it, so the
+  /// user never has two croppers stacked. The one replaced deletes its own
+  /// copy as it closes.
+  void _openCropper(PickedSoundFile file) {
+    final top = _router.routerDelegate.currentConfiguration.last.route;
+    final onCropper = top.name == AppRoute.soundCrop;
+    unawaited(
+      onCropper
+          ? _router.pushReplacementNamed(AppRoute.soundCrop, extra: file)
+          : _router.pushNamed(AppRoute.soundCrop, extra: file),
+    );
+  }
 
   @override
   void initState() {
