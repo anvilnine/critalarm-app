@@ -48,6 +48,16 @@ class _MemoryRepository implements AlarmSoundRepository {
   }
 
   @override
+  Future<AppResult<Unit>> updateUserSoundPeaks(
+    String soundId,
+    List<double> peaks,
+  ) async {
+    final index = sounds.indexWhere((s) => s.id == soundId);
+    if (index >= 0) sounds[index] = sounds[index].copyWith(peaks: peaks);
+    return unit.toSuccess();
+  }
+
+  @override
   Future<AppResult<Unit>> deleteUserSound(String soundId) async {
     sounds.removeWhere((s) => s.id == soundId);
     assignments = assignments.withSoundDeleted(
