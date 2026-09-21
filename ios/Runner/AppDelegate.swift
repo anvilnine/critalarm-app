@@ -47,6 +47,11 @@ import AlarmKit
     let moved = PushEventLog.handOverToDart()
     if moved > 0 { NSLog("CritAlarm: push_events_handed_over count=%d", moved) }
 
+    // Sounds live in the app group now, so the notification extension can
+    // play the one the user picked. Both calls are cheap and safe every launch.
+    SoundLibrary.migrateToGroupContainer()
+    SoundLibrary.publishToExtension()
+
     let started = super.application(application, didFinishLaunchingWithOptions: launchOptions)
 
     #if DEBUG
@@ -492,27 +497,62 @@ import AlarmKit
 /// The native half of the sound picker.
 ///
 /// iOS has no alarm audio stream. Both the alarm API and the notification API
-/// take a file *name* and look for it in two places: the app bundle, and
-/// `Library/Sounds`. Flutter assets live inside `App.framework`, which is
-/// neither, so every bundled sound is copied out to `Library/Sounds` on launch
-/// and referenced by name from then on.
+/// take a file *name* and look for it in the app bundle and in a
+/// `Library/Sounds` folder. Flutter assets live inside `App.framework`, which
+/// is neither, so every bundled sound is copied out to `Library/Sounds` on
+/// launch and referenced by name from then on. The folder is the app group's
+/// one (`SharedSounds`), so the notification extension can see the files too.
 ///
 /// `UNNotificationSound` reads caf, wav and aiff only, never mp3, so the copy
 /// is also a conversion.
 enum SoundLibrary {
-  static let group = "group.app.critalarm"
-  static let selectedSoundKey = "selected_sound_name"
+  /// The app's own `Library/Sounds`. Where sounds lived before they moved to
+  /// the app group, and the fallback if the group is missing.
+  static var appSoundsDirectory: URL? {
+    FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?
+      .appendingPathComponent("Sounds", isDirectory: true)
+  }
 
-  /// `Library/Sounds`, created if it is not there yet.
+  /// The app group's `Library/Sounds`, created if it is not there yet.
   static var soundsDirectory: URL? {
-    guard let library = FileManager.default.urls(
-      for: .libraryDirectory, in: .userDomainMask
-    ).first else { return nil }
-    let directory = library.appendingPathComponent("Sounds", isDirectory: true)
+    guard let directory = SharedSounds.groupSoundsDirectory ?? appSoundsDirectory else { return nil }
     try? FileManager.default.createDirectory(
       at: directory, withIntermediateDirectories: true
     )
     return directory
+  }
+
+  /// Moves every sound out of the app's own `Library/Sounds` into the app
+  /// group's. Safe to run more than once: a file already in the group is kept
+  /// and the old copy is dropped.
+  static func migrateToGroupContainer() {
+    guard let old = appSoundsDirectory,
+          let new = soundsDirectory,
+          old.standardizedFileURL != new.standardizedFileURL,
+          let names = try? FileManager.default.contentsOfDirectory(atPath: old.path)
+    else { return }
+    var moved = 0
+    for name in names {
+      let from = old.appendingPathComponent(name)
+      let to = new.appendingPathComponent(name)
+      if FileManager.default.fileExists(atPath: to.path) {
+        try? FileManager.default.removeItem(at: from)
+      } else if (try? FileManager.default.moveItem(at: from, to: to)) != nil {
+        moved += 1
+      }
+    }
+    if moved > 0 { NSLog("CritAlarmSound: sounds_moved_to_group count=%d", moved) }
+  }
+
+  /// Dart keeps the absolute path it got at import time. That path goes stale
+  /// when the files move to the group, or when iOS moves the app's container
+  /// on an update, so a missing file is looked up by name in the sounds folder.
+  static func localURL(forStoredPath path: String) -> URL {
+    let stored = URL(fileURLWithPath: path)
+    if FileManager.default.fileExists(atPath: stored.path) { return stored }
+    guard let directory = soundsDirectory else { return stored }
+    let byName = directory.appendingPathComponent(stored.lastPathComponent)
+    return FileManager.default.fileExists(atPath: byName.path) ? byName : stored
   }
 
   /// Turns `assets/sounds/pager_beep.mp3` into a real file inside the bundle.
@@ -627,42 +667,33 @@ enum SoundLibrary {
   /// The file name the alarm and notification APIs are handed.
   static func fileName(forSoundId id: String) -> String { "\(id).caf" }
 
-  /// Whether a name resolves to a file this app can point an API at.
-  static func exists(fileName: String) -> Bool {
-    guard let directory = soundsDirectory else { return false }
-    return FileManager.default.fileExists(
-      atPath: directory.appendingPathComponent(fileName).path
-    )
-  }
-
-  /// Which sound rings, read the same way Dart wrote it.
+  /// Hands the notification extension the current choices. The extension
+  /// runs in its own process and cannot read the app's defaults, so it reads
+  /// these from the app group instead.
   ///
   /// `shared_preferences` on iOS writes into the standard user defaults with a
-  /// `flutter.` prefix.
-  static func soundId(forTopic topic: String?) -> String {
+  /// `flutter.` prefix, which is where the choices are read from here.
+  @discardableResult
+  static func publishToExtension() -> Bool {
+    guard let shared = SharedSounds.groupDefaults else { return false }
     let defaults = UserDefaults.standard
-    let fallback = defaults.string(forKey: "flutter.alarm_sound_default") ?? "classic_siren"
-    guard let topic, !topic.isEmpty,
-          let raw = defaults.string(forKey: "flutter.alarm_sound_per_topic"),
-          let data = raw.data(using: .utf8),
-          let map = try? JSONSerialization.jsonObject(with: data) as? [String: String],
-          let picked = map[topic], !picked.isEmpty
-    else { return fallback }
-    return picked
-  }
-
-  /// The name for the alarm and for `UNNotificationSound`, or nil to leave the
-  /// system default alone because the file is not there.
-  static func resolvedFileName(forTopic topic: String?) -> String? {
-    let name = fileName(forSoundId: soundId(forTopic: topic))
-    return exists(fileName: name) ? name : nil
-  }
-
-  /// Hands the notification extension the current choice. The extension runs
-  /// in its own process and cannot read the app's defaults, so it reads this.
-  static func publishToExtension(topic: String?) {
-    guard let shared = UserDefaults(suiteName: group) else { return }
-    shared.set(resolvedFileName(forTopic: topic), forKey: selectedSoundKey)
+    let defaultId = defaults.string(forKey: "flutter.alarm_sound_default")
+      .flatMap { $0.isEmpty ? nil : $0 } ?? "classic_siren"
+    var perTopic: [String: String] = [:]
+    if let raw = defaults.string(forKey: "flutter.alarm_sound_per_topic"),
+       let data = raw.data(using: .utf8),
+       let map = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
+      for (topic, id) in map where !id.isEmpty {
+        perTopic[topic] = fileName(forSoundId: id)
+      }
+    }
+    SharedSounds.publish(
+      defaultFile: fileName(forSoundId: defaultId),
+      perTopicFiles: perTopic,
+      to: shared
+    )
+    NSLog("CritAlarmSound: assignments_published topics=%d", perTopic.count)
+    return true
   }
 }
 
@@ -726,7 +757,7 @@ extension AppDelegate {
         let isAsset = args["is_asset"] as? Bool ?? false
         let url = isAsset
           ? SoundLibrary.bundleURL(forFlutterAsset: path)
-          : URL(fileURLWithPath: path)
+          : SoundLibrary.localURL(forStoredPath: path)
         guard let url else { result(false); return }
         result(SoundPreviewPlayer.shared.start(url: url))
       case "stopPreview":
@@ -741,7 +772,9 @@ extension AppDelegate {
         result(SoundLibrary.importSound(source: URL(fileURLWithPath: source), id: id))
       case "deleteSound":
         guard let path = args["path"] as? String else { result(false); return }
-        result((try? FileManager.default.removeItem(atPath: path)) != nil)
+        result((try? FileManager.default.removeItem(at: SoundLibrary.localURL(forStoredPath: path))) != nil)
+      case "publishSoundAssignments":
+        result(SoundLibrary.publishToExtension())
       default:
         result(FlutterMethodNotImplemented)
       }
