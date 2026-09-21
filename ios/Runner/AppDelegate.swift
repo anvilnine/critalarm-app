@@ -350,6 +350,17 @@ import AlarmKit
       IncidentActivityCoordinator.shared.end(incidentId: incidentId, finalState: state)
       result(true)
 
+    case "isRinging":
+      // True while an AlarmKit alarm is going off. Dart holds a shared sound
+      // file until this is false, so the cropper never covers an alarm.
+      #if canImport(AlarmKit)
+      if #available(iOS 26.0, *) {
+        result((try? AlarmManager.shared.alarms)?.contains { $0.state == .alerting } ?? false)
+        return
+      }
+      #endif
+      result(false)
+
     case "showingIncidentIds":
       guard #available(iOS 16.2, *) else { result([String]()); return }
       result(IncidentActivityCoordinator.shared.showingIncidentIds())
