@@ -52,10 +52,10 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
         pushChannel = push
-        val sounds = SoundChannel(applicationContext)
+        val soundMethods = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SoundChannel.NAME)
+        val sounds = SoundChannel(applicationContext, soundMethods)
         soundChannel = sounds
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SoundChannel.NAME)
-            .setMethodCallHandler(sounds::handle)
+        soundMethods.setMethodCallHandler(sounds::handle)
         val alarms = AlarmChannel(applicationContext)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AlarmChannel.NAME)
             .setMethodCallHandler(alarms::handle)
@@ -234,7 +234,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onStop() {
         // Leaving the picker on screen must not leave a preview ringing.
-        soundChannel?.stopPreview()
+        soundChannel?.endPreview()
         super.onStop()
     }
 

@@ -43,6 +43,18 @@ class SharedPrefsAlarmSoundRepository implements AlarmSoundRepository {
   }
 
   @override
+  Future<AppResult<Unit>> updateUserSoundPeaks(
+    String soundId,
+    List<double> peaks,
+  ) async {
+    final sounds = _readUserSounds();
+    if (!sounds.any((s) => s.id == soundId)) return unit.toSuccess();
+    return _writeUserSounds([
+      for (final s in sounds) s.id == soundId ? s.copyWith(peaks: peaks) : s,
+    ]);
+  }
+
+  @override
   Future<AppResult<Unit>> deleteUserSound(String soundId) async {
     final written = await _writeUserSounds(
       _readUserSounds().where((s) => s.id != soundId).toList(),

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
+import 'package:critalarm/core/sound/sound_peaks_cache.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/sound_file_picker.dart';
 import 'package:critalarm/features/settings/domain/usecases/delete_user_sound_usecase.dart';
@@ -17,11 +20,23 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
     this._host,
     this._import,
     this._delete,
-    this._picker, {
+    this._picker,
+    this._peaksCache, {
     TargetPlatform? platform,
     this.nameOf,
   }) : _platform = platform ?? defaultTargetPlatform,
-       super(const SoundPickerState());
+       super(const SoundPickerState()) {
+    _previewEnded = _host.previewEnded.listen((path) {
+      if (isClosed) return;
+      final playing = state.previewingSoundId;
+      // A late event for a preview that has since been replaced says nothing
+      // about the one playing now.
+      final match = [...state.bundled, ...state.userSounds].where(
+        (s) => s.id == playing && s.path == path,
+      );
+      if (match.isNotEmpty) emit(state.copyWith(clearPreviewing: true));
+    });
+  }
 
   /// Turns a bundled sound id into a name in the user's language. Left null
   /// in tests, which fall back to the English names in the catalogue.
@@ -32,7 +47,9 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
   final ImportSoundUsecase _import;
   final DeleteUserSoundUsecase _delete;
   final SoundFilePicker _picker;
+  final SoundPeaksCache _peaksCache;
   final TargetPlatform _platform;
+  late final StreamSubscription<String> _previewEnded;
 
   /// [topicName] null means this screen is choosing the global default.
   Future<void> load({String? topicName}) async {
@@ -47,10 +64,15 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
     emit(
       state.copyWith(
         isLoading: false,
-        bundled: BundledSounds.catalogue(
-          platform: _platform,
-          nameOf: nameOf,
-        ),
+        // Peaks read on an earlier open show on the first frame.
+        bundled: [
+          for (final sound in BundledSounds.catalogue(
+            platform: _platform,
+            nameOf: nameOf,
+          ))
+            sound.copyWith(peaks: sound.peaks ?? _peaksCache.cached(sound.id)),
+        ],
+        isLoadingPeaks: true,
         userSounds: userSounds,
         selectedSoundId: selected,
         defaultSoundId: defaultId,
@@ -59,6 +81,56 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
         platform: _platform,
       ),
     );
+    await Future.wait([_fillBundledPeaks(), _backfillUserPeaks()]);
+    if (!isClosed) emit(state.copyWith(isLoadingPeaks: false));
+  }
+
+  /// Reads every missing bundled waveform at once and shows them together,
+  /// so the rows do not fill in one at a time.
+  Future<void> _fillBundledPeaks() async {
+    final missing = state.bundled.where((s) => s.peaks == null).toList();
+    if (missing.isEmpty) return;
+    final read = await Future.wait([
+      for (final sound in missing) _peaksCache.load(sound),
+    ]);
+    final found = <String, List<double>>{
+      for (var i = 0; i < missing.length; i++)
+        if (read[i].isNotEmpty) missing[i].id: read[i],
+    };
+    if (isClosed || found.isEmpty) return;
+    emit(
+      state.copyWith(
+        bundled: [
+          for (final s in state.bundled)
+            found.containsKey(s.id) ? s.copyWith(peaks: found[s.id]) : s,
+        ],
+      ),
+    );
+  }
+
+  /// Sounds imported before waveforms existed have no peaks. Read them once,
+  /// save them, and merge them into whatever the screen shows by then, so a
+  /// sound deleted during the read is not brought back.
+  Future<void> _backfillUserPeaks() async {
+    for (final sound in state.userSounds) {
+      if (sound.peaks != null) continue;
+      final peaks = await _host.readPeaks(
+        path: sound.path,
+        isAsset: false,
+        count: SoundPeaksCache.barCount,
+      );
+      if (peaks.isEmpty) continue;
+      await _repository.updateUserSoundPeaks(sound.id, peaks);
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          userSounds: [
+            for (final s in state.userSounds)
+              s.id == sound.id ? s.copyWith(peaks: peaks) : s,
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> select(String soundId) async {
@@ -98,7 +170,7 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
     if (!isClosed) emit(state.copyWith(clearPreviewing: true));
   }
 
-  /// "Add your own". Opens the platform picker, checks the caps, copies the
+  /// "Pick a file". Opens the platform picker, checks the caps, copies the
   /// file in.
   Future<void> importSound() async {
     final picked = await _picker.pickOne();
@@ -150,6 +222,7 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
 
   @override
   Future<void> close() async {
+    await _previewEnded.cancel();
     await _host.stopPreview();
     return super.close();
   }

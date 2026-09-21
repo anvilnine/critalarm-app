@@ -40,6 +40,11 @@ abstract class AlarmSound with _$AlarmSound {
     /// User: an absolute path inside the app's own sound folder.
     required String path,
     @DurationMsConverter() required Duration duration,
+
+    /// Loudness of the sound in even slices, 0 to 1, for the waveform on its
+    /// row. Null on sounds saved before waveforms existed, until the picker
+    /// fills them in.
+    List<double>? peaks,
   }) = _AlarmSound;
 
   factory AlarmSound.fromJson(Map<String, dynamic> json) =>
