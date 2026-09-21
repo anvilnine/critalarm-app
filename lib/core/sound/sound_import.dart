@@ -1,9 +1,24 @@
+import 'package:flutter/foundation.dart';
+
 /// Rules for bringing in a user's own audio file.
 ///
 /// Pure checks, so the caps can be tested without a file picker or a device.
 abstract final class SoundImportLimits {
-  /// Longer than this and it stops being an alarm sound.
-  static const Duration maxDuration = Duration(seconds: 60);
+  /// iOS plays the default sound instead of any notification sound of 30
+  /// seconds or more.
+  static const Duration iosNotificationLimit = Duration(seconds: 30);
+
+  /// The longest clip the app keeps. On iOS the notification plays the sound,
+  /// so it stays half a second under Apple's limit. Android rings through its
+  /// own alarm player, and past a minute it stops being an alarm sound.
+  static Duration maxClipDuration(TargetPlatform platform) =>
+      platform == TargetPlatform.iOS
+      ? const Duration(milliseconds: 29500)
+      : const Duration(seconds: 60);
+
+  /// True for a sound that iOS will swap for the default when a push arrives.
+  static bool tooLongToRing(TargetPlatform platform, Duration duration) =>
+      platform == TargetPlatform.iOS && duration >= iosNotificationLimit;
 
   /// 5 MB. Large enough for a minute of mp3, small enough that a backup of
   /// app data stays sane.
@@ -27,7 +42,7 @@ abstract final class SoundImportLimits {
 
 /// Why an import was turned away. Null means it passed.
 enum SoundImportRejection {
-  /// Over [SoundImportLimits.maxDuration].
+  /// Over [SoundImportLimits.maxClipDuration].
   tooLong,
 
   /// Over [SoundImportLimits.maxBytes].
@@ -48,6 +63,7 @@ SoundImportRejection? checkSoundImport({
   required String fileName,
   required int sizeBytes,
   required Duration duration,
+  required TargetPlatform platform,
 }) {
   if (sizeBytes <= 0 || duration <= Duration.zero) {
     return SoundImportRejection.unreadable;
@@ -55,7 +71,7 @@ SoundImportRejection? checkSoundImport({
   if (!SoundImportLimits.readableExtensions.contains(extensionOf(fileName))) {
     return SoundImportRejection.unsupportedFormat;
   }
-  if (duration > SoundImportLimits.maxDuration) {
+  if (duration > SoundImportLimits.maxClipDuration(platform)) {
     return SoundImportRejection.tooLong;
   }
   if (sizeBytes > SoundImportLimits.maxBytes) {

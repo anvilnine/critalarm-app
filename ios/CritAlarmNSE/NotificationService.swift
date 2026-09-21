@@ -105,8 +105,29 @@ final class NotificationService: UNNotificationServiceExtension {
             content.userInfo = info
         }
 
+        applyPickedSound(to: content, topic: resolved?.topic)
+
         NSLog("CritAlarmNSE delivered title=%@", content.title)
         handler(content)
+    }
+
+    /// Swaps the payload's `alarm.caf` for the sound the user picked for this
+    /// topic, or their default when the topic is not known (the payload has no
+    /// topic; it only arrives with the fetched incident).
+    ///
+    /// Only a push that already carries a sound is touched, so a quiet push
+    /// stays quiet. No published choice, or a file that is not in the app
+    /// group's `Library/Sounds`, leaves `alarm.caf` in place.
+    private func applyPickedSound(to content: UNMutableNotificationContent, topic: String?) {
+        guard content.sound != nil,
+              let name = SharedSounds.fileName(
+                  forTopic: topic,
+                  defaults: SharedSounds.groupDefaults,
+                  fileExists: SharedSounds.existsInGroup
+              )
+        else { return }
+        content.sound = UNNotificationSound(named: UNNotificationSoundName(name))
+        NSLog("CritAlarmNSE sound_applied name=%@ topic=%@", name, topic ?? "-")
     }
 
     /// Spike only. Calls the same scheduler the app would, from inside the
