@@ -91,6 +91,10 @@ void main() {
 
   /// When set, reading peaks for a user sound waits on this.
   Completer<void>? holdUserPeaks;
+
+  /// When set, reading peaks for a bundled sound waits on this.
+  Completer<void>? holdBundledPeaks;
+  late int bundledReads;
   late Completer<void> userPeaksAsked;
   late _MemoryRepository repository;
   late _FixedPicker picker;
@@ -111,6 +115,8 @@ void main() {
     calls = [];
     probedMs = 4000;
     holdUserPeaks = null;
+    holdBundledPeaks = null;
+    bundledReads = 0;
     userPeaksAsked = Completer<void>();
     messenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call.method);
@@ -119,6 +125,9 @@ void main() {
         if (args['is_asset'] != true) {
           if (!userPeaksAsked.isCompleted) userPeaksAsked.complete();
           await holdUserPeaks?.future;
+        } else {
+          bundledReads++;
+          await holdBundledPeaks?.future;
         }
         return peaks;
       }
@@ -191,6 +200,63 @@ void main() {
     for (final sound in cubit.state.bundled) {
       expect(sound.peaks, peaks, reason: sound.id);
     }
+  });
+
+  SoundPickerCubit freshCubit(SoundPeaksCache cache) {
+    final host = SoundHost();
+    return SoundPickerCubit(
+      repository,
+      host,
+      ImportSoundUsecase(repository, host, platform: TargetPlatform.iOS),
+      DeleteUserSoundUsecase(repository, host),
+      picker,
+      cache,
+      platform: TargetPlatform.iOS,
+    );
+  }
+
+  test(
+    'bundled peaks all show in one update once every read is done',
+    () async {
+      holdBundledPeaks = Completer<void>();
+      bundledReads = 0;
+      final fresh = freshCubit(SoundPeaksCache(SoundHost()));
+      final states = <List<List<double>?>>[];
+      final sub = fresh.stream.listen(
+        (s) => states.add([for (final b in s.bundled) b.peaks]),
+      );
+      final loading = fresh.load();
+      while (bundledReads < fresh.state.bundled.length) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(fresh.state.isLoadingPeaks, isTrue);
+      holdBundledPeaks!.complete();
+      await loading;
+      await Future<void>.delayed(Duration.zero);
+      await sub.cancel();
+
+      final withAnyPeaks = states.where((p) => p.any((e) => e != null));
+      expect(withAnyPeaks.first, everyElement(peaks));
+      expect(fresh.state.isLoadingPeaks, isFalse);
+      await fresh.close();
+    },
+  );
+
+  test('peaks read on an earlier open are there on the first frame', () async {
+    final cache = SoundPeaksCache(SoundHost());
+    final first = freshCubit(cache);
+    await first.load();
+    await first.close();
+
+    final second = freshCubit(cache);
+    final firstState = second.stream.first;
+    final loading = second.load();
+    final shown = await firstState;
+    await loading;
+    for (final sound in shown.bundled) {
+      expect(sound.peaks, peaks, reason: sound.id);
+    }
+    await second.close();
   });
 
   Future<void> previewEnded(String path) async {
