@@ -639,6 +639,7 @@
     "topic_hint": "This topic only. Topics with no sound of their own use the default.",
     "notifications_only": "Your own sounds play for notifications on iOS. The alarm uses a bundled sound.",
     "row_notifications_only": "Notifications only",
+    "row_too_long_ios": "Too long for iPhone, so the default sound plays. Pick the file again to shorten it.",
     "error_too_long": "That file is longer than 60 seconds.",
     "error_too_large": "That file is bigger than 5 MB.",
     "error_unsupported": "That file type will not play as an alarm.",
