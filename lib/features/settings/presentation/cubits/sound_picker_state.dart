@@ -1,5 +1,6 @@
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
+import 'package:flutter/foundation.dart';
 
 /// What the sound picker is showing.
 class SoundPickerState {
@@ -14,6 +15,7 @@ class SoundPickerState {
     this.isImporting = false,
     this.capabilities = SoundCapabilities.permissive,
     this.errorCode,
+    this.platform = TargetPlatform.android,
   });
 
   final bool isLoading;
@@ -37,6 +39,9 @@ class SoundPickerState {
   /// turns it into a sentence.
   final String? errorCode;
 
+  /// Which platform's length limit the rows are checked against.
+  final TargetPlatform platform;
+
   bool get isPerTopic => topicName != null;
 
   SoundPickerState copyWith({
@@ -52,6 +57,7 @@ class SoundPickerState {
     SoundCapabilities? capabilities,
     String? errorCode,
     bool clearError = false,
+    TargetPlatform? platform,
   }) => SoundPickerState(
     isLoading: isLoading ?? this.isLoading,
     bundled: bundled ?? this.bundled,
@@ -65,5 +71,6 @@ class SoundPickerState {
     isImporting: isImporting ?? this.isImporting,
     capabilities: capabilities ?? this.capabilities,
     errorCode: clearError ? null : errorCode ?? this.errorCode,
+    platform: platform ?? this.platform,
   );
 }
