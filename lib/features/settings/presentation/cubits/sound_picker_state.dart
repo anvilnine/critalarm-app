@@ -15,9 +15,13 @@ class SoundPickerState {
     this.capabilities = SoundCapabilities.permissive,
     this.errorCode,
     this.platform = TargetPlatform.android,
+    this.isLoadingPeaks = true,
   });
 
   final bool isLoading;
+
+  /// True until every waveform the list can read has been read.
+  final bool isLoadingPeaks;
   final List<AlarmSound> bundled;
   final List<AlarmSound> userSounds;
 
@@ -55,7 +59,9 @@ class SoundPickerState {
     String? errorCode,
     bool clearError = false,
     TargetPlatform? platform,
+    bool? isLoadingPeaks,
   }) => SoundPickerState(
+    isLoadingPeaks: isLoadingPeaks ?? this.isLoadingPeaks,
     isLoading: isLoading ?? this.isLoading,
     bundled: bundled ?? this.bundled,
     userSounds: userSounds ?? this.userSounds,
