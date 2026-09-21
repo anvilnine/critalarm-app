@@ -81,10 +81,10 @@ void main() {
     await messenger.handlePlatformMessage(
       SoundHost.channelName,
       const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('previewEnded'),
+        const MethodCall('previewEnded', {'path': '/sounds/a.caf'}),
       ),
       (_) {},
     );
-    await expectLater(ended, completes);
+    expect(await ended, '/sounds/a.caf');
   });
 }

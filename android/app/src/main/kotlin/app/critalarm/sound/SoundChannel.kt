@@ -30,6 +30,9 @@ class SoundChannel(private val context: Context, private val channel: MethodChan
     }
 
     private var preview: MediaPlayer? = null
+
+    /** The path Dart asked to play, sent back with previewEnded. */
+    private var previewPath: String? = null
     private val fileWork = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
 
@@ -87,6 +90,7 @@ class SoundChannel(private val context: Context, private val channel: MethodChan
         val path = call.argument<String>("path") ?: return false
         val isAsset = call.argument<Boolean>("is_asset") ?: false
         stopPreview()
+        previewPath = path
         return runCatching {
             preview = MediaPlayer().apply {
                 setAudioAttributes(
@@ -121,6 +125,7 @@ class SoundChannel(private val context: Context, private val channel: MethodChan
         preview?.runCatching { stop() }
         preview?.release()
         preview = null
+        previewPath = null
     }
 
     /**
@@ -129,8 +134,9 @@ class SoundChannel(private val context: Context, private val channel: MethodChan
      */
     fun endPreview() {
         if (preview == null) return
+        val path = previewPath ?: ""
         stopPreview()
-        channel.invokeMethod("previewEnded", null)
+        channel.invokeMethod("previewEnded", mapOf("path" to path))
     }
 
     private fun probeDuration(path: String?): Int {

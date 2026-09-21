@@ -193,20 +193,36 @@ void main() {
     }
   });
 
-  test('the platform ending a preview clears the playing row', () async {
-    await cubit.togglePreview(cubit.state.bundled.first);
-    expect(cubit.state.previewingSoundId, cubit.state.bundled.first.id);
-
+  Future<void> previewEnded(String path) async {
     await messenger.handlePlatformMessage(
       SoundHost.channelName,
       const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('previewEnded'),
+        MethodCall('previewEnded', {'path': path}),
       ),
       (_) {},
     );
     await Future<void>.delayed(Duration.zero);
+  }
+
+  test('the platform ending a preview clears the playing row', () async {
+    final first = cubit.state.bundled.first;
+    await cubit.togglePreview(first);
+    expect(cubit.state.previewingSoundId, first.id);
+
+    await previewEnded(first.path);
 
     expect(cubit.state.previewingSoundId, isNull);
+  });
+
+  test('a late end for an older preview leaves the new one playing', () async {
+    final first = cubit.state.bundled.first;
+    final second = cubit.state.bundled[1];
+    await cubit.togglePreview(first);
+    await cubit.togglePreview(second);
+
+    await previewEnded(first.path);
+
+    expect(cubit.state.previewingSoundId, second.id);
   });
 
   test('old user sounds get their peaks filled in and saved', () async {

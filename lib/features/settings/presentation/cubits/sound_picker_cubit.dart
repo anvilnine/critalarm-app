@@ -26,10 +26,15 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
     this.nameOf,
   }) : _platform = platform ?? defaultTargetPlatform,
        super(const SoundPickerState()) {
-    _previewEnded = _host.previewEnded.listen((_) {
-      if (!isClosed && state.previewingSoundId != null) {
-        emit(state.copyWith(clearPreviewing: true));
-      }
+    _previewEnded = _host.previewEnded.listen((path) {
+      if (isClosed) return;
+      final playing = state.previewingSoundId;
+      // A late event for a preview that has since been replaced says nothing
+      // about the one playing now.
+      final match = [...state.bundled, ...state.userSounds].where(
+        (s) => s.id == playing && s.path == path,
+      );
+      if (match.isNotEmpty) emit(state.copyWith(clearPreviewing: true));
     });
   }
 
@@ -44,7 +49,7 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
   final SoundFilePicker _picker;
   final SoundPeaksCache _peaksCache;
   final TargetPlatform _platform;
-  late final StreamSubscription<void> _previewEnded;
+  late final StreamSubscription<String> _previewEnded;
 
   /// [topicName] null means this screen is choosing the global default.
   Future<void> load({String? topicName}) async {
