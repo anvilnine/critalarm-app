@@ -76,6 +76,8 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Crit Alarm uses the microphone to record alarm sounds.</string>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>Crit Alarm needs alarm access so an alarm can ring through silent mode and Do Not Disturb until you stop it.</string>
 	<key>NSAppTransportSecurity</key>
