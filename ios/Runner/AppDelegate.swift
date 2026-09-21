@@ -651,7 +651,15 @@ enum SoundLibrary {
         }
       }
     }
-    _ = done.wait(timeout: .now() + 60)
+    if done.wait(timeout: .now() + 60) == .timedOut {
+      // Stop both first, so a late finishWriting cannot put a partial file
+      // back after it is deleted.
+      reader.cancelReading()
+      writer.cancelWriting()
+      NSLog("CritAlarmSound: convert_timed_out path=%@", destination.path)
+      try? FileManager.default.removeItem(at: destination)
+      return false
+    }
     let ok = writer.status == .completed && reader.status == .completed
     if !ok { try? FileManager.default.removeItem(at: destination) }
     return ok
@@ -770,7 +778,12 @@ enum SoundLibrary {
     let destination = directory.appendingPathComponent("\(id).caf")
     try? FileManager.default.removeItem(at: destination)
     var range: CMTimeRange?
-    if let startMs, let endMs, endMs > startMs, startMs >= 0 {
+    if startMs != nil || endMs != nil {
+      // A range was sent. A bad one fails rather than keeping the whole file.
+      guard let startMs, let endMs, endMs > startMs, startMs >= 0 else {
+        NSLog("CritAlarmSound: import_bad_range id=%@", id)
+        return nil
+      }
       range = CMTimeRange(
         start: CMTime(value: CMTimeValue(startMs), timescale: 1000),
         end: CMTime(value: CMTimeValue(endMs), timescale: 1000)
