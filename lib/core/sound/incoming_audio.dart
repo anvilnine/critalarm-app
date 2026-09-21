@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:flutter/foundation.dart';
 
@@ -34,8 +36,6 @@ class IncomingAudio {
     required this.canImportSounds,
     required this.isOnboardingDone,
     required this.isRinging,
-    required this.open,
-    required this.reject,
     required this.discard,
     required this.platform,
   });
@@ -44,26 +44,38 @@ class IncomingAudio {
   final Future<bool> Function() isOnboardingDone;
   final Future<bool> Function() isRinging;
 
-  /// Shows the cropper for the file. The cropper deletes the copy when it
-  /// closes, the same as for a picked file.
-  final void Function(PickedSoundFile file) open;
-
-  /// Tells the user why the file was turned away.
-  final void Function(SoundImportRejection reason) reject;
-
   /// Deletes a copy nobody will open.
   final Future<void> Function(String path) discard;
 
   final TargetPlatform platform;
 
+  // Sync, so a file goes out in the same turn it was let through. The app
+  // subscribes before it asks the platform for anything.
+  final _toOpen = StreamController<PickedSoundFile>.broadcast(sync: true);
+  final _rejected = StreamController<SoundImportRejection>.broadcast(
+    sync: true,
+  );
+
   PickedSoundFile? _pending;
   bool _checking = false;
+
+  /// Paths already received. The platform both holds a share and sends it
+  /// live, so the same copy can arrive twice; each share gets its own path.
+  final Set<String> _seen = {};
+
+  /// Files ready for the cropper. The cropper deletes the copy when it
+  /// closes, the same as for a picked file.
+  Stream<PickedSoundFile> get toOpen => _toOpen.stream;
+
+  /// Why a shared file was turned away, for the user to see.
+  Stream<SoundImportRejection> get rejected => _rejected.stream;
 
   /// The file waiting for the cropper, if any.
   PickedSoundFile? get pending => _pending;
 
   /// A file just came in. Checks it, holds it, and opens it if it can.
   Future<void> receive(PickedSoundFile file) async {
+    if (!_seen.add(file.path)) return;
     if (!await canImportSounds()) {
       await discard(file.path);
       return;
@@ -75,7 +87,7 @@ class IncomingAudio {
     );
     if (rejection != null) {
       await discard(file.path);
-      reject(rejection);
+      _rejected.add(rejection);
       return;
     }
     final older = _pending;
@@ -98,11 +110,16 @@ class IncomingAudio {
         // A newer file came in while the checks ran. Check again for that one.
         if (!identical(file, _pending)) continue;
         _pending = null;
-        open(file);
+        _toOpen.add(file);
         return;
       }
     } finally {
       _checking = false;
     }
+  }
+
+  Future<void> dispose() async {
+    await _toOpen.close();
+    await _rejected.close();
   }
 }

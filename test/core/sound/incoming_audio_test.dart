@@ -44,15 +44,19 @@ void main() {
     late bool onboardingDone;
     late bool ringing;
 
-    IncomingAudio build() => IncomingAudio(
-      canImportSounds: () async => canImport,
-      isOnboardingDone: () async => onboardingDone,
-      isRinging: () async => ringing,
-      open: opened.add,
-      reject: rejected.add,
-      discard: (path) async => discarded.add(path),
-      platform: TargetPlatform.iOS,
-    );
+    IncomingAudio build() {
+      final incoming = IncomingAudio(
+        canImportSounds: () async => canImport,
+        isOnboardingDone: () async => onboardingDone,
+        isRinging: () async => ringing,
+        discard: (path) async => discarded.add(path),
+        platform: TargetPlatform.iOS,
+      );
+      incoming.toOpen.listen(opened.add);
+      incoming.rejected.listen(rejected.add);
+      addTearDown(incoming.dispose);
+      return incoming;
+    }
 
     const memo = PickedSoundFile(
       path: '/cache/incoming_audio/memo.m4a',
@@ -111,6 +115,13 @@ void main() {
       expect(opened, [memo]);
     });
 
+    test('the same copy arriving twice opens once', () async {
+      final incoming = build();
+      await incoming.receive(memo);
+      await incoming.receive(memo);
+      expect(opened, [memo]);
+    });
+
     test('a file that fails the check is deleted and reported', () async {
       final incoming = build();
       await incoming.receive(
@@ -144,22 +155,25 @@ void main() {
       expect(rejected, [SoundImportRejection.unsupportedFormat]);
     });
 
-    test('a newer file replaces a held one, and the older is deleted', () async {
-      onboardingDone = false;
-      final incoming = build();
-      await incoming.receive(memo);
-      const second = PickedSoundFile(
-        path: '/cache/incoming_audio/b.mp3',
-        name: 'b.mp3',
-        sizeBytes: 100,
-      );
-      await incoming.receive(second);
-      expect(discarded, [memo.path]);
+    test(
+      'a newer file replaces a held one, and the older is deleted',
+      () async {
+        onboardingDone = false;
+        final incoming = build();
+        await incoming.receive(memo);
+        const second = PickedSoundFile(
+          path: '/cache/incoming_audio/b.mp3',
+          name: 'b.mp3',
+          sizeBytes: 100,
+        );
+        await incoming.receive(second);
+        expect(discarded, [memo.path]);
 
-      onboardingDone = true;
-      await incoming.tryOpen();
-      expect(opened, [second]);
-    });
+        onboardingDone = true;
+        await incoming.tryOpen();
+        expect(opened, [second]);
+      },
+    );
 
     test('a platform that cannot import sounds drops the file', () async {
       canImport = false;
