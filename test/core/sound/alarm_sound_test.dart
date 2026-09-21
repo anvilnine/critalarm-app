@@ -32,6 +32,24 @@ void main() {
       );
     });
 
+    test('a sound saved before peaks existed reads back with none', () {
+      final restored = AlarmSound.fromJson({
+        'id': 'user_1',
+        'name': 'Horn',
+        'source': 'user',
+        'path': '/tmp/user_1.caf',
+        'duration': 4000,
+      });
+      expect(restored.peaks, isNull);
+    });
+
+    test('peaks survive a round trip through json', () {
+      final withPeaks = sound.copyWith(peaks: const [0, 0.5, 1]);
+      final restored = AlarmSound.fromJson(withPeaks.toJson());
+      expect(restored.peaks, [0, 0.5, 1]);
+      expect(restored, equals(withPeaks));
+    });
+
     test('keeps the source it was given', () {
       expect(sound.source, AlarmSoundSource.bundled);
       expect(
