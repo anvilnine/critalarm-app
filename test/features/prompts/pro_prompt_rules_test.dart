@@ -6,6 +6,47 @@ import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repos
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeHomePromptRepository implements HomePromptRepository {
+  DateTime? firstSeenAt;
+  DateTime? consentAskedAt;
+  DateTime? reviewAskedAt;
+  int reviewAskCount = 0;
+  DateTime? lastAcknowledgedAt;
+
+  @override
+  DateTime? getFirstSeenAt() => firstSeenAt;
+
+  @override
+  Future<void> markFirstSeen() async {
+    firstSeenAt ??= DateTime.now();
+  }
+
+  @override
+  DateTime? getConsentAskedAt() => consentAskedAt;
+
+  @override
+  Future<void> markConsentAsked() async {
+    consentAskedAt = DateTime.now();
+  }
+
+  @override
+  DateTime? getReviewAskedAt() => reviewAskedAt;
+
+  @override
+  int getReviewAskCount() => reviewAskCount;
+
+  @override
+  Future<void> markReviewAsked() async {
+    reviewAskedAt = DateTime.now();
+    reviewAskCount++;
+  }
+
+  @override
+  DateTime? getLastAcknowledgedAt() => lastAcknowledgedAt;
+
+  @override
+  Future<void> markAcknowledged() async {
+    lastAcknowledgedAt = DateTime.now();
+  }
   DateTime? proAskedAt;
   DateTime? proDismissedAt;
   int proDismissCount = 0;
@@ -234,6 +275,20 @@ void main() {
     test('never asks in self hosted mode', () async {
       accountRepo.serverMode = ServerMode.selfhosted;
       expect(await buildRules().shouldAsk(), isFalse);
+    });
+
+    test('waits 24 hours after the consent sheet or the review popup',
+        () async {
+      promptRepo.consentAskedAt = today.subtract(const Duration(hours: 23));
+      expect(await buildRules().shouldAsk(), isFalse);
+
+      promptRepo
+        ..consentAskedAt = null
+        ..reviewAskedAt = today.subtract(const Duration(hours: 2));
+      expect(await buildRules().shouldAsk(), isFalse);
+
+      promptRepo.reviewAskedAt = today.subtract(const Duration(hours: 24));
+      expect(await buildRules().shouldAsk(), isTrue);
     });
 
     test('dismissProPrompt records the time and adds one to the count',

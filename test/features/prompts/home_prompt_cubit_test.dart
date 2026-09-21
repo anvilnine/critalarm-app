@@ -21,6 +21,47 @@ import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeHomePromptRepository implements HomePromptRepository {
+  DateTime? firstSeenAt;
+  DateTime? consentAskedAt;
+  DateTime? reviewAskedAt;
+  int reviewAskCount = 0;
+  DateTime? lastAcknowledgedAt;
+
+  @override
+  DateTime? getFirstSeenAt() => firstSeenAt;
+
+  @override
+  Future<void> markFirstSeen() async {
+    firstSeenAt ??= DateTime.now();
+  }
+
+  @override
+  DateTime? getConsentAskedAt() => consentAskedAt;
+
+  @override
+  Future<void> markConsentAsked() async {
+    consentAskedAt = DateTime.now();
+  }
+
+  @override
+  DateTime? getReviewAskedAt() => reviewAskedAt;
+
+  @override
+  int getReviewAskCount() => reviewAskCount;
+
+  @override
+  Future<void> markReviewAsked() async {
+    reviewAskedAt = DateTime.now();
+    reviewAskCount++;
+  }
+
+  @override
+  DateTime? getLastAcknowledgedAt() => lastAcknowledgedAt;
+
+  @override
+  Future<void> markAcknowledged() async {
+    lastAcknowledgedAt = DateTime.now();
+  }
   DateTime? accountDismissedAt;
   DateTime? proAskedAt;
   DateTime? proDismissedAt;
