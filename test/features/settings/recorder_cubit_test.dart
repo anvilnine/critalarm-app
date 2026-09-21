@@ -62,6 +62,29 @@ class _FakeRecorder implements SoundRecorder {
   Future<void> dispose() async {}
 }
 
+class _FakeTimer implements Timer {
+  _FakeTimer(this.after, this.run);
+
+  final Duration after;
+  final void Function() run;
+  bool _active = true;
+
+  /// Runs the callback the way a real timer would.
+  void fire() {
+    _active = false;
+    run();
+  }
+
+  @override
+  void cancel() => _active = false;
+
+  @override
+  bool get isActive => _active;
+
+  @override
+  int get tick => 0;
+}
+
 class _Clock {
   DateTime now = DateTime(2026, 9, 22, 14, 32);
   void advance(Duration d) => now = now.add(d);
@@ -72,6 +95,7 @@ void main() {
   late _Clock clock;
   late bool ringing;
   late int previewStops;
+  late List<_FakeTimer> timers;
   late RecorderCubit cubit;
 
   const max = Duration(milliseconds: 29500);
@@ -82,6 +106,11 @@ void main() {
     isRinging: () async => ringing,
     stopPreview: () async => previewStops++,
     now: () => clock.now,
+    startTimer: (after, run) {
+      final timer = _FakeTimer(after, run);
+      timers.add(timer);
+      return timer;
+    },
   );
 
   /// One amplitude sample, [ms] after the last.
@@ -93,6 +122,7 @@ void main() {
   /// Quiet samples until [elapsed] from the start.
   void runTo(Duration elapsed) {
     while (cubit.state.elapsed + const Duration(milliseconds: 70) <= elapsed &&
+        cubit.state.elapsed < max &&
         cubit.state.status == RecorderStatus.recording) {
       level(-30);
     }
@@ -103,6 +133,7 @@ void main() {
     clock = _Clock();
     ringing = false;
     previewStops = 0;
+    timers = [];
     cubit = build();
   });
 
@@ -153,6 +184,10 @@ void main() {
     ringing = true;
     await cubit.toggle();
     expect(cubit.state.status, RecorderStatus.ready);
+    expect(cubit.state.alarmRinging, isTrue);
+    ringing = false;
+    await cubit.checkRinging();
+    expect(cubit.state.alarmRinging, isFalse);
     expect(recorder.starts, 0);
     expect(recorder.permissionAsks, 0);
   });
@@ -188,8 +223,9 @@ void main() {
       level(-3);
       level(-3);
       level(-3);
-      expect(cubit.state.face, FaceState.interested, reason: 'only 210 ms');
       level(-3);
+      level(-3);
+      expect(cubit.state.face, FaceState.interested, reason: 'only 280 ms');
       level(-3);
       expect(cubit.state.face, FaceState.surprised);
       level(-30);
@@ -239,12 +275,42 @@ void main() {
   test('stops by itself at the max and hands the file on', () async {
     await cubit.toggle();
     runTo(max + const Duration(seconds: 1));
+    expect(cubit.state.elapsed, max, reason: 'readings stop at the max');
+    expect(recorder.stops, 0, reason: 'only the max timer stops it');
+    expect(timers.single.after, max);
+    timers.single.fire();
     await pumpEventQueue();
     expect(recorder.stops, 1);
     expect(cubit.state.status, RecorderStatus.stopped);
     expect(cubit.state.face, FaceState.success);
     expect(cubit.state.elapsed, max);
     expect(cubit.state.recorded?.path, '/tmp/recording_1.m4a');
+  });
+
+  test('a stalled level stream still stops at the max', () async {
+    await cubit.toggle();
+    level(-30);
+    clock.advance(max);
+    timers.single.fire();
+    await pumpEventQueue();
+    expect(cubit.state.status, RecorderStatus.stopped);
+    expect(cubit.state.elapsed, max);
+  });
+
+  test('a manual stop cancels the max timer', () async {
+    await cubit.toggle();
+    runTo(const Duration(seconds: 3));
+    await cubit.toggle();
+    expect(timers.single.isActive, isFalse);
+    expect(cubit.state.elapsed, const Duration(milliseconds: 2940));
+  });
+
+  test('closing before the cropper takes the file deletes it', () async {
+    await cubit.toggle();
+    runTo(const Duration(seconds: 3));
+    await cubit.toggle();
+    await cubit.close();
+    expect(recorder.deleted, ['/tmp/recording_1.m4a']);
   });
 
   test('stop hands the file on with a name and a size', () async {
@@ -256,6 +322,7 @@ void main() {
     expect(file.name, '2026-09-22 14.32.m4a');
     expect(file.sizeBytes, 4000);
     expect(recorder.deleted, isEmpty);
+    expect(cubit.handOff(), same(file));
     await cubit.close();
     expect(recorder.deleted, isEmpty, reason: 'the cropper owns it now');
   });

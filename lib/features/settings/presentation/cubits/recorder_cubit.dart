@@ -16,7 +16,9 @@ class RecorderCubit extends Cubit<RecorderState> {
     required this._isRinging,
     required this._stopPreview,
     DateTime Function()? now,
+    Timer Function(Duration after, void Function() run)? startTimer,
   }) : _now = now ?? DateTime.now,
+       _startTimer = startTimer ?? Timer.new,
        super(RecorderState(maxDuration: maxDuration)) {
     _interruptions = _recorder.interrupted.listen(
       (_) => unawaited(interrupt()),
@@ -43,6 +45,7 @@ class RecorderCubit extends Cubit<RecorderState> {
   final Future<bool> Function() _isRinging;
   final Future<void> Function() _stopPreview;
   final DateTime Function() _now;
+  final Timer Function(Duration after, void Function() run) _startTimer;
   late final StreamSubscription<void> _interruptions;
   StreamSubscription<double>? _levels;
 
@@ -50,7 +53,12 @@ class RecorderCubit extends Cubit<RecorderState> {
   DateTime? _startedAt;
   DateTime? _loudSince;
   DateTime? _lastLoud;
-  DateTime? _lastReading;
+
+  /// Stops the recording at the max even if the loudness readings stall.
+  Timer? _maxTimer;
+
+  /// True once the cropper owns the recorded file.
+  bool _handedOff = false;
 
   /// Starts on the first tap and stops on the next one.
   Future<void> toggle() async {
@@ -71,7 +79,12 @@ class RecorderCubit extends Cubit<RecorderState> {
   Future<void> _start() async {
     // A ringing alarm comes first. On Android the alarm does not take the
     // audio, so nothing else would stop the two from overlapping.
-    if (await _isRinging() || isClosed) return;
+    final ringing = await _isRinging();
+    if (isClosed) return;
+    if (ringing != state.alarmRinging) {
+      emit(state.copyWith(alarmRinging: ringing));
+    }
+    if (ringing) return;
     final back = state.status;
     emit(state.copyWith(status: RecorderStatus.starting));
     final allowed = await _recorder.requestPermission();
@@ -100,7 +113,6 @@ class RecorderCubit extends Cubit<RecorderState> {
     _startedAt = _now();
     _loudSince = null;
     _lastLoud = null;
-    _lastReading = _startedAt;
     emit(
       state.copyWith(
         status: RecorderStatus.recording,
@@ -110,6 +122,8 @@ class RecorderCubit extends Cubit<RecorderState> {
         clearRecorded: true,
       ),
     );
+    _maxTimer?.cancel();
+    _maxTimer = _startTimer(state.maxDuration, () => unawaited(_stop()));
     await _levels?.cancel();
     _levels = _recorder.levels.listen(_onLevel);
   }
@@ -118,13 +132,12 @@ class RecorderCubit extends Cubit<RecorderState> {
     final startedAt = _startedAt;
     if (isClosed || !state.isRecording || startedAt == null) return;
     final now = _now();
+    // Readings only move the timer and the bars. The max timer stops it.
     var elapsed = now.difference(startedAt);
-    final atMax = elapsed >= state.maxDuration;
-    if (atMax) elapsed = state.maxDuration;
+    if (elapsed > state.maxDuration) elapsed = state.maxDuration;
 
     if (db > loudLevel) {
-      // A reading covers the time since the one before it.
-      _loudSince ??= _lastReading ?? now;
+      _loudSince ??= now;
       _lastLoud = now;
     } else {
       _loudSince = null;
@@ -137,13 +150,11 @@ class RecorderCubit extends Cubit<RecorderState> {
             lastLoud != null &&
             now.difference(lastLoud) < loudLinger);
 
-    _lastReading = now;
     final levels = [...state.levels, _barHeight(db)];
     if (levels.length > RecorderState.barCount) {
       levels.removeRange(0, levels.length - RecorderState.barCount);
     }
     emit(state.copyWith(elapsed: elapsed, levels: levels, isLoud: isLoud));
-    if (atMax) unawaited(_stop());
   }
 
   static double _barHeight(double db) {
@@ -160,7 +171,16 @@ class RecorderCubit extends Cubit<RecorderState> {
 
   Future<void> _stop({bool interrupted = false}) async {
     if (!state.isRecording) return;
-    emit(state.copyWith(status: RecorderStatus.stopping, isLoud: false));
+    final atMax = _maxTimer != null && !_maxTimer!.isActive;
+    _maxTimer?.cancel();
+    _maxTimer = null;
+    emit(
+      state.copyWith(
+        status: RecorderStatus.stopping,
+        isLoud: false,
+        elapsed: atMax ? state.maxDuration : null,
+      ),
+    );
     await _levels?.cancel();
     _levels = null;
     final startedAt = _startedAt;
@@ -206,12 +226,34 @@ class RecorderCubit extends Cubit<RecorderState> {
         '${two(t.hour)}.${two(t.minute)}';
   }
 
+  /// Asks again whether an alarm rings, for the record button's look.
+  Future<void> checkRinging() async {
+    final ringing = await _isRinging();
+    if (!isClosed && ringing != state.alarmRinging) {
+      emit(state.copyWith(alarmRinging: ringing));
+    }
+  }
+
   Future<void> openSettings() => _recorder.openSettings();
+
+  /// Gives the recorded file to the cropper, which deletes it when it
+  /// closes. Until then this cubit deletes it on close.
+  PickedSoundFile? handOff() {
+    final file = state.recorded;
+    if (file != null) _handedOff = true;
+    return file;
+  }
 
   @override
   Future<void> close() async {
     await _interruptions.cancel();
+    _maxTimer?.cancel();
     await _levels?.cancel();
+    final recorded = state.recorded;
+    if (recorded != null && !_handedOff) {
+      // Closed before the cropper took it.
+      await _recorder.delete(recorded.path);
+    }
     if (_path != null) {
       // Closed mid-recording: nobody asked for this clip.
       _path = null;
