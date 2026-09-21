@@ -10,12 +10,16 @@ class FakeHomePromptRepository implements HomePromptRepository {
   DateTime? proDismissedAt;
   int proDismissCount = 0;
 
+  /// Stamps with the test's clock, so the day counts do not drift with the
+  /// real date.
+  DateTime Function() now = DateTime.now;
+
   @override
   DateTime? getProPromptAskedAt() => proAskedAt;
 
   @override
   Future<void> markProPromptAsked() async {
-    proAskedAt = DateTime.now();
+    proAskedAt = now();
   }
 
   @override
@@ -27,7 +31,7 @@ class FakeHomePromptRepository implements HomePromptRepository {
   @override
   Future<void> dismissProPrompt() async {
     proDismissCount++;
-    proDismissedAt = DateTime.now();
+    proDismissedAt = now();
     proAskedAt = proDismissedAt;
   }
 
@@ -178,7 +182,7 @@ void main() {
     );
 
     setUp(() {
-      promptRepo = FakeHomePromptRepository();
+      promptRepo = FakeHomePromptRepository()..now = () => clock;
       accountRepo = FakeAccountRepository();
       clock = today;
     });
