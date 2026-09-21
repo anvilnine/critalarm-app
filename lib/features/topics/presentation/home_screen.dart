@@ -10,6 +10,7 @@ import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
+import 'package:critalarm/features/prompts/presentation/home_asks.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/home_prompt_slot.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/prompt_detail_sheet.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
@@ -81,8 +82,20 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     // First run only. The tour waits for this screen to finish arriving
     // before it points at anything, so asking straight away is fine.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _tour.requestIfNew();
+      if (!mounted) return;
+      _tour.requestIfNew();
+      unawaited(_runHomeAsk());
     });
+  }
+
+  /// The consent sheet or the review popup, when one is due. Never while
+  /// the tour is pointing at things.
+  Future<void> _runHomeAsk() async {
+    if (_tour.state.isRunning) return;
+    await runHomeAsk(
+      context,
+      isRinging: context.read<HomeCubit>().state.ringingIncidentId != null,
+    );
   }
 
   @override
@@ -103,6 +116,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
       unawaited(context.read<HomePromptCubit>().onAppResumed());
+      unawaited(_runHomeAsk());
     }
   }
 
