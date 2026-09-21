@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/design/components/badges.dart';
 import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/components/chips.dart';
@@ -9,9 +11,12 @@ import 'package:critalarm/design/components/ladder_rows.dart';
 import 'package:critalarm/design/components/list_rows.dart';
 import 'package:critalarm/design/components/message_cards.dart';
 import 'package:critalarm/design/components/notification_cards.dart';
+import 'package:critalarm/design/components/preview_button.dart';
+import 'package:critalarm/design/components/radios.dart';
 import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/components/switches.dart';
 import 'package:critalarm/design/components/toasts.dart';
+import 'package:critalarm/design/components/waveform_bars.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/faces/pulse_ring_widget.dart';
@@ -100,6 +105,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           _buildToastsSection(colors),
                           const SizedBox(height: 48),
                           _buildListRowsSection(colors),
+                          const SizedBox(height: 48),
+                          _buildSoundRowsSection(colors),
                           const SizedBox(height: 48),
                           _buildCodeBlockSection(colors),
                           const SizedBox(height: 48),
@@ -1319,6 +1326,82 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 isQuiet: true,
                 trailing: const AppPriorityChip(priority: PriorityLevel.low),
                 onTap: () {},
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSoundRowsSection(AppColors colors) {
+    List<double> peaks(double Function(double t) shape) => [
+      for (var i = 0; i < 48; i++) shape(i / 48).clamp(0.06, 1).toDouble(),
+    ];
+    final pager = peaks((t) => (t * 8).floor().isOdd ? .2 : .95);
+    final song = peaks((t) => .55 + .45 * math.sin(t * 9 + 1));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Sound Rows', style: AppTypography.headline(colors.onCanvas)),
+        const SizedBox(height: 18),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colors.cream,
+            borderRadius: Radii.xlAll,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppRadioRow(
+                title: 'Pager beep',
+                meta: '0:14',
+                selected: true,
+                leading: AppPreviewButton(
+                  isPlaying: false,
+                  playLabel: 'Play preview',
+                  stopLabel: 'Stop preview',
+                  onPressed: () {},
+                ),
+                waveform: WaveformBars(peaks: pager),
+                onTap: () {},
+              ),
+              const SizedBox(height: 8),
+              AppRadioRow(
+                title: 'Mr Brightside (live)',
+                meta: '0:29',
+                selected: false,
+                note: 'Notifications only',
+                leading: AppPreviewButton(
+                  isPlaying: true,
+                  progress: 0.4,
+                  progressLabel: '40 percent played',
+                  playLabel: 'Play preview',
+                  stopLabel: 'Stop preview',
+                  onPressed: () {},
+                ),
+                waveform: WaveformBars(peaks: song, progress: 0.4),
+                onTap: () {},
+              ),
+              const SizedBox(height: 8),
+              AppRadioRow(
+                title: 'Siren',
+                meta: '0:08',
+                selected: false,
+                leading: AppPreviewButton(
+                  isPlaying: false,
+                  playLabel: 'Play preview',
+                  stopLabel: 'Stop preview',
+                  onPressed: () {},
+                ),
+                waveform: const WaveformBars(peaks: [], loading: true),
+                onTap: () {},
+              ),
+              const SizedBox(height: 16),
+              const SizedBox(
+                height: 22,
+                child: WaveformBars(peaks: []),
               ),
             ],
           ),

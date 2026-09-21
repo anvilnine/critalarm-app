@@ -3,6 +3,7 @@ import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
+import 'package:critalarm/core/sound/sound_peaks_cache.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:flutter/foundation.dart';
 
@@ -65,12 +66,19 @@ class ImportSoundUsecase {
       ).toFailure<AlarmSound>();
     }
 
+    final peaks = await _host.readPeaks(
+      path: imported.path,
+      isAsset: false,
+      count: SoundPeaksCache.barCount,
+    );
     final sound = AlarmSound(
       id: id,
       name: displayNameFor(file.name),
       source: AlarmSoundSource.user,
       path: imported.path,
       duration: imported.duration,
+      // Empty means the read failed. Null lets the picker try again later.
+      peaks: peaks.isEmpty ? null : peaks,
     );
     final saved = await _repository.addUserSound(sound);
     if (saved.isError()) {

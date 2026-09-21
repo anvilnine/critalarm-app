@@ -506,6 +506,19 @@ import AlarmKit
 /// `UNNotificationSound` reads caf, wav and aiff only, never mp3, so the copy
 /// is also a conversion.
 enum SoundLibrary {
+  /// Every read and write of a sound file runs here, one at a time and in
+  /// the order asked, so none of it blocks the main thread.
+  static let workQueue = DispatchQueue(label: "app.critalarm.sound.files", qos: .userInitiated)
+
+  /// Runs [work] on [workQueue] and hands its answer to Flutter on the main
+  /// thread.
+  static func inBackground(_ result: @escaping FlutterResult, _ work: @escaping () -> Any?) {
+    workQueue.async {
+      let answer = work()
+      DispatchQueue.main.async { result(answer) }
+    }
+  }
+
   /// The app's own `Library/Sounds`. Where sounds lived before they moved to
   /// the app group, and the fallback if the group is missing.
   static var appSoundsDirectory: URL? {
@@ -646,6 +659,72 @@ enum SoundLibrary {
     return Int(seconds * 1000)
   }
 
+  /// How loud [url] is across [count] even slices: RMS per slice, the loudest
+  /// at 1. Decoded at 8 kHz mono one buffer at a time, keeping only a running
+  /// sum per slice, so a long file never sits in memory. Empty on failure.
+  static func readPeaks(url: URL, count: Int) -> [Double] {
+    guard count > 0 else { return [] }
+    let asset = AVURLAsset(url: url)
+    let seconds = CMTimeGetSeconds(asset.duration)
+    guard seconds.isFinite, seconds > 0,
+          let track = asset.tracks(withMediaType: .audio).first,
+          let reader = try? AVAssetReader(asset: asset)
+    else { return [] }
+
+    let rate = 8000.0
+    let settings: [String: Any] = [
+      AVFormatIDKey: kAudioFormatLinearPCM,
+      AVSampleRateKey: rate,
+      AVNumberOfChannelsKey: 1,
+      AVLinearPCMBitDepthKey: 16,
+      AVLinearPCMIsFloatKey: false,
+      AVLinearPCMIsBigEndianKey: false,
+      AVLinearPCMIsNonInterleaved: false,
+    ]
+    let output = AVAssetReaderTrackOutput(track: track, outputSettings: settings)
+    output.alwaysCopiesSampleData = false
+    guard reader.canAdd(output) else { return [] }
+    reader.add(output)
+    guard reader.startReading() else { return [] }
+
+    let totalFrames = max(1.0, seconds * rate)
+    var sums = [Double](repeating: 0, count: count)
+    var frames = [Int](repeating: 0, count: count)
+    var frameIndex = 0
+    var samples = [Int16]()
+    while true {
+      let more: Bool = autoreleasepool {
+        guard let buffer = output.copyNextSampleBuffer() else { return false }
+        guard let block = CMSampleBufferGetDataBuffer(buffer) else { return true }
+        let sampleCount = CMBlockBufferGetDataLength(block) / 2
+        guard sampleCount > 0 else { return true }
+        if samples.count < sampleCount {
+          samples = [Int16](repeating: 0, count: sampleCount)
+        }
+        let copied = samples.withUnsafeMutableBytes { raw in
+          CMBlockBufferCopyDataBytes(
+            block, atOffset: 0, dataLength: sampleCount * 2, destination: raw.baseAddress!
+          )
+        }
+        guard copied == kCMBlockBufferNoErr else { return true }
+        for i in 0..<sampleCount {
+          let value = Double(samples[i]) / 32768
+          let slice = min(count - 1, Int(Double(frameIndex) * Double(count) / totalFrames))
+          sums[slice] += value * value
+          frames[slice] += 1
+          frameIndex += 1
+        }
+        return true
+      }
+      if !more { break }
+    }
+    guard reader.status == .completed else { return [] }
+
+    let rms = (0..<count).map { frames[$0] > 0 ? (sums[$0] / Double(frames[$0])).squareRoot() : 0 }
+    let loudest = rms.max() ?? 0
+    return loudest > 0 ? rms.map { $0 / loudest } : rms
+  }
+
   /// Copies a file the user picked into `Library/Sounds` as caf, under [id].
   static func importSound(source: URL, id: String) -> [String: Any]? {
     guard let directory = soundsDirectory else { return nil }
@@ -721,8 +800,41 @@ final class SoundPreviewPlayer: NSObject, AVAudioPlayerDelegate {
 
   private var player: AVAudioPlayer?
 
-  func start(url: URL) -> Bool {
+  /// The path Dart asked to play, handed back when it ends so Dart can tell
+  /// a late event for an old preview from one for the current preview.
+  private var playingPath: String?
+
+  /// Called on the main thread with the playing path when a preview stops
+  /// without Dart asking: it played to the end, or a call or another app took
+  /// the audio.
+  var onEnded: ((String) -> Void)?
+
+  override init() {
+    super.init()
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(interrupted(_:)),
+      name: AVAudioSession.interruptionNotification,
+      object: nil
+    )
+  }
+
+  @objc private func interrupted(_ note: Notification) {
+    guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+          AVAudioSession.InterruptionType(rawValue: raw) == .began else { return }
+    DispatchQueue.main.async { self.end() }
+  }
+
+  private func end() {
+    guard player != nil else { return }
+    let path = playingPath ?? ""
     stop()
+    onEnded?(path)
+  }
+
+  func start(url: URL, path: String) -> Bool {
+    stop()
+    playingPath = path
     do {
       try AVAudioSession.sharedInstance().setCategory(.playback, options: [.duckOthers])
       try AVAudioSession.sharedInstance().setActive(true)
@@ -742,11 +854,16 @@ final class SoundPreviewPlayer: NSObject, AVAudioPlayerDelegate {
   func stop() {
     player?.stop()
     player = nil
+    playingPath = nil
     try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
   }
 
   func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-    stop()
+    end()
+  }
+
+  func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+    end()
   }
 }
 
@@ -754,6 +871,9 @@ extension AppDelegate {
   /// Wires `app.critalarm/sound`. Called from the engine setup.
   func attachSoundChannel(messenger: FlutterBinaryMessenger) -> FlutterMethodChannel {
     let channel = FlutterMethodChannel(name: "app.critalarm/sound", binaryMessenger: messenger)
+    SoundPreviewPlayer.shared.onEnded = { [weak channel] path in
+      channel?.invokeMethod("previewEnded", arguments: ["path": path])
+    }
     channel.setMethodCallHandler { call, result in
       let args = call.arguments as? [String: Any] ?? [:]
       switch call.method {
@@ -763,10 +883,11 @@ extension AppDelegate {
           // docs/specs/remote-alarm-ios-spike.md.
           "user_sounds_ring_alarm": AlarmSoundPolicy.librarySoundsRingAlarm,
           "bundled_sounds_ring_alarm": AlarmSoundPolicy.librarySoundsRingAlarm,
+          "can_import_sounds": true,
         ])
       case "prepareBundledSounds":
         let assets = args["assets"] as? [String] ?? []
-        result(SoundLibrary.prepare(assets: assets))
+        SoundLibrary.inBackground(result) { SoundLibrary.prepare(assets: assets) }
       case "startPreview":
         guard let path = args["path"] as? String else { result(false); return }
         let isAsset = args["is_asset"] as? Bool ?? false
@@ -774,22 +895,41 @@ extension AppDelegate {
           ? SoundLibrary.bundleURL(forFlutterAsset: path)
           : SoundLibrary.localURL(forStoredPath: path)
         guard let url else { result(false); return }
-        result(SoundPreviewPlayer.shared.start(url: url))
+        result(SoundPreviewPlayer.shared.start(url: url, path: path))
       case "stopPreview":
         SoundPreviewPlayer.shared.stop()
         result(true)
       case "probeDuration":
         guard let path = args["path"] as? String else { result(0); return }
-        result(SoundLibrary.durationMs(of: URL(fileURLWithPath: path)))
+        SoundLibrary.inBackground(result) {
+          SoundLibrary.durationMs(of: URL(fileURLWithPath: path))
+        }
       case "importSound":
         guard let source = args["source_path"] as? String,
               let id = args["id"] as? String else { result(nil); return }
-        result(SoundLibrary.importSound(source: URL(fileURLWithPath: source), id: id))
+        SoundLibrary.inBackground(result) {
+          SoundLibrary.importSound(source: URL(fileURLWithPath: source), id: id)
+        }
+      case "readPeaks":
+        guard let path = args["path"] as? String else { result([Double]()); return }
+        let isAsset = args["is_asset"] as? Bool ?? false
+        let count = args["count"] as? Int ?? 0
+        SoundLibrary.inBackground(result) {
+          // Dart's stored path can point at an old container, so user sounds
+          // are found by file name, the same way the preview finds them.
+          let url = isAsset
+            ? SoundLibrary.bundleURL(forFlutterAsset: path)
+            : SoundLibrary.localURL(forStoredPath: path)
+          guard let url else { return [Double]() }
+          return SoundLibrary.readPeaks(url: url, count: count)
+        }
       case "deleteSound":
         guard let path = args["path"] as? String else { result(false); return }
-        result((try? FileManager.default.removeItem(at: SoundLibrary.localURL(forStoredPath: path))) != nil)
+        SoundLibrary.inBackground(result) {
+          (try? FileManager.default.removeItem(at: SoundLibrary.localURL(forStoredPath: path))) != nil
+        }
       case "publishSoundAssignments":
-        result(SoundLibrary.publishToExtension())
+        SoundLibrary.inBackground(result) { SoundLibrary.publishToExtension() }
       default:
         result(FlutterMethodNotImplemented)
       }

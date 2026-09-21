@@ -27,6 +27,7 @@ import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
+import 'package:critalarm/core/sound/sound_peaks_cache.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
@@ -308,6 +309,9 @@ Future<void> configureDependencies({
       () => SharedPrefsAlarmSoundRepository(getIt<SharedPreferences>()),
     )
     ..registerLazySingleton<SoundHost>(SoundHost.new)
+    ..registerLazySingleton<SoundPeaksCache>(
+      () => SoundPeaksCache(getIt<SoundHost>()),
+    )
     ..registerLazySingleton<SoundFilePicker>(PlatformSoundFilePicker.new)
     ..registerLazySingleton<NotificationPermissionRepository>(
       PlatformNotificationPermissionRepository.new,
@@ -751,6 +755,7 @@ Future<void> configureDependencies({
         getIt<ImportSoundUsecase>(),
         getIt<DeleteUserSoundUsecase>(),
         getIt<SoundFilePicker>(),
+        getIt<SoundPeaksCache>(),
         nameOf: (id) => 'sound_library.names.$id'.tr(),
       ),
     )
