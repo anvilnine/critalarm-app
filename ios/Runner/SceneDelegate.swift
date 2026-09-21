@@ -9,7 +9,6 @@ class SceneDelegate: FlutterSceneDelegate {
     willConnectTo session: UISceneSession,
     options connectionOptions: UIScene.ConnectionOptions
   ) {
-    IncomingAudioInbox.startFresh()
     IncomingAudioInbox.receive(connectionOptions.urlContexts)
     super.scene(scene, willConnectTo: session, options: connectionOptions)
   }
@@ -49,12 +48,13 @@ enum IncomingAudioInbox {
     return held
   }
 
-  /// Every launch: nothing left over in the Inbox, and no old copy nobody
-  /// opened.
+  /// Process launch only: drops copies nobody opened last time. Not on a
+  /// scene connect, which can happen while a cropper still reads a copy. The
+  /// Inbox is left alone here, because on a cold start it holds the file that
+  /// is about to be copied; it is emptied after every copy instead.
   static func startFresh() {
     queue.async {
       if let folder = cacheFolder { try? FileManager.default.removeItem(at: folder) }
-      clearInbox()
     }
   }
 

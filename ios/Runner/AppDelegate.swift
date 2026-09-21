@@ -51,6 +51,9 @@ import AlarmKit
     // play the one the user picked. Both calls are cheap and safe every launch.
     SoundLibrary.migrateToGroupContainer()
     SoundLibrary.publishToExtension()
+    // Shared sound files nobody opened last time. Queued before any scene
+    // connects, so it runs before a cold-start share is copied.
+    IncomingAudioInbox.startFresh()
 
     let started = super.application(application, didFinishLaunchingWithOptions: launchOptions)
 
