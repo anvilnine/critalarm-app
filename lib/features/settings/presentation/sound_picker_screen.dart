@@ -47,7 +47,11 @@ class _SoundPickerView extends StatelessWidget {
 
   static String errorMessage(String code) => switch (code) {
     'tooLong' => LocaleKeys.sound_picker_error_too_long.tr(),
-    'tooLarge' => LocaleKeys.sound_picker_error_too_large.tr(),
+    'tooLarge' => LocaleKeys.sound_picker_error_too_large.tr(
+      namedArgs: {
+        'megabytes': '${SoundImportLimits.maxBytes ~/ (1024 * 1024)}',
+      },
+    ),
     'unsupportedFormat' => LocaleKeys.sound_picker_error_unsupported.tr(),
     'unreadable' => LocaleKeys.sound_picker_error_unreadable.tr(),
     _ => LocaleKeys.sound_picker_error_copy_failed.tr(),
@@ -108,8 +112,6 @@ class _SoundPickerView extends StatelessWidget {
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _Hint(state: state),
-                          const SizedBox(height: Spacing.s2),
                           SectionCard(
                             title: LocaleKeys.sound_picker_bundled_header.tr(),
                             child: Column(
@@ -125,67 +127,72 @@ class _SoundPickerView extends StatelessWidget {
                               ],
                             ),
                           ),
-                          const SizedBox(height: Spacing.s3),
-                          SectionCard(
-                            title: LocaleKeys.sound_picker_user_header.tr(),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                if (state.userSounds.isEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Text(
-                                      LocaleKeys.sound_picker_user_empty.tr(),
-                                      style: TextStyle(
-                                        fontFamily: AppTypography.fontBody,
-                                        fontFamilyFallback:
-                                            AppTypography.fontBodyFallbacks,
-                                        fontSize: 13,
-                                        color: colors.ink3,
-                                      ),
-                                    ),
-                                  ),
-                                for (final sound in state.userSounds)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Dismissible(
-                                      key: ValueKey(sound.id),
-                                      direction: DismissDirection.endToStart,
-                                      background: _DeleteBackground(
-                                        color: colors.crit,
-                                      ),
-                                      onDismissed: (_) {
-                                        AppHaptics.destructive();
-                                        unawaited(
-                                          cubit.deleteUserSound(sound.id),
-                                        );
-                                      },
-                                      child: _SoundRow(
-                                        sound: sound,
-                                        state: state,
-                                      ),
-                                    ),
-                                  ),
-                                const SizedBox(height: 4),
-                                AppButton(
-                                  label: LocaleKeys.sound_picker_add_own.tr(),
-                                  variant: AppButtonVariant.ghost,
-                                  isFullWidth: true,
-                                  icon: AppGlyph(
-                                    GlyphType.plus,
-                                    size: 16,
-                                    color: colors.onCanvas,
-                                  ),
-                                  onPressed: state.isImporting
-                                      ? null
-                                      : () {
-                                          AppHaptics.capture();
-                                          unawaited(cubit.importSound());
-                                        },
+                          if (state.userSounds.isNotEmpty ||
+                              state.capabilities.canImportSounds) ...[
+                            const SizedBox(height: Spacing.s3),
+                            SectionCard(
+                              title: LocaleKeys.sound_picker_user_header.tr(),
+                              trailing: Text(
+                                LocaleKeys.sound_picker_user_local_only.tr(),
+                                style: TextStyle(
+                                  fontFamily: AppTypography.fontMono,
+                                  fontFamilyFallback:
+                                      AppTypography.fontMonoFallbacks,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.ink3,
                                 ),
-                              ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (final sound in state.userSounds)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 8,
+                                      ),
+                                      child: Dismissible(
+                                        key: ValueKey(sound.id),
+                                        direction: DismissDirection.endToStart,
+                                        background: _DeleteBackground(
+                                          color: colors.crit,
+                                        ),
+                                        onDismissed: (_) {
+                                          AppHaptics.destructive();
+                                          unawaited(
+                                            cubit.deleteUserSound(sound.id),
+                                          );
+                                        },
+                                        child: _SoundRow(
+                                          sound: sound,
+                                          state: state,
+                                        ),
+                                      ),
+                                    ),
+                                  if (state.capabilities.canImportSounds) ...[
+                                    const SizedBox(height: 4),
+                                    AppButton(
+                                      label: LocaleKeys.sound_picker_pick_file
+                                          .tr(),
+                                      variant: AppButtonVariant.ghost,
+                                      isFullWidth: true,
+                                      icon: AppGlyph(
+                                        GlyphType.plus,
+                                        size: 16,
+                                        color: colors.onCanvas,
+                                      ),
+                                      onPressed: state.isImporting
+                                          ? null
+                                          : () {
+                                              AppHaptics.capture();
+                                              unawaited(cubit.importSound());
+                                            },
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
-                          ),
+                          ],
                           const SizedBox(height: Spacing.s3),
                           AppButton(
                             label: LocaleKeys.sound_picker_use_button.tr(
@@ -214,56 +221,61 @@ class _SoundPickerView extends StatelessWidget {
   }
 }
 
-/// The one-line explanation shown when this platform will not ring an alarm
-/// with a sound the user brought in.
-class _Hint extends StatelessWidget {
-  const _Hint({required this.state});
-
-  final SoundPickerState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final lines = <String>[
-      if (state.isPerTopic) LocaleKeys.sound_picker_topic_hint.tr(),
-      if (!state.capabilities.userSoundsRingAlarm)
-        LocaleKeys.sound_picker_notifications_only.tr(),
-    ];
-    if (lines.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final line in lines)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                line,
-                style: TextStyle(
-                  fontFamily: AppTypography.fontBody,
-                  fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                  fontSize: 12,
-                  color: colors.ink3,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SoundRow extends StatelessWidget {
+class _SoundRow extends StatefulWidget {
   const _SoundRow({required this.sound, required this.state});
 
   final AlarmSound sound;
   final SoundPickerState state;
 
   @override
+  State<_SoundRow> createState() => _SoundRowState();
+}
+
+/// Owns the preview progress. The platform does not report where playback
+/// is, so the ring and the bars run off the sound's length, and the cubit
+/// clears the row when the platform says the preview ended.
+class _SoundRowState extends State<_SoundRow>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _progress = AnimationController(
+    vsync: this,
+    duration: _length,
+  );
+
+  Duration get _length => widget.sound.duration > Duration.zero
+      ? widget.sound.duration
+      : const Duration(seconds: 1);
+
+  bool _previewing(_SoundRow row) =>
+      row.state.previewingSoundId == row.sound.id;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_previewing(widget)) unawaited(_progress.forward());
+  }
+
+  @override
+  void didUpdateWidget(_SoundRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _progress.duration = _length;
+    final was = _previewing(oldWidget);
+    final now = _previewing(widget);
+    if (now && !was) unawaited(_progress.forward(from: 0));
+    if (!now && was) _progress.reset();
+  }
+
+  @override
+  void dispose() {
+    _progress.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cubit = context.read<SoundPickerCubit>();
-    final isPreviewing = state.previewingSoundId == sound.id;
+    final sound = widget.sound;
+    final state = widget.state;
+    final isPreviewing = _previewing(widget);
     final isUserSound = sound.source == AlarmSoundSource.user;
     final tooLong =
         isUserSound &&
@@ -271,105 +283,44 @@ class _SoundRow extends StatelessWidget {
     final notificationsOnly =
         isUserSound && !state.capabilities.userSoundsRingAlarm;
 
-    return AppRadioRow(
-      title: sound.name,
-      meta: _SoundPickerView.formatLength(sound.duration),
-      note: tooLong
-          ? LocaleKeys.sound_picker_row_too_long_ios.tr()
-          : notificationsOnly
-          ? LocaleKeys.sound_picker_row_notifications_only.tr()
-          : null,
-      selected: state.selectedSoundId == sound.id,
-      leading: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _PreviewButton(
+    return AnimatedBuilder(
+      animation: _progress,
+      builder: (context, _) {
+        final progress = isPreviewing ? _progress.value : null;
+        return AppRadioRow(
+          title: sound.name,
+          meta: _SoundPickerView.formatLength(sound.duration),
+          note: tooLong
+              ? LocaleKeys.sound_picker_row_too_long_ios.tr()
+              : notificationsOnly
+              ? LocaleKeys.sound_picker_row_notifications_only.tr()
+              : null,
+          selected: state.selectedSoundId == sound.id,
+          leading: AppPreviewButton(
             isPlaying: isPreviewing,
+            progress: progress,
+            progressLabel: progress == null
+                ? null
+                : LocaleKeys.sound_picker_preview_progress.tr(
+                    namedArgs: {'percent': '${(progress * 100).round()}'},
+                  ),
+            playLabel: LocaleKeys.sound_picker_play_aria_label.tr(),
+            stopLabel: LocaleKeys.sound_picker_stop_aria_label.tr(),
             onPressed: () {
               AppHaptics.selection();
               unawaited(cubit.togglePreview(sound));
             },
           ),
-          if (isPreviewing) ...[
-            const SizedBox(height: 6),
-            const _PlayingBadge(),
-          ],
-        ],
-      ),
-      onTap: () {
-        AppHaptics.selection();
-        unawaited(cubit.select(sound.id));
+          waveform: WaveformBars(
+            peaks: sound.peaks ?? const [],
+            progress: progress,
+          ),
+          onTap: () {
+            AppHaptics.selection();
+            unawaited(cubit.select(sound.id));
+          },
+        );
       },
-    );
-  }
-}
-
-class _PreviewButton extends StatelessWidget {
-  const _PreviewButton({required this.isPlaying, required this.onPressed});
-
-  final bool isPlaying;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Semantics(
-      button: true,
-      label: isPlaying
-          ? LocaleKeys.sound_picker_stop_aria_label.tr()
-          : LocaleKeys.sound_picker_play_aria_label.tr(),
-      child: GestureDetector(
-        onTap: onPressed,
-        child: Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isPlaying ? colors.highlight : colors.surface,
-            border: Border.all(color: colors.hairline),
-          ),
-          child: Icon(
-            isPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded,
-            size: 20,
-            color: isPlaying ? colors.surface : colors.ink,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Chip next to the sound row that is currently previewing.
-class _PlayingBadge extends StatelessWidget {
-  const _PlayingBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: colors.highlight,
-        borderRadius: Radii.fullAll,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AppGlyph(GlyphType.check, size: 11, color: colors.onHighlight),
-          const SizedBox(width: 4),
-          Text(
-            LocaleKeys.sound_picker_badge_playing.tr(),
-            style: TextStyle(
-              fontFamily: AppTypography.fontMono,
-              fontFamilyFallback: AppTypography.fontMonoFallbacks,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: colors.onHighlight,
-              height: 1,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
