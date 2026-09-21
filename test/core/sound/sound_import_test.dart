@@ -30,28 +30,30 @@ void main() {
       );
     });
 
-    test('on Android exactly 60 seconds passes, a millisecond over does not',
-        () {
-      const cap = Duration(seconds: 60);
-      expect(
-        checkSoundImport(
-          fileName: 'honk.mp3',
-          sizeBytes: oneMb,
-          duration: cap,
-          platform: TargetPlatform.android,
-        ),
-        isNull,
-      );
-      expect(
-        checkSoundImport(
-          fileName: 'honk.mp3',
-          sizeBytes: oneMb,
-          duration: cap + const Duration(milliseconds: 1),
-          platform: TargetPlatform.android,
-        ),
-        SoundImportRejection.tooLong,
-      );
-    });
+    test(
+      'on Android exactly 60 seconds passes, a millisecond over does not',
+      () {
+        const cap = Duration(seconds: 60);
+        expect(
+          checkSoundImport(
+            fileName: 'honk.mp3',
+            sizeBytes: oneMb,
+            duration: cap,
+            platform: TargetPlatform.android,
+          ),
+          isNull,
+        );
+        expect(
+          checkSoundImport(
+            fileName: 'honk.mp3',
+            sizeBytes: oneMb,
+            duration: cap + const Duration(milliseconds: 1),
+            platform: TargetPlatform.android,
+          ),
+          SoundImportRejection.tooLong,
+        );
+      },
+    );
 
     test('on iOS exactly 29.5 seconds passes, a millisecond over does not', () {
       const cap = Duration(milliseconds: 29500);
