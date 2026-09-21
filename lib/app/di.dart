@@ -43,6 +43,8 @@ import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
+import 'package:critalarm/features/feedback/data/platform_device_report_repository.dart';
+import 'package:critalarm/features/feedback/domain/repositories/device_report_repository.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
@@ -95,6 +97,7 @@ import 'package:critalarm/features/permissions/domain/usecases/get_device_permis
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
 import 'package:critalarm/features/prompts/data/repositories/shared_prefs_home_prompt_repository.dart';
+import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
 import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
@@ -396,6 +399,17 @@ Future<void> configureDependencies({
     ..registerLazySingleton<ProPromptRules>(
       () => ProPromptRules(
         homePromptRepository: getIt<HomePromptRepository>(),
+        accountRepository: getIt<AccountRepository>(),
+      ),
+    )
+    ..registerLazySingleton<HomeAskRules>(
+      () => HomeAskRules(
+        homePromptRepository: getIt<HomePromptRepository>(),
+        privacyRepository: getIt<PrivacyRepository>(),
+      ),
+    )
+    ..registerLazySingleton<DeviceReportRepository>(
+      () => PlatformDeviceReportRepository(
         accountRepository: getIt<AccountRepository>(),
       ),
     )
