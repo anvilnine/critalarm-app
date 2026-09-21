@@ -783,7 +783,7 @@ Future<void> configureDependencies({
       () => RecorderCubit(
         getIt<SoundRecorder>(),
         maxDuration: SoundImportLimits.maxClipDuration(defaultTargetPlatform),
-        isRinging: () async => await getIt<AlarmHost>().isRinging() ?? false,
+        isRinging: getIt<AlarmHost>().isRinging,
         stopPreview: () => getIt<SoundHost>().stopPreview(),
       ),
     )
