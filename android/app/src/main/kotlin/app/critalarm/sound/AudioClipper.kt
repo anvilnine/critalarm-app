@@ -30,12 +30,15 @@ object AudioClipper {
     private const val MAX_CUT_MS = 60_000L
     private const val MAX_EMPTY_DEQUEUES = 500
 
+    /** The longest clip Android keeps, the same cap as the Dart side. */
+    private const val MAX_CLIP_MS = 60_000L
+
     /**
      * Writes [startMs] to [endMs] of [sourcePath] into [destination]. False
      * when anything fails, and then nothing is left at [destination].
      */
     fun clip(sourcePath: String, destination: File, startMs: Long, endMs: Long): Boolean {
-        if (startMs < 0 || endMs <= startMs) return false
+        if (startMs < 0 || endMs <= startMs || endMs - startMs > MAX_CLIP_MS) return false
         val extractor = MediaExtractor()
         var codec: MediaCodec? = null
         // An early return below happens before anything is written.
