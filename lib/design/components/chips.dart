@@ -289,3 +289,38 @@ class AppTopicChip extends StatelessWidget {
     );
   }
 }
+
+/// A small label in a pill, with nothing to tap. For a short fact next to a
+/// value, like "Max" next to a clip length.
+class AppPlainChip extends StatelessWidget {
+  const AppPlainChip({required this.text, super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 26),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.cobaltTint,
+        borderRadius: Radii.fullAll,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        maxLines: 1,
+        style: TextStyle(
+          fontFamily: AppTypography.fontMono,
+          fontFamilyFallback: AppTypography.fontMonoFallbacks,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+          color: colors.ink,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
