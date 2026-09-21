@@ -414,6 +414,17 @@ class _EditorState extends State<_Editor> with SingleTickerProviderStateMixin {
     final startText = formatClipTime(w.start);
     final endText = formatClipTime(w.end);
     const step = SoundCropCubit.nudge;
+    String windowValue(CropWindow w) => LocaleKeys.sound_crop_window_value.tr(
+      namedArgs: {
+        'start': formatClipTime(w.start),
+        'end': formatClipTime(w.end),
+      },
+    );
+    String startValue(CropWindow w) => LocaleKeys.sound_crop_handle_start_value
+        .tr(namedArgs: {'time': formatClipTime(w.start)});
+    String endValue(CropWindow w) => LocaleKeys.sound_crop_handle_end_value.tr(
+      namedArgs: {'time': formatClipTime(w.end)},
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -438,17 +449,17 @@ class _EditorState extends State<_Editor> with SingleTickerProviderStateMixin {
             playhead: state.isPlaying ? _playhead.value : null,
             labels: CropEditorLabels(
               window: LocaleKeys.sound_crop_window_label.tr(),
-              windowValue: LocaleKeys.sound_crop_window_value.tr(
-                namedArgs: {'start': startText, 'end': endText},
-              ),
+              windowValue: windowValue(w),
+              windowUp: windowValue(w.move(step)),
+              windowDown: windowValue(w.move(-step)),
               start: LocaleKeys.sound_crop_handle_start.tr(),
-              startValue: LocaleKeys.sound_crop_handle_start_value.tr(
-                namedArgs: {'time': startText},
-              ),
+              startValue: startValue(w),
+              startUp: startValue(w.dragStart(w.start + step)),
+              startDown: startValue(w.dragStart(w.start - step)),
               end: LocaleKeys.sound_crop_handle_end.tr(),
-              endValue: LocaleKeys.sound_crop_handle_end_value.tr(
-                namedArgs: {'time': endText},
-              ),
+              endValue: endValue(w),
+              endUp: endValue(w.dragEnd(w.end + step)),
+              endDown: endValue(w.dragEnd(w.end - step)),
             ),
             nudges: CropEditorNudges(
               windowForward: () => cubit.moveBy(step),
