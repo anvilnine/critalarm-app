@@ -17,6 +17,40 @@ class AppAmbientShell extends StatefulWidget {
   final GoRouter router;
   final Widget child;
 
+  /// The backdrop for each screen. A screen pushed on top of another needs a
+  /// different profile from it, or the backdrop holds still on the push.
+  @visibleForTesting
+  static AmbientProfile profileForPath(String path, AppColors colors) {
+    if (path == '/history') {
+      return AmbientAppProfiles.history(colors);
+    }
+    if (path == '/settings') {
+      return AmbientAppProfiles.settings(colors);
+    }
+    if (path == '/') {
+      return AmbientAppProfiles.topics(colors);
+    }
+    if (path.startsWith('/topics/new')) {
+      return AmbientAppProfiles.createTopic(colors);
+    }
+    if (path == '/sounds/crop') {
+      return AmbientAppProfiles.soundEditor(colors);
+    }
+    if (path.contains('/sounds')) {
+      return AmbientAppProfiles.soundList(colors);
+    }
+    if (path.startsWith('/history/topics/')) {
+      return AmbientAppProfiles.historyDetail(colors);
+    }
+    if (path.startsWith('/topics/')) {
+      return AmbientAppProfiles.topicDetail(colors);
+    }
+    if (path.startsWith('/settings/')) {
+      return AmbientAppProfiles.settingsDetail(colors);
+    }
+    return AmbientAppProfiles.topics(colors);
+  }
+
   @override
   State<AppAmbientShell> createState() => _AppAmbientShellState();
 }
@@ -122,38 +156,10 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
         _currentPath.startsWith('/incidents/');
   }
 
-  AmbientProfile _profileForPath(String path, AppColors colors) {
-    if (path == '/history') {
-      return AmbientAppProfiles.history(colors);
-    }
-    if (path == '/settings') {
-      return AmbientAppProfiles.settings(colors);
-    }
-    if (path == '/') {
-      return AmbientAppProfiles.topics(colors);
-    }
-    if (path.startsWith('/topics/new')) {
-      return AmbientAppProfiles.createTopic(colors);
-    }
-    if (path.contains('/sounds')) {
-      return AmbientAppProfiles.settingsDetail(colors);
-    }
-    if (path.startsWith('/history/topics/')) {
-      return AmbientAppProfiles.historyDetail(colors);
-    }
-    if (path.startsWith('/topics/')) {
-      return AmbientAppProfiles.topicDetail(colors);
-    }
-    if (path.startsWith('/settings/')) {
-      return AmbientAppProfiles.settingsDetail(colors);
-    }
-    return AmbientAppProfiles.topics(colors);
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final profile = _profileForPath(_currentPath, colors);
+    final profile = AppAmbientShell.profileForPath(_currentPath, colors);
 
     return Stack(
       children: [
