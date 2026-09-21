@@ -34,6 +34,7 @@ class RecorderState {
     this.levels = const [],
     this.isLoud = false,
     this.recorded,
+    this.alarmRinging = false,
   });
 
   /// How many bars the live panel holds. Older ones scroll off the left.
@@ -54,6 +55,10 @@ class RecorderState {
 
   /// The finished file, set once [status] is stopped.
   final PickedSoundFile? recorded;
+
+  /// An alarm was ringing at the last check. The record button looks
+  /// disabled, and a tap checks again.
+  final bool alarmRinging;
 
   double get progress => maxDuration <= Duration.zero
       ? 0
@@ -92,6 +97,7 @@ class RecorderState {
     bool? isLoud,
     PickedSoundFile? recorded,
     bool clearRecorded = false,
+    bool? alarmRinging,
   }) => RecorderState(
     maxDuration: maxDuration,
     status: status ?? this.status,
@@ -99,5 +105,6 @@ class RecorderState {
     levels: levels ?? this.levels,
     isLoud: isLoud ?? this.isLoud,
     recorded: clearRecorded ? null : recorded ?? this.recorded,
+    alarmRinging: alarmRinging ?? this.alarmRinging,
   );
 }
