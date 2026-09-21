@@ -63,10 +63,15 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
     emit(
       state.copyWith(
         isLoading: false,
-        bundled: BundledSounds.catalogue(
-          platform: _platform,
-          nameOf: nameOf,
-        ),
+        // Peaks read on an earlier open show on the first frame.
+        bundled: [
+          for (final sound in BundledSounds.catalogue(
+            platform: _platform,
+            nameOf: nameOf,
+          ))
+            sound.copyWith(peaks: sound.peaks ?? _peaksCache.cached(sound.id)),
+        ],
+        isLoadingPeaks: true,
         userSounds: userSounds,
         selectedSoundId: selected,
         defaultSoundId: defaultId,
@@ -76,24 +81,30 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
       ),
     );
     await Future.wait([_fillBundledPeaks(), _backfillUserPeaks()]);
+    if (!isClosed) emit(state.copyWith(isLoadingPeaks: false));
   }
 
+  /// Reads every missing bundled waveform at once and shows them together,
+  /// so the rows do not fill in one at a time.
   Future<void> _fillBundledPeaks() async {
-    await Future.wait([
-      for (final sound in state.bundled)
-        if (sound.peaks == null)
-          _peaksCache.load(sound).then((peaks) {
-            if (isClosed || peaks.isEmpty) return;
-            emit(
-              state.copyWith(
-                bundled: [
-                  for (final s in state.bundled)
-                    s.id == sound.id ? s.copyWith(peaks: peaks) : s,
-                ],
-              ),
-            );
-          }),
+    final missing = state.bundled.where((s) => s.peaks == null).toList();
+    if (missing.isEmpty) return;
+    final read = await Future.wait([
+      for (final sound in missing) _peaksCache.load(sound),
     ]);
+    final found = <String, List<double>>{
+      for (var i = 0; i < missing.length; i++)
+        if (read[i].isNotEmpty) missing[i].id: read[i],
+    };
+    if (isClosed || found.isEmpty) return;
+    emit(
+      state.copyWith(
+        bundled: [
+          for (final s in state.bundled)
+            found.containsKey(s.id) ? s.copyWith(peaks: found[s.id]) : s,
+        ],
+      ),
+    );
   }
 
   /// Sounds imported before waveforms existed have no peaks. Read them once,

@@ -1388,6 +1388,20 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 waveform: WaveformBars(peaks: song, progress: 0.4),
                 onTap: () {},
               ),
+              const SizedBox(height: 8),
+              AppRadioRow(
+                title: 'Siren',
+                meta: '0:08',
+                selected: false,
+                leading: AppPreviewButton(
+                  isPlaying: false,
+                  playLabel: 'Play preview',
+                  stopLabel: 'Stop preview',
+                  onPressed: () {},
+                ),
+                waveform: const WaveformBars(peaks: [], loading: true),
+                onTap: () {},
+              ),
               const SizedBox(height: 16),
               const SizedBox(
                 height: 22,
