@@ -49,6 +49,22 @@ abstract final class SoundImportLimits {
       : _sharedExtensions;
 }
 
+/// A file the user picked, or shared in from another app, before anything
+/// has been checked.
+class PickedSoundFile {
+  const PickedSoundFile({
+    required this.path,
+    required this.name,
+    required this.sizeBytes,
+  });
+
+  final String path;
+
+  /// The file name as the picker reported it, extension included.
+  final String name;
+  final int sizeBytes;
+}
+
 /// Why a picked file was turned away. Null means it passed.
 enum SoundImportRejection {
   /// Over [SoundImportLimits.maxSourceDuration].
