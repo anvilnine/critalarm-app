@@ -70,6 +70,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
         setState(() {
           _direction = AmbientDirection.push;
         });
+        unawaited(getIt<HomePromptRepository>().markAcknowledged());
         unawaited(_askAboutPro());
       },
       builder: (context, state) {

@@ -6,6 +6,7 @@ import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/feedback/presentation/help_section.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
@@ -285,6 +286,8 @@ class _SettingsScreenContent extends StatelessWidget {
                         subtitle: LocaleKeys.settings_about_row_subtitle.tr(),
                         path: '/settings/about',
                       ),
+                      const SizedBox(height: 14),
+                      const HelpSection(),
                       const SizedBox(height: 14),
                       AppSectionHeader(
                         LocaleKeys.settings_plan_header.tr(),

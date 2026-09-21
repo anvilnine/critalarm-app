@@ -1,6 +1,7 @@
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
+import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 
 /// Answers "should the Pro sheet ask right now". Holds no widgets and reads
@@ -41,6 +42,10 @@ class ProPromptRules {
       isSelfHosted: serverMode == ServerMode.selfhosted,
       dismissCount: homePromptRepository.getProPromptDismissCount(),
       lastAskedAt: homePromptRepository.getProPromptAskedAt(),
+      otherAskedAt: [
+        homePromptRepository.getConsentAskedAt(),
+        homePromptRepository.getReviewAskedAt(),
+      ],
       now: _now(),
     );
   }
@@ -51,14 +56,21 @@ class ProPromptRules {
   /// [lastAskedAt] is when the sheet was last shown, not when it was last
   /// turned down. Walking away from the sheet is an answer too, so the quiet
   /// period starts the moment it opens.
+  ///
+  /// [otherAskedAt] holds the consent sheet and the review popup. The Pro
+  /// sheet waits out `HomeAskRules.gap` after either.
   static bool decide({
     required bool isPaid,
     required bool isSelfHosted,
     required int dismissCount,
     required DateTime? lastAskedAt,
     required DateTime now,
+    List<DateTime?> otherAskedAt = const [],
   }) {
     if (isPaid || isSelfHosted) return false;
+    if (HomeAskRules.isWithinGap(now: now, askedAt: otherAskedAt)) {
+      return false;
+    }
     if (dismissCount >= maxDismissals) return false;
     if (lastAskedAt != null && now.difference(lastAskedAt) < snooze) {
       return false;

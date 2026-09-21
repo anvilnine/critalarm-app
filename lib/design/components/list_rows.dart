@@ -156,18 +156,22 @@ class _AppListRowState extends State<AppListRow> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.meta,
-                          style: TextStyle(
-                            fontFamily: AppTypography.fontBody,
-                            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                            fontSize: 12,
-                            color: metaColor,
+                        // An empty meta leaves no blank line under the name.
+                        if (widget.meta.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.meta,
+                            style: TextStyle(
+                              fontFamily: AppTypography.fontBody,
+                              fontFamilyFallback:
+                                  AppTypography.fontBodyFallbacks,
+                              fontSize: 12,
+                              color: metaColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        ],
                       ],
                     ),
                   ),
