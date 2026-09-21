@@ -26,6 +26,13 @@ import java.util.UUID
 class ShareReceiverActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Recreated, say on rotation, while the first instance's copy is still
+        // running. That copy hands off on its own; a second one would only
+        // duplicate it.
+        if (savedInstanceState != null) {
+            finish()
+            return
+        }
         val uri = sharedUri(intent)
         if (uri == null) {
             finish()
@@ -65,9 +72,15 @@ class ShareReceiverActivity : Activity() {
      * copy that fails still goes to Dart, with size 0, so the user is told.
      */
     private fun copy(uri: Uri): Copied {
-        val name = fileName(uri)
+        val (display, reportedSize) = describe(uri)
+        val name = fileName(uri, display)
         val folder = File(cacheDir, FOLDER).apply { mkdirs() }
         val target = File(folder, "${UUID.randomUUID()}_$name")
+        // Known to be over the cap: nothing is copied, and Dart reads the
+        // size and says the file is too large.
+        if (reportedSize != null && reportedSize > MAX_SOURCE_BYTES) {
+            return Copied(target.path, name, reportedSize)
+        }
         return try {
             val input = contentResolver.openInputStream(uri)
                 ?: return Copied(target.path, name, 0)
@@ -91,23 +104,42 @@ class ShareReceiverActivity : Activity() {
         }
     }
 
+    /** The sender's display name and size, either of which can be missing. */
+    private fun describe(uri: Uri): Pair<String?, Long?> = runCatching {
+        contentResolver.query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+            null,
+            null,
+            null,
+        )?.use {
+            if (!it.moveToFirst()) return@use null to null
+            val name = if (it.isNull(0)) null else it.getString(0)
+            val size = if (it.isNull(1)) null else it.getLong(1)
+            name to size
+        }
+    }.getOrNull() ?: (null to null)
+
     /**
      * The name the sender gave the file, with an extension Dart can check.
      * The display name's own extension wins; with none, the MIME type gives
-     * one.
+     * one. The part before the extension is cut to [MAX_STEM] characters so a
+     * very long name still fits the file system.
      */
-    private fun fileName(uri: Uri): String {
-        val display = runCatching {
-            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                ?.use { if (it.moveToFirst()) it.getString(0) else null }
-        }.getOrNull()
+    private fun fileName(uri: Uri, display: String?): String {
         val base = (display ?: uri.lastPathSegment ?: "audio")
             .replace('/', '_')
             .ifBlank { "audio" }
-        if (base.substringAfterLast('.', "").isNotEmpty()) return base
-        val extension = contentResolver.getType(uri)
-            ?.let { MimeTypeMap.getSingleton().getExtensionFromMimeType(it) }
-        return if (extension.isNullOrEmpty()) base else "$base.$extension"
+        val dot = base.lastIndexOf('.')
+        val hasExtension = dot > 0 && dot < base.length - 1
+        val stem = (if (hasExtension) base.substring(0, dot) else base).take(MAX_STEM)
+        val extension = if (hasExtension) {
+            base.substring(dot + 1).take(MAX_EXTENSION)
+        } else {
+            contentResolver.getType(uri)
+                ?.let { MimeTypeMap.getSingleton().getExtensionFromMimeType(it) }
+        }
+        return if (extension.isNullOrEmpty()) stem else "$stem.$extension"
     }
 
     companion object {
@@ -118,6 +150,10 @@ class ShareReceiverActivity : Activity() {
 
         /** Matches SoundImportLimits.maxSourceBytes in Dart. */
         private const val MAX_SOURCE_BYTES = 100L * 1024 * 1024
+
+        /** Keeps the copy's name well under the 255-byte file name limit. */
+        private const val MAX_STEM = 50
+        private const val MAX_EXTENSION = 10
 
         const val EXTRA_PATH = "pending_audio_path"
         const val EXTRA_NAME = "pending_audio_name"
