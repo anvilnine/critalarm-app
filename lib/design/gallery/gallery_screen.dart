@@ -1425,10 +1425,16 @@ class _GalleryScreenState extends State<GalleryScreen> {
           labels: const CropEditorLabels(
             window: 'Selected clip',
             windowValue: '0:42.0 to 1:11.5',
+            windowUp: '0:42.5 to 1:12.0',
+            windowDown: '0:41.5 to 1:11.0',
             start: 'Start',
             startValue: 'Starts at 0:42.0',
+            startUp: 'Starts at 0:42.5',
+            startDown: 'Starts at 0:41.5',
             end: 'End',
             endValue: 'Ends at 1:11.5',
+            endUp: 'Ends at 1:12.0',
+            endDown: 'Ends at 1:11.0',
           ),
           nudges: CropEditorNudges(
             windowForward: nothing,

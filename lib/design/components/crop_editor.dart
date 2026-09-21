@@ -5,23 +5,36 @@ import 'package:critalarm/design/tokens/radii.dart';
 import 'package:flutter/material.dart';
 
 /// What a screen reader hears for the three parts of the editor. The screen
-/// fills these in, so the component knows no strings.
+/// fills these in, so the component knows no strings. Each part has its
+/// value now and the value one step up and one step down.
 class CropEditorLabels {
   const CropEditorLabels({
     required this.window,
     required this.windowValue,
+    required this.windowUp,
+    required this.windowDown,
     required this.start,
     required this.startValue,
+    required this.startUp,
+    required this.startDown,
     required this.end,
     required this.endValue,
+    required this.endUp,
+    required this.endDown,
   });
 
   final String window;
   final String windowValue;
+  final String windowUp;
+  final String windowDown;
   final String start;
   final String startValue;
+  final String startUp;
+  final String startDown;
   final String end;
   final String endValue;
+  final String endUp;
+  final String endDown;
 }
 
 /// Screen reader steps. Each one moves by one fixed step, decided by the
@@ -208,11 +221,9 @@ class _MinimapPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final count = peaks.length;
     if (count > 0) {
-      const gap = 1.0;
-      final width = math.max<double>(
-        1,
-        (size.width - gap * (count - 1)) / count,
-      );
+      // Each bar gets an equal slot, so any number of bars fits the width.
+      final slot = size.width / count;
+      final width = math.max<double>(0.5, slot * .6);
       final dim = Paint()..color = idle;
       final lit = Paint()..color = active;
       for (var i = 0; i < count; i++) {
@@ -223,7 +234,7 @@ class _MinimapPainter extends CustomPainter {
         );
         canvas.drawRRect(
           RRect.fromRectAndRadius(
-            Rect.fromLTWH(i * (width + gap), (size.height - h) / 2, width, h),
+            Rect.fromLTWH(i * slot, (size.height - h) / 2, width, h),
             Radius.circular(width / 2),
           ),
           f >= from && f <= to ? lit : dim,
@@ -346,6 +357,8 @@ class _ZoomedEditorState extends State<_ZoomedEditor> {
                 slider: true,
                 label: labels.window,
                 value: labels.windowValue,
+                increasedValue: labels.windowUp,
+                decreasedValue: labels.windowDown,
                 onIncrease: nudges.windowForward,
                 onDecrease: nudges.windowBack,
                 child: _dragArea(_Drag.window, width, const SizedBox.expand()),
@@ -360,6 +373,8 @@ class _ZoomedEditorState extends State<_ZoomedEditor> {
                 slider: true,
                 label: labels.start,
                 value: labels.startValue,
+                increasedValue: labels.startUp,
+                decreasedValue: labels.startDown,
                 onIncrease: nudges.startForward,
                 onDecrease: nudges.startBack,
                 child: _dragArea(_Drag.start, width, const SizedBox.expand()),
@@ -374,6 +389,8 @@ class _ZoomedEditorState extends State<_ZoomedEditor> {
                 slider: true,
                 label: labels.end,
                 value: labels.endValue,
+                increasedValue: labels.endUp,
+                decreasedValue: labels.endDown,
                 onIncrease: nudges.endForward,
                 onDecrease: nudges.endBack,
                 child: _dragArea(_Drag.end, width, const SizedBox.expand()),
