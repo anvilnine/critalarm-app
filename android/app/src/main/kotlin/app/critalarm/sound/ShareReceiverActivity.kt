@@ -150,6 +150,19 @@ object IncomingAudioHolder {
         return file
     }
 
+    /**
+     * A fresh launch: deletes copies nobody opened last time, such as one
+     * whose cropper was open when the app was killed. [keep] is the copy this
+     * launch brought in. Runs off the main thread.
+     */
+    fun clearLeftovers(cacheDir: File, keep: String?) {
+        Thread {
+            File(cacheDir, ShareReceiverActivity.FOLDER).listFiles()
+                ?.filter { it.path != keep }
+                ?.forEach { it.delete() }
+        }.start()
+    }
+
     fun take(): Map<String, Any>? {
         val file = pending
         pending = null

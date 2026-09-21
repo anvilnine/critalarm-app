@@ -270,16 +270,20 @@ class MainActivity : FlutterFragmentActivity() {
             setTurnScreenOn(true)
         }
         super.onCreate(savedInstanceState)
-        readIncomingAudio(intent)
+        val shared = readIncomingAudio(intent)
+        if (savedInstanceState == null) {
+            IncomingAudioHolder.clearLeftovers(cacheDir, keep = shared?.get("path") as String?)
+        }
     }
 
     /**
      * A sound file ShareReceiverActivity copied in. Held for Dart's
      * `takeIncomingAudio` and sent live as well, the same way a tap is.
      */
-    private fun readIncomingAudio(intent: Intent?) {
-        val file = IncomingAudioHolder.read(intent) ?: return
+    private fun readIncomingAudio(intent: Intent?): Map<String, Any>? {
+        val file = IncomingAudioHolder.read(intent) ?: return null
         soundMethods?.invokeMethod("incomingAudio", file)
+        return file
     }
 
     /**

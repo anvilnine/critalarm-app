@@ -10,6 +10,7 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
+import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
@@ -61,7 +62,19 @@ class _CritAlarmAppState extends State<CritAlarmApp>
         unawaited(_router.pushNamed(AppRoute.soundCrop, extra: file)),
     showMessage: (message) => _messenger.currentState
       ?..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(message))),
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          // Above the floating tab bar, which would cover it otherwise.
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            AppFloatingTabBar.height + AppFloatingTabBar.edgeGap + 8,
+          ),
+        ),
+      ),
   );
 
   @override
