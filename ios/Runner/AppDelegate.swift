@@ -697,6 +697,7 @@ enum SoundLibrary {
         guard let buffer = output.copyNextSampleBuffer() else { return false }
         guard let block = CMSampleBufferGetDataBuffer(buffer) else { return true }
         let sampleCount = CMBlockBufferGetDataLength(block) / 2
+        guard sampleCount > 0 else { return true }
         if samples.count < sampleCount {
           samples = [Int16](repeating: 0, count: sampleCount)
         }
@@ -799,9 +800,14 @@ final class SoundPreviewPlayer: NSObject, AVAudioPlayerDelegate {
 
   private var player: AVAudioPlayer?
 
-  /// Called on the main thread when a preview stops without Dart asking: it
-  /// played to the end, or a call or another app took the audio.
-  var onEnded: (() -> Void)?
+  /// The path Dart asked to play, handed back when it ends so Dart can tell
+  /// a late event for an old preview from one for the current preview.
+  private var playingPath: String?
+
+  /// Called on the main thread with the playing path when a preview stops
+  /// without Dart asking: it played to the end, or a call or another app took
+  /// the audio.
+  var onEnded: ((String) -> Void)?
 
   override init() {
     super.init()
@@ -821,12 +827,14 @@ final class SoundPreviewPlayer: NSObject, AVAudioPlayerDelegate {
 
   private func end() {
     guard player != nil else { return }
+    let path = playingPath ?? ""
     stop()
-    onEnded?()
+    onEnded?(path)
   }
 
-  func start(url: URL) -> Bool {
+  func start(url: URL, path: String) -> Bool {
     stop()
+    playingPath = path
     do {
       try AVAudioSession.sharedInstance().setCategory(.playback, options: [.duckOthers])
       try AVAudioSession.sharedInstance().setActive(true)
@@ -846,6 +854,7 @@ final class SoundPreviewPlayer: NSObject, AVAudioPlayerDelegate {
   func stop() {
     player?.stop()
     player = nil
+    playingPath = nil
     try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
   }
 
@@ -862,8 +871,8 @@ extension AppDelegate {
   /// Wires `app.critalarm/sound`. Called from the engine setup.
   func attachSoundChannel(messenger: FlutterBinaryMessenger) -> FlutterMethodChannel {
     let channel = FlutterMethodChannel(name: "app.critalarm/sound", binaryMessenger: messenger)
-    SoundPreviewPlayer.shared.onEnded = { [weak channel] in
-      channel?.invokeMethod("previewEnded", arguments: nil)
+    SoundPreviewPlayer.shared.onEnded = { [weak channel] path in
+      channel?.invokeMethod("previewEnded", arguments: ["path": path])
     }
     channel.setMethodCallHandler { call, result in
       let args = call.arguments as? [String: Any] ?? [:]
@@ -886,7 +895,7 @@ extension AppDelegate {
           ? SoundLibrary.bundleURL(forFlutterAsset: path)
           : SoundLibrary.localURL(forStoredPath: path)
         guard let url else { result(false); return }
-        result(SoundPreviewPlayer.shared.start(url: url))
+        result(SoundPreviewPlayer.shared.start(url: url, path: path))
       case "stopPreview":
         SoundPreviewPlayer.shared.stop()
         result(true)
@@ -920,7 +929,7 @@ extension AppDelegate {
           (try? FileManager.default.removeItem(at: SoundLibrary.localURL(forStoredPath: path))) != nil
         }
       case "publishSoundAssignments":
-        result(SoundLibrary.publishToExtension())
+        SoundLibrary.inBackground(result) { SoundLibrary.publishToExtension() }
       default:
         result(FlutterMethodNotImplemented)
       }

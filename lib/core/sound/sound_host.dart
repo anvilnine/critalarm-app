@@ -79,14 +79,20 @@ final class SoundHost {
   static const channelName = 'app.critalarm/sound';
 
   final MethodChannel _channel;
-  final _previewEnded = StreamController<void>.broadcast();
+  final _previewEnded = StreamController<String>.broadcast();
 
-  /// Fires when a preview stops on its own: it played to the end, or a call
-  /// or another app took the audio. Not fired for [stopPreview].
-  Stream<void> get previewEnded => _previewEnded.stream;
+  /// The path of a preview that stopped on its own: it played to the end, or
+  /// a call or another app took the audio. Not fired for [stopPreview]. The
+  /// path is the one [startPreview] was given, so a late event for an older
+  /// preview can be told apart from the one playing now.
+  Stream<String> get previewEnded => _previewEnded.stream;
 
   Future<Object?> _handle(MethodCall call) async {
-    if (call.method == 'previewEnded') _previewEnded.add(null);
+    if (call.method == 'previewEnded') {
+      final args = call.arguments;
+      final path = args is Map ? args['path'] : null;
+      _previewEnded.add(path is String ? path : '');
+    }
     return null;
   }
 
