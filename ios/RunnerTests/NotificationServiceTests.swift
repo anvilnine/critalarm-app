@@ -237,6 +237,17 @@ final class SharedSoundsTests: XCTestCase {
         XCTAssertNil(SharedSounds.fileName(forTopic: "prod", defaults: defaults) { _ in false })
     }
 
+    func testNoDefaultClearsAnOldOne() {
+        SharedSounds.publish(defaultFile: "classic_siren.caf", perTopicFiles: [:], to: defaults)
+        SharedSounds.publish(defaultFile: nil, perTopicFiles: [:], to: defaults)
+        XCTAssertNil(SharedSounds.fileName(forTopic: "prod", defaults: defaults) { _ in true })
+    }
+
+    func testThirtySecondsOrMoreDoesNotRing() {
+        XCTAssertTrue(SharedSounds.ringsOnIphone(durationMs: 29_999))
+        XCTAssertFalse(SharedSounds.ringsOnIphone(durationMs: 30_000))
+    }
+
     func testNothingPublishedLeavesThePayloadSound() {
         XCTAssertNil(SharedSounds.fileName(forTopic: "prod", defaults: defaults) { _ in true })
         XCTAssertNil(SharedSounds.fileName(forTopic: "prod", defaults: nil) { _ in true })
