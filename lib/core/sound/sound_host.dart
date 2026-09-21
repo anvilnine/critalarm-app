@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:flutter/services.dart';
 
@@ -6,6 +8,7 @@ class SoundCapabilities {
   const SoundCapabilities({
     required this.userSoundsRingAlarm,
     required this.bundledSoundsRingAlarm,
+    this.canImportSounds = false,
   });
 
   factory SoundCapabilities.fromMap(Map<Object?, Object?>? raw) =>
@@ -13,6 +16,7 @@ class SoundCapabilities {
         userSoundsRingAlarm: raw?['user_sounds_ring_alarm'] as bool? ?? true,
         bundledSoundsRingAlarm:
             raw?['bundled_sounds_ring_alarm'] as bool? ?? true,
+        canImportSounds: raw?['can_import_sounds'] as bool? ?? false,
       );
 
   /// False on iOS when the alarm API only reads sounds compiled into the app.
@@ -23,6 +27,11 @@ class SoundCapabilities {
   /// False when even the bundled eight cannot reach the alarm API, which is
   /// the same question for the same reason.
   final bool bundledSoundsRingAlarm;
+
+  /// True when the platform can copy a file the user picked into the app.
+  /// iOS and Android say so. Anything with no handler, the web included,
+  /// cannot, so "Pick a file" is hidden there.
+  final bool canImportSounds;
 
   /// Android does everything. So does anything with no handler on the
   /// channel, since nothing there restricts a sound file.
@@ -63,11 +72,23 @@ class ImportedSound {
 /// platform answers [MissingPluginException] and this hands back a default.
 final class SoundHost {
   SoundHost([MethodChannel? channel])
-    : _channel = channel ?? const MethodChannel(channelName);
+    : _channel = channel ?? const MethodChannel(channelName) {
+    _channel.setMethodCallHandler(_handle);
+  }
 
   static const channelName = 'app.critalarm/sound';
 
   final MethodChannel _channel;
+  final _previewEnded = StreamController<void>.broadcast();
+
+  /// Fires when a preview stops on its own: it played to the end, or a call
+  /// or another app took the audio. Not fired for [stopPreview].
+  Stream<void> get previewEnded => _previewEnded.stream;
+
+  Future<Object?> _handle(MethodCall call) async {
+    if (call.method == 'previewEnded') _previewEnded.add(null);
+    return null;
+  }
 
   /// Copies the eight bundled sounds where the OS alarm and notification APIs
   /// can find them by name. Safe to call on every launch.
@@ -112,6 +133,25 @@ final class SoundHost {
       'id': id,
     }),
   );
+
+  /// How loud [path] is across [count] even slices, each 0 to 1 with the
+  /// loudest slice at 1. Empty when nothing could read the file.
+  Future<List<double>> readPeaks({
+    required String path,
+    required bool isAsset,
+    required int count,
+  }) async {
+    final raw = await _invoke<Object?>('readPeaks', {
+      'path': path,
+      'is_asset': isAsset,
+      'count': count,
+    });
+    if (raw is! List) return const [];
+    return [
+      for (final value in raw)
+        if (value is num) value.toDouble().clamp(0.0, 1.0),
+    ];
+  }
 
   Future<bool> deleteSound(String path) async =>
       await _invoke<bool>('deleteSound', {'path': path}) ?? false;
