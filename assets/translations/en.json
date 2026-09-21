@@ -198,7 +198,11 @@
     "stage_word_unreachable": "Out of touch",
     "stage_sub_unreachable": "This is what it looked like at {time}.",
     "unreachable_strip": "Cannot reach the server. Last seen {time}.",
-    "stale_list_label": "Last seen {time}"
+    "stale_list_label": "Last seen {time}",
+    "consent_prompt_title": "Help find bugs faster?",
+    "consent_prompt_crash": "Crash reports",
+    "consent_prompt_analytics": "Usage analytics",
+    "consent_prompt_share": "Share"
   },
   "topics_list": {
     "back_aria_label": "Back",
@@ -485,7 +489,13 @@
     "about_row_subtitle": "Version, license and links",
     "developer_row_title": "Developer options",
     "developer_row_subtitle": "Switch between Free and Pro",
-    "setup_header": "Setup"
+    "setup_header": "Setup",
+    "help_header": "Help",
+    "help_feedback_row": "Send feedback",
+    "help_feature_row": "Request a feature",
+    "help_report_row": "Report a problem",
+    "help_rate_row": "Rate Crit Alarm",
+    "help_report_subject": "Crit Alarm problem"
   },
   "setup_health": {
     "banner_title": "Crit Alarm cannot reach you yet",

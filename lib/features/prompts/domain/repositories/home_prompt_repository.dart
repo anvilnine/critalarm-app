@@ -23,4 +23,27 @@ abstract class HomePromptRepository {
 
   DateTime? getLastBannerResolvedOrDismissedAt();
   Future<void> markBannerResolvedOrDismissed();
+
+  /// When the home screen first opened on this install. Day counts for the
+  /// consent sheet and the review popup start here.
+  DateTime? getFirstSeenAt();
+
+  /// Stamps the first time home opens. Does nothing after that.
+  Future<void> markFirstSeen();
+
+  /// When the analytics and crash report sheet was shown. It shows once.
+  DateTime? getConsentAskedAt();
+  Future<void> markConsentAsked();
+
+  /// When the store review popup was last asked for. The store decides
+  /// whether it really showed, so asking is what counts.
+  DateTime? getReviewAskedAt();
+  int getReviewAskCount();
+
+  /// Records an ask: stores the time and adds one to the count.
+  Future<void> markReviewAsked();
+
+  /// When an alarm was last acknowledged from inside the app.
+  DateTime? getLastAcknowledgedAt();
+  Future<void> markAcknowledged();
 }
