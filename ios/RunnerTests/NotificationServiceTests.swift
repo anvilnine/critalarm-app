@@ -203,3 +203,42 @@ final class NotificationServiceTests: XCTestCase {
         )
     }
 }
+
+/// Which sound the extension hands the notification.
+final class SharedSoundsTests: XCTestCase {
+    private var defaults: UserDefaults!
+    private let suite = "SharedSoundsTests"
+
+    override func setUp() {
+        super.setUp()
+        defaults = UserDefaults(suiteName: suite)
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suite)
+        super.tearDown()
+    }
+
+    func testTopicChoiceWinsOverTheDefault() {
+        SharedSounds.publish(defaultFile: "classic_siren.caf", perTopicFiles: ["prod": "user_1.caf"], to: defaults)
+        let name = SharedSounds.fileName(forTopic: "prod", defaults: defaults) { _ in true }
+        XCTAssertEqual(name, "user_1.caf")
+    }
+
+    func testUnknownTopicUsesTheDefault() {
+        SharedSounds.publish(defaultFile: "classic_siren.caf", perTopicFiles: ["prod": "user_1.caf"], to: defaults)
+        XCTAssertEqual(SharedSounds.fileName(forTopic: nil, defaults: defaults) { _ in true }, "classic_siren.caf")
+        XCTAssertEqual(SharedSounds.fileName(forTopic: "staging", defaults: defaults) { _ in true }, "classic_siren.caf")
+    }
+
+    func testMissingFileLeavesThePayloadSound() {
+        SharedSounds.publish(defaultFile: "classic_siren.caf", perTopicFiles: ["prod": "user_1.caf"], to: defaults)
+        XCTAssertNil(SharedSounds.fileName(forTopic: "prod", defaults: defaults) { _ in false })
+    }
+
+    func testNothingPublishedLeavesThePayloadSound() {
+        XCTAssertNil(SharedSounds.fileName(forTopic: "prod", defaults: defaults) { _ in true })
+        XCTAssertNil(SharedSounds.fileName(forTopic: "prod", defaults: nil) { _ in true })
+    }
+}
