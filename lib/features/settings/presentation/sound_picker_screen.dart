@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
+import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design_system/widgets/section_card.dart';
@@ -263,14 +264,19 @@ class _SoundRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cubit = context.read<SoundPickerCubit>();
     final isPreviewing = state.previewingSoundId == sound.id;
+    final isUserSound = sound.source == AlarmSoundSource.user;
+    final tooLong =
+        isUserSound &&
+        SoundImportLimits.tooLongToRing(state.platform, sound.duration);
     final notificationsOnly =
-        sound.source == AlarmSoundSource.user &&
-        !state.capabilities.userSoundsRingAlarm;
+        isUserSound && !state.capabilities.userSoundsRingAlarm;
 
     return AppRadioRow(
       title: sound.name,
       meta: _SoundPickerView.formatLength(sound.duration),
-      note: notificationsOnly
+      note: tooLong
+          ? LocaleKeys.sound_picker_row_too_long_ios.tr()
+          : notificationsOnly
           ? LocaleKeys.sound_picker_row_notifications_only.tr()
           : null,
       selected: state.selectedSoundId == sound.id,
