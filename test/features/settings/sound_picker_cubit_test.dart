@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/core/sound/sound_assignments.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
+import 'package:critalarm/core/sound/sound_peaks_cache.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/sound_file_picker.dart';
 import 'package:critalarm/features/settings/domain/usecases/delete_user_sound_usecase.dart';
@@ -84,6 +87,11 @@ void main() {
 
   late List<String> calls;
   late int probedMs;
+  const peaks = [0.25, 1.0];
+
+  /// When set, reading peaks for a user sound waits on this.
+  Completer<void>? holdUserPeaks;
+  late Completer<void> userPeaksAsked;
   late _MemoryRepository repository;
   late _FixedPicker picker;
   late SoundPickerCubit cubit;
@@ -102,8 +110,18 @@ void main() {
   setUp(() async {
     calls = [];
     probedMs = 4000;
+    holdUserPeaks = null;
+    userPeaksAsked = Completer<void>();
     messenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call.method);
+      if (call.method == 'readPeaks') {
+        final args = call.arguments as Map<Object?, Object?>;
+        if (args['is_asset'] != true) {
+          if (!userPeaksAsked.isCompleted) userPeaksAsked.complete();
+          await holdUserPeaks?.future;
+        }
+        return peaks;
+      }
       return switch (call.method) {
         'probeDuration' => probedMs,
         'importSound' => {'path': '/sounds/new.caf', 'duration_ms': probedMs},
@@ -120,6 +138,7 @@ void main() {
       ImportSoundUsecase(repository, host, platform: TargetPlatform.iOS),
       DeleteUserSoundUsecase(repository, host),
       picker,
+      SoundPeaksCache(host),
       platform: TargetPlatform.iOS,
     );
     await cubit.load();
@@ -155,6 +174,60 @@ void main() {
     expect(repository.assignments.defaultSoundId, BundledSounds.fallbackId);
     expect(publishCount(), 1);
     expect(calls.last, 'publishSoundAssignments');
+  });
+
+  test('importing a sound saves its peaks with it', () async {
+    picker.next = const PickedSoundFile(
+      path: '/tmp/horn.mp3',
+      name: 'horn.mp3',
+      sizeBytes: 1024,
+    );
+    await cubit.importSound();
+    expect(cubit.state.userSounds.single.peaks, peaks);
+    expect(repository.sounds.single.peaks, peaks);
+  });
+
+  test('bundled rows get their peaks on load', () async {
+    for (final sound in cubit.state.bundled) {
+      expect(sound.peaks, peaks, reason: sound.id);
+    }
+  });
+
+  test('the platform ending a preview clears the playing row', () async {
+    await cubit.togglePreview(cubit.state.bundled.first);
+    expect(cubit.state.previewingSoundId, cubit.state.bundled.first.id);
+
+    await messenger.handlePlatformMessage(
+      SoundHost.channelName,
+      const StandardMethodCodec().encodeMethodCall(
+        const MethodCall('previewEnded'),
+      ),
+      (_) {},
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(cubit.state.previewingSoundId, isNull);
+  });
+
+  test('old user sounds get their peaks filled in and saved', () async {
+    repository.sounds.add(userSound);
+    await cubit.load();
+    expect(cubit.state.userSounds.single.peaks, peaks);
+    expect(repository.sounds.single.peaks, peaks);
+  });
+
+  test('a sound deleted while its peaks are read stays deleted', () async {
+    repository.sounds.add(userSound);
+    holdUserPeaks = Completer<void>();
+    final loading = cubit.load();
+    await userPeaksAsked.future;
+
+    await cubit.deleteUserSound(userSound.id);
+    holdUserPeaks!.complete();
+    await loading;
+
+    expect(cubit.state.userSounds, isEmpty);
+    expect(repository.sounds, isEmpty);
   });
 
   test('importing a sound publishes', () async {
