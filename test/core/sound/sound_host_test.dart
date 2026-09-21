@@ -87,4 +87,69 @@ void main() {
     );
     expect(await ended, '/sounds/a.caf');
   });
+
+  group('cropping', () {
+    late List<MethodCall> calls;
+    Object? answer;
+
+    setUp(() {
+      calls = [];
+      answer = true;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(call);
+        return answer;
+      });
+    });
+
+    test('importing sends the range and reads the saved size back', () async {
+      answer = {'path': '/s/user_1.caf', 'duration_ms': 4000, 'size_bytes': 9};
+      final imported = await SoundHost().importSound(
+        sourcePath: '/tmp/song.mp3',
+        id: 'user_1',
+        start: const Duration(milliseconds: 42000),
+        end: const Duration(milliseconds: 46000),
+      );
+      expect(calls.single.method, 'importSound');
+      expect(calls.single.arguments, {
+        'source_path': '/tmp/song.mp3',
+        'id': 'user_1',
+        'start_ms': 42000,
+        'end_ms': 46000,
+      });
+      expect(imported!.path, '/s/user_1.caf');
+      expect(imported.duration, const Duration(seconds: 4));
+      expect(imported.sizeBytes, 9);
+    });
+
+    test('previewing a clip plays only its range of the file', () async {
+      final started = await SoundHost().startClipPreview(
+        path: '/tmp/song.mp3',
+        start: const Duration(milliseconds: 1500),
+        end: const Duration(milliseconds: 3000),
+      );
+      expect(started, isTrue);
+      expect(calls.single.method, 'startPreview');
+      expect(calls.single.arguments, {
+        'path': '/tmp/song.mp3',
+        'is_asset': false,
+        'start_ms': 1500,
+        'end_ms': 3000,
+      });
+    });
+
+    test('a peaks read can carry a token and be cancelled by it', () async {
+      answer = [0.5];
+      final host = SoundHost();
+      await host.readPeaks(
+        path: '/tmp/song.mp3',
+        isAsset: false,
+        count: 100,
+        cancelToken: 'crop_1',
+      );
+      await host.cancelPeaks('crop_1');
+      expect(calls.first.arguments, containsPair('token', 'crop_1'));
+      expect(calls.last.method, 'cancelPeaks');
+      expect(calls.last.arguments, {'token': 'crop_1'});
+    });
+  });
 }

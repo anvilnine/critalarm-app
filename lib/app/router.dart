@@ -15,6 +15,7 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart
 import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
+import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
@@ -23,6 +24,7 @@ import 'package:critalarm/features/settings/presentation/face_gallery_screen.dar
 import 'package:critalarm/features/settings/presentation/privacy_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/server_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/settings_screen.dart';
+import 'package:critalarm/features/settings/presentation/sound_crop_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_picker_screen.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
@@ -49,6 +51,7 @@ abstract final class AppRoute {
   static const settingsDisconnected = 'settingsDisconnected';
   static const devicePermissions = 'devicePermissions';
   static const soundPicker = 'soundPicker';
+  static const soundCrop = 'soundCrop';
   static const alarmSettings = 'alarmSettings';
   static const serverSettings = 'serverSettings';
   static const account = 'account';
@@ -99,6 +102,22 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           child: SoundPickerScreen(
             topicName: topic != null && topic.isNotEmpty ? topic : null,
           ),
+        );
+      },
+    ),
+    // The cropper for a file the user just picked. The file travels as
+    // `extra`, so a refresh on the web or a stray link arrives with none,
+    // and the screen goes straight back. It also leaves when the platform
+    // cannot import sounds.
+    GoRoute(
+      path: '/sounds/crop',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.soundCrop,
+      pageBuilder: (context, state) {
+        final file = state.extra;
+        return AmbientPage(
+          key: state.pageKey,
+          child: SoundCropScreen(file: file is PickedSoundFile ? file : null),
         );
       },
     ),

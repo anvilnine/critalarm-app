@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
+import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/sound/sound_peaks_cache.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/sound_file_picker.dart';
@@ -18,7 +19,6 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
   SoundPickerCubit(
     this._repository,
     this._host,
-    this._import,
     this._delete,
     this._picker,
     this._peaksCache, {
@@ -44,7 +44,6 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
 
   final AlarmSoundRepository _repository;
   final SoundHost _host;
-  final ImportSoundUsecase _import;
   final DeleteUserSoundUsecase _delete;
   final SoundFilePicker _picker;
   final SoundPeaksCache _peaksCache;
@@ -159,30 +158,35 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
     if (!isClosed) emit(state.copyWith(clearPreviewing: true));
   }
 
-  /// "Pick a file". Opens the platform picker, checks the caps, copies the
-  /// file in.
-  Future<void> importSound() async {
+  /// "Pick a file". Opens the platform picker and runs the cheap checks
+  /// (size and type) before anything decodes the file. Hands back a file the
+  /// cropper can open, or null. A file that fails is deleted from the cache
+  /// and the screen shows why.
+  Future<PickedSoundFile?> pickFile() async {
     final picked = await _picker.pickOne();
-    if (picked == null) return;
-    emit(state.copyWith(isImporting: true, clearError: true));
-    final result = await _import(picked);
-    final sound = result.getOrNull();
-    if (sound == null) {
-      emit(
-        state.copyWith(
-          isImporting: false,
-          errorCode: result.exceptionOrNull()?.message ?? 'copyFailed',
-        ),
-      );
-      return;
-    }
-    await _host.publishSoundAssignments();
-    emit(
-      state.copyWith(
-        isImporting: false,
-        userSounds: [...state.userSounds, sound],
-      ),
+    if (picked == null) return null;
+    final rejection = checkPickedSound(
+      fileName: picked.name,
+      sizeBytes: picked.sizeBytes,
+      platform: _platform,
     );
+    if (rejection == null) return picked;
+    await _picker.discard(picked.path);
+    if (!isClosed) emit(state.copyWith(errorCode: rejection.name));
+    return null;
+  }
+
+  /// Reads the user's sounds again once the cropper has closed, whatever it
+  /// returned. [pendingSave] is a save still running when the user left; the
+  /// list is read after it lands, so the new sound still shows.
+  Future<void> reloadAfterCrop([Future<void>? pendingSave]) async {
+    await pendingSave;
+    if (isClosed) return;
+    final userSounds = (await _repository.getUserSounds()).getOrDefault(
+      const [],
+    );
+    await _host.publishSoundAssignments();
+    if (!isClosed) emit(state.copyWith(userSounds: userSounds));
   }
 
   /// Deleting the sound in use drops the screen back onto whatever the

@@ -5,7 +5,6 @@ import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/sound/sound_peaks_cache.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
-import 'package:flutter/foundation.dart';
 
 /// A file the user picked, before anything has been checked.
 class PickedSoundFile {
@@ -22,45 +21,38 @@ class PickedSoundFile {
   final int sizeBytes;
 }
 
-/// Brings a user's own audio file into the sound library.
+/// Saves one range of a picked file as a user sound.
 ///
-/// Order matters: check the size and the format before asking the platform to
-/// decode anything, so a 400 MB video never gets opened.
+/// The checks on the picked file itself happen before the cropper opens
+/// (`checkPickedSound`, `checkSourceDuration`). By the time this runs the user
+/// has chosen the range, so all that is left is the cut, the waveform and the
+/// save.
 class ImportSoundUsecase {
-  ImportSoundUsecase(this._repository, this._host, {TargetPlatform? platform})
-    : _platform = platform ?? defaultTargetPlatform;
+  ImportSoundUsecase(this._repository, this._host);
 
   final AlarmSoundRepository _repository;
   final SoundHost _host;
 
-  /// Decides the length cap. Tests pass one in.
-  final TargetPlatform _platform;
-
-  Future<AppResult<AlarmSound>> call(PickedSoundFile file) async {
-    if (file.sizeBytes > SoundImportLimits.maxBytes) {
-      return const BadRequestFailure(
-        message: 'tooLarge',
-      ).toFailure<AlarmSound>();
-    }
-    final duration = await _host.probeDuration(file.path);
-    final rejection = checkSoundImport(
-      fileName: file.name,
-      sizeBytes: file.sizeBytes,
-      duration: duration,
-      platform: _platform,
-    );
-    if (rejection != null) {
-      return BadRequestFailure(
-        message: rejection.name,
-      ).toFailure<AlarmSound>();
-    }
-
+  Future<AppResult<AlarmSound>> call({
+    required PickedSoundFile file,
+    required String name,
+    required Duration start,
+    required Duration end,
+  }) async {
     final id = 'user_${DateTime.now().microsecondsSinceEpoch}';
     final imported = await _host.importSound(
       sourcePath: file.path,
       id: id,
+      start: start,
+      end: end,
     );
     if (imported == null) {
+      return const UnexpectedFailure(
+        message: 'copyFailed',
+      ).toFailure<AlarmSound>();
+    }
+    if ((imported.sizeBytes ?? 0) > SoundImportLimits.maxBytes) {
+      await _host.deleteSound(imported.path);
       return const UnexpectedFailure(
         message: 'copyFailed',
       ).toFailure<AlarmSound>();
@@ -71,9 +63,10 @@ class ImportSoundUsecase {
       isAsset: false,
       count: SoundPeaksCache.barCount,
     );
+    final trimmed = name.trim();
     final sound = AlarmSound(
       id: id,
-      name: displayNameFor(file.name),
+      name: trimmed.isEmpty ? displayNameFor(file.name) : trimmed,
       source: AlarmSoundSource.user,
       path: imported.path,
       duration: imported.duration,
@@ -82,6 +75,7 @@ class ImportSoundUsecase {
     );
     final saved = await _repository.addUserSound(sound);
     if (saved.isError()) {
+      await _host.deleteSound(imported.path);
       return saved.exceptionOrNull()!.toFailure<AlarmSound>();
     }
     return sound.toSuccess();
