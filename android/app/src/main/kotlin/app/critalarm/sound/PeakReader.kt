@@ -31,8 +31,10 @@ object PeakReader {
     /**
      * The cropper reads a whole file of up to 20 minutes once, which takes
      * longer than a list row. It can also stop the read through [isCancelled].
+     * A read that runs out of time comes back empty, and the cropper then
+     * shows the file as unreadable.
      */
-    const val MAX_CROPPER_READ_MS = 60_000L
+    const val MAX_CROPPER_READ_MS = 30_000L
 
     /**
      * RMS per slice, the loudest slice at 1. Empty when nothing could read it,

@@ -151,6 +151,16 @@ void main() {
       await cubit.close();
     });
 
+    test('a file whose peaks come back empty fails as unreadable', () async {
+      filePeaks = [];
+      final cubit = build();
+      await cubit.load(file);
+      expect(cubit.state.status, SoundCropStatus.failed);
+      expect(cubit.state.errorCode, 'unreadable');
+      expect(cubit.state.window, isNull);
+      await cubit.close();
+    });
+
     test('a file over 20 minutes fails without reading peaks', () async {
       probedMs = 21 * 60 * 1000;
       final cubit = build();
