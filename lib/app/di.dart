@@ -28,7 +28,9 @@ import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
+import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/sound/sound_peaks_cache.dart';
+import 'package:critalarm/core/sound/sound_recorder.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
@@ -125,6 +127,7 @@ import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase
 import 'package:critalarm/features/settings/domain/usecases/set_analytics_enabled_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_crash_reporting_enabled_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_theme_mode_usecase.dart';
+import 'package:critalarm/features/settings/presentation/cubits/recorder_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_crop_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
@@ -772,6 +775,16 @@ Future<void> configureDependencies({
         getIt<SoundHost>(),
         getIt<ImportSoundUsecase>(),
         getIt<SoundFilePicker>(),
+      ),
+    )
+    // One microphone per recorder screen. The cubit disposes it on close.
+    ..registerFactory<SoundRecorder>(RecordSoundRecorder.new)
+    ..registerFactory(
+      () => RecorderCubit(
+        getIt<SoundRecorder>(),
+        maxDuration: SoundImportLimits.maxClipDuration(defaultTargetPlatform),
+        isRinging: () async => await getIt<AlarmHost>().isRinging() ?? false,
+        stopPreview: () => getIt<SoundHost>().stopPreview(),
       ),
     )
     ..registerFactory(

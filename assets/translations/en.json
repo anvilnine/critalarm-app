@@ -633,6 +633,7 @@
     "user_header": "Your sounds",
     "user_local_only": "This phone only",
     "pick_file": "Pick a file",
+    "record": "Record",
     "delete": "Delete",
     "play_aria_label": "Play preview",
     "stop_aria_label": "Stop preview",
@@ -662,6 +663,15 @@
     "error_unreadable": "This sound could not be opened.",
     "saving": "Saving",
     "max": "Max"
+  },
+  "sound_recorder": {
+    "title": "Record sound",
+    "max_duration": "Max {seconds} seconds",
+    "start": "Start recording",
+    "stop": "Stop recording",
+    "microphone_denied": "Allow microphone access in Settings to record.",
+    "open_settings": "Open Settings",
+    "interrupted": "Recording was interrupted."
   },
   "sound_share": {
     "error_unreadable": "The shared file could not be opened."
