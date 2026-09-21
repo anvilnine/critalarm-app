@@ -39,7 +39,9 @@ void main() {
 
   test('a sound that is gone is not brought back', () async {
     await repository.deleteUserSound('b');
-    final before = prefs.getString(SharedPrefsAlarmSoundRepository.userSoundsKey);
+    final before = prefs.getString(
+      SharedPrefsAlarmSoundRepository.userSoundsKey,
+    );
 
     final result = await repository.updateUserSoundPeaks('b', [0.5]);
 
