@@ -116,6 +116,13 @@ final class SoundHost {
   Future<bool> deleteSound(String path) async =>
       await _invoke<bool>('deleteSound', {'path': path}) ?? false;
 
+  /// Hands the current default and per-topic choices to whatever plays the
+  /// sound when a push arrives. On iOS that is the notification service
+  /// extension, which runs in its own process and cannot read the app's
+  /// preferences. Call it after every change to the choices or the files.
+  Future<bool> publishSoundAssignments() async =>
+      await _invoke<bool>('publishSoundAssignments') ?? false;
+
   Future<T?> _invoke<T>(String method, [Object? arguments]) async {
     try {
       return await _channel.invokeMethod<T>(method, arguments);

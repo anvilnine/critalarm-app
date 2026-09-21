@@ -56,6 +56,7 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
         defaultSoundId: defaultId,
         topicName: topicName,
         capabilities: await _host.capabilities(),
+        platform: _platform,
       ),
     );
   }
@@ -66,6 +67,7 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
     } else {
       await _repository.setDefaultSoundId(soundId);
     }
+    await _host.publishSoundAssignments();
     emit(
       state.copyWith(
         selectedSoundId: soundId,
@@ -113,6 +115,7 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
       );
       return;
     }
+    await _host.publishSoundAssignments();
     emit(
       state.copyWith(
         isImporting: false,
@@ -126,6 +129,7 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
   Future<void> deleteUserSound(String soundId) async {
     if (state.previewingSoundId == soundId) await stopPreview();
     await _delete(soundId);
+    await _host.publishSoundAssignments();
     final assignments = (await _repository.getAssignments()).getOrNull();
     final userSounds = (await _repository.getUserSounds()).getOrDefault(
       const [],
