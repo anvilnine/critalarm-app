@@ -28,9 +28,20 @@ enum SharedSounds {
             .appendingPathComponent("Sounds", isDirectory: true)
     }
 
-    /// Writes the current choices where the extension reads them.
-    static func publish(defaultFile: String, perTopicFiles: [String: String], to defaults: UserDefaults) {
-        defaults.set(defaultFile, forKey: defaultFileKey)
+    /// iOS swaps any notification sound of 30 seconds or more for the system
+    /// default, so those are never published and `alarm.caf` plays instead.
+    static let maxRingMs = 30_000
+
+    static func ringsOnIphone(durationMs: Int) -> Bool { durationMs < maxRingMs }
+
+    /// Writes the current choices where the extension reads them. A nil
+    /// default clears it, so the payload's own sound plays.
+    static func publish(defaultFile: String?, perTopicFiles: [String: String], to defaults: UserDefaults) {
+        if let defaultFile {
+            defaults.set(defaultFile, forKey: defaultFileKey)
+        } else {
+            defaults.removeObject(forKey: defaultFileKey)
+        }
         defaults.set(perTopicFiles, forKey: perTopicFilesKey)
     }
 

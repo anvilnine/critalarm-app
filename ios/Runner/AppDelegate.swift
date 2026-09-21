@@ -667,31 +667,46 @@ enum SoundLibrary {
   /// The file name the alarm and notification APIs are handed.
   static func fileName(forSoundId id: String) -> String { "\(id).caf" }
 
+  /// The file name for [id], or nil when the id is empty or the file on disk
+  /// runs 30 seconds or more. A missing file is still published; the
+  /// extension checks that itself when the push arrives.
+  static func ringableFileName(forSoundId id: String) -> String? {
+    guard !id.isEmpty else { return nil }
+    let name = fileName(forSoundId: id)
+    if let directory = soundsDirectory {
+      let url = directory.appendingPathComponent(name)
+      if FileManager.default.fileExists(atPath: url.path),
+         !SharedSounds.ringsOnIphone(durationMs: durationMs(of: url)) {
+        NSLog("CritAlarmSound: not_published_too_long name=%@", name)
+        return nil
+      }
+    }
+    return name
+  }
+
   /// Hands the notification extension the current choices. The extension
   /// runs in its own process and cannot read the app's defaults, so it reads
   /// these from the app group instead.
   ///
   /// `shared_preferences` on iOS writes into the standard user defaults with a
-  /// `flutter.` prefix, which is where the choices are read from here.
+  /// `flutter.` prefix, which is where the choices are read from here. No
+  /// choice, or a sound too long for iOS to play, publishes nothing, so the
+  /// push keeps its own `alarm.caf`.
   @discardableResult
   static func publishToExtension() -> Bool {
     guard let shared = SharedSounds.groupDefaults else { return false }
     let defaults = UserDefaults.standard
-    let defaultId = defaults.string(forKey: "flutter.alarm_sound_default")
-      .flatMap { $0.isEmpty ? nil : $0 } ?? "classic_siren"
+    let defaultFile = defaults.string(forKey: "flutter.alarm_sound_default")
+      .flatMap(ringableFileName(forSoundId:))
     var perTopic: [String: String] = [:]
     if let raw = defaults.string(forKey: "flutter.alarm_sound_per_topic"),
        let data = raw.data(using: .utf8),
        let map = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
-      for (topic, id) in map where !id.isEmpty {
-        perTopic[topic] = fileName(forSoundId: id)
+      for (topic, id) in map {
+        if let name = ringableFileName(forSoundId: id) { perTopic[topic] = name }
       }
     }
-    SharedSounds.publish(
-      defaultFile: fileName(forSoundId: defaultId),
-      perTopicFiles: perTopic,
-      to: shared
-    )
+    SharedSounds.publish(defaultFile: defaultFile, perTopicFiles: perTopic, to: shared)
     NSLog("CritAlarmSound: assignments_published topics=%d", perTopic.count)
     return true
   }
