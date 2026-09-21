@@ -124,6 +124,7 @@ import 'package:critalarm/features/settings/domain/usecases/set_analytics_enable
 import 'package:critalarm/features/settings/domain/usecases/set_crash_reporting_enabled_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_theme_mode_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
+import 'package:critalarm/features/settings/presentation/cubits/sound_crop_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
@@ -749,10 +750,16 @@ Future<void> configureDependencies({
       ),
     )
     ..registerFactory(
+      () => SoundCropCubit(
+        getIt<SoundHost>(),
+        getIt<ImportSoundUsecase>(),
+        getIt<SoundFilePicker>(),
+      ),
+    )
+    ..registerFactory(
       () => SoundPickerCubit(
         getIt<AlarmSoundRepository>(),
         getIt<SoundHost>(),
-        getIt<ImportSoundUsecase>(),
         getIt<DeleteUserSoundUsecase>(),
         getIt<SoundFilePicker>(),
         getIt<SoundPeaksCache>(),

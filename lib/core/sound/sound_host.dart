@@ -43,10 +43,17 @@ class SoundCapabilities {
 
 /// One file the platform copied into the app's own sound folder.
 class ImportedSound {
-  const ImportedSound({required this.path, required this.duration});
+  const ImportedSound({
+    required this.path,
+    required this.duration,
+    this.sizeBytes,
+  });
 
   final String path;
   final Duration duration;
+
+  /// Size of the saved file. Null when the platform did not say.
+  final int? sizeBytes;
 
   static ImportedSound? fromMap(Object? raw) {
     if (raw is! Map) return null;
@@ -54,9 +61,11 @@ class ImportedSound {
     final ms = raw['duration_ms'];
     if (path is! String || path.isEmpty) return null;
     if (ms is! int || ms <= 0) return null;
+    final size = raw['size_bytes'];
     return ImportedSound(
       path: path,
       duration: Duration(milliseconds: ms),
+      sizeBytes: size is int ? size : null,
     );
   }
 }
@@ -117,6 +126,21 @@ final class SoundHost {
       }) ??
       false;
 
+  /// Plays [start] to [end] of a file that is not saved yet, such as the one
+  /// open in the cropper. Stops by itself at [end].
+  Future<bool> startClipPreview({
+    required String path,
+    required Duration start,
+    required Duration end,
+  }) async =>
+      await _invoke<bool>('startPreview', {
+        'path': path,
+        'is_asset': false,
+        'start_ms': start.inMilliseconds,
+        'end_ms': end.inMilliseconds,
+      }) ??
+      false;
+
   Future<bool> stopPreview() async =>
       await _invoke<bool>('stopPreview') ?? false;
 
@@ -127,30 +151,40 @@ final class SoundHost {
     return Duration(milliseconds: ms == null || ms < 0 ? 0 : ms);
   }
 
-  /// Copies [sourcePath] into the app's sound folder under [id], converting
-  /// it to the platform's format if it is not already usable. On iOS it also
-  /// lands in `Library/Sounds` so `UNNotificationSound(named:)` can find it.
+  /// Cuts [start] to [end] out of [sourcePath] and saves it in the app's
+  /// sound folder under [id], with a short fade at each end. iOS writes a caf
+  /// into `Library/Sounds` so `UNNotificationSound(named:)` can find it.
+  /// Android writes a mono wav.
   Future<ImportedSound?> importSound({
     required String sourcePath,
     required String id,
+    required Duration start,
+    required Duration end,
   }) async => ImportedSound.fromMap(
     await _invoke<Map<Object?, Object?>>('importSound', {
       'source_path': sourcePath,
       'id': id,
+      'start_ms': start.inMilliseconds,
+      'end_ms': end.inMilliseconds,
     }),
   );
 
   /// How loud [path] is across [count] even slices, each 0 to 1 with the
   /// loudest slice at 1. Empty when nothing could read the file.
+  ///
+  /// A read given a [cancelToken] stops early, with an empty answer, once
+  /// [cancelPeaks] is called with the same token.
   Future<List<double>> readPeaks({
     required String path,
     required bool isAsset,
     required int count,
+    String? cancelToken,
   }) async {
     final raw = await _invoke<Object?>('readPeaks', {
       'path': path,
       'is_asset': isAsset,
       'count': count,
+      'token': ?cancelToken,
     });
     if (raw is! List) return const [];
     return [
@@ -158,6 +192,10 @@ final class SoundHost {
         if (value is num) value.toDouble().clamp(0.0, 1.0),
     ];
   }
+
+  /// Stops a [readPeaks] started with [token], if it is still running.
+  Future<void> cancelPeaks(String token) =>
+      _invoke<Object?>('cancelPeaks', {'token': token});
 
   Future<bool> deleteSound(String path) async =>
       await _invoke<bool>('deleteSound', {'path': path}) ?? false;

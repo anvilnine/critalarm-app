@@ -1,11 +1,14 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
+
 /// The part of a sound file the cropper keeps.
 ///
 /// Pure numbers, so every rule (never shorter than [minLength], never longer
 /// than [maxLength], never past either end of the file) is tested without a
 /// screen. Every change rounds to a tenth of a second. The end of the file is
 /// the one exception: it stays exact, so a clip can run to the very end.
+@immutable
 class CropWindow {
   const CropWindow({
     required this.start,
