@@ -96,13 +96,17 @@ class IncidentsCubit extends Cubit<IncidentsState> {
   IncidentsCubit(
     this._getIncidents, {
     this.badge,
+    Future<void> Function(Incident incident)? saveIncident,
     DateTime Function()? now,
     AccountIdentityChanges? identityChanges,
-  }) : _now = now ?? DateTime.now,
+  }) : _saveIncident = saveIncident ?? _noopSave,
+       _now = now ?? DateTime.now,
        _identityChanges = identityChanges ?? appAccountIdentityChanges,
        super(const IncidentsState()) {
     _identityChanges.addListener(_onIdentityChanged);
   }
+
+  static Future<void> _noopSave(Incident incident) async {}
 
   /// How many incidents the shared list asks for.
   ///
@@ -113,6 +117,10 @@ class IncidentsCubit extends Cubit<IncidentsState> {
   static const int listLimit = maxIncidentLimit;
 
   final GetIncidentsUsecase _getIncidents;
+
+  /// Writes an incident the caller already has fresh into the phone's own
+  /// copy, so every path that updates the shared list also updates the store.
+  final Future<void> Function(Incident incident) _saveIncident;
 
   /// The number on the app icon. Optional so a test can build the cubit
   /// without a platform channel behind it.
@@ -157,8 +165,14 @@ class IncidentsCubit extends Cubit<IncidentsState> {
   /// Puts incidents the caller already has fresh into the shared list: the
   /// answer to an acknowledge, and later a push that arrives while the app is
   /// open. Nothing is fetched, because the caller already has the server's
-  /// answer.
-  void applyIncidents(Iterable<Incident> incidents) {
+  /// answer. Each incident is also written to the store.
+  void applyIncidents(Iterable<Incident> incidents) =>
+      _apply(incidents, save: true);
+
+  /// One incident, for a caller that only has one.
+  void applyIncident(Incident incident) => applyIncidents([incident]);
+
+  void _apply(Iterable<Incident> incidents, {required bool save}) {
     if (isClosed || incidents.isEmpty) return;
     final order = IncidentUpdateOrder(_now());
     if (!_order.accepts(order)) return;
@@ -172,6 +186,7 @@ class IncidentsCubit extends Cubit<IncidentsState> {
       } else {
         merged[at] = incident;
       }
+      if (save) unawaited(_saveIncident(incident));
     }
     emit(state.copyWith(incidents: merged));
   }
@@ -193,11 +208,11 @@ class IncidentsCubit extends Cubit<IncidentsState> {
     emit(state.copyWith(incidents: kept));
   }
 
-  /// One incident, for a caller that only has one.
-  void applyIncident(Incident incident) => applyIncidents([incident]);
-
   /// Marks [incident] acknowledged in the shared list now, before the request
   /// goes out, so every screen moves on the tap instead of on the answer.
+  ///
+  /// The guess is not written to the store: only the server's copy, which
+  /// arrives through [applyIncident] once the acknowledge is accepted, is.
   ///
   /// Hand the token back to [revert] if the server refuses it. A 409 is not a
   /// refusal: it means the incident was acknowledged somewhere else, so the
@@ -209,7 +224,7 @@ class IncidentsCubit extends Cubit<IncidentsState> {
       state: IncidentStates.acked,
       ackedAt: before.ackedAt ?? _now(),
     );
-    applyIncident(guess);
+    _apply([guess], save: false);
     return OptimisticAck(guess: guess, before: before);
   }
 

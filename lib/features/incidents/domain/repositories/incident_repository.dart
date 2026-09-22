@@ -26,6 +26,11 @@ abstract interface class IncidentRepository {
 
   Future<AppResult<Incident>> closeIncident(String id);
 
+  /// Writes one incident the caller already holds fresh into the phone's own
+  /// copy. Used by the shared list so every path that updates it also updates
+  /// the store.
+  Future<void> saveIncident(Incident incident);
+
   Future<AppResult<String>> triggerTest({required String topic});
 
   Future<AppResult<SendResult>> publishMessage(

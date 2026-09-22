@@ -1,11 +1,40 @@
+import 'dart:io';
+
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 DateTime _at(int daysAgo) =>
     DateTime.utc(2026, 9, 22, 12).subtract(Duration(days: daysAgo));
+
+int _secs(DateTime t) => t.millisecondsSinceEpoch ~/ 1000;
+
+/// The incidents and messages tables as version 1 laid them out, so a test can
+/// build a database that predates `updated_at`.
+Future<void> _createV1(Database db, int version) async {
+  final batch = db.batch()
+    ..execute('''
+      CREATE TABLE incidents (
+        id TEXT PRIMARY KEY, topic TEXT NOT NULL, state TEXT NOT NULL,
+        opened_at INTEGER NOT NULL, acked_at INTEGER, closed_at INTEGER,
+        last_message_at INTEGER NOT NULL, max_ring_s INTEGER,
+        priority INTEGER NOT NULL, synced_at INTEGER NOT NULL
+      )
+    ''')
+    ..execute('CREATE INDEX incidents_opened ON incidents(opened_at DESC)')
+    ..execute('''
+      CREATE TABLE messages (
+        id TEXT PRIMARY KEY, topic TEXT NOT NULL, incident_id TEXT,
+        title TEXT, body TEXT, priority INTEGER NOT NULL, tags TEXT,
+        click TEXT, markdown INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL, synced_at INTEGER NOT NULL
+      )
+    ''');
+  await batch.commit(noResult: true);
+}
 
 Incident _incident(
   String id, {
@@ -20,6 +49,7 @@ Incident _incident(
     topic: topic,
     state: state,
     openedAt: openedAt,
+    updatedAt: openedAt,
     lastMessageAt: openedAt,
     messages: [
       Message(
@@ -72,6 +102,57 @@ void main() {
     ]);
 
     expect(await store.incidents.newestOpenedAt(), _at(2));
+  });
+
+  test(
+    'newestUpdatedAt returns the newest updated row, null when empty',
+    () async {
+      expect(await store.incidents.newestUpdatedAt(), isNull);
+
+      await store.incidents.upsertAll([
+        _incident('inc_old', daysAgo: 9),
+        _incident('inc_new', daysAgo: 2),
+      ]);
+
+      expect(await store.incidents.newestUpdatedAt(), _at(2));
+    },
+  );
+
+  test('upgrade from version 1 keeps rows and backfills updated_at', () async {
+    final dir = await Directory.systemTemp.createTemp('critalarm_store');
+    addTearDown(() => dir.delete(recursive: true));
+    final path = p.join(dir.path, 'critalarm.db');
+
+    // A version 1 database with one closed incident and no updated_at column.
+    final v1 = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(version: 1, onCreate: _createV1),
+    );
+    await v1.insert('incidents', {
+      'id': 'inc_1',
+      'topic': 'prod',
+      'state': IncidentStates.closed,
+      'opened_at': _secs(_at(5)),
+      'acked_at': _secs(_at(3)),
+      'closed_at': _secs(_at(1)),
+      'last_message_at': _secs(_at(5)),
+      'max_ring_s': null,
+      'priority': 4,
+      'synced_at': _secs(_at(0)),
+    });
+    await v1.close();
+
+    // Opening at the current version runs the upgrade in place.
+    final upgraded = await LocalStore.open(
+      factory: databaseFactoryFfi,
+      path: path,
+    );
+    addTearDown(upgraded.close);
+
+    final row = (await upgraded.incidents.page()).single;
+    expect(row.id, 'inc_1');
+    // COALESCE takes closed_at, the newest of the three held.
+    expect(row.updatedAt, _at(1));
   });
 
   test('page returns newest first and honours offset', () async {
