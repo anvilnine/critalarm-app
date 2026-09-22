@@ -15,6 +15,8 @@ class GetIncidentsParams {
     this.limit = maxIncidentLimit,
     this.state,
     this.topic,
+    this.since,
+    this.fullRefresh = false,
   }) : assert(
          limit >= 1 && limit <= maxIncidentLimit,
          'limit must be between 1 and $maxIncidentLimit (api.md §3.2)',
@@ -23,6 +25,14 @@ class GetIncidentsParams {
   final int limit;
   final String? state;
   final String? topic;
+
+  /// Exclusive lower bound on `opened_at` (api.md §3.2). Null reads
+  /// everything the window allows.
+  final DateTime? since;
+
+  /// Read the server's whole window instead of only what is new. Pull to
+  /// refresh and a first launch with an empty store use this.
+  final bool fullRefresh;
 }
 
 /// Usecase to fetch incidents from the repository.
@@ -39,5 +49,7 @@ class GetIncidentsUsecase
     limit: params.limit,
     state: params.state,
     topic: params.topic,
+    since: params.since,
+    fullRefresh: params.fullRefresh,
   );
 }

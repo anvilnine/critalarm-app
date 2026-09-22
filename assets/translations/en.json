@@ -264,7 +264,10 @@
     "empty_filtered_title": "Nothing matches those filters",
     "empty_filtered_body": "Loosen the state, or widen the window.",
     "filter_window_24h": "24 hours",
-    "capped_notice": "History stops at {count} alarms. Older ones are not shown."
+    "older_notice": {
+      "one": "1 older alarm. Pro shows it.",
+      "other": "{} older alarms. Pro shows them."
+    }
   },
   "topic_detail": {
     "back_aria_label": "Back",
@@ -465,6 +468,15 @@
     },
     "alarms_header": "Alarms",
     "app_header": "App",
+    "storage_header": "Storage",
+    "storage_delete_after_title": "Delete alarms after",
+    "storage_delete_after_subtitle": "Your phone keeps every alarm until you say otherwise.",
+    "storage_delete_never": "Never",
+    "storage_delete_1m": "1 month",
+    "storage_delete_3m": "3 months",
+    "storage_delete_1y": "1 year",
+    "storage_keep_critical_title": "Keep critical alarms forever",
+    "storage_keep_critical_subtitle": "Priority 5 alarms skip auto-delete.",
     "server_header": "Server",
     "plan_header": "Plan",
     "plan_free": "Free",
@@ -569,15 +581,12 @@
     "compare_row_topics": "Critical topics",
     "compare_row_pushes": "High priority pushes a day",
     "compare_row_history_days": "History kept",
-    "compare_row_history_count": "Alarms in history",
     "compare_free_topics": "2",
     "compare_hosted_topics": "No limit",
     "compare_free_pushes": "50",
     "compare_hosted_pushes": "1,000",
     "compare_free_history_days": "7 days",
     "compare_hosted_history_days": "90 days",
-    "compare_free_history_count": "20",
-    "compare_hosted_history_count": "No limit",
     "active_title": "Crit Alarm Pro is active",
     "active_subtitle": "Thanks for paying for this.",
     "manage_subscription_button": "Manage subscription",

@@ -1,38 +1,62 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:critalarm/app/state/app_data_status.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
-import 'package:critalarm/core/api/api_client.dart' show maxIncidentLimit;
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
+import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
+import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
+import 'package:critalarm/features/history/domain/history_window.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Past alarms, newest first, grouped by the day they started.
 ///
-/// Two things narrow the list, and they are not the same thing. The plan caps
-/// how far back the server will go and how many alarms come back at all. The
-/// filter is the user choosing to see less than that. Caps apply when the list
-/// is fetched, the filter applies to what was fetched, so changing the filter
-/// never goes back to the server.
+/// Two things narrow the list, and they are not the same thing. The tier says
+/// how far back the app may show ([HistoryWindow]). The filter is the user
+/// choosing to see less than that. Neither one deletes anything: the rows sit
+/// on the phone either way, so buying Pro unhides the old ones with no
+/// download and a plan lapsing hides them again.
 ///
-/// The incidents themselves come from the app-level [IncidentsCubit], so this
-/// tab follows an acknowledge made anywhere else without being reopened.
+/// With a [LocalStore] wired the list is read from disk a page at a time, so
+/// scrolling never goes to the network. Without one it falls back to whatever
+/// the app-level [IncidentsCubit] holds in memory.
 class HistoryCubit extends Cubit<HistoryState> {
   HistoryCubit(
     this._incidents, {
     DateTime Function()? now,
     this.identityStore,
+    this.sessionStore,
+    this.store,
+    this.isSelfHosted = false,
   }) : _now = now ?? DateTime.now,
        super(const HistoryState());
+
+  /// How many alarms one page of the local read holds.
+  static const pageSize = 50;
 
   final IncidentsCubit _incidents;
   final DateTime Function() _now;
   final DeviceIdentityStore? identityStore;
+
+  /// Read once per load to tell a self-hosted server from a relay one.
+  final ApiSessionStore? sessionStore;
+
+  /// The phone's own copy. Null in tests that only exercise the grouping.
+  final LocalStore? store;
+
+  /// A self-hosted server is never sent a tier, so it has no window. Read
+  /// again from [sessionStore] on every load.
+  bool isSelfHosted;
+
+  String _tier = HistoryWindow.freeTier;
+
+  /// How many pages have been read off disk.
+  int _pagesRead = 0;
 
   StreamSubscription<IncidentsState>? _incidentsSub;
 
@@ -61,16 +85,101 @@ class HistoryCubit extends Cubit<HistoryState> {
       return;
     }
     _caps = identity?.caps ?? AccountCaps.free;
+    _tier = identity?.tier ?? HistoryWindow.freeTier;
+    final session = await sessionStore?.read();
+    if (session != null) {
+      isSelfHosted = session.mode == ServerMode.selfhosted;
+    }
 
     await _incidents.ensureLoaded();
-    _rebuildIfChanged();
+    _builtFrom = null;
+    await _reload();
   }
 
   /// True when the list loaded, so the face can say so.
   Future<bool> refresh() async {
-    await _incidents.refresh();
-    _rebuildIfChanged();
+    await _incidents.refresh(full: true);
+    _builtFrom = null;
+    await _reload();
     return _incidents.state.status != AppDataStatus.failure;
+  }
+
+  /// The oldest alarm this tier may show, or null for "everything held".
+  DateTime? get window => HistoryWindow.lowerBound(
+    tier: _tier,
+    historyDays: _caps.historyDays ?? 7,
+    now: _now(),
+    isSelfHosted: isSelfHosted,
+  );
+
+  /// Reads the next page off disk. The list calls this near its end.
+  Future<void> loadMore() async {
+    final local = store;
+    if (local == null || !state.hasMore || state.isLoadingMore) return;
+    emit(state.copyWith(isLoadingMore: true));
+
+    final now = _now();
+    final page = await local.incidents.page(
+      window: window,
+      // Says the page size at the place that decides it, not only in a
+      // default two files away.
+      // ignore: avoid_redundant_argument_values
+      limit: pageSize,
+      offset: _pagesRead * pageSize,
+    );
+    if (isClosed) return;
+    _pagesRead++;
+
+    final entries = [...state.entries, ...toEntries(page, now)];
+    emit(
+      state.copyWith(
+        entries: entries,
+        days: groupByDay(filterEntries(entries, state.filter, now)),
+        hasMore: page.length == pageSize,
+        isLoadingMore: false,
+      ),
+    );
+  }
+
+  /// Reads the first page and the hidden count again.
+  Future<void> _reload() async {
+    final local = store;
+    if (local == null) {
+      _rebuildIfChanged();
+      return;
+    }
+    if (_incidents.state.status == AppDataStatus.failure &&
+        await local.incidents.count() == 0) {
+      emit(
+        state.copyWith(
+          status: HistoryStatus.failure,
+          errorMessage: _incidents.state.errorMessage,
+        ),
+      );
+      return;
+    }
+
+    final now = _now();
+    final bound = window;
+    // Says the page size here rather than leaning on the store's default.
+    // ignore: avoid_redundant_argument_values
+    final page = await local.incidents.page(window: bound, limit: pageSize);
+    final older = await local.incidents.countOlderThan(bound);
+    if (isClosed) return;
+    _pagesRead = 1;
+
+    final entries = toEntries(page, now);
+    emit(
+      state.copyWith(
+        status: HistoryStatus.success,
+        entries: entries,
+        days: groupByDay(filterEntries(entries, state.filter, now)),
+        olderCount: older,
+        hasMore: page.length == pageSize,
+        isLoadingMore: false,
+        clearError: true,
+      ),
+    );
   }
 
   @override
@@ -81,6 +190,10 @@ class HistoryCubit extends Cubit<HistoryState> {
 
   void _rebuildIfChanged() {
     if (isClosed) return;
+    if (store != null) {
+      unawaited(_reload());
+      return;
+    }
     final incidents = _incidents.state;
 
     if (incidents.status == AppDataStatus.failure) {
@@ -98,13 +211,21 @@ class HistoryCubit extends Cubit<HistoryState> {
     _builtFrom = incidents.incidents;
 
     final now = _now();
-    final entries = toEntries(incidents.incidents, now, caps: _caps);
+    final bound = window;
+    final all = toEntries(incidents.incidents, now);
+    final entries = bound == null
+        ? all
+        : [
+            for (final entry in all)
+              if (!entry.startedAt.isBefore(bound.toLocal())) entry,
+          ];
     emit(
       state.copyWith(
         status: HistoryStatus.success,
         entries: entries,
         days: groupByDay(filterEntries(entries, state.filter, now)),
-        isCapped: entries.length >= ceilingFor(_caps),
+        olderCount: all.length - entries.length,
+        hasMore: false,
         clearError: true,
       ),
     );
@@ -126,8 +247,8 @@ class HistoryCubit extends Cubit<HistoryState> {
   /// Keeps the entries that match [filter]. Order is preserved, so the result
   /// is still newest first and ready for [groupByDay].
   ///
-  /// The filter can only narrow what the plan already allowed through, so a
-  /// 30 day window on a plan that keeps 7 days still shows 7.
+  /// The filter can only narrow what the tier already allowed through, so a
+  /// 30 day window on a free plan still shows 7 days.
   static List<HistoryEntry> filterEntries(
     List<HistoryEntry> entries,
     HistoryFilter filter,
@@ -142,32 +263,17 @@ class HistoryCubit extends Cubit<HistoryState> {
     ];
   }
 
-  /// The most alarms History can put on screen.
-  ///
-  /// Two ceilings, whichever is lower. The plan says how many a tier may show
-  /// ([AccountCaps.historyIncidents], null on a paid tier). The shared list
-  /// cannot fetch more than [maxIncidentLimit] in one call, and v1 has no
-  /// paging, so a paid user with more alarms than that in their window still
-  /// stops there.
-  static int ceilingFor(AccountCaps caps) =>
-      math.min(caps.historyIncidents ?? maxIncidentLimit, maxIncidentLimit);
-
-  /// Apply both display caps, then group the newest incidents first.
+  /// Turns incidents into rows, newest first. Nothing is dropped here: the
+  /// window has already been applied by the query that read them.
   static List<HistoryEntry> toEntries(
     List<Incident> incidents,
-    DateTime now, {
-    AccountCaps caps = AccountCaps.free,
-  }) {
-    final cutoff = caps.historyDays == null
-        ? null
-        : now.subtract(Duration(days: caps.historyDays!));
+    DateTime now,
+  ) {
     final entries = <HistoryEntry>[];
 
     for (final incident in incidents) {
       final startedAt = incident.openedAt;
-      if (startedAt == null || (cutoff != null && startedAt.isBefore(cutoff))) {
-        continue;
-      }
+      if (startedAt == null) continue;
 
       final stoppedAt =
           incident.ackedAt ?? incident.closedAt ?? incident.lastMessageAt;
@@ -189,7 +295,7 @@ class HistoryCubit extends Cubit<HistoryState> {
     }
 
     entries.sort((a, b) => b.startedAt.compareTo(a.startedAt));
-    return entries.take(ceilingFor(caps)).toList();
+    return entries;
   }
 
   /// Groups sorted entries into days, keeping the newest day first.

@@ -748,6 +748,7 @@ class MockServer {
     int? limit,
     String? state,
     String? topic,
+    DateTime? since,
   }) {
     if (limit != null && limit < 1) {
       throw const ApiException(statusCode: 400, message: 'invalid request');
@@ -767,6 +768,13 @@ class MockServer {
 
     if (topic != null && topic.isNotEmpty) {
       items = items.where((inc) => inc.topic == topic).toList();
+    }
+
+    // api.md §3.2: `since` is exclusive, on `opened_at`.
+    if (since != null) {
+      items = items
+          .where((inc) => inc.openedAt?.isAfter(since) ?? false)
+          .toList();
     }
 
     items.sort((a, b) {
@@ -1522,10 +1530,24 @@ class MockServer {
         }
         final state = query['state'];
         final topic = query['topic'];
+        final rawSince = query['since'];
+        final sinceSeconds = rawSince == null ? null : int.tryParse(rawSince);
+        if (rawSince != null && sinceSeconds == null) {
+          throw const ApiException(
+            statusCode: 400,
+            message: 'invalid request',
+          );
+        }
         final incidents = getIncidents(
           limit: limit,
           state: state,
           topic: topic,
+          since: sinceSeconds == null
+              ? null
+              : DateTime.fromMillisecondsSinceEpoch(
+                  sinceSeconds * 1000,
+                  isUtc: true,
+                ),
         );
         return _jsonResponse(incidents.map((i) => i.toJson()).toList(), 200);
       }
