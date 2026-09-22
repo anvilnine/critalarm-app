@@ -220,6 +220,31 @@ void main() {
       expect(fake.argsOnce('endActivity')['state'], 'closed');
     });
 
+    test('reconcile hands a finished incident to the shared list', () async {
+      server.seedState(
+        incidents: [
+          Incident(
+            id: 'inc_done',
+            topic: 'prod',
+            state: IncidentStates.closed,
+            openedAt: DateTime.utc(2026, 9, 13),
+          ),
+        ],
+      );
+      fake.answers['showingIncidentIds'] = <String>['inc_done'];
+      final applied = <Incident>[];
+
+      await IncidentAlarmController(
+        host: fake.host,
+        api: api,
+        path: AlarmTriggerPath.appBackgroundPush,
+        applyIncident: applied.add,
+      ).reconcile();
+
+      expect(applied.map((i) => i.id), ['inc_done']);
+      expect(applied.single.isClosed, isTrue);
+    });
+
     test('reconcile leaves an open incident alone', () async {
       server.seedState(
         incidents: [
