@@ -556,14 +556,14 @@ class AcknowledgedScreen extends StatelessWidget {
     final ringDuration = (startedAt != null && ackedAt != null)
         ? ackedAt.difference(startedAt)
         : null;
-    final startedLabel = startedAt != null ? _formatClock(startedAt) : '—';
-    final ackedLabel = ackedAt != null ? _formatClock(ackedAt) : '—';
+    final startedLabel = startedAt != null ? _formatClock(startedAt) : '';
+    final ackedLabel = ackedAt != null ? _formatClock(ackedAt) : '';
     final ackedSub = isDemo
         ? LocaleKeys.onboarding_connect_celebration_subtitle.tr()
         : LocaleKeys.critical_alarm_acked_sub.tr(
             namedArgs: {
               'duration': ringDuration == null
-                  ? '—'
+                  ? ''
                   : _formatRingDuration(ringDuration),
             },
           );
@@ -855,7 +855,7 @@ class _OtherAlarmRow extends StatelessWidget {
     final title = incident.messages.firstOrNull?.title ?? incident.topic;
     final openedAt = incident.openedAt;
     final age = openedAt == null
-        ? '—'
+        ? ''
         : formatRingDuration(DateTime.now().difference(openedAt));
 
     return Material(
