@@ -28,13 +28,22 @@ void main() {
       }
     });
 
+    test('a topic screen belongs to the topics tab', () {
+      for (final path in <String>[
+        '/topics/ops',
+        '/topics/ops?curl=1',
+        '/topics/ops/messages',
+        '/topics/ops/sounds',
+      ]) {
+        expect(shellBranchForPath(path), ShellBranch.topics, reason: path);
+      }
+    });
+
     test('a route that covers the display belongs to no tab', () {
       for (final path in <String>[
         '/sounds',
         '/sounds?topic=ops',
         '/topics/new',
-        '/topics/ops',
-        '/topics/ops/messages',
         '/incidents/inc_1',
         '/paywall',
         '/alarm',
@@ -77,6 +86,27 @@ void main() {
         expect(shellBranchForPath(first.path), i, reason: 'branch $i moved');
       }
     });
+
+    test('every screen inside a tab maps back to that tab', () {
+      final shell = buildRouter().configuration.routes
+          .whereType<StatefulShellRoute>()
+          .single;
+
+      void walk(List<RouteBase> routes, String parent, int branch) {
+        for (final route in routes.whereType<GoRoute>()) {
+          final joined = route.path.startsWith('/')
+              ? route.path
+              : '${parent == '/' ? '' : parent}/${route.path}';
+          final path = joined.replaceAll(RegExp(':[A-Za-z]+'), 'x');
+          expect(shellBranchForPath(path), branch, reason: path);
+          walk(route.routes, joined, branch);
+        }
+      }
+
+      for (var i = 0; i < shell.branches.length; i++) {
+        walk(shell.branches[i].routes, '', i);
+      }
+    });
   });
 
   group('the settings search index', () {
@@ -99,17 +129,20 @@ void main() {
       expect(opensWithGo('/settings/account', from: '/'), isTrue);
       expect(opensWithGo('/history', from: '/settings'), isTrue);
       expect(opensWithGo('/', from: '/ring'), isTrue);
+      expect(opensWithGo('/topics/ops?curl=1', from: '/history'), isTrue);
+      expect(opensWithGo('/topics/ops?curl=1', from: '/settings'), isTrue);
     });
 
     test('a path on the same tab is a push', () {
       expect(opensWithGo('/settings/account', from: '/settings'), isFalse);
       expect(opensWithGo('/history?x=1', from: '/history'), isFalse);
+      expect(opensWithGo('/topics/ops?curl=1', from: '/'), isFalse);
     });
 
     test('a route that covers the display is a push', () {
       expect(opensWithGo('/ring', from: '/settings'), isFalse);
       expect(opensWithGo('/paywall?source=x', from: '/'), isFalse);
-      expect(opensWithGo('/topics/ops?curl=1', from: '/history'), isFalse);
+      expect(opensWithGo('/topics/new', from: '/settings'), isFalse);
     });
   });
 }
