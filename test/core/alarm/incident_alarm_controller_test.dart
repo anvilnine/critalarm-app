@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:critalarm/core/alarm/alarm_trigger_path.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/quiet_hours.dart';
@@ -25,6 +27,35 @@ class GoneApiClient extends MockApiClient {
       throw ApiException(statusCode: statusCode, message: 'gone');
 }
 
+/// Fails every call to `getIncident` with a network error.
+class _AlwaysDownApiClient extends MockApiClient {
+  _AlwaysDownApiClient(super.server);
+
+  int calls = 0;
+
+  @override
+  Future<Incident> getIncident(String id) async {
+    calls++;
+    throw const SocketException('no route');
+  }
+}
+
+/// Fails the first [failTimes] calls to `getIncident`, then behaves like a
+/// normal [MockApiClient].
+class _FlakyIncidentApiClient extends MockApiClient {
+  _FlakyIncidentApiClient(super.server, {required this.failTimes});
+
+  final int failTimes;
+  int calls = 0;
+
+  @override
+  Future<Incident> getIncident(String id) async {
+    calls++;
+    if (calls <= failTimes) throw const SocketException('no route');
+    return super.getIncident(id);
+  }
+}
+
 IncidentPush push(
   IncidentPushKind kind, {
   String id = 'inc_one',
@@ -44,7 +75,12 @@ void main() {
 
   IncidentAlarmController build({
     AlarmTriggerPath path = AlarmTriggerPath.appBackgroundPush,
-  }) => IncidentAlarmController(host: fake.host, api: api, path: path);
+  }) => IncidentAlarmController(
+    host: fake.host,
+    api: api,
+    path: path,
+    wait: (_) async {},
+  );
 
   setUp(() {
     fake = FakeAlarmHost();
@@ -254,6 +290,85 @@ void main() {
         hasLength(IncidentAlarmController.reconcileLimit),
       );
     });
+
+    group('launch retry', () {
+      test(
+        'a dead server costs six tries total, not six per card',
+        () async {
+          fake.answers['showingIncidentIds'] = <String>[
+            'inc_a',
+            'inc_b',
+            'inc_c',
+          ];
+          final flaky = _AlwaysDownApiClient(server);
+          final controller = IncidentAlarmController(
+            host: fake.host,
+            api: flaky,
+            path: AlarmTriggerPath.appBackgroundPush,
+            wait: (_) async {},
+          );
+
+          await controller.reconcile();
+
+          expect(flaky.calls, 6);
+          expect(controller.launchCallsPending, isTrue);
+          expect(fake.callsTo('cancelAlarm'), isEmpty);
+        },
+      );
+
+      test('reconcile recovers after a transient failure', () async {
+        server.seedState(
+          incidents: [
+            Incident(
+              id: 'inc_done',
+              topic: 'prod',
+              state: IncidentStates.closed,
+              openedAt: DateTime.utc(2026, 9, 13),
+            ),
+          ],
+        );
+        fake.answers['showingIncidentIds'] = <String>['inc_done'];
+        final flaky = _FlakyIncidentApiClient(server, failTimes: 2);
+        final controller = IncidentAlarmController(
+          host: fake.host,
+          api: flaky,
+          path: AlarmTriggerPath.appBackgroundPush,
+          wait: (_) async {},
+        );
+
+        await controller.reconcile();
+
+        expect(controller.launchCallsPending, isFalse);
+        expect(fake.argsOnce('endActivity')['state'], 'closed');
+      });
+
+      test('a resume after success does not reconcile again', () async {
+        server.seedState(
+          incidents: [
+            Incident(
+              id: 'inc_live',
+              topic: 'prod',
+              openedAt: DateTime.utc(2026, 9, 13),
+            ),
+          ],
+        );
+        fake.answers['showingIncidentIds'] = <String>['inc_live'];
+        final flaky = _FlakyIncidentApiClient(server, failTimes: 0);
+        final controller = IncidentAlarmController(
+          host: fake.host,
+          api: flaky,
+          path: AlarmTriggerPath.appBackgroundPush,
+          wait: (_) async {},
+        );
+
+        await controller.reconcile();
+        expect(flaky.calls, 1);
+
+        await controller.retryIfPending();
+
+        expect(flaky.calls, 1);
+      });
+    });
   });
 
   group('quiet hours', () {
@@ -269,8 +384,7 @@ void main() {
     /// A page that does not open an incident on a critical topic. The relay
     /// sends priority 5 for the pager case, so anything under that is the
     /// non-critical side of the switch.
-    IncidentPush quietPage() =>
-        push(IncidentPushKind.open, priority: 4);
+    IncidentPush quietPage() => push(IncidentPushKind.open, priority: 4);
 
     IncidentPush criticalPage() => push(
       IncidentPushKind.open,

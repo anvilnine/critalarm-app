@@ -7,6 +7,7 @@ import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/models/incident.dart';
+import 'package:critalarm/core/net/launch_retry.dart';
 import 'package:critalarm/core/push/incident_push.dart';
 import 'package:flutter/foundation.dart';
 
@@ -25,12 +26,14 @@ final class IncidentAlarmController {
     this.quietHours,
     AlarmTriggerPath? path,
     DateTime Function()? now,
+    this.wait = defaultLaunchWait,
   }) : path = path ?? AlarmTriggerPath.chosen,
        _now = now ?? DateTime.now;
 
   final AlarmHost host;
   final ApiClient api;
   final LiveActivityTokenRegistry? tokens;
+  final Future<void> Function(Duration) wait;
 
   /// The quiet hours window, or null where nothing has one to offer, which is
   /// every test that does not care about it.
@@ -48,6 +51,12 @@ final class IncidentAlarmController {
   Set<String> get alarmingIncidentIds => Set.unmodifiable(_alarming);
 
   StreamSubscription<String>? _nativeAlarms;
+
+  bool _launchCallsPending = false;
+
+  /// True when the last reconcile failed even after `retryOnLaunch` gave up.
+  /// Read on resume so a healthy app does not reconcile on every foreground.
+  bool get launchCallsPending => _launchCallsPending;
 
   /// Listens for alarms the native side scheduled on its own, which is every
   /// alarm on the background-push path. Without this the in-app rule that
@@ -156,7 +165,35 @@ final class IncidentAlarmController {
   /// On launch, the server is the truth. Any card still up for an incident the
   /// server has finished with comes down, and any alarm still set for one
   /// stops.
+  ///
+  /// Retried as one whole run on a network error or a 5xx (`retryOnLaunch`),
+  /// so a dead server costs six tries total, not six per card. Never throws:
+  /// a run that still fails after every retry leaves the cards up and sets
+  /// [launchCallsPending] so resume tries again.
   Future<void> reconcile() async {
+    try {
+      await retryOnLaunch(
+        'incident_reconcile',
+        _reconcileOnce,
+        wait: wait,
+        log: _log,
+      );
+      _launchCallsPending = false;
+    } on Object catch (_) {
+      // The server is unreachable, or every retry used up. Leave the cards up:
+      // a stale card is better than a missed incident.
+      _launchCallsPending = true;
+    }
+  }
+
+  /// Resume calls this. Runs [reconcile] again, but only when the last run
+  /// ended in failure.
+  Future<void> retryIfPending() async {
+    if (!_launchCallsPending) return;
+    await reconcile();
+  }
+
+  Future<void> _reconcileOnce() async {
     final showing = await host.showingIncidentIds();
     for (final incidentId in showing.take(reconcileLimit)) {
       final Incident incident;
@@ -169,12 +206,11 @@ final class IncidentAlarmController {
         // launch and cost a server call every time.
         if (error.statusCode == 404 || error.statusCode == 410) {
           await onIncidentFinished(incidentId, state: IncidentState.expired);
+          continue;
         }
-        continue;
-      } on Object catch (_) {
-        // The server is unreachable. Leave the card up: a stale card is better
-        // than a missed incident.
-        continue;
+        // Any other status is a launch hiccup or a real failure; let
+        // retryOnLaunch decide from the status code.
+        rethrow;
       }
       if (incident.isOpen || incident.isAcked) continue;
       await onIncidentFinished(incidentId, state: incident.incidentState);

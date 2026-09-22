@@ -25,6 +25,8 @@ class _FixedIncidents implements IncidentRepository {
     required int limit,
     String? state,
     String? topic,
+    DateTime? since,
+    bool fullRefresh = false,
   }) async => all.take(limit).toList().toSuccess();
 
   @override
@@ -39,6 +41,8 @@ class _FailingIncidents implements IncidentRepository {
     required int limit,
     String? state,
     String? topic,
+    DateTime? since,
+    bool fullRefresh = false,
   }) async => const Failure.api(statusCode: 500).toFailure();
 
   @override
@@ -46,7 +50,8 @@ class _FailingIncidents implements IncidentRepository {
       throw UnimplementedError('${invocation.memberName}');
 }
 
-/// A paid account: no cap on how many alarms it may show, 90 days of them.
+/// A paid account. `history_days` is the server's retention now, not a
+/// display cap: a paid tier shows everything the phone holds (api.md §4.2).
 const _paid = AccountCaps(devices: 5, p4Daily: 1000, historyDays: 90);
 
 Incident _incident({
@@ -83,12 +88,13 @@ void main() {
   /// A History tab reading [incidents] on an account with [caps].
   Future<HistoryCubit> historyFor(
     List<Incident> incidents,
-    AccountCaps caps,
-  ) async {
+    AccountCaps caps, {
+    String tier = 'hosted',
+  }) async {
     SharedPreferences.setMockInitialValues({
       'device_id': 'dev_1',
       'account_id': 'acc_1',
-      'account_tier': 'paid',
+      'account_tier': tier,
       'account_caps': jsonEncode(caps.toJson()),
     });
     final prefs = await SharedPreferences.getInstance();
@@ -107,7 +113,8 @@ void main() {
   }
 
   group('HistoryCubit.toEntries', () {
-    test('drops incidents older than the 30 day window', () {
+    test('keeps every incident it is handed, whatever its age', () {
+      // The window is applied by the query that read them, not here.
       final entries = HistoryCubit.toEntries([
         _incident(
           id: 'i1',
@@ -121,7 +128,7 @@ void main() {
         ),
       ], now);
 
-      expect(entries.map((e) => e.id), ['i1']);
+      expect(entries.map((e) => e.id), ['i1', 'i2']);
     });
 
     test('drops incidents with no start time', () {
@@ -181,41 +188,49 @@ void main() {
   });
 
   group('what each tier sees', () {
-    test('a free user sees 20 of them', () async {
-      final history = await historyFor(manyIncidents(250), AccountCaps.free);
+    /// One alarm a day going back [days] days.
+    List<Incident> daily(int days) => [
+      for (var day = 0; day < days; day++)
+        _incident(
+          id: 'day$day',
+          topic: 'prod-db',
+          openedAt: now.subtract(Duration(days: day, hours: 1)),
+        ),
+    ];
 
-      expect(history.state.entries, hasLength(20));
-      expect(history.state.isCapped, isTrue);
+    test('free stops at history_days and counts what is behind it', () async {
+      final history = await historyFor(
+        daily(30),
+        AccountCaps.free,
+        tier: 'free',
+      );
+
+      expect(history.state.entries, hasLength(7));
+      expect(history.state.olderCount, 23);
     });
 
-    test('a paid user sees 200, which is all the app can fetch', () async {
-      final history = await historyFor(manyIncidents(250), _paid);
-
-      expect(history.state.entries, hasLength(200));
-      expect(history.state.isCapped, isTrue);
-    });
-
-    test('a paid user with fewer alarms sees all of them, uncapped', () async {
-      final history = await historyFor(manyIncidents(30), _paid);
+    test('a paid tier sees everything, with nothing behind it', () async {
+      final history = await historyFor(daily(30), _paid);
 
       expect(history.state.entries, hasLength(30));
-      expect(history.state.isCapped, isFalse);
+      expect(history.state.olderCount, 0);
     });
 
-    test('a free user below the cap is not capped', () async {
-      final history = await historyFor(manyIncidents(5), AccountCaps.free);
+    test('there is no 20 alarm ceiling any more', () async {
+      final history = await historyFor(manyIncidents(120), _paid);
+
+      expect(history.state.entries, hasLength(120));
+    });
+
+    test('a free tier below the window has nothing hidden', () async {
+      final history = await historyFor(
+        manyIncidents(5),
+        AccountCaps.free,
+        tier: 'free',
+      );
 
       expect(history.state.entries, hasLength(5));
-      expect(history.state.isCapped, isFalse);
-    });
-
-    test('the ceiling is the lower of the plan and what one call reads', () {
-      expect(HistoryCubit.ceilingFor(AccountCaps.free), 20);
-      expect(HistoryCubit.ceilingFor(_paid), 200);
-      expect(
-        HistoryCubit.ceilingFor(const AccountCaps(historyIncidents: 500)),
-        200,
-      );
+      expect(history.state.olderCount, 0);
     });
   });
 

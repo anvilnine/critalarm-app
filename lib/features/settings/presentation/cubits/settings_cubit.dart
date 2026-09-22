@@ -14,7 +14,9 @@ import 'package:critalarm/features/onboarding/domain/usecases/establish_api_sess
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
+import 'package:critalarm/features/settings/domain/entities/storage_settings.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
+import 'package:critalarm/features/settings/domain/repositories/storage_settings_repository.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_analytics_enabled_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_crash_reporting_enabled_usecase.dart';
@@ -40,6 +42,8 @@ class SettingsCubit extends Cubit<SettingsState> {
     this.establishSession,
     this.getTopics,
     this.quietHoursStore,
+    this.storageSettings,
+    this.onAutoDeleteChanged,
     this.onConnectionChanged,
     ProOverride? proOverride,
   }) : _proOverride = proOverride ?? appProOverride,
@@ -68,6 +72,14 @@ class SettingsCubit extends Cubit<SettingsState> {
   /// Where the quiet hours window lives. Null in the tests that do not care
   /// about it, and then the three controls only move in memory.
   final QuietHoursStore? quietHoursStore;
+
+  /// The two Storage rows. Null in tests that do not open that section, and
+  /// then both controls only move in memory.
+  final StorageSettingsRepository? storageSettings;
+
+  /// Runs auto-delete after a Storage row changes, so turning it on takes
+  /// effect without waiting for the next launch. Null in tests.
+  final Future<void> Function()? onAutoDeleteChanged;
 
   /// Called after the server is saved or removed. The app re-plans
   /// reminders from what is left, right away. Null in tests.
@@ -98,6 +110,24 @@ class SettingsCubit extends Cubit<SettingsState> {
   bool get isPaywallEnabled => telemetryGate?.isPaywallEnabled ?? false;
   bool get paywallEnabled => isPaywallEnabled;
 
+  /// How long the phone keeps alarms before deleting them itself.
+  Future<void> setRetention(HistoryRetention retention) async {
+    emit(state.copyWith(storage: state.storage.copyWith(retention: retention)));
+    await storageSettings?.setRetention(retention);
+    await onAutoDeleteChanged?.call();
+  }
+
+  /// Whether a P5 alarm skips auto-delete.
+  Future<void> setKeepCriticalForever({required bool keep}) async {
+    emit(
+      state.copyWith(
+        storage: state.storage.copyWith(keepCriticalForever: keep),
+      ),
+    );
+    await storageSettings?.setKeepCriticalForever(keep: keep);
+    await onAutoDeleteChanged?.call();
+  }
+
   Future<void> load({bool forceDisconnected = false}) async {
     emit(state.copyWith(status: SettingsStatus.loading));
 
@@ -124,6 +154,9 @@ class SettingsCubit extends Cubit<SettingsState> {
     if (session != null) {
       emit(state.copyWith(serverMode: session.mode));
     }
+
+    final storage = storageSettings?.read();
+    if (storage != null) emit(state.copyWith(storage: storage));
 
     if (forceDisconnected) {
       emit(

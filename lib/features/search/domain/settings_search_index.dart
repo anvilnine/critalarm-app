@@ -148,6 +148,33 @@ abstract final class SettingsSearchIndex {
       ],
     ),
     SettingsDestination(
+      id: 'storage-delete-after',
+      routePath: '/settings',
+      titleKey: LocaleKeys.settings_storage_delete_after_title,
+      parentTitleKey: LocaleKeys.settings_storage_header,
+      keywords: <String>[
+        'storage',
+        'delete',
+        'auto delete',
+        'keep',
+        'history',
+        'space',
+      ],
+    ),
+    SettingsDestination(
+      id: 'storage-keep-critical',
+      routePath: '/settings',
+      titleKey: LocaleKeys.settings_storage_keep_critical_title,
+      parentTitleKey: LocaleKeys.settings_storage_header,
+      keywords: <String>[
+        'critical',
+        'priority 5',
+        'p5',
+        'keep forever',
+        'storage',
+      ],
+    ),
+    SettingsDestination(
       id: 'plan',
       routePath: '/paywall',
       titleKey: LocaleKeys.settings_plan_header,

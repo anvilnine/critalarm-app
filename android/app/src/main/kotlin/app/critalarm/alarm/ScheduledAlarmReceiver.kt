@@ -62,22 +62,47 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
             delaySeconds: Int,
             handOverToStatusCard: Boolean = true,
         ): Boolean {
+            return scheduleAt(
+                context = context,
+                incidentId = incidentId,
+                server = server,
+                title = title,
+                body = body,
+                atMillis = System.currentTimeMillis() + delaySeconds * 1000L,
+                handOverToStatusCard = handOverToStatusCard,
+            )
+        }
+
+        /**
+         * The same alarm, at an instant rather than a delay. This is what a
+         * re-arm uses.
+         *
+         * `setAlarmClock`, not `setExactAndAllowWhileIdle`. In Doze the latter
+         * fires at most about once every nine minutes per app, which is no use
+         * for a thirty-second repeat. `setAlarmClock` is exempt from Doze and
+         * also lets the receiver start a foreground service from the
+         * background, which is how the ring comes back with the app closed.
+         * The cost is the alarm icon in the status bar, which for an alarm app
+         * is honest.
+         */
+        fun scheduleAt(
+            context: Context,
+            incidentId: String,
+            server: String,
+            title: String,
+            body: String?,
+            atMillis: Long,
+            handOverToStatusCard: Boolean = true,
+        ): Boolean {
             val manager = context.getSystemService(AlarmManager::class.java) ?: return false
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !manager.canScheduleExactAlarms()) {
                 Log.w(TAG, "scheduled_alarm_refused reason=no_exact_alarm_permission")
                 return false
             }
-            val at = System.currentTimeMillis() + delaySeconds * 1000L
+            val fire = pendingIntent(context, incidentId, server, title, body, handOverToStatusCard)
             return try {
-                manager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    at,
-                    pendingIntent(context, incidentId, server, title, body, handOverToStatusCard),
-                )
-                Log.i(
-                    TAG,
-                    "scheduled_alarm_set incident_id=$incidentId delay_s=$delaySeconds",
-                )
+                manager.setAlarmClock(AlarmManager.AlarmClockInfo(atMillis, fire), fire)
+                Log.i(TAG, "scheduled_alarm_set incident_id=$incidentId at=$atMillis")
                 true
             } catch (e: Exception) {
                 Log.w(TAG, "scheduled_alarm_failed incident_id=$incidentId error=${e.message}")

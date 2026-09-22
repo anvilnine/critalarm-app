@@ -170,6 +170,52 @@
         "body": "db01 is down"
       },
       "valid": true
+    },
+    {
+      "name": "open carries ring_until",
+      "data": {
+        "incident_id": "inc-ring",
+        "server": "https://alerts.example.com",
+        "kind": "open",
+        "priority": "5",
+        "ring_until": "1757464200"
+      },
+      "valid": true
+    },
+    {
+      "name": "ack from another device",
+      "data": {
+        "incident_id": "inc-1",
+        "server": "https://alerts.example.com",
+        "kind": "ack"
+      },
+      "valid": true
+    },
+    {
+      "name": "close from another device",
+      "data": {
+        "incident_id": "inc-1",
+        "server": "https://alerts.example.com",
+        "kind": "close"
+      },
+      "valid": true
+    },
+    {
+      "name": "expire from the server",
+      "data": {
+        "incident_id": "inc-1",
+        "server": "https://alerts.example.com",
+        "kind": "expire"
+      },
+      "valid": true
+    },
+    {
+      "name": "a state kind with no incident id is dropped",
+      "data": {
+        "server": "https://alerts.example.com",
+        "kind": "ack"
+      },
+      "valid": false
     }
   ],
   "actions": [
