@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -185,7 +186,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
               builder: (context) {
                 final colors = context.appColors;
                 if (state.isAcknowledged) {
-                  return _AcknowledgedScreen(state: state, colors: colors);
+                  return AcknowledgedScreen(state: state, colors: colors);
                 }
                 // While it is ringing this screen holds the only Stop control.
                 // An Android back press or an edge swipe used to dismiss it and
@@ -460,8 +461,12 @@ class _RingingScreen extends StatelessWidget {
 
 /// The acknowledged confirmation: how long it rang, when it started and was
 /// acknowledged, where it came from, and the two pinned exits.
-class _AcknowledgedScreen extends StatelessWidget {
-  const _AcknowledgedScreen({required this.state, required this.colors});
+class AcknowledgedScreen extends StatelessWidget {
+  const AcknowledgedScreen({
+    required this.state,
+    required this.colors,
+    super.key,
+  });
 
   final CriticalAlarmState state;
   final AppColors colors;
@@ -493,6 +498,7 @@ class _AcknowledgedScreen extends StatelessWidget {
 
     final size = AppSize.of(context);
     final isWide = size.isExpanded || size.isShort;
+    final isClosed = state.status == CriticalAlarmStatus.closed;
 
     final bottomBar = Column(
       mainAxisSize: MainAxisSize.min,
@@ -537,12 +543,36 @@ class _AcknowledgedScreen extends StatelessWidget {
                 },
               ),
             ]
+          : isClosed
+          ? [
+              AppButton(
+                label: LocaleKeys.critical_alarm_back_to_topics_button.tr(),
+                variant: AppButtonVariant.ghost,
+                isFullWidth: true,
+                onPressed: () {
+                  AppHaptics.capture();
+                  context.go('/');
+                },
+              ),
+            ]
           : [
+              _sub(TextAlign.center, _deskTimerHint(context)),
+              const SizedBox(height: Spacing.s3),
+              AppButton(
+                label: LocaleKeys.critical_alarm_at_my_desk_button.tr(),
+                variant: AppButtonVariant.paper,
+                isFullWidth: true,
+                onPressed: () {
+                  AppHaptics.capture();
+                  unawaited(context.read<CriticalAlarmCubit>().closeIncident());
+                },
+              ),
+              const SizedBox(height: 8),
               AppButton(
                 label: LocaleKeys.critical_alarm_open_topic_button.tr(
                   namedArgs: {'topic': state.topic},
                 ),
-                variant: AppButtonVariant.paper,
+                variant: AppButtonVariant.ghost,
                 isFullWidth: true,
                 onPressed: () {
                   AppHaptics.capture();
@@ -685,6 +715,18 @@ class _AcknowledgedScreen extends StatelessWidget {
         fontSize: 15,
         color: colors.onCanvas,
       ),
+    );
+  }
+
+  /// "Rings again in N min unless you tap At my desk." N comes from the
+  /// topic's desk timer when the topic is in the cached list. A topic not
+  /// loaded yet (or the demo, which is never in that list) falls back to the
+  /// server default of 10 minutes rather than showing nothing.
+  String _deskTimerHint(BuildContext context) {
+    final topic = context.watch<TopicsCubit>().state.named(state.topic);
+    final minutes = topic == null ? 10 : topic.deskTimerS ~/ 60;
+    return LocaleKeys.critical_alarm_desk_timer_hint.tr(
+      namedArgs: {'minutes': '$minutes'},
     );
   }
 

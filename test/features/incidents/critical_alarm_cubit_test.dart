@@ -1,3 +1,4 @@
+import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/result/result.dart';
@@ -222,6 +223,56 @@ void main() {
         // Verify on mock server
         final serverInc = server.getIncident('inc_alarmed_proddb');
         expect(serverInc.isClosed, isTrue);
+      },
+    );
+
+    test(
+      'closeIncident applies the closed incident to the shared list',
+      () async {
+        final incidents = IncidentsCubit(getIncidentsUsecase);
+        addTearDown(incidents.close);
+        await incidents.ensureLoaded();
+
+        final sharedCubit = CriticalAlarmCubit(
+          getIncidentUsecase,
+          getIncidentsUsecase,
+          acknowledgeIncidentUsecase,
+          closeIncidentUsecase,
+          incidents,
+        );
+        addTearDown(sharedCubit.close);
+
+        await sharedCubit.load(incidentId: 'inc_alarmed_proddb');
+        await sharedCubit.acknowledge();
+        await sharedCubit.closeIncident();
+
+        final shared = incidents.state.incidents.firstWhere(
+          (i) => i.id == 'inc_alarmed_proddb',
+        );
+        expect(
+          shared.isClosed,
+          isTrue,
+          reason: 'History and the topic screen read this list',
+        );
+      },
+    );
+
+    test(
+      'a failed close keeps status acked and surfaces the error message',
+      () async {
+        await cubit.load(incidentId: 'inc_alarmed_proddb');
+        await cubit.acknowledge();
+
+        // Close it out of band, so the cubit's own closeIncident() call
+        // below hits the server's "already closed" guard and comes back
+        // with a 409 instead of a fresh closed incident.
+        server.closeIncident('inc_alarmed_proddb');
+
+        await cubit.closeIncident();
+
+        final state = cubit.state;
+        expect(state.status, CriticalAlarmStatus.acknowledged);
+        expect(state.errorMessage, isNotNull);
       },
     );
   });
