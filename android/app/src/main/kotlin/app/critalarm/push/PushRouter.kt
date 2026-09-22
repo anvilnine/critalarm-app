@@ -9,9 +9,10 @@ import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.alarm.IncidentRearm
 import app.critalarm.notifications.AlarmNotificationFactory
+import app.critalarm.notifications.IncidentCards
+import app.critalarm.notifications.IncidentPhoneState
 import app.critalarm.notifications.MessageNotificationFactory
 import app.critalarm.notifications.NotificationChannels
-import app.critalarm.notifications.StatusNotificationFactory
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.storage.PushEventLog
@@ -129,14 +130,13 @@ class PushRouter(private val context: Context) {
 
         val manager = context.getSystemService(NotificationManager::class.java)
         if (!alreadyActive || reopen) {
-            // The alarm is ringing, so SingleCardRule gives it the card on its
-            // own. A reopen arrives on an incident the user already acked, and
-            // that ack left a status card up, so the handover runs in this
-            // direction too. The status card starts again when the user stops
-            // the alarm, in IncidentActionReceiver.
-            if (!SingleCardRule.showsStatusCard(ringing = true)) {
-                manager.cancel(StatusNotificationFactory.notificationId(incidentId))
-            }
+            // The alarm is ringing, so the ringing card owns the shade. A
+            // reopen arrives on an incident the user already acked, and that
+            // ack left a status card up, so the handover runs in this direction
+            // too: show(Ringing) takes the status card down. The status card
+            // starts again when the user stops the alarm, in
+            // IncidentActionReceiver.
+            IncidentCards.show(context, incidentId, IncidentPhoneState.Ringing)
             // Post first, resolve the text after. FCM cuts an app's
             // high-priority quota when a high-priority message does not show a
             // notification quickly, and an alarm that waits ten seconds for a
@@ -196,7 +196,15 @@ class PushRouter(private val context: Context) {
             }
             else -> {
                 store.markClosed(incidentId)
-                manager.cancel(StatusNotificationFactory.notificationId(incidentId))
+                IncidentCards.show(
+                    context = context,
+                    incidentId = incidentId,
+                    state = if (payload.kind == IncidentPushKind.EXPIRE) {
+                        IncidentPhoneState.Expired
+                    } else {
+                        IncidentPhoneState.Closed
+                    },
+                )
             }
         }
         events.record("push_state_change", mapOf("kind" to payload.kind.wireValue))
