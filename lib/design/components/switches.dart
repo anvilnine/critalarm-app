@@ -2,6 +2,7 @@ import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
+import 'package:critalarm/design_system/motion.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
@@ -108,14 +109,29 @@ class AppToggleRow extends StatelessWidget {
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    subtitle!,
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: colors.ink3,
+                  AnimatedSize(
+                    duration: context.motion(AppDurations.base),
+                    curve: AppCurves.easeOut,
+                    alignment: Alignment.topLeft,
+                    child: AnimatedSwitcher(
+                      duration: context.motion(AppDurations.base),
+                      switchInCurve: AppCurves.easeOut,
+                      switchOutCurve: AppCurves.easeOut,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: child,
+                      ),
+                      child: Text(
+                        subtitle!,
+                        key: ValueKey(subtitle),
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: colors.ink3,
+                        ),
+                      ),
                     ),
                   ),
                 ],

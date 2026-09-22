@@ -19,12 +19,23 @@ String topicLatestMessageHeroTag(String topicName, String timestamp) =>
 /// Every message on one topic. The topic screen shows only the newest so its
 /// action button stays on screen; this is where the rest live.
 class TopicMessagesScreen extends StatelessWidget {
-  const TopicMessagesScreen({required this.topicName, super.key});
+  const TopicMessagesScreen({
+    required this.topicName,
+    this.cubit,
+    super.key,
+  });
 
   final String topicName;
+  final TopicDetailCubit? cubit;
 
   @override
   Widget build(BuildContext context) {
+    if (cubit != null) {
+      return BlocProvider.value(
+        value: cubit!,
+        child: const _TopicMessagesView(),
+      );
+    }
     return BlocProvider(
       create: (_) {
         final cubit = getIt<TopicDetailCubit>();
@@ -79,22 +90,78 @@ class _TopicMessagesView extends StatelessWidget {
                         AppSectionHeader(
                           LocaleKeys.topic_detail_messages_header.tr(),
                         ),
-                        if (messages.isEmpty)
-                          AppEmptyState(
-                            title: LocaleKeys.topic_messages_empty_title.tr(),
-                            description: LocaleKeys.topic_messages_empty_body
-                                .tr(),
-                            buttonLabel: null,
-                            isLive: false,
+                        AnimatedSize(
+                          duration: context.motion(AppDurations.base),
+                          curve: AppCurves.easeOut,
+                          alignment: Alignment.topCenter,
+                          child: AnimatedSwitcher(
+                            duration: context.motion(AppDurations.base),
+                            switchInCurve: AppCurves.easeOut,
+                            switchOutCurve: AppCurves.easeOut,
+                            layoutBuilder: (currentChild, previousChildren) =>
+                                Stack(
+                              alignment: Alignment.topCenter,
+                              children: [
+                                ...previousChildren,
+                                if (currentChild != null) currentChild,
+                              ],
+                            ),
+                            transitionBuilder: (child, animation) =>
+                                FadeTransition(
+                              opacity: animation,
+                              child: child,
+                            ),
+                            child: state.showMessagesSkeleton &&
+                                    messages.isEmpty
+                                ? const KeyedSubtree(
+                                    key: ValueKey('messages_view_skeleton'),
+                                    child: Column(
+                                      children: [
+                                        AppMessageCardSkeleton(),
+                                        SizedBox(height: 10),
+                                        AppMessageCardSkeleton(),
+                                        SizedBox(height: 10),
+                                        AppMessageCardSkeleton(),
+                                      ],
+                                    ),
+                                  )
+                                : messages.isEmpty
+                                    ? KeyedSubtree(
+                                        key: const ValueKey(
+                                          'messages_view_empty',
+                                        ),
+                                        child: AppEmptyState(
+                                          title: LocaleKeys
+                                              .topic_messages_empty_title
+                                              .tr(),
+                                          description: LocaleKeys
+                                              .topic_messages_empty_body
+                                              .tr(),
+                                          buttonLabel: null,
+                                          isLive: false,
+                                        ),
+                                      )
+                                    : KeyedSubtree(
+                                        key: ValueKey(
+                                          'messages_view_list_${messages.length}',
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            for (var i = 0;
+                                                i < messages.length;
+                                                i++) ...[
+                                              _card(
+                                                messages[i],
+                                                state.topicName,
+                                                isNewest: i == 0,
+                                              ),
+                                              const SizedBox(height: 10),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
                           ),
-                        for (var i = 0; i < messages.length; i++) ...[
-                          _card(
-                            messages[i],
-                            state.topicName,
-                            isNewest: i == 0,
-                          ),
-                          const SizedBox(height: 10),
-                        ],
+                        ),
                       ],
                     ),
                   ),

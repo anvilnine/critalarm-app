@@ -1,7 +1,12 @@
+import 'package:critalarm/design/components/skeleton.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/design/tokens/curves.dart';
+import 'package:critalarm/design/tokens/durations.dart';
+import 'package:critalarm/design/tokens/radii.dart';
+import 'package:critalarm/design_system/motion.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +28,7 @@ class AppStage extends StatelessWidget {
     this.faceWidget,
     this.isHorizontal = false,
     this.idleWhenCalm = false,
+    this.isLoading = false,
     super.key,
   }) : subWidget = null;
 
@@ -36,6 +42,7 @@ class AppStage extends StatelessWidget {
     this.isLive = false,
     this.padding = const EdgeInsets.fromLTRB(24, Spacing.s3, 24, 0),
     this.faceWidget,
+    this.isLoading = false,
     super.key,
   }) : word = null,
        wordIsBig = false,
@@ -59,6 +66,10 @@ class AppStage extends StatelessWidget {
   /// True lets a calm face play the small idle expressions while nothing is
   /// happening. Any other face means something real and is left alone.
   final bool idleWhenCalm;
+
+  /// True shows animated skeleton bones for words/subtext while stage content
+  /// is loading.
+  final bool isLoading;
 
   /// Horizontal stage only: shown in place of [sub], for a line that moves.
   /// Style it with [horizontalSubStyle] so it matches.
@@ -92,12 +103,49 @@ class AppStage extends StatelessWidget {
                 size: faceSize,
                 isLive: isLive,
               ),
-            if (subWidget != null || sub != null) ...[
+            if (subWidget != null || sub != null || isLoading) ...[
               const SizedBox(width: 14),
               Expanded(
-                child:
-                    subWidget ??
-                    Text(sub!, style: horizontalSubStyle(colors)),
+                child: AnimatedSize(
+                  duration: context.motion(AppDurations.base),
+                  curve: AppCurves.easeOut,
+                  alignment: Alignment.centerLeft,
+                  child: AnimatedSwitcher(
+                    duration: context.motion(AppDurations.base),
+                    switchInCurve: AppCurves.easeOut,
+                    switchOutCurve: AppCurves.easeOut,
+                    layoutBuilder: (currentChild, previousChildren) => Stack(
+                      alignment: Alignment.centerLeft,
+                      children: [
+                        ...previousChildren,
+                        if (currentChild != null) currentChild,
+                      ],
+                    ),
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: child,
+                    ),
+                    child: isLoading
+                        ? const KeyedSubtree(
+                            key: ValueKey('stage_horizontal_skeleton'),
+                            child: AppSkeleton(
+                              child: AppSkeletonBone(
+                                width: 120,
+                                height: 16,
+                                borderRadius: Radii.xsAll,
+                              ),
+                            ),
+                          )
+                        : KeyedSubtree(
+                            key: ValueKey('stage_horizontal_content_$sub'),
+                            child: subWidget ??
+                                Text(
+                                  sub ?? '',
+                                  style: horizontalSubStyle(colors),
+                                ),
+                          ),
+                  ),
+                ),
               ),
             ],
           ],
@@ -127,26 +175,80 @@ class AppStage extends StatelessWidget {
               ),
             const SizedBox(width: 16),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (word != null) ...[
-                    _buildWord(
-                      colors,
-                      resolvedFontSize * 0.7,
-                      TextAlign.left,
-                    ),
-                  ],
-                  if (topicName != null) ...[
-                    const SizedBox(height: Spacing.s3),
-                    _buildTopicName(colors, TextAlign.left),
-                  ],
-                  if (sub != null) ...[
-                    const SizedBox(height: Spacing.s2),
-                    _buildSub(colors, TextAlign.left),
-                  ],
-                ],
+              child: AnimatedSize(
+                duration: context.motion(AppDurations.base),
+                curve: AppCurves.easeOut,
+                alignment: Alignment.centerLeft,
+                child: AnimatedSwitcher(
+                  duration: context.motion(AppDurations.base),
+                  switchInCurve: AppCurves.easeOut,
+                  switchOutCurve: AppCurves.easeOut,
+                  layoutBuilder: (currentChild, previousChildren) => Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      ...previousChildren,
+                      if (currentChild != null) currentChild,
+                    ],
+                  ),
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: child,
+                  ),
+                  child: isLoading
+                      ? KeyedSubtree(
+                          key: const ValueKey('stage_short_skeleton'),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AppSkeleton(
+                                child: AppSkeletonBone(
+                                  width: 110,
+                                  height: resolvedFontSize * 0.55,
+                                  borderRadius: Radii.smAll,
+                                ),
+                              ),
+                              if (topicName != null &&
+                                  topicName!.isNotEmpty) ...[
+                                const SizedBox(height: Spacing.s3),
+                                _buildTopicName(colors, TextAlign.left),
+                              ],
+                              const SizedBox(height: Spacing.s2),
+                              const AppSkeleton(
+                                child: AppSkeletonBone(
+                                  width: 90,
+                                  height: 14,
+                                  borderRadius: Radii.xsAll,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : KeyedSubtree(
+                          key: ValueKey('stage_short_content_${word}_$sub'),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (word != null && word!.isNotEmpty)
+                                _buildWord(
+                                  colors,
+                                  resolvedFontSize * 0.7,
+                                  TextAlign.left,
+                                ),
+                              if (topicName != null &&
+                                  topicName!.isNotEmpty) ...[
+                                const SizedBox(height: Spacing.s3),
+                                _buildTopicName(colors, TextAlign.left),
+                              ],
+                              if (sub != null && sub!.isNotEmpty) ...[
+                                const SizedBox(height: Spacing.s2),
+                                _buildSub(colors, TextAlign.left),
+                              ],
+                            ],
+                          ),
+                        ),
+                ),
               ),
             ),
           ],
@@ -170,18 +272,84 @@ class AppStage extends StatelessWidget {
               isLive: isLive,
               idleWhenCalm: idleWhenCalm,
             ),
-          if (word != null) ...[
-            SizedBox(height: faceSize > 120 ? Spacing.s5 : Spacing.s3),
-            _buildWord(colors, resolvedFontSize, TextAlign.center),
-          ],
-          if (topicName != null) ...[
-            const SizedBox(height: Spacing.s3),
-            _buildTopicName(colors, TextAlign.center),
-          ],
-          if (sub != null) ...[
-            const SizedBox(height: Spacing.s2),
-            _buildSub(colors, TextAlign.center),
-          ],
+          AnimatedSize(
+            duration: context.motion(AppDurations.base),
+            curve: AppCurves.easeOut,
+            alignment: Alignment.topCenter,
+            child: AnimatedSwitcher(
+              duration: context.motion(AppDurations.base),
+              switchInCurve: AppCurves.easeOut,
+              switchOutCurve: AppCurves.easeOut,
+              layoutBuilder: (currentChild, previousChildren) => Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  ...previousChildren,
+                  if (currentChild != null) currentChild,
+                ],
+              ),
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
+              child: isLoading
+                  ? KeyedSubtree(
+                      key: const ValueKey('stage_vertical_skeleton'),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            height: faceSize > 120 ? Spacing.s5 : Spacing.s3,
+                          ),
+                          AppSkeleton(
+                            child: AppSkeletonBone(
+                              width: 140,
+                              height: resolvedFontSize * 0.8,
+                              borderRadius: Radii.smAll,
+                            ),
+                          ),
+                          if (topicName != null && topicName!.isNotEmpty) ...[
+                            const SizedBox(height: Spacing.s3),
+                            _buildTopicName(colors, TextAlign.center),
+                          ],
+                          const SizedBox(height: Spacing.s2),
+                          const AppSkeleton(
+                            child: AppSkeletonBone(
+                              width: 110,
+                              height: 16,
+                              borderRadius: Radii.xsAll,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : KeyedSubtree(
+                      key: ValueKey('stage_vertical_content_${word}_$sub'),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (word != null && word!.isNotEmpty) ...[
+                            SizedBox(
+                              height: faceSize > 120 ? Spacing.s5 : Spacing.s3,
+                            ),
+                            _buildWord(
+                              colors,
+                              resolvedFontSize,
+                              TextAlign.center,
+                            ),
+                          ],
+                          if (topicName != null && topicName!.isNotEmpty) ...[
+                            const SizedBox(height: Spacing.s3),
+                            _buildTopicName(colors, TextAlign.center),
+                          ],
+                          if (sub != null && sub!.isNotEmpty) ...[
+                            const SizedBox(height: Spacing.s2),
+                            _buildSub(colors, TextAlign.center),
+                          ],
+                        ],
+                      ),
+                    ),
+            ),
+          ),
         ],
       ),
     );
