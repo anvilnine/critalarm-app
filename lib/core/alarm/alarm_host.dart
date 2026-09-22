@@ -205,6 +205,12 @@ final class AlarmHost {
   /// tell.
   Future<bool> isRinging() async => await _invoke<bool>('isRinging') ?? false;
 
+  /// Writes the open incident ids into the app group. The notification
+  /// delegate reads them to know while an alarm is under way, so it can keep
+  /// other banners off. Off iOS there is no handler and the call is a no-op.
+  Future<void> setOpenIncidents(List<String> incidentIds) async =>
+      _invoke<void>('setOpenIncidents', {'incident_ids': incidentIds});
+
   /// Onboarding uses this once so the Allow prompt happens before the relay
   /// ever tries a remote start.
   Future<bool> startLocalActivity({

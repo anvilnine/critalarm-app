@@ -346,8 +346,30 @@ void main() {
           );
         },
       );
-      expect(await rules.next(isRinging: false), HomeAsk.none);
+      expect(await rules.next(), HomeAsk.none);
       expect(settled, isTrue);
+    });
+
+    test('no review ask on a day the shared list was acked', () async {
+      // Everything the review ask needs, with the repository's own stamp two
+      // days old, so only the shared list can block it.
+      final prompts = FakeHomePromptRepository()
+        ..firstSeenAt = DateTime(2026, 9)
+        ..consentAskedAt = DateTime(2026, 9, 2)
+        ..lastAcknowledgedAt = DateTime(2026, 9, 19, 14);
+      HomeAskRules rules({DateTime? Function()? newestAckedAt}) => HomeAskRules(
+        homePromptRepository: prompts,
+        privacyRepository: _NoPrivacy(),
+        isWeb: false,
+        now: () => now,
+        newestAckedAt: newestAckedAt,
+      );
+
+      expect(await rules().next(), HomeAsk.review);
+      expect(
+        await rules(newestAckedAt: () => DateTime(2026, 9, 21, 9)).next(),
+        HomeAsk.none,
+      );
     });
   });
 }

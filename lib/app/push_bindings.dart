@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/push/push_host.dart';
+import 'package:flutter/foundation.dart';
 
 /// What a running app does with a push.
 ///
@@ -25,11 +27,13 @@ class AppPushBindings {
     this._navigate,
     this._currentLocation,
     this._selectIncident,
+    this._focus,
   );
 
   final PushHost _push;
   final IncidentsCubit _incidents;
   final TopicsCubit _topics;
+  final AlarmFocus _focus;
   final void Function(String location) _navigate;
 
   /// The path the router is on right now, read from the router delegate.
@@ -58,6 +62,12 @@ class AppPushBindings {
   /// incident does not replace it: the id goes to the cubit, which swaps the
   /// shown incident. Anything else navigates as before.
   void _onTap(String location) {
+    // While an alarm is under way, a tap may only open the alarm screen or
+    // another incident. Anything else would navigate away from it.
+    if (_focus.on && !_isAlarmRoute(location)) {
+      debugPrint('nav_dropped_alarm_focus location=$location');
+      return;
+    }
     final incidentId = _incidentIdFrom(location);
     if (incidentId != null && _onAlarm()) {
       _selectIncident(incidentId);
@@ -65,6 +75,9 @@ class AppPushBindings {
     }
     _navigate(location);
   }
+
+  bool _isAlarmRoute(String location) =>
+      location == '/alarm' || location.startsWith('/incidents/');
 
   /// The incident id a tap route points at, or null when it points elsewhere.
   String? _incidentIdFrom(String location) {
