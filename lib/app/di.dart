@@ -137,12 +137,15 @@ import 'package:critalarm/features/search/domain/usecases/get_recent_searches_us
 import 'package:critalarm/features/search/presentation/cubits/search_cubit.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_privacy_repository.dart';
+import 'package:critalarm/features/settings/data/repositories/shared_prefs_storage_settings_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_theme_preference_repository.dart';
 import 'package:critalarm/features/settings/data/services/sound_file_picker.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/sound_file_picker.dart';
+import 'package:critalarm/features/settings/domain/repositories/storage_settings_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/theme_preference_repository.dart';
+import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/delete_user_sound_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_theme_mode_usecase.dart';
@@ -330,6 +333,15 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton<IncidentRepository>(
       () => InMemoryIncidentRepository(getIt<ApiClient>(), store: localStore),
+    )
+    ..registerLazySingleton<StorageSettingsRepository>(
+      () => SharedPrefsStorageSettingsRepository(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<AutoDeleteHistoryUsecase>(
+      () => AutoDeleteHistoryUsecase(
+        localStore,
+        () => getIt<StorageSettingsRepository>().read(),
+      ),
     )
     ..registerLazySingleton<ServerRepository>(
       () => InMemoryServerRepository(getIt<ApiClient>()),
@@ -849,6 +861,7 @@ Future<void> configureDependencies({
         getIt<UpdateTopicUsecase>(),
         getIt<IncidentRepository>(),
         alarm: getIt<AlarmHost>(),
+        identityStore: getIt<DeviceIdentityStore>(),
       ),
     )
     ..registerFactory(
@@ -904,6 +917,10 @@ Future<void> configureDependencies({
             ? getIt<TelemetryGate>()
             : null,
         quietHoursStore: getIt<QuietHoursStore>(),
+        storageSettings: getIt<StorageSettingsRepository>(),
+        // Turning auto-delete on should not wait for the next launch.
+        onAutoDeleteChanged: () async =>
+            unawaited(getIt<AutoDeleteHistoryUsecase>()()),
         // Fire and forget: a slow or failed re-plan never blocks or fails
         // saving or dropping the server connection.
         onConnectionChanged: () async =>

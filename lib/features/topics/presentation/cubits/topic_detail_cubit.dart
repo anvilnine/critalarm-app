@@ -6,8 +6,10 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/features/history/domain/history_window.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/entities/message.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
@@ -29,7 +31,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     this._updateTopic,
     this._incidentRepository, {
     this.alarm,
-  }) : super(const TopicDetailState());
+    this.identityStore,
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now,
+       super(const TopicDetailState());
 
   final IncidentsCubit _incidents;
   final TopicsCubit _topics;
@@ -42,6 +47,12 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   /// Null off iOS, where there is no AlarmKit and nothing to gate on.
   final AlarmHost? alarm;
 
+  /// Says which tier the account is on, so this screen shows the same window
+  /// History does. Null in tests, and then nothing is hidden.
+  final DeviceIdentityStore? identityStore;
+
+  final DateTime Function() _now;
+
   StreamSubscription<IncidentsState>? _incidentsSub;
   StreamSubscription<TopicsState>? _topicsSub;
 
@@ -49,6 +60,27 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   List<Topic>? _builtFromTopics;
 
   int _buildId = 0;
+
+  /// The oldest message this tier may show, or null for everything held.
+  /// Same rule as History (api.md §4.2), read from one place.
+  Future<DateTime?> _lowerBound() async {
+    final identity = await identityStore?.readOrCreate();
+    if (identity == null) return null;
+    return HistoryWindow.lowerBound(
+      tier: identity.tier,
+      historyDays: identity.caps.historyDays ?? 7,
+      now: _now(),
+    );
+  }
+
+  static List<Message> _insideWindow(List<Message> messages, DateTime? bound) {
+    if (bound == null) return messages;
+    final seconds = bound.toUtc().millisecondsSinceEpoch ~/ 1000;
+    return [
+      for (final message in messages)
+        if (message.time >= seconds) message,
+    ];
+  }
 
   /// An acknowledge is still on the wire. Separate from
   /// [TopicDetailState.isMarkingAsRead], which is only the spinner on the
@@ -169,7 +201,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         errorMessage: pollResult.exceptionOrNull()?.message,
       );
     }
-    final polled = pollResult.getOrNull() ?? <Message>[];
+    final polled = _insideWindow(
+      pollResult.getOrNull() ?? <Message>[],
+      await _lowerBound(),
+    );
 
     final openIncidents = _incidents.state
         .forTopic(topicName)
