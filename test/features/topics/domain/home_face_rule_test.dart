@@ -150,26 +150,33 @@ void main() {
       expect(result.hero.severity, SeverityMode.none);
     });
 
-    test('calm hero has no second line beyond the hour', () {
-      // Handled wins over calm and both use the same one-hour window, so a
-      // closed incident within the hour always renders the handled hero; the
-      // calm second line is never reached. Beyond the hour the calm path shows
-      // only the base line.
-      final expired = resolveHomeFace(
+    test('calm hero shows the last handled time from any age', () {
+      // Handled wins over calm within the hour, so once an incident is old
+      // enough to fall out of the handled window it still counts for the
+      // calm hero's second line, no matter how long ago it closed.
+      final closedAt = now.subtract(const Duration(days: 2));
+      final result = resolveHomeFace(
         topics: topics,
         incidents: [
           _incident(
             'inc2',
             'prod-db',
             IncidentStates.closed,
-            closedAt: now.subtract(const Duration(minutes: 61)),
+            closedAt: closedAt,
           ),
         ],
         warningTopics: const {},
         now: now,
       );
-      expect(expired.hero.faceState, FaceState.calm);
-      expect(expired.hero.subText, 'Nothing is ringing.');
+      expect(result.hero.faceState, FaceState.calm);
+      final localClosed = closedAt.toLocal();
+      final time =
+          '${DateFormat.MMMd().format(localClosed)}, '
+          '${DateFormat.Hm().format(localClosed)}';
+      expect(
+        result.hero.subText,
+        'Nothing is ringing.\nLast alarm handled at $time.',
+      );
     });
   });
 

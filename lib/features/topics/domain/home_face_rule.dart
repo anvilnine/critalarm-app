@@ -239,24 +239,33 @@ HomeFaceResult resolveHomeFace({
     );
   }
 
-  DateTime? newestClosedWithinHour;
+  DateTime? newestClosed;
   for (final inc in incidents) {
     if ((inc.state == IncidentStates.closed ||
             inc.state == IncidentStates.expired) &&
         inc.closedAt != null) {
-      if (now.difference(inc.closedAt!).inSeconds < 3600) {
-        if (newestClosedWithinHour == null ||
-            inc.closedAt!.isAfter(newestClosedWithinHour)) {
-          newestClosedWithinHour = inc.closedAt;
-        }
+      if (newestClosed == null || inc.closedAt!.isAfter(newestClosed)) {
+        newestClosed = inc.closedAt;
       }
     }
   }
-  String sub = LocaleKeys.home_no_alarm_body.tr();
-  if (newestClosedWithinHour != null) {
-    final time = formatHm(newestClosedWithinHour);
+  var sub = LocaleKeys.home_no_alarm_body.tr();
+  if (newestClosed != null) {
+    final localClosed = newestClosed.toLocal();
+    final localNow = now.toLocal();
+    final isToday =
+        localClosed.year == localNow.year &&
+        localClosed.month == localNow.month &&
+        localClosed.day == localNow.day;
+    // No existing key shows a date, so add month and day only when the last
+    // close was not today, and keep the same time format used everywhere
+    // else in this file.
+    final time = isToday
+        ? formatHm(newestClosed)
+        : '${DateFormat.MMMd().format(localClosed)}, ${formatHm(newestClosed)}';
     sub =
-        '${LocaleKeys.home_no_alarm_body.tr()}\n${LocaleKeys.home_no_alarm_last.tr(namedArgs: {'time': time})}';
+        '${LocaleKeys.home_no_alarm_body.tr()}\n'
+        '${LocaleKeys.home_no_alarm_last.tr(namedArgs: {'time': time})}';
   }
 
   return HomeFaceResult(
