@@ -155,12 +155,17 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     WidgetsBinding.instance.addObserver(this);
     _push.start();
     _reminders.start();
-    _quickActions.start();
     // Sign-in, sign-out, a linked provider and an account delete all bump
     // this. Re-plan from what is left right away.
     appAccountIdentityChanges.addListener(_replan);
-    // Plan once the first frame is up, so launch never waits on it.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _replan());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Plan once the first frame is up, so launch never waits on it.
+      _replan();
+      // The quick action titles go through tr(), and the translations are
+      // only loaded once MaterialApp has built its Localizations widget in
+      // that first frame. Started earlier, iOS stores the raw keys.
+      _quickActions.start();
+    });
     _incomingAudio.start();
   }
 
