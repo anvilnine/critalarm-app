@@ -255,6 +255,18 @@ class _RingingScreen extends StatelessWidget {
           },
         ),
         const SizedBox(height: 8),
+        // Silence is not an acknowledge. The noise stops, the incident stays
+        // open, and the phone sets its own next ring for the same id.
+        AppButton(
+          label: LocaleKeys.critical_alarm_silence_ringing_button.tr(),
+          variant: AppButtonVariant.ghost,
+          isFullWidth: true,
+          onPressed: () {
+            AppHaptics.selection();
+            unawaited(context.read<CriticalAlarmCubit>().silence());
+          },
+        ),
+        const SizedBox(height: 8),
         // Hidden during onboarding: `demo-topic` is invented for the test and
         // is on no server, so opening it drops the user on a broken screen
         // halfway through setup.

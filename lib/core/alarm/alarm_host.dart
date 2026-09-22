@@ -183,6 +183,22 @@ final class AlarmHost {
   Future<void> markAcked(String incidentId) async =>
       _invoke<void>('markAcked', {'incident_id': incidentId});
 
+  /// Silences the alarm for [incidentId] and asks the phone to ring again for
+  /// the same incident at `now + repeat_interval_s`.
+  ///
+  /// This is what Stop, a swipe and Back all do. The incident stays open, the
+  /// server keeps repeating, and only "I'm up" ends the loop. Answers how many
+  /// seconds until that next ring, or null when the native side decided not to
+  /// re-arm: past `ring_until`, already acked here, the topic's critical
+  /// switch off, or quiet hours holding.
+  Future<int?> rearmAlarm(String incidentId) async =>
+      _invoke<int>('rearmAlarm', {'incident_id': incidentId});
+
+  /// Drops a pending re-arm for [incidentId] with no other side effect. Used
+  /// when the incident is acknowledged, closed or expired somewhere else.
+  Future<void> cancelRearm(String incidentId) async =>
+      _invoke<void>('cancelRearm', {'incident_id': incidentId});
+
   /// Whether an alarm is ringing on this device right now. Android answers
   /// from its alarm service, iOS from AlarmKit (false before iOS 26). No
   /// answer reads as not ringing, so nothing waits on a platform that cannot
