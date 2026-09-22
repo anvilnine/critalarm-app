@@ -1,12 +1,17 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/incoming_audio_bindings.dart';
 import 'package:critalarm/app/push_bindings.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/push/push_host.dart';
+import 'package:critalarm/core/sound/incoming_audio.dart';
+import 'package:critalarm/core/sound/sound_host.dart';
+import 'package:critalarm/core/sound/sound_import.dart';
+import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
@@ -43,17 +48,61 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     _router.go,
   );
 
+  /// Shows snackbars from outside any screen, such as a shared file that
+  /// could not be opened.
+  final _messenger = GlobalKey<ScaffoldMessengerState>();
+
+  /// "Share to Crit Alarm" from Voice Memos, Files and other apps. The file
+  /// opens in the cropper, the same one "Pick a file" uses.
+  late final AppIncomingAudioBindings _incomingAudio = AppIncomingAudioBindings(
+    incoming: getIt<IncomingAudio>(),
+    host: getIt<SoundHost>(),
+    routeChanges: _router.routerDelegate,
+    incidentChanges: getIt<IncidentsCubit>().stream,
+    open: _openCropper,
+    showMessage: (message) => _messenger.currentState
+      ?..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          // Above the floating tab bar, which would cover it otherwise.
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            AppFloatingTabBar.height + AppFloatingTabBar.edgeGap + 8,
+          ),
+        ),
+      ),
+  );
+
+  /// A share that lands while a cropper is already open replaces it, so the
+  /// user never has two croppers stacked. The one replaced deletes its own
+  /// copy as it closes.
+  void _openCropper(PickedSoundFile file) {
+    final top = _router.routerDelegate.currentConfiguration.last.route;
+    final onCropper = top.name == AppRoute.soundCrop;
+    unawaited(
+      onCropper
+          ? _router.pushReplacementNamed(AppRoute.soundCrop, extra: file)
+          : _router.pushNamed(AppRoute.soundCrop, extra: file),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _push.start();
+    _incomingAudio.start();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_push.dispose());
+    unawaited(_incomingAudio.dispose());
     super.dispose();
   }
 
@@ -61,6 +110,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     unawaited(_push.onResumed());
+    unawaited(_incomingAudio.onResumed());
   }
 
   @override
@@ -90,6 +140,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
           supportedLocales: context.supportedLocales,
           locale: context.locale,
           routerConfig: _router,
+          scaffoldMessengerKey: _messenger,
           builder: (context, child) => TourHost(
             router: _router,
             child: AppAmbientShell(

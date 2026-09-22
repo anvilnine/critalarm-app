@@ -26,6 +26,7 @@ import 'package:critalarm/core/push/firebase_push_token_provider.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
+import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_peaks_cache.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
@@ -37,6 +38,7 @@ import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
+import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
@@ -532,6 +534,22 @@ Future<void> configureDependencies({
         getIt<GetTopicsUsecase>(),
         deleteTopic: getIt<DeleteTopicUsecase>(),
         incidents: getIt<IncidentsCubit>(),
+      ),
+    )
+    // "Share to Crit Alarm". Holds a shared file until onboarding is done and
+    // no alarm is going off.
+    ..registerLazySingleton(
+      () => IncomingAudio(
+        canImportSounds: () async =>
+            (await getIt<SoundHost>().capabilities()).canImportSounds,
+        isOnboardingDone: () async =>
+            (await getIt<GetOnboardingCompletedUsecase>()(
+              const NoParams(),
+            )).getOrNull() ??
+            false,
+        isRinging: getIt<AlarmHost>().isRinging,
+        discard: getIt<SoundFilePicker>().discard,
+        platform: defaultTargetPlatform,
       ),
     )
     ..registerLazySingleton(

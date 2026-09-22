@@ -88,6 +88,44 @@ void main() {
     expect(await ended, '/sounds/a.caf');
   });
 
+  group('shared files', () {
+    test('taking a held file reads what the platform copied', () async {
+      final calls = <MethodCall>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(call);
+        return {'path': '/cache/memo.m4a', 'name': 'memo.m4a', 'size_bytes': 5};
+      });
+      final file = await SoundHost().takeIncomingAudio();
+      expect(calls.single.method, 'takeIncomingAudio');
+      expect(file?.path, '/cache/memo.m4a');
+      expect(file?.name, 'memo.m4a');
+      expect(file?.sizeBytes, 5);
+    });
+
+    test('nothing held, or no handler, is null', () async {
+      expect(await SoundHost().takeIncomingAudio(), isNull);
+      messenger.setMockMethodCallHandler(channel, (call) async => null);
+      expect(await SoundHost().takeIncomingAudio(), isNull);
+    });
+
+    test('a file shared while the app runs reaches the stream', () async {
+      final host = SoundHost();
+      final incoming = host.incomingAudio.first;
+      await messenger.handlePlatformMessage(
+        SoundHost.channelName,
+        const StandardMethodCodec().encodeMethodCall(
+          const MethodCall('incomingAudio', {
+            'path': '/cache/b.mp3',
+            'name': 'b.mp3',
+            'size_bytes': 9,
+          }),
+        ),
+        (_) {},
+      );
+      expect((await incoming).path, '/cache/b.mp3');
+    });
+  });
+
   group('cropping', () {
     late List<MethodCall> calls;
     Object? answer;
