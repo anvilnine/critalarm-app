@@ -419,8 +419,6 @@
     "critical_rings_title": "Critical rings through quiet hours",
     "critical_rings_subtitle": "and repeats until you acknowledge",
     "escalation_header": "Escalation",
-    "escalation_call_title": "Call after 5 min",
-    "escalation_call_subtitle": "Repeats every 30 s first. +63 917 xxx 4821",
     "server_connection_header": "Server connection",
     "tour_row_title": "How to use the app",
     "tour_row_subtitle": "A quick tour of topics, search and alarms",
