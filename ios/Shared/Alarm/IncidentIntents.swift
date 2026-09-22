@@ -10,16 +10,55 @@ import Foundation
 ///
 /// api.md §3.2 is the state machine they drive:
 ///   open --ack--> acked --close--> closed
-/// Stop on the ringing alarm is stage 1, "I'm up". Done on the card is
-/// stage 2, "At my desk": the alarm is already quiet by then, and this is
-/// what stops the desk timer reopening the incident.
+/// "I'm up" on the ringing alarm is stage 1. Done on the card is stage 2,
+/// "At my desk": the alarm is already quiet by then, and this is what stops
+/// the desk timer reopening the incident.
+///
+/// Stop is on neither line. It silences the alarm and sets the phone's own
+/// next ring for the same incident, and the server never hears about it.
 
 @available(iOS 16.2, *)
 struct StopAlarmIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Stop"
-    static var description = IntentDescription("Stops the alarm and tells the server you are up.")
+    static var description = IntentDescription("Silences the alarm. It rings again shortly.")
 
     /// Never true. The alarm has to stop from the lock screen.
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Incident")
+    var incidentId: String
+
+    init() {}
+
+    init(incidentId: String) {
+        self.incidentId = incidentId
+    }
+
+    func perform() async throws -> some IntentResult {
+        // Nothing is queued and nothing is marked. Stop is not an acknowledge:
+        // the incident stays open, the server keeps repeating, and this sets
+        // the phone's own next ring on top of that. A LiveActivityIntent runs
+        // in the app's own process, so the re-armed alarm survives a
+        // force-quit, which is the one exit the server repeat cannot reach.
+        NSLog("CritAlarmAlarm: alarm_silenced incident_id=%@", incidentId)
+        await IncidentActivityCoordinator.shared.alarmSilenced(incidentId: incidentId)
+        let seconds = await IncidentRearm.rearm(incidentId: incidentId)
+        if let seconds {
+            await IncidentActivityCoordinator.shared.setRingsAgainIn(
+                seconds, incidentId: incidentId
+            )
+        }
+        return .result()
+    }
+}
+
+/// "I'm up". The acknowledge, and the only way out of the ring loop.
+@available(iOS 16.2, *)
+struct AckAlarmIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "I'm up"
+    static var description = IntentDescription("Ends the alarm and tells the server you are up.")
+
+    /// Never true. The alarm has to end from the lock screen.
     static var openAppWhenRun: Bool = false
 
     @Parameter(title: "Incident")
@@ -36,7 +75,10 @@ struct StopAlarmIntent: LiveActivityIntent {
         // Marked before anything goes on the wire, so the next repeat push
         // does not ring even if the ack takes minutes to land.
         AckedIncidentStore.mark(incidentId: incidentId)
-        NSLog("CritAlarmAlarm: alarm_stopped incident_id=%@", incidentId)
+        NSLog("CritAlarmAlarm: alarm_acked incident_id=%@", incidentId)
+        // Any ring this phone set for itself goes with the acknowledge. This
+        // also cancels the AlarmKit alarm that is alerting right now.
+        await IncidentRearm.cancel(incidentId: incidentId)
         await IncidentActivityCoordinator.shared.alarmStopped(incidentId: incidentId)
         // One native try. On success the queue entry is gone; otherwise Dart
         // sends it with its own backoff.

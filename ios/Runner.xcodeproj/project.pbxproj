@@ -13,6 +13,17 @@
 		A24A00000000000000000013 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
 		A24A00000000000000000014 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
 		A24A00000000000000000021 /* AlarmScheduleRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000002 /* AlarmScheduleRule.swift */; };
+		A28A00000000000000000201 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
+		A28A00000000000000000211 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
+		A28A00000000000000000202 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
+		A28A00000000000000000212 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
+		A28A00000000000000000203 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
+		A28A00000000000000000213 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
+		A28A00000000000000000204 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
+		A28A00000000000000000214 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
+		A28A00000000000000000221 /* RearmRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000103 /* RearmRuleTests.swift */; };
+		A28A00000000000000000231 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
+		A28A00000000000000000241 /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
 		A24A00000000000000000022 /* AlarmScheduleRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000002 /* AlarmScheduleRule.swift */; };
 		A24A00000000000000000031 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
 		A24A00000000000000000032 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
@@ -152,6 +163,9 @@
 /* Begin PBXFileReference section */
 		A24A00000000000000000001 /* AckedIncidentStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AckedIncidentStore.swift; sourceTree = "<group>"; };
 		A24A00000000000000000002 /* AlarmScheduleRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmScheduleRule.swift; sourceTree = "<group>"; };
+		A28A00000000000000000101 /* RearmRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RearmRule.swift; sourceTree = "<group>"; };
+		A28A00000000000000000102 /* IncidentRearm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentRearm.swift; sourceTree = "<group>"; };
+		A28A00000000000000000103 /* RearmRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RearmRuleTests.swift; sourceTree = "<group>"; };
 		A24A00000000000000000003 /* NativeAckSender.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeAckSender.swift; sourceTree = "<group>"; };
 		A24A00000000000000000004 /* AlarmScheduleRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmScheduleRuleTests.swift; sourceTree = "<group>"; };
 		A24A00000000000000000005 /* AckedIncidentStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AckedIncidentStoreTests.swift; sourceTree = "<group>"; };
@@ -290,6 +304,7 @@
 			isa = PBXGroup;
 			children = (
 				A24A00000000000000000004 /* AlarmScheduleRuleTests.swift */,
+				A28A00000000000000000103 /* RearmRuleTests.swift */,
 				A24A00000000000000000005 /* AckedIncidentStoreTests.swift */,
 				A24A00000000000000000006 /* NativeAckSenderTests.swift */,
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
@@ -412,6 +427,8 @@
 			children = (
 				A24A00000000000000000001 /* AckedIncidentStore.swift */,
 				A24A00000000000000000002 /* AlarmScheduleRule.swift */,
+				A28A00000000000000000101 /* RearmRule.swift */,
+				A28A00000000000000000102 /* IncidentRearm.swift */,
 				94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */,
 				0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */,
 				C1152E565D4F08BE1BD9C5C4 /* IncidentAlarmScheduler.swift */,
@@ -741,6 +758,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A28A00000000000000000221 /* RearmRuleTests.swift in Sources */,
+				A28A00000000000000000211 /* IncidentRearm.swift in Sources */,
+				A28A00000000000000000201 /* RearmRule.swift in Sources */,
 				A24A00000000000000000012 /* AckedIncidentStore.swift in Sources */,
 				A24A00000000000000000022 /* AlarmScheduleRule.swift in Sources */,
 				A24A00000000000000000032 /* NativeAckSender.swift in Sources */,
@@ -773,6 +793,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A28A00000000000000000212 /* IncidentRearm.swift in Sources */,
+				A28A00000000000000000202 /* RearmRule.swift in Sources */,
 				A24A00000000000000000011 /* AckedIncidentStore.swift in Sources */,
 				A24A00000000000000000021 /* AlarmScheduleRule.swift in Sources */,
 				A24A00000000000000000031 /* NativeAckSender.swift in Sources */,
@@ -799,6 +821,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A28A00000000000000000213 /* IncidentRearm.swift in Sources */,
+				A28A00000000000000000203 /* RearmRule.swift in Sources */,
 				A24A00000000000000000035 /* NativeAckSender.swift in Sources */,
 				A24A00000000000000000013 /* AckedIncidentStore.swift in Sources */,
 				BE4704C5DA9B9A1CAC9CBCAC /* NotificationService.swift in Sources */,
@@ -822,6 +846,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A28A00000000000000000241 /* IncidentPush.swift in Sources */,
+				A28A00000000000000000231 /* QuietHours.swift in Sources */,
+				A28A00000000000000000214 /* IncidentRearm.swift in Sources */,
+				A28A00000000000000000204 /* RearmRule.swift in Sources */,
 				A24A00000000000000000014 /* AckedIncidentStore.swift in Sources */,
 				A24A00000000000000000033 /* NativeAckSender.swift in Sources */,
 				A24A00000000000000000034 /* NseCredentials.swift in Sources */,

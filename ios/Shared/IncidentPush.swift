@@ -25,6 +25,10 @@ struct IncidentPush {
     /// `aps.alert` is a placeholder; `relay_content: full` drops it.
     let mutableContent: Bool
 
+    /// The last second this phone may ring for the incident on its own
+    /// (api.md §5.1), as epoch seconds. Absent on a `p4`.
+    let ringUntil: Date?
+
     /// The relay stripped the content, so the app has to fetch it with
     /// `GET /v1/incidents/{id}` (api.md §3.2). On APNs the placeholder text is
     /// always present, so the flag is what marks it as a placeholder.
@@ -58,5 +62,10 @@ struct IncidentPush {
         self.title = (alert?["title"] as? String).flatMap { $0.isEmpty ? nil : $0 }
         self.body = (alert?["body"] as? String).flatMap { $0.isEmpty ? nil : $0 }
         self.mutableContent = (aps?["mutable-content"] as? NSNumber)?.intValue == 1
+        let ringUntilSeconds = (payload["ring_until"] as? NSNumber)?.doubleValue
+            ?? Double(payload["ring_until"] as? String ?? "")
+        self.ringUntil = (ringUntilSeconds ?? 0) > 0
+            ? Date(timeIntervalSince1970: ringUntilSeconds ?? 0)
+            : nil
     }
 }
