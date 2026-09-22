@@ -3,10 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('AccountCaps', () {
-    test('defaults match specification', () {
+    // The `free` column of the cap table in docs/api.md §4.2.
+    test('defaults match the contract cap table', () {
       const caps = AccountCaps.free;
 
-      expect(caps.devices, 1);
+      expect(caps.devices, 5);
       expect(caps.criticalTopics, 2);
       expect(caps.historyIncidents, 20);
       expect(caps.historyDays, 7);

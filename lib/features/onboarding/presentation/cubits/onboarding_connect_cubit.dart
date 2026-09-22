@@ -59,6 +59,11 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   static const testAlarmDelaySeconds = 5;
 
   Future<void> loadConnection() async {
+    final authorization = await alarmHost?.authorizationStatus();
+    if (authorization != null && !isClosed) {
+      emit(state.copyWith(alarm: authorization));
+    }
+
     // What the user typed and where they had got to last time, first: a
     // half-typed server survives a force-quit this way.
     final draft = (await readDraft?.call(const NoParams()))?.getOrNull();

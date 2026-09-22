@@ -115,16 +115,9 @@ abstract final class SettingsSearchIndex {
         'voice memo',
       ],
     ),
-    // 'quiet_hours' and 'critical_rings' are out while their rows are off
-    // the alarm settings screen. Searching for them would land on a screen
-    // that no longer shows them.
-    SettingsDestination(
-      id: 'escalation_call',
-      routePath: '/settings/alarms',
-      titleKey: LocaleKeys.settings_escalation_call_title,
-      parentTitleKey: LocaleKeys.settings_alarms_header,
-      keywords: <String>['escalate', 'escalation', 'phone call', 'backup'],
-    ),
+    // 'quiet_hours', 'critical_rings' and 'escalation_call' are out while
+    // their rows are off the alarm settings screen. Searching for them would
+    // land on a screen that no longer shows them.
     SettingsDestination(
       id: 'analytics',
       routePath: '/settings/privacy',

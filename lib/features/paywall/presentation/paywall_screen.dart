@@ -192,7 +192,6 @@ class _PaywallScreenContent extends StatelessWidget {
                                 price: _getPriceString(
                                   state,
                                   SubscriptionTier.yearly,
-                                  fallback: r'$39.99',
                                 ),
                                 isSelected:
                                     state.selectedTier ==
@@ -207,7 +206,6 @@ class _PaywallScreenContent extends StatelessWidget {
                                 price: _getPriceString(
                                   state,
                                   SubscriptionTier.monthly,
-                                  fallback: r'$4.99',
                                 ),
                                 isSelected:
                                     state.selectedTier ==
@@ -275,11 +273,10 @@ class _PaywallScreenContent extends StatelessWidget {
     );
   }
 
-  static String _getPriceString(
-    PaywallState state,
-    SubscriptionTier tier, {
-    required String fallback,
-  }) {
+  /// The store's own price string, or null while the offering has not loaded.
+  /// There is no hard-coded fallback on purpose: a made-up amount is a price
+  /// the store will not charge, and this repo is public.
+  static String? _getPriceString(PaywallState state, SubscriptionTier tier) {
     final currentOffering = state.offerings?.current;
     if (currentOffering != null) {
       switch (tier) {
@@ -295,7 +292,7 @@ class _PaywallScreenContent extends StatelessWidget {
           }
       }
     }
-    return fallback;
+    return null;
   }
 
   /// The line under the word on the stage. Only the one job layout needs one;
@@ -412,7 +409,10 @@ class _TierCard extends StatelessWidget {
 
   final String title;
   final String duration;
-  final String price;
+
+  /// Null until the store has answered. The card then shows no amount rather
+  /// than a guess.
+  final String? price;
   final bool isSelected;
   final VoidCallback onTap;
   final String? badge;
@@ -493,15 +493,16 @@ class _TierCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              price,
-              style: TextStyle(
-                color: colors.ink,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                fontFeatures: const [FontFeature.tabularFigures()],
+            if (price case final price?)
+              Text(
+                price,
+                style: TextStyle(
+                  color: colors.ink,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
-            ),
           ],
         ),
       ),

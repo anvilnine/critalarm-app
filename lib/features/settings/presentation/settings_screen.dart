@@ -185,7 +185,11 @@ class _SettingsScreenContent extends StatelessWidget {
                   const SizedBox(height: Spacing.s2),
                   AppStage.horizontal(
                     faceState: FaceState.acked,
-                    sub: LocaleKeys.settings_stage_sub.tr(),
+                    // Quiet hours is off by default and its rows are off the
+                    // alarm screen, so the line only shows when it is on.
+                    sub: state.quietHoursEnabled
+                        ? LocaleKeys.settings_stage_sub.tr()
+                        : null,
                   ),
                   const SizedBox(height: Spacing.s3),
                 ],
