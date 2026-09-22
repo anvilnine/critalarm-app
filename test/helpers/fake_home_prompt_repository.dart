@@ -125,4 +125,14 @@ class FakeHomePromptRepository implements HomePromptRepository {
   Future<void> markAcknowledged() async {
     lastAcknowledgedAt = now();
   }
+
+  DateTime? afterAckSheetShownAt;
+
+  @override
+  DateTime? getAfterAckSheetShownAt() => afterAckSheetShownAt;
+
+  @override
+  Future<void> markAfterAckSheetShown() async {
+    afterAckSheetShownAt = now();
+  }
 }

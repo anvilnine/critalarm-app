@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/telemetry/reminder_analytics.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/reminders/domain/reminder_scheduler.dart';
@@ -16,6 +17,7 @@ class ReminderBindings {
   ReminderBindings({
     required ReminderScheduler scheduler,
     required HomePromptRepository prompts,
+    required AlarmFocus focus,
     required void Function(String path) navigate,
     required Future<void> Function(Uri url) openUrl,
     required Future<void> Function() openStoreReview,
@@ -29,6 +31,10 @@ class ReminderBindings {
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
        _prompts = prompts,
+       // The fields are private and the parameters are public, so they
+       // cannot be initializing formals.
+       // ignore: prefer_initializing_formals
+       _focus = focus,
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
@@ -52,6 +58,7 @@ class ReminderBindings {
 
   final ReminderScheduler _scheduler;
   final HomePromptRepository _prompts;
+  final AlarmFocus _focus;
   final void Function(String path) _navigate;
   final Future<void> Function(Uri url) _openUrl;
   final Future<void> Function() _openStoreReview;
@@ -84,6 +91,12 @@ class ReminderBindings {
         case OpenRouteAction(:final path):
           _navigate(path);
         case OpenUrlAction(:final url):
+          // While an alarm is under way, a reminder may not pull the user
+          // out to a browser or a store page.
+          if (_focus.on) {
+            debugPrint('nav_dropped_alarm_focus location=$url');
+            return;
+          }
           await _openUrl(url);
         case OpenStoreReviewAction():
           await _openStoreReview();

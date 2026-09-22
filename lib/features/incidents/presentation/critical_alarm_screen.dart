@@ -62,22 +62,35 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   /// the first test alarm, the Pro sheet, or nothing now because it is the
   /// middle of the night.
   Future<void> _afterAck(CriticalAlarmState state) async {
+    // Read now, used after the wait: another incident can land in those
+    // 1.5 seconds, and a sheet must not open over it.
+    final cubit = context.read<CriticalAlarmCubit>();
     await Future<void>.delayed(const Duration(milliseconds: 1500));
     final store = getIt<ReminderStore>();
+    final prompts = getIt<HomePromptRepository>();
     final incident = state.incident;
     // A delivered review or feedback reminder counts as an ask before the
     // Pro rules read the ask times.
     await getIt<ReminderSettler>().settleAsks(now: DateTime.now());
     final proShouldAsk = await getIt<ProPromptRules>().shouldAsk();
+    final now = DateTime.now();
+    final lastSheet = prompts.getAfterAckSheetShownAt();
     final next = AfterAckDecider.decide(
       isSetupDone: await getIt<SetupGate>().isDone(),
-      ackedAt: DateTime.now(),
+      ackedAt: now,
       isTestAck: incident == null || IncidentKinds.isTest(incident),
       isRemindersSheetShown: store.readSheetShown(),
       isWeb: kIsWeb,
       offersOn: store.readSwitches().offers,
       proShouldAsk: proShouldAsk,
+      hasOtherOpenIncident: cubit.state.openIncidents.isNotEmpty,
+      alreadyShownToday: lastSheet != null && _sameDay(lastSheet, now),
     );
+    // Stamped before the sheet opens, so the second ack of the same day gets
+    // nothing whichever of the two was shown.
+    if (next == AfterAck.remindersSheet || next == AfterAck.proSheet) {
+      await prompts.markAfterAckSheetShown();
+    }
     // Only the two sheets need this screen. Planning the morning after and
     // owing the Pro sheet happen even if the user already left it.
     switch (next) {
@@ -95,6 +108,9 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
         break;
     }
   }
+
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   @override
   Widget build(BuildContext context) {
