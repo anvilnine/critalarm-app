@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:path/path.dart' as p;
@@ -28,6 +30,7 @@ class LocalStore {
   final Database db;
   final IncidentStore incidents;
   final MessageStore messages;
+  String? _lastSinceSent;
 
   /// Opens `critalarm.db` in the app documents directory.
   ///
@@ -53,6 +56,49 @@ class LocalStore {
   }
 
   Future<void> close() => db.close();
+
+  /// Remembers the incident cursor immediately before it is sent to the API.
+  void recordLastSince(DateTime? since) {
+    _lastSinceSent = since == null
+        ? null
+        : '${since.toUtc().millisecondsSinceEpoch ~/ 1000}';
+  }
+
+  /// Aggregate diagnostics only; never exposes the database or message text.
+  Future<DebugStoreStats> stats() async {
+    final incidentRows = await db.rawQuery('''
+      SELECT COUNT(*) AS row_count, MIN(opened_at) AS oldest
+      FROM incidents
+    ''');
+    final messageCount =
+        Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM messages'),
+        ) ??
+        0;
+    final syncRows = await db.rawQuery('''
+      SELECT MAX(synced_at) AS latest FROM (
+        SELECT MAX(synced_at) AS synced_at FROM incidents
+        UNION ALL
+        SELECT MAX(synced_at) AS synced_at FROM messages
+      )
+    ''');
+    final path = db.path;
+    int? databaseBytes;
+    if (path.isNotEmpty && path != inMemoryDatabasePath) {
+      final file = File(path);
+      if (file.existsSync()) databaseBytes = file.lengthSync();
+    }
+    final incidents = incidentRows.first;
+    final count = (incidents['row_count'] as num?)?.toInt() ?? 0;
+    return DebugStoreStats(
+      incidentCount: count,
+      messageCount: messageCount,
+      oldestIncidentAt: _time(incidents['oldest']),
+      databaseBytes: databaseBytes,
+      lastSyncAt: _time(syncRows.first['latest']),
+      lastSince: _lastSinceSent,
+    );
+  }
 
   static Future<void> _create(Database db) async {
     final batch = db.batch()
