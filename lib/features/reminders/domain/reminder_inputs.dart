@@ -102,6 +102,7 @@ final class ReminderInputs {
     this.plan,
     this.planNoticesSent = const {},
     this.morningAfterDone = const {},
+    this.isSetupDone = true,
     this.proShouldAsk = false,
     this.isPaid = false,
     this.proDismissCount = 0,
@@ -161,6 +162,10 @@ final class ReminderInputs {
 
   /// Incident ids whose morning after already fired.
   final Set<String> morningAfterDone;
+
+  /// `SetupGate.isDone()` at plan time: onboarding finished and the tour
+  /// seen. No ask is planned before both.
+  final bool isSetupDone;
 
   /// `ProPromptRules.shouldAsk()` at plan time.
   final bool proShouldAsk;

@@ -23,8 +23,13 @@ enum AfterAck {
 /// It never shows the review popup or the consent sheet. Those stay with
 /// `HomeAskRules` on the next home open, which already waits 24 hours after
 /// the Pro sheet.
+///
+/// Nothing follows an ack before onboarding is finished and the tour has
+/// been seen or skipped (`isSetupDone`). The demo alarm at the end of
+/// onboarding is acked with both still open.
 abstract final class AfterAckDecider {
   static AfterAck decide({
+    required bool isSetupDone,
     required DateTime ackedAt,
     required bool isTestAck,
     required bool isRemindersSheetShown,
@@ -32,6 +37,7 @@ abstract final class AfterAckDecider {
     required bool offersOn,
     required bool proShouldAsk,
   }) {
+    if (!isSetupDone) return AfterAck.nothing;
     if (isTestAck && !isRemindersSheetShown && !isWeb) {
       return AfterAck.remindersSheet;
     }

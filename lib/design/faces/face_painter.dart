@@ -48,7 +48,14 @@ class FacePainter extends CustomPainter {
   final FaceShape? shape;
 
   static const Color _white = Color(0xFFFFFFFF);
+  static const Color _darkInk = Color(0xFF1A140F);
   static const Rect _headRect = Rect.fromLTWH(12, 12, 176, 176);
+
+  /// What a pupil is drawn in when it sits on the eye's white. Dark mode's
+  /// ink is near white for brows, lids and mouths, and a near white pupil
+  /// on a white eyeball is no pupil at all, so a light ink turns dark here.
+  static Color pupilOnWhite(Color ink) =>
+      ink.computeLuminance() > 0.5 ? _darkInk : ink;
   static const Offset _middle = Offset(100, 100);
 
   @override
@@ -153,8 +160,13 @@ class FacePainter extends CustomPainter {
           ..clipPath(Path()..addOval(ball));
       }
 
+      // The pupil moves to its on-white colour as the white fades in, so a
+      // dot eye opening into a ringed eye never flips colour in one frame.
+      final pupilColor = eye.ballIsHead
+          ? inkColor
+          : Color.lerp(inkColor, pupilOnWhite(inkColor), white)!;
       if (eye.spiral > 0) {
-        _paintSpiral(canvas, pupil, eye.pupilRadius, eye.spiral);
+        _paintSpiral(canvas, pupil, eye.pupilRadius, eye.spiral, pupilColor);
       } else if (eye.pupilRadius > 0) {
         canvas.drawOval(
           Rect.fromCenter(
@@ -162,7 +174,7 @@ class FacePainter extends CustomPainter {
             width: eye.pupilRadius * 2,
             height: eye.pupilRadius * 2 * squeeze,
           ),
-          Paint()..color = inkColor,
+          Paint()..color = pupilColor,
         );
       }
       if (eye.shineRadius > 0) {
@@ -194,7 +206,13 @@ class FacePainter extends CustomPainter {
   }
 
   /// Two and a half turns of a swirl, for the dizzy eyes.
-  void _paintSpiral(Canvas canvas, Offset centre, double radius, double alpha) {
+  void _paintSpiral(
+    Canvas canvas,
+    Offset centre,
+    double radius,
+    double alpha,
+    Color color,
+  ) {
     if (alpha <= 0) return;
     final path = Path()..moveTo(centre.dx, centre.dy);
     const steps = 48;
@@ -208,7 +226,10 @@ class FacePainter extends CustomPainter {
         centre.dy + r * math.sin(angle),
       );
     }
-    canvas.drawPath(path, _pen(_ink(alpha), 4));
+    canvas.drawPath(
+      path,
+      _pen(color.withValues(alpha: color.a * alpha), 4),
+    );
   }
 
   void _paintMouth(Canvas canvas, MouthShape mouth) {

@@ -18,7 +18,9 @@ void main() {
     DateTime? lastTestFailedAt,
     List<ReminderIncident> incidents = const [],
     DateTime? feedbackAskedAt,
+    bool isSetupDone = true,
   }) => ReminderInputs(
+    isSetupDone: isSetupDone,
     now: now ?? DateTime(2026, 9, 21, 12),
     installedAt: installedAt ?? DateTime(2026, 9, 1, 9),
     consentAskedAt: DateTime(2026, 9, 2),
@@ -31,6 +33,10 @@ void main() {
     incidents: incidents,
     feedbackAskedAt: feedbackAskedAt,
   );
+
+  test('plans nothing before onboarding and the tour are done', () {
+    expect(ReviewAskRule.candidate(inputs(isSetupDone: false)), isNull);
+  });
 
   test('plans 10:00 four days after the last ack', () {
     final c = ReviewAskRule.candidate(inputs())!;

@@ -70,6 +70,7 @@ void main() {
           dismissCount: 0,
           lastAskedAt: null,
           now: today,
+          isSetupDone: true,
         ),
         isTrue,
       );
@@ -82,6 +83,7 @@ void main() {
         dismissCount: 0,
         lastAskedAt: today.subtract(since),
         now: today,
+        isSetupDone: true,
       );
 
       expect(askAfter(const Duration(days: 1)), isFalse);
@@ -98,6 +100,7 @@ void main() {
           dismissCount: 2,
           lastAskedAt: today.subtract(const Duration(days: 365)),
           now: today,
+          isSetupDone: true,
         ),
         isFalse,
       );
@@ -111,6 +114,7 @@ void main() {
           dismissCount: 0,
           lastAskedAt: null,
           now: today,
+          isSetupDone: true,
         ),
         isFalse,
       );
@@ -124,6 +128,21 @@ void main() {
           dismissCount: 0,
           lastAskedAt: null,
           now: today,
+          isSetupDone: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('never asks before onboarding and the tour are done', () {
+      expect(
+        ProPromptRules.decide(
+          isPaid: false,
+          isSelfHosted: false,
+          dismissCount: 0,
+          lastAskedAt: null,
+          now: today,
+          isSetupDone: false,
         ),
         isFalse,
       );
