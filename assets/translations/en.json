@@ -374,6 +374,8 @@
     "started_label": "Started",
     "acknowledged_label": "Acknowledged",
     "source_label": "Source",
+    "at_my_desk_button": "At my desk",
+    "desk_timer_hint": "Rings again in {minutes} min unless you tap At my desk.",
     "open_topic_button": "Open {topic}",
     "back_to_topics_button": "Back to topics",
     "read_message_button": "Read the full message",
