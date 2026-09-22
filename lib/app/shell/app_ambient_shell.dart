@@ -45,6 +45,9 @@ class AppAmbientShell extends StatefulWidget {
     if (path.startsWith('/topics/')) {
       return AmbientAppProfiles.topicDetail(colors);
     }
+    if (path == '/alarm' || path.startsWith('/incidents/')) {
+      return AmbientAppProfiles.criticalAlarmRinging(colors);
+    }
     if (path.startsWith('/settings/')) {
       return AmbientAppProfiles.settingsDetail(colors);
     }
@@ -59,6 +62,7 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
   late String _currentPath;
   final List<String> _history = <String>[];
   AmbientDirection _direction = AmbientDirection.push;
+  late final AmbientController _controller = AmbientController();
 
   @override
   void initState() {
@@ -66,6 +70,7 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
     _currentPath = _resolvePath();
     _history.add(_currentPath);
     widget.router.routerDelegate.addListener(_handleRouteChanged);
+    _controller.addListener(_handleOverrideChanged);
   }
 
   @override
@@ -81,7 +86,19 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
   @override
   void dispose() {
     widget.router.routerDelegate.removeListener(_handleRouteChanged);
+    _controller.removeListener(_handleOverrideChanged);
+    _controller.dispose();
     super.dispose();
+  }
+
+  void _handleOverrideChanged() {
+    if (mounted) {
+      setState(() {
+        if (_controller.overrideDirection != null) {
+          _direction = _controller.overrideDirection!;
+        }
+      });
+    }
   }
 
   String _resolvePath() {
@@ -108,6 +125,8 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
 
     final prevPath = _currentPath;
     _currentPath = nextPath;
+
+    _controller.clearOverride();
 
     final resolvedDirection = _computeDirection(prevPath, nextPath);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -151,15 +170,14 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
   }
 
   bool get _isSpecialFlow {
-    return _currentPath.startsWith('/onboarding') ||
-        _currentPath == '/alarm' ||
-        _currentPath.startsWith('/incidents/');
+    return _currentPath.startsWith('/onboarding');
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final profile = AppAmbientShell.profileForPath(_currentPath, colors);
+    final baseProfile = AppAmbientShell.profileForPath(_currentPath, colors);
+    final profile = _controller.overrideProfile ?? baseProfile;
 
     return Stack(
       children: [
@@ -177,6 +195,7 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
           ),
         Positioned.fill(
           child: AmbientScope(
+            controller: _controller,
             child: widget.child,
           ),
         ),
