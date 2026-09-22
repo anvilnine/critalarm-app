@@ -36,6 +36,8 @@ class _AckAlwaysFails implements IncidentRepository {
     required int limit,
     String? state,
     String? topic,
+    DateTime? since,
+    bool fullRefresh = false,
   }) => _inner.getIncidents(limit: limit, state: state, topic: topic);
 
   @override

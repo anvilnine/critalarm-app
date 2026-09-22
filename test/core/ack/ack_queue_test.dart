@@ -6,6 +6,8 @@ import 'package:critalarm/core/models/incident.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../alarm/fake_alarm_host.dart';
+
 /// Records what the queue sent and answers however the test wants.
 class _FakeApi implements ApiClient {
   _FakeApi({this.onAck});
@@ -100,6 +102,48 @@ void main() {
     await queue.flush();
 
     expect(caughtUp, 0);
+  });
+
+  test(
+    'an ack that lands marks the incident as acked on the alarm host',
+    () async {
+      final alarms = FakeAlarmHost();
+      addTearDown(alarms.dispose);
+      final queue = AckQueue(prefs, _FakeApi(), alarms: alarms.host);
+
+      await queue.enqueue(action: AckAction.ack, incidentId: 'inc_1');
+      await queue.flush();
+
+      // The native side skips a repeat push for a marked id, so an ack that
+      // only left the phone from Dart's queue has to mark it too.
+      expect(alarms.argsOnce('markAcked'), {'incident_id': 'inc_1'});
+    },
+  );
+
+  test('a close does not mark anything', () async {
+    final alarms = FakeAlarmHost();
+    addTearDown(alarms.dispose);
+    final queue = AckQueue(prefs, _FakeApi(), alarms: alarms.host);
+
+    await queue.enqueue(action: AckAction.close, incidentId: 'inc_2');
+    await queue.flush();
+
+    expect(alarms.callsTo('markAcked'), isEmpty);
+  });
+
+  test('an ack that failed marks nothing', () async {
+    final alarms = FakeAlarmHost();
+    addTearDown(alarms.dispose);
+    final api = _FakeApi(
+      onAck: (_) async =>
+          throw const ApiException(statusCode: 503, message: 'down'),
+    );
+    final queue = AckQueue(prefs, api, alarms: alarms.host);
+
+    await queue.enqueue(action: AckAction.ack, incidentId: 'inc_1');
+    await queue.flush();
+
+    expect(alarms.callsTo('markAcked'), isEmpty);
   });
 
   test('close calls the close route', () async {

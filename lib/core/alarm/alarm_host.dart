@@ -176,6 +176,29 @@ final class AlarmHost {
   Future<bool> stopRinging() async =>
       await _invoke<bool>('stopRinging') ?? false;
 
+  /// Tells the native side the user has acknowledged [incidentId], so a
+  /// `repeat` push for it does not ring again while the ack is still on its
+  /// way to the server. iOS keeps the set; Android already drops those
+  /// repeats on its own and has no handler for this.
+  Future<void> markAcked(String incidentId) async =>
+      _invoke<void>('markAcked', {'incident_id': incidentId});
+
+  /// Silences the alarm for [incidentId] and asks the phone to ring again for
+  /// the same incident at `now + repeat_interval_s`.
+  ///
+  /// This is what Stop, a swipe and Back all do. The incident stays open, the
+  /// server keeps repeating, and only "I'm up" ends the loop. Answers how many
+  /// seconds until that next ring, or null when the native side decided not to
+  /// re-arm: past `ring_until`, already acked here, the topic's critical
+  /// switch off, or quiet hours holding.
+  Future<int?> rearmAlarm(String incidentId) async =>
+      _invoke<int>('rearmAlarm', {'incident_id': incidentId});
+
+  /// Drops a pending re-arm for [incidentId] with no other side effect. Used
+  /// when the incident is acknowledged, closed or expired somewhere else.
+  Future<void> cancelRearm(String incidentId) async =>
+      _invoke<void>('cancelRearm', {'incident_id': incidentId});
+
   /// Whether an alarm is ringing on this device right now. Android answers
   /// from its alarm service, iOS from AlarmKit (false before iOS 26). No
   /// answer reads as not ringing, so nothing waits on a platform that cannot
@@ -212,19 +235,16 @@ final class AlarmHost {
 
   /// Incident ids with a card on the lock screen right now.
   Future<List<String>> showingIncidentIds() async =>
-      (await _invoke<List<Object?>>('showingIncidentIds'))
-          ?.whereType<String>()
-          .toList() ??
+      (await _invoke<List<Object?>>(
+        'showingIncidentIds',
+      ))?.whereType<String>().toList() ??
       const [];
 
   /// Tokens captured before Dart was listening, taken once and cleared.
   Future<List<ActivityToken>> takePendingTokens() async {
     final raw = await _invoke<List<Object?>>('takePendingActivityTokens');
     if (raw == null) return const [];
-    return raw
-        .map(ActivityToken.fromMap)
-        .whereType<ActivityToken>()
-        .toList();
+    return raw.map(ActivityToken.fromMap).whereType<ActivityToken>().toList();
   }
 
   /// False when iOS has not handed out a push-to-start token yet. Seen in the
@@ -242,6 +262,31 @@ final class AlarmHost {
         'end_minutes': window.endMinutes,
         'critical_rings': window.criticalRingsThrough,
       });
+
+  /// Copies the text of an incident the app just loaded into the App Group
+  /// the notification extension reads.
+  ///
+  /// Hosted mode strips the text out of the push, so the extension fetches it
+  /// with `GET /v1/incidents/{id}`. When the first push was handled in the
+  /// foreground, the app already has that text, and this hands it over so the
+  /// repeats that follow cost no server call at all.
+  Future<void> cacheIncidentContent({
+    required String incidentId,
+    required String title,
+    required String body,
+    List<String> tags = const [],
+    String? click,
+    String? topic,
+    int? lastMessageAt,
+  }) async => _invoke<void>('cacheIncidentContent', {
+    'incident_id': incidentId,
+    'title': title,
+    'body': body,
+    'tags': tags,
+    'click': ?click,
+    'topic': ?topic,
+    'last_message_at': ?lastMessageAt,
+  });
 
   Future<T?> _invoke<T>(String method, [Object? arguments]) async {
     try {

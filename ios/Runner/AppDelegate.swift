@@ -235,12 +235,36 @@ import AlarmKit
       // No engine is guaranteed here, so the ack goes straight on the queue
       // Dart drains. A running app is told so it can send it now.
       AckQueueStore.enqueue(action: "ack", incidentId: incidentId)
+      AckedIncidentStore.mark(incidentId: incidentId)
+      // "I'm up" ends the loop, so the ring this phone set for itself goes.
+      Task { await IncidentRearm.cancel(incidentId: incidentId) }
       if dartIsListening {
         pushChannel?.invokeMethod("onAckQueued", arguments: incidentId)
       } else {
         pendingAck = incidentId
       }
-      completionHandler()
+      // One native try, so the server stops repeating within a round trip
+      // even with no engine up. iOS keeps the app alive until the completion
+      // handler runs, and the sender gives up after eight seconds.
+      NativeAckSender.send(action: "ack", incidentId: incidentId) { _ in
+        DispatchQueue.main.async { completionHandler() }
+      }
+      return
+    }
+
+    // Swiping the banner away, or clearing it, is not an acknowledge. It
+    // silences this round and the phone sets its own next ring for the same
+    // incident. `.customDismissAction` on the INCIDENT category is what makes
+    // iOS call us at all; without this branch the dismiss was ignored.
+    if response.actionIdentifier == UNNotificationDismissActionIdentifier, let incidentId {
+      Task {
+        let seconds = await IncidentRearm.rearm(incidentId: incidentId)
+        NSLog(
+          "CritAlarm: notification_dismissed incident_id=%@ rearm_in_s=%d",
+          incidentId, seconds ?? -1
+        )
+        await MainActor.run { completionHandler() }
+      }
       return
     }
 
@@ -373,6 +397,43 @@ import AlarmKit
       IncidentActivityCoordinator.shared.end(incidentId: incidentId, finalState: state)
       result(true)
 
+    case "rearmAlarm":
+      // Silence, from the in-app ringing screen. The incident stays open and
+      // the phone sets its own next ring for it; only "I'm up" ends the loop.
+      // Answers the seconds until that ring, or nil when nothing was set.
+      guard let incidentId = args["incident_id"] as? String, !incidentId.isEmpty else {
+        result(nil)
+        return
+      }
+      Task {
+        let seconds = await IncidentRearm.rearm(incidentId: incidentId)
+        if #available(iOS 16.2, *), let seconds {
+          await IncidentActivityCoordinator.shared.setRingsAgainIn(seconds, incidentId: incidentId)
+        }
+        await MainActor.run { result(seconds) }
+      }
+
+    case "cancelRearm":
+      guard let incidentId = args["incident_id"] as? String, !incidentId.isEmpty else {
+        result(nil)
+        return
+      }
+      Task {
+        await IncidentRearm.cancel(incidentId: incidentId)
+        await MainActor.run { result(nil) }
+      }
+
+    case "markAcked":
+      // Dart acknowledged this incident (in the app, or from its queue). A
+      // repeat push for it must not ring while the ack is still on its way.
+      guard let incidentId = args["incident_id"] as? String, !incidentId.isEmpty else {
+        result(FlutterError(code: "bad_args", message: "incident_id required", details: nil))
+        return
+      }
+      AckedIncidentStore.mark(incidentId: incidentId)
+      Task { await IncidentRearm.cancel(incidentId: incidentId) }
+      result(nil)
+
     case "isRinging":
       // True while an AlarmKit alarm is going off. Dart holds a shared sound
       // file until this is false, so the cropper never covers an alarm.
@@ -410,6 +471,30 @@ import AlarmKit
       )
       result(nil)
 
+    case "cacheIncidentContent":
+      // The app loaded this incident in the foreground, so the extension does
+      // not have to call the server for it when the next repeat lands.
+      guard let incidentId = args["incident_id"] as? String,
+            let title = args["title"] as? String,
+            let body = args["body"] as? String else {
+        result(FlutterError(
+          code: "bad_args", message: "incident_id, title and body required", details: nil
+        ))
+        return
+      }
+      IncidentContentCache.write(
+        IncidentContent(
+          title: title,
+          body: body,
+          tags: args["tags"] as? [String] ?? [],
+          click: args["click"] as? String,
+          topic: args["topic"] as? String
+        ),
+        for: incidentId,
+        lastMessageAt: args["last_message_at"] as? Int
+      )
+      result(nil)
+
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -438,6 +523,7 @@ import AlarmKit
     // A push-driven alarm keeps the short default; only onboarding's test
     // alarm passes a delay of its own.
     delaySeconds: Int? = nil,
+    ringUntil: Date? = nil,
     completion: @escaping (Bool) -> Void
   ) {
     #if canImport(AlarmKit)
@@ -445,7 +531,8 @@ import AlarmKit
       Task {
         let ok = await IncidentAlarmScheduler.schedule(
           incidentId: incidentId, topic: topic, server: server, title: title, sound: sound,
-          delay: delaySeconds.map(TimeInterval.init) ?? IncidentAlarmScheduler.leadTime
+          delay: delaySeconds.map(TimeInterval.init) ?? IncidentAlarmScheduler.leadTime,
+          ringUntil: ringUntil
         )
         await MainActor.run {
           if ok {
@@ -498,6 +585,24 @@ import AlarmKit
       return
     }
 
+    // What the user already stopped on this phone. A repeat for one of those
+    // must not ring again while the ack is still on its way to the server.
+    // A reopen is a new stage, so it drops the mark and rings. Old marks are
+    // pruned on every run so the set never outlives the incident.
+    AckedIncidentStore.prune(
+      olderThan: AckedIncidentStore.pruneWindow(topic: userInfo["topic"] as? String)
+    )
+    if AlarmScheduleRule.clearsAck(kind: push.kind) {
+      AckedIncidentStore.clear(incidentId: incidentId)
+    }
+    if !AlarmScheduleRule.shouldSchedule(
+      kind: push.kind, incidentId: incidentId, acked: AckedIncidentStore.all()
+    ) {
+      NSLog("CritAlarm: background_push_ignored reason=acked_locally incident_id=%@", incidentId)
+      completionHandler(.noData)
+      return
+    }
+
     // Quiet hours holds the ring and nothing else. This is the live gate: it
     // is this handler that schedules the alarm on a real phone, so the same
     // check in Dart and in the extension does nothing until one of those
@@ -519,7 +624,10 @@ import AlarmKit
       topic: userInfo["topic"] as? String ?? "",
       server: push.server.absoluteString,
       title: push.title ?? "Crit Alarm",
-      sound: userInfo["sound"] as? String
+      sound: userInfo["sound"] as? String,
+      // Stored with the incident by the scheduler, so a Stop tapped seconds
+      // later can decide whether to re-arm without a network call.
+      ringUntil: push.ringUntil
     ) { ok in
       completionHandler(ok ? .newData : .noData)
     }

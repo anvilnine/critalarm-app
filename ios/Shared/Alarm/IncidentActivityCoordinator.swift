@@ -51,6 +51,10 @@ public final class IncidentActivityCoordinator {
     private var streamsStarted = false
     private var perActivityWatchers: [String: Task<Void, Never>] = [:]
 
+    /// One per activity, watching its content state rather than its push
+    /// token. Keyed the same way, cancelled in the same place.
+    private var contentWatchers: [String: Task<Void, Never>] = [:]
+
     private init() {}
 
     // MARK: - Tokens
@@ -112,6 +116,7 @@ public final class IncidentActivityCoordinator {
     private func watchUpdateToken(of activity: Activity<CritAlarmIncidentAttributes>) {
         guard perActivityWatchers[activity.id] == nil else { return }
         let incidentId = activity.attributes.incidentId
+        watchContentState(of: activity)
         perActivityWatchers[activity.id] = Task { [weak self] in
             for await data in activity.pushTokenUpdates {
                 let hex = data.map { String(format: "%02x", $0) }.joined()
@@ -129,7 +134,24 @@ public final class IncidentActivityCoordinator {
         }
     }
 
+    /// The relay's `ack`, `close` and `expire` reach this device as a Live
+    /// Activity update (api.md §5.3), which lands straight in the widget
+    /// process. This is how the app hears about them, so it can cancel the
+    /// AlarmKit alarm and the pending re-arm for an incident somebody else
+    /// already answered.
+    private func watchContentState(of activity: Activity<CritAlarmIncidentAttributes>) {
+        guard contentWatchers[activity.id] == nil else { return }
+        let incidentId = activity.attributes.incidentId
+        contentWatchers[activity.id] = Task { [weak self] in
+            for await content in activity.contentUpdates {
+                await self?.applyRemoteState(content.state.state, incidentId: incidentId)
+            }
+        }
+    }
+
     private func forgetWatcher(_ id: String) {
+        contentWatchers[id]?.cancel()
+        contentWatchers[id] = nil
         perActivityWatchers[id]?.cancel()
         perActivityWatchers[id] = nil
     }
@@ -254,7 +276,64 @@ public final class IncidentActivityCoordinator {
         #endif
     }
 
-    /// Stop on the alarm. AlarmKit's own card is going away, so ours takes
+    /// Stop on the alarm. The noise is over, the incident is not.
+    ///
+    /// AlarmKit's own card is going away, so ours takes over. It stays in
+    /// `open`, because nobody acknowledged anything, and it carries the one
+    /// button that ends the loop.
+    public func alarmSilenced(incidentId: String) {
+        setAlarmActive(false, incidentId: incidentId)
+        #if canImport(ActivityKit)
+        let pending = PendingIncidentStore.read(incidentId: incidentId)
+        startLocalActivity(
+            incidentId: incidentId,
+            topic: pending?.topic ?? "",
+            server: pending?.server ?? "",
+            title: pending?.title ?? "Crit Alarm",
+            state: .open,
+            openedAt: pending?.openedAt ?? Date()
+        )
+        #endif
+    }
+
+    /// Puts "Rings again in N s" on the card the user just silenced.
+    public func setRingsAgainIn(_ seconds: Int, incidentId: String) async {
+        #if canImport(ActivityKit)
+        guard let activity = activity(for: incidentId) else { return }
+        var content = activity.content.state
+        content.ringsAgainInSeconds = seconds
+        await activity.update(.init(state: content, staleDate: nil))
+        NSLog(
+            "CritAlarmActivity: activity_silenced incident_id=%@ rings_again_in_s=%d",
+            incidentId, seconds
+        )
+        #endif
+    }
+
+    /// The server said the incident was acknowledged, closed or expired, and
+    /// on iOS that arrives as a Live Activity update (api.md §5.3).
+    ///
+    /// Whatever is ringing here stops, and so does the ring this phone had set
+    /// for itself. Android hears the same three as data-only pushes (§5.2).
+    public func applyRemoteState(
+        _ state: IncidentActivityState,
+        incidentId: String
+    ) async {
+        guard state != .open else { return }
+        NSLog(
+            "CritAlarmActivity: remote_state_applied incident_id=%@ state=%@",
+            incidentId, state.rawValue
+        )
+        // Marked first, so a repeat push that crosses this does not ring.
+        AckedIncidentStore.mark(incidentId: incidentId)
+        await IncidentRearm.cancel(incidentId: incidentId)
+        setAlarmActive(false, incidentId: incidentId)
+        if state != .acked {
+            end(incidentId: incidentId, finalState: state)
+        }
+    }
+
+    /// "I'm up" on the alarm. AlarmKit's own card is going away, so ours takes
     /// over as the acknowledge surface.
     public func alarmStopped(incidentId: String) {
         setAlarmActive(false, incidentId: incidentId)
@@ -319,6 +398,14 @@ enum PendingIncidentStore {
         let server: String
         let title: String
         let openedAt: Date
+
+        /// `ring_until` off the push (api.md §5.1). The last second this phone
+        /// may ring for the incident on its own. Nil when no push carried one,
+        /// which is the onboarding demo and nothing else.
+        let ringUntil: Date?
+
+        /// The sound the alarm rang with, so a re-arm rings the same one.
+        let sound: String?
     }
 
     static let key = "critalarm.pending_incidents"
@@ -327,14 +414,36 @@ enum PendingIncidentStore {
         UserDefaults(suiteName: "group.app.critalarm") ?? .standard
     }
 
-    static func write(incidentId: String, topic: String, server: String, title: String, openedAt: Date) {
+    static func write(
+        incidentId: String,
+        topic: String,
+        server: String,
+        title: String,
+        openedAt: Date,
+        ringUntil: Date? = nil,
+        sound: String? = nil
+    ) {
         var all = readAll()
-        all[incidentId] = [
+        var entry: [String: Any] = [
             "topic": topic,
             "server": server,
             "title": title,
             "opened_at": openedAt.timeIntervalSince1970,
         ]
+        // Kept from the last push that carried them. A re-arm reads them with
+        // no network call, and a schedule that learned neither must not wipe
+        // what an earlier one knew.
+        if let ringUntil {
+            entry["ring_until"] = ringUntil.timeIntervalSince1970
+        } else if let existing = all[incidentId]?["ring_until"] {
+            entry["ring_until"] = existing
+        }
+        if let sound {
+            entry["sound"] = sound
+        } else if let existing = all[incidentId]?["sound"] {
+            entry["sound"] = existing
+        }
+        all[incidentId] = entry
         save(all)
     }
 
@@ -344,7 +453,11 @@ enum PendingIncidentStore {
             topic: raw["topic"] as? String ?? "",
             server: raw["server"] as? String ?? "",
             title: raw["title"] as? String ?? "",
-            openedAt: Date(timeIntervalSince1970: raw["opened_at"] as? TimeInterval ?? 0)
+            openedAt: Date(timeIntervalSince1970: raw["opened_at"] as? TimeInterval ?? 0),
+            ringUntil: (raw["ring_until"] as? TimeInterval).flatMap {
+                $0 > 0 ? Date(timeIntervalSince1970: $0) : nil
+            },
+            sound: (raw["sound"] as? String).flatMap { $0.isEmpty ? nil : $0 }
         )
     }
 

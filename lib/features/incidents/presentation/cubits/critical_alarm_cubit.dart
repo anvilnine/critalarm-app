@@ -98,6 +98,51 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
   }
 
+  /// Tells the native side this incident is acknowledged here. Never throws,
+  /// for the same reason [_silence] does not.
+  Future<void> _markAcked(String incidentId) async {
+    try {
+      await _alarm?.markAcked(incidentId);
+    } on Object catch (_) {
+      // Nothing to do. The ack below is what the server cares about.
+    }
+  }
+
+  /// Silence, and nothing else.
+  ///
+  /// The person wants the noise to stop; they have not said they are up. The
+  /// incident stays open, the phone sets its own next ring at
+  /// `now + repeat_interval_s` for the same id, and the server keeps repeating
+  /// too. Only [acknowledge] ends the loop.
+  ///
+  /// The demo alarm has no incident on the server, so it is silenced and left
+  /// alone: the native side answers false for it and no re-arm is set.
+  Future<void> silence() async {
+    final incidentId = state.incident?.id;
+    if (incidentId == null || incidentId.isEmpty) {
+      await silenceThisPhone();
+      return;
+    }
+    int? seconds;
+    try {
+      seconds = await _alarm?.rearmAlarm(incidentId);
+    } on Object catch (_) {
+      // A missing or unhappy channel must not leave the screen stuck. The
+      // server repeat is still the backstop.
+    }
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        feedbackMessage: seconds == null
+            ? null
+            : LocaleKeys.critical_alarm_silenced_message.tr(
+                namedArgs: {'seconds': '$seconds'},
+              ),
+        clearFeedback: seconds == null,
+      ),
+    );
+  }
+
   /// Stops the ring on this device without telling the server anything.
   ///
   /// For the case where the incident could not be loaded: the phone is
@@ -200,6 +245,10 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     // pressed Stop, so the noise is over whatever the server says: a slow or
     // refused ack must not keep it ringing.
     await _silence(targetId, handOverToStatusCard: true);
+
+    // Marked before the send, so a repeat push that lands while the request
+    // is in flight does not ring. A reopen clears it again.
+    await _markAcked(targetId);
 
     final result = await _acknowledgeIncident(targetId);
     if (isClosed) return;
@@ -350,6 +399,26 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         ? firstMsg.message
         : LocaleKeys.critical_alarm_fallback_body.tr();
     final topic = incident.topic;
+
+    // Hand the text to the notification extension. It has no way of its own to
+    // read what the app loaded, so without this every repeat push on this
+    // incident costs another `GET /v1/incidents/{id}`. Only a real message is
+    // worth keeping: caching a fallback line would hide the real text.
+    if (firstMsg != null && incident.id != 'inc_demo') {
+      final cached = _alarm?.cacheIncidentContent(
+        incidentId: incident.id,
+        title: title,
+        body: body,
+        tags: firstMsg.tags,
+        click: firstMsg.click,
+        topic: topic,
+        lastMessageAt: incident.lastMessageAt == null
+            ? null
+            : incident.lastMessageAt!.millisecondsSinceEpoch ~/ 1000,
+      );
+      if (cached != null) unawaited(cached);
+    }
+
     emit(
       state.copyWith(
         meta: firstMsg == null

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/api_client.dart';
+import 'package:critalarm/core/net/launch_retry.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,6 +28,7 @@ final class LiveActivityTokenRegistry {
     required this.api,
     required this.identity,
     required this.host,
+    this.wait = defaultLaunchWait,
   });
 
   /// What the last accepted upload of each kind looked like, as JSON:
@@ -37,12 +39,20 @@ final class LiveActivityTokenRegistry {
   final ApiClient api;
   final DeviceIdentityStore identity;
   final AlarmHost host;
+  final Future<void> Function(Duration) wait;
 
   StreamSubscription<ActivityToken>? _rotations;
 
   /// True after a push-to-start token has actually arrived. False is what the
   /// diagnostics screen shows as "not ready".
   bool pushToStartReady = false;
+
+  bool _launchCallsPending = false;
+
+  /// True when the last upload failed even after `retryOnLaunch` gave up.
+  /// Read on resume so a healthy app does not spend a request on every
+  /// foreground.
+  bool get launchCallsPending => _launchCallsPending;
 
   /// Uploads whatever was captured before Dart was listening, then watches for
   /// rotations.
@@ -65,6 +75,13 @@ final class LiveActivityTokenRegistry {
     _rotations = null;
   }
 
+  /// Resume calls this. Runs [start] again, but only when the last upload
+  /// ended in failure.
+  Future<void> retryIfPending() async {
+    if (!_launchCallsPending) return;
+    await start();
+  }
+
   /// Sends one token. Returns true when a call was actually made.
   Future<bool> upload(ActivityToken token) async {
     final device = await identity.readOrCreate();
@@ -80,19 +97,26 @@ final class LiveActivityTokenRegistry {
     if (accepted[slot] == token.token) return false;
 
     try {
-      await api.uploadActivityToken(
-        deviceId: device.deviceId,
-        deviceToken: deviceToken,
-        kind: token.kind,
-        token: token.token,
-        incidentId: token.incidentId,
-        activityId: token.activityId,
+      await retryOnLaunch(
+        'live_activity_token',
+        () => api.uploadActivityToken(
+          deviceId: device.deviceId,
+          deviceToken: deviceToken,
+          kind: token.kind,
+          token: token.token,
+          incidentId: token.incidentId,
+          activityId: token.activityId,
+        ),
+        wait: wait,
+        log: _log,
       );
     } on Object catch (_) {
+      _launchCallsPending = true;
       _log('activity_token_failed kind=${token.kind}');
       return false;
     }
 
+    _launchCallsPending = false;
     accepted[slot] = token.token;
     await prefs.setString(acceptedKey, jsonEncode(accepted));
     if (token.kind == ActivityTokenKind.pushToStart) pushToStartReady = true;

@@ -24,6 +24,8 @@ class _CountingIncidents implements IncidentRepository {
     int? limit,
     String? state,
     String? topic,
+    DateTime? since,
+    bool fullRefresh = false,
   }) async {
     log.add('incidents');
     return const <Incident>[].toSuccess();

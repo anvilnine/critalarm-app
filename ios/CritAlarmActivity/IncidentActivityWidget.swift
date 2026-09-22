@@ -77,9 +77,16 @@ private struct LockScreenCard: View {
                     .font(.headline)
                     .foregroundStyle(CritAlarmPalette.ink)
                     .lineLimit(2)
-                Text(context.state.openedAt, style: .relative)
-                    .font(.caption2)
-                    .foregroundStyle(CritAlarmPalette.ink.opacity(0.6))
+                if let seconds = context.state.ringsAgainInSeconds {
+                    Text(silencedText(seconds))
+                        .font(.caption2)
+                        .foregroundStyle(CritAlarmPalette.ink.opacity(0.6))
+                        .lineLimit(2)
+                } else {
+                    Text(context.state.openedAt, style: .relative)
+                        .font(.caption2)
+                        .foregroundStyle(CritAlarmPalette.ink.opacity(0.6))
+                }
             }
 
             Spacer(minLength: 8)
@@ -87,9 +94,40 @@ private struct LockScreenCard: View {
             if context.state.state == .acked {
                 DoneButton(incidentId: context.attributes.incidentId)
                     .layoutPriority(1)
+            } else if context.state.ringsAgainInSeconds != nil {
+                // Silenced, not acknowledged. This is the only way out of the
+                // loop, so it has to be on the card.
+                ImUpButton(incidentId: context.attributes.incidentId)
+                    .layoutPriority(1)
             }
         }
         .padding(16)
+    }
+}
+
+/// The line the card carries after Stop. `assets/translations/en.json` holds
+/// the same sentence for the in-app screen.
+private func silencedText(_ seconds: Int) -> String {
+    "Stopped. Rings again in \(seconds) s. Tap I'm up to end it."
+}
+
+/// The acknowledge, on a card the user silenced.
+@available(iOS 16.2, *)
+private struct ImUpButton: View {
+    let incidentId: String
+
+    var body: some View {
+        Button(intent: AckAlarmIntent(incidentId: incidentId)) {
+            Text("I'm up")
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+        }
+        .buttonStyle(.plain)
+        .background(CritAlarmFace.alarmed.canvas, in: Capsule())
+        .foregroundStyle(CritAlarmFace.alarmed.stroke)
     }
 }
 

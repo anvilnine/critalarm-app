@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
@@ -8,6 +10,36 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_alarm_host.dart';
+
+/// Fails the first [failTimes] calls to `uploadActivityToken`, then behaves
+/// like a normal [MockApiClient].
+class _FlakyUploadApiClient extends MockApiClient {
+  _FlakyUploadApiClient(super.server, {required this.failTimes});
+
+  final int failTimes;
+  int calls = 0;
+
+  @override
+  Future<void> uploadActivityToken({
+    required String deviceId,
+    required String deviceToken,
+    required String kind,
+    required String token,
+    String? incidentId,
+    String? activityId,
+  }) async {
+    calls++;
+    if (calls <= failTimes) throw const SocketException('no route');
+    return super.uploadActivityToken(
+      deviceId: deviceId,
+      deviceToken: deviceToken,
+      kind: kind,
+      token: token,
+      incidentId: incidentId,
+      activityId: activityId,
+    );
+  }
+}
 
 void main() {
   late FakeAlarmHost fake;
@@ -189,5 +221,54 @@ void main() {
 
     expect(api.activityTokens.map((t) => t['kind']), ['la_start', 'la_update']);
     await registry.stop();
+  });
+
+  group('launch retry', () {
+    test('retries an upload failure then succeeds', () async {
+      final waited = <Duration>[];
+      final flaky = _FlakyUploadApiClient(api.server, failTimes: 2);
+      final registry = LiveActivityTokenRegistry(
+        prefs: prefs,
+        api: flaky,
+        identity: identity,
+        host: fake.host,
+        wait: (d) async => waited.add(d),
+      );
+
+      final sent = await registry.upload(
+        const ActivityToken(kind: ActivityTokenKind.pushToStart, token: 'aa11'),
+      );
+
+      expect(sent, isTrue);
+      expect(flaky.calls, 3);
+      expect(registry.launchCallsPending, isFalse);
+      expect(waited, [const Duration(seconds: 1), const Duration(seconds: 2)]);
+    });
+
+    test('a resume after success does not call the API again', () async {
+      final flaky = _FlakyUploadApiClient(api.server, failTimes: 0);
+      final registry = LiveActivityTokenRegistry(
+        prefs: prefs,
+        api: flaky,
+        identity: identity,
+        host: fake.host,
+        wait: (_) async {},
+      );
+
+      expect(
+        await registry.upload(
+          const ActivityToken(
+            kind: ActivityTokenKind.pushToStart,
+            token: 'aa11',
+          ),
+        ),
+        isTrue,
+      );
+      expect(flaky.calls, 1);
+
+      await registry.retryIfPending();
+
+      expect(flaky.calls, 1);
+    });
   });
 }

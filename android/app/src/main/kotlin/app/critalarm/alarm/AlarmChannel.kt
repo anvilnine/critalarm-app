@@ -94,6 +94,33 @@ class AlarmChannel(private val context: Context) {
                 )
             }
 
+            // Silence, from the in-app ringing screen. The incident stays
+            // open and the phone sets its own next ring for it; only "I'm up"
+            // ends the loop. Answers the seconds until that ring, or null when
+            // nothing was set.
+            "rearmAlarm" -> {
+                val incidentId = call.argument<String>("incident_id")
+                if (incidentId.isNullOrEmpty()) {
+                    result.success(null)
+                    return
+                }
+                stopService("dart_silence")
+                result.success(
+                    IncidentRearm.rearm(
+                        context = context,
+                        incidentId = incidentId,
+                        title = call.argument<String>("title"),
+                        body = call.argument<String>("body"),
+                    ),
+                )
+            }
+
+            "cancelRearm" -> {
+                val incidentId = call.argument<String>("incident_id")
+                if (!incidentId.isNullOrEmpty()) IncidentRearm.cancel(context, incidentId)
+                result.success(null)
+            }
+
             // The acked cards this device still has up. They are plain
             // notifications rather than Live Activities, so the store is the
             // only record of them, and launch-time reconcile needs the list to

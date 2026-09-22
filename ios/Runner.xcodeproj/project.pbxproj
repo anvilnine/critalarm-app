@@ -7,6 +7,31 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A24A00000000000000000035 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
+		A24A00000000000000000011 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
+		A24A00000000000000000012 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
+		A24A00000000000000000013 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
+		A24A00000000000000000014 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
+		A24A00000000000000000021 /* AlarmScheduleRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000002 /* AlarmScheduleRule.swift */; };
+		A28A00000000000000000201 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
+		A28A00000000000000000211 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
+		A28A00000000000000000202 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
+		A28A00000000000000000212 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
+		A28A00000000000000000203 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
+		A28A00000000000000000213 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
+		A28A00000000000000000204 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
+		A28A00000000000000000214 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
+		A28A00000000000000000221 /* RearmRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000103 /* RearmRuleTests.swift */; };
+		A28A00000000000000000231 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
+		A28A00000000000000000241 /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
+		A24A00000000000000000022 /* AlarmScheduleRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000002 /* AlarmScheduleRule.swift */; };
+		A24A00000000000000000031 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
+		A24A00000000000000000032 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
+		A24A00000000000000000033 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
+		A24A00000000000000000034 /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
+		A24A00000000000000000041 /* AlarmScheduleRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000004 /* AlarmScheduleRuleTests.swift */; };
+		A24A00000000000000000042 /* AckedIncidentStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000005 /* AckedIncidentStoreTests.swift */; };
+		A24A00000000000000000043 /* NativeAckSenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000006 /* NativeAckSenderTests.swift */; };
 		05BDDBA0157A3EE529FEC613 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E03D7BEA0BF5A60A3DCFDC3 /* NotificationService.swift */; };
 		0617CFB82831F64DAE3C6E36 /* PushEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B43861F26AA39D52CC432E /* PushEventLog.swift */; };
 		0632154549508956E8E82937 /* AlarmTriggerPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */; };
@@ -17,6 +42,10 @@
 		A13F0C1E4B7D25A9E0114004 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
 		A13F0C1E4B7D25A9E0114005 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
 		A13F0C1E4B7D25A9E0114006 /* QuietHoursTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114002 /* QuietHoursTests.swift */; };
+		A13F0C1E4B7D25A9E0116002 /* IncidentContentCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0116001 /* IncidentContentCache.swift */; };
+		A13F0C1E4B7D25A9E0116003 /* IncidentContentCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0116001 /* IncidentContentCache.swift */; };
+		A13F0C1E4B7D25A9E0116004 /* IncidentContentCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0116001 /* IncidentContentCache.swift */; };
+		A13F0C1E4B7D25A9E0116006 /* IncidentContentCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0116005 /* IncidentContentCacheTests.swift */; };
 		0667D9BC1041B885CED760AE /* IncidentActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */; };
 		0CC17DA6DCACE81402DAB0A4 /* IncidentAlarmAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */; };
 		0D184790693B92A167F3BAAD /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
@@ -136,6 +165,15 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A24A00000000000000000001 /* AckedIncidentStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AckedIncidentStore.swift; sourceTree = "<group>"; };
+		A24A00000000000000000002 /* AlarmScheduleRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmScheduleRule.swift; sourceTree = "<group>"; };
+		A28A00000000000000000101 /* RearmRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RearmRule.swift; sourceTree = "<group>"; };
+		A28A00000000000000000102 /* IncidentRearm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentRearm.swift; sourceTree = "<group>"; };
+		A28A00000000000000000103 /* RearmRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RearmRuleTests.swift; sourceTree = "<group>"; };
+		A24A00000000000000000003 /* NativeAckSender.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeAckSender.swift; sourceTree = "<group>"; };
+		A24A00000000000000000004 /* AlarmScheduleRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmScheduleRuleTests.swift; sourceTree = "<group>"; };
+		A24A00000000000000000005 /* AckedIncidentStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AckedIncidentStoreTests.swift; sourceTree = "<group>"; };
+		A24A00000000000000000006 /* NativeAckSenderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeAckSenderTests.swift; sourceTree = "<group>"; };
 		0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentAlarmAttributes.swift; sourceTree = "<group>"; };
 		0343E94C6B3165806974A529 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		0729842DADC1254D34F8C509 /* CritAlarmActivity.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = CritAlarmActivity.entitlements; sourceTree = "<group>"; };
@@ -176,6 +214,8 @@
 		A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedSounds.swift; sourceTree = "<group>"; };
 		A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuietHours.swift; sourceTree = "<group>"; };
 		A13F0C1E4B7D25A9E0114002 /* QuietHoursTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuietHoursTests.swift; sourceTree = "<group>"; };
+		A13F0C1E4B7D25A9E0116001 /* IncidentContentCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentContentCache.swift; sourceTree = "<group>"; };
+		A13F0C1E4B7D25A9E0116005 /* IncidentContentCacheTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentContentCacheTests.swift; sourceTree = "<group>"; };
 		A001835E63EC097B270CFC7B /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		A471C6FA0F15B4693AAA2990 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NtfyEmoji.swift; sourceTree = "<group>"; };
@@ -237,6 +277,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A24A00000000000000000007 /* Ack */ = {
+			isa = PBXGroup;
+			children = (
+				A24A00000000000000000003 /* NativeAckSender.swift */,
+			);
+			path = Ack;
+			sourceTree = "<group>";
+		};
 		0E74CCA51819F6C432F2180C /* Pods */ = {
 			isa = PBXGroup;
 			children = (
@@ -261,10 +309,15 @@
 		331C8082294A63A400263BE5 /* RunnerTests */ = {
 			isa = PBXGroup;
 			children = (
+				A24A00000000000000000004 /* AlarmScheduleRuleTests.swift */,
+				A28A00000000000000000103 /* RearmRuleTests.swift */,
+				A24A00000000000000000005 /* AckedIncidentStoreTests.swift */,
+				A24A00000000000000000006 /* NativeAckSenderTests.swift */,
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
 				78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */,
 				1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */,
 				A13F0C1E4B7D25A9E0114002 /* QuietHoursTests.swift */,
+				A13F0C1E4B7D25A9E0116005 /* IncidentContentCacheTests.swift */,
 				A14C1D0EB7F3524C8A9D0012 /* DeviceIdentityKeychainTests.swift */,
 			);
 			path = RunnerTests;
@@ -304,12 +357,14 @@
 		6985D8F09F70FDA837FD21F0 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				A24A00000000000000000007 /* Ack */,
 				B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */,
 				AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */,
 				B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */,
 				F706A2A4516835A56FA2F295 /* IncidentContent.swift */,
 				E1B43861F26AA39D52CC432E /* PushEventLog.swift */,
 				A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */,
+				A13F0C1E4B7D25A9E0116001 /* IncidentContentCache.swift */,
 				9886D275E53BA770B3EB7666 /* Alarm */,
 			);
 			path = Shared;
@@ -378,6 +433,10 @@
 		9886D275E53BA770B3EB7666 /* Alarm */ = {
 			isa = PBXGroup;
 			children = (
+				A24A00000000000000000001 /* AckedIncidentStore.swift */,
+				A24A00000000000000000002 /* AlarmScheduleRule.swift */,
+				A28A00000000000000000101 /* RearmRule.swift */,
+				A28A00000000000000000102 /* IncidentRearm.swift */,
 				94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */,
 				0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */,
 				C1152E565D4F08BE1BD9C5C4 /* IncidentAlarmScheduler.swift */,
@@ -707,6 +766,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A28A00000000000000000221 /* RearmRuleTests.swift in Sources */,
+				A28A00000000000000000211 /* IncidentRearm.swift in Sources */,
+				A28A00000000000000000201 /* RearmRule.swift in Sources */,
+				A24A00000000000000000012 /* AckedIncidentStore.swift in Sources */,
+				A24A00000000000000000022 /* AlarmScheduleRule.swift in Sources */,
+				A24A00000000000000000032 /* NativeAckSender.swift in Sources */,
+				A24A00000000000000000041 /* AlarmScheduleRuleTests.swift in Sources */,
+				A24A00000000000000000042 /* AckedIncidentStoreTests.swift in Sources */,
+				A24A00000000000000000043 /* NativeAckSenderTests.swift in Sources */,
 				331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */,
 				9DF7AE06CF79C15046128835 /* NotificationServiceTests.swift in Sources */,
 				D183068650726122FB4BED45 /* PushDeliveryTests.swift in Sources */,
@@ -725,6 +793,8 @@
 				F6BAA4FB61319AC1D2D1ADA7 /* AlarmTriggerPath.swift in Sources */,
 				A13F0C1E4B7D25A9E0114003 /* QuietHours.swift in Sources */,
 				A13F0C1E4B7D25A9E0115002 /* SharedSounds.swift in Sources */,
+				A13F0C1E4B7D25A9E0116002 /* IncidentContentCache.swift in Sources */,
+				A13F0C1E4B7D25A9E0116006 /* IncidentContentCacheTests.swift in Sources */,
 				A13F0C1E4B7D25A9E0114006 /* QuietHoursTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -733,6 +803,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A28A00000000000000000212 /* IncidentRearm.swift in Sources */,
+				A28A00000000000000000202 /* RearmRule.swift in Sources */,
+				A24A00000000000000000011 /* AckedIncidentStore.swift in Sources */,
+				A24A00000000000000000021 /* AlarmScheduleRule.swift in Sources */,
+				A24A00000000000000000031 /* NativeAckSender.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
@@ -749,6 +824,7 @@
 				0632154549508956E8E82937 /* AlarmTriggerPath.swift in Sources */,
 				A13F0C1E4B7D25A9E0114004 /* QuietHours.swift in Sources */,
 				A13F0C1E4B7D25A9E0115003 /* SharedSounds.swift in Sources */,
+				A13F0C1E4B7D25A9E0116003 /* IncidentContentCache.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -756,6 +832,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A28A00000000000000000213 /* IncidentRearm.swift in Sources */,
+				A28A00000000000000000203 /* RearmRule.swift in Sources */,
+				A24A00000000000000000035 /* NativeAckSender.swift in Sources */,
+				A24A00000000000000000013 /* AckedIncidentStore.swift in Sources */,
 				BE4704C5DA9B9A1CAC9CBCAC /* NotificationService.swift in Sources */,
 				873108CBF1F3961B5574601E /* NseCredentials.swift in Sources */,
 				A436826ED21EEF1AB1E6333E /* NtfyEmoji.swift in Sources */,
@@ -770,6 +850,7 @@
 				976B23E5DF5FDE6959EA0BDA /* AlarmTriggerPath.swift in Sources */,
 				A13F0C1E4B7D25A9E0114005 /* QuietHours.swift in Sources */,
 				A13F0C1E4B7D25A9E0115004 /* SharedSounds.swift in Sources */,
+				A13F0C1E4B7D25A9E0116004 /* IncidentContentCache.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -777,6 +858,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A28A00000000000000000241 /* IncidentPush.swift in Sources */,
+				A28A00000000000000000231 /* QuietHours.swift in Sources */,
+				A28A00000000000000000214 /* IncidentRearm.swift in Sources */,
+				A28A00000000000000000204 /* RearmRule.swift in Sources */,
+				A24A00000000000000000014 /* AckedIncidentStore.swift in Sources */,
+				A24A00000000000000000033 /* NativeAckSender.swift in Sources */,
+				A24A00000000000000000034 /* NseCredentials.swift in Sources */,
 				A5BB28153649D3FD00B5FF5A /* AlarmActivityWidget.swift in Sources */,
 				84353DF6B9FF22B8BB32717B /* CritAlarmActivityBundle.swift in Sources */,
 				CF1F6744B717A05554FDAF49 /* FaceView.swift in Sources */,

@@ -1,4 +1,4 @@
-<!-- GENERATED from critalarm-server@df059fc — do not edit. Run scripts/sync-contract.sh -->
+<!-- GENERATED from critalarm-server@e298255 — do not edit. Run scripts/sync-contract.sh -->
 
 # Crit Alarm architecture
 
@@ -126,12 +126,11 @@ Rules:
 Only priority 5 on a critical topic creates an incident and enters the retry
 loop. Everything else is fire and forget, ntfy-style.
 
-Apple denied the Critical Alerts entitlement for `app.critalarm`. On iOS 26 or
-later a priority 5 page rings as an AlarmKit alarm, through the silent switch
-and Do Not Disturb. On older iPhones the loudest delivery is a Time-Sensitive
-push with sound, which the silent switch mutes. The topic critical switch still
-decides whether an incident opens and whether the repeat loop runs, and it
-still drives the Android full-screen alarm.
+Apple denied the Critical Alerts entitlement for `app.critalarm`, so iOS never
+rings through the silent switch or Do Not Disturb. The loudest iOS delivery is a
+Time-Sensitive push. The topic critical switch still decides whether an incident
+opens and whether the repeat loop runs, and it still drives the Android
+full-screen alarm.
 
 ## 6. API
 
@@ -272,6 +271,18 @@ topics and incidents and never leaves the app. Never mix them.
 `setInterval` every 5 s selects `fire_at <= now`, handles each, then deletes or
 reschedules. On boot the same scan runs once. A crash loses at most 5 seconds
 of ringing, not the incident.
+
+**How long rows live.** `history_days` is retention, not a number to show. On a
+relay or hosted server `pruneHistory` in `src/retention/prune.ts` walks the
+accounts once an hour, one transaction each, and deletes closed and expired
+incidents older than that account's window along with their messages, plus any
+message with no incident. An open or acked incident is never deleted, whatever
+its age. The job has its own `setInterval`, separate from the 5 s timer scan,
+and its first run is 60 s after boot. Between runs `historyCutoff` in
+`src/retention/window.ts` hides the same rows from `GET /v1/incidents` and
+`GET /{topic}/json`, so a read never shows what the next run will delete. A
+self-hosted server has no tier and no window: it prunes nothing, filters
+nothing, and there is no setting that turns this on. See `docs/api.md` §4.2.
 
 ## 8. Push path detail
 

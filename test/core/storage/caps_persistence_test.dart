@@ -32,13 +32,14 @@ class _Api extends MockApiClient {
       'devices': 5,
       'critical_topics': null,
       'p4_daily': 1000,
-      'history_incidents': null,
       'history_days': 90,
     }),
   );
 }
 
 void main() {
+  // `history_incidents` was removed in 1.16.0 (api.md §4.2). A server that
+  // still sends it is ignored, and its absence is no limit.
   test('null and absent caps are unlimited; history caps parse', () {
     for (final json in [
       <String, dynamic>{},
@@ -55,7 +56,6 @@ void main() {
         caps.devices,
         caps.criticalTopics,
         caps.p4Daily,
-        caps.historyIncidents,
         caps.historyDays,
       ], everyElement(isNull));
       expect(AccountCaps.fromJson(caps.toJson()), caps);
@@ -64,7 +64,6 @@ void main() {
       'history_incidents': 20,
       'history_days': 7,
     });
-    expect(caps.historyIncidents, 20);
     expect(caps.historyDays, 7);
   });
 
@@ -105,7 +104,6 @@ void main() {
         )(appVersion: '1');
         final caps = (await store().readOrCreate()).caps;
         expect(caps.criticalTopics, isNull);
-        expect(caps.historyIncidents, isNull);
         expect(caps.historyDays, 90);
         expect(caps.devices, 5);
         expect(caps.p4Daily, 1000);
