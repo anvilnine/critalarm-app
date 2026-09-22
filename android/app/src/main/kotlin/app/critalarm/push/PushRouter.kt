@@ -13,6 +13,7 @@ import app.critalarm.notifications.IncidentCards
 import app.critalarm.notifications.IncidentPhoneState
 import app.critalarm.notifications.MessageNotificationFactory
 import app.critalarm.notifications.NotificationChannels
+import app.critalarm.reminders.ReminderReceiver
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.storage.PushEventLog
@@ -188,6 +189,8 @@ class PushRouter(private val context: Context) {
             StateKindRule.Card.ACKED -> {
                 val ackedAt = store.acknowledgedAtMillis(incidentId) ?: System.currentTimeMillis()
                 store.markAcknowledged(incidentId, ackedAt)
+                // Anything that waited while the alarm was up can go out now.
+                ReminderReceiver.releaseHeld(context)
                 IncidentActionReceiver.postStatusCard(
                     context = context,
                     incidentId = incidentId,
