@@ -20,6 +20,7 @@ void main() {
           AmbientAppProfiles.historyDetail(colors),
           AmbientAppProfiles.settingsDetail(colors),
           AmbientAppProfiles.soundList(colors),
+          AmbientAppProfiles.soundEditor(colors),
         ];
 
         for (final profile in profiles) {

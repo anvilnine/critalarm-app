@@ -28,8 +28,26 @@ object PeakReader {
     private const val MAX_READ_MS = 10_000L
     private const val MAX_EMPTY_DEQUEUES = 500
 
-    /** RMS per slice, the loudest slice at 1. Empty when nothing could read it. */
-    fun read(context: Context, path: String, isAsset: Boolean, count: Int): List<Double> {
+    /**
+     * The cropper reads a whole file of up to 20 minutes once, which takes
+     * longer than a list row. It can also stop the read through [isCancelled].
+     * A read that runs out of time comes back empty, and the cropper then
+     * shows the file as unreadable.
+     */
+    const val MAX_CROPPER_READ_MS = 30_000L
+
+    /**
+     * RMS per slice, the loudest slice at 1. Empty when nothing could read it,
+     * or when [isCancelled] turns true part way through.
+     */
+    fun read(
+        context: Context,
+        path: String,
+        isAsset: Boolean,
+        count: Int,
+        maxReadMs: Long = MAX_READ_MS,
+        isCancelled: () -> Boolean = { false },
+    ): List<Double> {
         if (count <= 0) return emptyList()
         val extractor = MediaExtractor()
         var codec: MediaCodec? = null
@@ -71,7 +89,11 @@ object PeakReader {
             var emptyDequeues = 0
 
             while (!outputDone) {
-                if (System.currentTimeMillis() - startedAt > MAX_READ_MS ||
+                if (isCancelled()) {
+                    Log.i(TAG, "peaks_cancelled path=$path")
+                    return emptyList()
+                }
+                if (System.currentTimeMillis() - startedAt > maxReadMs ||
                     emptyDequeues > MAX_EMPTY_DEQUEUES
                 ) {
                     Log.w(TAG, "peaks_gave_up path=$path empty_dequeues=$emptyDequeues")

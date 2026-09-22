@@ -1,12 +1,9 @@
 import 'dart:async';
 
-import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
-import 'package:critalarm/core/sound/sound_assignments.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_peaks_cache.dart';
-import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/sound_file_picker.dart';
 import 'package:critalarm/features/settings/domain/usecases/delete_user_sound_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
@@ -14,68 +11,17 @@ import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cub
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Keeps everything in memory, the same fallback rules as the real one.
-class _MemoryRepository implements AlarmSoundRepository {
-  SoundAssignments assignments = const SoundAssignments(
-    defaultSoundId: BundledSounds.fallbackId,
-  );
-  final List<AlarmSound> sounds = [];
-
-  @override
-  Future<AppResult<SoundAssignments>> getAssignments() async =>
-      assignments.toSuccess();
-
-  @override
-  Future<AppResult<Unit>> setDefaultSoundId(String soundId) async {
-    assignments = assignments.withDefault(soundId);
-    return unit.toSuccess();
-  }
-
-  @override
-  Future<AppResult<Unit>> setTopicSoundId(
-    String topicName,
-    String? soundId,
-  ) async {
-    assignments = assignments.withTopicSound(topicName, soundId);
-    return unit.toSuccess();
-  }
-
-  @override
-  Future<AppResult<List<AlarmSound>>> getUserSounds() async =>
-      List<AlarmSound>.of(sounds).toSuccess();
-
-  @override
-  Future<AppResult<Unit>> addUserSound(AlarmSound sound) async {
-    sounds.add(sound);
-    return unit.toSuccess();
-  }
-
-  @override
-  Future<AppResult<Unit>> updateUserSoundPeaks(
-    String soundId,
-    List<double> peaks,
-  ) async {
-    final index = sounds.indexWhere((s) => s.id == soundId);
-    if (index >= 0) sounds[index] = sounds[index].copyWith(peaks: peaks);
-    return unit.toSuccess();
-  }
-
-  @override
-  Future<AppResult<Unit>> deleteUserSound(String soundId) async {
-    sounds.removeWhere((s) => s.id == soundId);
-    assignments = assignments.withSoundDeleted(
-      soundId,
-      fallbackSoundId: BundledSounds.fallbackId,
-    );
-    return unit.toSuccess();
-  }
-}
+import 'memory_alarm_sound_repository.dart';
 
 class _FixedPicker implements SoundFilePicker {
   PickedSoundFile? next;
+  final List<String> discarded = [];
 
   @override
   Future<PickedSoundFile?> pickOne() async => next;
+
+  @override
+  Future<void> discard(String path) async => discarded.add(path);
 }
 
 void main() {
@@ -96,7 +42,7 @@ void main() {
   Completer<void>? holdBundledPeaks;
   late int bundledReads;
   late Completer<void> userPeaksAsked;
-  late _MemoryRepository repository;
+  late MemoryAlarmSoundRepository repository;
   late _FixedPicker picker;
   late SoundPickerCubit cubit;
 
@@ -138,13 +84,12 @@ void main() {
         _ => true,
       };
     });
-    repository = _MemoryRepository();
+    repository = MemoryAlarmSoundRepository();
     picker = _FixedPicker();
     final host = SoundHost();
     cubit = SoundPickerCubit(
       repository,
       host,
-      ImportSoundUsecase(repository, host, platform: TargetPlatform.iOS),
       DeleteUserSoundUsecase(repository, host),
       picker,
       SoundPeaksCache(host),
@@ -185,17 +130,6 @@ void main() {
     expect(calls.last, 'publishSoundAssignments');
   });
 
-  test('importing a sound saves its peaks with it', () async {
-    picker.next = const PickedSoundFile(
-      path: '/tmp/horn.mp3',
-      name: 'horn.mp3',
-      sizeBytes: 1024,
-    );
-    await cubit.importSound();
-    expect(cubit.state.userSounds.single.peaks, peaks);
-    expect(repository.sounds.single.peaks, peaks);
-  });
-
   test('bundled rows get their peaks on load', () async {
     for (final sound in cubit.state.bundled) {
       expect(sound.peaks, peaks, reason: sound.id);
@@ -207,7 +141,6 @@ void main() {
     return SoundPickerCubit(
       repository,
       host,
-      ImportSoundUsecase(repository, host, platform: TargetPlatform.iOS),
       DeleteUserSoundUsecase(repository, host),
       picker,
       cache,
@@ -312,30 +245,59 @@ void main() {
     expect(repository.sounds, isEmpty);
   });
 
-  test('importing a sound publishes', () async {
+  test('a picked file that passes the check goes on to the cropper', () async {
     picker.next = const PickedSoundFile(
       path: '/tmp/horn.mp3',
       name: 'horn.mp3',
       sizeBytes: 1024,
     );
-    await cubit.importSound();
-    expect(cubit.state.userSounds, hasLength(1));
+    final file = await cubit.pickFile();
+    expect(file, same(picker.next));
+    expect(cubit.state.errorCode, isNull);
+    expect(picker.discarded, isEmpty);
+  });
+
+  test('backing out of the picker gives nothing and no error', () async {
+    expect(await cubit.pickFile(), isNull);
+    expect(cubit.state.errorCode, isNull);
+  });
+
+  test('a picked file that fails the check is dropped with an error', () async {
+    picker.next = const PickedSoundFile(
+      path: '/tmp/film.mov',
+      name: 'film.mov',
+      sizeBytes: 1024,
+    );
+    expect(await cubit.pickFile(), isNull);
+    expect(cubit.state.errorCode, 'unsupportedFormat');
+    expect(picker.discarded, ['/tmp/film.mov']);
+  });
+
+  test('a picked file over 100 MB is dropped before any decode', () async {
+    picker.next = const PickedSoundFile(
+      path: '/tmp/big.mp3',
+      name: 'big.mp3',
+      sizeBytes: 101 * 1024 * 1024,
+    );
+    expect(await cubit.pickFile(), isNull);
+    expect(cubit.state.errorCode, 'tooLarge');
+    expect(calls, isNot(contains('probeDuration')));
+  });
+
+  test('after the cropper closes the list is read again', () async {
+    repository.sounds.add(userSound);
+    await cubit.reloadAfterCrop();
+    expect(cubit.state.userSounds, [userSound]);
+    expect(cubit.state.selectedSoundId, isNot(userSound.id));
     expect(publishCount(), 1);
   });
 
-  test(
-    'an iOS import over 29.5 seconds is turned away and publishes nothing',
-    () async {
-      probedMs = 29501;
-      picker.next = const PickedSoundFile(
-        path: '/tmp/long.mp3',
-        name: 'long.mp3',
-        sizeBytes: 1024,
-      );
-      await cubit.importSound();
-      expect(cubit.state.errorCode, 'tooLong');
-      expect(cubit.state.userSounds, isEmpty);
-      expect(publishCount(), 0);
-    },
-  );
+  test('a save that finishes after the cropper closed still shows', () async {
+    final save = Completer<void>();
+    final reload = cubit.reloadAfterCrop(save.future);
+    repository.sounds.add(userSound);
+    save.complete();
+    await reload;
+    expect(cubit.state.userSounds, [userSound]);
+  });
 }

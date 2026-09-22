@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/design/design.dart';
@@ -46,16 +47,31 @@ class _SoundPickerView extends StatelessWidget {
   }
 
   static String errorMessage(String code) => switch (code) {
-    'tooLong' => LocaleKeys.sound_picker_error_too_long.tr(),
+    'sourceTooLong' => LocaleKeys.sound_picker_error_source_too_long.tr(),
     'tooLarge' => LocaleKeys.sound_picker_error_too_large.tr(
       namedArgs: {
-        'megabytes': '${SoundImportLimits.maxBytes ~/ (1024 * 1024)}',
+        'megabytes': '${SoundImportLimits.maxSourceBytes ~/ (1024 * 1024)}',
       },
     ),
     'unsupportedFormat' => LocaleKeys.sound_picker_error_unsupported.tr(),
     'unreadable' => LocaleKeys.sound_picker_error_unreadable.tr(),
     _ => LocaleKeys.sound_picker_error_copy_failed.tr(),
   };
+
+  /// Pick a file, crop it, then read the list again. The cropper pops with
+  /// a future for a save that may still be running, so a sound saved after
+  /// the user left the cropper still shows up.
+  static Future<void> _pickAndCrop(BuildContext context) async {
+    final cubit = context.read<SoundPickerCubit>();
+    await cubit.stopPreview();
+    final file = await cubit.pickFile();
+    if (file == null || !context.mounted) return;
+    final result = await context.pushNamed<Object?>(
+      AppRoute.soundCrop,
+      extra: file,
+    );
+    await cubit.reloadAfterCrop(result is Future<void> ? result : null);
+  }
 
   static AlarmSound? selectedSound(SoundPickerState state) {
     for (final sound in [...state.bundled, ...state.userSounds]) {
@@ -181,12 +197,10 @@ class _SoundPickerView extends StatelessWidget {
                                         size: 16,
                                         color: colors.onCanvas,
                                       ),
-                                      onPressed: state.isImporting
-                                          ? null
-                                          : () {
-                                              AppHaptics.capture();
-                                              unawaited(cubit.importSound());
-                                            },
+                                      onPressed: () {
+                                        AppHaptics.capture();
+                                        unawaited(_pickAndCrop(context));
+                                      },
                                     ),
                                   ],
                                 ],

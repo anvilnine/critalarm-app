@@ -7,18 +7,6 @@ void main() {
   const oneMb = 1024 * 1024;
 
   group('import caps', () {
-    test('a short, small, known file passes', () {
-      expect(
-        checkSoundImport(
-          fileName: 'honk.mp3',
-          sizeBytes: oneMb,
-          duration: const Duration(seconds: 12),
-          platform: TargetPlatform.android,
-        ),
-        isNull,
-      );
-    });
-
     test('the clip cap is 29.5 seconds on iOS and 60 everywhere else', () {
       expect(
         SoundImportLimits.maxClipDuration(TargetPlatform.iOS),
@@ -30,51 +18,10 @@ void main() {
       );
     });
 
-    test(
-      'on Android exactly 60 seconds passes, a millisecond over does not',
-      () {
-        const cap = Duration(seconds: 60);
-        expect(
-          checkSoundImport(
-            fileName: 'honk.mp3',
-            sizeBytes: oneMb,
-            duration: cap,
-            platform: TargetPlatform.android,
-          ),
-          isNull,
-        );
-        expect(
-          checkSoundImport(
-            fileName: 'honk.mp3',
-            sizeBytes: oneMb,
-            duration: cap + const Duration(milliseconds: 1),
-            platform: TargetPlatform.android,
-          ),
-          SoundImportRejection.tooLong,
-        );
-      },
-    );
-
-    test('on iOS exactly 29.5 seconds passes, a millisecond over does not', () {
-      const cap = Duration(milliseconds: 29500);
-      expect(
-        checkSoundImport(
-          fileName: 'honk.mp3',
-          sizeBytes: oneMb,
-          duration: cap,
-          platform: TargetPlatform.iOS,
-        ),
-        isNull,
-      );
-      expect(
-        checkSoundImport(
-          fileName: 'honk.mp3',
-          sizeBytes: oneMb,
-          duration: cap + const Duration(milliseconds: 1),
-          platform: TargetPlatform.iOS,
-        ),
-        SoundImportRejection.tooLong,
-      );
+    test('the picked file may be up to 100 MB and 20 minutes', () {
+      expect(SoundImportLimits.maxSourceBytes, 100 * oneMb);
+      expect(SoundImportLimits.maxSourceDuration, const Duration(minutes: 20));
+      expect(SoundImportLimits.maxBytes, 5 * oneMb);
     });
 
     test('an iOS sound of 30 seconds or more is too long to ring', () {
@@ -101,78 +48,59 @@ void main() {
       );
     });
 
-    test('exactly 5 MB passes, a byte over does not', () {
-      expect(
-        checkSoundImport(
-          fileName: 'honk.mp3',
-          sizeBytes: SoundImportLimits.maxBytes,
-          duration: const Duration(seconds: 5),
-          platform: TargetPlatform.android,
-        ),
-        isNull,
+    test('Android cannot read aiff or caf, iOS also reads Voice Memos qta', () {
+      final android = SoundImportLimits.readableExtensionsFor(
+        TargetPlatform.android,
       );
+      final ios = SoundImportLimits.readableExtensionsFor(TargetPlatform.iOS);
+      expect(android, containsAll(['mp3', 'm4a', 'wav', 'ogg', 'flac']));
+      expect(android, isNot(contains('aiff')));
+      expect(android, isNot(contains('aif')));
+      expect(android, isNot(contains('caf')));
+      expect(android, isNot(contains('qta')));
+      expect(ios, containsAll(['mp3', 'm4a', 'wav', 'aiff', 'aif', 'caf']));
+      expect(ios, contains('qta'));
+    });
+  });
+
+  group('the check before the cropper opens', () {
+    SoundImportRejection? check(
+      String name,
+      int size, {
+      TargetPlatform platform = TargetPlatform.android,
+    }) => checkPickedSound(
+      fileName: name,
+      sizeBytes: size,
+      platform: platform,
+    );
+
+    test('a known file under 100 MB passes', () {
+      expect(check('song.mp3', 40 * oneMb), isNull);
+    });
+
+    test('exactly 100 MB passes, a byte over does not', () {
+      expect(check('song.mp3', SoundImportLimits.maxSourceBytes), isNull);
       expect(
-        checkSoundImport(
-          fileName: 'honk.mp3',
-          sizeBytes: SoundImportLimits.maxBytes + 1,
-          duration: const Duration(seconds: 5),
-          platform: TargetPlatform.android,
-        ),
+        check('song.mp3', SoundImportLimits.maxSourceBytes + 1),
         SoundImportRejection.tooLarge,
       );
     });
 
-    test('a file type neither platform plays is turned away', () {
-      expect(
-        checkSoundImport(
-          fileName: 'clip.mov',
-          sizeBytes: oneMb,
-          duration: const Duration(seconds: 5),
-          platform: TargetPlatform.android,
-        ),
-        SoundImportRejection.unsupportedFormat,
-      );
-      expect(
-        checkSoundImport(
-          fileName: 'noextension',
-          sizeBytes: oneMb,
-          duration: const Duration(seconds: 5),
-          platform: TargetPlatform.android,
-        ),
-        SoundImportRejection.unsupportedFormat,
-      );
+    test('an empty file is unreadable', () {
+      expect(check('song.mp3', 0), SoundImportRejection.unreadable);
     });
 
-    test('an empty file, or one nothing can decode, is unreadable', () {
+    test('a file type the platform cannot read is turned away', () {
+      expect(check('clip.mov', oneMb), SoundImportRejection.unsupportedFormat);
+      expect(check('none', oneMb), SoundImportRejection.unsupportedFormat);
+      expect(check('memo.caf', oneMb), SoundImportRejection.unsupportedFormat);
       expect(
-        checkSoundImport(
-          fileName: 'honk.mp3',
-          sizeBytes: 0,
-          duration: const Duration(seconds: 5),
-          platform: TargetPlatform.android,
-        ),
-        SoundImportRejection.unreadable,
+        check('memo.caf', oneMb, platform: TargetPlatform.iOS),
+        isNull,
       );
       expect(
-        checkSoundImport(
-          fileName: 'honk.mp3',
-          sizeBytes: oneMb,
-          duration: Duration.zero,
-          platform: TargetPlatform.android,
-        ),
-        SoundImportRejection.unreadable,
-      );
-    });
-
-    test('the length cap is checked before the size cap', () {
-      expect(
-        checkSoundImport(
-          fileName: 'honk.mp3',
-          sizeBytes: SoundImportLimits.maxBytes + 1,
-          duration: const Duration(minutes: 5),
-          platform: TargetPlatform.android,
-        ),
-        SoundImportRejection.tooLong,
+        check('memo.qta', oneMb, platform: TargetPlatform.iOS),
+        isNull,
       );
     });
 
@@ -181,6 +109,28 @@ void main() {
       expect(extensionOf('a.b.OGG'), 'ogg');
       expect(extensionOf('trailing.'), '');
       expect(extensionOf('none'), '');
+    });
+  });
+
+  group('the check once the length is known', () {
+    test('zero means nothing could read it', () {
+      expect(
+        checkSourceDuration(Duration.zero),
+        SoundImportRejection.unreadable,
+      );
+    });
+
+    test('exactly 20 minutes passes, a millisecond over does not', () {
+      const cap = Duration(minutes: 20);
+      expect(checkSourceDuration(cap), isNull);
+      expect(
+        checkSourceDuration(cap + const Duration(milliseconds: 1)),
+        SoundImportRejection.sourceTooLong,
+      );
+    });
+
+    test('a long file is fine, the cropper shortens it', () {
+      expect(checkSourceDuration(const Duration(minutes: 4)), isNull);
     });
   });
 
