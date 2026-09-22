@@ -204,7 +204,17 @@
     "consent_prompt_crash": "Crash reports",
     "consent_prompt_analytics": "Usage analytics",
     "consent_prompt_share": "Share",
-    "pro_prompt_later": "Remind me later"
+    "pro_prompt_later": "Remind me later",
+    "stage_word_acknowledged": "ACKNOWLEDGED",
+    "stage_sub_acknowledged": "{topic}, at your desk in {minutes} min.",
+    "stage_word_handled": "HANDLED",
+    "stage_sub_handled": "{topic} closed at {time}.",
+    "stage_word_missed": "MISSED",
+    "stage_sub_missed": "{topic} was not answered.",
+    "meta_acknowledged": "Acknowledged {time} ago",
+    "meta_handled": "Handled {time}",
+    "no_alarm_body": "Nothing is ringing.",
+    "no_alarm_last": "Last alarm handled at {time}."
   },
   "topics_list": {
     "back_aria_label": "Back",
