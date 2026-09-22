@@ -79,6 +79,7 @@ class TopicDetailState {
     this.isUpdatingCritical = false,
     this.isMarkingAsRead = false,
     this.openIncidentIds = const [],
+    this.isMessagesLoading = false,
   });
 
   /// Set when the server refused with a 429 naming a cap (api.md §4.2), so the
@@ -109,6 +110,13 @@ class TopicDetailState {
   final bool isUpdatingCritical;
   final bool isMarkingAsRead;
 
+  /// Whether messages are currently being polled or loaded.
+  final bool isMessagesLoading;
+
+  /// True when the message section should display a skeleton loading state.
+  bool get showMessagesSkeleton =>
+      isMessagesLoading || status == TopicDetailStatus.loading;
+
   /// Ids of the incidents on this topic the server still has open. Held on the
   /// state so acknowledging can silence the phone straight away, without
   /// waiting on a request to tell it what is ringing.
@@ -129,6 +137,7 @@ class TopicDetailState {
     bool? isUpdatingCritical,
     bool? isMarkingAsRead,
     List<String>? openIncidentIds,
+    bool? isMessagesLoading,
     bool clearError = false,
   }) {
     return TopicDetailState(
@@ -146,6 +155,7 @@ class TopicDetailState {
       isUpdatingCritical: isUpdatingCritical ?? this.isUpdatingCritical,
       isMarkingAsRead: isMarkingAsRead ?? this.isMarkingAsRead,
       openIncidentIds: openIncidentIds ?? this.openIncidentIds,
+      isMessagesLoading: isMessagesLoading ?? this.isMessagesLoading,
     );
   }
 
@@ -167,7 +177,8 @@ class TopicDetailState {
           errorMessage == other.errorMessage &&
           isUpdatingCritical == other.isUpdatingCritical &&
           isMarkingAsRead == other.isMarkingAsRead &&
-          listEquals(openIncidentIds, other.openIncidentIds);
+          listEquals(openIncidentIds, other.openIncidentIds) &&
+          isMessagesLoading == other.isMessagesLoading;
 
   @override
   int get hashCode => Object.hash(
@@ -185,5 +196,6 @@ class TopicDetailState {
     isUpdatingCritical,
     isMarkingAsRead,
     Object.hashAll(openIncidentIds),
+    isMessagesLoading,
   );
 }

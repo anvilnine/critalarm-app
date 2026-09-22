@@ -27,6 +27,7 @@ class TopicDetailScreen extends StatelessWidget {
     required this.topicName,
     this.isPane = false,
     this.startCurlFlow = false,
+    this.cubit,
     super.key,
   });
 
@@ -39,8 +40,21 @@ class TopicDetailScreen extends StatelessWidget {
   /// Opens the "Get curl line" token sheet as soon as the tokens load.
   final bool startCurlFlow;
 
+  /// Optional cubit for testing.
+  final TopicDetailCubit? cubit;
+
   @override
   Widget build(BuildContext context) {
+    if (cubit != null) {
+      return BlocProvider.value(
+        value: cubit!,
+        child: _TopicDetailScreenContent(
+          isPane: isPane,
+          isExample: false,
+          startCurlFlow: startCurlFlow,
+        ),
+      );
+    }
     // The tour's made-up topic is not on the server, so it is drawn from the
     // example instead of being asked for.
     final isExample = getIt<TourCubit>().state.showsExampleTopic(topicName);
@@ -215,6 +229,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
                       word: state.word,
                       topicName: state.topicName,
                       sub: state.subText,
+                      isLoading: state.status == TopicDetailStatus.loading,
                     ),
                     const SizedBox(height: Spacing.s4),
                   ],
@@ -228,40 +243,79 @@ class _TopicDetailScreenContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (state.capReached != null)
-                          AppEmptyState(
-                            title: state.capReached!.message,
-                            description:
-                                'Review your plan to increase this limit.',
-                            faceState: FaceState.worried,
-                            buttonLabel: null,
-                            isLive: false,
-                          )
-                        else if (state.errorMessage != null) ...[
-                          // Was a bare Text dropped in the middle of the
-                          // sheet, with no way to try the thing again.
-                          // The toast is a pill that sizes to its text, so it
-                          // stays centred while the rest of the card stretches.
-                          Center(
-                            child: AppToast(
-                              faceState: FaceState.worried,
-                              message: state.errorMessage,
+                        AnimatedSize(
+                          duration: context.motion(AppDurations.base),
+                          curve: AppCurves.easeOut,
+                          alignment: Alignment.topCenter,
+                          child: AnimatedSwitcher(
+                            duration: context.motion(AppDurations.base),
+                            switchInCurve: AppCurves.easeOut,
+                            switchOutCurve: AppCurves.easeOut,
+                            layoutBuilder: (currentChild, previousChildren) =>
+                                Stack(
+                              alignment: Alignment.topCenter,
+                              children: [
+                                ...previousChildren,
+                                if (currentChild != null) currentChild,
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          AppButton(
-                            label: LocaleKeys.topic_detail_retry_button.tr(),
-                            variant: AppButtonVariant.ghost,
-                            size: AppButtonSize.sm,
-                            isFullWidth: true,
-                            onPressed: () => unawaited(
-                              context.read<TopicDetailCubit>().load(
-                                state.topicName,
-                              ),
+                            transitionBuilder: (child, animation) =>
+                                FadeTransition(
+                              opacity: animation,
+                              child: child,
                             ),
+                            child: state.capReached != null
+                                ? KeyedSubtree(
+                                    key: const ValueKey('sheet_cap_reached'),
+                                    child: Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 10),
+                                      child: AppEmptyState(
+                                        title: state.capReached!.message,
+                                        description:
+                                            'Review your plan to increase this limit.',
+                                        faceState: FaceState.worried,
+                                        buttonLabel: null,
+                                        isLive: false,
+                                      ),
+                                    ),
+                                  )
+                                : state.errorMessage != null
+                                    ? KeyedSubtree(
+                                        key: ValueKey(
+                                          'sheet_error_${state.errorMessage}',
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Center(
+                                              child: AppToast(
+                                                faceState: FaceState.worried,
+                                                message: state.errorMessage,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 10),
+                                            AppButton(
+                                              label: LocaleKeys
+                                                  .topic_detail_retry_button
+                                                  .tr(),
+                                              variant: AppButtonVariant.ghost,
+                                              size: AppButtonSize.sm,
+                                              isFullWidth: true,
+                                              onPressed: () => unawaited(
+                                                context
+                                                    .read<TopicDetailCubit>()
+                                                    .load(state.topicName),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 10),
+                                          ],
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(
+                                        key: ValueKey('sheet_no_error'),
+                                      ),
                           ),
-                          const SizedBox(height: 10),
-                        ],
+                        ),
                         TourAnchor(
                           id: TourAnchorId.topicCritical,
                           child: AppToggleRow(
@@ -309,41 +363,88 @@ class _TopicDetailScreenContent extends StatelessWidget {
                         AppSectionHeader(
                           LocaleKeys.topic_detail_messages_header.tr(),
                         ),
-                        // Only the newest one. The whole list used to run
-                        // down the sheet and push the action button off the
-                        // bottom of a long topic.
-                        if (latest != null) ...[
-                          Hero(
-                            tag: topicLatestMessageHeroTag(
-                              state.topicName,
-                              latest.timestamp,
+                        AnimatedSize(
+                          duration: context.motion(AppDurations.base),
+                          curve: AppCurves.easeOut,
+                          alignment: Alignment.topCenter,
+                          child: AnimatedSwitcher(
+                            duration: context.motion(AppDurations.base),
+                            switchInCurve: AppCurves.easeOut,
+                            switchOutCurve: AppCurves.easeOut,
+                            layoutBuilder: (currentChild, previousChildren) =>
+                                Stack(
+                              alignment: Alignment.topCenter,
+                              children: [
+                                ...previousChildren,
+                                if (currentChild != null) currentChild,
+                              ],
                             ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: AppMessageCard(
-                                title: latest.title,
-                                timestamp: latest.timestamp,
-                                body: latest.body,
-                                source: latest.source,
-                                isHigh: latest.isHigh,
-                              ),
+                            transitionBuilder: (child, animation) =>
+                                FadeTransition(
+                              opacity: animation,
+                              child: child,
                             ),
+                            child: state.showMessagesSkeleton &&
+                                    state.messages.isEmpty
+                                ? const KeyedSubtree(
+                                    key: ValueKey('messages_skeleton'),
+                                    child: Padding(
+                                      padding: EdgeInsets.only(bottom: 10),
+                                      child: AppMessageCardSkeleton(),
+                                    ),
+                                  )
+                                : latest != null
+                                    ? KeyedSubtree(
+                                        key: ValueKey(
+                                          'messages_card_${latest.timestamp}_$olderCount',
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Hero(
+                                              tag: topicLatestMessageHeroTag(
+                                                state.topicName,
+                                                latest.timestamp,
+                                              ),
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: AppMessageCard(
+                                                  title: latest.title,
+                                                  timestamp: latest.timestamp,
+                                                  body: latest.body,
+                                                  source: latest.source,
+                                                  isHigh: latest.isHigh,
+                                                ),
+                                              ),
+                                            ),
+                                            if (olderCount > 0) ...[
+                                              const SizedBox(height: 8),
+                                              AppButton(
+                                                label: LocaleKeys
+                                                    .topic_detail_view_all_messages
+                                                    .plural(olderCount),
+                                                variant:
+                                                    AppButtonVariant.ghost,
+                                                size: AppButtonSize.sm,
+                                                isFullWidth: true,
+                                                onPressed: () => unawaited(
+                                                  context.push(
+                                                    '${GoRouterState.of(context).uri.path}/messages',
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                            const SizedBox(height: 10),
+                                          ],
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(
+                                        key: ValueKey('messages_empty'),
+                                      ),
                           ),
-                          const SizedBox(height: 10),
-                        ],
-                        if (olderCount > 0)
-                          AppButton(
-                            label: LocaleKeys.topic_detail_view_all_messages
-                                .plural(olderCount),
-                            variant: AppButtonVariant.ghost,
-                            size: AppButtonSize.sm,
-                            isFullWidth: true,
-                            onPressed: () => unawaited(
-                              context.push(
-                                '${GoRouterState.of(context).uri.path}/messages',
-                              ),
-                            ),
-                          ),
+                        ),
                         if (!isExample)
                           TopicTokensSection(
                             topicName: state.topicName,

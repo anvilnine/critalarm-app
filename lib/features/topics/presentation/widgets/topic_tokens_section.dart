@@ -26,6 +26,7 @@ class TopicTokensSection extends StatelessWidget {
   const TopicTokensSection({
     required this.topicName,
     this.startCurlFlow = false,
+    this.cubit,
     super.key,
   });
 
@@ -34,8 +35,17 @@ class TopicTokensSection extends StatelessWidget {
   /// Opens the "Get curl line" sheet once, as soon as this builds.
   final bool startCurlFlow;
 
+  /// Optional cubit for testing.
+  final TopicTokensCubit? cubit;
+
   @override
   Widget build(BuildContext context) {
+    if (cubit != null) {
+      return BlocProvider.value(
+        value: cubit!,
+        child: _TopicTokensSectionContent(startCurlFlow: startCurlFlow),
+      );
+    }
     return BlocProvider(
       create: (_) {
         final cubit = getIt<TopicTokensCubit>();
@@ -187,95 +197,236 @@ class _TopicTokensSectionContentState
           children: [
             const AppSectionDivider(),
             AppSectionHeader(LocaleKeys.topic_tokens_header.tr()),
-            if (state.status == TopicTokensStatus.loading &&
-                state.tokens.isEmpty)
-              _Note(LocaleKeys.topic_tokens_loading.tr())
-            else if (state.status == TopicTokensStatus.failure &&
-                state.tokens.isEmpty) ...[
-              _Note(
-                state.errorMessage ?? LocaleKeys.topic_tokens_load_failed.tr(),
+            AnimatedSize(
+              duration: context.motion(AppDurations.base),
+              curve: AppCurves.easeOut,
+              alignment: Alignment.topCenter,
+              child: AnimatedSwitcher(
+                duration: context.motion(AppDurations.base),
+                switchInCurve: AppCurves.easeOut,
+                switchOutCurve: AppCurves.easeOut,
+                layoutBuilder: (currentChild, previousChildren) => Stack(
+                  alignment: Alignment.topCenter,
+                  children: [
+                    ...previousChildren,
+                    if (currentChild != null) currentChild,
+                  ],
+                ),
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: child,
+                ),
+                child: state.status == TopicTokensStatus.loading &&
+                        state.tokens.isEmpty
+                    ? const KeyedSubtree(
+                        key: ValueKey('tokens_skeleton'),
+                        child: AppTokensSectionSkeleton(),
+                      )
+                    : state.status == TopicTokensStatus.failure &&
+                            state.tokens.isEmpty
+                        ? KeyedSubtree(
+                            key: const ValueKey('tokens_failure'),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _Note(
+                                  state.errorMessage ??
+                                      LocaleKeys.topic_tokens_load_failed.tr(),
+                                ),
+                                const SizedBox(height: 8),
+                                AppButton(
+                                  label:
+                                      LocaleKeys.topic_detail_retry_button.tr(),
+                                  variant: AppButtonVariant.ghost,
+                                  size: AppButtonSize.sm,
+                                  isFullWidth: true,
+                                  onPressed: () => unawaited(
+                                    cubit.load(cubit.topicName),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : KeyedSubtree(
+                            key: ValueKey(
+                              'tokens_loaded_${state.tokens.length}',
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                for (final token in state.tokens) ...[
+                                  _TokenRow(
+                                    token: token,
+                                    onTap: state.isWorking
+                                        ? null
+                                        : () => unawaited(
+                                              _openToken(
+                                                context,
+                                                cubit,
+                                                token,
+                                              ),
+                                            ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+                                // The one moment the value exists on screen. Nothing can ask the
+                                // server for it again.
+                                AnimatedSize(
+                                  duration: context.motion(AppDurations.base),
+                                  curve: AppCurves.easeOut,
+                                  alignment: Alignment.topCenter,
+                                  child: AnimatedSwitcher(
+                                    duration: context.motion(AppDurations.base),
+                                    switchInCurve: AppCurves.easeOut,
+                                    switchOutCurve: AppCurves.easeOut,
+                                    layoutBuilder:
+                                        (currentChild, previousChildren) =>
+                                            Stack(
+                                      alignment: Alignment.topCenter,
+                                      children: [
+                                        ...previousChildren,
+                                        if (currentChild != null) currentChild,
+                                      ],
+                                    ),
+                                    transitionBuilder: (child, animation) =>
+                                        FadeTransition(
+                                      opacity: animation,
+                                      child: child,
+                                    ),
+                                    child: made != null
+                                        ? KeyedSubtree(
+                                            key: ValueKey('new_token_$made'),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: [
+                                                Text(
+                                                  LocaleKeys
+                                                      .topic_tokens_new_label
+                                                      .tr(),
+                                                  style: TextStyle(
+                                                    fontFamily:
+                                                        AppTypography.fontBody,
+                                                    fontFamilyFallback:
+                                                        AppTypography
+                                                            .fontBodyFallbacks,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: colors.ink3,
+                                                  ),
+                                                ),
+                                                if (state.newTokenName
+                                                    case final newName?
+                                                    when newName.isNotEmpty) ...[
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    newName,
+                                                    style: TextStyle(
+                                                      fontFamily: AppTypography
+                                                          .fontBody,
+                                                      fontFamilyFallback:
+                                                          AppTypography
+                                                              .fontBodyFallbacks,
+                                                      fontSize: 15,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: colors.ink,
+                                                    ),
+                                                  ),
+                                                ],
+                                                const SizedBox(height: 8),
+                                                AppKeyValueRow(
+                                                  value: made,
+                                                  trailing: TokenActions(
+                                                    value: made,
+                                                    onCopied: (_) =>
+                                                        AppHaptics.selection(),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 6),
+                                                _Note(
+                                                  LocaleKeys
+                                                      .create_topic_token_warning
+                                                      .tr(),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                AppButton(
+                                                  label: LocaleKeys
+                                                      .topic_tokens_saved_button
+                                                      .tr(),
+                                                  variant:
+                                                      AppButtonVariant.ghost,
+                                                  size: AppButtonSize.sm,
+                                                  isFullWidth: true,
+                                                  onPressed:
+                                                      cubit.dismissNewToken,
+                                                ),
+                                                const SizedBox(height: 8),
+                                              ],
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(
+                                            key: ValueKey('no_new_token'),
+                                          ),
+                                  ),
+                                ),
+                                // Shown whatever the token count: a refused create (the usual
+                                // silent-topic case, where the topic has no token yet) must not
+                                // read as "no error" just because the list is still empty.
+                                AnimatedSize(
+                                  duration: context.motion(AppDurations.base),
+                                  curve: AppCurves.easeOut,
+                                  alignment: Alignment.topCenter,
+                                  child: AnimatedSwitcher(
+                                    duration: context.motion(AppDurations.base),
+                                    switchInCurve: AppCurves.easeOut,
+                                    switchOutCurve: AppCurves.easeOut,
+                                    layoutBuilder:
+                                        (currentChild, previousChildren) =>
+                                            Stack(
+                                      alignment: Alignment.topCenter,
+                                      children: [
+                                        ...previousChildren,
+                                        if (currentChild != null) currentChild,
+                                      ],
+                                    ),
+                                    transitionBuilder: (child, animation) =>
+                                        FadeTransition(
+                                      opacity: animation,
+                                      child: child,
+                                    ),
+                                    child: state.errorMessage != null
+                                        ? KeyedSubtree(
+                                            key: ValueKey(
+                                              'token_error_${state.errorMessage}',
+                                            ),
+                                            child: Column(
+                                              children: [
+                                                _Note(state.errorMessage!),
+                                                const SizedBox(height: 8),
+                                              ],
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(
+                                            key: ValueKey('no_token_error'),
+                                          ),
+                                  ),
+                                ),
+                                AppButton(
+                                  label:
+                                      LocaleKeys.topic_tokens_new_button.tr(),
+                                  variant: AppButtonVariant.ghost,
+                                  size: AppButtonSize.sm,
+                                  isFullWidth: true,
+                                  isLoading: state.isWorking,
+                                  onPressed: () =>
+                                      unawaited(cubit.createToken()),
+                                ),
+                              ],
+                            ),
+                          ),
               ),
-              const SizedBox(height: 8),
-              AppButton(
-                label: LocaleKeys.topic_detail_retry_button.tr(),
-                variant: AppButtonVariant.ghost,
-                size: AppButtonSize.sm,
-                isFullWidth: true,
-                onPressed: () => unawaited(cubit.load(cubit.topicName)),
-              ),
-            ] else ...[
-              for (final token in state.tokens) ...[
-                _TokenRow(
-                  token: token,
-                  onTap: state.isWorking
-                      ? null
-                      : () => unawaited(_openToken(context, cubit, token)),
-                ),
-                const SizedBox(height: 8),
-              ],
-              // The one moment the value exists on screen. Nothing can ask the
-              // server for it again.
-              if (made != null) ...[
-                Text(
-                  LocaleKeys.topic_tokens_new_label.tr(),
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: colors.ink3,
-                  ),
-                ),
-                if (state.newTokenName case final newName?
-                    when newName.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    newName,
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: colors.ink,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                AppKeyValueRow(
-                  value: made,
-                  trailing: TokenActions(
-                    value: made,
-                    onCopied: (_) => AppHaptics.selection(),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                _Note(LocaleKeys.create_topic_token_warning.tr()),
-                const SizedBox(height: 8),
-                AppButton(
-                  label: LocaleKeys.topic_tokens_saved_button.tr(),
-                  variant: AppButtonVariant.ghost,
-                  size: AppButtonSize.sm,
-                  isFullWidth: true,
-                  onPressed: cubit.dismissNewToken,
-                ),
-                const SizedBox(height: 8),
-              ],
-              // Shown whatever the token count: a refused create (the usual
-              // silent-topic case, where the topic has no token yet) must not
-              // read as "no error" just because the list is still empty.
-              if (state.errorMessage != null) ...[
-                _Note(state.errorMessage!),
-                const SizedBox(height: 8),
-              ],
-              AppButton(
-                label: LocaleKeys.topic_tokens_new_button.tr(),
-                variant: AppButtonVariant.ghost,
-                size: AppButtonSize.sm,
-                isFullWidth: true,
-                isLoading: state.isWorking,
-                onPressed: () => unawaited(cubit.createToken()),
-              ),
-            ],
+            ),
           ],
         );
       },
