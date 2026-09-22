@@ -840,7 +840,7 @@ Future<void> configureDependencies({
         getIt<GetConnectionUsecase>(),
         getIt<DeviceIdentityStore>(),
         getIt<GetTopicsUsecase>(),
-      ),
+      )..alarm = getIt<AlarmHost>(),
     )
     ..registerFactory(
       () => CriticalAlarmCubit(
@@ -860,6 +860,7 @@ Future<void> configureDependencies({
     ..registerFactory(
       () => LockScreenCubit(
         getIt<GetIncidentsUsecase>(),
+        alarm: getIt<AlarmHost>(),
       ),
     )
     ..registerFactory(

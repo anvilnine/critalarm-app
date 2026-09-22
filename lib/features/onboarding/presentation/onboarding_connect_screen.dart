@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
@@ -545,8 +546,12 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           style: AppTypography.headline(colors.onCanvas, fontSize: 30),
         ),
         const SizedBox(height: Spacing.s2),
+        // An iPhone older than iOS 26 has no AlarmKit, so the test must not
+        // ask it to ring through silent mode.
         Text(
-          LocaleKeys.onboarding_connect_hook_subtitle.tr(),
+          RingClaim.forPhone(state.alarm) == RingClaim.timeSensitive
+              ? LocaleKeys.onboarding_connect_hook_subtitle_time_sensitive.tr()
+              : LocaleKeys.onboarding_connect_hook_subtitle.tr(),
           textAlign: TextAlign.center,
           style: AppTypography.body(colors.onCanvasMuted),
         ),
@@ -603,7 +608,12 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                 ),
                 const SizedBox(height: 8),
                 AppFeatureBullet(
-                  text: LocaleKeys.onboarding_connect_hook_step1.tr(),
+                  text:
+                      RingClaim.forPhone(state.alarm) ==
+                          RingClaim.timeSensitive
+                      ? LocaleKeys.onboarding_connect_hook_step1_time_sensitive
+                            .tr()
+                      : LocaleKeys.onboarding_connect_hook_step1.tr(),
                   glyph: GlyphType.bell,
                 ),
                 const SizedBox(height: 12),

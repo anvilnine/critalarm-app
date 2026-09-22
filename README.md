@@ -1,11 +1,13 @@
 # critalarm-app
 
 The Crit Alarm mobile app. It subscribes to your Crit Alarm server, and when a
-critical incident opens it rings your phone through silent and Do Not Disturb
-until you acknowledge it. Two stages: "I'm up" stops the noise, "At my desk"
-closes the incident. Miss the second one and it starts ringing again.
+critical incident opens it rings your phone until you acknowledge it: an
+AlarmKit alarm through silent mode on iOS 26 or later, a Time-Sensitive
+notification with sound on older iPhones, and a full-screen alarm on Android.
+Two stages: "I'm up" stops the noise, "At my desk" closes the incident. Miss
+the second one and it starts ringing again.
 
-Status: early. The shell builds. The alarm is not built yet.
+Status: the first build is submitted to the App Store.
 
 ## Run it
 
@@ -82,10 +84,12 @@ No push credential, keystore or store key belongs in this repo. Report anything
 you find to security@critalarm.app.
 
 A note for anyone forking this: Crit Alarm does not use Apple's Critical Alerts
-entitlement. Apple turned the request down for `app.critalarm`. On iOS a
-priority-5 page arrives as a Time-Sensitive push, which obeys the silent switch
-and Do Not Disturb. On Android it takes the whole screen and rings. If Apple
-ever approves the request, wiring it back up is its own piece of work.
+entitlement. Apple turned the request down for `app.critalarm`. On iOS 26 or
+later a priority-5 page rings as an AlarmKit alarm, through the silent switch
+and Do Not Disturb. On older iPhones it arrives as a Time-Sensitive
+notification with sound, which the silent switch mutes. On Android it takes the
+whole screen and rings. If Apple ever approves the request, wiring it back up
+is its own piece of work.
 
 ## Licence
 

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:flutter/foundation.dart';
 
 enum OnboardingConnectStatus {
@@ -26,6 +27,7 @@ class OnboardingConnectState {
     this.countdownSeconds = 5,
     this.isCountingDown = false,
     this.canLaunchDemoAlarm = false,
+    this.alarm = AlarmAuthorization.notDetermined,
     this.serverUrlError,
     this.adminTokenError,
     this.errorMessage,
@@ -44,6 +46,10 @@ class OnboardingConnectState {
   final int countdownSeconds;
   final bool isCountingDown;
   final bool canLaunchDemoAlarm;
+
+  /// Whether this phone can set an AlarmKit alarm. The test-alarm copy reads
+  /// it so an iPhone older than iOS 26 is not told to try silent mode.
+  final AlarmAuthorization alarm;
   final String? serverUrlError;
   final String? adminTokenError;
   final String? errorMessage;
@@ -68,6 +74,7 @@ class OnboardingConnectState {
     int? countdownSeconds,
     bool? isCountingDown,
     bool? canLaunchDemoAlarm,
+    AlarmAuthorization? alarm,
     String? serverUrlError,
     String? adminTokenError,
     String? errorMessage,
@@ -91,6 +98,7 @@ class OnboardingConnectState {
       countdownSeconds: countdownSeconds ?? this.countdownSeconds,
       isCountingDown: isCountingDown ?? this.isCountingDown,
       canLaunchDemoAlarm: canLaunchDemoAlarm ?? this.canLaunchDemoAlarm,
+      alarm: alarm ?? this.alarm,
       serverUrlError: clearServerUrlError
           ? null
           : (serverUrlError ?? this.serverUrlError),
@@ -121,6 +129,7 @@ class OnboardingConnectState {
           countdownSeconds == other.countdownSeconds &&
           isCountingDown == other.isCountingDown &&
           canLaunchDemoAlarm == other.canLaunchDemoAlarm &&
+          alarm == other.alarm &&
           serverUrlError == other.serverUrlError &&
           adminTokenError == other.adminTokenError &&
           errorMessage == other.errorMessage &&
@@ -140,6 +149,7 @@ class OnboardingConnectState {
     countdownSeconds,
     isCountingDown,
     canLaunchDemoAlarm,
+    alarm,
     serverUrlError,
     adminTokenError,
     errorMessage,

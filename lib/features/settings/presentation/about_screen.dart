@@ -54,17 +54,17 @@ class AboutScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   _AboutLinkRow(
                     label: LocaleKeys.settings_about_docs_label.tr(),
-                    url: 'https://docs.critalarm.app',
+                    url: 'https://critalarm.app/docs/',
                   ),
                   const SizedBox(height: 8),
                   _AboutLinkRow(
                     label: LocaleKeys.settings_about_github_label.tr(),
-                    url: 'https://github.com/critalarm/critalarm',
+                    url: 'https://github.com/anvilnine/critalarm-app',
                   ),
                   const SizedBox(height: 8),
                   _AboutLinkRow(
                     label: LocaleKeys.settings_about_issues_label.tr(),
-                    url: 'https://github.com/critalarm/critalarm/issues',
+                    url: 'https://github.com/anvilnine/critalarm-app/issues',
                   ),
                   const SizedBox(height: 8),
                   _AboutLinkRow(

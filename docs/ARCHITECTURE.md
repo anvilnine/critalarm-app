@@ -126,11 +126,12 @@ Rules:
 Only priority 5 on a critical topic creates an incident and enters the retry
 loop. Everything else is fire and forget, ntfy-style.
 
-Apple denied the Critical Alerts entitlement for `app.critalarm`, so iOS never
-rings through the silent switch or Do Not Disturb. The loudest iOS delivery is a
-Time-Sensitive push. The topic critical switch still decides whether an incident
-opens and whether the repeat loop runs, and it still drives the Android
-full-screen alarm.
+Apple denied the Critical Alerts entitlement for `app.critalarm`. On iOS 26 or
+later a priority 5 page rings as an AlarmKit alarm, through the silent switch
+and Do Not Disturb. On older iPhones the loudest delivery is a Time-Sensitive
+push with sound, which the silent switch mutes. The topic critical switch still
+decides whether an incident opens and whether the repeat loop runs, and it
+still drives the Android full-screen alarm.
 
 ## 6. API
 

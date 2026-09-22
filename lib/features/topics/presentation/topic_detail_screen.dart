@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -266,12 +267,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
                           child: AppToggleRow(
                             title: LocaleKeys.topic_detail_critical_toggle_title
                                 .tr(),
-                            subtitle: state.canEditCritical
-                                ? LocaleKeys
-                                      .topic_detail_critical_toggle_subtitle
-                                      .tr()
-                                : LocaleKeys.topic_detail_critical_needs_alarm
-                                      .tr(),
+                            subtitle: _criticalSubtitle(state),
                             value: state.critical,
                             // No alarm permission, no critical delivery: the
                             // push would arrive as a plain notification and
@@ -381,4 +377,17 @@ class _TopicDetailScreenContent extends StatelessWidget {
       },
     );
   }
+}
+
+/// The line under the critical switch. An iPhone older than iOS 26 has no
+/// AlarmKit, so it must not be promised a ring through silent mode.
+String _criticalSubtitle(TopicDetailState state) {
+  if (!state.canEditCritical) {
+    return LocaleKeys.topic_detail_critical_needs_alarm.tr();
+  }
+  return switch (RingClaim.forPhone(state.alarm)) {
+    RingClaim.timeSensitive =>
+      LocaleKeys.topic_detail_critical_toggle_subtitle_time_sensitive.tr(),
+    RingClaim.alarm => LocaleKeys.topic_detail_critical_toggle_subtitle.tr(),
+  };
 }

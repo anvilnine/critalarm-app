@@ -33,7 +33,7 @@ final class NotificationService: UNNotificationServiceExtension {
             return
         }
 
-        content.interruptionLevel = interruptionLevel(for: push, content: content)
+        content.interruptionLevel = interruptionLevel(for: push)
         PushEventLog.record("push_received", ["kind": push.kind.rawValue, "priority": push.priority])
         NSLog(
             "CritAlarmNSE push_received kind=%@ priority=%d incident_id=%@ fetch=%@",
@@ -74,16 +74,13 @@ final class NotificationService: UNNotificationServiceExtension {
         deliver(nil, push: nil)
     }
 
-    /// api.md §5.1 sets `interruption-level` on the way out; only a critical
-    /// topic with the entitlement gets `critical`, and that one is left alone.
-    /// Everything else follows the priority: 4 and non-critical 5 break through
-    /// a Focus, 1-3 do not.
+    /// api.md §5.1 sets `interruption-level` on the way out and never sends
+    /// `critical`: Apple denied the Critical Alerts entitlement, so this app
+    /// has no code path for it and ignores the level in the payload. The
+    /// priority decides: 4 and 5 break through a Focus, 1-3 do not.
     private func interruptionLevel(
-        for push: IncidentPush,
-        content: UNMutableNotificationContent
+        for push: IncidentPush
     ) -> UNNotificationInterruptionLevel {
-        let aps = content.userInfo["aps"] as? [AnyHashable: Any]
-        if (aps?["interruption-level"] as? String) == "critical" { return .critical }
         return push.priority >= 4 ? .timeSensitive : .active
     }
 
