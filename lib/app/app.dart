@@ -25,6 +25,7 @@ import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repos
 import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
 import 'package:critalarm/features/reminders/domain/reminder_scheduler.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
+import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/theme_mode_mapper.dart';
 import 'package:critalarm/features/tour/presentation/tour_host.dart';
@@ -162,6 +163,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     // Plan once the first frame is up, so launch never waits on it.
     WidgetsBinding.instance.addPostFrameCallback((_) => _replan());
     _incomingAudio.start();
+    _autoDelete();
   }
 
   @override
@@ -182,7 +184,12 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_reminders.onResumed());
     _replan();
     unawaited(_incomingAudio.onResumed());
+    _autoDelete();
   }
+
+  /// Drops alarms the user asked the phone to stop keeping. Does nothing
+  /// until they set "Delete alarms after", which defaults to Never.
+  void _autoDelete() => unawaited(getIt<AutoDeleteHistoryUsecase>()());
 
   /// Every open and resume re-plans: time zone, switches, topics and
   /// incidents may all have changed while the app was away.

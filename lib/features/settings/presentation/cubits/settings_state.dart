@@ -2,6 +2,7 @@ import 'package:critalarm/core/alarm/quiet_hours.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/features/settings/domain/entities/storage_settings.dart';
 import 'package:flutter/foundation.dart';
 
 enum SettingsStatus { initial, loading, success, failure }
@@ -29,6 +30,7 @@ class SettingsState {
     this.isSavingConnection = false,
     this.errorMessage,
     this.serverMode,
+    this.storage = const StorageSettings(),
   });
 
   final List<Topic> topics;
@@ -57,8 +59,16 @@ class SettingsState {
   /// self-hosted server has no accounts, so the Account row is left out.
   final ServerMode? serverMode;
 
+  /// How long the phone keeps alarms, and whether P5 alarms are exempt.
+  final StorageSettings storage;
+
   bool get hasAccounts =>
       serverMode != null && serverMode != ServerMode.selfhosted;
+
+  /// The Storage section is drawn on a paid tier and on a self-hosted server,
+  /// which has no tier at all. A free relay account does not see it.
+  bool get hasStorageSection =>
+      access.isPaid || serverMode == ServerMode.selfhosted;
 
   SettingsState copyWith({
     List<Topic>? topics,
@@ -78,6 +88,7 @@ class SettingsState {
     bool? isSavingConnection,
     String? errorMessage,
     ServerMode? serverMode,
+    StorageSettings? storage,
     bool clearError = false,
   }) {
     return SettingsState(
@@ -102,6 +113,7 @@ class SettingsState {
       isSavingConnection: isSavingConnection ?? this.isSavingConnection,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       serverMode: serverMode ?? this.serverMode,
+      storage: storage ?? this.storage,
     );
   }
 
