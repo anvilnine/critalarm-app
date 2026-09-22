@@ -467,6 +467,12 @@ enum PendingIncidentStore {
         save(all)
     }
 
+    static func all() -> [String: Entry] {
+        Dictionary(uniqueKeysWithValues: readAll().keys.compactMap { id in
+            read(incidentId: id).map { (id, $0) }
+        })
+    }
+
     private static func readAll() -> [String: [String: Any]] {
         defaults.dictionary(forKey: key) as? [String: [String: Any]] ?? [:]
     }

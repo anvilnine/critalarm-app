@@ -99,7 +99,7 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
                 Log.w(TAG, "scheduled_alarm_refused reason=no_exact_alarm_permission")
                 return false
             }
-            val fire = pendingIntent(context, incidentId, server, title, body, handOverToStatusCard)
+            val fire = pendingIntent(context, incidentId, server, title, body, handOverToStatusCard) ?: return false
             return try {
                 manager.setAlarmClock(AlarmManager.AlarmClockInfo(atMillis, fire), fire)
                 Log.i(TAG, "scheduled_alarm_set incident_id=$incidentId at=$atMillis")
@@ -113,8 +113,14 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
         /** Drops a pending alarm. Safe to call when there is none. */
         fun cancel(context: Context, incidentId: String) {
             val manager = context.getSystemService(AlarmManager::class.java) ?: return
-            manager.cancel(pendingIntent(context, incidentId, "", "", null))
+            pendingIntent(context, incidentId, "", "", null)?.let(manager::cancel)
         }
+
+        internal fun isScheduled(context: Context, incidentId: String): Boolean =
+            pendingIntent(
+                context, incidentId, "", "", null,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+            ) != null
 
         private fun pendingIntent(
             context: Context,
@@ -123,7 +129,8 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
             title: String,
             body: String?,
             handOverToStatusCard: Boolean = true,
-        ): PendingIntent {
+            flags: Int = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        ): PendingIntent? {
             val intent = Intent(context, ScheduledAlarmReceiver::class.java).apply {
                 putExtra(EXTRA_INCIDENT_ID, incidentId)
                 putExtra(EXTRA_SERVER, server)
@@ -138,7 +145,7 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
                 context,
                 incidentId.hashCode(),
                 intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                flags,
             )
         }
     }

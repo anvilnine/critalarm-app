@@ -36,6 +36,24 @@ class AckQueueStore(context: Context) {
     fun pendingCount(): Int =
         runCatching { JSONArray(preferences.getString(KEY, "[]")).length() }.getOrDefault(0)
 
+    internal fun debugEntries(): List<Map<String, Any>> {
+        val entries = runCatching { JSONArray(preferences.getString(KEY, "[]")) }.getOrNull() ?: return emptyList()
+        return (0 until entries.length()).mapNotNull { index ->
+            val entry = entries.optJSONObject(index) ?: return@mapNotNull null
+            val action = entry.optString("action").takeIf(String::isNotEmpty) ?: return@mapNotNull null
+            val incidentId = entry.optString("incident_id").takeIf(String::isNotEmpty) ?: return@mapNotNull null
+            val attempts = entry.optInt("attempts", -1).takeIf { it >= 0 } ?: return@mapNotNull null
+            val next = entry.optLong("next_attempt_at_ms", 0L).takeIf { it > 0 } ?: return@mapNotNull null
+            buildMap {
+                put("action", action)
+                put("incident_id", incidentId)
+                put("attempts", attempts)
+                put("next_attempt_at", (next / 1_000L).toInt())
+                entry.optString("last_error").takeIf(String::isNotEmpty)?.let { put("last_error", it) }
+            }
+        }
+    }
+
     companion object {
         /** `AckQueue.storageKey` in Dart, with the shared_preferences prefix. */
         const val KEY = "flutter.ack_queue_v1"

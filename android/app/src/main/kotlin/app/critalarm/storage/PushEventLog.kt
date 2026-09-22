@@ -35,6 +35,17 @@ class PushEventLog(context: Context) {
         preferences.edit().putString(PENDING_TOKEN_KEY, token).apply()
     }
 
+    internal fun recent(): List<Map<String, Any>> {
+        val rows = runCatching { JSONArray(preferences.getString(KEY, "[]")) }.getOrNull() ?: return emptyList()
+        return (rows.length() - 1 downTo 0).mapNotNull { index ->
+            rows.optJSONObject(index)?.let { row ->
+                buildMap {
+                    row.keys().forEach { key -> put(key, row.get(key)) }
+                }
+            }
+        }
+    }
+
     companion object {
         /** Read by `PushEventDrain` in Dart. The `flutter.` prefix is what the
          *  shared_preferences plugin puts on every key it owns. */

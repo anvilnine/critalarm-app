@@ -74,6 +74,7 @@ object IncidentRearm {
             atMillis = at,
         )
         if (!set) return null
+        deliveries.rememberRearmFiresAt(incidentId, at)
         Log.i(TAG, "rearm_set incident_id=$incidentId in_s=$seconds")
         return seconds
     }
@@ -81,7 +82,14 @@ object IncidentRearm {
     /** Drops a pending re-arm. Safe to call when there is none. */
     fun cancel(context: Context, incidentId: String) {
         ScheduledAlarmReceiver.cancel(context, incidentId)
+        IncidentDeliveryStore(context).clearRearm(incidentId)
         Log.i(TAG, "rearm_cancelled incident_id=$incidentId")
+    }
+
+    internal fun cancelAll(context: Context) {
+        IncidentDeliveryStore(context).debugEntries()
+            .filter { it.rearmFiresAtMillis != null }
+            .forEach { cancel(context, it.incidentId) }
     }
 
     /**

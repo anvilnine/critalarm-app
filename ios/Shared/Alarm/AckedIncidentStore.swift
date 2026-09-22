@@ -68,6 +68,15 @@ enum AckedIncidentStore {
         return Set(read(from: defaults).keys)
     }
 
+    static func debugEntries(in defaults: UserDefaults? = groupDefaults) -> [[String: Any]] {
+        guard let defaults else { return [] }
+        return read(from: defaults).map { ["incident_id": $0.key, "marked_at": $0.value / 1_000] }
+    }
+
+    static func clearAll(in defaults: UserDefaults? = groupDefaults) {
+        defaults?.removeObject(forKey: key)
+    }
+
     /// How long a mark for an incident on `topic` is worth keeping.
     ///
     /// Dart caches each topic's timers under `topic_timers.<topic>` in

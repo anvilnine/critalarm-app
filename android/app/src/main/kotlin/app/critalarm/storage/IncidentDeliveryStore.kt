@@ -112,6 +112,46 @@ class IncidentDeliveryStore(context: Context) {
         preferences.edit().putString("topic:$incidentId", topic).apply()
     }
 
+    internal data class DebugEntry(
+        val incidentId: String,
+        val active: Boolean,
+        val acknowledged: Boolean,
+        val closed: Boolean,
+        val acknowledgedAtMillis: Long?,
+        val deskTimerFiresAtMillis: Long?,
+        val ringUntilMillis: Long?,
+        val rearmFiresAtMillis: Long?,
+        val topic: String?,
+    )
+
+    internal fun debugEntries(): List<DebugEntry> = incidentIds().map { incidentId ->
+        DebugEntry(
+            incidentId, isActive(incidentId), isAcknowledged(incidentId), isClosed(incidentId),
+            acknowledgedAtMillis(incidentId), deskTimerFiresAtMillis(incidentId), ringUntilMillis(incidentId),
+            rearmFiresAtMillis(incidentId), topicOf(incidentId),
+        )
+    }
+
+    internal fun rememberRearmFiresAt(incidentId: String, millis: Long) {
+        preferences.edit().putLong("rearm_fires_at:$incidentId", millis).apply()
+    }
+
+    internal fun clearRearm(incidentId: String) {
+        preferences.edit().remove("rearm_fires_at:$incidentId").apply()
+    }
+
+    internal fun clearAcknowledgedMarks() {
+        val edit = preferences.edit()
+        incidentIds().forEach { incidentId ->
+            edit.remove("acknowledged:$incidentId")
+            edit.remove("acked_at:$incidentId")
+        }
+        edit.apply()
+    }
+
+    private fun rearmFiresAtMillis(incidentId: String): Long? =
+        preferences.getLong("rearm_fires_at:$incidentId", 0L).takeIf { it > 0L }
+
     /**
      * Drops every key of every incident past the retention window. See
      * [DeliveryRetention] for the window and why it is that long.
@@ -155,6 +195,7 @@ class IncidentDeliveryStore(context: Context) {
             "desk_timer_fires_at:",
             "ring_until:",
             "topic:",
+            "rearm_fires_at:",
         )
     }
 }

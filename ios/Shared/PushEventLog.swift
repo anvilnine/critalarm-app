@@ -59,4 +59,9 @@ enum PushEventLog {
         standard.set(json, forKey: dartKey)
         return rows.count
     }
+
+    static func recent() -> [[String: Any]] {
+        guard let defaults = groupDefaults else { return [] }
+        return (defaults.array(forKey: groupKey) as? [[String: Any]] ?? []).reversed()
+    }
 }

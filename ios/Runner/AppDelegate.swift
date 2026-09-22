@@ -445,6 +445,26 @@ import AlarmKit
       #endif
       result(false)
 
+    case "debugSnapshot":
+      Task {
+        let snapshot = await AlarmDebug.snapshot()
+        await MainActor.run { result(snapshot) }
+      }
+
+    case "cancelAllRearms":
+      Task {
+        await AlarmDebug.cancelAllRearms()
+        await MainActor.run { result(nil) }
+      }
+
+    case "clearContentCache":
+      AlarmDebug.clearContentCache()
+      result(nil)
+
+    case "clearAckedSet":
+      AlarmDebug.clearAckedSet()
+      result(nil)
+
     case "showingIncidentIds":
       guard #available(iOS 16.2, *) else { result([String]()); return }
       result(IncidentActivityCoordinator.shared.showingIncidentIds())
