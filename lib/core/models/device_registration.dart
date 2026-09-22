@@ -16,8 +16,10 @@ abstract class AccountCaps with _$AccountCaps {
 
   factory AccountCaps.fromJson(Map<String, dynamic> json) =>
       _$AccountCapsFromJson(json);
+  /// The `free` column of the cap table in api.md §4.2. Used until the relay
+  /// has answered with the real caps.
   static const free = AccountCaps(
-    devices: 1,
+    devices: 5,
     criticalTopics: 2,
     p4Daily: 50,
     historyIncidents: 20,
