@@ -189,8 +189,6 @@ class PushRouter(private val context: Context) {
             StateKindRule.Card.ACKED -> {
                 val ackedAt = store.acknowledgedAtMillis(incidentId) ?: System.currentTimeMillis()
                 store.markAcknowledged(incidentId, ackedAt)
-                // Anything that waited while the alarm was up can go out now.
-                ReminderReceiver.releaseHeld(context)
                 IncidentActionReceiver.postStatusCard(
                     context = context,
                     incidentId = incidentId,
@@ -215,6 +213,10 @@ class PushRouter(private val context: Context) {
                 )
             }
         }
+        // Anything that waited while the alarm was up can go out now. A close
+        // and an expire end it as surely as an ack does, and neither brings an
+        // ack with it.
+        ReminderReceiver.releaseHeld(context)
         events.record("push_state_change", mapOf("kind" to payload.kind.wireValue))
         Log.i(TAG, "incident_state_applied kind=${payload.kind.wireValue} incident_id=$incidentId")
     }

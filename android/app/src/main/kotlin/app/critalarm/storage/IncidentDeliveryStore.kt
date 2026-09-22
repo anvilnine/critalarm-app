@@ -67,6 +67,15 @@ class IncidentDeliveryStore(context: Context) {
         }.apply()
     }
 
+    /**
+     * Drops the active flag and nothing else. For an incident this phone can
+     * no longer ring for because `ring_until` has passed: it was never acked
+     * and it was never closed, so neither of those belongs here.
+     */
+    fun deactivate(incidentId: String) {
+        preferences.edit().remove("active:$incidentId").apply()
+    }
+
     fun markAcknowledged(incidentId: String, atMillis: Long = System.currentTimeMillis()) {
         preferences.edit()
             .putBoolean("acknowledged:$incidentId", true)
