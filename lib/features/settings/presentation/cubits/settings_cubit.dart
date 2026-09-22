@@ -40,6 +40,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     this.establishSession,
     this.getTopics,
     this.quietHoursStore,
+    this.onConnectionChanged,
     ProOverride? proOverride,
   }) : _proOverride = proOverride ?? appProOverride,
        super(const SettingsState()) {
@@ -67,6 +68,10 @@ class SettingsCubit extends Cubit<SettingsState> {
   /// Where the quiet hours window lives. Null in the tests that do not care
   /// about it, and then the three controls only move in memory.
   final QuietHoursStore? quietHoursStore;
+
+  /// Called after the server is saved or removed. The app re-plans
+  /// reminders from what is left, right away. Null in tests.
+  final Future<void> Function()? onConnectionChanged;
 
   final ProOverride _proOverride;
 
@@ -302,6 +307,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         adminToken: '',
       ),
     );
+    await onConnectionChanged?.call();
   }
 
   Future<void> saveConnection({
@@ -331,6 +337,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         serverMode: session?.mode,
       ),
     );
+    await onConnectionChanged?.call();
   }
 
   /// Rewrites the stored session so the very next request goes to the server

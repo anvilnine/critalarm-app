@@ -25,6 +25,7 @@ class TopicDetailScreen extends StatelessWidget {
   const TopicDetailScreen({
     required this.topicName,
     this.isPane = false,
+    this.startCurlFlow = false,
     super.key,
   });
 
@@ -33,6 +34,9 @@ class TopicDetailScreen extends StatelessWidget {
   /// True when this screen is drawn inside a detail pane rather than pushed
   /// as its own page.
   final bool isPane;
+
+  /// Opens the "Get curl line" token sheet as soon as the tokens load.
+  final bool startCurlFlow;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +53,11 @@ class TopicDetailScreen extends StatelessWidget {
         }
         return cubit;
       },
-      child: _TopicDetailScreenContent(isPane: isPane, isExample: isExample),
+      child: _TopicDetailScreenContent(
+        isPane: isPane,
+        isExample: isExample,
+        startCurlFlow: startCurlFlow,
+      ),
     );
   }
 }
@@ -58,12 +66,16 @@ class _TopicDetailScreenContent extends StatelessWidget {
   const _TopicDetailScreenContent({
     required this.isPane,
     required this.isExample,
+    required this.startCurlFlow,
   });
 
   final bool isPane;
 
   /// The tour's example topic. It has no tokens on the server to list.
   final bool isExample;
+
+  /// Opens the "Get curl line" token sheet as soon as the tokens load.
+  final bool startCurlFlow;
 
   /// Asks first, then deletes, then leaves.
   ///
@@ -337,7 +349,10 @@ class _TopicDetailScreenContent extends StatelessWidget {
                             ),
                           ),
                         if (!isExample)
-                          TopicTokensSection(topicName: state.topicName),
+                          TopicTokensSection(
+                            topicName: state.topicName,
+                            startCurlFlow: startCurlFlow,
+                          ),
                         const SizedBox(height: Spacing.s5),
                         // Last on the sheet, so nothing is reached past to
                         // get to it.

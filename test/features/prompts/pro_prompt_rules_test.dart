@@ -1,93 +1,12 @@
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
+import 'package:critalarm/features/prompts/data/repositories/shared_prefs_home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class FakeHomePromptRepository implements HomePromptRepository {
-  DateTime? firstSeenAt;
-  DateTime? consentAskedAt;
-  DateTime? reviewAskedAt;
-  int reviewAskCount = 0;
-  DateTime? lastAcknowledgedAt;
-
-  @override
-  DateTime? getFirstSeenAt() => firstSeenAt;
-
-  @override
-  Future<void> markFirstSeen() async {
-    firstSeenAt ??= DateTime.now();
-  }
-
-  @override
-  DateTime? getConsentAskedAt() => consentAskedAt;
-
-  @override
-  Future<void> markConsentAsked() async {
-    consentAskedAt = DateTime.now();
-  }
-
-  @override
-  DateTime? getReviewAskedAt() => reviewAskedAt;
-
-  @override
-  int getReviewAskCount() => reviewAskCount;
-
-  @override
-  Future<void> markReviewAsked() async {
-    reviewAskedAt = DateTime.now();
-    reviewAskCount++;
-  }
-
-  @override
-  DateTime? getLastAcknowledgedAt() => lastAcknowledgedAt;
-
-  @override
-  Future<void> markAcknowledged() async {
-    lastAcknowledgedAt = DateTime.now();
-  }
-  DateTime? proAskedAt;
-  DateTime? proDismissedAt;
-  int proDismissCount = 0;
-
-  /// Stamps with the test's clock, so the day counts do not drift with the
-  /// real date.
-  DateTime Function() now = DateTime.now;
-
-  @override
-  DateTime? getProPromptAskedAt() => proAskedAt;
-
-  @override
-  Future<void> markProPromptAsked() async {
-    proAskedAt = now();
-  }
-
-  @override
-  DateTime? getProPromptDismissedAt() => proDismissedAt;
-
-  @override
-  int getProPromptDismissCount() => proDismissCount;
-
-  @override
-  Future<void> dismissProPrompt() async {
-    proDismissCount++;
-    proDismissedAt = now();
-    proAskedAt = proDismissedAt;
-  }
-
-  @override
-  DateTime? getAccountPromptDismissedAt() => null;
-
-  @override
-  Future<void> dismissAccountPrompt() async {}
-
-  @override
-  DateTime? getLastBannerResolvedOrDismissedAt() => null;
-
-  @override
-  Future<void> markBannerResolvedOrDismissed() async {}
-}
+import '../../helpers/fake_home_prompt_repository.dart';
 
 class FakeAccountRepository implements AccountRepository {
   bool isPaid = false;
@@ -298,5 +217,52 @@ void main() {
       expect(promptRepo.getProPromptDismissedAt(), isNotNull);
       expect(promptRepo.getProPromptAskedAt(), isNotNull);
     });
+  });
+
+  group('reminders', () {
+    late FakeHomePromptRepository promptRepo;
+    late FakeAccountRepository accountRepo;
+
+    setUp(() {
+      promptRepo = FakeHomePromptRepository()..now = () => today;
+      accountRepo = FakeAccountRepository();
+    });
+
+    ProPromptRules rules({bool offersOn = false}) => ProPromptRules(
+      homePromptRepository: promptRepo,
+      accountRepository: accountRepo,
+      now: () => today,
+      offersOn: () => offersOn,
+    );
+
+    test('waits 24 hours after a feedback ask', () async {
+      promptRepo.feedbackAskedAt = today.subtract(const Duration(hours: 2));
+      expect(await rules().shouldAsk(), isFalse);
+    });
+
+    test('"Remind me later" does not count, "Not now" does', () async {
+      // Runs against the real repository, not the fake: this proves what
+      // SharedPreferences actually stores, not what the fake mimics.
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final repo = SharedPrefsHomePromptRepository(prefs);
+
+      await repo.remindProPromptLater();
+      await repo.remindProPromptLater();
+      expect(repo.getProPromptDismissCount(), 0);
+      await repo.dismissProPrompt();
+      expect(repo.getProPromptDismissCount(), 1);
+    });
+
+    test(
+      'with Offers on, "Remind me later" hands the ask to a notification',
+      () async {
+        promptRepo
+          ..proLaterAt = today.subtract(const Duration(days: 40))
+          ..proAskedAt = today.subtract(const Duration(days: 40));
+        expect(await rules(offersOn: true).shouldAsk(), isFalse);
+        expect(await rules().shouldAsk(), isTrue);
+      },
+    );
   });
 }

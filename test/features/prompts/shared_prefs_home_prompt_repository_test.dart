@@ -54,4 +54,25 @@ void main() {
     await repository.markAcknowledged();
     expect(repository.getLastAcknowledgedAt(), isNotNull);
   });
+
+  test('markReviewAsked keeps the time it is given', () async {
+    await repository.markReviewAsked(at: DateTime(2026, 9, 24, 10));
+    expect(repository.getReviewAskedAt(), DateTime(2026, 9, 24, 10));
+    expect(repository.getReviewAskCount(), 1);
+  });
+
+  test('markFeedbackAsked stamps once and reads back', () async {
+    expect(repository.getFeedbackAskedAt(), isNull);
+    await repository.markFeedbackAsked(at: DateTime(2026, 10, 1, 10));
+    expect(repository.getFeedbackAskedAt(), DateTime(2026, 10, 1, 10));
+  });
+
+  test('"Remind me later" never counts as a "Not now"', () async {
+    await repository.remindProPromptLater();
+    await repository.remindProPromptLater();
+    expect(repository.getProPromptLaterAt(), isNotNull);
+    expect(repository.getProPromptDismissCount(), 0);
+    await repository.clearProPromptLater();
+    expect(repository.getProPromptLaterAt(), isNull);
+  });
 }

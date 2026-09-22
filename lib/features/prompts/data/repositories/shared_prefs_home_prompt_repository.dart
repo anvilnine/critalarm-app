@@ -15,6 +15,8 @@ class SharedPrefsHomePromptRepository implements HomePromptRepository {
   static const _consentAskedKey = 'home_prompt_consent_asked_at';
   static const _reviewAskedKey = 'home_prompt_review_asked_at';
   static const _reviewAskCountKey = 'home_prompt_review_ask_count';
+  static const _feedbackAskedKey = 'home_prompt_feedback_asked_at';
+  static const _proLaterKey = 'home_prompt_pro_later_at';
   static const _lastAcknowledgedKey = 'home_prompt_last_acknowledged_at';
 
   DateTime? _readTime(String key) {
@@ -106,10 +108,31 @@ class SharedPrefsHomePromptRepository implements HomePromptRepository {
   int getReviewAskCount() => _prefs.getInt(_reviewAskCountKey) ?? 0;
 
   @override
-  Future<void> markReviewAsked() async {
-    await _stampNow(_reviewAskedKey);
+  Future<void> markReviewAsked({DateTime? at}) async {
+    await _prefs.setInt(
+      _reviewAskedKey,
+      (at ?? DateTime.now()).millisecondsSinceEpoch,
+    );
     await _prefs.setInt(_reviewAskCountKey, getReviewAskCount() + 1);
   }
+
+  @override
+  DateTime? getFeedbackAskedAt() => _readTime(_feedbackAskedKey);
+
+  @override
+  Future<void> markFeedbackAsked({DateTime? at}) => _prefs.setInt(
+    _feedbackAskedKey,
+    (at ?? DateTime.now()).millisecondsSinceEpoch,
+  );
+
+  @override
+  DateTime? getProPromptLaterAt() => _readTime(_proLaterKey);
+
+  @override
+  Future<void> remindProPromptLater() => _stampNow(_proLaterKey);
+
+  @override
+  Future<void> clearProPromptLater() => _prefs.remove(_proLaterKey);
 
   @override
   DateTime? getLastAcknowledgedAt() => _readTime(_lastAcknowledgedKey);

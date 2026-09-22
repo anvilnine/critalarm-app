@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
@@ -35,7 +37,9 @@ import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
+import 'package:critalarm/core/telemetry/reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
+import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
@@ -101,6 +105,22 @@ import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
 import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
+import 'package:critalarm/features/reminders/data/native_reminder_scheduler.dart';
+import 'package:critalarm/features/reminders/data/noop_reminder_scheduler.dart';
+import 'package:critalarm/features/reminders/data/revenuecat_plan_status_source.dart';
+import 'package:critalarm/features/reminders/data/shared_prefs_reminder_store.dart';
+import 'package:critalarm/features/reminders/domain/plan_status_source.dart';
+import 'package:critalarm/features/reminders/domain/reminder_copy.dart';
+import 'package:critalarm/features/reminders/domain/reminder_inputs_reader.dart';
+import 'package:critalarm/features/reminders/domain/reminder_plan_pass.dart';
+import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
+import 'package:critalarm/features/reminders/domain/reminder_scheduler.dart';
+import 'package:critalarm/features/reminders/domain/reminder_server_support.dart';
+import 'package:critalarm/features/reminders/domain/reminder_settler.dart';
+import 'package:critalarm/features/reminders/domain/reminder_store.dart';
+import 'package:critalarm/features/reminders/presentation/cubits/confirm_ring_cubit.dart';
+import 'package:critalarm/features/reminders/presentation/cubits/reminder_lab_cubit.dart';
+import 'package:critalarm/features/reminders/presentation/cubits/reminder_settings_cubit.dart';
 import 'package:critalarm/features/search/data/repositories/asset_docs_index_repository.dart';
 import 'package:critalarm/features/search/data/repositories/shared_prefs_recent_searches_repository.dart';
 import 'package:critalarm/features/search/domain/repositories/docs_index_repository.dart';
@@ -396,16 +416,82 @@ Future<void> configureDependencies({
     ..registerLazySingleton<HomePromptRepository>(
       () => SharedPrefsHomePromptRepository(getIt<SharedPreferences>()),
     )
+    ..registerLazySingleton<ReminderStore>(
+      () => SharedPrefsReminderStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton(
+      () => ReminderSettler(
+        store: getIt<ReminderStore>(),
+        prompts: getIt<HomePromptRepository>(),
+      ),
+    )
+    // Web has no local notifications, so the dashboard gets the no-op.
+    ..registerLazySingleton<ReminderScheduler>(
+      () => kIsWeb ? const NoopReminderScheduler() : NativeReminderScheduler(),
+    )
+    ..registerLazySingleton<PlanStatusSource>(
+      () => RevenueCatPlanStatusSource(getIt<SubscriptionRepository>()),
+    )
+    ..registerLazySingleton(
+      () => ReminderInputsReader(
+        store: getIt<ReminderStore>(),
+        prompts: getIt<HomePromptRepository>(),
+        quietHours: getIt<QuietHoursStore>(),
+        scheduler: getIt<ReminderScheduler>(),
+        planStatus: getIt<PlanStatusSource>(),
+        privacy: getIt<PrivacyRepository>(),
+        readTopics: () async =>
+            (await getIt<GetTopicsUsecase>()(const NoParams())).getOrNull(),
+        readIncidents: () async => (await getIt<GetIncidentsUsecase>()(
+          const GetIncidentsParams(limit: 50),
+        )).getOrNull(),
+        // A failed poll counts as "has messages": better to miss a nudge
+        // than to nag about a topic that may be working.
+        topicHasMessages: (topic) async =>
+            (await getIt<IncidentRepository>().pollMessages(
+              topic,
+              poll: 1,
+              since: 'all',
+            )).fold((messages) => messages.isNotEmpty, (_) => true),
+        readServerMode: () => getIt<AccountRepository>().readServerMode(),
+        readIsPaid: () async =>
+            (await getIt<AccountRepository>().readIsPaid()) ||
+            appProOverride.isForcingPro,
+        readIsSignedIn: () async =>
+            (await getIt<IdentityRepository>().readIdentity()) != null,
+        proShouldAsk: () => getIt<ProPromptRules>().shouldAsk(),
+        isWeb: kIsWeb,
+        isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
+      ),
+    )
+    ..registerLazySingleton(
+      () => ReminderPlanPass(
+        store: getIt<ReminderStore>(),
+        scheduler: getIt<ReminderScheduler>(),
+        settler: getIt<ReminderSettler>(),
+        readInputs: () => getIt<ReminderInputsReader>().read(),
+        copy: ReminderCopy(
+          isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
+        ),
+      ),
+    )
+    // Web plans nothing.
+    ..registerLazySingleton<ReminderPlanTrigger>(
+      () =>
+          kIsWeb ? const NoopReminderPlanTrigger() : getIt<ReminderPlanPass>(),
+    )
     ..registerLazySingleton<ProPromptRules>(
       () => ProPromptRules(
         homePromptRepository: getIt<HomePromptRepository>(),
         accountRepository: getIt<AccountRepository>(),
+        offersOn: () => getIt<ReminderStore>().readSwitches().offers,
       ),
     )
     ..registerLazySingleton<HomeAskRules>(
       () => HomeAskRules(
         homePromptRepository: getIt<HomePromptRepository>(),
         privacyRepository: getIt<PrivacyRepository>(),
+        settle: () => getIt<ReminderSettler>().settleAsks(now: DateTime.now()),
       ),
     )
     ..registerLazySingleton<DeviceReportRepository>(
@@ -445,6 +531,7 @@ Future<void> configureDependencies({
       ),
     )
     ..registerLazySingleton(() => PushAnalytics(getIt<TelemetryGate>()))
+    ..registerLazySingleton(() => ReminderAnalytics(getIt<TelemetryGate>()))
     ..registerLazySingleton(
       () => PushEventDrain(getIt<SharedPreferences>(), getIt<TelemetryGate>()),
     )
@@ -520,7 +607,13 @@ Future<void> configureDependencies({
       () => GetServerInfoUsecase(getIt<ServerRepository>()),
     )
     ..registerLazySingleton(
-      () => TriggerTestAlarmUsecase(getIt<IncidentRepository>()),
+      () => TriggerTestAlarmUsecase(
+        getIt<IncidentRepository>(),
+        reminderStore: getIt<ReminderStore>(),
+        // Fire and forget: a slow or failed re-plan never blocks or fails
+        // the test ring.
+        onTested: (_) => unawaited(getIt<ReminderPlanTrigger>().run()),
+      ),
     )
     ..registerLazySingleton(
       () => GetIncidentsUsecase(getIt<IncidentRepository>()),
@@ -576,7 +669,19 @@ Future<void> configureDependencies({
       () => GetTopicsUsecase(getIt<TopicRepository>()),
     )
     ..registerLazySingleton(
-      () => CreateTopicUsecase(getIt<TopicRepository>()),
+      () => CreateTopicUsecase(
+        getIt<TopicRepository>(),
+        // Recording the topic is awaited (it is a plain preference write);
+        // the plan pass is fire and forget, so a slow or failed re-plan
+        // never blocks or fails topic creation.
+        onCreated: (topic) async {
+          await getIt<ReminderStore>().recordTopicCreatedHere(
+            topic.name,
+            DateTime.now(),
+          );
+          unawaited(getIt<ReminderPlanTrigger>().run());
+        },
+      ),
     )
     ..registerLazySingleton(
       () => UpdateTopicUsecase(getIt<TopicRepository>()),
@@ -756,6 +861,44 @@ Future<void> configureDependencies({
             ? getIt<TelemetryGate>()
             : null,
         quietHoursStore: getIt<QuietHoursStore>(),
+        // Fire and forget: a slow or failed re-plan never blocks or fails
+        // saving or dropping the server connection.
+        onConnectionChanged: () async =>
+            unawaited(getIt<ReminderPlanTrigger>().run()),
+      ),
+    )
+    ..registerFactory(
+      () => ReminderSettingsCubit(
+        store: getIt<ReminderStore>(),
+        scheduler: getIt<ReminderScheduler>(),
+        readServerMode: () => getIt<AccountRepository>().readServerMode(),
+        trigger: getIt<ReminderPlanTrigger>(),
+        analytics: getIt<ReminderAnalytics>(),
+      ),
+    )
+    ..registerFactory(
+      () => ConfirmRingCubit(
+        readTopics: () async =>
+            (await getIt<GetTopicsUsecase>()(const NoParams())).getOrNull(),
+        readIncidents: () async => (await getIt<GetIncidentsUsecase>()(
+          const GetIncidentsParams(limit: 50),
+        )).getOrNull(),
+        triggerTest: getIt<TriggerTestAlarmUsecase>().call,
+        store: getIt<ReminderStore>(),
+        canTestNormalTopics: ReminderServerSupport.testsNormalTopics,
+        analytics: getIt<ReminderAnalytics>(),
+      ),
+    )
+    ..registerFactory(
+      () => ReminderLabCubit(
+        store: getIt<ReminderStore>(),
+        prompts: getIt<HomePromptRepository>(),
+        scheduler: getIt<ReminderScheduler>(),
+        copy: ReminderCopy(
+          isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
+        ),
+        trigger: getIt<ReminderPlanTrigger>(),
+        readServerMode: () => getIt<AccountRepository>().readServerMode(),
       ),
     )
     ..registerFactory(

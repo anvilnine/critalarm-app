@@ -2,14 +2,18 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/models/topic_token.dart';
+import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
+import 'package:critalarm/features/topics/domain/curl_line.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_state.dart';
 import 'package:critalarm/features/topics/presentation/widgets/token_actions.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// The Tokens block on a topic: what it has, a button to make one more, and a
@@ -19,9 +23,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// right after it is made, because the server keeps a hash of it and has
 /// nothing to hand back later.
 class TopicTokensSection extends StatelessWidget {
-  const TopicTokensSection({required this.topicName, super.key});
+  const TopicTokensSection({
+    required this.topicName,
+    this.startCurlFlow = false,
+    super.key,
+  });
 
   final String topicName;
+
+  /// Opens the "Get curl line" sheet once, as soon as this builds.
+  final bool startCurlFlow;
 
   @override
   Widget build(BuildContext context) {
@@ -31,13 +42,82 @@ class TopicTokensSection extends StatelessWidget {
         unawaited(cubit.load(topicName));
         return cubit;
       },
-      child: const _TopicTokensSectionContent(),
+      child: _TopicTokensSectionContent(startCurlFlow: startCurlFlow),
     );
   }
 }
 
-class _TopicTokensSectionContent extends StatelessWidget {
-  const _TopicTokensSectionContent();
+class _TopicTokensSectionContent extends StatefulWidget {
+  const _TopicTokensSectionContent({required this.startCurlFlow});
+
+  final bool startCurlFlow;
+
+  @override
+  State<_TopicTokensSectionContent> createState() =>
+      _TopicTokensSectionContentState();
+}
+
+class _TopicTokensSectionContentState
+    extends State<_TopicTokensSectionContent> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.startCurlFlow) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_openCurlSheet());
+      });
+    }
+  }
+
+  /// "Get curl line" from the silent topic reminder. The existing new-token
+  /// flow, with the name filled in as "Script". Nothing is minted until the
+  /// button in the sheet is tapped.
+  Future<void> _openCurlSheet() async {
+    final cubit = context.read<TopicTokensCubit>();
+    final name = await showAppSheet<String>(
+      context: context,
+      title: LocaleKeys.reminders_curl_sheet_title.tr(
+        namedArgs: {'topic': cubit.topicName},
+      ),
+      content: (sheetContext) => StreamBuilder<TopicTokensState>(
+        stream: cubit.stream,
+        initialData: cubit.state,
+        builder: (context, snapshot) => _CurlTokenSheet(
+          // The sheet's own button, not the tokens list's: this one guards
+          // against a fast double tap minting two tokens.
+          isWorking: snapshot.data?.isWorking ?? false,
+          onMake: (value) => Navigator.of(sheetContext).pop(value),
+          onCancel: () => Navigator.of(sheetContext).pop(),
+        ),
+      ),
+    );
+    if (name == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+
+    final token = await cubit.createNamedToken(name);
+    if (token == null) return;
+    final connection =
+        (await getIt<GetConnectionUsecase>()(const NoParams())).getOrNull();
+    if (connection == null || !mounted) return;
+
+    final line = CurlLine.build(
+      serverUrl: connection.serverUrl,
+      topic: cubit.topicName,
+      token: token,
+      message: LocaleKeys.reminders_curl_sample_message.tr(),
+    );
+    await Clipboard.setData(ClipboardData(text: line));
+    // The raw token value and its own copy button would otherwise linger in
+    // the "new token" banner below, right next to the line just copied.
+    cubit.dismissNewToken();
+    AppHaptics.selection();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(LocaleKeys.reminders_curl_copied.tr()),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   Future<void> _openToken(
     BuildContext context,
@@ -180,7 +260,10 @@ class _TopicTokensSectionContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
               ],
-              if (state.errorMessage != null && state.tokens.isNotEmpty) ...[
+              // Shown whatever the token count: a refused create (the usual
+              // silent-topic case, where the topic has no token yet) must not
+              // read as "no error" just because the list is still empty.
+              if (state.errorMessage != null) ...[
                 _Note(state.errorMessage!),
                 const SizedBox(height: 8),
               ],
@@ -364,6 +447,83 @@ class _Note extends StatelessWidget {
         fontWeight: FontWeight.w600,
         color: colors.ink3,
       ),
+    );
+  }
+}
+
+/// The name field and the two buttons of the "Get curl line" sheet.
+class _CurlTokenSheet extends StatefulWidget {
+  const _CurlTokenSheet({
+    required this.isWorking,
+    required this.onMake,
+    required this.onCancel,
+  });
+
+  /// True while the previous tap's token is still being made. Keeps a fast
+  /// double tap from minting two.
+  final bool isWorking;
+  final ValueChanged<String> onMake;
+  final VoidCallback onCancel;
+
+  @override
+  State<_CurlTokenSheet> createState() => _CurlTokenSheetState();
+}
+
+class _CurlTokenSheetState extends State<_CurlTokenSheet> {
+  late final TextEditingController _controller = TextEditingController(
+    text: LocaleKeys.reminders_curl_default_name.tr(),
+  );
+
+  /// Set by the first tap on either button. Both pop the sheet, so a second
+  /// tap before it closes would pop the screen under it.
+  bool _submitted = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppTextField(
+          label: LocaleKeys.reminders_curl_name_label.tr(),
+          controller: _controller,
+        ),
+        const SizedBox(height: 16),
+        AppButton(
+          label: LocaleKeys.reminders_curl_make_button.tr(),
+          isFullWidth: true,
+          isLoading: widget.isWorking,
+          onPressed: widget.isWorking
+              ? null
+              : () {
+                  if (_submitted) return;
+                  _submitted = true;
+                  final name = _controller.text.trim();
+                  widget.onMake(
+                    name.isEmpty
+                        ? LocaleKeys.reminders_curl_default_name.tr()
+                        : name,
+                  );
+                },
+        ),
+        const SizedBox(height: 8),
+        AppButton(
+          label: LocaleKeys.common_cancel.tr(),
+          variant: AppButtonVariant.ghost,
+          isFullWidth: true,
+          onPressed: () {
+            if (_submitted) return;
+            _submitted = true;
+            widget.onCancel();
+          },
+        ),
+      ],
     );
   }
 }

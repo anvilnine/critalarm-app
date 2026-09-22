@@ -17,6 +17,7 @@ import AlarmKit
   private var alarmChannel: FlutterMethodChannel?
   private var soundChannel: FlutterMethodChannel?
   private var settingsChannel: FlutterMethodChannel?
+  private let reminders = ReminderNotifications()
   private var alarmUpdatesTask: Task<Void, Never>?
 
   /// Held until Dart asks for it, which can be after APNs has already
@@ -54,7 +55,8 @@ import AlarmKit
     if #available(iOS 26.0, *) { Task { await IncidentAlarmScheduler.requestAuthorization() } }
     #endif
     startAlarmAndActivityStreams()
-    registerIncidentCategory()
+    reminders.registerCategories = { [weak self] in self?.registerNotificationCategories() }
+    registerNotificationCategories()
     // The engine owns the delegate by default. Take it back so the ACK action
     // and the in-app banner land here.
     UNUserNotificationCenter.current().delegate = self
@@ -130,6 +132,8 @@ import AlarmKit
         result(FlutterMethodNotImplemented)
       }
     }
+
+    reminders.attach(messenger: messenger)
   }
 
   // MARK: - APNs registration
@@ -160,22 +164,26 @@ import AlarmKit
 
   // MARK: - Notifications
 
-  /// api.md §5.1: one category, one action. `foreground: false` keeps the ack
-  /// off the main path, so tapping "I'm up" stops the alarm without opening
-  /// the app.
-  private func registerIncidentCategory() {
+  /// api.md §5.1: the INCIDENT category with its single ACK action, plus the
+  /// reminder categories Dart has asked for. One call sets all of them,
+  /// because `setNotificationCategories` replaces whatever was there.
+  /// `foreground: false` keeps the ack off the main path, so tapping "I'm
+  /// up" stops the alarm without opening the app.
+  func registerNotificationCategories() {
     let ack = UNNotificationAction(
       identifier: Self.ackAction,
       title: "I'm up",
       options: []
     )
-    let category = UNNotificationCategory(
+    let incident = UNNotificationCategory(
       identifier: Self.incidentCategory,
       actions: [ack],
       intentIdentifiers: [],
       options: [.customDismissAction]
     )
-    UNUserNotificationCenter.current().setNotificationCategories([category])
+    var categories: Set<UNNotificationCategory> = [incident]
+    categories.formUnion(ReminderNotifications.storedCategories())
+    UNUserNotificationCenter.current().setNotificationCategories(categories)
   }
 
   /// Banners stay visible while the app is open. A critical alert that only
@@ -185,6 +193,12 @@ import AlarmKit
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
+    // A reminder is not a push: nothing on the server changed, so Dart is
+    // not told to reload. Show it quietly as a banner.
+    if ReminderNotifications.isReminder(notification.request) {
+      completionHandler([.banner, .list])
+      return
+    }
     NSLog("CritAlarm: push_presented_foreground title=%@", notification.request.content.title)
     // Nobody is going to tap this: the app is already open. Tell Dart so the
     // screen the user is on reloads. Nothing about the notification is passed
@@ -200,6 +214,12 @@ import AlarmKit
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
+    if ReminderNotifications.isReminder(response.notification.request) {
+      reminders.handle(response)
+      completionHandler()
+      return
+    }
+
     let info = response.notification.request.content.userInfo
     let incidentId = info["incident_id"] as? String
 
@@ -932,6 +952,268 @@ extension AppDelegate {
       UIApplication.shared.open(url, options: [:]) { opened in
         result(opened)
       }
+    }
+  }
+}
+
+// MARK: - Local reminders
+
+/// The native half of Dart's `NativeReminderScheduler`, on the
+/// `app.critalarm/reminders` channel.
+///
+/// Reminders are local notifications the app plans for itself. They never
+/// look or sound like an alarm: interruption level `.active` and the default
+/// sound, nothing louder. Every request id starts with `reminder_`, which is
+/// how the delegate methods tell one from an incident.
+final class ReminderNotifications {
+  static let channelName = "app.critalarm/reminders"
+  static let identifierPrefix = "reminder_"
+  static let categoriesKey = "critalarm.reminder_categories"
+
+  /// Read by Dart's `SharedPrefsReminderStore` as
+  /// `reminder_pending_pro_dismiss`. `shared_preferences` keeps its values
+  /// in the standard defaults with a `flutter.` prefix.
+  static let pendingProDismissKey = "flutter.reminder_pending_pro_dismiss"
+  static let notNowAction = "not_now"
+  static let openAction = "open"
+
+  /// Set by AppDelegate. Registers INCIDENT and every stored reminder
+  /// category in one `setNotificationCategories` call.
+  var registerCategories: (() -> Void)?
+
+  private var channel: FlutterMethodChannel?
+
+  /// A tap can beat Dart to the channel. It waits here until Dart asks with
+  /// `takePendingTap`, and is sent live as well once Dart is listening.
+  private var pendingTap: [String: Any]?
+  private var dartIsListening = false
+  private var tapSequence = 0
+
+  static func isReminder(_ request: UNNotificationRequest) -> Bool {
+    request.identifier.hasPrefix(identifierPrefix)
+  }
+
+  static func identifier(for id: Int) -> String { "\(identifierPrefix)\(id)" }
+
+  func attach(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: Self.channelName, binaryMessenger: messenger)
+    channel.setMethodCallHandler { [weak self] call, result in
+      self?.handle(call, result: result)
+    }
+    self.channel = channel
+  }
+
+  private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    let center = UNUserNotificationCenter.current()
+    switch call.method {
+    case "schedule":
+      guard let args = call.arguments as? [String: Any] else {
+        result(FlutterError(code: "bad_args", message: "schedule needs a map", details: nil))
+        return
+      }
+      schedule(args, result: result)
+
+    case "cancel":
+      let ids = (call.arguments as? [String: Any])?["ids"] as? [Int] ?? []
+      // Pending requests only. Delivered reminders stay in Notification Center.
+      center.removePendingNotificationRequests(withIdentifiers: ids.map(Self.identifier(for:)))
+      result(nil)
+
+    case "pending":
+      center.getPendingNotificationRequests { requests in
+        let list = requests.filter(Self.isReminder).compactMap(Self.describe)
+        DispatchQueue.main.async { result(list) }
+      }
+
+    case "systemState":
+      center.getNotificationSettings { settings in
+        let allowed: Bool
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral: allowed = true
+        default: allowed = false
+        }
+        DispatchQueue.main.async { result(["notifications_allowed": allowed]) }
+      }
+
+    case "deviceTimeZone":
+      let zone = TimeZone.current
+      result(["name": zone.identifier, "offset_minutes": zone.secondsFromGMT() / 60])
+
+    case "takePendingTap":
+      dartIsListening = true
+      let tap = pendingTap
+      pendingTap = nil
+      result(tap)
+
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func schedule(_ args: [String: Any], result: @escaping FlutterResult) {
+    guard let id = args["id"] as? Int,
+          let kind = args["kind"] as? String,
+          let category = args["category"] as? String,
+          let year = args["year"] as? Int,
+          let month = args["month"] as? Int,
+          let day = args["day"] as? Int,
+          let hour = args["hour"] as? Int,
+          let minute = args["minute"] as? Int else {
+      result(FlutterError(code: "bad_args", message: "schedule needs id, kind and a time", details: nil))
+      return
+    }
+
+    Self.storeCategory(
+      id: category,
+      actions: args["actions"] as? [[String: Any]] ?? [],
+      placeholder: args["hidden_preview"] as? String ?? ""
+    )
+    registerCategories?()
+
+    let content = UNMutableNotificationContent()
+    content.title = args["title"] as? String ?? ""
+    content.body = args["body"] as? String ?? ""
+    content.sound = .default
+    content.categoryIdentifier = category
+    content.interruptionLevel = .active
+    content.userInfo = [
+      "reminder_kind": kind,
+      "reminder_id": id,
+      "reminder_payload": args["payload"] as? [String: String] ?? [:],
+    ]
+    if let asset = args["face_asset"] as? String,
+       let attachment = Self.faceAttachment(asset: asset) {
+      content.attachments = [attachment]
+    }
+
+    // Wall-clock fields with no time zone: the trigger fires at this time on
+    // the phone's clock, wherever the phone is.
+    var components = DateComponents()
+    components.year = year
+    components.month = month
+    components.day = day
+    components.hour = hour
+    components.minute = minute
+    components.second = args["second"] as? Int ?? 0
+    let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+    let request = UNNotificationRequest(
+      identifier: Self.identifier(for: id),
+      content: content,
+      trigger: trigger
+    )
+    UNUserNotificationCenter.current().add(request) { error in
+      if let error {
+        NSLog("CritAlarm: reminder_schedule_failed id=%d reason=%@", id, "\(error)")
+      }
+      DispatchQueue.main.async { result(error == nil) }
+    }
+  }
+
+  /// A tap on a reminder. "Not now" never opens the app: it leaves a flag
+  /// the next plan pass turns into a dismissal of the Pro prompt.
+  func handle(_ response: UNNotificationResponse) {
+    let info = response.notification.request.content.userInfo
+    guard let kind = info["reminder_kind"] as? String else { return }
+
+    let action: String
+    switch response.actionIdentifier {
+    case UNNotificationDismissActionIdentifier:
+      return
+    case UNNotificationDefaultActionIdentifier:
+      action = Self.openAction
+    default:
+      action = response.actionIdentifier
+    }
+
+    if action == Self.notNowAction {
+      UserDefaults.standard.set(true, forKey: Self.pendingProDismissKey)
+      return
+    }
+
+    tapSequence += 1
+    let tap: [String: Any] = [
+      "kind": kind,
+      "action": action,
+      "tap_id": "r\(tapSequence)",
+      "payload": info["reminder_payload"] as? [String: String] ?? [:],
+    ]
+    pendingTap = tap
+    if dartIsListening {
+      channel?.invokeMethod("onReminderTap", arguments: tap)
+    }
+  }
+
+  private static func describe(_ request: UNNotificationRequest) -> [String: Any]? {
+    guard let id = request.content.userInfo["reminder_id"] as? Int else { return nil }
+    var item: [String: Any] = ["id": id]
+    if let kind = request.content.userInfo["reminder_kind"] as? String {
+      item["kind"] = kind
+    }
+    if let trigger = request.trigger as? UNCalendarNotificationTrigger {
+      let c = trigger.dateComponents
+      if let year = c.year, let month = c.month, let day = c.day,
+         let hour = c.hour, let minute = c.minute {
+        item["year"] = year
+        item["month"] = month
+        item["day"] = day
+        item["hour"] = hour
+        item["minute"] = minute
+        item["second"] = c.second ?? 0
+      }
+    }
+    return item
+  }
+
+  /// Dart sends the action titles in the user's language, so each category
+  /// is kept here and registered again on the next launch.
+  private static func storeCategory(id: String, actions: [[String: Any]], placeholder: String) {
+    var all = UserDefaults.standard.dictionary(forKey: categoriesKey) ?? [:]
+    all[id] = ["actions": actions, "placeholder": placeholder]
+    UserDefaults.standard.set(all, forKey: categoriesKey)
+  }
+
+  static func storedCategories() -> Set<UNNotificationCategory> {
+    let all = UserDefaults.standard.dictionary(forKey: categoriesKey) ?? [:]
+    var categories = Set<UNNotificationCategory>()
+    for (id, value) in all {
+      guard let entry = value as? [String: Any] else { continue }
+      let actions = (entry["actions"] as? [[String: Any]] ?? []).compactMap { item -> UNNotificationAction? in
+        guard let actionId = item["id"] as? String,
+              let title = item["title"] as? String else { return nil }
+        // `.foreground` opens the app to the right screen. No
+        // `.authenticationRequired`: the confirm screen is the second tap.
+        let opensApp = item["opens_app"] as? Bool ?? true
+        return UNNotificationAction(identifier: actionId, title: title, options: opensApp ? [.foreground] : [])
+      }
+      // No `.hiddenPreviewsShowTitle`: with previews off, topic names stay
+      // hidden behind the placeholder.
+      categories.insert(
+        UNNotificationCategory(
+          identifier: id,
+          actions: actions,
+          intentIdentifiers: [],
+          hiddenPreviewsBodyPlaceholder: entry["placeholder"] as? String ?? "",
+          options: []
+        )
+      )
+    }
+    return categories
+  }
+
+  /// Copies the face from the app bundle to a temp file for this one
+  /// request. The system moves an attachment's file into its own store, so
+  /// the bundle copy can never be handed over directly.
+  private static func faceAttachment(asset: String) -> UNNotificationAttachment? {
+    let key = FlutterDartProject.lookupKey(forAsset: asset)
+    guard let path = Bundle.main.path(forResource: key, ofType: nil) else { return nil }
+    let copy = FileManager.default.temporaryDirectory
+      .appendingPathComponent("reminder-face-\(UUID().uuidString).png")
+    do {
+      try FileManager.default.copyItem(at: URL(fileURLWithPath: path), to: copy)
+      return try UNNotificationAttachment(identifier: "face", url: copy, options: nil)
+    } catch {
+      NSLog("CritAlarm: reminder_face_missing asset=%@", asset)
+      return nil
     }
   }
 }

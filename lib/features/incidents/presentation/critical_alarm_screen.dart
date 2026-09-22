@@ -10,9 +10,15 @@ import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/pro_prompt_sheet.dart';
+import 'package:critalarm/features/reminders/domain/after_ack_decider.dart';
+import 'package:critalarm/features/reminders/domain/incident_kinds.dart';
+import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
+import 'package:critalarm/features/reminders/domain/reminder_settler.dart';
+import 'package:critalarm/features/reminders/domain/reminder_store.dart';
+import 'package:critalarm/features/reminders/presentation/widgets/reminder_ask_sheets.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -46,18 +52,43 @@ class _CriticalAlarmView extends StatefulWidget {
 class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   AmbientDirection _direction = AmbientDirection.push;
 
-  /// The alarm just stopped screaming, which is the day the app proved it
-  /// works. Wait for the acknowledged screen to settle before asking about
-  /// Pro, and let the rules decide whether to ask at all. Somebody who pays,
-  /// or who has said no twice, never sees it.
-  Future<void> _askAboutPro() async {
+  /// The alarm just stopped, which is the moment the app proved it works.
+  /// Waits for the acknowledged screen to settle, then lets
+  /// `AfterAckDecider` pick at most one follow-up: the Reminders sheet after
+  /// the first test alarm, the Pro sheet, or nothing now because it is the
+  /// middle of the night.
+  Future<void> _afterAck(CriticalAlarmState state) async {
     await Future<void>.delayed(const Duration(milliseconds: 1500));
-    if (!mounted) return;
-    final rules = getIt<ProPromptRules>();
-    final repository = getIt<HomePromptRepository>();
-    if (!await rules.shouldAsk()) return;
-    if (!mounted) return;
-    await showProPromptSheet(context: context, repository: repository);
+    final store = getIt<ReminderStore>();
+    final incident = state.incident;
+    // A delivered review or feedback reminder counts as an ask before the
+    // Pro rules read the ask times.
+    await getIt<ReminderSettler>().settleAsks(now: DateTime.now());
+    final proShouldAsk = await getIt<ProPromptRules>().shouldAsk();
+    final next = AfterAckDecider.decide(
+      ackedAt: DateTime.now(),
+      isTestAck: incident == null || IncidentKinds.isTest(incident),
+      isRemindersSheetShown: store.readSheetShown(),
+      isWeb: kIsWeb,
+      offersOn: store.readSwitches().offers,
+      proShouldAsk: proShouldAsk,
+    );
+    // Only the two sheets need this screen. Planning the morning after and
+    // owing the Pro sheet happen even if the user already left it.
+    switch (next) {
+      case AfterAck.remindersSheet:
+        if (!mounted) return;
+        await askRemindersSheet(context);
+      case AfterAck.proSheet:
+        if (!mounted) return;
+        await askProSheet(context);
+      case AfterAck.planMorningAfter:
+        unawaited(getIt<ReminderPlanTrigger>().run());
+      case AfterAck.proSheetLater:
+        await store.writeProSheetOwed(owed: true);
+      case AfterAck.nothing:
+        break;
+    }
   }
 
   @override
@@ -71,7 +102,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
           _direction = AmbientDirection.push;
         });
         unawaited(getIt<HomePromptRepository>().markAcknowledged());
-        unawaited(_askAboutPro());
+        unawaited(_afterAck(state));
       },
       builder: (context, state) {
         final colors = context.appColors;

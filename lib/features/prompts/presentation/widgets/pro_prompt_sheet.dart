@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
+import 'package:critalarm/core/telemetry/reminder_analytics.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
+import 'package:critalarm/features/prompts/presentation/widgets/prompt_sheet_parts.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -13,35 +16,58 @@ import 'package:flutter/material.dart';
 /// picks. Tapping "See Pro plans", swiping the sheet away and tapping
 /// outside it are all answers, and none of them should bring it straight
 /// back. "Not now" does one thing more: it counts, and the second one turns
-/// the sheet off for good.
+/// the sheet off for good. "Remind me later" also waits 30 days but never
+/// counts, and with Offers on the ask comes back as a notification instead.
 ///
 /// Ask `ProPromptRules.shouldAsk` before calling this.
 Future<void> showProPromptSheet({
   required BuildContext context,
   required HomePromptRepository repository,
 }) {
+  final analytics = getIt.isRegistered<ReminderAnalytics>()
+      ? getIt<ReminderAnalytics>()
+      : null;
   unawaited(repository.markProPromptAsked());
   return showAppSheet<void>(
     context: context,
     content: (sheetContext) => ProPromptSheet(
       onSeePlans: () {
         Navigator.of(sheetContext).pop();
+        unawaited(
+          analytics?.proPromptAnswered(answer: ReminderAnalytics.seePlans),
+        );
         openAppPath(context, '/paywall');
+      },
+      onRemindLater: () {
+        Navigator.of(sheetContext).pop();
+        unawaited(
+          analytics?.proPromptAnswered(answer: ReminderAnalytics.remindLater),
+        );
+        unawaited(repository.remindProPromptLater());
       },
       onNotNow: () {
         Navigator.of(sheetContext).pop();
+        unawaited(
+          analytics?.proPromptAnswered(answer: ReminderAnalytics.notNow),
+        );
         unawaited(repository.dismissProPrompt());
       },
     ),
   );
 }
 
-/// The body of the Pro sheet: the happy face, what Pro gives, and the two
+/// The body of the Pro sheet: the happy face, what Pro gives, and the three
 /// ways out.
 class ProPromptSheet extends StatelessWidget {
-  const ProPromptSheet({this.onSeePlans, this.onNotNow, super.key});
+  const ProPromptSheet({
+    this.onSeePlans,
+    this.onRemindLater,
+    this.onNotNow,
+    super.key,
+  });
 
   final VoidCallback? onSeePlans;
+  final VoidCallback? onRemindLater;
   final VoidCallback? onNotNow;
 
   @override
@@ -56,18 +82,7 @@ class ProPromptSheet extends StatelessWidget {
           child: FaceWidget(state: FaceState.laughing, size: 88),
         ),
         const SizedBox(height: Spacing.s3),
-        Text(
-          LocaleKeys.home_pro_prompt_title.tr(),
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: AppTypography.fontDisplay,
-            fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-            fontWeight: FontWeight.w700,
-            fontSize: 19,
-            letterSpacing: -0.02 * 19,
-            color: colors.ink,
-          ),
-        ),
+        PromptSheetTitle(LocaleKeys.home_pro_prompt_title.tr()),
         const SizedBox(height: 6),
         Text(
           LocaleKeys.home_pro_prompt_subtitle.tr(),
@@ -75,11 +90,11 @@ class ProPromptSheet extends StatelessWidget {
           style: AppTypography.small(colors.ink2),
         ),
         const SizedBox(height: 14),
-        _buildBullet(context, LocaleKeys.home_pro_prompt_bullet_topics.tr()),
+        PromptSheetBullet(LocaleKeys.home_pro_prompt_bullet_topics.tr()),
         const SizedBox(height: 6),
-        _buildBullet(context, LocaleKeys.home_pro_prompt_bullet_rings.tr()),
-        const SizedBox(height: 6),
-        _buildBullet(context, LocaleKeys.home_pro_prompt_bullet_support.tr()),
+        PromptSheetBullet(
+          LocaleKeys.home_pro_prompt_bullet_support.tr(),
+        ),
         const SizedBox(height: 16),
         Container(height: 1, color: colors.hairline),
         const SizedBox(height: 12),
@@ -96,43 +111,17 @@ class ProPromptSheet extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         AppButton(
+          label: LocaleKeys.home_pro_prompt_later.tr(),
+          variant: AppButtonVariant.ghost,
+          isFullWidth: true,
+          onPressed: onRemindLater,
+        ),
+        const SizedBox(height: 8),
+        AppButton(
           label: LocaleKeys.common_not_now.tr(),
           variant: AppButtonVariant.ghost,
           isFullWidth: true,
           onPressed: onNotNow,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBullet(BuildContext context, String text) {
-    final colors = context.appColors;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: AppGlyph(
-            GlyphType.check,
-            size: 13,
-            color: colors.cobalt,
-            strokeWidth: 2.8,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              fontFamilyFallback: AppTypography.fontBodyFallbacks,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: colors.ink,
-              height: 1.3,
-            ),
-          ),
         ),
       ],
     );
