@@ -50,10 +50,25 @@ public struct CritAlarmIncidentAttributes: ActivityAttributes {
         public var title: String
         public var openedAt: Date
 
-        public init(state: IncidentActivityState, title: String, openedAt: Date) {
+        /// Set only by this device, never by the server.
+        ///
+        /// The user pressed Stop, so the alarm is quiet and the phone has set
+        /// its own next ring this many seconds out. api.md §5.3 fixes the
+        /// server's content-state at the three fields above, and this one is
+        /// optional, so a push that carries only those three still decodes and
+        /// clears it.
+        public var ringsAgainInSeconds: Int?
+
+        public init(
+            state: IncidentActivityState,
+            title: String,
+            openedAt: Date,
+            ringsAgainInSeconds: Int? = nil
+        ) {
             self.state = state
             self.title = title
             self.openedAt = openedAt
+            self.ringsAgainInSeconds = ringsAgainInSeconds
         }
 
         // The relay writes snake_case, matching every other payload in api.md.
@@ -61,6 +76,7 @@ public struct CritAlarmIncidentAttributes: ActivityAttributes {
             case state
             case title
             case openedAt = "opened_at"
+            case ringsAgainInSeconds = "rings_again_in_seconds"
         }
     }
 
