@@ -19,6 +19,12 @@ abstract final class FeedbackLinks {
   /// the Rate row on iOS. Android finds the listing by package name.
   static const String appStoreId = '';
 
+  /// `source` for a form opened from Settings > Help.
+  static const String settingsSource = 'settings';
+
+  /// `source` for the feedback reminder (idea 22).
+  static const String reminderSource = 'reminder_feedback';
+
   /// A `mailto:` link with [subject] and room to type above the device
   /// info.
   ///
@@ -43,13 +49,14 @@ abstract final class FeedbackLinks {
     String base,
     DeviceReport report, {
     required bool isRelease,
+    required String source,
   }) {
     if (base.isEmpty) return null;
     return Uri.parse(base).replace(
       queryParameters: {
         'app': 'critalarm',
         'env': isRelease ? 'prod' : 'dev',
-        'source': 'settings',
+        'source': source,
         'version': '${report.appVersion}+${report.buildNumber}',
         'locale': report.locale,
         'plan': report.plan,

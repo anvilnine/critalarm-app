@@ -8,7 +8,8 @@ import android.net.Uri
 import app.critalarm.R
 
 /**
- * The four channels, one per delivery class in api.md §1.7.
+ * The four incident channels, one per delivery class in api.md §1.7, plus the
+ * reminders and offers channels.
  *
  * A channel's settings freeze the first time it is created, so the only way to
  * change one later is to create a new one. Every id carries a version for that.
@@ -29,6 +30,14 @@ object NotificationChannels {
 
     @Deprecated("Renamed to cardChannelId", ReplaceWith("cardChannelId(version)"))
     fun statusChannelId(version: Int = 1) = cardChannelId(version)
+
+    /**
+     * Local reminders and local Pro offers. Not in [allChannelIds]: the alarm
+     * health check never looks at them. Keep in step with ChannelIds in
+     * lib/core/notifications/channel_ids.dart.
+     */
+    const val REMINDERS_CHANNEL_ID = "reminders_v1"
+    const val OFFERS_CHANNEL_ID = "offers_v1"
 
     fun allChannelIds(version: Int = 1) = listOf(
         standardChannelId(version),
@@ -98,6 +107,27 @@ object NotificationChannels {
             lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
         }
 
-        manager.createNotificationChannels(listOf(standard, high, alarm, card))
+        // Default importance and the default notification sound: a reminder
+        // must never sound like an alarm. Private on the lock screen, with a
+        // public version that hides the topic name.
+        val reminders = NotificationChannel(
+            REMINDERS_CHANNEL_ID,
+            "Reminders",
+            NotificationManager.IMPORTANCE_DEFAULT,
+        ).apply {
+            description = "Test checks, silent topics, backups and plan notices"
+            lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
+        }
+
+        val offers = NotificationChannel(
+            OFFERS_CHANNEL_ID,
+            "Offers",
+            NotificationManager.IMPORTANCE_DEFAULT,
+        ).apply {
+            description = "News about Pro"
+            lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
+        }
+
+        manager.createNotificationChannels(listOf(standard, high, alarm, card, reminders, offers))
     }
 }

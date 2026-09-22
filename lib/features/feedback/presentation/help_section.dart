@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/domain/repositories/device_report_repository.dart';
+import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -88,14 +89,13 @@ class HelpSection extends StatelessWidget {
 
   Future<void> _openForm(BuildContext context, String base) async {
     final messenger = ScaffoldMessenger.of(context);
-    final report = await getIt<DeviceReportRepository>().read(
+    final failedUri = await openFeedbackForm(
+      base: base,
+      source: FeedbackLinks.settingsSource,
       locale: context.locale.toLanguageTag(),
+      mode: LaunchMode.inAppBrowserView,
     );
-    final uri = FeedbackLinks.form(base, report, isRelease: kReleaseMode);
-    if (uri == null) return;
-    if (!await _launch(uri, LaunchMode.inAppBrowserView)) {
-      _copy(messenger, uri.toString());
-    }
+    if (failedUri != null) _copy(messenger, failedUri.toString());
   }
 
   Future<void> _openReportMail(BuildContext context) async {

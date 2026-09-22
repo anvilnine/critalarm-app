@@ -170,6 +170,14 @@ class TopicTokensCubit extends Cubit<TopicTokensState> {
     );
   }
 
+  /// Makes a token named [name] and hands its value back, or null when the
+  /// server refused. The "Get curl line" flow copies it straight into a
+  /// curl line.
+  Future<String?> createNamedToken(String name) async {
+    await createToken(name: name);
+    return state.newToken;
+  }
+
   /// Puts the one-time value away. It is gone for good after this.
   void dismissNewToken() {
     if (isClosed) return;

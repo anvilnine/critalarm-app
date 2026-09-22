@@ -58,6 +58,7 @@ void main() {
         'https://forms.zonily.cloud/form/abc123',
         report,
         isRelease: true,
+        source: 'settings',
       )!;
       expect(uri.host, 'forms.zonily.cloud');
       expect(uri.path, '/form/abc123');
@@ -78,12 +79,26 @@ void main() {
         'https://forms.zonily.cloud/form/abc123',
         report,
         isRelease: false,
+        source: 'settings',
       )!;
       expect(uri.queryParameters['env'], 'dev');
     });
 
     test('has no link while the form address is blank', () {
-      expect(FeedbackLinks.form('', report, isRelease: true), isNull);
+      expect(
+        FeedbackLinks.form('', report, isRelease: true, source: 'settings'),
+        isNull,
+      );
+    });
+
+    test('puts the given source in the query', () {
+      final uri = FeedbackLinks.form(
+        'https://forms.zonily.cloud/form/abc123',
+        report,
+        isRelease: true,
+        source: FeedbackLinks.reminderSource,
+      )!;
+      expect(uri.queryParameters['source'], 'reminder_feedback');
     });
   });
 }

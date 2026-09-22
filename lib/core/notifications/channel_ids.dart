@@ -20,6 +20,14 @@ abstract final class ChannelIds {
   /// Former name for [card].
   static String status({int version = 1}) => card(version: version);
 
+  /// Local reminders (fire drill, silent topic, backup, plan heads-up,
+  /// review and feedback asks). Not in [all]: the alarm health check never
+  /// looks at them. Keep in step with `NotificationChannels.kt`.
+  static const String reminders = 'reminders_v1';
+
+  /// Local Pro offers (morning after, Pro remind-later). Not in [all].
+  static const String offers = 'offers_v1';
+
   static List<String> all({int version = 1}) => [
     standard(version: version),
     high(version: version),

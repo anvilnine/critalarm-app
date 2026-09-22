@@ -17,8 +17,13 @@ class ProPromptRules {
     required this.accountRepository,
     ProOverride? proOverride,
     DateTime Function()? now,
+    bool Function()? offersOn,
   }) : _proOverride = proOverride ?? appProOverride,
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now,
+       // The field is private and the parameter is public, so it cannot be
+       // an initializing formal.
+       // ignore: prefer_initializing_formals
+       _offersOn = offersOn;
 
   /// Being asked once buys 30 days of quiet, however the user left the sheet.
   static const Duration snooze = Duration(days: 30);
@@ -30,6 +35,10 @@ class ProPromptRules {
   final AccountRepository accountRepository;
   final ProOverride _proOverride;
   final DateTime Function() _now;
+
+  /// Reads the Offers switch. With Offers on, a "Remind me later" comes back
+  /// as a notification, so the sheet stays away until that is delivered.
+  final bool Function()? _offersOn;
 
   /// Reads what is stored and answers.
   Future<bool> shouldAsk() async {
@@ -45,7 +54,11 @@ class ProPromptRules {
       otherAskedAt: [
         homePromptRepository.getConsentAskedAt(),
         homePromptRepository.getReviewAskedAt(),
+        homePromptRepository.getFeedbackAskedAt(),
       ],
+      isHandedToNotification:
+          (_offersOn?.call() ?? false) &&
+          homePromptRepository.getProPromptLaterAt() != null,
       now: _now(),
     );
   }
@@ -57,8 +70,9 @@ class ProPromptRules {
   /// turned down. Walking away from the sheet is an answer too, so the quiet
   /// period starts the moment it opens.
   ///
-  /// [otherAskedAt] holds the consent sheet and the review popup. The Pro
-  /// sheet waits out `HomeAskRules.gap` after either.
+  /// [otherAskedAt] holds the consent sheet, the review popup and the
+  /// feedback ask. The Pro sheet waits out `HomeAskRules.gap` after any of
+  /// them.
   static bool decide({
     required bool isPaid,
     required bool isSelfHosted,
@@ -66,8 +80,10 @@ class ProPromptRules {
     required DateTime? lastAskedAt,
     required DateTime now,
     List<DateTime?> otherAskedAt = const [],
+    bool isHandedToNotification = false,
   }) {
     if (isPaid || isSelfHosted) return false;
+    if (isHandedToNotification) return false;
     if (HomeAskRules.isWithinGap(now: now, askedAt: otherAskedAt)) {
       return false;
     }

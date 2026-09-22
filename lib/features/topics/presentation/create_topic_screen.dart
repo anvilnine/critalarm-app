@@ -8,6 +8,7 @@ import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/pro_prompt_sheet.dart';
+import 'package:critalarm/features/reminders/domain/reminder_settler.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/topic_name_formatter.dart';
@@ -140,6 +141,9 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     _hasAskedAboutPro = true;
     final rules = getIt<ProPromptRules>();
     final repository = getIt<HomePromptRepository>();
+    // A delivered review or feedback reminder counts as an ask before the
+    // Pro rules read the ask times.
+    await getIt<ReminderSettler>().settleAsks(now: DateTime.now());
     if (!await rules.shouldAsk()) return;
     if (!context.mounted) return;
     await showProPromptSheet(context: context, repository: repository);

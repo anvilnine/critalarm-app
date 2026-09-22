@@ -1,5 +1,10 @@
+import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
+import 'package:critalarm/features/settings/domain/entities/privacy_settings.dart';
+import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../helpers/fake_home_prompt_repository.dart';
 
 void main() {
   // 10:00 on 21 September. Every case below counts from here.
@@ -254,4 +259,89 @@ void main() {
       );
     });
   });
+
+  group('reminders', () {
+    HomeAsk review({
+      required DateTime lastAcknowledgedAt,
+      DateTime? feedbackAskedAt,
+      DateTime? at,
+    }) => HomeAskRules.decide(
+      now: at ?? now,
+      firstSeenAt: DateTime(2026, 9),
+      consentAskedAt: DateTime(2026, 9, 2),
+      isConsentGiven: false,
+      reviewAskedAt: null,
+      reviewAskCount: 0,
+      lastAcknowledgedAt: lastAcknowledgedAt,
+      proAskedAt: null,
+      isRinging: false,
+      isWeb: false,
+      feedbackAskedAt: feedbackAskedAt,
+    );
+
+    test('skips the review popup within 24 hours of a night ack', () {
+      // Acked at 03:00 on 20 September; home opens 23 hours later.
+      expect(
+        review(
+          lastAcknowledgedAt: DateTime(2026, 9, 20, 3),
+          at: DateTime(2026, 9, 21, 2),
+        ),
+        HomeAsk.none,
+      );
+    });
+
+    test('asks again once 24 hours have passed since a night ack', () {
+      expect(
+        review(lastAcknowledgedAt: DateTime(2026, 9, 20, 3)),
+        HomeAsk.review,
+      );
+    });
+
+    test('waits 24 hours after a feedback ask', () {
+      expect(
+        review(
+          lastAcknowledgedAt: DateTime(2026, 9, 19, 14),
+          feedbackAskedAt: DateTime(2026, 9, 21, 9),
+        ),
+        HomeAsk.none,
+      );
+    });
+
+    test('next() settles reminder asks before it reads anything', () async {
+      final prompts = FakeHomePromptRepository()
+        ..firstSeenAt = DateTime(2026, 9)
+        ..consentAskedAt = DateTime(2026, 9, 2)
+        ..lastAcknowledgedAt = DateTime(2026, 9, 15);
+      var settled = false;
+      final rules = HomeAskRules(
+        homePromptRepository: prompts,
+        privacyRepository: _NoPrivacy(),
+        isWeb: false,
+        now: () => now,
+        settle: () async {
+          settled = true;
+          await prompts.markReviewAsked(
+            at: now.subtract(const Duration(hours: 1)),
+          );
+        },
+      );
+      expect(await rules.next(isRinging: false), HomeAsk.none);
+      expect(settled, isTrue);
+    });
+  });
+}
+
+class _NoPrivacy implements PrivacyRepository {
+  @override
+  Future<AppResult<PrivacySettings>> getPrivacySettings() async =>
+      const Success(PrivacySettings());
+
+  @override
+  Future<AppResult<Unit>> setAnalyticsEnabled({required bool enabled}) async =>
+      const Success(unit);
+
+  @override
+  Future<AppResult<Unit>> setCrashReportingEnabled({
+    required bool enabled,
+  }) async => const Success(unit);
 }

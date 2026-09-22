@@ -2,6 +2,7 @@ import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
+import 'package:flutter/foundation.dart';
 
 /// Parameters for creating a new topic.
 ///
@@ -32,19 +33,38 @@ class CreateTopicParams {
 
 /// Usecase to create a new topic on the server.
 class CreateTopicUsecase implements UseCase<CreateTopicParams, Topic> {
-  const CreateTopicUsecase(this._repository);
+  const CreateTopicUsecase(this._repository, {this.onCreated});
 
   final TopicRepository _repository;
 
+  /// Told about a topic the server just made from this phone. The silent
+  /// topic reminder (idea 2) counts its 24 hours from here.
+  final Future<void> Function(Topic topic)? onCreated;
+
   @override
-  Future<AppResult<Topic>> call(CreateTopicParams params) =>
-      _repository.createTopic(
-        name: params.name,
-        critical: params.critical,
-        repeatIntervalS: params.repeatIntervalS,
-        maxRingS: params.maxRingS,
-        deskTimerS: params.deskTimerS,
-        relayContent: params.relayContent,
-        tokenName: params.tokenName,
-      );
+  Future<AppResult<Topic>> call(CreateTopicParams params) async {
+    final result = await _repository.createTopic(
+      name: params.name,
+      critical: params.critical,
+      repeatIntervalS: params.repeatIntervalS,
+      maxRingS: params.maxRingS,
+      deskTimerS: params.deskTimerS,
+      relayContent: params.relayContent,
+      tokenName: params.tokenName,
+    );
+    final topic = result.getOrNull();
+    if (topic != null) {
+      // The server already made the topic. A failure here (say, a
+      // preference write that throws) must not turn that success into a
+      // thrown exception for the caller.
+      try {
+        await onCreated?.call(topic);
+      } on Object catch (error) {
+        debugPrint(
+          'CreateTopicUsecase: onCreated failed: ${error.runtimeType}',
+        );
+      }
+    }
+    return result;
+  }
 }
