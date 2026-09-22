@@ -9,7 +9,9 @@ void main() {
       // to render it straight, so the same incident read 05:31 there and
       // 13:31 in the message list on topic detail.
       final openedUtc = DateTime.utc(2026, 9, 15, 5, 31);
-      final now = DateTime.now();
+      // A fixed clock the same day, so the incident never ages out of the
+      // history window as the real date moves on.
+      final now = openedUtc.add(const Duration(hours: 8));
 
       final entries = HistoryCubit.toEntries([
         Incident(
@@ -40,7 +42,7 @@ void main() {
           openedAt: openedUtc,
           ackedAt: openedUtc.add(const Duration(minutes: 4, seconds: 28)),
         ),
-      ], DateTime.now());
+      ], openedUtc.add(const Duration(hours: 8)));
 
       expect(
         entries.single.ringDuration,
