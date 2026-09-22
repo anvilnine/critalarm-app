@@ -10,8 +10,12 @@ enum HomeReminderAsk { none, remindersSheet, proSheet }
 /// - The Reminders sheet for an install that already tested before this
 ///   update (1+ critical topic and an ack on record). Once.
 /// - A Pro sheet owed by a night ack, shown on the next daytime open.
+///
+/// Neither shows before onboarding is finished and the tour has been seen
+/// or skipped (`isSetupDone`).
 abstract final class HomeReminderAskRules {
   static HomeReminderAsk decide({
+    required bool isSetupDone,
     required DateTime now,
     required bool isWeb,
     required bool isRinging,
@@ -22,7 +26,7 @@ abstract final class HomeReminderAskRules {
     required bool proShouldAsk,
     List<DateTime?> otherAskedAt = const [],
   }) {
-    if (isWeb || isRinging) return HomeReminderAsk.none;
+    if (!isSetupDone || isWeb || isRinging) return HomeReminderAsk.none;
     if (HomeAskRules.isWithinGap(now: now, askedAt: otherAskedAt)) {
       return HomeReminderAsk.none;
     }

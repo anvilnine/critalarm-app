@@ -108,6 +108,7 @@ import 'package:critalarm/features/prompts/data/repositories/shared_prefs_home_p
 import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
 import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
+import 'package:critalarm/features/prompts/domain/setup_gate.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/reminders/data/native_reminder_scheduler.dart';
 import 'package:critalarm/features/reminders/data/noop_reminder_scheduler.dart';
@@ -469,6 +470,7 @@ Future<void> configureDependencies({
         readIsSignedIn: () async =>
             (await getIt<IdentityRepository>().readIdentity()) != null,
         proShouldAsk: () => getIt<ProPromptRules>().shouldAsk(),
+        isSetupDone: () => getIt<SetupGate>().isDone(),
         isWeb: kIsWeb,
         isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
       ),
@@ -489,11 +491,23 @@ Future<void> configureDependencies({
       () =>
           kIsWeb ? const NoopReminderPlanTrigger() : getIt<ReminderPlanPass>(),
     )
+    ..registerLazySingleton<SetupGate>(
+      () => SetupGate(
+        isOnboardingDone: () async {
+          final done = await getIt<GetOnboardingCompletedUsecase>()(
+            const NoParams(),
+          );
+          return done.getOrNull() ?? false;
+        },
+        hasSeenTour: () => getIt<TourRepository>().hasSeenTour(),
+      ),
+    )
     ..registerLazySingleton<ProPromptRules>(
       () => ProPromptRules(
         homePromptRepository: getIt<HomePromptRepository>(),
         accountRepository: getIt<AccountRepository>(),
         offersOn: () => getIt<ReminderStore>().readSwitches().offers,
+        isSetupDone: () => getIt<SetupGate>().isDone(),
       ),
     )
     ..registerLazySingleton<HomeAskRules>(
@@ -501,6 +515,7 @@ Future<void> configureDependencies({
         homePromptRepository: getIt<HomePromptRepository>(),
         privacyRepository: getIt<PrivacyRepository>(),
         settle: () => getIt<ReminderSettler>().settleAsks(now: DateTime.now()),
+        isSetupDone: () => getIt<SetupGate>().isDone(),
       ),
     )
     ..registerLazySingleton<DeviceReportRepository>(

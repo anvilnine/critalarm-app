@@ -6,6 +6,7 @@ import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
 import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
+import 'package:critalarm/features/prompts/domain/setup_gate.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/consent_prompt_sheet.dart';
 import 'package:critalarm/features/reminders/domain/home_reminder_ask_rules.dart';
 import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
@@ -82,6 +83,7 @@ Future<HomeReminderAsk> _nextReminderAsk({required bool isRinging}) async {
   final proShouldAsk = isOwed && await getIt<ProPromptRules>().shouldAsk();
   if (isOwed && !proShouldAsk) await store.writeProSheetOwed(owed: false);
   return HomeReminderAskRules.decide(
+    isSetupDone: await getIt<SetupGate>().isDone(),
     now: DateTime.now(),
     isWeb: kIsWeb,
     isRinging: isRinging,

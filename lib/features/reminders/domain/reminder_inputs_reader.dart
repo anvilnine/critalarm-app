@@ -34,6 +34,7 @@ final class ReminderInputsReader {
     required Future<bool> Function() proShouldAsk,
     required bool isWeb,
     required bool isIos,
+    Future<bool> Function()? isSetupDone,
     String appStoreId = FeedbackLinks.appStoreId,
     String feedbackFormUrl = FeedbackLinks.feedbackFormUrl,
     DateTime Function()? clock,
@@ -89,6 +90,9 @@ final class ReminderInputsReader {
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
        _proShouldAsk = proShouldAsk,
+       // Same reason as above.
+       // ignore: prefer_initializing_formals
+       _isSetupDone = isSetupDone,
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
@@ -124,6 +128,9 @@ final class ReminderInputsReader {
   final Future<bool> Function() _readIsPaid;
   final Future<bool> Function() _readIsSignedIn;
   final Future<bool> Function() _proShouldAsk;
+
+  /// `SetupGate.isDone` in the app. Null in tests, and counts as done.
+  final Future<bool> Function()? _isSetupDone;
   final bool _isWeb;
   final bool _isIos;
   final String _appStoreId;
@@ -239,6 +246,9 @@ final class ReminderInputsReader {
       plan: isHosted ? await _planStatus.read(zone) : null,
       planNoticesSent: _store.readPlanNoticesSent(),
       morningAfterDone: _store.readMorningAfterDone(),
+      isSetupDone:
+          skipRules ||
+          await (_isSetupDone?.call() ?? Future<bool>.value(true)),
       proShouldAsk: skipRules || await _proShouldAsk(),
       // Failing counts as paid, so no Pro ask.
       isPaid: await _safe('paid state', _readIsPaid, fallback: true),

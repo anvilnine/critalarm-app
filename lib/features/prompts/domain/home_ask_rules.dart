@@ -19,12 +19,16 @@ class HomeAskRules {
     bool? isWeb,
     DateTime Function()? now,
     Future<void> Function()? settle,
+    Future<bool> Function()? isSetupDone,
   }) : _isWeb = isWeb ?? kIsWeb,
        _now = now ?? DateTime.now,
        // The field is private and the parameter is public, so it cannot be
        // an initializing formal.
        // ignore: prefer_initializing_formals
-       _settle = settle;
+       _settle = settle,
+       // Same reason as above.
+       // ignore: prefer_initializing_formals
+       _isSetupDone = isSetupDone;
 
   /// The shortest time between any two asks.
   static const Duration gap = Duration(hours: 24);
@@ -53,13 +57,20 @@ class HomeAskRules {
   /// in the app; null in tests that do not care.
   final Future<void> Function()? _settle;
 
+  /// `SetupGate.isDone` in the app: onboarding finished and the tour seen.
+  /// Null in tests that do not care, and counts as done.
+  final Future<bool> Function()? _isSetupDone;
+
   /// Stamps the first home open, reads what is stored and answers.
   Future<HomeAsk> next({required bool isRinging}) async {
     await _settle?.call();
     await homePromptRepository.markFirstSeen();
     final privacy = (await privacyRepository.getPrivacySettings()).getOrNull();
+    final isSetupDone = await (_isSetupDone?.call() ??
+        Future<bool>.value(true));
 
     return decide(
+      isSetupDone: isSetupDone,
       now: _now(),
       firstSeenAt: homePromptRepository.getFirstSeenAt(),
       consentAskedAt: homePromptRepository.getConsentAskedAt(),
@@ -77,11 +88,13 @@ class HomeAskRules {
     );
   }
 
-  /// The rules themselves, with nothing to read from.
+  /// The rules themselves, with nothing to read from. Nothing is asked
+  /// before onboarding is finished and the tour has been seen or skipped.
   ///
   /// Days are calendar days on the phone's clock, so an alarm acknowledged
   /// at 23:50 makes the review popup due ten minutes later.
   static HomeAsk decide({
+    required bool isSetupDone,
     required DateTime now,
     required DateTime? firstSeenAt,
     required DateTime? consentAskedAt,
@@ -94,6 +107,7 @@ class HomeAskRules {
     required bool isWeb,
     DateTime? feedbackAskedAt,
   }) {
+    if (!isSetupDone) return HomeAsk.none;
     if (isWeb || isRinging || firstSeenAt == null) return HomeAsk.none;
     if (isWithinGap(
       now: now,

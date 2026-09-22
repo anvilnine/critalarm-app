@@ -32,6 +32,7 @@ void main() {
       proAskedAt: proAskedAt,
       isRinging: isRinging,
       isWeb: isWeb,
+      isSetupDone: true,
     );
   }
 
@@ -276,6 +277,7 @@ void main() {
       proAskedAt: null,
       isRinging: false,
       isWeb: false,
+      isSetupDone: true,
       feedbackAskedAt: feedbackAskedAt,
     );
 
@@ -302,6 +304,25 @@ void main() {
         review(
           lastAcknowledgedAt: DateTime(2026, 9, 19, 14),
           feedbackAskedAt: DateTime(2026, 9, 21, 9),
+        ),
+        HomeAsk.none,
+      );
+    });
+
+    test('asks nothing before onboarding and the tour are done', () {
+      expect(
+        HomeAskRules.decide(
+          now: now,
+          firstSeenAt: DateTime(2026, 9),
+          consentAskedAt: null,
+          isConsentGiven: false,
+          reviewAskedAt: null,
+          reviewAskCount: 0,
+          lastAcknowledgedAt: null,
+          proAskedAt: null,
+          isRinging: false,
+          isWeb: false,
+          isSetupDone: false,
         ),
         HomeAsk.none,
       );
