@@ -51,6 +51,9 @@ import AlarmKit
     // play the one the user picked. Both calls are cheap and safe every launch.
     SoundLibrary.migrateToGroupContainer()
     SoundLibrary.publishToExtension()
+    // Shared sound files nobody opened last time. Queued before any scene
+    // connects, so it runs before a cold-start share is copied.
+    IncomingAudioInbox.startFresh()
 
     let started = super.application(application, didFinishLaunchingWithOptions: launchOptions)
 
@@ -349,6 +352,17 @@ import AlarmKit
       let state = IncidentActivityState(rawValue: args["state"] as? String ?? "closed") ?? .closed
       IncidentActivityCoordinator.shared.end(incidentId: incidentId, finalState: state)
       result(true)
+
+    case "isRinging":
+      // True while an AlarmKit alarm is going off. Dart holds a shared sound
+      // file until this is false, so the cropper never covers an alarm.
+      #if canImport(AlarmKit)
+      if #available(iOS 26.0, *) {
+        result((try? AlarmManager.shared.alarms)?.contains { $0.state == .alerting } ?? false)
+        return
+      }
+      #endif
+      result(false)
 
     case "showingIncidentIds":
       guard #available(iOS 16.2, *) else { result([String]()); return }
@@ -1017,6 +1031,7 @@ extension AppDelegate {
     SoundPreviewPlayer.shared.onEnded = { [weak channel] path in
       channel?.invokeMethod("previewEnded", arguments: ["path": path])
     }
+    IncomingAudioInbox.channel = channel
     channel.setMethodCallHandler { call, result in
       let args = call.arguments as? [String: Any] ?? [:]
       switch call.method {
@@ -1085,6 +1100,8 @@ extension AppDelegate {
         }
       case "publishSoundAssignments":
         SoundLibrary.inBackground(result) { SoundLibrary.publishToExtension() }
+      case "takeIncomingAudio":
+        result(IncomingAudioInbox.take())
       default:
         result(FlutterMethodNotImplemented)
       }

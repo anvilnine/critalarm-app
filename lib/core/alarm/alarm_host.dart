@@ -176,6 +176,12 @@ final class AlarmHost {
   Future<bool> stopRinging() async =>
       await _invoke<bool>('stopRinging') ?? false;
 
+  /// Whether an alarm is ringing on this device right now. Android answers
+  /// from its alarm service, iOS from AlarmKit (false before iOS 26). No
+  /// answer reads as not ringing, so nothing waits on a platform that cannot
+  /// tell.
+  Future<bool> isRinging() async => await _invoke<bool>('isRinging') ?? false;
+
   /// Onboarding uses this once so the Allow prompt happens before the relay
   /// ever tries a remote start.
   Future<bool> startLocalActivity({

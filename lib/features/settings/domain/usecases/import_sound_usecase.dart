@@ -6,20 +6,8 @@ import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/sound/sound_peaks_cache.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 
-/// A file the user picked, before anything has been checked.
-class PickedSoundFile {
-  const PickedSoundFile({
-    required this.path,
-    required this.name,
-    required this.sizeBytes,
-  });
-
-  final String path;
-
-  /// The file name as the picker reported it, extension included.
-  final String name;
-  final int sizeBytes;
-}
+// Lives in core now, so a file shared in from another app can become one.
+export 'package:critalarm/core/sound/sound_import.dart' show PickedSoundFile;
 
 /// Saves one range of a picked file as a user sound.
 ///

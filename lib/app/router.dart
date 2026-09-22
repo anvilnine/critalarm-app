@@ -117,6 +117,11 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         final file = state.extra;
         return AmbientPage(
           key: state.pageKey,
+          // Opaque, because a shared file opens it straight over the tab
+          // shell, which does not fade out under an ambient page the way the
+          // sound list does. The ambient backdrop sits outside the navigator,
+          // so it still shows.
+          opaque: true,
           child: SoundCropScreen(file: file is PickedSoundFile ? file : null),
         );
       },
