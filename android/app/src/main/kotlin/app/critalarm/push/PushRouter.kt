@@ -133,23 +133,28 @@ class PushRouter(private val context: Context) {
             // The alarm is ringing, so the ringing card owns the shade. A
             // reopen arrives on an incident the user already acked, and that
             // ack left a status card up, so the handover runs in this direction
-            // too: show(Ringing) takes the status card down. The status card
-            // starts again when the user stops the alarm, in
-            // IncidentActionReceiver.
-            IncidentCards.show(context, incidentId, IncidentPhoneState.Ringing)
-            // Post first, resolve the text after. FCM cuts an app's
-            // high-priority quota when a high-priority message does not show a
-            // notification quickly, and an alarm that waits ten seconds for a
-            // fetch is an alarm that arrives late.
-            val fallback = IncidentContentFetcher.fallback(payload)
-            // Untagged, under the id alone. AlarmForegroundService posts this
-            // same id with startForeground, which takes no tag, and Android
-            // keys a notification by tag and id together. A tag here would
-            // make the two posts two cards and two status bar chips.
-            manager.notify(
-                AlarmNotificationFactory.notificationId(incidentId),
-                AlarmNotificationFactory.create(context, payload, fallback),
-            )
+            // too: show(Ringing) posts the ringing card and then takes the
+            // status card down. The status card starts again when the user
+            // stops the alarm, in IncidentActionReceiver.
+            IncidentCards.show(context, incidentId, IncidentPhoneState.Ringing) {
+                // Post first, resolve the text after. FCM cuts an app's
+                // high-priority quota when a high-priority message does not show
+                // a notification quickly, and an alarm that waits ten seconds
+                // for a fetch is an alarm that arrives late.
+                // Untagged, under the id alone. AlarmForegroundService posts
+                // this same id with startForeground, which takes no tag, and
+                // Android keys a notification by tag and id together. A tag
+                // here would make the two posts two cards and two status bar
+                // chips.
+                manager.notify(
+                    AlarmNotificationFactory.notificationId(incidentId),
+                    AlarmNotificationFactory.create(
+                        context,
+                        payload,
+                        IncidentContentFetcher.fallback(payload),
+                    ),
+                )
+            }
             events.record("alarm_fired", mapOf("incident_id" to incidentId))
             Log.i(TAG, "alarm_notification_posted channel=${NotificationChannels.alarmChannelId()} incident_id=$incidentId kind=${payload.kind.wireValue}")
             if (payload.needsContentFetch) enrichLater(payload)

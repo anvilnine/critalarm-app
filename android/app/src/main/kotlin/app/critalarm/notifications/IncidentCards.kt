@@ -32,6 +32,7 @@ object IncidentCards {
         title: String? = null,
         body: String? = null,
         content: IncidentContent? = null,
+        postRinging: () -> Unit = {},
     ) {
         val deliveries = IncidentDeliveryStore(context)
         val now = System.currentTimeMillis()
@@ -52,6 +53,12 @@ object IncidentCards {
 
         when (decision.card) {
             IncidentCardRule.Card.RINGING -> {
+                // Post the ringing card first, then clear the status card, so a
+                // reopen or repeat that lands on an acked or silenced card never
+                // shows a gap. The lambda posts the alarm notification, which
+                // lives outside this object because the foreground service owns
+                // that id.
+                postRinging()
                 manager.cancel(StatusNotificationFactory.notificationId(incidentId))
                 Log.i(TAG, "card_shown incident_id=$incidentId state=ringing until=none")
             }
