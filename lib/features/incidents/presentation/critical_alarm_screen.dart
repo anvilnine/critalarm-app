@@ -199,23 +199,10 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
           );
         }
 
-        return AmbientScope(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: AmbientCanvas(
-                    key: const ValueKey('critical-alarm-ambient-canvas'),
-                    profile: profile,
-                    direction: _direction,
-                    variant: AmbientMotionVariant.drift,
-                    reduceMotion: context.reduceMotion,
-                  ),
-                ),
-              ),
-              Positioned.fill(child: content),
-            ],
-          ),
+        return AmbientOverride(
+          profile: profile,
+          direction: _direction,
+          child: content,
         );
       },
     );

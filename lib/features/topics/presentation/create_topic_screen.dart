@@ -828,23 +828,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
           step: isTokenStep ? 2 : 1,
         );
 
-        return AmbientScope(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: AmbientCanvas(
-                    key: const ValueKey('create-topic-ambient-canvas'),
-                    profile: profile,
-                    direction: AmbientDirection.push,
-                    variant: AmbientMotionVariant.drift,
-                    reduceMotion: context.reduceMotion,
-                  ),
-                ),
-              ),
-              Positioned.fill(child: content),
-            ],
-          ),
+        return AmbientOverride(
+          profile: profile,
+          direction: AmbientDirection.push,
+          child: content,
         );
       },
     );
