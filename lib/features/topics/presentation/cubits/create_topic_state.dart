@@ -1,3 +1,4 @@
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:flutter/foundation.dart';
@@ -21,6 +22,7 @@ class CreateTopicState {
     this.name = '',
     this.tokenName = '',
     this.isCritical = false,
+    this.alarm = AlarmAuthorization.notDetermined,
     this.createdToken,
     this.createdTopic,
     this.errorMessage,
@@ -47,6 +49,10 @@ class CreateTopicState {
 
   /// Critical delivery / Ring through silent mode. MUST DEFAULT TO FALSE.
   final bool isCritical;
+
+  /// Whether this phone can set an AlarmKit alarm. Only picks the words under
+  /// the critical switch; it does not gate the switch here.
+  final AlarmAuthorization alarm;
   final String? createdToken;
   final Topic? createdTopic;
   final String? errorMessage;
@@ -84,6 +90,7 @@ class CreateTopicState {
     String? name,
     String? tokenName,
     bool? isCritical,
+    AlarmAuthorization? alarm,
     String? createdToken,
     Topic? createdTopic,
     String? errorMessage,
@@ -101,6 +108,7 @@ class CreateTopicState {
       name: name ?? this.name,
       tokenName: tokenName ?? this.tokenName,
       isCritical: isCritical ?? this.isCritical,
+      alarm: alarm ?? this.alarm,
       createdToken: createdToken ?? this.createdToken,
       createdTopic: createdTopic ?? this.createdTopic,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
@@ -123,6 +131,7 @@ class CreateTopicState {
           name == other.name &&
           tokenName == other.tokenName &&
           isCritical == other.isCritical &&
+          alarm == other.alarm &&
           createdToken == other.createdToken &&
           createdTopic == other.createdTopic &&
           errorMessage == other.errorMessage &&
@@ -140,6 +149,7 @@ class CreateTopicState {
     name,
     tokenName,
     isCritical,
+    alarm,
     createdToken,
     createdTopic,
     errorMessage,

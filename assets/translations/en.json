@@ -40,7 +40,9 @@
     "connected_status": "Connected: {serverUrl}",
     "hook_title": "Test your alarm",
     "hook_subtitle": "See Crit Alarm ring while your phone is on silent.",
+    "hook_subtitle_time_sensitive": "See a Crit Alarm page land as a Time-Sensitive notification.",
     "hook_step1": "1. Put your phone on silent, or turn on Do Not Disturb.",
+    "hook_step1_time_sensitive": "1. Turn your ringer on. On this phone silent mode mutes a page.",
     "hook_step2": "2. Tap the button below.",
     "hook_step3": "3. Immediately lock your screen.",
     "hook_button": "Ring my phone in 5 seconds",
@@ -268,6 +270,7 @@
     "back_aria_label": "Back",
     "critical_toggle_title": "Critical delivery",
     "critical_toggle_subtitle": "Rings through silent mode and Do Not Disturb",
+    "critical_toggle_subtitle_time_sensitive": "Time-Sensitive notification with sound, repeated until you acknowledge it. Ringing through silent mode needs iOS 26.",
     "stage_word_critical": "CRITICAL",
     "stage_word_warning": "1 warning",
     "stage_word_clear": "All clear",
@@ -325,6 +328,7 @@
     "name_helper": "Lowercase, digits and hyphens.",
     "critical_toggle_title": "Critical delivery",
     "critical_toggle_subtitle": "Rings through silent mode and Do Not Disturb",
+    "critical_toggle_subtitle_time_sensitive": "Time-Sensitive notification with sound, repeated until you acknowledge it. Ringing through silent mode needs iOS 26.",
     "generated_label": "Endpoint and token",
     "token_warning": "The token is shown once. Save it now.",
     "create_button": "Create topic",
@@ -388,6 +392,7 @@
     "open_button": "Open Crit Alarm",
     "incident_title": "Incident {id}",
     "ringing_pill": "Ringing through silent mode. Tap to acknowledge.",
+    "ringing_pill_time_sensitive": "Ringing until acknowledged. Tap to acknowledge.",
     "time_now": "now"
   },
   "settings": {
