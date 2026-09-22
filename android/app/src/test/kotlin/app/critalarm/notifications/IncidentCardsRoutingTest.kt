@@ -49,6 +49,14 @@ class IncidentCardsRoutingTest {
     }
 
     @Test
+    fun `the ringing card is posted before the status card is cancelled`() {
+        val cards = source("src/main/kotlin/app/critalarm/notifications/IncidentCards.kt")
+        val post = cards.indexOf("postRinging()")
+        val cancel = cards.indexOf("manager.cancel(StatusNotificationFactory.notificationId(incidentId))")
+        assertTrue("the ringing card must be posted before the status card is cleared", post >= 0 && cancel > post)
+    }
+
+    @Test
     fun `the silenced card button is the acknowledge`() {
         val status = source("src/main/kotlin/app/critalarm/notifications/StatusNotificationFactory.kt")
         assertTrue("the silenced card must carry I'm up", status.contains("\"I'm up\""))
