@@ -143,6 +143,7 @@ class IncidentActionReceiver : BroadcastReceiver() {
                     // Stop that came before this is still out and will try to
                     // put the card back when it lands.
                     deliveries.markClosed(incidentId)
+                    ReminderReceiver.releaseHeld(context)
                     IncidentCards.clear(context, incidentId, "closed")
                 }
                 connection.disconnect()

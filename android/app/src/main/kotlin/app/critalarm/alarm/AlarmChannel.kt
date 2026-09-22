@@ -212,6 +212,7 @@ class AlarmChannel(private val context: Context) {
             }
         } else {
             deliveries.markClosed(incidentId)
+            ReminderReceiver.releaseHeld(context)
             IncidentCards.clear(context, incidentId, "closed")
         }
         stopped

@@ -45,6 +45,31 @@ class ReminderHoldRuleTest {
     }
 
     @Test
+    fun `a held reminder goes out when the incident expires instead`() {
+        val held = listOf(4)
+        // Ringing: it waits.
+        assertEquals(
+            emptyList<Int>(),
+            ReminderHoldRule.released(
+                heldIds = held,
+                alarmRinging = true,
+                activeIncidentIds = listOf("inc_1"),
+            ),
+        )
+        // `ring_until` passed, or an expire push landed. Either way the
+        // service is empty and the incident is no longer active, so the
+        // reminder goes out without an ack ever arriving.
+        assertEquals(
+            listOf(4),
+            ReminderHoldRule.released(
+                heldIds = held,
+                alarmRinging = false,
+                activeIncidentIds = emptyList(),
+            ),
+        )
+    }
+
+    @Test
     fun `every held reminder is posted after the last ack`() {
         assertEquals(
             listOf(3, 7),
