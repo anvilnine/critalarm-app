@@ -93,4 +93,23 @@ void main() {
       }
     });
   });
+
+  group('opensWithGo', () {
+    test('a path on another tab is a go', () {
+      expect(opensWithGo('/settings/account', from: '/'), isTrue);
+      expect(opensWithGo('/history', from: '/settings'), isTrue);
+      expect(opensWithGo('/', from: '/ring'), isTrue);
+    });
+
+    test('a path on the same tab is a push', () {
+      expect(opensWithGo('/settings/account', from: '/settings'), isFalse);
+      expect(opensWithGo('/history?x=1', from: '/history'), isFalse);
+    });
+
+    test('a route that covers the display is a push', () {
+      expect(opensWithGo('/ring', from: '/settings'), isFalse);
+      expect(opensWithGo('/paywall?source=x', from: '/'), isFalse);
+      expect(opensWithGo('/topics/ops?curl=1', from: '/history'), isFalse);
+    });
+  });
 }

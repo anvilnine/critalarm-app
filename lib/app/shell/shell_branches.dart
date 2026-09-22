@@ -37,6 +37,15 @@ int? shellBranchForPath(String path) {
   return null;
 }
 
+/// True when opening [path] while the app shows [from] has to be a `go`:
+/// [path] lives on a tab and that tab is not the one [from] is on. Anything
+/// else is a push. Used where there is no shell context to ask, such as a
+/// notification tap or a quick action.
+bool opensWithGo(String path, {required String from}) {
+  final branch = shellBranchForPath(path);
+  return branch != null && branch != shellBranchForPath(from);
+}
+
 /// Opens [path] from anywhere, moving the tab bar with the user when the path
 /// lives on a different tab.
 ///

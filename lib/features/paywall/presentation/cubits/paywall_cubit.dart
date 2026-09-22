@@ -72,6 +72,9 @@ class PaywallCubit extends Cubit<PaywallState> {
   final ProOverride _proOverride;
   final PaywallVariantOverride _variantOverride;
   final PaywallAnalytics? analytics;
+
+  /// What opened this paywall. Set by [loadSubscriptionData].
+  String _source = PaywallAnalytics.directSource;
   Future<bool> _isPaid() async => AccountAccess(
     await identityStore?.readOrCreate(),
     proOverride: _proOverride,
@@ -87,7 +90,7 @@ class PaywallCubit extends Cubit<PaywallState> {
     final next = resolveVariant();
     if (next == state.variant) return;
     emit(state.copyWith(variant: next));
-    unawaited(analytics?.viewed(variant: next));
+    unawaited(analytics?.viewed(variant: next, source: _source));
   }
 
   /// The layout this device should show. A developer build wins, then Remote
@@ -107,7 +110,10 @@ class PaywallCubit extends Cubit<PaywallState> {
   bool get paywallEnabled => isPaywallEnabled;
 
   /// Loads current entitlement status, customer info, and available offerings.
-  Future<void> loadSubscriptionData() async {
+  Future<void> loadSubscriptionData({
+    String source = PaywallAnalytics.directSource,
+  }) async {
+    _source = source;
     if (getOfferingsUsecase == null) {
       return;
     }
@@ -164,7 +170,7 @@ class PaywallCubit extends Cubit<PaywallState> {
     );
 
     if (!isPro) {
-      await analytics?.viewed(variant: variant);
+      await analytics?.viewed(variant: variant, source: _source);
     }
   }
 

@@ -16,6 +16,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import app.critalarm.alarm.AlarmChannel
 import app.critalarm.notifications.LiveUpdate
 import app.critalarm.notifications.NotificationChannels
+import app.critalarm.reminders.ReminderChannel
+import app.critalarm.reminders.ReminderTapIntent
 import app.critalarm.sound.SoundChannel
 import io.flutter.plugin.common.MethodChannel
 
@@ -33,6 +35,11 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingTap: Map<String, String>? = null
 
     private var tapSequence = 0
+
+    /** A reminder tap Dart has not taken yet. Separate from incident taps. */
+    private var pendingReminderTap: Map<String, Any>? = null
+
+    private var reminderChannel: MethodChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -59,6 +66,13 @@ class MainActivity : FlutterFragmentActivity() {
         val alarms = AlarmChannel(applicationContext)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AlarmChannel.NAME)
             .setMethodCallHandler(alarms::handle)
+        val reminders = ReminderChannel(applicationContext) {
+            val tap = pendingReminderTap
+            pendingReminderTap = null
+            tap
+        }
+        reminderChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ReminderChannel.NAME)
+            .also { it.setMethodCallHandler(reminders::handle) }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SETTINGS_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "openNotificationSettings" -> {
@@ -229,6 +243,7 @@ class MainActivity : FlutterFragmentActivity() {
         // The push service checks this to decide whether anyone is listening.
         // Leaving it set after the engine goes keeps the activity alive.
         pushChannel = null
+        reminderChannel = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
@@ -244,9 +259,16 @@ class MainActivity : FlutterFragmentActivity() {
      * `getInitialRoute` never sees it. iOS hands a warm tap over the same way.
      */
     override fun onNewIntent(intent: Intent) {
+        val reminderTap = ReminderTapIntent.read(this, intent)
         val tap = readTap(intent)
         setIntent(intent)
         super.onNewIntent(intent)
+        if (reminderTap != null) {
+            // Held as well as sent, like an incident tap: Dart asks again on
+            // resume, and the tap id makes the second copy a no-op.
+            pendingReminderTap = reminderTap
+            reminderChannel?.invokeMethod("onReminderTap", reminderTap)
+        }
         if (tap == null) return
         // Held as well as sent. Dart asks for a tap on resume, before it
         // reloads its lists, so the same tap can reach it twice; the id on it
@@ -256,9 +278,10 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // First launch is where the four channels come from. Creating one that
+        // First launch is where the six channels come from. Creating one that
         // already exists changes nothing, so this is safe to run every time.
         NotificationChannels.ensureCreated(this)
+        pendingReminderTap = ReminderTapIntent.read(this, intent)
         val alarmLaunch = intent.getStringExtra(EXTRA_ALARM_INCIDENT_ID) != null
         if (alarmLaunch && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)

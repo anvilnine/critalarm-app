@@ -18,8 +18,13 @@ class HomeAskRules {
     required this.privacyRepository,
     bool? isWeb,
     DateTime Function()? now,
+    Future<void> Function()? settle,
   }) : _isWeb = isWeb ?? kIsWeb,
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now,
+       // The field is private and the parameter is public, so it cannot be
+       // an initializing formal.
+       // ignore: prefer_initializing_formals
+       _settle = settle;
 
   /// The shortest time between any two asks.
   static const Duration gap = Duration(hours: 24);
@@ -33,13 +38,24 @@ class HomeAskRules {
   /// Apple shows its popup at most 3 times a year anyway.
   static const int maxReviewAsks = 3;
 
+  /// An ack before this hour is a night ack. The review popup skips the 24
+  /// hours after one, so it never shares a morning with the morning after
+  /// reminder (idea 10).
+  static const int nightAckEndHour = 6;
+
   final HomePromptRepository homePromptRepository;
   final PrivacyRepository privacyRepository;
   final bool _isWeb;
   final DateTime Function() _now;
 
+  /// Books review and feedback reminders whose fire time passed, so a
+  /// delivered one counts before this decides. `ReminderSettler.settleAsks`
+  /// in the app; null in tests that do not care.
+  final Future<void> Function()? _settle;
+
   /// Stamps the first home open, reads what is stored and answers.
   Future<HomeAsk> next({required bool isRinging}) async {
+    await _settle?.call();
     await homePromptRepository.markFirstSeen();
     final privacy = (await privacyRepository.getPrivacySettings()).getOrNull();
 
@@ -57,6 +73,7 @@ class HomeAskRules {
       proAskedAt: homePromptRepository.getProPromptAskedAt(),
       isRinging: isRinging,
       isWeb: _isWeb,
+      feedbackAskedAt: homePromptRepository.getFeedbackAskedAt(),
     );
   }
 
@@ -75,11 +92,12 @@ class HomeAskRules {
     required DateTime? proAskedAt,
     required bool isRinging,
     required bool isWeb,
+    DateTime? feedbackAskedAt,
   }) {
     if (isWeb || isRinging || firstSeenAt == null) return HomeAsk.none;
     if (isWithinGap(
       now: now,
-      askedAt: [proAskedAt, consentAskedAt, reviewAskedAt],
+      askedAt: [proAskedAt, consentAskedAt, reviewAskedAt, feedbackAskedAt],
     )) {
       return HomeAsk.none;
     }
@@ -93,6 +111,10 @@ class HomeAskRules {
     if (isConsentDue) return HomeAsk.consent;
 
     if (lastAcknowledgedAt == null) return HomeAsk.none;
+    if (lastAcknowledgedAt.hour < nightAckEndHour &&
+        now.difference(lastAcknowledgedAt) < gap) {
+      return HomeAsk.none;
+    }
     if (!today.isAfter(_day(lastAcknowledgedAt))) return HomeAsk.none;
     if (now.difference(firstSeenAt) < reviewMinInstallAge) return HomeAsk.none;
     if (reviewAskCount >= maxReviewAsks) return HomeAsk.none;

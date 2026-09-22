@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
 import 'package:flutter/material.dart';
@@ -18,19 +19,26 @@ import 'package:go_router/go_router.dart';
 /// first frame and leaves as soon as that sheet closes, so the user never sees
 /// two paywalls stacked on each other.
 class HostedPaywallScreen extends StatelessWidget {
-  const HostedPaywallScreen({super.key});
+  const HostedPaywallScreen({
+    this.source = PaywallAnalytics.directSource,
+    super.key,
+  });
+
+  final String source;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => getIt<PaywallCubit>(),
-      child: const _HostedPaywallLauncher(),
+      child: _HostedPaywallLauncher(source: source),
     );
   }
 }
 
 class _HostedPaywallLauncher extends StatefulWidget {
-  const _HostedPaywallLauncher();
+  const _HostedPaywallLauncher({required this.source});
+
+  final String source;
 
   @override
   State<_HostedPaywallLauncher> createState() => _HostedPaywallLauncherState();
@@ -46,7 +54,7 @@ class _HostedPaywallLauncherState extends State<_HostedPaywallLauncher> {
   Future<void> _present() async {
     final cubit = context.read<PaywallCubit>();
     try {
-      await cubit.loadSubscriptionData();
+      await cubit.loadSubscriptionData(source: widget.source);
       await cubit.presentNativePaywall();
     } on Object catch (_) {
       // RevenueCat could not draw its paywall. Leaving is better than parking

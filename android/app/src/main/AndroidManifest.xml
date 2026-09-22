@@ -102,6 +102,26 @@
         <receiver
             android:name=".alarm.ScheduledAlarmReceiver"
             android:exported="false" />
+        <!-- Local reminders. AlarmManager fires ReminderReceiver; the boot
+             receiver re-arms them after a reboot, an update, or a clock or
+             time zone change; the action receiver handles "Not now" without
+             opening the app. -->
+        <receiver
+            android:name=".reminders.ReminderReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".reminders.ReminderActionReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".reminders.ReminderBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.TIMEZONE_CHANGED"/>
+                <action android:name="android.intent.action.TIME_SET"/>
+            </intent-filter>
+        </receiver>
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

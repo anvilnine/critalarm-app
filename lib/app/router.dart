@@ -1,6 +1,7 @@
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
@@ -15,6 +16,9 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart
 import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
+import 'package:critalarm/features/reminders/presentation/confirm_ring_screen.dart';
+import 'package:critalarm/features/reminders/presentation/reminder_lab_screen.dart';
+import 'package:critalarm/features/reminders/presentation/reminder_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
@@ -54,14 +58,17 @@ abstract final class AppRoute {
   static const account = 'account';
   static const deleteAccount = 'deleteAccount';
   static const privacySettings = 'privacySettings';
+  static const reminderSettings = 'reminderSettings';
   static const about = 'about';
   static const developerSettings = 'developerSettings';
   static const dialogSheetGallery = 'dialogSheetGallery';
   static const faceGallery = 'faceGallery';
+  static const reminderLab = 'reminderLab';
   static const paywall = 'paywall';
   static const alarm = 'alarm';
   static const incidentDetail = 'incidentDetail';
   static const lockScreen = 'lockScreen';
+  static const testRing = 'testRing';
 }
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -124,9 +131,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   name: AppRoute.topicDetail,
                   pageBuilder: (context, state) {
                     final name = state.pathParameters['name'] ?? '';
+                    // `?curl=1` comes from the silent topic reminder's "Get
+                    // curl line": the token sheet opens as the screen does.
+                    final startCurlFlow =
+                        state.uri.queryParameters['curl'] == '1';
                     return AmbientPage(
                       key: state.pageKey,
-                      child: TopicDetailScreen(topicName: name),
+                      child: TopicDetailScreen(
+                        topicName: name,
+                        startCurlFlow: startCurlFlow,
+                      ),
                     );
                   },
                   routes: [
@@ -298,6 +312,14 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   ),
                 ),
                 GoRoute(
+                  path: 'reminders',
+                  name: AppRoute.reminderSettings,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    child: const ReminderSettingsScreen(),
+                  ),
+                ),
+                GoRoute(
                   path: 'about',
                   name: AppRoute.about,
                   pageBuilder: (context, state) => AmbientPage(
@@ -332,6 +354,14 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                         child: const FaceGalleryScreen(),
                       ),
                     ),
+                    GoRoute(
+                      path: 'reminders',
+                      name: AppRoute.reminderLab,
+                      pageBuilder: (context, state) => AmbientPage(
+                        key: state.pageKey,
+                        child: const ReminderLabScreen(),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -355,11 +385,27 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       // RevenueCat draws the paywall. The Flutter one in PaywallScreen is only
       // for a --dart-define=SKIP_PAYWALL=true build, where the RevenueCat SDK
       // is never configured and so has nothing to show.
+      pageBuilder: (context, state) {
+        // `?source=` names what opened it, for the paywall_viewed event.
+        final source =
+            state.uri.queryParameters['source'] ??
+            PaywallAnalytics.directSource;
+        return AmbientPage(
+          key: state.pageKey,
+          child: buildSkipsPaywall
+              ? PaywallScreen(source: source)
+              : HostedPaywallScreen(source: source),
+        );
+      },
+    ),
+    // Both "Ring me now" paths land here: the fire drill reminder and the
+    // quick action. It covers the display, so it sits on the root navigator.
+    GoRoute(
+      path: '/ring',
+      name: AppRoute.testRing,
       pageBuilder: (context, state) => AmbientPage(
         key: state.pageKey,
-        child: buildSkipsPaywall
-            ? const PaywallScreen()
-            : const HostedPaywallScreen(),
+        child: const ConfirmRingScreen(),
       ),
     ),
     // Debug builds only. Nothing in the shipping UI links here, and a store

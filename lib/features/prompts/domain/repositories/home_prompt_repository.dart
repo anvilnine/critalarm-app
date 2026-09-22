@@ -40,8 +40,28 @@ abstract class HomePromptRepository {
   DateTime? getReviewAskedAt();
   int getReviewAskCount();
 
-  /// Records an ask: stores the time and adds one to the count.
-  Future<void> markReviewAsked();
+  /// Records an ask: stores the time and adds one to the count. [at] is
+  /// when the ask happened; a review reminder (idea 21) passes its fire
+  /// time. Defaults to now.
+  Future<void> markReviewAsked({DateTime? at});
+
+  /// When the feedback reminder (idea 22) was delivered. It asks once per
+  /// install.
+  DateTime? getFeedbackAskedAt();
+
+  /// Records the feedback ask at [at], or now.
+  Future<void> markFeedbackAsked({DateTime? at});
+
+  /// When "Remind me later" was last tapped on the Pro sheet. Unlike "Not
+  /// now" it never counts toward `ProPromptRules.maxDismissals`.
+  DateTime? getProPromptLaterAt();
+
+  /// Records a "Remind me later". The sheet was already marked asked when it
+  /// opened, and that is what starts the 30 day wait.
+  Future<void> remindProPromptLater();
+
+  /// Clears the "Remind me later" once its notification was delivered.
+  Future<void> clearProPromptLater();
 
   /// When an alarm was last acknowledged from inside the app.
   DateTime? getLastAcknowledgedAt();
