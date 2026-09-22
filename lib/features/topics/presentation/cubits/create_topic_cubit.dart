@@ -1,3 +1,4 @@
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/models/account_access.dart';
@@ -25,6 +26,10 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
 
   final CreateTopicUsecase _createTopicUsecase;
 
+  /// Asked once on load whether this phone can set an alarm, so the words
+  /// under the critical switch match what the phone will do. Null in tests.
+  AlarmHost? alarm;
+
   /// Reads the server this app is connected to. Optional so a test can build
   /// the cubit without one.
   final GetConnectionUsecase? _getConnection;
@@ -35,6 +40,11 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   /// Fills in the base URL and checks account limits so the screen can display
   /// remaining free-tier critical allowance.
   Future<void> loadConnection() async {
+    final authorization = await alarm?.authorizationStatus();
+    if (authorization != null) {
+      emit(state.copyWith(alarm: authorization));
+    }
+
     String? serverUrl;
     final getConnection = _getConnection;
     if (getConnection != null) {

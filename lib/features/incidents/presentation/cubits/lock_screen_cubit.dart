@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
@@ -10,11 +12,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state for LockScreen.
 class LockScreenCubit extends Cubit<LockScreenState> {
-  LockScreenCubit(this._getIncidents, {DateTime Function()? now})
+  LockScreenCubit(this._getIncidents, {DateTime Function()? now, this.alarm})
     : _now = now ?? DateTime.now,
       super(const LockScreenState());
 
   final GetIncidentsUsecase _getIncidents;
+
+  /// Asked whether this phone can set an alarm, so the ringing pill does not
+  /// claim silent mode on an iPhone older than iOS 26. Null in tests.
+  final AlarmHost? alarm;
 
   /// Injected in tests so the clock can be moved without waiting.
   final DateTime Function() _now;
@@ -39,6 +45,13 @@ class LockScreenCubit extends Cubit<LockScreenState> {
     _emitClock(status: LockScreenStatus.loading);
     _scheduleClockTick();
 
+    final authorization =
+        await alarm?.authorizationStatus() ?? AlarmAuthorization.notDetermined;
+    final ringingPill =
+        RingClaim.forPhone(authorization) == RingClaim.timeSensitive
+        ? LocaleKeys.lock_screen_ringing_pill_time_sensitive.tr()
+        : LocaleKeys.lock_screen_ringing_pill.tr();
+
     final result = await _getIncidents();
     result.fold(
       (incidents) {
@@ -58,9 +71,7 @@ class LockScreenCubit extends Cubit<LockScreenState> {
                   ),
               body: firstMsg?.message ?? '',
               faceState: isCrit ? FaceState.alarmed : FaceState.calm,
-              ringingPillText: isCrit
-                  ? LocaleKeys.lock_screen_ringing_pill.tr()
-                  : null,
+              ringingPillText: isCrit ? ringingPill : null,
               timeText: inc.lastMessageAt == null
                   ? null
                   : DateFormat('HH:mm').format(inc.lastMessageAt!.toLocal()),

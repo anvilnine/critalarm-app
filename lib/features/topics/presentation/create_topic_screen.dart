@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -352,7 +353,14 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
           id: TourAnchorId.createCritical,
           child: AppToggleRow(
             title: LocaleKeys.create_topic_critical_toggle_title.tr(),
-            subtitle: LocaleKeys.create_topic_critical_toggle_subtitle.tr(),
+            // An iPhone older than iOS 26 has no AlarmKit, so it must not be
+            // promised a ring through silent mode.
+            subtitle:
+                RingClaim.forPhone(state.alarm) == RingClaim.timeSensitive
+                ? LocaleKeys
+                      .create_topic_critical_toggle_subtitle_time_sensitive
+                      .tr()
+                : LocaleKeys.create_topic_critical_toggle_subtitle.tr(),
             value: state.isCritical,
             onChanged: isSubmitting
                 ? null
