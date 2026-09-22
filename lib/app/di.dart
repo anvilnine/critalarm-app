@@ -7,6 +7,7 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/alarm_build_mode.dart';
+import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
@@ -543,6 +544,9 @@ Future<void> configureDependencies({
         privacyRepository: getIt<PrivacyRepository>(),
         settle: () => getIt<ReminderSettler>().settleAsks(now: DateTime.now()),
         isSetupDone: () => getIt<SetupGate>().isDone(),
+        // An ack made on another device counts too, and only the shared list
+        // carries it. The review popup skips the whole day of one.
+        newestAckedAt: () => getIt<IncidentsCubit>().state.newestAckedAt,
       ),
     )
     ..registerLazySingleton<DeviceReportRepository>(
@@ -688,6 +692,18 @@ Future<void> configureDependencies({
         getIt<GetTopicsUsecase>(),
         deleteTopic: getIt<DeleteTopicUsecase>(),
         incidents: getIt<IncidentsCubit>(),
+      ),
+    )
+    // "Is an alarm under way on this phone", read off the shared list. Every
+    // guard that keeps sheets, banners and navigation away from an alarm
+    // asks this one object.
+    ..registerLazySingleton(
+      () => AlarmFocus(
+        incidents: getIt<IncidentsCubit>().stream.map((s) => s.incidents),
+        current: () => getIt<IncidentsCubit>().state.incidents,
+        maxRingSeconds: (topic) =>
+            getIt<TopicsCubit>().state.named(topic)?.maxRingS,
+        host: getIt<AlarmHost>(),
       ),
     )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and

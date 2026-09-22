@@ -202,19 +202,35 @@ import AlarmKit
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     // A reminder is not a push: nothing on the server changed, so Dart is
-    // not told to reload. Show it quietly as a banner.
-    if ReminderNotifications.isReminder(notification.request) {
-      completionHandler([.banner, .list])
-      return
+    // not told to reload.
+    let isReminder = ReminderNotifications.isReminder(notification.request)
+    if !isReminder {
+      NSLog("CritAlarm: push_presented_foreground title=%@", notification.request.content.title)
+      // Nobody is going to tap this: the app is already open. Tell Dart so the
+      // screen the user is on reloads. Nothing about the notification is passed
+      // over; what changed is on the server and Dart asks it. This happens even
+      // when the banner below is dropped, so a second incident still reaches
+      // the alarm screen.
+      if dartIsListening {
+        pushChannel?.invokeMethod("onPushReceived", arguments: nil)
+      }
     }
-    NSLog("CritAlarm: push_presented_foreground title=%@", notification.request.content.title)
-    // Nobody is going to tap this: the app is already open. Tell Dart so the
-    // screen the user is on reloads. Nothing about the notification is passed
-    // over; what changed is on the server and Dart asks it.
-    if dartIsListening {
-      pushChannel?.invokeMethod("onPushReceived", arguments: nil)
+    // While an alarm is under way nothing but an alarm gets a banner or a
+    // sound. The open list only says whether one is under way; it never
+    // decides for an alarm push, whose incident can be new to this phone.
+    let options = ForegroundPresentation.options(
+      isReminder: isReminder,
+      incidentId: notification.request.content.userInfo["incident_id"] as? String,
+      focusOn: !OpenIncidentStore.focusedIds().isEmpty,
+      ackedIds: AckedIncidentStore.all()
+    )
+    if options.isEmpty {
+      NSLog(
+        "CritAlarm: banner_dropped_alarm_focus identifier=%@",
+        notification.request.identifier
+      )
     }
-    completionHandler([.banner, .list, .sound])
+    completionHandler(options)
   }
 
   override func userNotificationCenter(
@@ -469,6 +485,12 @@ import AlarmKit
         ),
         to: QuietHours.groupDefaults
       )
+      result(nil)
+
+    case "setOpenIncidents":
+      // Dart's `AlarmFocus` list. The delegate above reads it to know an
+      // alarm is under way, which it cannot work out on its own.
+      OpenIncidentStore.write(incidentIds: args["incident_ids"] as? [String] ?? [])
       result(nil)
 
     case "cacheIncidentContent":
