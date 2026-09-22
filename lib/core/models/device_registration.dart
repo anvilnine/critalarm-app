@@ -4,25 +4,27 @@ part 'device_registration.freezed.dart';
 part 'device_registration.g.dart';
 
 /// Caps applied per account on the relay.
+///
+/// `history_incidents` was removed in 1.16.0 (api.md §4.2). `history_days` is
+/// a retention window now, not a count of alarms.
 @freezed
 abstract class AccountCaps with _$AccountCaps {
   const factory AccountCaps({
     int? devices,
     @JsonKey(name: 'critical_topics') int? criticalTopics,
     @JsonKey(name: 'p4_daily') int? p4Daily,
-    @JsonKey(name: 'history_incidents') int? historyIncidents,
     @JsonKey(name: 'history_days') int? historyDays,
   }) = _AccountCaps;
 
   factory AccountCaps.fromJson(Map<String, dynamic> json) =>
       _$AccountCapsFromJson(json);
+
   /// The `free` column of the cap table in api.md §4.2. Used until the relay
   /// has answered with the real caps.
   static const free = AccountCaps(
     devices: 5,
     criticalTopics: 2,
     p4Daily: 50,
-    historyIncidents: 20,
     historyDays: 7,
   );
 }

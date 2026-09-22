@@ -83,10 +83,14 @@ abstract interface class ApiClient {
   /// "no limit": the server answers 20 (api.md §3.2). It used to be optional
   /// here and the query dropped it when it was null, which is how paid
   /// History quietly showed 20 alarms.
+  /// [since] is a unix second, exclusive, on `opened_at` (api.md §3.2). Send
+  /// the newest `opened_at` the phone already holds and merge what comes
+  /// back. Leave it off for a full read.
   Future<List<Incident>> getIncidents({
     required int limit,
     String? state,
     String? topic,
+    DateTime? since,
   });
 
   /// GET /v1/incidents/{id}

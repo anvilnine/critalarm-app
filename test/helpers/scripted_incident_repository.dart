@@ -34,6 +34,8 @@ class ScriptedIncidentRepository implements IncidentRepository {
     required int limit,
     String? state,
     String? topic,
+    DateTime? since,
+    bool fullRefresh = false,
   }) async => _store.values
       .where((i) => state == null || i.state == state)
       .where((i) => topic == null || i.topic == topic)

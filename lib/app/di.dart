@@ -37,6 +37,7 @@ import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
+import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
@@ -136,12 +137,15 @@ import 'package:critalarm/features/search/domain/usecases/get_recent_searches_us
 import 'package:critalarm/features/search/presentation/cubits/search_cubit.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_privacy_repository.dart';
+import 'package:critalarm/features/settings/data/repositories/shared_prefs_storage_settings_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_theme_preference_repository.dart';
 import 'package:critalarm/features/settings/data/services/sound_file_picker.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/sound_file_picker.dart';
+import 'package:critalarm/features/settings/domain/repositories/storage_settings_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/theme_preference_repository.dart';
+import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/delete_user_sound_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_theme_mode_usecase.dart';
@@ -185,6 +189,20 @@ Future<void> configureDependencies({
   http.Client? httpClient,
 }) async {
   final prefs = await SharedPreferences.getInstance();
+
+  // The phone's own copy of every incident and message (api.md §4.2, where
+  // `history_days` became retention). Web has no sqflite, so the dashboard
+  // build keeps reading the server live and every store call is skipped.
+  LocalStore? localStore;
+  if (!kIsWeb) {
+    try {
+      localStore = await LocalStore.open();
+    } on Object catch (error, stack) {
+      // A database that will not open must not stop the app from ringing.
+      debugPrint('local_store_open_failed error=$error');
+      debugPrintStack(stackTrace: stack);
+    }
+  }
 
   // The alarm service runs with no Dart engine, so it reads this flag out of
   // the same preferences file rather than asking the app. Written on every
@@ -314,7 +332,16 @@ Future<void> configureDependencies({
       ),
     )
     ..registerLazySingleton<IncidentRepository>(
-      () => InMemoryIncidentRepository(getIt<ApiClient>()),
+      () => InMemoryIncidentRepository(getIt<ApiClient>(), store: localStore),
+    )
+    ..registerLazySingleton<StorageSettingsRepository>(
+      () => SharedPrefsStorageSettingsRepository(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<AutoDeleteHistoryUsecase>(
+      () => AutoDeleteHistoryUsecase(
+        localStore,
+        () => getIt<StorageSettingsRepository>().read(),
+      ),
     )
     ..registerLazySingleton<ServerRepository>(
       () => InMemoryServerRepository(getIt<ApiClient>()),
@@ -824,6 +851,8 @@ Future<void> configureDependencies({
       () => HistoryCubit(
         getIt<IncidentsCubit>(),
         identityStore: getIt<DeviceIdentityStore>(),
+        sessionStore: getIt<ApiSessionStore>(),
+        store: localStore,
       ),
     )
     ..registerFactory(
@@ -833,6 +862,7 @@ Future<void> configureDependencies({
         getIt<UpdateTopicUsecase>(),
         getIt<IncidentRepository>(),
         alarm: getIt<AlarmHost>(),
+        identityStore: getIt<DeviceIdentityStore>(),
       ),
     )
     ..registerFactory(
@@ -888,6 +918,10 @@ Future<void> configureDependencies({
             ? getIt<TelemetryGate>()
             : null,
         quietHoursStore: getIt<QuietHoursStore>(),
+        storageSettings: getIt<StorageSettingsRepository>(),
+        // Turning auto-delete on should not wait for the next launch.
+        onAutoDeleteChanged: () async =>
+            unawaited(getIt<AutoDeleteHistoryUsecase>()()),
         // Fire and forget: a slow or failed re-plan never blocks or fails
         // saving or dropping the server connection.
         onConnectionChanged: () async =>
