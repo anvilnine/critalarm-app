@@ -40,6 +40,16 @@ class IncidentsState {
   List<Incident> forTopic(String topic) =>
       incidents.where((i) => i.topic == topic).toList(growable: false);
 
+  /// The newest `acked_at` across the list, or null when nothing is acked.
+  DateTime? get newestAckedAt {
+    DateTime? newest;
+    for (final incident in incidents) {
+      final at = incident.ackedAt;
+      if (at != null && (newest == null || at.isAfter(newest))) newest = at;
+    }
+    return newest;
+  }
+
   IncidentsState copyWith({
     AppDataStatus? status,
     List<Incident>? incidents,

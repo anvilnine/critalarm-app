@@ -6,6 +6,7 @@ import android.content.Intent
 import android.util.Log
 import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.alarm.IncidentRearm
+import app.critalarm.reminders.ReminderReceiver
 import app.critalarm.storage.AckQueueStore
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
@@ -65,6 +66,8 @@ class IncidentActionReceiver : BroadcastReceiver() {
             } else {
                 deliveries.markClosed(incidentId, ackedAtMillis)
             }
+            // Anything that waited while the alarm was up can go out now.
+            ReminderReceiver.releaseHeld(context)
             // One alarm service for the whole app, so stopping it outright
             // stops whatever is ringing rather than the incident this button
             // belongs to. The service holds every un-acked incident and hands
@@ -140,6 +143,7 @@ class IncidentActionReceiver : BroadcastReceiver() {
                     // Stop that came before this is still out and will try to
                     // put the card back when it lands.
                     deliveries.markClosed(incidentId)
+                    ReminderReceiver.releaseHeld(context)
                     IncidentCards.clear(context, incidentId, "closed")
                 }
                 connection.disconnect()

@@ -20,6 +20,7 @@ class HomeAskRules {
     DateTime Function()? now,
     Future<void> Function()? settle,
     Future<bool> Function()? isSetupDone,
+    DateTime? Function()? newestAckedAt,
   }) : _isWeb = isWeb ?? kIsWeb,
        _now = now ?? DateTime.now,
        // The field is private and the parameter is public, so it cannot be
@@ -28,7 +29,10 @@ class HomeAskRules {
        _settle = settle,
        // Same reason as above.
        // ignore: prefer_initializing_formals
-       _isSetupDone = isSetupDone;
+       _isSetupDone = isSetupDone,
+       // Same reason as above.
+       // ignore: prefer_initializing_formals
+       _newestAckedAt = newestAckedAt;
 
   /// The shortest time between any two asks.
   static const Duration gap = Duration(hours: 24);
@@ -61,13 +65,22 @@ class HomeAskRules {
   /// Null in tests that do not care, and counts as done.
   final Future<bool> Function()? _isSetupDone;
 
+  /// The newest ack across the shared incident list. An ack made on another
+  /// device counts too, which the repository's own stamp never sees. Null in
+  /// tests that do not care.
+  final DateTime? Function()? _newestAckedAt;
+
   /// Stamps the first home open, reads what is stored and answers.
-  Future<HomeAsk> next({required bool isRinging}) async {
+  ///
+  /// Nothing here asks whether the phone is ringing. `runHomeAsk` checks
+  /// `AlarmFocus` before it gets this far, and that answer holds through a
+  /// Stop and through the quiet seconds before the next ring.
+  Future<HomeAsk> next() async {
     await _settle?.call();
     await homePromptRepository.markFirstSeen();
     final privacy = (await privacyRepository.getPrivacySettings()).getOrNull();
-    final isSetupDone = await (_isSetupDone?.call() ??
-        Future<bool>.value(true));
+    final isSetupDone =
+        await (_isSetupDone?.call() ?? Future<bool>.value(true));
 
     return decide(
       isSetupDone: isSetupDone,
@@ -80,9 +93,12 @@ class HomeAskRules {
           privacy.crashReportingEnabled,
       reviewAskedAt: homePromptRepository.getReviewAskedAt(),
       reviewAskCount: homePromptRepository.getReviewAskCount(),
-      lastAcknowledgedAt: homePromptRepository.getLastAcknowledgedAt(),
+      lastAcknowledgedAt: newerOf(
+        _newestAckedAt?.call(),
+        homePromptRepository.getLastAcknowledgedAt(),
+      ),
       proAskedAt: homePromptRepository.getProPromptAskedAt(),
-      isRinging: isRinging,
+      isRinging: false,
       isWeb: _isWeb,
       feedbackAskedAt: homePromptRepository.getFeedbackAskedAt(),
     );
@@ -137,6 +153,13 @@ class HomeAskRules {
       if (now.difference(reviewAskedAt) < reviewSnooze) return HomeAsk.none;
     }
     return HomeAsk.review;
+  }
+
+  /// The later of two times, or whichever one is not null.
+  static DateTime? newerOf(DateTime? a, DateTime? b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    return a.isAfter(b) ? a : b;
   }
 
   /// Whether the latest of [askedAt] is less than [gap] ago.
