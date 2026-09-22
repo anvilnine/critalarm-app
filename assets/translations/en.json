@@ -360,7 +360,9 @@
   "critical_alarm": {
     "back_aria_label": "Back",
     "dismiss_button": "Dismiss",
-    "acknowledge_button": "I'm here",
+    "acknowledge_button": "I'm up",
+    "silence_ringing_button": "Silence",
+    "silenced_message": "Stopped. Rings again in {seconds} s. Tap I'm up to end it.",
     "stage_word_critical": "CRITICAL",
     "stage_word_acknowledged": "ACKNOWLEDGED",
     "stage_word_closed": "CLOSED",

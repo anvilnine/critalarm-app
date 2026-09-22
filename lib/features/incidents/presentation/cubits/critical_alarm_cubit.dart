@@ -108,6 +108,41 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
   }
 
+  /// Silence, and nothing else.
+  ///
+  /// The person wants the noise to stop; they have not said they are up. The
+  /// incident stays open, the phone sets its own next ring at
+  /// `now + repeat_interval_s` for the same id, and the server keeps repeating
+  /// too. Only [acknowledge] ends the loop.
+  ///
+  /// The demo alarm has no incident on the server, so it is silenced and left
+  /// alone: the native side answers false for it and no re-arm is set.
+  Future<void> silence() async {
+    final incidentId = state.incident?.id;
+    if (incidentId == null || incidentId.isEmpty) {
+      await silenceThisPhone();
+      return;
+    }
+    int? seconds;
+    try {
+      seconds = await _alarm?.rearmAlarm(incidentId);
+    } on Object catch (_) {
+      // A missing or unhappy channel must not leave the screen stuck. The
+      // server repeat is still the backstop.
+    }
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        feedbackMessage: seconds == null
+            ? null
+            : LocaleKeys.critical_alarm_silenced_message.tr(
+                namedArgs: {'seconds': '$seconds'},
+              ),
+        clearFeedback: seconds == null,
+      ),
+    );
+  }
+
   /// Stops the ring on this device without telling the server anything.
   ///
   /// For the case where the incident could not be loaded: the phone is
