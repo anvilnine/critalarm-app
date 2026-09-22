@@ -18,9 +18,11 @@
 # WHAT YOU NEED ONCE
 #
 # An App Store Connect API key with the App Manager role. The three Apple keys
-# already in secrets/ cannot do this job: AuthKey_AAUWG53635 pushes,
-# AuthKey_S4G7YPTA5C signs sign-in secrets, SubscriptionKey_2KS5342P4K reads
-# subscription state. None of them uploads a build.
+# already in secrets/ (the push key, the sign-in key and the subscription key)
+# cannot do this job: none of them uploads a build. Their ids are not written
+# in this public repo. They live in the .p8 file names inside secrets/, a folder
+# next to this checkout that git never sees, and the upload key id comes from
+# the env file below.
 #
 #   1. App Store Connect, Users and Access, Integrations, App Store Connect API
 #   2. Generate a key with the App Manager role
