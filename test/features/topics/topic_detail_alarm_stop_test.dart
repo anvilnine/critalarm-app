@@ -48,6 +48,9 @@ class _AckAlwaysFails implements IncidentRepository {
       _inner.closeIncident(id);
 
   @override
+  Future<void> saveIncident(Incident incident) => _inner.saveIncident(incident);
+
+  @override
   Future<AppResult<String>> triggerTest({required String topic}) =>
       _inner.triggerTest(topic: topic);
 

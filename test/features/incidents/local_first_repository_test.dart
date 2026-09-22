@@ -12,13 +12,19 @@ final _now = DateTime.utc(2026, 9, 22, 12);
 
 DateTime _at(int daysAgo) => _now.subtract(Duration(days: daysAgo));
 
-Incident _incident(String id, {required int daysAgo, String topic = 'prod'}) {
+Incident _incident(
+  String id, {
+  required int daysAgo,
+  String topic = 'prod',
+  DateTime? updatedAt,
+}) {
   final openedAt = _at(daysAgo);
   return Incident(
     id: id,
     topic: topic,
     state: IncidentStates.closed,
     openedAt: openedAt,
+    updatedAt: updatedAt ?? openedAt,
     lastMessageAt: openedAt,
   );
 }
@@ -89,12 +95,52 @@ void main() {
     expect(api.sinceSeen, [null]);
   });
 
-  test('the next sync asks with the newest opened_at held', () async {
+  test('the next sync asks with the newest updated_at held', () async {
     await store.incidents.upsertAll([_incident('inc_1', daysAgo: 3)]);
 
     await repository.getIncidents(limit: 200);
 
     expect(api.sinceSeen, [_at(3)]);
+  });
+
+  test('since follows updated_at, not opened_at', () async {
+    // Opened 9 days ago but acked 1 day ago; opened 2 days ago untouched.
+    await store.incidents.upsertAll([
+      _incident('inc_acked', daysAgo: 9, updatedAt: _at(1)),
+      _incident('inc_open', daysAgo: 2),
+    ]);
+
+    await repository.getIncidents(limit: 200);
+
+    // The newest opened_at is 2 days ago, but the newest updated_at is 1 day.
+    expect(api.sinceSeen, [_at(1)]);
+  });
+
+  test('ackIncident writes the acked row to the store', () async {
+    api.server.seedAlarmed();
+
+    final result = await repository.ackIncident('inc_alarmed_proddb');
+
+    expect(result.isSuccess(), isTrue);
+    final row = (await store.incidents.page()).single;
+    expect(row.id, 'inc_alarmed_proddb');
+    expect(row.state, IncidentStates.acked);
+    expect(row.updatedAt, isNotNull);
+  });
+
+  test('a failed list read after an ack still answers acked', () async {
+    api.server.seedAlarmed();
+    await repository.getIncidents(limit: 200);
+    await repository.ackIncident('inc_alarmed_proddb');
+
+    api.offline = true;
+
+    final result = await repository.getIncidents(limit: 200);
+    expect(result.isSuccess(), isTrue);
+    final incident = result.getOrNull()!.firstWhere(
+      (i) => i.id == 'inc_alarmed_proddb',
+    );
+    expect(incident.isAcked, isTrue);
   });
 
   test('a full refresh asks without since even with rows held', () async {

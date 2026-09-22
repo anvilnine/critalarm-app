@@ -579,6 +579,7 @@ Future<void> configureDependencies({
         api: getIt<ApiClient>(),
         tokens: getIt<LiveActivityTokenRegistry>(),
         quietHours: getIt<QuietHoursStore>(),
+        applyIncident: getIt<IncidentsCubit>().applyIncident,
       ),
     )
     ..registerLazySingleton(() => PushAnalytics(getIt<TelemetryGate>()))
@@ -679,6 +680,7 @@ Future<void> configureDependencies({
       () => IncidentsCubit(
         getIt<GetIncidentsUsecase>(),
         badge: getIt<AppBadge>(),
+        saveIncident: getIt<IncidentRepository>().saveIncident,
       ),
     )
     ..registerLazySingleton(
