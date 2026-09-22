@@ -13,6 +13,7 @@ import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/topic_name_formatter.dart';
 import 'package:critalarm/features/topics/presentation/widgets/token_actions.dart';
+import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
 import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
 import 'package:critalarm/features/tour/presentation/tour_steps.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -88,8 +89,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     _nameFocus = FocusNode();
     _tokenNameFocus = FocusNode();
     // Step 1 is a single field, so open with the keyboard already on it
-    // instead of making the user tap it first.
-    _focusNameField();
+    // instead of making the user tap it first. Not during the tour: it
+    // opens this screen to point at the field, and the keyboard would
+    // cover the card.
+    if (!getIt<TourCubit>().state.isRunning) _focusNameField();
   }
 
   @override
