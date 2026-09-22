@@ -32,7 +32,13 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     DateTime Function()? now,
     this._onboardingCompleted,
   ]) : _now = now ?? DateTime.now,
-       super(const CriticalAlarmState());
+       super(const CriticalAlarmState()) {
+    current = this;
+    // A second incident can open while the screen is already up. The shared
+    // list is where every other screen and the push binding write, so listening
+    // here is how the alarm screen hears about it without asking the server.
+    _incidentsSub = _incidents?.stream.listen(_onIncidentsChanged);
+  }
 
   final GetIncidentUsecase _getIncident;
   final GetIncidentsUsecase _getIncidents;
@@ -60,8 +66,17 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
 
   final DateTime Function() _now;
 
+  /// The cubit the alarm screen is showing right now, or null when the screen
+  /// is not up. The push binding reads it to hand a tapped incident id to the
+  /// screen already on the display instead of navigating to a new one.
+  static CriticalAlarmCubit? current;
+
   /// Redraws the ringing line. Null whenever nothing is ringing.
   Timer? _ticker;
+
+  /// The subscription to the shared incident list. Cancelled on [close] so a
+  /// cubit that outlives its screen does not try to emit after it is closed.
+  StreamSubscription<IncidentsState>? _incidentsSub;
 
   /// Stop the local alarm for [incidentId]. Never throws: a platform channel
   /// that is missing or unhappy must not stop the acknowledge from going out.
@@ -82,7 +97,11 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   Future<void> _silence(
     String incidentId, {
     required bool handOverToStatusCard,
+    String? title,
+    String? body,
   }) async {
+    final cardTitle = title ?? state.title;
+    final cardBody = body ?? state.body;
     try {
       await _alarm?.cancelAlarm(
         incidentId,
@@ -90,8 +109,8 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         // The acked card is built natively, with no engine and no network, so
         // it only knows what it is handed. Without these it read "Critical
         // incident" while the screen behind it named the topic.
-        title: state.title.isEmpty ? null : state.title,
-        body: state.body.isEmpty ? null : state.body,
+        title: cardTitle.isEmpty ? null : cardTitle,
+        body: cardBody.isEmpty ? null : cardBody,
       );
     } on Object catch (_) {
       // Nothing to do. The ack below is what the server cares about.
@@ -189,16 +208,22 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
     if (incidentId != null && incidentId.isNotEmpty) {
       final result = await _getIncident(incidentId);
-      result.fold(_applyIncident, _showFailure);
+      result.fold(
+        (incident) => _applyIncident(
+          incident,
+          openIncidents: incident.isOpen ? [incident] : const <Incident>[],
+        ),
+        _showFailure,
+      );
       return;
     }
     final result = await _getIncidents(const GetIncidentsParams(state: 'open'));
     result.fold((incidents) {
-      final incident = incidents.where((i) => i.isOpen).firstOrNull;
-      if (incident == null) {
+      final open = _newestFirst(incidents.where((i) => i.isOpen));
+      if (open.isEmpty) {
         emit(const CriticalAlarmState());
       } else {
-        _applyIncident(incident);
+        _applyIncident(open.first, openIncidents: open);
       }
     }, _showFailure);
   }
@@ -211,6 +236,45 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         errorMessage: failure.message,
       ),
     );
+  }
+
+  /// Shows [incidentId] instead of the newest. Used when the user taps the
+  /// second notification while the screen is up, and when they pick a row in
+  /// the "other alarms" sheet. The list keeps its newest-first order; only
+  /// what is on screen changes.
+  void select(String incidentId) {
+    final match = state.openIncidents
+        .where((i) => i.id == incidentId)
+        .firstOrNull;
+    if (match == null || state.incident?.id == incidentId) return;
+    _applyIncident(match);
+  }
+
+  /// Open incidents, newest first by server time. A null [Incident.openedAt]
+  /// sorts last, so a page the server never dated cannot jump the queue.
+  List<Incident> _newestFirst(Iterable<Incident> incidents) {
+    final list = incidents.toList()
+      ..sort((a, b) {
+        final at = a.openedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bt = b.openedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bt.compareTo(at);
+      });
+    return list;
+  }
+
+  /// The shared list changed. A new open incident takes over the screen; a
+  /// list that only shrank leaves the shown incident alone, because an
+  /// acknowledge or a close already moves the screen itself.
+  void _onIncidentsChanged(IncidentsState incidents) {
+    if (isClosed) return;
+    final open = _newestFirst(incidents.openIncidents);
+    final previousIds = state.openIncidents.map((i) => i.id).toSet();
+    final hasNew = open.any((i) => !previousIds.contains(i.id));
+    if (hasNew) {
+      _applyIncident(open.first, openIncidents: open);
+    } else {
+      emit(state.copyWith(openIncidents: open));
+    }
   }
 
   Future<void> acknowledge() async {
@@ -235,16 +299,38 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     // other screen, because they all read the same list. Nothing here waits
     // on the server.
     final ringing = state;
+    // Text of the incident being answered, read before the screen swaps to
+    // the next one so the handed-over card names the right incident.
+    final ackTitle = state.title;
+    final ackBody = state.body;
     final ack = _incidents?.acknowledgeNow(incident);
-    _showAcknowledged(
-      ack?.guess ??
-          incident.copyWith(state: IncidentStates.acked, ackedAt: _now()),
+
+    // What is still open once this one is acknowledged, newest first.
+    final remaining = _newestFirst(
+      state.openIncidents.where((i) => i.id != targetId),
     );
+
+    if (remaining.isNotEmpty) {
+      // Another incident is still ringing. Swap to it and stay on the ringing
+      // layout, so one tap answers one incident and nothing is lost.
+      _applyIncident(remaining.first, openIncidents: remaining);
+    } else {
+      _showAcknowledged(
+        ack?.guess ??
+            incident.copyWith(state: IncidentStates.acked, ackedAt: _now()),
+        openIncidents: remaining,
+      );
+    }
 
     // Silence next, still before anything goes on the wire. The person
     // pressed Stop, so the noise is over whatever the server says: a slow or
     // refused ack must not keep it ringing.
-    await _silence(targetId, handOverToStatusCard: true);
+    await _silence(
+      targetId,
+      handOverToStatusCard: true,
+      title: ackTitle,
+      body: ackBody,
+    );
 
     // Marked before the send, so a repeat push that lands while the request
     // is in flight does not ring. A reopen clears it again.
@@ -255,9 +341,12 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
 
     result.fold(
       (updatedIncident) {
-        // The server's own copy, which carries the real acked_at.
+        // The server's own copy, which carries the real acked_at. Only the
+        // acknowledged screen reads it; a swap keeps the next one ringing.
         _incidents?.applyIncident(updatedIncident);
-        _showAcknowledged(updatedIncident);
+        if (remaining.isEmpty) {
+          _showAcknowledged(updatedIncident, openIncidents: remaining);
+        }
       },
       (failure) {
         // 409 means it was acknowledged somewhere else, so the guess on
@@ -289,6 +378,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   void _showAcknowledged(
     Incident incident, {
     FaceState face = FaceState.acked,
+    List<Incident>? openIncidents,
   }) {
     _stopRingTicker();
     final ackMsg = LocaleKeys.critical_alarm_acknowledged_message.tr(
@@ -298,6 +388,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       state.copyWith(
         status: CriticalAlarmStatus.acknowledged,
         incident: incident,
+        openIncidents: openIncidents ?? state.openIncidents,
         isAcknowledged: true,
         isAcknowledging: false,
         severityMode: SeverityMode.ack,
@@ -340,6 +431,8 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   @override
   Future<void> close() {
     _stopRingTicker();
+    unawaited(_incidentsSub?.cancel());
+    if (identical(current, this)) current = null;
     return super.close();
   }
 
@@ -366,16 +459,26 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     result.fold(
       (closedIncident) {
         _incidents?.applyIncident(closedIncident);
-        emit(
-          state.copyWith(
-            status: CriticalAlarmStatus.closed,
-            incident: closedIncident,
-            word: LocaleKeys.critical_alarm_stage_word_closed.tr(),
-            severityMode: SeverityMode.none,
-            faceState: FaceState.calm,
-            isLive: false,
-          ),
+        // Same rule as acknowledge: an incident still open takes over, and the
+        // closed screen only appears once nothing is left ringing.
+        final remaining = _newestFirst(
+          state.openIncidents.where((i) => i.id != incidentId),
         );
+        if (remaining.isNotEmpty) {
+          _applyIncident(remaining.first, openIncidents: remaining);
+        } else {
+          emit(
+            state.copyWith(
+              status: CriticalAlarmStatus.closed,
+              incident: closedIncident,
+              openIncidents: remaining,
+              word: LocaleKeys.critical_alarm_stage_word_closed.tr(),
+              severityMode: SeverityMode.none,
+              faceState: FaceState.calm,
+              isLive: false,
+            ),
+          );
+        }
       },
       (failure) {
         emit(state.copyWith(errorMessage: failure.message));
@@ -383,8 +486,9 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     );
   }
 
-  void _applyIncident(Incident incident) {
+  void _applyIncident(Incident incident, {List<Incident>? openIncidents}) {
     _stopRingTicker();
+    final open = openIncidents ?? state.openIncidents;
     final firstMsg = incident.messages.firstOrNull;
     // A page with no title or no body used to fall back to a sample outage
     // about a database, which read as the real thing to someone woken by it.
@@ -421,6 +525,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
 
     emit(
       state.copyWith(
+        openIncidents: open,
         meta: firstMsg == null
             ? ''
             : '${_formatTime(DateTime.fromMillisecondsSinceEpoch(firstMsg.time * 1000).toLocal())} / ${firstMsg.tags.join(', ')}',
@@ -439,6 +544,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         state.copyWith(
           status: CriticalAlarmStatus.acknowledged,
           incident: incident,
+          openIncidents: open,
           topic: topic,
           title: title,
           body: body,
@@ -457,6 +563,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         state.copyWith(
           status: CriticalAlarmStatus.closed,
           incident: incident,
+          openIncidents: open,
           topic: topic,
           title: title,
           body: body,
@@ -472,6 +579,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         state.copyWith(
           status: CriticalAlarmStatus.ringing,
           incident: incident,
+          openIncidents: open,
           topic: topic,
           title: title,
           body: body,
