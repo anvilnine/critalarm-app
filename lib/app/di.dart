@@ -549,6 +549,7 @@ Future<void> configureDependencies({
         getIt<SharedPreferences>(),
         getIt<ApiClient>(),
         analytics: getIt<PushAnalytics>(),
+        alarms: getIt<AlarmHost>(),
         // An acknowledge that only lands minutes later still has to move the
         // badge and every open screen, so the shared list catches up.
         onSent: () => getIt<IncidentsCubit>().refresh(),
