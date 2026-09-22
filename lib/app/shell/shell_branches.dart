@@ -28,6 +28,11 @@ abstract final class ShellBranch {
 int? shellBranchForPath(String path) {
   final location = path.split('?').first.split('#').first;
   if (location == '/') return ShellBranch.topics;
+  // A topic and its sub-screens live inside the topics tab. `/topics/new`
+  // is the one full-screen route under that prefix.
+  if (location.startsWith('/topics/') && location != '/topics/new') {
+    return ShellBranch.topics;
+  }
   if (location == '/history' || location.startsWith('/history/')) {
     return ShellBranch.history;
   }
