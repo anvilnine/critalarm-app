@@ -13,6 +13,7 @@ void main() {
       bool isWeb = false,
       bool offersOn = false,
       bool proShouldAsk = true,
+      bool isSetupDone = true,
     }) => AfterAckDecider.decide(
       ackedAt: ackedAt ?? DateTime(2026, 9, 22, 14),
       isTestAck: isTestAck,
@@ -20,12 +21,24 @@ void main() {
       isWeb: isWeb,
       offersOn: offersOn,
       proShouldAsk: proShouldAsk,
+      isSetupDone: isSetupDone,
     );
 
     test('the first test ack shows the Reminders sheet', () {
       expect(
         decide(isTestAck: true, isRemindersSheetShown: false),
         AfterAck.remindersSheet,
+      );
+    });
+
+    test('nothing before onboarding and the tour are done', () {
+      expect(
+        decide(
+          isTestAck: true,
+          isRemindersSheetShown: false,
+          isSetupDone: false,
+        ),
+        AfterAck.nothing,
       );
     });
 
@@ -89,6 +102,7 @@ void main() {
       bool isProSheetOwed = false,
       bool proShouldAsk = false,
       List<DateTime?> otherAskedAt = const [],
+      bool isSetupDone = true,
     }) => HomeReminderAskRules.decide(
       now: now ?? DateTime(2026, 9, 22, 14),
       isWeb: isWeb,
@@ -99,6 +113,7 @@ void main() {
       isProSheetOwed: isProSheetOwed,
       proShouldAsk: proShouldAsk,
       otherAskedAt: otherAskedAt,
+      isSetupDone: isSetupDone,
     );
 
     test('an existing install that already tested sees the sheet once', () {
@@ -108,6 +123,13 @@ void main() {
       );
       expect(
         decide(lastAcknowledgedAt: DateTime(2026, 9), isSheetShown: true),
+        HomeReminderAsk.none,
+      );
+    });
+
+    test('nothing before onboarding and the tour are done', () {
+      expect(
+        decide(lastAcknowledgedAt: DateTime(2026, 9), isSetupDone: false),
         HomeReminderAsk.none,
       );
     });

@@ -26,6 +26,7 @@ abstract final class ReviewAskRule {
     if (inputs.isIos && inputs.appStoreId.isEmpty) return null;
 
     final ask = HomeAskRules.decide(
+      isSetupDone: inputs.isSetupDone,
       now: fireAt,
       firstSeenAt: inputs.installedAt,
       consentAskedAt: inputs.consentAskedAt,
