@@ -18,12 +18,16 @@ class ProPromptRules {
     ProOverride? proOverride,
     DateTime Function()? now,
     bool Function()? offersOn,
+    Future<bool> Function()? isSetupDone,
   }) : _proOverride = proOverride ?? appProOverride,
        _now = now ?? DateTime.now,
        // The field is private and the parameter is public, so it cannot be
        // an initializing formal.
        // ignore: prefer_initializing_formals
-       _offersOn = offersOn;
+       _offersOn = offersOn,
+       // Same reason as above.
+       // ignore: prefer_initializing_formals
+       _isSetupDone = isSetupDone;
 
   /// Being asked once buys 30 days of quiet, however the user left the sheet.
   static const Duration snooze = Duration(days: 30);
@@ -40,13 +44,20 @@ class ProPromptRules {
   /// as a notification, so the sheet stays away until that is delivered.
   final bool Function()? _offersOn;
 
+  /// `SetupGate.isDone` in the app: onboarding finished and the tour seen.
+  /// Null in tests that do not care, and counts as done.
+  final Future<bool> Function()? _isSetupDone;
+
   /// Reads what is stored and answers.
   Future<bool> shouldAsk() async {
     final isPaid =
         (await accountRepository.readIsPaid()) || _proOverride.isForcingPro;
     final serverMode = await accountRepository.readServerMode();
+    final isSetupDone = await (_isSetupDone?.call() ??
+        Future<bool>.value(true));
 
     return decide(
+      isSetupDone: isSetupDone,
       isPaid: isPaid,
       isSelfHosted: serverMode == ServerMode.selfhosted,
       dismissCount: homePromptRepository.getProPromptDismissCount(),
@@ -63,8 +74,9 @@ class ProPromptRules {
     );
   }
 
-  /// The rules themselves, with nothing to read from. Somebody who already
-  /// pays is never asked, and neither is a self hosted server.
+  /// The rules themselves, with nothing to read from. Nobody is asked before
+  /// onboarding is finished and the tour has been seen or skipped. Somebody
+  /// who already pays is never asked, and neither is a self hosted server.
   ///
   /// [lastAskedAt] is when the sheet was last shown, not when it was last
   /// turned down. Walking away from the sheet is an answer too, so the quiet
@@ -79,9 +91,11 @@ class ProPromptRules {
     required int dismissCount,
     required DateTime? lastAskedAt,
     required DateTime now,
+    required bool isSetupDone,
     List<DateTime?> otherAskedAt = const [],
     bool isHandedToNotification = false,
   }) {
+    if (!isSetupDone) return false;
     if (isPaid || isSelfHosted) return false;
     if (isHandedToNotification) return false;
     if (HomeAskRules.isWithinGap(now: now, askedAt: otherAskedAt)) {

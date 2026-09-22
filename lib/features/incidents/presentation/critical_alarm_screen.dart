@@ -10,6 +10,7 @@ import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
+import 'package:critalarm/features/prompts/domain/setup_gate.dart';
 import 'package:critalarm/features/reminders/domain/after_ack_decider.dart';
 import 'package:critalarm/features/reminders/domain/incident_kinds.dart';
 import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
@@ -66,6 +67,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
     await getIt<ReminderSettler>().settleAsks(now: DateTime.now());
     final proShouldAsk = await getIt<ProPromptRules>().shouldAsk();
     final next = AfterAckDecider.decide(
+      isSetupDone: await getIt<SetupGate>().isDone(),
       ackedAt: DateTime.now(),
       isTestAck: incident == null || IncidentKinds.isTest(incident),
       isRemindersSheetShown: store.readSheetShown(),

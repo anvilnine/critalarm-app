@@ -61,6 +61,7 @@ void main() {
         proAskedAt: null,
         isRinging: false,
         isWeb: false,
+        isSetupDone: true,
       );
       bool proAt(DateTime now) => ProPromptRules.decide(
         isPaid: false,
@@ -68,6 +69,7 @@ void main() {
         dismissCount: 0,
         lastAskedAt: null,
         now: now,
+        isSetupDone: true,
         otherAskedAt: [prompts.reviewAskedAt],
       );
 
