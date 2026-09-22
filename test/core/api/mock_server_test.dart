@@ -323,7 +323,7 @@ void main() {
       expect(response.accountId, startsWith('acc_'));
       expect(response.deviceToken, startsWith('dv_'));
       expect(response.tier, 'free');
-      expect(response.caps.devices, 1);
+      expect(response.caps.devices, 5);
       expect(response.caps.criticalTopics, 2);
       expect(response.caps.p4Daily, 50);
     });
