@@ -25,8 +25,8 @@ Future<void> defaultLaunchWait(Duration duration) => Future.delayed(duration);
 /// launch hiccup and is rethrown right away, with no wait.
 ///
 /// Every failed attempt, retried or not, writes one line through [log]:
-/// `launch_call_failed call=&lt;name&gt; attempt=&lt;n&gt;
-/// error=&lt;runtimeType&gt;[ status=&lt;code&gt;]`.
+/// `launch_call_failed call=<name> attempt=<n>
+/// error=<runtimeType>[ status=<code>]`.
 Future<T> retryOnLaunch<T>(
   String name,
   Future<T> Function() call, {
