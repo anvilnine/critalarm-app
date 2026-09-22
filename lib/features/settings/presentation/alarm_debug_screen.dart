@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/settings/presentation/debug_push_event_text.dart';
 import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -195,7 +196,7 @@ class _AlarmDebugScreenState extends State<AlarmDebugScreen> with RouteAware {
                           (event) => _row(
                             event.name ??
                                 LocaleKeys.settings_alarm_debug_nothing.tr(),
-                            _dateText(event.at),
+                            formatDebugPushEventDetails(event),
                           ),
                         ),
                     ],
