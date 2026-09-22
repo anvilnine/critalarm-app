@@ -267,6 +267,7 @@ class MockServer {
       openedAt: now.subtract(const Duration(hours: 2)),
       ackedAt: now.subtract(const Duration(hours: 1, minutes: 50)),
       closedAt: now.subtract(const Duration(hours: 1, minutes: 30)),
+      updatedAt: now.subtract(const Duration(hours: 1, minutes: 30)),
       lastMessageAt: now.subtract(const Duration(hours: 2)),
       messages: [closedMsg],
     );
@@ -422,6 +423,7 @@ class MockServer {
       id: incidentId,
       topic: 'prod-db',
       openedAt: openedAt,
+      updatedAt: lastMessageAt,
       lastMessageAt: lastMessageAt,
       messages: messages,
     );
@@ -481,6 +483,7 @@ class MockServer {
       state: IncidentStates.acked,
       openedAt: openedTime,
       ackedAt: ackedTime,
+      updatedAt: ackedTime,
       deskTimerFiresAt: deskTimerFiresAt,
       lastMessageAt: openedTime,
       messages: [ackedMsg],
@@ -770,10 +773,10 @@ class MockServer {
       items = items.where((inc) => inc.topic == topic).toList();
     }
 
-    // api.md §3.2: `since` is exclusive, on `opened_at`.
+    // api.md §3.2: `since` is exclusive, on `updated_at`.
     if (since != null) {
       items = items
-          .where((inc) => inc.openedAt?.isAfter(since) ?? false)
+          .where((inc) => inc.updatedAt?.isAfter(since) ?? false)
           .toList();
     }
 
@@ -833,6 +836,7 @@ class MockServer {
     final updated = incident.copyWith(
       state: IncidentStates.acked,
       ackedAt: now,
+      updatedAt: now,
       deskTimerFiresAt: deskTimerFiresAt,
     );
 
@@ -863,6 +867,7 @@ class MockServer {
     final updated = incident.copyWith(
       state: IncidentStates.closed,
       closedAt: now,
+      updatedAt: now,
     );
 
     _incidents[id] = updated;
@@ -964,6 +969,7 @@ class MockServer {
 
         final updatedIncident = activeIncident.copyWith(
           lastMessageAt: now,
+          updatedAt: now,
           messages: [...activeIncident.messages, newMsg],
         );
         _incidents[incidentId] = updatedIncident;
@@ -987,6 +993,7 @@ class MockServer {
           id: incidentId,
           topic: topic,
           openedAt: now,
+          updatedAt: now,
           lastMessageAt: now,
           messages: [newMsg],
         );

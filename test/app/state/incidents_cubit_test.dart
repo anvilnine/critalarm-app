@@ -8,6 +8,7 @@ import 'package:critalarm/core/models/send_result.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/result/result.dart';
+import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
@@ -24,6 +25,7 @@ import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dar
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// A real repository with a counter on the list read, so a test can prove a
 /// screen did not go back to the server.
@@ -54,6 +56,9 @@ class _CountingIncidents implements IncidentRepository {
   @override
   Future<AppResult<Incident>> closeIncident(String id) =>
       _inner.closeIncident(id);
+
+  @override
+  Future<void> saveIncident(Incident incident) => _inner.saveIncident(incident);
 
   @override
   Future<AppResult<String>> triggerTest({required String topic}) =>
@@ -375,6 +380,43 @@ void main() {
       cubit.applyIncident(_incident('inc_1', state: 'acked'));
       await pumpEventQueue();
       expect(badgeCalls().last.arguments, {'count': 1});
+    });
+  });
+
+  group('applyIncidents writes to the store', () {
+    test('an applied incident reaches the phone copy', () async {
+      sqfliteFfiInit();
+      final store = await LocalStore.open(
+        factory: databaseFactoryFfi,
+        path: inMemoryDatabasePath,
+      );
+      addTearDown(store.close);
+      final server = MockServer()..seedCalm();
+      final repository = InMemoryIncidentRepository(
+        MockApiClient(server),
+        store: store,
+      );
+      final cubit = IncidentsCubit(
+        GetIncidentsUsecase(repository),
+        saveIncident: repository.saveIncident,
+      );
+      addTearDown(cubit.close);
+
+      cubit.applyIncident(
+        Incident(
+          id: 'inc_applied',
+          topic: 'prod-db',
+          state: IncidentStates.acked,
+          openedAt: DateTime.utc(2026, 9, 16, 8),
+          updatedAt: DateTime.utc(2026, 9, 16, 9),
+        ),
+      );
+      await pumpEventQueue();
+
+      final row = (await store.incidents.page()).single;
+      expect(row.id, 'inc_applied');
+      expect(row.isAcked, isTrue);
+      expect(row.updatedAt, DateTime.utc(2026, 9, 16, 9));
     });
   });
 }
