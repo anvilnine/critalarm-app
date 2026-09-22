@@ -350,6 +350,26 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         ? firstMsg.message
         : LocaleKeys.critical_alarm_fallback_body.tr();
     final topic = incident.topic;
+
+    // Hand the text to the notification extension. It has no way of its own to
+    // read what the app loaded, so without this every repeat push on this
+    // incident costs another `GET /v1/incidents/{id}`. Only a real message is
+    // worth keeping: caching a fallback line would hide the real text.
+    if (firstMsg != null && incident.id != 'inc_demo') {
+      final cached = _alarm?.cacheIncidentContent(
+        incidentId: incident.id,
+        title: title,
+        body: body,
+        tags: firstMsg.tags,
+        click: firstMsg.click,
+        topic: topic,
+        lastMessageAt: incident.lastMessageAt == null
+            ? null
+            : incident.lastMessageAt!.millisecondsSinceEpoch ~/ 1000,
+      );
+      if (cached != null) unawaited(cached);
+    }
+
     emit(
       state.copyWith(
         meta: firstMsg == null

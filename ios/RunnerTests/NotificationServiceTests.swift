@@ -14,8 +14,25 @@ final class NotificationServiceTests: XCTestCase {
     /// Nothing listens here, which is what a stopped server looks like.
     private let deadServer = URL(string: "http://127.0.0.1:9")!
 
+    /// The cache the extension reads instead of the network. Held in its own
+    /// suite so a test never touches the app group on the machine.
+    private let cacheSuite = "NotificationServiceTestsCache"
+    private var cacheDefaults: UserDefaults!
+    private var realCacheDefaults: UserDefaults?
+
+    override func setUp() {
+        super.setUp()
+        cacheDefaults = UserDefaults(suiteName: cacheSuite)
+        cacheDefaults.removePersistentDomain(forName: cacheSuite)
+        realCacheDefaults = IncidentContentCache.defaults
+        IncidentContentCache.defaults = cacheDefaults
+    }
+
     override func tearDown() {
         NseCredentials.clear()
+        IncidentContentCache.defaults = realCacheDefaults
+        cacheDefaults.removePersistentDomain(forName: cacheSuite)
+        StubIncidentServer.stop()
         super.tearDown()
     }
 
@@ -47,13 +64,22 @@ final class NotificationServiceTests: XCTestCase {
 
     @discardableResult
     private func run(_ name: String, timeout: TimeInterval = 20) throws -> UNNotificationContent {
+        try run(payload: try fixture(name), named: name, timeout: timeout)
+    }
+
+    @discardableResult
+    private func run(
+        payload: [String: Any],
+        named name: String = "push",
+        timeout: TimeInterval = 20
+    ) throws -> UNNotificationContent {
         // The system holds the extension while the fetch is in flight. Hold it
         // here too, or the callback finds a deallocated `self` and the
         // notification is never delivered.
         let service = NotificationService()
         let delivered = expectation(description: "\(name) delivered")
         var result: UNNotificationContent?
-        service.didReceive(request(from: try fixture(name))) { content in
+        service.didReceive(request(from: payload)) { content in
             result = content
             delivered.fulfill()
         }
@@ -177,6 +203,109 @@ final class NotificationServiceTests: XCTestCase {
         )
     }
 
+    // MARK: - The content cache
+
+    /// A hosted push with no text in it, of whichever kind the test needs.
+    private func hostedPush(kind: String, incidentId: String = "inc_cache") -> [String: Any] {
+        [
+            "aps": [
+                "alert": ["title": "Crit Alarm", "body": "Critical alert, open to see details"],
+                "mutable-content": 1,
+            ],
+            "kind": kind,
+            "incident_id": incidentId,
+            "server": "https://api.example.test",
+        ]
+    }
+
+    /// What `GET /v1/incidents/{id}` answers (api.md §3.2).
+    private var serverIncident: Data {
+        let incident: [String: Any] = [
+            "id": "inc_cache",
+            "topic": "prod-db",
+            "state": "open",
+            "last_message_at": 1_700_000_000,
+            "messages": [[
+                "id": "msg_1",
+                "topic": "prod-db",
+                "title": "Database down",
+                "message": "db01 is unreachable",
+                "priority": 5,
+                "tags": [],
+                "time": 1_700_000_000,
+            ]],
+        ]
+        return try! JSONSerialization.data(withJSONObject: incident)
+    }
+
+    private func warmTheCache(title: String = "Cached title", body: String = "Cached body") {
+        IncidentContentCache.write(
+            IncidentContent(title: title, body: body, tags: [], click: nil, topic: "prod-db"),
+            for: "inc_cache"
+        )
+    }
+
+    func testARepeatWithAWarmCacheCallsNobody() throws {
+        NseCredentials.write(server: "https://api.example.test", token: "dv_test")
+        warmTheCache()
+        StubIncidentServer.start(body: serverIncident)
+
+        let content = try run(payload: hostedPush(kind: "repeat"))
+
+        XCTAssertEqual(StubIncidentServer.requestCount, 0, "the repeat is what the cache is for")
+        XCTAssertEqual(content.title, "Cached title")
+        XCTAssertEqual(content.body, "Cached body")
+    }
+
+    func testAnOpenPushWithAWarmCacheStillAsksTheServer() throws {
+        NseCredentials.write(server: "https://api.example.test", token: "dv_test")
+        warmTheCache()
+        StubIncidentServer.start(body: serverIncident)
+
+        let content = try run(payload: hostedPush(kind: "open"))
+
+        XCTAssertEqual(StubIncidentServer.requestCount, 1, "a new message may have joined")
+        XCTAssertEqual(content.title, "Database down")
+        XCTAssertEqual(content.body, "db01 is unreachable")
+    }
+
+    func testARepeatWithAColdCacheFetchesAndWarmsIt() throws {
+        NseCredentials.write(server: "https://api.example.test", token: "dv_test")
+        StubIncidentServer.start(body: serverIncident)
+
+        let content = try run(payload: hostedPush(kind: "repeat"))
+
+        XCTAssertEqual(StubIncidentServer.requestCount, 1)
+        XCTAssertEqual(content.body, "db01 is unreachable")
+
+        let entry = IncidentContentCache.read(incidentId: "inc_cache")
+        XCTAssertEqual(entry?.content.title, "Database down")
+        XCTAssertEqual(entry?.lastMessageAt, 1_700_000_000)
+    }
+
+    func testARepeatWithAWarmCacheAndNoServerShowsTheRealText() throws {
+        NseCredentials.write(server: "https://api.example.test", token: "dv_test")
+        warmTheCache()
+        StubIncidentServer.start(body: nil)
+
+        let content = try run(payload: hostedPush(kind: "repeat"))
+
+        XCTAssertEqual(StubIncidentServer.requestCount, 0)
+        XCTAssertEqual(content.body, "Cached body", "not the placeholder")
+    }
+
+    func testAFailedFetchWithAWarmCacheShowsTheRealText() throws {
+        NseCredentials.write(server: "https://api.example.test", token: "dv_test")
+        warmTheCache()
+        StubIncidentServer.start(body: nil)
+
+        let content = try run(payload: hostedPush(kind: "open"))
+
+        XCTAssertEqual(StubIncidentServer.requestCount, 1, "an open push always tries")
+        XCTAssertEqual(content.title, "Cached title")
+        XCTAssertEqual(content.body, "Cached body", "not the placeholder")
+    }
+
     // MARK: - Keychain
 
     func testCredentialsRoundTrip() {
@@ -252,4 +381,65 @@ final class SharedSoundsTests: XCTestCase {
         XCTAssertNil(SharedSounds.fileName(forTopic: "prod", defaults: defaults) { _ in true })
         XCTAssertNil(SharedSounds.fileName(forTopic: "prod", defaults: nil) { _ in true })
     }
+}
+
+/// Stands in for the server so a test can count what the extension asks for.
+///
+/// `IncidentContentFetcher` builds its own `URLSession`, and a custom session
+/// does not consult the global `URLProtocol` registry, so this goes in through
+/// `IncidentContentFetcher.extraProtocolClasses` instead.
+final class StubIncidentServer: URLProtocol {
+    /// The JSON to answer with, or nil to fail the way a dead server does.
+    private static var body: Data?
+    private static var count = 0
+    private static let lock = NSLock()
+
+    static var requestCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    static func start(body: Data?) {
+        lock.lock()
+        count = 0
+        self.body = body
+        lock.unlock()
+        IncidentContentFetcher.extraProtocolClasses = [StubIncidentServer.self]
+    }
+
+    static func stop() {
+        lock.lock()
+        count = 0
+        body = nil
+        lock.unlock()
+        IncidentContentFetcher.extraProtocolClasses = []
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        Self.lock.lock()
+        Self.count += 1
+        let body = Self.body
+        Self.lock.unlock()
+
+        guard let body, let url = request.url else {
+            client?.urlProtocol(self, didFailWithError: URLError(.cannotConnectToHost))
+            return
+        }
+        let response = HTTPURLResponse(
+            url: url,
+            statusCode: 200,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }

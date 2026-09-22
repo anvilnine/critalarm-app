@@ -243,6 +243,31 @@ final class AlarmHost {
         'critical_rings': window.criticalRingsThrough,
       });
 
+  /// Copies the text of an incident the app just loaded into the App Group
+  /// the notification extension reads.
+  ///
+  /// Hosted mode strips the text out of the push, so the extension fetches it
+  /// with `GET /v1/incidents/{id}`. When the first push was handled in the
+  /// foreground, the app already has that text, and this hands it over so the
+  /// repeats that follow cost no server call at all.
+  Future<void> cacheIncidentContent({
+    required String incidentId,
+    required String title,
+    required String body,
+    List<String> tags = const [],
+    String? click,
+    String? topic,
+    int? lastMessageAt,
+  }) async => _invoke<void>('cacheIncidentContent', {
+    'incident_id': incidentId,
+    'title': title,
+    'body': body,
+    'tags': tags,
+    'click': ?click,
+    'topic': ?topic,
+    'last_message_at': ?lastMessageAt,
+  });
+
   Future<T?> _invoke<T>(String method, [Object? arguments]) async {
     try {
       return await _channel.invokeMethod<T>(method, arguments);
