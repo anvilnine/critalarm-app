@@ -41,6 +41,12 @@ void main() {
       expect(w.isAtMax, isTrue);
     });
 
+    test('a whole file shorter than the max is not at the max', () {
+      final w = CropWindow.initial(fileLength: s(21.7), maxLength: max);
+      expect(w.length, s(21.7));
+      expect(w.isAtMax, isFalse);
+    });
+
     test('a long file with no peaks opens at the start', () {
       final w = CropWindow.initial(fileLength: s(100), maxLength: max);
       expect(w.start, Duration.zero);

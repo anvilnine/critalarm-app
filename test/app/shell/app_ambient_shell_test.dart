@@ -24,5 +24,10 @@ void main() {
       expect(at('/sounds/crop'), isNot(at('/sounds')));
       expect(at('/sounds/crop'), AmbientAppProfiles.soundEditor(colors));
     });
+
+    test('the recorder moves the backdrop on from the sound list', () {
+      expect(at('/sounds/record'), isNot(at('/sounds')));
+      expect(at('/sounds/record'), AmbientAppProfiles.soundEditor(colors));
+    });
   });
 }

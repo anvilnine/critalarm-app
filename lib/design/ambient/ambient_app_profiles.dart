@@ -184,7 +184,8 @@ abstract final class AmbientAppProfiles {
     return _detailOf(settingsDetail(colors), canvas: colors.canvas);
   }
 
-  /// The cropper, one step deeper than [soundList], which opens it.
+  /// The cropper and the recorder, one step deeper than [soundList], which
+  /// opens them.
   static AmbientProfile soundEditor(AppColors colors) {
     return _detailOf(soundList(colors), canvas: colors.canvas);
   }

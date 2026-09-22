@@ -73,6 +73,17 @@ class _SoundPickerView extends StatelessWidget {
     await cubit.reloadAfterCrop(result is Future<void> ? result : null);
   }
 
+  /// Record a clip, crop it, then read the list again. The recorder turns
+  /// into the cropper inside its own route and pops the way the cropper
+  /// does, with a future for a save that may still be running.
+  static Future<void> _recordAndCrop(BuildContext context) async {
+    final cubit = context.read<SoundPickerCubit>();
+    await cubit.stopPreview();
+    if (!context.mounted) return;
+    final result = await context.pushNamed<Object?>(AppRoute.soundRecord);
+    if (result is Future<void>) await cubit.reloadAfterCrop(result);
+  }
+
   static AlarmSound? selectedSound(SoundPickerState state) {
     for (final sound in [...state.bundled, ...state.userSounds]) {
       if (sound.id == state.selectedSoundId) return sound;
@@ -187,20 +198,48 @@ class _SoundPickerView extends StatelessWidget {
                                     ),
                                   if (state.capabilities.canImportSounds) ...[
                                     const SizedBox(height: 4),
-                                    AppButton(
-                                      label: LocaleKeys.sound_picker_pick_file
-                                          .tr(),
-                                      variant: AppButtonVariant.ghost,
-                                      isFullWidth: true,
-                                      icon: AppGlyph(
-                                        GlyphType.plus,
-                                        size: 16,
-                                        color: colors.onCanvas,
-                                      ),
-                                      onPressed: () {
-                                        AppHaptics.capture();
-                                        unawaited(_pickAndCrop(context));
-                                      },
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: AppButton(
+                                            label: LocaleKeys
+                                                .sound_picker_pick_file
+                                                .tr(),
+                                            variant: AppButtonVariant.ghost,
+                                            isFullWidth: true,
+                                            icon: AppGlyph(
+                                              GlyphType.plus,
+                                              size: 16,
+                                              color: colors.onCanvas,
+                                            ),
+                                            onPressed: () {
+                                              AppHaptics.capture();
+                                              unawaited(_pickAndCrop(context));
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: AppButton(
+                                            label: LocaleKeys
+                                                .sound_picker_record
+                                                .tr(),
+                                            variant: AppButtonVariant.ghost,
+                                            isFullWidth: true,
+                                            icon: AppGlyph(
+                                              GlyphType.record,
+                                              size: 16,
+                                              color: colors.crit,
+                                            ),
+                                            onPressed: () {
+                                              AppHaptics.capture();
+                                              unawaited(
+                                                _recordAndCrop(context),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ],
