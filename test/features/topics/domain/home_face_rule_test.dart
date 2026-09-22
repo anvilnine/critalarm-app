@@ -49,7 +49,7 @@ Message _msg(
 void main() {
   setUpAll(loadTestTranslations);
 
-  final now = DateTime.utc(2026, 9, 22, 14, 0, 0);
+  final now = DateTime.utc(2026, 9, 22, 14);
   final topics = [_topic('prod-db', critical: true), _topic('nas-backup')];
 
   group('resolveHomeFace hero', () {
@@ -150,42 +150,33 @@ void main() {
       expect(result.hero.severity, SeverityMode.none);
     });
 
-    test('calm hero shows last handled within the hour on second line', () {
-      final closedAt = now.subtract(const Duration(minutes: 10));
-      final incidents = [
-        _incident(
-          'inc1',
-          'prod-db',
-          IncidentStates.closed,
-          closedAt: closedAt,
-        ),
-      ];
-      // After 61 minutes handled has expired, so calm is shown but the
-      // one-hour fallback in calm also uses the same window; check the calm
-      // path still includes the second line when within the hour.
-      // To test the second-line calm, make the handled entry just outside the
-      // handled window? Actually calm fallback also has one-hour window, so
-      // reuse the handled path above. Here verify the calm second line when
-      // incidents are not in handledEntries but are newestClosed within hour?
-      // Handled takes priority over calm, so to hit calm second line we need
-      // no handled/acked/worried/alarmed but a closed within hour. handled
-      // already covers that, so we test that the calm path does not add the
-      // line when beyond the hour.
-      final expired = resolveHomeFace(
+    test('calm hero shows the last handled time from any age', () {
+      // Handled wins over calm within the hour, so once an incident is old
+      // enough to fall out of the handled window it still counts for the
+      // calm hero's second line, no matter how long ago it closed.
+      final closedAt = now.subtract(const Duration(days: 2));
+      final result = resolveHomeFace(
         topics: topics,
         incidents: [
           _incident(
             'inc2',
             'prod-db',
             IncidentStates.closed,
-            closedAt: now.subtract(const Duration(minutes: 61)),
+            closedAt: closedAt,
           ),
         ],
         warningTopics: const {},
         now: now,
       );
-      expect(expired.hero.faceState, FaceState.calm);
-      expect(expired.hero.subText, 'Nothing is ringing.');
+      expect(result.hero.faceState, FaceState.calm);
+      final localClosed = closedAt.toLocal();
+      final time =
+          '${DateFormat.MMMd().format(localClosed)}, '
+          '${DateFormat.Hm().format(localClosed)}';
+      expect(
+        result.hero.subText,
+        'Nothing is ringing.\nLast alarm handled at $time.',
+      );
     });
   });
 
