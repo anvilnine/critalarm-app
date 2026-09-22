@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
@@ -196,7 +195,7 @@ class _AlarmDebugScreenState extends State<AlarmDebugScreen> with RouteAware {
                           (event) => _row(
                             event.name ??
                                 LocaleKeys.settings_alarm_debug_nothing.tr(),
-                            const JsonEncoder().convert(event.values),
+                            _dateText(event.at),
                           ),
                         ),
                     ],

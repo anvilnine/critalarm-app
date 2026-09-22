@@ -42,15 +42,16 @@ final class PushEventDrain {
     if (raw == null || raw.isEmpty) return 0;
     await _prefs.remove(storageKey);
 
-    List<dynamic> rows;
+    Object? decoded;
     try {
-      rows = jsonDecode(raw) as List<dynamic>;
+      decoded = jsonDecode(raw);
     } on FormatException {
       return 0;
     }
+    if (decoded is! List) return 0;
 
     var reported = 0;
-    for (final row in rows.whereType<Map<String, dynamic>>()) {
+    for (final row in decoded.whereType<Map<String, dynamic>>()) {
       final rawName = row['name'];
       if (rawName is! String || rawName.isEmpty) continue;
       final name = rawName;

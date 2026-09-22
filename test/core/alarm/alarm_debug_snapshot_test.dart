@@ -105,6 +105,47 @@ void main() {
     expect(snapshot.launchCalls, isEmpty);
   });
 
+  test('nested maps with non-string keys are safely filtered', () {
+    final snapshot = AlarmDebugSnapshot.fromNative(
+      {
+        'permissions': {1: 'ignored', 'notifications': 'authorized'},
+        'incidents': [
+          {1: 'ignored', 'id': 'inc_1'},
+        ],
+      },
+      takenAt: takenAt,
+      environment: environment,
+    );
+
+    expect(snapshot.permissions.notifications, 'authorized');
+    expect(snapshot.incidents.single.id, 'inc_1');
+  });
+
+  test('JSON report safely filters non-string keys in nested maps', () {
+    final snapshot = AlarmDebugSnapshot.fromJson({
+      'environment': {1: 'ignored', 'base_url': 'https://example.test'},
+      'incidents': [
+        {1: 'ignored', 'id': 'inc_1'},
+      ],
+      'store': {1: 'ignored', 'database_bytes': 42},
+      'permissions': {1: 'ignored', 'notifications': 'authorized'},
+    });
+
+    expect(snapshot.environment.baseUrl, 'https://example.test');
+    expect(snapshot.incidents.single.id, 'inc_1');
+    expect(snapshot.store.databaseBytes, 42);
+    expect(snapshot.permissions.notifications, 'authorized');
+  });
+
+  test('push event timestamp accepts native at_ms epoch milliseconds', () {
+    final event = DebugPushEvent.fromJson({
+      'name': 'push_received',
+      'at_ms': 1790157600123,
+    });
+
+    expect(event?.at, DateTime.utc(2026, 9, 23, 10, 0, 0, 123));
+  });
+
   test('unknown phone state stays displayable as unknown', () {
     final snapshot = AlarmDebugSnapshot.fromNative(
       {

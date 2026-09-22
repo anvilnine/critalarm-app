@@ -74,6 +74,12 @@ void main() {
     expect(prefs.getString(PushEventDrain.storageKey), isNull);
   });
 
+  test('a valid non-list backlog is dropped, not thrown', () async {
+    await prefs.setString(PushEventDrain.storageKey, '{}');
+    expect(await PushEventDrain(prefs, _RecordingGate(events)).drain(), 0);
+    expect(prefs.getString(PushEventDrain.storageKey), isNull);
+  });
+
   test('the gate drops everything while analytics is off', () async {
     await prefs.setString(
       PushEventDrain.storageKey,
