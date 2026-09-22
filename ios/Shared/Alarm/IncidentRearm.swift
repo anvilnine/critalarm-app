@@ -15,6 +15,7 @@ import UserNotifications
 ///   lands on the same `apns-collapse-id`, so the two stay one card.
 enum IncidentRearm {
     static let category = "INCIDENT"
+    private static let debugKey = "critalarm.pending_rearms"
 
     /// Silence plus a new ring for the same id. Answers the seconds until that
     /// ring, or nil when nothing was set.
@@ -72,6 +73,7 @@ enum IncidentRearm {
                 ringUntil: pending?.ringUntil
             )
             if ok {
+                remember(incidentId: incidentId, firesAt: at)
                 NSLog("CritAlarmAlarm: rearm_set incident_id=%@ in_s=%d", incidentId, seconds)
                 return seconds
             }
@@ -95,6 +97,7 @@ enum IncidentRearm {
         )
         do {
             try await center.add(request)
+            remember(incidentId: incidentId, firesAt: at)
             NSLog("CritAlarmAlarm: rearm_notification_set incident_id=%@ in_s=%d", incidentId, seconds)
             return seconds
         } catch {
@@ -112,7 +115,27 @@ enum IncidentRearm {
             await IncidentAlarmScheduler.cancel(incidentId: incidentId)
         }
         #endif
+        forget(incidentId: incidentId)
         NSLog("CritAlarmAlarm: rearm_cancelled incident_id=%@", incidentId)
+    }
+
+    static func debugEntries() -> [String: Date] {
+        let values = UserDefaults.standard.dictionary(forKey: debugKey) as? [String: Double] ?? [:]
+        return values.reduce(into: [:]) { result, entry in
+            result[entry.key] = Date(timeIntervalSince1970: entry.value)
+        }
+    }
+
+    private static func remember(incidentId: String, firesAt: Date) {
+        var values = UserDefaults.standard.dictionary(forKey: debugKey) as? [String: Double] ?? [:]
+        values[incidentId] = firesAt.timeIntervalSince1970
+        UserDefaults.standard.set(values, forKey: debugKey)
+    }
+
+    private static func forget(incidentId: String) {
+        var values = UserDefaults.standard.dictionary(forKey: debugKey) as? [String: Double] ?? [:]
+        values.removeValue(forKey: incidentId)
+        UserDefaults.standard.set(values, forKey: debugKey)
     }
 }
 

@@ -103,4 +103,13 @@ enum IncidentContentCache {
             defaults.removeObject(forKey: key)
         }
     }
+
+    static func debugEntries() -> [String: Entry] {
+        guard let defaults else { return [:] }
+        return Dictionary(uniqueKeysWithValues: defaults.dictionaryRepresentation().keys.compactMap { key in
+            guard key.hasPrefix(keyPrefix) else { return nil }
+            let incidentId = String(key.dropFirst(keyPrefix.count))
+            return read(incidentId: incidentId).map { (incidentId, $0) }
+        })
+    }
 }

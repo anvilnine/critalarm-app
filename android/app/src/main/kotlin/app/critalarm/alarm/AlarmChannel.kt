@@ -69,6 +69,23 @@ class AlarmChannel(private val context: Context) {
 
             "isRinging" -> result.success(AlarmForegroundService.isRinging)
 
+            "debugSnapshot" -> result.success(AlarmDebug.snapshot(context))
+
+            "cancelAllRearms" -> {
+                AlarmDebug.cancelAllRearms(context)
+                result.success(null)
+            }
+
+            "clearContentCache" -> {
+                AlarmDebug.clearContentCache(context)
+                result.success(null)
+            }
+
+            "clearAckedSet" -> {
+                AlarmDebug.clearAckedSet(context)
+                result.success(null)
+            }
+
             "cancelAlarm" -> {
                 val incidentId = call.argument<String>("incident_id")
                 if (incidentId.isNullOrEmpty()) {

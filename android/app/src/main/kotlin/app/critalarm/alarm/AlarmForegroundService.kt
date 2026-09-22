@@ -140,6 +140,8 @@ class AlarmForegroundService : Service() {
         val isRinging: Boolean
             get() = ringingIncidentId != null
 
+        internal fun isRinging(incidentId: String): Boolean = ringingIncidentId == incidentId
+
         private fun push(next: Ringing) = synchronized(held) {
             held.removeAll { it.incidentId == next.incidentId }
             held.add(next)

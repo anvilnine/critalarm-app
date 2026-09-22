@@ -58,6 +58,23 @@ enum AckQueueStore {
         read(from: defaults).count
     }
 
+    static func debugEntries(defaults: UserDefaults = .standard) -> [[String: Any]] {
+        read(from: defaults).compactMap { entry in
+            guard let action = entry["action"] as? String,
+                  let incidentId = entry["incident_id"] as? String,
+                  let attempts = entry["attempts"] as? Int,
+                  let nextMs = entry["next_attempt_at_ms"] as? Int else { return nil }
+            var row: [String: Any] = [
+                "action": action,
+                "incident_id": incidentId,
+                "attempts": attempts,
+                "next_attempt_at": nextMs / 1_000,
+            ]
+            if let error = entry["last_error"] as? String { row["last_error"] = error }
+            return row
+        }
+    }
+
     private static func read(from defaults: UserDefaults) -> [[String: Any]] {
         guard let raw = defaults.string(forKey: key),
               let data = raw.data(using: .utf8),
