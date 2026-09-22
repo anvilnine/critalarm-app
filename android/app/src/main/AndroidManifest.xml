@@ -16,6 +16,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <!-- The sound recorder. Asked for on the first tap of its record button. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY"/>
     <!-- Onboarding's local test alarm has to ring at the second it promised,
          so it is an exact alarm rather than a window the system can shift. -->
@@ -60,6 +62,23 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <!-- "Share to Crit Alarm". Takes ACTION_SEND for audio only, copies
+             the file and hands it to MainActivity. The filter is not on
+             MainActivity because a share there would start a second Flutter
+             engine inside the sending app. No ACTION_VIEW, which would put
+             the app in every "Open with" list for music. -->
+        <activity
+            android:name=".sound.ShareReceiverActivity"
+            android:exported="true"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="audio/*"/>
             </intent-filter>
         </activity>
         <!-- flutter_local_notifications: fires scheduled notifications and

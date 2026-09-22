@@ -105,7 +105,15 @@ abstract final class SettingsSearchIndex {
       routePath: '/sounds',
       titleKey: LocaleKeys.settings_alarm_sound_row_title,
       parentTitleKey: LocaleKeys.settings_alarms_header,
-      keywords: <String>['sound', 'ringtone', 'tone', 'siren', 'noise'],
+      keywords: <String>[
+        'sound',
+        'ringtone',
+        'tone',
+        'siren',
+        'noise',
+        'record',
+        'voice memo',
+      ],
     ),
     // 'quiet_hours' and 'critical_rings' are out while their rows are off
     // the alarm settings screen. Searching for them would land on a screen

@@ -20,6 +20,14 @@ abstract interface class AlarmSoundRepository {
 
   Future<AppResult<Unit>> addUserSound(AlarmSound sound);
 
+  /// Saves waveform [peaks] onto the user sound [soundId], in place. Does
+  /// nothing when the sound is gone, so a slow read can never bring back a
+  /// sound the user deleted in the meantime.
+  Future<AppResult<Unit>> updateUserSoundPeaks(
+    String soundId,
+    List<double> peaks,
+  );
+
   /// Removes the sound and re-points anything still using it. A topic falls
   /// back to the default; the default falls back to the first bundled sound.
   Future<AppResult<Unit>> deleteUserSound(String soundId);

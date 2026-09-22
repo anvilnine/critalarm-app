@@ -67,6 +67,8 @@ class AlarmChannel(private val context: Context) {
                 result.success(stopService("dart_stop_ringing"))
             }
 
+            "isRinging" -> result.success(AlarmForegroundService.isRinging)
+
             "cancelAlarm" -> {
                 val incidentId = call.argument<String>("incident_id")
                 if (incidentId.isNullOrEmpty()) {

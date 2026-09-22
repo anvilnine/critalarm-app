@@ -10,6 +10,9 @@
 		05BDDBA0157A3EE529FEC613 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E03D7BEA0BF5A60A3DCFDC3 /* NotificationService.swift */; };
 		0617CFB82831F64DAE3C6E36 /* PushEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B43861F26AA39D52CC432E /* PushEventLog.swift */; };
 		0632154549508956E8E82937 /* AlarmTriggerPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */; };
+		A13F0C1E4B7D25A9E0115002 /* SharedSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */; };
+		A13F0C1E4B7D25A9E0115003 /* SharedSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */; };
+		A13F0C1E4B7D25A9E0115004 /* SharedSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */; };
 		A13F0C1E4B7D25A9E0114003 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
 		A13F0C1E4B7D25A9E0114004 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
 		A13F0C1E4B7D25A9E0114005 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
@@ -170,6 +173,7 @@
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1B2C3D40000000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmTriggerPath.swift; sourceTree = "<group>"; };
+		A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedSounds.swift; sourceTree = "<group>"; };
 		A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuietHours.swift; sourceTree = "<group>"; };
 		A13F0C1E4B7D25A9E0114002 /* QuietHoursTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuietHoursTests.swift; sourceTree = "<group>"; };
 		A001835E63EC097B270CFC7B /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
@@ -305,6 +309,7 @@
 				B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */,
 				F706A2A4516835A56FA2F295 /* IncidentContent.swift */,
 				E1B43861F26AA39D52CC432E /* PushEventLog.swift */,
+				A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */,
 				9886D275E53BA770B3EB7666 /* Alarm */,
 			);
 			path = Shared;
@@ -719,6 +724,7 @@
 				A1497E3050226B8FD2727E0E /* IncidentIntents.swift in Sources */,
 				F6BAA4FB61319AC1D2D1ADA7 /* AlarmTriggerPath.swift in Sources */,
 				A13F0C1E4B7D25A9E0114003 /* QuietHours.swift in Sources */,
+				A13F0C1E4B7D25A9E0115002 /* SharedSounds.swift in Sources */,
 				A13F0C1E4B7D25A9E0114006 /* QuietHoursTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -742,6 +748,7 @@
 				5073401426B1F19765FDAE5F /* IncidentIntents.swift in Sources */,
 				0632154549508956E8E82937 /* AlarmTriggerPath.swift in Sources */,
 				A13F0C1E4B7D25A9E0114004 /* QuietHours.swift in Sources */,
+				A13F0C1E4B7D25A9E0115003 /* SharedSounds.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -762,6 +769,7 @@
 				901DE32449E09CDC90C0829D /* AckQueueStore.swift in Sources */,
 				976B23E5DF5FDE6959EA0BDA /* AlarmTriggerPath.swift in Sources */,
 				A13F0C1E4B7D25A9E0114005 /* QuietHours.swift in Sources */,
+				A13F0C1E4B7D25A9E0115004 /* SharedSounds.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

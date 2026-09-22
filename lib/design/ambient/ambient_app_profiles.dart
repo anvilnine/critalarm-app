@@ -178,6 +178,18 @@ abstract final class AmbientAppProfiles {
     return _detailOf(settings(colors), canvas: colors.canvas);
   }
 
+  /// The sound list. One step deeper than [settingsDetail], since Alarms
+  /// opens it.
+  static AmbientProfile soundList(AppColors colors) {
+    return _detailOf(settingsDetail(colors), canvas: colors.canvas);
+  }
+
+  /// The cropper and the recorder, one step deeper than [soundList], which
+  /// opens them.
+  static AmbientProfile soundEditor(AppColors colors) {
+    return _detailOf(soundList(colors), canvas: colors.canvas);
+  }
+
   /// Returns the canonical profile for a given root tab index (0: Topics,
   /// 1: History, 2: Settings).
   static AmbientProfile forTabIndex(int index, AppColors colors) {

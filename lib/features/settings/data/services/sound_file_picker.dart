@@ -1,7 +1,9 @@
+import 'dart:io';
+
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/features/settings/domain/repositories/sound_file_picker.dart';
-import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 
 /// [SoundFilePicker] backed by the `file_selector` plugin.
 ///
@@ -11,22 +13,33 @@ import 'package:file_selector/file_selector.dart';
 class PlatformSoundFilePicker implements SoundFilePicker {
   const PlatformSoundFilePicker();
 
-  static const _audio = XTypeGroup(
+  static XTypeGroup get _audio => XTypeGroup(
     label: 'audio',
-    extensions: <String>[...SoundImportLimits.readableExtensions],
-    mimeTypes: <String>['audio/*'],
+    extensions: <String>[
+      ...SoundImportLimits.readableExtensionsFor(defaultTargetPlatform),
+    ],
+    mimeTypes: const <String>['audio/*'],
     // iOS filters by type ID only and throws without one.
-    uniformTypeIdentifiers: <String>['public.audio'],
+    uniformTypeIdentifiers: const <String>['public.audio'],
   );
 
   @override
   Future<PickedSoundFile?> pickOne() async {
-    final file = await openFile(acceptedTypeGroups: const [_audio]);
+    final file = await openFile(acceptedTypeGroups: [_audio]);
     if (file == null) return null;
     return PickedSoundFile(
       path: file.path,
       name: file.name,
       sizeBytes: await file.length(),
     );
+  }
+
+  @override
+  Future<void> discard(String path) async {
+    try {
+      await File(path).delete();
+    } on FileSystemException {
+      // Already gone, which is what was wanted.
+    }
   }
 }

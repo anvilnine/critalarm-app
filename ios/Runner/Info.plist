@@ -8,6 +8,25 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Crit Alarm</string>
+	<!-- "Share to Crit Alarm" from Voice Memos, Files and other apps. The
+	     file opens in the sound cropper. Alternate, so the app never becomes
+	     the default for audio. -->
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Audio</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.audio</string>
+				<string>com.apple.m4a-audio</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -44,10 +63,21 @@
 	<key>CritAlarmKeychainGroup</key>
 	<string>$(DEVELOPMENT_TEAM).app.critalarm</string>
 	<!-- Only TLS from the OS. That is exempt, so no export documentation and no French declaration. -->
+	<!-- Off. Notification taps reach Dart over the push channel, and nothing
+	     uses universal links, so the only URL iOS would hand go_router is a
+	     shared file, which is not a route. -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- A shared file is copied into Documents/Inbox, never edited where it
+	     is. -->
+	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Crit Alarm uses the microphone to record alarm sounds.</string>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>Crit Alarm needs alarm access so an alarm can ring through silent mode and Do Not Disturb until you stop it.</string>
 	<key>NSAppTransportSecurity</key>

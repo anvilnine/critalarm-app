@@ -18,6 +18,7 @@ import app.critalarm.notifications.LiveUpdate
 import app.critalarm.notifications.NotificationChannels
 import app.critalarm.reminders.ReminderChannel
 import app.critalarm.reminders.ReminderTapIntent
+import app.critalarm.sound.IncomingAudioHolder
 import app.critalarm.sound.SoundChannel
 import io.flutter.plugin.common.MethodChannel
 
@@ -27,6 +28,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterFragmentActivity() {
     private val SETTINGS_CHANNEL = "app.critalarm/settings"
     private var soundChannel: SoundChannel? = null
+    private var soundMethods: MethodChannel? = null
 
     /**
      * A tap the activity has read off an intent but Dart has not taken yet.
@@ -59,10 +61,11 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
         pushChannel = push
-        val sounds = SoundChannel(applicationContext)
+        val soundMethods = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SoundChannel.NAME)
+        val sounds = SoundChannel(applicationContext, soundMethods)
         soundChannel = sounds
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SoundChannel.NAME)
-            .setMethodCallHandler(sounds::handle)
+        this.soundMethods = soundMethods
+        soundMethods.setMethodCallHandler(sounds::handle)
         val alarms = AlarmChannel(applicationContext)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AlarmChannel.NAME)
             .setMethodCallHandler(alarms::handle)
@@ -98,6 +101,18 @@ class MainActivity : FlutterFragmentActivity() {
                         } catch (e2: Exception) {
                             result.error("UNAVAILABLE", "Cannot open settings", null)
                         }
+                    }
+                }
+                "openAppSettings" -> {
+                    try {
+                        startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:$packageName")
+                            }
+                        )
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("UNAVAILABLE", "Cannot open settings", null)
                     }
                 }
                 "openFullScreenIntentSettings" -> {
@@ -244,12 +259,13 @@ class MainActivity : FlutterFragmentActivity() {
         // Leaving it set after the engine goes keeps the activity alive.
         pushChannel = null
         reminderChannel = null
+        soundMethods = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
     override fun onStop() {
         // Leaving the picker on screen must not leave a preview ringing.
-        soundChannel?.stopPreview()
+        soundChannel?.endPreview()
         super.onStop()
     }
 
@@ -261,6 +277,7 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         val reminderTap = ReminderTapIntent.read(this, intent)
         val tap = readTap(intent)
+        readIncomingAudio(intent)
         setIntent(intent)
         super.onNewIntent(intent)
         if (reminderTap != null) {
@@ -288,6 +305,20 @@ class MainActivity : FlutterFragmentActivity() {
             setTurnScreenOn(true)
         }
         super.onCreate(savedInstanceState)
+        val shared = readIncomingAudio(intent)
+        if (savedInstanceState == null) {
+            IncomingAudioHolder.clearLeftovers(cacheDir, keep = shared?.get("path") as String?)
+        }
+    }
+
+    /**
+     * A sound file ShareReceiverActivity copied in. Held for Dart's
+     * `takeIncomingAudio` and sent live as well, the same way a tap is.
+     */
+    private fun readIncomingAudio(intent: Intent?): Map<String, Any>? {
+        val file = IncomingAudioHolder.read(intent) ?: return null
+        soundMethods?.invokeMethod("incomingAudio", file)
+        return file
     }
 
     /**
