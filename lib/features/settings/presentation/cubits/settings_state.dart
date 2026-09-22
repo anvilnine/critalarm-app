@@ -13,7 +13,9 @@ class SettingsState {
     this.access = const AccountAccess(null),
     this.topics = const [],
     this.status = SettingsStatus.initial,
-    this.quietHoursEnabled = true,
+    // Matches QuietHours.defaults, so nothing claims quiet hours is on before
+    // the store has been read.
+    this.quietHoursEnabled = false,
     this.quietHoursStartMinutes = QuietHours.defaultStartMinutes,
     this.quietHoursEndMinutes = QuietHours.defaultEndMinutes,
     this.criticalRingsQuietHours = true,

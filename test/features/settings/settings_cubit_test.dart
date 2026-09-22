@@ -87,7 +87,7 @@ void main() {
       final cubit = SettingsCubit();
 
       expect(cubit.state.status, SettingsStatus.initial);
-      expect(cubit.state.quietHoursEnabled, isTrue);
+      expect(cubit.state.quietHoursEnabled, isFalse);
       expect(cubit.state.criticalRingsQuietHours, isTrue);
       expect(cubit.state.escalationCallEnabled, isFalse);
       expect(cubit.state.serverUrl, isEmpty);
