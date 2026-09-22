@@ -17,6 +17,7 @@ import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
 import 'package:critalarm/features/tour/presentation/tour_steps.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -272,6 +273,17 @@ class _SettingsScreenContent extends StatelessWidget {
                           );
                         },
                       ),
+                      // Web has no local notifications, so no reminders.
+                      if (!kIsWeb) ...[
+                        const SizedBox(height: 8),
+                        _buildNavRow(
+                          context,
+                          title: LocaleKeys.reminders_settings_row_title.tr(),
+                          subtitle: LocaleKeys.reminders_settings_row_subtitle
+                              .tr(),
+                          path: '/settings/reminders',
+                        ),
+                      ],
                       const SizedBox(height: 14),
                       _buildNavRow(
                         context,

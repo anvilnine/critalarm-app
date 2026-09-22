@@ -1,11 +1,33 @@
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/models/topic_token.dart';
+import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/topic_token_usecases.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_state.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// A topic with no tokens yet, whose every create attempt is refused. Models
+/// the "Get curl line" sheet's first token failing before the server ever
+/// hands one back, so the tokens list stays empty.
+class _EmptyTopicRefusingCreate implements TopicRepository {
+  @override
+  Future<AppResult<List<TopicTokenInfo>>> getTopicTokens(String name) async =>
+      const <TopicTokenInfo>[].toSuccess();
+
+  @override
+  Future<AppResult<TopicToken>> createTopicToken(
+    String name, {
+    String? tokenName,
+  }) async => const Failure.api(statusCode: 500).toFailure();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -174,6 +196,49 @@ void main() {
       await cubit.revoke('tok_not_here');
 
       expect(cubit.state, before);
+    });
+
+    test(
+      'a refused first token sets an error without reading as a load '
+      'failure, so a widget keyed on errorMessage alone still shows it',
+      () async {
+        final refusing = TopicTokensCubit(
+          GetTopicTokensUsecase(_EmptyTopicRefusingCreate()),
+          CreateTopicTokenUsecase(_EmptyTopicRefusingCreate()),
+          RevokeTopicTokenUsecase(_EmptyTopicRefusingCreate()),
+          RenameTopicTokenUsecase(_EmptyTopicRefusingCreate()),
+        );
+        addTearDown(refusing.close);
+
+        await refusing.load('new-topic');
+        expect(refusing.state.status, TopicTokensStatus.ready);
+        expect(refusing.state.tokens, isEmpty);
+
+        await refusing.createToken(name: 'Script');
+
+        expect(refusing.state.tokens, isEmpty);
+        expect(refusing.state.errorMessage, isNotNull);
+        // The load-failure branch is the only other place the section widget
+        // checks status: this must stay something else, or the widget's
+        // separate `status == failure && tokens.isEmpty` branch would need
+        // its own fix too.
+        expect(refusing.state.status, isNot(TopicTokensStatus.failure));
+      },
+    );
+
+    test('createNamedToken hands back null on a refusal', () async {
+      final refusing = TopicTokensCubit(
+        GetTopicTokensUsecase(_EmptyTopicRefusingCreate()),
+        CreateTopicTokenUsecase(_EmptyTopicRefusingCreate()),
+        RevokeTopicTokenUsecase(_EmptyTopicRefusingCreate()),
+        RenameTopicTokenUsecase(_EmptyTopicRefusingCreate()),
+      );
+      addTearDown(refusing.close);
+
+      await refusing.load('new-topic');
+      final made = await refusing.createNamedToken('Script');
+
+      expect(made, isNull);
     });
   });
 }

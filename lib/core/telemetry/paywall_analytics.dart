@@ -14,8 +14,18 @@ final class PaywallAnalytics {
 
   final TelemetryGate _gate;
 
-  Future<void> viewed({required PaywallVariant variant}) =>
-      _gate.logEvent(AnalyticsEvents.paywallViewed, {'variant': variant.key});
+  /// `source` for a paywall opened from inside the app.
+  static const String directSource = 'direct';
+
+  /// [source] names what opened the paywall, for example
+  /// `reminder_morning_after`.
+  Future<void> viewed({
+    required PaywallVariant variant,
+    String source = directSource,
+  }) => _gate.logEvent(AnalyticsEvents.paywallViewed, {
+    'variant': variant.key,
+    'source': source,
+  });
 
   Future<void> planSelected({
     required PaywallVariant variant,

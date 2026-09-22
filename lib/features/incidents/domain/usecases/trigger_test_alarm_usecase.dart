@@ -1,14 +1,48 @@
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
+import 'package:critalarm/features/reminders/domain/reminder_store.dart';
+import 'package:flutter/foundation.dart';
 
 /// Usecase to trigger a test alarm on a critical topic.
+///
+/// A test the server accepted is what the fire drill (idea 1) counts from,
+/// so a success stamps `lastTestAt` for the topic. Onboarding, Settings and
+/// the test ring screen all come through here. [onTested] then runs, so the
+/// app can plan the reminders again.
 class TriggerTestAlarmUsecase implements UseCase<String, String> {
-  const TriggerTestAlarmUsecase(this._repository);
+  TriggerTestAlarmUsecase(
+    this._repository, {
+    ReminderStore? reminderStore,
+    DateTime Function()? now,
+    this.onTested,
+  }) : // The fields are private and the parameters are public, so they
+       // cannot be initializing formals.
+       // ignore: prefer_initializing_formals
+       _reminderStore = reminderStore,
+       _now = now ?? DateTime.now;
 
   final IncidentRepository _repository;
+  final ReminderStore? _reminderStore;
+  final DateTime Function() _now;
+
+  /// Told about a topic whose test ring the server accepted.
+  final void Function(String topic)? onTested;
 
   @override
-  Future<AppResult<String>> call(String topic) =>
-      _repository.triggerTest(topic: topic);
+  Future<AppResult<String>> call(String topic) async {
+    final result = await _repository.triggerTest(topic: topic);
+    if (result.isSuccess()) {
+      await _reminderStore?.markTested(topic, _now());
+      // A failing hook must not turn a rung test into a thrown error.
+      try {
+        onTested?.call(topic);
+      } on Object catch (error) {
+        debugPrint(
+          'TriggerTestAlarmUsecase: onTested failed: ${error.runtimeType}',
+        );
+      }
+    }
+    return result;
+  }
 }

@@ -1,16 +1,28 @@
+import 'dart:async';
+
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
+import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/consent_prompt_sheet.dart';
+import 'package:critalarm/features/reminders/domain/home_reminder_ask_rules.dart';
+import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
+import 'package:critalarm/features/reminders/domain/reminder_settler.dart';
+import 'package:critalarm/features/reminders/domain/reminder_store.dart';
+import 'package:critalarm/features/reminders/presentation/widgets/reminder_ask_sheets.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:in_app_review/in_app_review.dart';
 
 bool _isAsking = false;
 
-/// Runs whichever ask `HomeAskRules` says is due as home opens or comes
-/// back to the front: the consent sheet, the store review popup, or nothing.
+/// Runs whichever ask is due as home opens or comes back to the front.
+/// `HomeReminderAskRules` goes first (the Reminders sheet, or a Pro sheet
+/// a night ack left owed), then `HomeAskRules` (the consent sheet or the
+/// store review popup). At most one shows.
 ///
 /// When one is due, waits a moment so home has settled, and gives up if
 /// another screen has been pushed on top in the meantime.
@@ -21,6 +33,15 @@ Future<void> runHomeAsk(
   if (_isAsking) return;
   _isAsking = true;
   try {
+    final reminderAsk = await _nextReminderAsk(isRinging: isRinging);
+    if (reminderAsk != HomeReminderAsk.none) {
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+      if (!context.mounted) return;
+      if (ModalRoute.of(context)?.isCurrent == false) return;
+      await _showReminderAsk(context, reminderAsk);
+      return;
+    }
+
     final ask = await getIt<HomeAskRules>().next(isRinging: isRinging);
     if (ask == HomeAsk.none) return;
 
@@ -37,11 +58,61 @@ Future<void> runHomeAsk(
         );
       case HomeAsk.review:
         await _askForReview();
+        // The popup moved the review ask time, so a planned review
+        // reminder must be dropped.
+        unawaited(getIt<ReminderPlanTrigger>().run());
       case HomeAsk.none:
         break;
     }
   } finally {
     _isAsking = false;
+  }
+}
+
+/// The Reminders sheet for an install that tested before this update, or a
+/// Pro sheet a night ack left for the daytime. Checked before the consent
+/// sheet and the review popup.
+Future<HomeReminderAsk> _nextReminderAsk({required bool isRinging}) async {
+  final store = getIt<ReminderStore>();
+  final prompts = getIt<HomePromptRepository>();
+  // A delivered review or feedback reminder counts as an ask before any ask
+  // time is read below.
+  await getIt<ReminderSettler>().settleAsks(now: DateTime.now());
+  final isOwed = store.readProSheetOwed();
+  final proShouldAsk = isOwed && await getIt<ProPromptRules>().shouldAsk();
+  if (isOwed && !proShouldAsk) await store.writeProSheetOwed(owed: false);
+  return HomeReminderAskRules.decide(
+    now: DateTime.now(),
+    isWeb: kIsWeb,
+    isRinging: isRinging,
+    isSheetShown: store.readSheetShown(),
+    hasCriticalTopic: getIt<TopicsCubit>().state.topics.any((t) => t.critical),
+    lastAcknowledgedAt: prompts.getLastAcknowledgedAt(),
+    isProSheetOwed: isOwed,
+    proShouldAsk: proShouldAsk,
+    otherAskedAt: [
+      prompts.getProPromptAskedAt(),
+      prompts.getConsentAskedAt(),
+      prompts.getReviewAskedAt(),
+      prompts.getFeedbackAskedAt(),
+    ],
+  );
+}
+
+Future<void> _showReminderAsk(
+  BuildContext context,
+  HomeReminderAsk ask,
+) async {
+  final store = getIt<ReminderStore>();
+  switch (ask) {
+    case HomeReminderAsk.remindersSheet:
+      await askRemindersSheet(context);
+    case HomeReminderAsk.proSheet:
+      await store.writeProSheetOwed(owed: false);
+      if (!context.mounted) return;
+      await askProSheet(context);
+    case HomeReminderAsk.none:
+      break;
   }
 }
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
 import 'package:critalarm/core/paywall/paywall_variant.dart';
+import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/store_account_label.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
@@ -18,14 +19,16 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// PaywallScreen matching Crit Alarm design system with RevenueCat.
 class PaywallScreen extends StatelessWidget {
-  const PaywallScreen({super.key});
+  const PaywallScreen({this.source = PaywallAnalytics.directSource, super.key});
+
+  final String source;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) {
         final cubit = getIt<PaywallCubit>();
-        unawaited(cubit.loadSubscriptionData());
+        unawaited(cubit.loadSubscriptionData(source: source));
         return cubit;
       },
       child: const _PaywallScreenContent(),

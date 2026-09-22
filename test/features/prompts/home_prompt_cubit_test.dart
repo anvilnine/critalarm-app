@@ -15,105 +15,11 @@ import 'package:critalarm/features/permissions/domain/entities/device_permission
 import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class FakeHomePromptRepository implements HomePromptRepository {
-  DateTime? firstSeenAt;
-  DateTime? consentAskedAt;
-  DateTime? reviewAskedAt;
-  int reviewAskCount = 0;
-  DateTime? lastAcknowledgedAt;
-
-  @override
-  DateTime? getFirstSeenAt() => firstSeenAt;
-
-  @override
-  Future<void> markFirstSeen() async {
-    firstSeenAt ??= DateTime.now();
-  }
-
-  @override
-  DateTime? getConsentAskedAt() => consentAskedAt;
-
-  @override
-  Future<void> markConsentAsked() async {
-    consentAskedAt = DateTime.now();
-  }
-
-  @override
-  DateTime? getReviewAskedAt() => reviewAskedAt;
-
-  @override
-  int getReviewAskCount() => reviewAskCount;
-
-  @override
-  Future<void> markReviewAsked() async {
-    reviewAskedAt = DateTime.now();
-    reviewAskCount++;
-  }
-
-  @override
-  DateTime? getLastAcknowledgedAt() => lastAcknowledgedAt;
-
-  @override
-  Future<void> markAcknowledged() async {
-    lastAcknowledgedAt = DateTime.now();
-  }
-  DateTime? accountDismissedAt;
-  DateTime? proAskedAt;
-  DateTime? proDismissedAt;
-  DateTime? lastResolvedAt;
-
-  int proDismissCount = 0;
-
-  int dismissAccountCalls = 0;
-  int dismissProCalls = 0;
-  int markResolvedCalls = 0;
-
-  @override
-  DateTime? getAccountPromptDismissedAt() => accountDismissedAt;
-
-  @override
-  Future<void> dismissAccountPrompt() async {
-    dismissAccountCalls++;
-    accountDismissedAt = DateTime.now();
-    await markBannerResolvedOrDismissed();
-  }
-
-  @override
-  DateTime? getProPromptAskedAt() => proAskedAt;
-
-  @override
-  Future<void> markProPromptAsked() async {
-    proAskedAt = DateTime.now();
-  }
-
-  @override
-  DateTime? getProPromptDismissedAt() => proDismissedAt;
-
-  @override
-  int getProPromptDismissCount() => proDismissCount;
-
-  @override
-  Future<void> dismissProPrompt() async {
-    dismissProCalls++;
-    proDismissCount++;
-    proDismissedAt = DateTime.now();
-    await markBannerResolvedOrDismissed();
-  }
-
-  @override
-  DateTime? getLastBannerResolvedOrDismissedAt() => lastResolvedAt;
-
-  @override
-  Future<void> markBannerResolvedOrDismissed() async {
-    markResolvedCalls++;
-    lastResolvedAt = DateTime.now();
-  }
-}
+import '../../helpers/fake_home_prompt_repository.dart';
 
 class FakeGetConnectionUsecase implements GetConnectionUsecase {
   AppResult<ServerConnection> result = const Failure.notFound(
