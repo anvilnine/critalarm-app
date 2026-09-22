@@ -64,167 +64,182 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                 namedArgs: {'longest': formatRingDuration(longest)},
               );
 
-        return AppScreenScaffold(
-          onFaceRefresh: () => context.read<HistoryCubit>().refresh(),
-          topBar: AppTopBar(
-            title: LocaleKeys.history_title.tr(),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const RefreshActivityIndicator(),
-                const SizedBox(width: 8),
-                _FilterButton(filter: state.filter),
-              ],
-            ),
-          ),
-          detail: state.isEmpty
-              ? null
-              : _selected == null
-              ? AppEmptyState(
-                  title: LocaleKeys.history_detail_empty_title.tr(),
-                  description: LocaleKeys.history_detail_empty_body.tr(),
-                  buttonLabel: null,
-                )
-              : _IncidentDetail(
-                  key: ValueKey(_selected?.id),
-                  entry: _selected!,
-                ),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Column(
+        return NotificationListener<ScrollNotification>(
+          // Reads the next page off the phone as the list nears its end.
+          // Nothing here touches the network: the rows are already on disk.
+          onNotification: (notification) {
+            final metrics = notification.metrics;
+            if (state.hasMore &&
+                !state.isLoadingMore &&
+                metrics.pixels > metrics.maxScrollExtent - 400) {
+              unawaited(context.read<HistoryCubit>().loadMore());
+            }
+            return false;
+          },
+          child: AppScreenScaffold(
+            onFaceRefresh: () => context.read<HistoryCubit>().refresh(),
+            topBar: AppTopBar(
+              title: LocaleKeys.history_title.tr(),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(height: Spacing.s2),
-                  _HistoryStage(summary: summary),
-                  const SizedBox(height: Spacing.s3),
+                  const RefreshActivityIndicator(),
+                  const SizedBox(width: 8),
+                  _FilterButton(filter: state.filter),
                 ],
               ),
             ),
-            // Loading and failure both used to fall through to the list
-            // branch, which drew an empty card with no spinner, no message
-            // and no way to try again. `errorMessage` was never rendered.
-            if (state.status == HistoryStatus.failure)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AppToast(
-                        faceState: FaceState.worried,
-                        message:
-                            state.errorMessage ??
-                            LocaleKeys.history_load_failed.tr(),
-                      ),
-                      const SizedBox(height: 10),
-                      AppButton(
-                        label: LocaleKeys.history_retry_button.tr(),
-                        variant: AppButtonVariant.ghost,
-                        size: AppButtonSize.sm,
-                        isFullWidth: true,
-                        onPressed: () => unawaited(
-                          context.read<HistoryCubit>().refresh(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            // A refresh keeps the list that is already on screen. Only a
-            // first load, with nothing grouped yet, says "loading".
-            else if (state.isLoading && state.days.isEmpty)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-                sliver: SliverToBoxAdapter(
-                  child: AppEmptyState(
-                    title: LocaleKeys.history_loading_title.tr(),
-                    description: '',
+            detail: state.isEmpty
+                ? null
+                : _selected == null
+                ? AppEmptyState(
+                    title: LocaleKeys.history_detail_empty_title.tr(),
+                    description: LocaleKeys.history_detail_empty_body.tr(),
                     buttonLabel: null,
+                  )
+                : _IncidentDetail(
+                    key: ValueKey(_selected?.id),
+                    entry: _selected!,
                   ),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    const SizedBox(height: Spacing.s2),
+                    _HistoryStage(summary: summary),
+                    const SizedBox(height: Spacing.s3),
+                  ],
                 ),
-              )
-            else if (state.isEmptyAfterFilter)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-                sliver: SliverToBoxAdapter(
-                  child: AppEmptyState(
-                    title: LocaleKeys.history_empty_filtered_title.tr(),
-                    description: LocaleKeys.history_empty_filtered_body.tr(),
-                    buttonLabel: LocaleKeys.history_filter_reset.tr(),
-                    onButtonPressed: () =>
-                        context.read<HistoryCubit>().clearFilter(),
-                    isLive: false,
-                  ),
-                ),
-              )
-            else if (state.isEmpty)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-                sliver: SliverToBoxAdapter(
-                  child: AppEmptyState(
-                    title: LocaleKeys.history_empty_title.tr(),
-                    description: LocaleKeys.history_empty_body.tr(),
-                    buttonLabel: null,
-                    faceState: FaceState.calm,
-                    isLive: false,
-                  ),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                sliver: SliverToBoxAdapter(
-                  child: AppSheet(
+              ),
+              // Loading and failure both used to fall through to the list
+              // branch, which drew an empty card with no spinner, no message
+              // and no way to try again. `errorMessage` was never rendered.
+              if (state.status == HistoryStatus.failure)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+                  sliver: SliverToBoxAdapter(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (final day in state.days) ...[
-                          AppSectionHeader(_dayLabel(day.day)),
-                          for (final entry in day.entries) ...[
-                            AppListRow(
-                              name: entry.topic,
-                              meta: historyMetaText(entry),
-                              isSelected:
-                                  size.isExpanded && entry.id == _selected?.id,
-                              faceState: entry.faceState,
-                              timeText: DateFormat.Hm().format(
-                                entry.startedAt,
-                              ),
-                              onTap: () {
-                                if (size.isExpanded) {
-                                  AppHaptics.selection();
-                                  setState(() => _selected = entry);
-                                } else {
-                                  unawaited(
-                                    context.push(
-                                      '/history/topics/${entry.topic}',
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 10),
-                          ],
-                        ],
-                        if (state.isCapped)
-                          _CappedNotice(count: state.entries.length),
+                        AppToast(
+                          faceState: FaceState.worried,
+                          message:
+                              state.errorMessage ??
+                              LocaleKeys.history_load_failed.tr(),
+                        ),
+                        const SizedBox(height: 10),
+                        AppButton(
+                          label: LocaleKeys.history_retry_button.tr(),
+                          variant: AppButtonVariant.ghost,
+                          size: AppButtonSize.sm,
+                          isFullWidth: true,
+                          onPressed: () => unawaited(
+                            context.read<HistoryCubit>().refresh(),
+                          ),
+                        ),
                       ],
                     ),
                   ),
+                )
+              // A refresh keeps the list that is already on screen. Only a
+              // first load, with nothing grouped yet, says "loading".
+              else if (state.isLoading && state.days.isEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+                  sliver: SliverToBoxAdapter(
+                    child: AppEmptyState(
+                      title: LocaleKeys.history_loading_title.tr(),
+                      description: '',
+                      buttonLabel: null,
+                    ),
+                  ),
+                )
+              else if (state.isEmptyAfterFilter)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+                  sliver: SliverToBoxAdapter(
+                    child: AppEmptyState(
+                      title: LocaleKeys.history_empty_filtered_title.tr(),
+                      description: LocaleKeys.history_empty_filtered_body.tr(),
+                      buttonLabel: LocaleKeys.history_filter_reset.tr(),
+                      onButtonPressed: () =>
+                          context.read<HistoryCubit>().clearFilter(),
+                      isLive: false,
+                    ),
+                  ),
+                )
+              else if (state.isEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+                  sliver: SliverToBoxAdapter(
+                    child: AppEmptyState(
+                      title: LocaleKeys.history_empty_title.tr(),
+                      description: LocaleKeys.history_empty_body.tr(),
+                      buttonLabel: null,
+                      faceState: FaceState.calm,
+                      isLive: false,
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  sliver: SliverToBoxAdapter(
+                    child: AppSheet(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final day in state.days) ...[
+                            AppSectionHeader(_dayLabel(day.day)),
+                            for (final entry in day.entries) ...[
+                              AppListRow(
+                                name: entry.topic,
+                                meta: historyMetaText(entry),
+                                isSelected:
+                                    size.isExpanded &&
+                                    entry.id == _selected?.id,
+                                faceState: entry.faceState,
+                                timeText: DateFormat.Hm().format(
+                                  entry.startedAt,
+                                ),
+                                onTap: () {
+                                  if (size.isExpanded) {
+                                    AppHaptics.selection();
+                                    setState(() => _selected = entry);
+                                  } else {
+                                    unawaited(
+                                      context.push(
+                                        '/history/topics/${entry.topic}',
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                          ],
+                          if (state.olderCount > 0)
+                            _OlderAlarmsFooter(count: state.olderCount),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
     );
   }
 }
 
-/// One quiet line under the last alarm: the list is as long as it can get and
-/// there are older alarms behind it. There is no paging in v1 (api.md §3.2),
-/// so there is nothing to tap, only something to know.
-class _CappedNotice extends StatelessWidget {
-  const _CappedNotice({required this.count});
+/// One quiet line under the last alarm on the free tier: the phone is holding
+/// older alarms that this plan does not show (api.md §4.2). Nothing was
+/// deleted, so buying Pro puts them back on screen with no download. Tapping
+/// opens the paywall.
+class _OlderAlarmsFooter extends StatelessWidget {
+  const _OlderAlarmsFooter({required this.count});
 
   final int count;
 
@@ -232,12 +247,16 @@ class _CappedNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: Spacing.s1, bottom: Spacing.s2),
-      child: Text(
-        LocaleKeys.history_capped_notice.tr(
-          namedArgs: {'count': '$count'},
+      child: GestureDetector(
+        onTap: () {
+          AppHaptics.selection();
+          unawaited(context.push('/paywall?source=history_older'));
+        },
+        child: Text(
+          LocaleKeys.history_older_notice.plural(count),
+          style: AppTypography.small(context.appColors.ink3, fontSize: 12),
+          textAlign: TextAlign.center,
         ),
-        style: AppTypography.small(context.appColors.ink3, fontSize: 12),
-        textAlign: TextAlign.center,
       ),
     );
   }

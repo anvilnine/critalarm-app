@@ -773,7 +773,7 @@ class MockServer {
     // api.md §3.2: `since` is exclusive, on `opened_at`.
     if (since != null) {
       items = items
-          .where((inc) => (inc.openedAt?.isAfter(since) ?? false))
+          .where((inc) => inc.openedAt?.isAfter(since) ?? false)
           .toList();
     }
 

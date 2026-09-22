@@ -17,6 +17,8 @@ class _ScriptedIncidents implements IncidentRepository {
     required int limit,
     String? state,
     String? topic,
+    DateTime? since,
+    bool fullRefresh = false,
   }) {
     final completer = Completer<AppResult<List<Incident>>>();
     pending.add(completer);
