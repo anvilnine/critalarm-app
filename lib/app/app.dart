@@ -12,6 +12,9 @@ import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
+import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
+import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
+import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
@@ -21,6 +24,7 @@ import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
 import 'package:critalarm/features/reminders/domain/reminder_scheduler.dart';
@@ -182,6 +186,19 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_reminders.onResumed());
     _replan();
     unawaited(_incomingAudio.onResumed());
+    unawaited(_retryFailedLaunchCalls());
+  }
+
+  /// Device registration, the Live Activity token upload and the incident
+  /// reconcile each retry themselves on launch. If one still failed after
+  /// every retry, this gives it one more try on the next resume instead of
+  /// waiting for the next cold start.
+  Future<void> _retryFailedLaunchCalls() async {
+    if (!buildUsesMockApi) {
+      unawaited(getIt<DeviceTokenRegistry>().retryIfPending());
+      unawaited(getIt<LiveActivityTokenRegistry>().retryIfPending());
+    }
+    unawaited(getIt<IncidentAlarmController>().retryIfPending());
   }
 
   /// Every open and resume re-plans: time zone, switches, topics and
