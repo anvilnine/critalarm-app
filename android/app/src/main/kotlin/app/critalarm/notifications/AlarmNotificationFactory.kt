@@ -42,25 +42,11 @@ object AlarmNotificationFactory {
      * and its Done button would close an incident that does not exist. The
      * flag rides the Stop button rather than being guessed from the id.
      */
-    /**
-     * The text a silenced card carries. `en.json` holds the same sentence for
-     * the in-app screen; this copy is here because the card is built with no
-     * Flutter engine running.
-     */
-    fun silencedText(seconds: Int) = "Stopped. Rings again in $seconds s. Tap I'm up to end it."
-
-    /**
-     * [silencedInSeconds] non-null means the user pressed Stop or swiped the
-     * card: the noise is over, the incident is not, and the phone has set its
-     * own next ring that many seconds out. The card stays up with "I'm up" on
-     * it, because that is the only way out of the loop.
-     */
     fun create(
         context: Context,
         payload: FcmIncidentPayload,
         content: IncidentContent = IncidentContentFetcher.fallback(payload),
         handOverToStatusCard: Boolean = true,
-        silencedInSeconds: Int? = null,
     ): Notification {
         NotificationChannels.ensureCreated(context)
         val incidentId = payload.incidentId ?: ""
@@ -83,7 +69,7 @@ object AlarmNotificationFactory {
         val (_, plainTags) = NtfyEmoji.split(content.tags)
         val resolvedBody =
             if (plainTags.isEmpty()) content.body else content.body + "\n" + plainTags.joinToString(", ")
-        val body = silencedInSeconds?.let { silencedText(it) } ?: resolvedBody
+        val body = resolvedBody
 
         // The status card that replaces this one is built inside a broadcast
         // receiver, with no network yet and nothing but the incident id to go
@@ -124,21 +110,15 @@ object AlarmNotificationFactory {
             .setDeleteIntent(
                 PendingIntent.getBroadcast(context, id xor DELETE_SALT, silence, immutable),
             )
-        // Nothing left to stop once it is quiet, so the second button goes and
-        // "I'm up" is the only one on the card. The lock-screen takeover goes
-        // too: re-posting the card must not throw the screen back up on
-        // someone who just silenced it.
-        if (silencedInSeconds == null) {
-            builder.setFullScreenIntent(
-                PendingIntent.getActivity(context, id xor FULL_SCREEN_SALT, fullScreen, immutable),
-                true,
-            )
-            builder.addAction(
-                0,
-                "Stop",
-                PendingIntent.getBroadcast(context, id xor SILENCE_SALT, silence, immutable),
-            )
-        }
+        builder.setFullScreenIntent(
+            PendingIntent.getActivity(context, id xor FULL_SCREEN_SALT, fullScreen, immutable),
+            true,
+        )
+        builder.addAction(
+            0,
+            "Stop",
+            PendingIntent.getBroadcast(context, id xor SILENCE_SALT, silence, immutable),
+        )
 
         if (body.length > MessageNotificationFactory.BIG_TEXT_THRESHOLD || body.contains('\n')) {
             builder.setStyle(NotificationCompat.BigTextStyle().bigText(body))
