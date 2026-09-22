@@ -9,7 +9,6 @@ void main() {
 
       expect(caps.devices, 5);
       expect(caps.criticalTopics, 2);
-      expect(caps.historyIncidents, 20);
       expect(caps.historyDays, 7);
       expect(caps.p4Daily, 50);
     });

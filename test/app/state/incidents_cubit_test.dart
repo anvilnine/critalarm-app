@@ -38,6 +38,8 @@ class _CountingIncidents implements IncidentRepository {
     required int limit,
     String? state,
     String? topic,
+    DateTime? since,
+    bool fullRefresh = false,
   }) {
     listReads++;
     return _inner.getIncidents(limit: limit, state: state, topic: topic);
@@ -93,6 +95,8 @@ class _ScriptedIncidents implements IncidentRepository {
     required int limit,
     String? state,
     String? topic,
+    DateTime? since,
+    bool fullRefresh = false,
   }) {
     limits.add(limit);
     final completer = Completer<AppResult<List<Incident>>>();

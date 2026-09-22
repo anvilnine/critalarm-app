@@ -108,8 +108,8 @@ class IncidentsCubit extends Cubit<IncidentsState> {
   ///
   /// One list now serves Home, the topics list, topic detail, History and
   /// search, so it asks for the widest window any of them used to ask for.
-  /// api.md §3.2 caps that at [maxIncidentLimit], and there is no paging in
-  /// v1, so this is everything the app can hold.
+  /// api.md §3.2 caps one call at [maxIncidentLimit]. History reaches past
+  /// that by paging the phone's own copy instead of the wire.
   static const int listLimit = maxIncidentLimit;
 
   final GetIncidentsUsecase _getIncidents;
@@ -147,8 +147,12 @@ class IncidentsCubit extends Cubit<IncidentsState> {
   /// Asks the server again. The list already loaded stays in the state while
   /// the request is in the air, and two refreshes that overlap share one
   /// request.
-  Future<void> refresh() =>
-      _inFlight ??= _fetch().whenComplete(() => _inFlight = null);
+  ///
+  /// [full] reads the server's whole window instead of only what the phone
+  /// has not seen (api.md §3.2). Pull to refresh uses it; a push landing and
+  /// a screen opening do not need to.
+  Future<void> refresh({bool full = false}) =>
+      _inFlight ??= _fetch(full: full).whenComplete(() => _inFlight = null);
 
   /// Puts incidents the caller already has fresh into the shared list: the
   /// answer to an acknowledge, and later a push that arrives while the app is
@@ -232,7 +236,7 @@ class IncidentsCubit extends Cubit<IncidentsState> {
     emit(state.copyWith(incidents: merged));
   }
 
-  Future<void> _fetch() async {
+  Future<void> _fetch({bool full = false}) async {
     final order = IncidentUpdateOrder(_now());
     emit(state.copyWith(isRefreshing: true));
 
@@ -240,7 +244,7 @@ class IncidentsCubit extends Cubit<IncidentsState> {
       // Repeats the default on purpose. The number that goes on the wire
       // belongs at the place that decides it, not only in a default.
       // ignore: avoid_redundant_argument_values
-      const GetIncidentsParams(limit: listLimit),
+      GetIncidentsParams(limit: listLimit, fullRefresh: full),
     );
     if (isClosed) return;
 

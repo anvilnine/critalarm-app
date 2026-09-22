@@ -37,6 +37,7 @@ import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
+import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
@@ -186,6 +187,20 @@ Future<void> configureDependencies({
 }) async {
   final prefs = await SharedPreferences.getInstance();
 
+  // The phone's own copy of every incident and message (api.md §4.2, where
+  // `history_days` became retention). Web has no sqflite, so the dashboard
+  // build keeps reading the server live and every store call is skipped.
+  LocalStore? localStore;
+  if (!kIsWeb) {
+    try {
+      localStore = await LocalStore.open();
+    } on Object catch (error, stack) {
+      // A database that will not open must not stop the app from ringing.
+      debugPrint('local_store_open_failed error=$error');
+      debugPrintStack(stackTrace: stack);
+    }
+  }
+
   // The alarm service runs with no Dart engine, so it reads this flag out of
   // the same preferences file rather than asking the app. Written on every
   // launch so a store build, where the constant is false, always clears it.
@@ -314,7 +329,7 @@ Future<void> configureDependencies({
       ),
     )
     ..registerLazySingleton<IncidentRepository>(
-      () => InMemoryIncidentRepository(getIt<ApiClient>()),
+      () => InMemoryIncidentRepository(getIt<ApiClient>(), store: localStore),
     )
     ..registerLazySingleton<ServerRepository>(
       () => InMemoryServerRepository(getIt<ApiClient>()),
@@ -823,6 +838,8 @@ Future<void> configureDependencies({
       () => HistoryCubit(
         getIt<IncidentsCubit>(),
         identityStore: getIt<DeviceIdentityStore>(),
+        sessionStore: getIt<ApiSessionStore>(),
+        store: localStore,
       ),
     )
     ..registerFactory(
