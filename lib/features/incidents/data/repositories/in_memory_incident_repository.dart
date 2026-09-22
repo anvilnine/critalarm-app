@@ -57,6 +57,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
     final askFor = fullRefresh
         ? null
         : (since ?? await store.incidents.newestOpenedAt());
+    store.recordLastSince(askFor);
 
     try {
       final fresh = await _client.getIncidents(

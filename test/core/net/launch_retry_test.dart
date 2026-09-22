@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/net/launch_retry.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -130,5 +131,26 @@ void main() {
         'launch_call_failed call=live_activity_token attempt=2 '
         'error=TimeoutException';
     expect(logged, [attempt1, attempt2]);
+  });
+
+  test('records every failure and the succeeding launch call', () async {
+    final calls = LaunchCallLog();
+    var attempt = 0;
+    await retryOnLaunch<int>(
+      'device_registration',
+      () async {
+        attempt++;
+        if (attempt == 1) throw const SocketException('offline');
+        return 1;
+      },
+      wait: wait,
+      log: log,
+      callLog: calls,
+    );
+
+    expect(calls.entries, hasLength(2));
+    expect(calls.entries.first.attempt, 1);
+    expect(calls.entries.first.error, contains('offline'));
+    expect(calls.lastSuccessByName.keys, ['device_registration']);
   });
 }

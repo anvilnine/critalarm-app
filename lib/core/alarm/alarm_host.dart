@@ -205,6 +205,33 @@ final class AlarmHost {
   /// tell.
   Future<bool> isRinging() async => await _invoke<bool>('isRinging') ?? false;
 
+  /// Raw native diagnostic state. Unsupported hosts return empty sections.
+  Future<Map<String, Object?>> debugSnapshot() async =>
+      (await _invoke<Map<Object?, Object?>>(
+        'debugSnapshot',
+      ))?.map((key, value) => MapEntry(key.toString(), value)) ??
+      const {
+        'incidents': <Object?>[],
+        'ack_queue': <Object?>[],
+        'acked_set': <Object?>[],
+        'scheduled': <Object?>[],
+        'permissions': <String, Object?>{
+          'notifications': 'unsupported',
+          'alarmkit': 'unsupported',
+          'battery_exempt': null,
+        },
+        'ringing': false,
+      };
+
+  /// Drops every pending native re-arm, leaving unrelated notifications alone.
+  Future<void> cancelAllRearms() => _invoke<void>('cancelAllRearms');
+
+  /// Clears cached native incident text.
+  Future<void> clearContentCache() => _invoke<void>('clearContentCache');
+
+  /// Clears local native acknowledgement marks.
+  Future<void> clearAckedSet() => _invoke<void>('clearAckedSet');
+
   /// Onboarding uses this once so the Allow prompt happens before the relay
   /// ever tries a remote start.
   Future<bool> startLocalActivity({

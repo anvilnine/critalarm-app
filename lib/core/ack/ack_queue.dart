@@ -65,6 +65,9 @@ final class AckQueue {
   /// Everything still waiting, oldest first.
   List<AckQueueEntry> get pending => _read();
 
+  /// Read-only snapshot of queued sends, oldest first.
+  List<AckQueueEntry> entries() => List.unmodifiable(_read());
+
   /// Adds one send and tries it right away. Completes once the entry is on
   /// disk, whether or not the send worked, so the caller can stop the alarm.
   Future<void> enqueue({
@@ -86,6 +89,9 @@ final class AckQueue {
 
   /// Sends every entry whose retry time has passed.
   Future<void> flush() => _queued(_flushOnce);
+
+  /// Runs the same serialized queue flush immediately.
+  Future<void> flushNow() => flush();
 
   /// Throws away everything still waiting, without sending any of it.
   ///

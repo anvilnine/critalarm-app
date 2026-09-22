@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:http/http.dart' as http;
 
 /// How long `retryOnLaunch` waits before each of its five retries.
@@ -31,11 +32,15 @@ Future<T> retryOnLaunch<T>(
   Future<T> Function() call, {
   required Future<void> Function(Duration) wait,
   required void Function(String line) log,
+  LaunchCallLog? callLog,
 }) async {
   for (var attempt = 1; ; attempt++) {
     try {
-      return await call();
+      final result = await call();
+      callLog?.recordSuccess(name);
+      return result;
     } on Object catch (error) {
+      callLog?.recordFailure(name: name, attempt: attempt, error: error);
       final statusCode = error is ApiException ? error.statusCode : null;
       log(
         'launch_call_failed call=$name attempt=$attempt '

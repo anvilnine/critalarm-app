@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
@@ -6,6 +7,7 @@ import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
+import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
 import 'package:critalarm/core/alarm/alarm_build_mode.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
@@ -18,6 +20,7 @@ import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
+import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/paywall/dev_paywall_variant_switch.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
@@ -156,6 +159,7 @@ import 'package:critalarm/features/settings/domain/usecases/set_crash_reporting_
 import 'package:critalarm/features/settings/domain/usecases/set_theme_mode_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/recorder_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
+import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_crop_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
@@ -550,12 +554,14 @@ Future<void> configureDependencies({
         accountRepository: getIt<AccountRepository>(),
       ),
     )
+    ..registerLazySingleton<LaunchCallLog>(LaunchCallLog.new)
     ..registerLazySingleton(
       () => DeviceTokenRegistry(
         prefs: getIt<SharedPreferences>(),
         register: getIt<RegisterDeviceUsecase>(),
         tokens: getIt<PushTokenProvider>(),
         appVersion: appVersion,
+        callLog: getIt<LaunchCallLog>(),
       ),
     )
     ..registerLazySingleton<AlarmHost>(AlarmHost.new)
@@ -565,6 +571,7 @@ Future<void> configureDependencies({
         api: getIt<ApiClient>(),
         identity: getIt<DeviceIdentityStore>(),
         host: getIt<AlarmHost>(),
+        callLog: getIt<LaunchCallLog>(),
       ),
     )
     ..registerLazySingleton(
@@ -579,6 +586,7 @@ Future<void> configureDependencies({
         api: getIt<ApiClient>(),
         tokens: getIt<LiveActivityTokenRegistry>(),
         quietHours: getIt<QuietHoursStore>(),
+        callLog: getIt<LaunchCallLog>(),
       ),
     )
     ..registerLazySingleton(() => PushAnalytics(getIt<TelemetryGate>()))
@@ -595,6 +603,30 @@ Future<void> configureDependencies({
         // An acknowledge that only lands minutes later still has to move the
         // badge and every open screen, so the shared list catches up.
         onSent: () => getIt<IncidentsCubit>().refresh(),
+      ),
+    )
+    ..registerFactory<AlarmDebugCubit>(
+      () => AlarmDebugCubit(
+        readNative: getIt<AlarmHost>().debugSnapshot,
+        readEnvironment: _readAlarmDebugEnvironment,
+        readDartAckQueue: getIt<AckQueue>().entries,
+        readPushEvents: getIt<PushEventDrain>().recent,
+        readLaunchCalls: () {
+          final calls = getIt<LaunchCallLog>();
+          return [
+            ...calls.recentFailures(),
+            for (final entry in calls.lastSuccessByName.entries)
+              DebugLaunchCall(name: entry.key, at: entry.value),
+          ];
+        },
+        readStoreStats: () async =>
+            localStore == null ? DebugStoreStats.empty : localStore.stats(),
+        flushNow: getIt<AckQueue>().flushNow,
+        cancelAllRearms: getIt<AlarmHost>().cancelAllRearms,
+        clearContentCache: getIt<AlarmHost>().clearContentCache,
+        clearAckedSet: getIt<AlarmHost>().clearAckedSet,
+        reconcileNow: getIt<IncidentAlarmController>().reconcile,
+        recordDebugAction: getIt<PushEventDrain>().recordDebugAction,
       ),
     )
     ..registerLazySingleton(
@@ -1042,4 +1074,38 @@ Future<void> configureDependencies({
         identityChanges: appAccountIdentityChanges,
       ),
     );
+}
+
+Future<DebugEnvironment> _readAlarmDebugEnvironment() async {
+  final session = await getIt<ApiSessionStore>().read();
+  final prefs = getIt<SharedPreferences>();
+  final quietHours = getIt<QuietHoursStore>().read();
+  int? historyDays;
+  final caps = prefs.getString('account_caps');
+  if (caps != null) {
+    try {
+      final decoded = jsonDecode(caps);
+      if (decoded is Map && decoded['history_days'] is int) {
+        historyDays = decoded['history_days'] as int;
+      }
+    } on FormatException {
+      // A malformed optional account cache should not fail the whole report.
+    }
+  }
+  String clockText(int minutes) =>
+      '${(minutes ~/ 60).toString().padLeft(2, '0')}:'
+      '${(minutes % 60).toString().padLeft(2, '0')}';
+  return DebugEnvironment(
+    serverMode: session?.mode.wireValue,
+    baseUrl: session?.baseUri.toString(),
+    tier: prefs.getString('account_tier'),
+    historyDays: historyDays,
+    quietHoursEnabled: quietHours.isEnabled,
+    quietHoursHolding: quietHours.holdsRing(
+      now: DateTime.now(),
+      priority: 5,
+    ),
+    quietHoursStart: clockText(quietHours.startMinutes),
+    quietHoursEnd: clockText(quietHours.endMinutes),
+  );
 }

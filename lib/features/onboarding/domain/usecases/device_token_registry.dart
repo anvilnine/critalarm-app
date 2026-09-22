@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/core/net/launch_retry.dart';
+import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
 import 'package:flutter/foundation.dart';
@@ -23,6 +24,7 @@ final class DeviceTokenRegistry {
     required this.appVersion,
     this.wait = defaultLaunchWait,
     this.log = _defaultLog,
+    this.callLog,
   });
 
   static const lastTokenKey = 'relay_push_token';
@@ -43,6 +45,7 @@ final class DeviceTokenRegistry {
   final String appVersion;
   final Future<void> Function(Duration) wait;
   final void Function(String line) log;
+  final LaunchCallLog? callLog;
 
   StreamSubscription<String>? _rotations;
 
@@ -103,6 +106,7 @@ final class DeviceTokenRegistry {
         () => register(appVersion: appVersion, pushToken: resolved),
         wait: wait,
         log: log,
+        callLog: callLog,
       );
     } on Object catch (_) {
       _launchCallsPending = true;

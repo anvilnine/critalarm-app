@@ -8,6 +8,7 @@ import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/net/launch_retry.dart';
+import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/push/incident_push.dart';
 import 'package:flutter/foundation.dart';
 
@@ -27,6 +28,7 @@ final class IncidentAlarmController {
     AlarmTriggerPath? path,
     DateTime Function()? now,
     this.wait = defaultLaunchWait,
+    this.callLog,
   }) : path = path ?? AlarmTriggerPath.chosen,
        _now = now ?? DateTime.now;
 
@@ -34,6 +36,7 @@ final class IncidentAlarmController {
   final ApiClient api;
   final LiveActivityTokenRegistry? tokens;
   final Future<void> Function(Duration) wait;
+  final LaunchCallLog? callLog;
 
   /// The quiet hours window, or null where nothing has one to offer, which is
   /// every test that does not care about it.
@@ -177,6 +180,7 @@ final class IncidentAlarmController {
         _reconcileOnce,
         wait: wait,
         log: _log,
+        callLog: callLog,
       );
       _launchCallsPending = false;
     } on Object catch (_) {
