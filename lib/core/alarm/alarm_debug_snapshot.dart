@@ -33,9 +33,7 @@ final class AlarmDebugSnapshot {
   }) {
     final permissionsRaw = native['permissions'];
     final permissions = DebugPermissions.fromMap(
-      permissionsRaw is Map
-          ? Map<String, Object?>.from(permissionsRaw)
-          : const {},
+      permissionsRaw is Map ? _stringMap(permissionsRaw) : const {},
     );
     final nativeAcks = _rows(
       native['ack_queue'],
@@ -65,7 +63,7 @@ final class AlarmDebugSnapshot {
   factory AlarmDebugSnapshot.fromJson(Map<String, Object?> json) {
     final environmentRaw = json['environment'];
     final environment = environmentRaw is Map
-        ? DebugEnvironment.fromJson(Map<String, Object?>.from(environmentRaw))
+        ? DebugEnvironment.fromJson(_stringMap(environmentRaw))
         : const DebugEnvironment();
     final permissionsRaw = json['permissions'];
     final storeRaw = json['store'];
@@ -93,10 +91,10 @@ final class AlarmDebugSnapshot {
         json['launch_calls'],
       ).map(DebugLaunchCall.fromJson).whereType<DebugLaunchCall>(),
       store: storeRaw is Map
-          ? DebugStoreStats.fromJson(Map<String, Object?>.from(storeRaw))
+          ? DebugStoreStats.fromJson(_stringMap(storeRaw))
           : DebugStoreStats.empty,
       permissions: permissionsRaw is Map
-          ? DebugPermissions.fromMap(Map<String, Object?>.from(permissionsRaw))
+          ? DebugPermissions.fromMap(_stringMap(permissionsRaw))
           : const DebugPermissions(),
       ringing: json['ringing'] == true,
     );
@@ -129,12 +127,13 @@ final class AlarmDebugSnapshot {
   };
 }
 
-List<Map<String, Object?>> _rows(Object? value) => value is List
-    ? value
-          .whereType<Map<Object?, Object?>>()
-          .map(Map<String, Object?>.from)
-          .toList()
-    : const [];
+List<Map<String, Object?>> _rows(Object? value) =>
+    value is List ? value.whereType<Map>().map(_stringMap).toList() : const [];
+
+Map<String, Object?> _stringMap(Map<Object?, Object?> value) => {
+  for (final entry in value.entries)
+    if (entry.key is String) entry.key as String: entry.value,
+};
 
 DateTime? _parseDate(Object? value) {
   if (value is DateTime) return value.toUtc();
@@ -489,8 +488,9 @@ final class DebugPushEvent {
     : values = Map.unmodifiable(values);
   final Map<String, Object?> values;
   String? get name => values['name'] as String?;
-  DateTime? get at =>
-      _parseDate(values['at'] ?? values['time'] ?? values['timestamp']);
+  DateTime? get at => _parseDate(
+    values['at'] ?? values['time'] ?? values['timestamp'] ?? values['at_ms'],
+  );
   Map<String, Object?> toJson() => Map.of(values);
 
   static DebugPushEvent? fromJson(Map<String, Object?> json) =>
