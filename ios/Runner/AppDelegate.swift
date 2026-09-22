@@ -215,11 +215,14 @@ import AlarmKit
         pushChannel?.invokeMethod("onPushReceived", arguments: nil)
       }
     }
-    // While an alarm is under way nothing else gets a banner or a sound.
+    // While an alarm is under way nothing but an alarm gets a banner or a
+    // sound. The open list only says whether one is under way; it never
+    // decides for an alarm push, whose incident can be new to this phone.
     let options = ForegroundPresentation.options(
       isReminder: isReminder,
       incidentId: notification.request.content.userInfo["incident_id"] as? String,
-      focusedIds: OpenIncidentStore.focusedIds()
+      focusOn: !OpenIncidentStore.focusedIds().isEmpty,
+      ackedIds: AckedIncidentStore.all()
     )
     if options.isEmpty {
       NSLog(

@@ -41,10 +41,14 @@ enum OpenIncidentStore {
 
 /// What the app shows for a notification that lands while it is open.
 ///
-/// While an alarm is under way nothing else gets a banner or a sound: a
-/// reminder, a message from another topic and a push for an incident that
-/// is already answered all come back empty. Only the alarm the user has to
-/// deal with is allowed through.
+/// An alarm push always gets through. A second topic's first push carries an
+/// incident id this phone has never seen, because Dart writes the open list
+/// only after it has the incident, so the open list must never decide whether
+/// an alarm rings. The one alarm push that is dropped is a repeat for an
+/// incident already answered here.
+///
+/// Everything else (a reminder, a notification with no incident behind it) is
+/// a quiet banner normally, and nothing at all while an alarm is under way.
 enum ForegroundPresentation {
     static let alarm: UNNotificationPresentationOptions = [.banner, .list, .sound]
     static let quiet: UNNotificationPresentationOptions = [.banner, .list]
@@ -52,12 +56,10 @@ enum ForegroundPresentation {
     static func options(
         isReminder: Bool,
         incidentId: String?,
-        focusedIds: Set<String>
+        focusOn: Bool,
+        ackedIds: Set<String>
     ) -> UNNotificationPresentationOptions {
-        if focusedIds.isEmpty {
-            return isReminder ? quiet : alarm
-        }
-        guard let incidentId, focusedIds.contains(incidentId) else { return [] }
-        return alarm
+        guard !isReminder, let incidentId else { return focusOn ? [] : quiet }
+        return ackedIds.contains(incidentId) ? [] : alarm
     }
 }

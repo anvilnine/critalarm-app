@@ -43,7 +43,8 @@ final class OpenIncidentStoreTests: XCTestCase {
             ForegroundPresentation.options(
                 isReminder: false,
                 incidentId: "inc_1",
-                focusedIds: []
+                focusOn: false,
+                ackedIds: []
             ),
             [.banner, .list, .sound]
         )
@@ -51,20 +52,21 @@ final class OpenIncidentStoreTests: XCTestCase {
             ForegroundPresentation.options(
                 isReminder: true,
                 incidentId: nil,
-                focusedIds: []
+                focusOn: false,
+                ackedIds: []
             ),
             [.banner, .list]
         )
     }
 
-    func testNothingShowsWhileAnAlarmIsUnderWay() {
-        // A reminder, a push for another topic, and a push for an incident
-        // this phone already answered.
+    func testNothingButAnAlarmShowsWhileAnAlarmIsUnderWay() {
+        // A reminder, and a notification with no incident behind it.
         XCTAssertEqual(
             ForegroundPresentation.options(
                 isReminder: true,
                 incidentId: nil,
-                focusedIds: ["inc_1"]
+                focusOn: true,
+                ackedIds: []
             ),
             []
         )
@@ -72,15 +74,8 @@ final class OpenIncidentStoreTests: XCTestCase {
             ForegroundPresentation.options(
                 isReminder: false,
                 incidentId: nil,
-                focusedIds: ["inc_1"]
-            ),
-            []
-        )
-        XCTAssertEqual(
-            ForegroundPresentation.options(
-                isReminder: false,
-                incidentId: "inc_9",
-                focusedIds: ["inc_1"]
+                focusOn: true,
+                ackedIds: []
             ),
             []
         )
@@ -91,9 +86,47 @@ final class OpenIncidentStoreTests: XCTestCase {
             ForegroundPresentation.options(
                 isReminder: false,
                 incidentId: "inc_1",
-                focusedIds: ["inc_1", "inc_2"]
+                focusOn: true,
+                ackedIds: []
             ),
             [.banner, .list, .sound]
+        )
+    }
+
+    /// A second topic's first push. Dart writes the open list only once it
+    /// has the incident, so this id is new to the phone and the open list
+    /// must not be what decides.
+    func testAnAlarmPushForAnUnknownIncidentStillRings() {
+        XCTAssertEqual(
+            ForegroundPresentation.options(
+                isReminder: false,
+                incidentId: "inc_9",
+                focusOn: true,
+                ackedIds: ["inc_1"]
+            ),
+            [.banner, .list, .sound]
+        )
+    }
+
+    /// A repeat that crosses the ack. The user answered this one already.
+    func testAnAlarmPushForAnAckedIncidentIsDropped() {
+        XCTAssertEqual(
+            ForegroundPresentation.options(
+                isReminder: false,
+                incidentId: "inc_1",
+                focusOn: true,
+                ackedIds: ["inc_1"]
+            ),
+            []
+        )
+        XCTAssertEqual(
+            ForegroundPresentation.options(
+                isReminder: false,
+                incidentId: "inc_1",
+                focusOn: false,
+                ackedIds: ["inc_1"]
+            ),
+            []
         )
     }
 }
