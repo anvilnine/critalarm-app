@@ -12,6 +12,7 @@ import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
+import 'package:critalarm/features/topics/domain/home_face_rule.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -29,7 +30,9 @@ class HomeCubit extends Cubit<HomeState> {
     this._incidentRepository, [
     this._messageSync,
     this._getConnection,
-  ]) : super(const HomeState());
+    DateTime Function()? clock,
+  ]) : _now = clock ?? DateTime.now,
+       super(const HomeState());
 
   final IncidentsCubit _incidents;
   final TopicsCubit _topics;
@@ -46,8 +49,16 @@ class HomeCubit extends Cubit<HomeState> {
   /// the server, so the two need different screens.
   final GetConnectionUsecase? _getConnection;
 
+  final DateTime Function() _now;
+
   StreamSubscription<IncidentsState>? _incidentsSub;
   StreamSubscription<TopicsState>? _topicsSub;
+
+  Timer? _timer;
+  List<Incident>? _lastIncidents;
+  List<Topic>? _lastTopics;
+  Set<String>? _lastWarningTopics;
+  Map<String, int>? _lastPriorities;
 
   /// The lists this screen was last built from. An upstream change that leaves
   /// them alone, such as a refresh starting, is not worth polling every topic
@@ -88,9 +99,51 @@ class HomeCubit extends Cubit<HomeState> {
 
   @override
   Future<void> close() async {
+    _timer?.cancel();
+    _timer = null;
     await _incidentsSub?.cancel();
     await _topicsSub?.cancel();
     return super.close();
+  }
+
+  void _syncTimer(bool hasAcked) {
+    if (hasAcked) {
+      _timer ??= Timer.periodic(const Duration(seconds: 30), (_) {
+        if (isClosed) return;
+        final incidents = _lastIncidents;
+        final topics = _lastTopics;
+        final warningTopics = _lastWarningTopics;
+        final priorities = _lastPriorities;
+        if (incidents == null ||
+            topics == null ||
+            warningTopics == null ||
+            priorities == null) {
+          return;
+        }
+        final result = resolveHomeFace(
+          topics: topics,
+          incidents: incidents,
+          warningTopics: warningTopics,
+          now: _now(),
+        );
+        final items = _buildTopicItems(result.rows, topics, priorities);
+        emit(
+          state.copyWith(
+            faceState: result.hero.faceState,
+            word: result.hero.word,
+            subText: result.hero.subText,
+            severity: result.hero.severity,
+            ringingIncidentId: result.hero.ringingIncidentId,
+            clearRinging: result.hero.ringingIncidentId == null,
+            topicItems: items,
+          ),
+        );
+        _syncTimer(result.hasAckedRow);
+      });
+    } else {
+      _timer?.cancel();
+      _timer = null;
+    }
   }
 
   Future<void> _rebuildIfChanged() async {
@@ -194,6 +247,11 @@ class HomeCubit extends Cubit<HomeState> {
     List<Topic> topics,
   ) async {
     if (topics.isEmpty) {
+      _lastIncidents = incidents;
+      _lastTopics = topics;
+      _lastWarningTopics = const {};
+      _lastPriorities = const {};
+      _syncTimer(false);
       return state.copyWith(
         status: HomeStatus.success,
         topicItems: const [],
@@ -204,19 +262,18 @@ class HomeCubit extends Cubit<HomeState> {
         clearRinging: true,
         clearError: true,
         isStale: false,
-        lastKnownGoodAt: DateTime.now(),
+        lastKnownGoodAt: _now(),
         hasServer: true,
       );
     }
 
     await _messageSync?.syncAll(topics.map((t) => t.name));
 
-    final openIncidents = incidents.where((i) => i.state == 'open').toList();
-    final openIncidentIds = openIncidents.map((i) => i.id).toSet();
-
-    final hasCriticalOpen = openIncidents.any(
-      (i) => i.messages.any((m) => m.priority == 5),
-    );
+    final now = _now();
+    final openIncidentIds = incidents
+        .where((i) => i.state == 'open')
+        .map((i) => i.id)
+        .toSet();
 
     final warningTopics = <String>{};
     final priorities = <String, int>{};
@@ -226,10 +283,6 @@ class HomeCubit extends Cubit<HomeState> {
         poll: 1,
       );
       if (pollResult.isError()) {
-        // The lists themselves arrived, so the guard above has already
-        // recorded them as drawn. Forget that, or the next answer carrying
-        // the same list objects is skipped and the screen stays stuck on
-        // this failure.
         _builtFromIncidents = null;
         _builtFromTopics = null;
         return _failureState(pollResult.exceptionOrNull()?.message);
@@ -239,123 +292,71 @@ class HomeCubit extends Cubit<HomeState> {
           ? null
           : msgs.reduce((a, b) => a.time > b.time ? a : b);
       priorities[t.name] = latest?.priority ?? 3;
-      if (msgs.any(
-        (m) =>
-            m.priority == 4 ||
-            (m.tags.contains('warning') &&
-                m.priority != 5 &&
-                (m.incidentId == null ||
-                    openIncidentIds.contains(m.incidentId))),
-      )) {
+      if (msgs.any((m) {
+        final isP4OrWarning =
+            m.priority == 4 || (m.tags.contains('warning') && m.priority != 5);
+        if (!isP4OrWarning) return false;
+        if (m.incidentId != null) {
+          return openIncidentIds.contains(m.incidentId);
+        }
+        final msgTime = DateTime.fromMillisecondsSinceEpoch(m.time * 1000);
+        return now.difference(msgTime).inSeconds < 1800;
+      })) {
         warningTopics.add(t.name);
       }
     }
 
-    final hasWarningOpen =
-        openIncidents.any((i) => i.messages.any((m) => m.priority == 4)) ||
-        warningTopics.isNotEmpty;
-
-    FaceState faceState;
-    String word;
-    String subText;
-    SeverityMode severity;
-    String? ringingIncidentId;
-
-    if (hasCriticalOpen) {
-      faceState = FaceState.alarmed;
-      word = LocaleKeys.home_stage_word_critical.tr();
-      final crit = openIncidents.firstWhere(
-        (i) => i.messages.any((m) => m.priority == 5),
-      );
-      subText = LocaleKeys.home_stage_sub_critical.tr(
-        namedArgs: {'topic': crit.topic},
-      );
-      severity = SeverityMode.crit;
-      ringingIncidentId = crit.id;
-    } else if (hasWarningOpen) {
-      faceState = FaceState.worried;
-      final warningCount = warningTopics.length;
-      word = LocaleKeys.home_stage_word_warning.plural(warningCount);
-      subText = LocaleKeys.home_stage_sub_warning.plural(
-        warningCount,
-        namedArgs: {
-          'count': topics.length.toString(),
-          'warnings': warningCount.toString(),
-        },
-      );
-      severity = SeverityMode.high;
-    } else {
-      faceState = FaceState.calm;
-      word = LocaleKeys.home_stage_word_clear.tr();
-      // "Last alert 06:12, acknowledged." used to be baked into the
-      // string, so every calm user was told about an alert at 06:12 that
-      // never happened. Use the real one, or say nothing about it.
-      final lastAck = incidents
-          .map((i) => i.ackedAt)
-          .whereType<DateTime>()
-          .fold<DateTime?>(
-            null,
-            (newest, at) => newest == null || at.isAfter(newest) ? at : newest,
-          );
-      subText = lastAck == null
-          ? LocaleKeys.home_stage_sub_clear.plural(topics.length)
-          : LocaleKeys.home_stage_sub_clear_last.plural(
-              topics.length,
-              namedArgs: {
-                'count': topics.length.toString(),
-                'time': DateFormat.Hm().format(lastAck.toLocal()),
-              },
-            );
-      severity = SeverityMode.none;
-    }
-
-    final items = _buildTopicItems(
-      topics,
-      openIncidents,
-      warningTopics,
-      priorities,
+    final result = resolveHomeFace(
+      topics: topics,
+      incidents: incidents,
+      warningTopics: warningTopics,
+      now: now,
     );
+
+    final items = _buildTopicItems(result.rows, topics, priorities);
+
+    _lastIncidents = incidents;
+    _lastTopics = topics;
+    _lastWarningTopics = warningTopics;
+    _lastPriorities = priorities;
+    _syncTimer(result.hasAckedRow);
 
     return state.copyWith(
       status: HomeStatus.success,
       topicItems: items,
-      faceState: faceState,
-      word: word,
-      subText: subText,
-      severity: severity,
-      ringingIncidentId: ringingIncidentId,
-      clearRinging: ringingIncidentId == null,
+      faceState: result.hero.faceState,
+      word: result.hero.word,
+      subText: result.hero.subText,
+      severity: result.hero.severity,
+      ringingIncidentId: result.hero.ringingIncidentId,
+      clearRinging: result.hero.ringingIncidentId == null,
       clearError: true,
       isStale: false,
-      lastKnownGoodAt: DateTime.now(),
+      lastKnownGoodAt: now,
       hasServer: true,
     );
   }
 
   List<HomeTopicItem> _buildTopicItems(
+    List<HomeTopicRow> rows,
     List<Topic> topics,
-    List<Incident> openIncidents,
-    Set<String> warningTopics,
     Map<String, int> priorities,
   ) {
-    return topics.map((t) {
-      final hasOpen = openIncidents.any((i) => i.topic == t.name);
-      final hasWarning = warningTopics.contains(t.name);
+    final topicByName = {for (final t in topics) t.name: t};
+    return rows.map((r) {
+      final t = topicByName[r.name];
+      final priority = priorities[r.name] ?? 3;
       return HomeTopicItem(
-        name: t.name,
-        meta: hasOpen
-            ? LocaleKeys.home_meta_alert_active.tr()
-            : (hasWarning
-                  ? LocaleKeys.home_meta_warning.tr()
-                  : LocaleKeys.home_meta_quiet.tr()),
-        priority: _priority(priorities[t.name] ?? 3),
-        isQuiet: (priorities[t.name] ?? 3) <= 2,
-        faceState: hasOpen
-            ? FaceState.alarmed
-            : (hasWarning ? FaceState.worried : FaceState.calm),
-        isCrit: hasOpen && t.critical,
-        isLive: hasOpen || hasWarning,
-        ringsThroughSilent: t.critical,
+        name: r.name,
+        meta: r.meta,
+        priority: _priority(priority),
+        isQuiet: priority <= 2,
+        faceState: r.faceState,
+        isCrit: r.faceState == FaceState.alarmed && (t?.critical ?? false),
+        isLive:
+            r.faceState == FaceState.alarmed ||
+            r.faceState == FaceState.worried,
+        ringsThroughSilent: t?.critical ?? false,
       );
     }).toList();
   }
