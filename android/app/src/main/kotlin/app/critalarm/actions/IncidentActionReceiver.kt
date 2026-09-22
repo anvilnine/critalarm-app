@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import app.critalarm.alarm.AlarmForegroundService
+import app.critalarm.alarm.IncidentRearm
 import app.critalarm.storage.AckQueueStore
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
@@ -26,6 +27,10 @@ import java.net.URL
 class IncidentActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val incidentId = intent.getStringExtra(EXTRA_INCIDENT_ID)?.takeIf(String::isNotEmpty) ?: return
+        if (intent.action == ACTION_SILENCE) {
+            silence(context, intent, incidentId)
+            return
+        }
         val trigger = when (intent.action) {
             ACTION_STOP -> "stop"
             ACTION_ACKNOWLEDGE -> "acknowledge"
@@ -50,6 +55,9 @@ class IncidentActionReceiver : BroadcastReceiver() {
         val deliveries = IncidentDeliveryStore(context)
         val manager = context.getSystemService(NotificationManager::class.java)
         if (route.action == IncidentAction.ACK) {
+            // "I'm up" ends the loop, so any ring this phone set for itself
+            // goes with it.
+            IncidentRearm.cancel(context, incidentId)
             // A demo alarm is over the moment it is stopped. Marking it closed
             // rather than acknowledged is what keeps it out of the list launch
             // reconcile walks.
@@ -160,6 +168,50 @@ class IncidentActionReceiver : BroadcastReceiver() {
     }
 
     /**
+     * Stop, or a swipe. The noise ends, the incident does not.
+     *
+     * Nothing goes to the server: it never heard an acknowledge, so it keeps
+     * repeating, and this phone sets its own next ring for the same id on top.
+     * The card stays up with "I'm up" on it, because that is the only way out.
+     */
+    private fun silence(context: Context, intent: Intent, incidentId: String) {
+        val title = intent.getStringExtra(EXTRA_TITLE)?.takeIf(String::isNotEmpty)
+        val body = intent.getStringExtra(EXTRA_BODY)?.takeIf(String::isNotEmpty)
+        val handOver = intent.getBooleanExtra(EXTRA_HAND_OVER, true)
+        AlarmForegroundService.stopIncident(context, incidentId)
+        val seconds = IncidentRearm.rearm(context, incidentId, title = title, body = body)
+        Log.i(TAG, "alarm_silenced incident_id=$incidentId rearm_in_s=${seconds ?: -1}")
+
+        val manager = context.getSystemService(NotificationManager::class.java)
+        if (seconds == null) {
+            // Nothing is coming back, so nothing should look like it is. The
+            // demo alarm lands here, and so does an incident past ring_until.
+            manager.cancel(AlarmNotificationFactory.notificationId(incidentId))
+            return
+        }
+        val server = intent.getStringExtra(EXTRA_SERVER)
+            ?.let { runCatching { URI(it) }.getOrNull() } ?: return
+        val payload = FcmIncidentPayload(
+            incidentId = incidentId,
+            server = server,
+            kind = IncidentPushKind.OPEN,
+            priority = 5,
+            title = title,
+            body = body,
+        )
+        manager.notify(
+            AlarmNotificationFactory.notificationId(incidentId),
+            AlarmNotificationFactory.create(
+                context = context,
+                payload = payload,
+                content = IncidentContentFetcher.fallback(payload),
+                handOverToStatusCard = handOver,
+                silencedInSeconds = seconds,
+            ),
+        )
+    }
+
+    /**
      * Reads `desk_timer_fires_at` off the ack response (api.md §3.2) so the bar
      * counts to the instant the server picked, not to a fresh full timer the
      * device guessed. A 409 carries no such field and leaves the cached value
@@ -226,8 +278,15 @@ class IncidentActionReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        /** "I'm up". Sends the acknowledge and ends the loop. */
         const val ACTION_STOP = "app.critalarm.action.STOP"
         const val ACTION_ACKNOWLEDGE = "app.critalarm.action.ACKNOWLEDGE"
+
+        /**
+         * Stop, or a swipe. Silences and re-arms. Nothing reaches the server:
+         * only "I'm up" is an acknowledge.
+         */
+        const val ACTION_SILENCE = "app.critalarm.action.SILENCE"
         const val EXTRA_INCIDENT_ID = "incident_id"
         const val EXTRA_SERVER = "server"
         const val EXTRA_TITLE = "title"

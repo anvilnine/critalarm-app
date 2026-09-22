@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:critalarm/core/ack/ack_queue_entry.dart';
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
@@ -19,11 +20,11 @@ final class AckQueue {
     this._prefs,
     this._api, {
     this.analytics,
+    this.alarms,
     this.onSent,
     DateTime Function()? clock,
     this.tickInterval = const Duration(seconds: 15),
   }) : _clock = clock ?? DateTime.now;
-
 
   static const storageKey = 'ack_queue_v1';
 
@@ -40,6 +41,10 @@ final class AckQueue {
   final SharedPreferences _prefs;
   final ApiClient _api;
   final PushAnalytics? analytics;
+
+  /// Told about every ack that lands, so the native side stops scheduling an
+  /// alarm for a repeat push on that incident.
+  final AlarmHost? alarms;
 
   /// Called after an entry finally reaches the server, which can be minutes
   /// after the user pressed Stop. The incident the app holds is out of date by
@@ -111,6 +116,9 @@ final class AckQueue {
       );
       switch (outcome) {
         case _SendOutcome.done:
+          if (entry.action == AckAction.ack) {
+            await alarms?.markAcked(entry.incidentId);
+          }
           await _reportAcked(entry);
           await onSent?.call();
         case _SendOutcome.giveUp:

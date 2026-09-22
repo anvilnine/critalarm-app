@@ -81,7 +81,8 @@ public enum IncidentAlarmScheduler {
         server: String,
         title: String,
         sound: String? = nil,
-        delay: TimeInterval = leadTime
+        delay: TimeInterval = leadTime,
+        ringUntil: Date? = nil
     ) async -> Bool {
         guard AlarmManager.shared.authorizationState == .authorized else {
             NSLog(
@@ -97,14 +98,23 @@ public enum IncidentAlarmScheduler {
         // system auto-muted it.
         try? AlarmManager.shared.cancel(id: id)
 
+        // Two buttons, and they are not the same thing. Stop silences and
+        // sets the next ring; "I'm up" is the acknowledge and the only way out
+        // of the loop. The secondary button is `.custom`, so it runs our
+        // intent instead of whatever AlarmKit would do with a snooze.
         let alert = AlarmPresentation.Alert(
             title: LocalizedStringResource(stringLiteral: title),
             stopButton: AlarmButton(
                 text: "Stop",
                 textColor: .white,
                 systemImageName: "bell.slash.fill"
-            )
-            // No secondary button: the spec says no snooze.
+            ),
+            secondaryButton: AlarmButton(
+                text: "I'm up",
+                textColor: .white,
+                systemImageName: "checkmark.circle.fill"
+            ),
+            secondaryButtonBehavior: .custom
         )
         let countdown = AlarmPresentation.Countdown(
             title: LocalizedStringResource(stringLiteral: title)
@@ -119,6 +129,7 @@ public enum IncidentAlarmScheduler {
             duration: delay,
             attributes: attributes,
             stopIntent: StopAlarmIntent(incidentId: incidentId),
+            secondaryIntent: AckAlarmIntent(incidentId: incidentId),
             sound: .named(sound ?? soundName)
         )
 
@@ -130,7 +141,7 @@ public enum IncidentAlarmScheduler {
             )
             PendingIncidentStore.write(
                 incidentId: incidentId, topic: topic, server: server,
-                title: title, openedAt: Date()
+                title: title, openedAt: Date(), ringUntil: ringUntil, sound: sound
             )
             if #available(iOS 16.2, *) {
                 await IncidentActivityCoordinator.shared.setAlarmActive(true, incidentId: incidentId)

@@ -85,6 +85,34 @@ class IncidentDeliveryStore(context: Context) {
     }
 
     /**
+     * The last instant this phone may ring for the incident on its own, from
+     * `ring_until` on the alarm push (api.md §5.2), or null when no push
+     * carried one. The re-arm needs it with no network call, so it is written
+     * here the moment the push lands.
+     *
+     * Null is also the answer for the onboarding demo, which no server sent.
+     */
+    fun ringUntilMillis(incidentId: String): Long? =
+        preferences.getLong("ring_until:$incidentId", 0L).takeIf { it > 0L }
+
+    /**
+     * Which topic the incident is on, learned from the content fetch. The push
+     * itself does not carry it (api.md §5.2), and it is what the re-arm reads
+     * the repeat interval and the critical switch from.
+     */
+    fun topicOf(incidentId: String): String? =
+        preferences.getString("topic:$incidentId", null)?.takeIf(String::isNotEmpty)
+
+    fun rememberRingUntil(incidentId: String, millis: Long) {
+        preferences.edit().putLong("ring_until:$incidentId", millis).apply()
+    }
+
+    fun rememberTopic(incidentId: String, topic: String) {
+        if (topic.isEmpty()) return
+        preferences.edit().putString("topic:$incidentId", topic).apply()
+    }
+
+    /**
      * Drops every key of every incident past the retention window. See
      * [DeliveryRetention] for the window and why it is that long.
      *
@@ -125,6 +153,8 @@ class IncidentDeliveryStore(context: Context) {
             "closed:",
             "acked_at:",
             "desk_timer_fires_at:",
+            "ring_until:",
+            "topic:",
         )
     }
 }

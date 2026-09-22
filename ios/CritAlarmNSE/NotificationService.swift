@@ -41,6 +41,15 @@ final class NotificationService: UNNotificationServiceExtension {
             push.needsContentFetch ? "yes" : "no"
         )
 
+        // A repeat for an incident the user already stopped on this phone
+        // keeps its banner and loses its sound. The alarm itself is skipped
+        // in AppDelegate; this is the notification that rides beside it.
+        if push.kind == .repeat, let incidentId = push.incidentId,
+           AckedIncidentStore.contains(incidentId: incidentId) {
+            content.sound = nil
+            NSLog("CritAlarmNSE sound_dropped reason=acked_locally incident_id=%@", incidentId)
+        }
+
         // SPIKE (docs/specs/remote-alarm-ios-spike.md): can a Notification
         // Service Extension schedule an AlarmKit alarm? Everything else in
         // Part A hangs off the answer.

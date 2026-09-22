@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.alarm.AlarmForegroundService
+import app.critalarm.alarm.IncidentRearm
 import app.critalarm.notifications.AlarmNotificationFactory
 import app.critalarm.notifications.MessageNotificationFactory
 import app.critalarm.notifications.NotificationChannels
@@ -90,6 +91,12 @@ class PushRouter(private val context: Context) {
         )
 
         NotificationChannels.ensureCreated(context)
+        // The incident was handled on another device. Never a ring, never a
+        // new notification: stop what is going off here and fix the card.
+        if (payload.kind.isStateChange) {
+            handleStateChange(payload)
+            return
+        }
         when {
             payload.priority == 5 && payload.isIncident -> handleAlarm(payload)
             payload.priority >= 4 -> handleMessage(payload, NotificationChannels.highChannelId())
@@ -115,6 +122,10 @@ class PushRouter(private val context: Context) {
         val alreadyActive = store.isActive(incidentId)
         val reopen = payload.kind == IncidentPushKind.REOPEN
         store.activate(incidentId, reopen = reopen)
+        // Written before anything is posted, because a Stop can land seconds
+        // later and the re-arm reads this with no network call. A reopen moves
+        // opened_at, so the server sends a new value and it lands here too.
+        payload.ringUntilMillis?.let { store.rememberRingUntil(incidentId, it) }
 
         val manager = context.getSystemService(NotificationManager::class.java)
         if (!alreadyActive || reopen) {
@@ -150,6 +161,46 @@ class PushRouter(private val context: Context) {
             if (Build.VERSION.SDK_INT < 31 || error.javaClass.simpleName != "ForegroundServiceStartNotAllowedException") throw error
             Log.w(TAG, "alarm_service_start_rejected incident_id=$incidentId")
         }
+    }
+
+    /**
+     * `ack`, `close` or `expire` (api.md §5.2). The incident was answered
+     * somewhere else, so this device stops ringing for it, drops the ring it
+     * had set for itself, and either hands the card to the acked state or
+     * takes it down.
+     */
+    private fun handleStateChange(payload: FcmIncidentPayload) {
+        val incidentId = payload.incidentId ?: return
+        val store = IncidentDeliveryStore(context)
+        val manager = context.getSystemService(NotificationManager::class.java)
+
+        AlarmForegroundService.stopIncident(context, incidentId)
+        IncidentRearm.cancel(context, incidentId)
+        manager.cancel(AlarmNotificationFactory.notificationId(incidentId))
+        manager.cancel(MessageNotificationFactory.notificationId(incidentId))
+
+        when (StateKindRule.cardFor(payload.kind)) {
+            StateKindRule.Card.ACKED -> {
+                val ackedAt = store.acknowledgedAtMillis(incidentId) ?: System.currentTimeMillis()
+                store.markAcknowledged(incidentId, ackedAt)
+                IncidentActionReceiver.postStatusCard(
+                    context = context,
+                    incidentId = incidentId,
+                    server = payload.server,
+                    title = null,
+                    body = null,
+                    content = null,
+                    ackedAtMillis = ackedAt,
+                    deskTimerEndMillis = store.deskTimerFiresAtMillis(incidentId),
+                )
+            }
+            else -> {
+                store.markClosed(incidentId)
+                manager.cancel(StatusNotificationFactory.notificationId(incidentId))
+            }
+        }
+        events.record("push_state_change", mapOf("kind" to payload.kind.wireValue))
+        Log.i(TAG, "incident_state_applied kind=${payload.kind.wireValue} incident_id=$incidentId")
     }
 
     private fun handleMessage(payload: FcmIncidentPayload, channelId: String) {
@@ -206,6 +257,9 @@ class PushRouter(private val context: Context) {
                 Log.i(TAG, "alarm_content_fallback incident_id=$incidentId")
                 return@Thread
             }
+            // The push carries no topic (api.md §5.2), and the re-arm needs one
+            // to read the repeat interval and the critical switch.
+            content.topic?.let { IncidentDeliveryStore(context).rememberTopic(incidentId, it) }
             // Re-read rather than trust the state from before the network call.
             // The fetch waits up to ten seconds for connect and ten for read,
             // and the user can press Stop inside the first one. Re-posting the
