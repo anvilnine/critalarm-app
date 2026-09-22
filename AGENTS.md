@@ -96,14 +96,15 @@ the old field. One `make gen` fixed all 9.
 **Folder layout** (ARCHITECTURE §12):
 
 ```
-lib/features/{onboarding,topics,incidents,settings}
+lib/features/<name>/ one folder per feature, 13 today (`ls lib/features`)
 ios/CritAlarmNSE/    Swift. fetch + mutate the notification.
+ios/Shared/Alarm/    Swift. AlarmKit alarm and the acknowledge card.
 android/             full-screen intent channel config
 ```
 
 Each feature is `data/domain/presentation`, and `tool/check_layers.sh` enforces
 the direction: core must not import features, domain must not import data or
-presentation. Today only `features/settings` exists, holding the theme slice.
+presentation.
 
 **This app also builds for web.** The dashboard is this codebase run through
 `flutter build web` (ARCHITECTURE §2). Four rules keep that cheap:
@@ -127,17 +128,20 @@ presentation. Today only `features/settings` exists, holding the theme slice.
 
 - Real: the `AppColors` `ThemeExtension` with `copyWith` and `lerp`, the single
   `ThemeData` construction point in `lib/design_system/theme.dart`, the theme
-  preference round-trip, `go_router` wiring, the `AppResult` and `Failure`
-  types, `tool/check_layers.sh`, CI.
-- Placeholder: every colour and font value, `lib/app/router.dart` (one route),
-  and the widget names in `lib/design_system/widgets/`.
+  preference round-trip, `go_router` wiring (`lib/app/router.dart`, 37 routes
+  today), the `AppResult` and `Failure` types, `tool/check_layers.sh`, CI.
+- Placeholder: every colour and font value, and the widget names in
+  `lib/design_system/widgets/`.
 
 **Public repo.** Never commit a `.p8`, a keystore, `google-services.json`,
 `GoogleService-Info.plist`, a `.env`, a RevenueCat key, or a price. Signing
 identities live in the Apple developer account, not here.
 
 **No Apple Critical Alerts.** Apple denied the entitlement for `app.critalarm`.
-The app does not ask for it and no code path may assume it exists. iOS
-priority 5 is a Time-Sensitive push. Android keeps the full-screen alarm. The
-per-topic `critical` switch, the priority ladder and incidents are unaffected
-and stay exactly as they are.
+The app does not ask for it and no code path may assume it exists. One iOS
+story, used everywhere: an AlarmKit alarm through silent mode on iOS 26 or
+later, a Time-Sensitive notification with sound on older iPhones. Android keeps
+the full-screen alarm. Copy that promises a ring through silent mode picks its
+words from `RingClaim` (`lib/core/alarm/ring_claim.dart`) so an older iPhone is
+never told that. The per-topic `critical` switch, the priority ladder and
+incidents are unaffected and stay exactly as they are.
