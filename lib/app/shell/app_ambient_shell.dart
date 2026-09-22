@@ -33,6 +33,9 @@ class AppAmbientShell extends StatefulWidget {
     if (path.startsWith('/topics/new')) {
       return AmbientAppProfiles.createTopic(colors);
     }
+    if (path == '/sounds/crop') {
+      return AmbientAppProfiles.soundEditor(colors);
+    }
     if (path.contains('/sounds')) {
       return AmbientAppProfiles.soundList(colors);
     }

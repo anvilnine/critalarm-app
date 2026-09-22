@@ -19,5 +19,10 @@ void main() {
       expect(at('/settings/alarms/sounds'), list);
       expect(at('/topics/prod/sounds'), list);
     });
+
+    test('the cropper moves the backdrop on from the sound list', () {
+      expect(at('/sounds/crop'), isNot(at('/sounds')));
+      expect(at('/sounds/crop'), AmbientAppProfiles.soundEditor(colors));
+    });
   });
 }

@@ -12,7 +12,6 @@ class SoundPickerState {
     this.defaultSoundId = '',
     this.topicName,
     this.previewingSoundId,
-    this.isImporting = false,
     this.capabilities = SoundCapabilities.permissive,
     this.errorCode,
     this.platform = TargetPlatform.android,
@@ -36,7 +35,6 @@ class SoundPickerState {
   final String? topicName;
 
   final String? previewingSoundId;
-  final bool isImporting;
   final SoundCapabilities capabilities;
 
   /// One of the `SoundImportRejection` names, or `copyFailed`. The screen
@@ -57,7 +55,6 @@ class SoundPickerState {
     String? topicName,
     String? previewingSoundId,
     bool clearPreviewing = false,
-    bool? isImporting,
     SoundCapabilities? capabilities,
     String? errorCode,
     bool clearError = false,
@@ -74,7 +71,6 @@ class SoundPickerState {
     previewingSoundId: clearPreviewing
         ? null
         : previewingSoundId ?? this.previewingSoundId,
-    isImporting: isImporting ?? this.isImporting,
     capabilities: capabilities ?? this.capabilities,
     errorCode: clearError ? null : errorCode ?? this.errorCode,
     platform: platform ?? this.platform,
