@@ -366,6 +366,11 @@
     "acknowledge_button": "I'm up",
     "silence_ringing_button": "Silence",
     "silenced_message": "Stopped. Rings again in {seconds} s. Tap I'm up to end it.",
+    "alarm_count_pill": {
+      "one": "1 alarm",
+      "other": "{} alarms"
+    },
+    "alarm_others_sheet_title": "Other alarms",
     "stage_word_critical": "CRITICAL",
     "stage_word_acknowledged": "ACKNOWLEDGED",
     "stage_word_closed": "CLOSED",

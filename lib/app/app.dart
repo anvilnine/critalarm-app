@@ -24,6 +24,7 @@ import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
+import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
@@ -64,6 +65,8 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     getIt<IncidentsCubit>(),
     getIt<TopicsCubit>(),
     _router.go,
+    () => _router.routerDelegate.currentConfiguration.uri.path,
+    (incidentId) => CriticalAlarmCubit.current?.select(incidentId),
   );
 
   /// Reminder taps. They route through the same router as everything else,

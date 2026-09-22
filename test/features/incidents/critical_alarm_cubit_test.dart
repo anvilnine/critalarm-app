@@ -5,6 +5,7 @@ import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/close_incident_usecase.dart';
@@ -19,6 +20,12 @@ import 'package:mocktail/mocktail.dart';
 
 class _MockOnboardingProgressRepository extends Mock
     implements OnboardingProgressRepository {}
+
+Incident _openIncident({
+  required String id,
+  required String topic,
+  required DateTime openedAt,
+}) => Incident(id: id, topic: topic, openedAt: openedAt);
 
 void main() {
   late MockServer server;
@@ -275,5 +282,160 @@ void main() {
         expect(state.errorMessage, isNotNull);
       },
     );
+
+    test(
+      'shows the newest open incident by openedAt, not list order',
+      () async {
+        final incidents = IncidentsCubit(getIncidentsUsecase);
+        addTearDown(incidents.close);
+        final shared = CriticalAlarmCubit(
+          getIncidentUsecase,
+          getIncidentsUsecase,
+          acknowledgeIncidentUsecase,
+          closeIncidentUsecase,
+          incidents,
+        );
+        addTearDown(shared.close);
+
+        final now = DateTime.now();
+        final older = _openIncident(
+          id: 'inc_older',
+          topic: 'nas-backup',
+          openedAt: now.subtract(const Duration(minutes: 5)),
+        );
+        final newer = _openIncident(
+          id: 'inc_newer',
+          topic: 'prod-db',
+          openedAt: now,
+        );
+
+        // The older one arrives first, so the shared list holds it first.
+        incidents.applyIncidents([newer, older]);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(shared.state.incident?.id, 'inc_newer');
+        expect(
+          shared.state.openIncidents.map((i) => i.id).toList(),
+          ['inc_newer', 'inc_older'],
+        );
+      },
+    );
+
+    test(
+      'a second open incident on the shared stream swaps shown and lists two',
+      () async {
+        final incidents = IncidentsCubit(getIncidentsUsecase);
+        addTearDown(incidents.close);
+        final shared = CriticalAlarmCubit(
+          getIncidentUsecase,
+          getIncidentsUsecase,
+          acknowledgeIncidentUsecase,
+          closeIncidentUsecase,
+          incidents,
+        );
+        addTearDown(shared.close);
+
+        final now = DateTime.now();
+        incidents.applyIncidents([
+          _openIncident(
+            id: 'inc_first',
+            topic: 'prod-db',
+            openedAt: now.subtract(const Duration(seconds: 10)),
+          ),
+        ]);
+        await Future<void>.delayed(Duration.zero);
+        expect(shared.state.incident?.id, 'inc_first');
+
+        incidents.applyIncidents([
+          _openIncident(
+            id: 'inc_second',
+            topic: 'nas-backup',
+            openedAt: now,
+          ),
+        ]);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(shared.state.incident?.id, 'inc_second');
+        expect(shared.state.openIncidents, hasLength(2));
+      },
+    );
+
+    test(
+      'acknowledging with another open incident swaps to it, not acknowledged',
+      () async {
+        final now = DateTime.now();
+        server
+          ..reset()
+          ..seedState(
+            incidents: [
+              _openIncident(
+                id: 'inc_older',
+                topic: 'nas-backup',
+                openedAt: now.subtract(const Duration(minutes: 5)),
+              ),
+              _openIncident(
+                id: 'inc_newer',
+                topic: 'prod-db',
+                openedAt: now,
+              ),
+            ],
+          );
+
+        await cubit.load();
+        expect(cubit.state.incident?.id, 'inc_newer');
+
+        await cubit.acknowledge();
+
+        expect(cubit.state.incident?.id, 'inc_older');
+        expect(cubit.state.status, CriticalAlarmStatus.ringing);
+        expect(cubit.state.isAcknowledged, isFalse);
+        expect(cubit.state.openIncidents.map((i) => i.id), ['inc_older']);
+      },
+    );
+
+    test(
+      'acknowledging the last open incident enters the acknowledged state',
+      () async {
+        await cubit.load(incidentId: 'inc_alarmed_proddb');
+
+        await cubit.acknowledge();
+
+        expect(cubit.state.status, CriticalAlarmStatus.acknowledged);
+        expect(cubit.state.isAcknowledged, isTrue);
+        expect(cubit.state.openIncidents, isEmpty);
+      },
+    );
+
+    test('select swaps the shown incident', () async {
+      final now = DateTime.now();
+      server
+        ..reset()
+        ..seedState(
+          incidents: [
+            _openIncident(
+              id: 'inc_older',
+              topic: 'nas-backup',
+              openedAt: now.subtract(const Duration(minutes: 5)),
+            ),
+            _openIncident(
+              id: 'inc_newer',
+              topic: 'prod-db',
+              openedAt: now,
+            ),
+          ],
+        );
+
+      await cubit.load();
+      expect(cubit.state.incident?.id, 'inc_newer');
+
+      cubit.select('inc_older');
+
+      expect(cubit.state.incident?.id, 'inc_older');
+      expect(cubit.state.status, CriticalAlarmStatus.ringing);
+      expect(
+        cubit.state.openIncidents.map((i) => i.id).toList(),
+        ['inc_newer', 'inc_older'],
+      );
+    });
   });
 }

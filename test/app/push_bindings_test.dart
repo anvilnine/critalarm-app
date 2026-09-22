@@ -64,6 +64,7 @@ void main() {
   late IncidentsCubit incidents;
   late TopicsCubit topics;
   late AppPushBindings bindings;
+  late String currentLocation;
 
   void answerWith(Object? Function(MethodCall call) handler) {
     messenger.setMockMethodCallHandler(channel, (call) async => handler(call));
@@ -80,6 +81,7 @@ void main() {
 
   setUp(() {
     log = [];
+    currentLocation = '/';
     answerWith((_) => null);
     host = PushHost();
     incidents = IncidentsCubit(GetIncidentsUsecase(_CountingIncidents(log)));
@@ -89,6 +91,8 @@ void main() {
       incidents,
       topics,
       (location) => log.add('go $location'),
+      () => currentLocation,
+      (incidentId) => log.add('select $incidentId'),
     )..start();
   });
 
@@ -118,6 +122,24 @@ void main() {
       'tap_id': '1',
     });
     expect(log, ['go /incidents/inc_9a8b7c']);
+  });
+
+  test('a tap while /alarm is up selects, not navigates', () async {
+    currentLocation = '/alarm';
+    await sendFromPlatform('onNotificationTap', {
+      'incident_id': 'inc_9a8b7c',
+      'tap_id': '1',
+    });
+    expect(log, ['select inc_9a8b7c']);
+  });
+
+  test('a tap while an incident is up selects, not navigates', () async {
+    currentLocation = '/incidents/inc_showing';
+    await sendFromPlatform('onNotificationTap', {
+      'incident_id': 'inc_9a8b7c',
+      'tap_id': '1',
+    });
+    expect(log, ['select inc_9a8b7c']);
   });
 
   test('a held tap opens before the lists reload', () async {
