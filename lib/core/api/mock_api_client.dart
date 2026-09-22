@@ -87,8 +87,14 @@ class MockApiClient implements ApiClient {
     required int limit,
     String? state,
     String? topic,
+    DateTime? since,
   }) async {
-    return server.getIncidents(limit: limit, state: state, topic: topic);
+    return server.getIncidents(
+      limit: limit,
+      state: state,
+      topic: topic,
+      since: since,
+    );
   }
 
   @override
