@@ -346,15 +346,15 @@ void main() {
         expect(find.text('License'), findsOneWidget);
         expect(find.text('GPL-3.0'), findsOneWidget);
         expect(find.text('Documentation'), findsOneWidget);
-        expect(find.text('https://docs.critalarm.app'), findsOneWidget);
+        expect(find.text('https://critalarm.app/docs/'), findsOneWidget);
         expect(find.text('GitHub'), findsOneWidget);
         expect(
-          find.text('https://github.com/critalarm/critalarm'),
+          find.text('https://github.com/anvilnine/critalarm-app'),
           findsOneWidget,
         );
         expect(find.text('Issue Tracker'), findsOneWidget);
         expect(
-          find.text('https://github.com/critalarm/critalarm/issues'),
+          find.text('https://github.com/anvilnine/critalarm-app/issues'),
           findsOneWidget,
         );
 
@@ -363,14 +363,14 @@ void main() {
         await tester.tap(find.text('Documentation'));
         await tester.pumpAndSettle();
         expect(find.textContaining('Copied '), findsNothing);
-        expect(launchedUrls, ['https://docs.critalarm.app']);
+        expect(launchedUrls, ['https://critalarm.app/docs/']);
 
         // The browser refused, so the row copies the link instead.
         launched = false;
         await tester.tap(find.text('Documentation'));
         await tester.pumpAndSettle();
         expect(
-          find.text('Copied https://docs.critalarm.app'),
+          find.text('Copied https://critalarm.app/docs/'),
           findsAtLeast(1),
         );
 
@@ -382,7 +382,7 @@ void main() {
         await tester.longPress(find.text('GitHub'));
         await tester.pumpAndSettle();
         expect(
-          find.text('Copied https://github.com/critalarm/critalarm'),
+          find.text('Copied https://github.com/anvilnine/critalarm-app'),
           findsAtLeast(1),
         );
       },
