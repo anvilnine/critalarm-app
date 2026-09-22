@@ -89,6 +89,18 @@ class MainActivity : FlutterFragmentActivity() {
                         }
                     }
                 }
+                "openAppSettings" -> {
+                    try {
+                        startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:$packageName")
+                            }
+                        )
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("UNAVAILABLE", "Cannot open settings", null)
+                    }
+                }
                 "openFullScreenIntentSettings" -> {
                     try {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

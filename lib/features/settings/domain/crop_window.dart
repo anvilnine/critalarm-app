@@ -56,7 +56,7 @@ class CropWindow {
   Duration get end => start + length;
 
   /// True when the window is as long as it is allowed to be.
-  bool get isAtMax => length >= _longest;
+  bool get isAtMax => length >= maxLength;
 
   /// A file shorter than [minLength] can only be kept whole.
   Duration get _shortest => minLength < fileLength ? minLength : fileLength;

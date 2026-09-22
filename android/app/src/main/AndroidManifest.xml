@@ -16,6 +16,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <!-- The sound recorder. Asked for on the first tap of its record button. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY"/>
     <!-- Onboarding's local test alarm has to ring at the second it promised,
          so it is an exact alarm rather than a window the system can shift. -->
