@@ -235,12 +235,18 @@ import AlarmKit
       // No engine is guaranteed here, so the ack goes straight on the queue
       // Dart drains. A running app is told so it can send it now.
       AckQueueStore.enqueue(action: "ack", incidentId: incidentId)
+      AckedIncidentStore.mark(incidentId: incidentId)
       if dartIsListening {
         pushChannel?.invokeMethod("onAckQueued", arguments: incidentId)
       } else {
         pendingAck = incidentId
       }
-      completionHandler()
+      // One native try, so the server stops repeating within a round trip
+      // even with no engine up. iOS keeps the app alive until the completion
+      // handler runs, and the sender gives up after eight seconds.
+      NativeAckSender.send(action: "ack", incidentId: incidentId) { _ in
+        DispatchQueue.main.async { completionHandler() }
+      }
       return
     }
 
@@ -373,6 +379,16 @@ import AlarmKit
       IncidentActivityCoordinator.shared.end(incidentId: incidentId, finalState: state)
       result(true)
 
+    case "markAcked":
+      // Dart acknowledged this incident (in the app, or from its queue). A
+      // repeat push for it must not ring while the ack is still on its way.
+      guard let incidentId = args["incident_id"] as? String, !incidentId.isEmpty else {
+        result(FlutterError(code: "bad_args", message: "incident_id required", details: nil))
+        return
+      }
+      AckedIncidentStore.mark(incidentId: incidentId)
+      result(nil)
+
     case "isRinging":
       // True while an AlarmKit alarm is going off. Dart holds a shared sound
       // file until this is false, so the cropper never covers an alarm.
@@ -494,6 +510,24 @@ import AlarmKit
 
     guard AlarmTriggerPath.chosen == .appBackgroundPush else {
       NSLog("CritAlarm: background_push_ignored reason=extension_owns_scheduling")
+      completionHandler(.noData)
+      return
+    }
+
+    // What the user already stopped on this phone. A repeat for one of those
+    // must not ring again while the ack is still on its way to the server.
+    // A reopen is a new stage, so it drops the mark and rings. Old marks are
+    // pruned on every run so the set never outlives the incident.
+    AckedIncidentStore.prune(
+      olderThan: AckedIncidentStore.pruneWindow(topic: userInfo["topic"] as? String)
+    )
+    if AlarmScheduleRule.clearsAck(kind: push.kind) {
+      AckedIncidentStore.clear(incidentId: incidentId)
+    }
+    if !AlarmScheduleRule.shouldSchedule(
+      kind: push.kind, incidentId: incidentId, acked: AckedIncidentStore.all()
+    ) {
+      NSLog("CritAlarm: background_push_ignored reason=acked_locally incident_id=%@", incidentId)
       completionHandler(.noData)
       return
     }

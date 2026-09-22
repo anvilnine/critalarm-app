@@ -176,6 +176,13 @@ final class AlarmHost {
   Future<bool> stopRinging() async =>
       await _invoke<bool>('stopRinging') ?? false;
 
+  /// Tells the native side the user has acknowledged [incidentId], so a
+  /// `repeat` push for it does not ring again while the ack is still on its
+  /// way to the server. iOS keeps the set; Android already drops those
+  /// repeats on its own and has no handler for this.
+  Future<void> markAcked(String incidentId) async =>
+      _invoke<void>('markAcked', {'incident_id': incidentId});
+
   /// Whether an alarm is ringing on this device right now. Android answers
   /// from its alarm service, iOS from AlarmKit (false before iOS 26). No
   /// answer reads as not ringing, so nothing waits on a platform that cannot
@@ -212,19 +219,16 @@ final class AlarmHost {
 
   /// Incident ids with a card on the lock screen right now.
   Future<List<String>> showingIncidentIds() async =>
-      (await _invoke<List<Object?>>('showingIncidentIds'))
-          ?.whereType<String>()
-          .toList() ??
+      (await _invoke<List<Object?>>(
+        'showingIncidentIds',
+      ))?.whereType<String>().toList() ??
       const [];
 
   /// Tokens captured before Dart was listening, taken once and cleared.
   Future<List<ActivityToken>> takePendingTokens() async {
     final raw = await _invoke<List<Object?>>('takePendingActivityTokens');
     if (raw == null) return const [];
-    return raw
-        .map(ActivityToken.fromMap)
-        .whereType<ActivityToken>()
-        .toList();
+    return raw.map(ActivityToken.fromMap).whereType<ActivityToken>().toList();
   }
 
   /// False when iOS has not handed out a push-to-start token yet. Seen in the

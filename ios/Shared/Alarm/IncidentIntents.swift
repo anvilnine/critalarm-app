@@ -33,8 +33,14 @@ struct StopAlarmIntent: LiveActivityIntent {
 
     func perform() async throws -> some IntentResult {
         AckQueueStore.enqueue(action: "ack", incidentId: incidentId)
+        // Marked before anything goes on the wire, so the next repeat push
+        // does not ring even if the ack takes minutes to land.
+        AckedIncidentStore.mark(incidentId: incidentId)
         NSLog("CritAlarmAlarm: alarm_stopped incident_id=%@", incidentId)
         await IncidentActivityCoordinator.shared.alarmStopped(incidentId: incidentId)
+        // One native try. On success the queue entry is gone; otherwise Dart
+        // sends it with its own backoff.
+        await NativeAckSender.send(action: "ack", incidentId: incidentId)
         return .result()
     }
 }
@@ -59,6 +65,7 @@ struct CloseIncidentIntent: LiveActivityIntent {
         AckQueueStore.enqueue(action: "close", incidentId: incidentId)
         NSLog("CritAlarmActivity: incident_closed incident_id=%@", incidentId)
         await IncidentActivityCoordinator.shared.closed(incidentId: incidentId)
+        await NativeAckSender.send(action: "close", incidentId: incidentId)
         return .result()
     }
 }

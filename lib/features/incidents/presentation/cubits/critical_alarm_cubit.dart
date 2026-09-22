@@ -98,6 +98,16 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
   }
 
+  /// Tells the native side this incident is acknowledged here. Never throws,
+  /// for the same reason [_silence] does not.
+  Future<void> _markAcked(String incidentId) async {
+    try {
+      await _alarm?.markAcked(incidentId);
+    } on Object catch (_) {
+      // Nothing to do. The ack below is what the server cares about.
+    }
+  }
+
   /// Stops the ring on this device without telling the server anything.
   ///
   /// For the case where the incident could not be loaded: the phone is
@@ -200,6 +210,10 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     // pressed Stop, so the noise is over whatever the server says: a slow or
     // refused ack must not keep it ringing.
     await _silence(targetId, handOverToStatusCard: true);
+
+    // Marked before the send, so a repeat push that lands while the request
+    // is in flight does not ring. A reopen clears it again.
+    await _markAcked(targetId);
 
     final result = await _acknowledgeIncident(targetId);
     if (isClosed) return;
