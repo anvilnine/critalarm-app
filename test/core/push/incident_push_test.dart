@@ -87,7 +87,7 @@ void main() {
           'priority': '${kind.impliedPriority}',
         })!;
         expect(push.kind, kind);
-        expect(push.isIncident, !kind.isForward);
+        expect(push.isIncident, !kind.isForward && !kind.isStateChange);
       });
     }
 

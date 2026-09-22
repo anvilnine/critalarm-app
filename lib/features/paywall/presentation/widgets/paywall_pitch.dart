@@ -100,11 +100,6 @@ class _ComparePitch extends StatelessWidget {
           label: LocaleKeys.paywall_compare_row_history_days.tr(),
           free: LocaleKeys.paywall_compare_free_history_days.tr(),
           hosted: LocaleKeys.paywall_compare_hosted_history_days.tr(),
-        ),
-        _CompareRow(
-          label: LocaleKeys.paywall_compare_row_history_count.tr(),
-          free: LocaleKeys.paywall_compare_free_history_count.tr(),
-          hosted: LocaleKeys.paywall_compare_hosted_history_count.tr(),
           isLast: true,
         ),
         const SizedBox(height: 18),

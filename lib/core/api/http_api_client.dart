@@ -265,12 +265,16 @@ final class HttpApiClient implements ApiClient {
     required int limit,
     String? state,
     String? topic,
+    DateTime? since,
   }) async {
     // Always on the wire. An absent `limit` means 20 on the server, never
     // "everything", so this line is the whole fix for paid History.
     final query = <String, String>{'limit': '$limit'};
     if (state != null) query['state'] = state;
     if (topic != null) query['topic'] = topic;
+    if (since != null) {
+      query['since'] = '${since.toUtc().millisecondsSinceEpoch ~/ 1000}';
+    }
     final (s, u) = await _sessionUri(
       const ['incidents'],
       query: query,

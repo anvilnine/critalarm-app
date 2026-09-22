@@ -11,7 +11,9 @@ class HistoryState {
     this.entries = const <HistoryEntry>[],
     this.days = const <HistoryDay>[],
     this.filter = HistoryFilter.none,
-    this.isCapped = false,
+    this.olderCount = 0,
+    this.hasMore = false,
+    this.isLoadingMore = false,
     this.errorMessage,
   });
 
@@ -26,10 +28,15 @@ class HistoryState {
 
   final HistoryFilter filter;
 
-  /// [entries] holds as many alarms as History is allowed to hold, so there
-  /// are older ones the app cannot reach. v1 has no paging, so the only
-  /// honest thing to do is say so.
-  final bool isCapped;
+  /// How many alarms the phone holds behind the tier's window (api.md §4.2).
+  /// Zero on every tier that sees everything. The free footer counts these.
+  final int olderCount;
+
+  /// There is another page on disk. The list asks for it near the end.
+  final bool hasMore;
+
+  /// A page is being read right now.
+  final bool isLoadingMore;
 
   final String? errorMessage;
 
@@ -65,7 +72,9 @@ class HistoryState {
     List<HistoryEntry>? entries,
     List<HistoryDay>? days,
     HistoryFilter? filter,
-    bool? isCapped,
+    int? olderCount,
+    bool? hasMore,
+    bool? isLoadingMore,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -74,7 +83,9 @@ class HistoryState {
       entries: entries ?? this.entries,
       days: days ?? this.days,
       filter: filter ?? this.filter,
-      isCapped: isCapped ?? this.isCapped,
+      olderCount: olderCount ?? this.olderCount,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }

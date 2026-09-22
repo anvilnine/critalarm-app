@@ -81,6 +81,8 @@ class _StubIncidents implements IncidentRepository {
     int? limit,
     String? state,
     String? topic,
+    DateTime? since,
+    bool fullRefresh = false,
   }) async {
     askedForState = state;
     if (fail) return const Failure.unexpected(message: 'offline').toFailure();

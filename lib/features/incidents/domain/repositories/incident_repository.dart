@@ -7,10 +7,17 @@ import 'package:critalarm/features/incidents/domain/entities/message.dart';
 abstract interface class IncidentRepository {
   /// [limit] is required and not nullable on purpose: the server reads a
   /// missing `limit` as 20, so there is no way to ask for "all of them".
+  ///
+  /// The repository reads the phone first and syncs behind that, so a call
+  /// that never reaches the server still answers with what is on disk.
+  /// [since] left null means "ask for what the phone has not seen"; set
+  /// [fullRefresh] to read the server's whole window instead.
   Future<AppResult<List<Incident>>> getIncidents({
     required int limit,
     String? state,
     String? topic,
+    DateTime? since,
+    bool fullRefresh = false,
   });
 
   Future<AppResult<Incident>> getIncident(String id);

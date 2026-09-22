@@ -4,7 +4,14 @@ enum IncidentPushKind {
   repeat,
   reopen,
   p4,
-  p5;
+  p5,
+
+  /// The incident was acknowledged, closed or expired somewhere else
+  /// (api.md §5.2). Data only, never a ring: the phone stops whatever is going
+  /// off for that id, drops any local re-arm and updates its card.
+  ack,
+  close,
+  expire;
 
   static IncidentPushKind? tryParse(String? value) {
     for (final kind in IncidentPushKind.values) {
@@ -21,6 +28,13 @@ enum IncidentPushKind {
   /// message joined an incident that was already live.
   bool get isForward =>
       this == IncidentPushKind.p4 || this == IncidentPushKind.p5;
+
+  /// True when the server is reporting where the incident ended up rather than
+  /// paging anyone. These never ring and never post a notification.
+  bool get isStateChange =>
+      this == IncidentPushKind.ack ||
+      this == IncidentPushKind.close ||
+      this == IncidentPushKind.expire;
 
   /// Priority the contract implies when the payload does not carry one.
   ///
@@ -46,6 +60,7 @@ final class IncidentPush {
     this.title,
     this.body,
     this.mutableContent = false,
+    this.ringUntil,
   });
 
   /// Null on a forward: api.md §4.1 sends no incident id for `p4`, and a `p5`
@@ -72,6 +87,11 @@ final class IncidentPush {
   /// FCM has no matching key, so it stays false there.
   final bool mutableContent;
 
+  /// The last second this phone may ring for the incident on its own
+  /// (api.md §5.1). Absent on a `p4` and on the three state kinds, which
+  /// never ring at all.
+  final DateTime? ringUntil;
+
   /// True when the relay stripped the content and the app has to fetch it
   /// with `GET /v1/incidents/{id}`.
   ///
@@ -81,7 +101,8 @@ final class IncidentPush {
       mutableContent || (title == null && body == null);
 
   /// This push opens or continues an incident, so the alarm path owns it.
-  bool get isIncident => !kind.isForward && incidentId != null;
+  bool get isIncident =>
+      !kind.isForward && !kind.isStateChange && incidentId != null;
 
   /// FCM data message, api.md §5.2. Every value arrives as a string.
   static IncidentPush? fromFcmData(Map<String, String> data) => _parse(
@@ -90,6 +111,7 @@ final class IncidentPush {
     kind: data['kind'],
     priority: int.tryParse(data['priority'] ?? ''),
     requirePriority: true,
+    ringUntil: _epochSeconds(int.tryParse(data['ring_until'] ?? '')),
     title: data['title'],
     body: data['body'],
   );
@@ -111,6 +133,7 @@ final class IncidentPush {
       kind: payload['kind'] as String?,
       priority: (payload['priority'] as num?)?.toInt(),
       requirePriority: false,
+      ringUntil: _epochSeconds((payload['ring_until'] as num?)?.toInt()),
       title: title as String?,
       body: body as String?,
     );
@@ -125,6 +148,7 @@ final class IncidentPush {
     required String? title,
     required String? body,
     bool mutableContent = false,
+    DateTime? ringUntil,
   }) {
     final parsedKind = IncidentPushKind.tryParse(kind);
     if (parsedKind == null) return null;
@@ -139,7 +163,12 @@ final class IncidentPush {
       return null;
     }
 
-    if (priority == null && requirePriority) return null;
+    // FCM spells every value out (api.md §5.2), so a missing priority there
+    // is a malformed push. The three state kinds are the exception: they
+    // carry none, because they never ring.
+    if (priority == null && requirePriority && !parsedKind.isStateChange) {
+      return null;
+    }
     final resolvedPriority = priority ?? parsedKind.impliedPriority;
     if (resolvedPriority < 1 || resolvedPriority > 5) return null;
 
@@ -151,6 +180,14 @@ final class IncidentPush {
       title: (title ?? '').isEmpty ? null : title,
       body: (body ?? '').isEmpty ? null : body,
       mutableContent: mutableContent,
+      ringUntil: ringUntil,
     );
   }
+
+  /// `ring_until` is epoch seconds in UTC. Zero and anything unparseable read
+  /// as absent, which stops the re-arm rather than ringing on a guess.
+  static DateTime? _epochSeconds(int? value) =>
+      (value == null || value <= 0)
+      ? null
+      : DateTime.fromMillisecondsSinceEpoch(value * 1000, isUtc: true);
 }

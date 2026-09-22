@@ -15,7 +15,12 @@ enum AckQueueStore {
     /// The same two seconds the Dart queue waits after one failure.
     static let firstRetryMs = 2_000
 
-    static func enqueue(action: String, incidentId: String, alarmFiredAtMs: Int? = nil) {
+    static func enqueue(
+        action: String,
+        incidentId: String,
+        alarmFiredAtMs: Int? = nil,
+        defaults: UserDefaults = .standard
+    ) {
         let now = Int(Date().timeIntervalSince1970 * 1000)
         var entry: [String: Any] = [
             "id": "\(now)-native-\(incidentId)-\(action)",
@@ -27,27 +32,49 @@ enum AckQueueStore {
         ]
         if let alarmFiredAtMs { entry["alarm_fired_at_ms"] = alarmFiredAtMs }
 
-        let defaults = UserDefaults.standard
-        var entries: [[String: Any]] = []
-        if let raw = defaults.string(forKey: key),
-           let data = raw.data(using: .utf8),
-           let decoded = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-            entries = decoded
-        }
+        var entries = read(from: defaults)
         entries.append(entry)
+        write(entries, to: defaults)
+        NSLog("CritAlarmAck: ack_queued_native action=%@ incident_id=%@", action, incidentId)
+    }
 
+    /// Takes every entry for `incidentId` with this `action` off the queue.
+    /// For after `NativeAckSender` has already landed it, so Dart does not
+    /// send it a second time.
+    static func remove(
+        incidentId: String,
+        action: String,
+        defaults: UserDefaults = .standard
+    ) {
+        let entries = read(from: defaults)
+        let kept = entries.filter {
+            !($0["incident_id"] as? String == incidentId && $0["action"] as? String == action)
+        }
+        guard kept.count != entries.count else { return }
+        write(kept, to: defaults)
+    }
+
+    static func pendingCount(defaults: UserDefaults = .standard) -> Int {
+        read(from: defaults).count
+    }
+
+    private static func read(from defaults: UserDefaults) -> [[String: Any]] {
+        guard let raw = defaults.string(forKey: key),
+              let data = raw.data(using: .utf8),
+              let decoded = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return [] }
+        return decoded
+    }
+
+    /// An empty list is written as no key at all, the way Dart's `_write` does.
+    private static func write(_ entries: [[String: Any]], to defaults: UserDefaults) {
+        if entries.isEmpty {
+            defaults.removeObject(forKey: key)
+            return
+        }
         guard let data = try? JSONSerialization.data(withJSONObject: entries),
               let json = String(data: data, encoding: .utf8)
         else { return }
         defaults.set(json, forKey: key)
-        NSLog("CritAlarmAck: ack_queued_native action=%@ incident_id=%@", action, incidentId)
-    }
-
-    static func pendingCount() -> Int {
-        guard let raw = UserDefaults.standard.string(forKey: key),
-              let data = raw.data(using: .utf8),
-              let decoded = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
-        else { return 0 }
-        return decoded.count
     }
 }
