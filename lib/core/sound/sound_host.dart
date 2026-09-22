@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:critalarm/core/sound/alarm_sound.dart';
+import 'package:critalarm/core/sound/incoming_audio.dart';
+import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:flutter/services.dart';
 
 /// What this platform can do with a sound the user brought in themselves.
@@ -6,6 +10,7 @@ class SoundCapabilities {
   const SoundCapabilities({
     required this.userSoundsRingAlarm,
     required this.bundledSoundsRingAlarm,
+    this.canImportSounds = false,
   });
 
   factory SoundCapabilities.fromMap(Map<Object?, Object?>? raw) =>
@@ -13,6 +18,7 @@ class SoundCapabilities {
         userSoundsRingAlarm: raw?['user_sounds_ring_alarm'] as bool? ?? true,
         bundledSoundsRingAlarm:
             raw?['bundled_sounds_ring_alarm'] as bool? ?? true,
+        canImportSounds: raw?['can_import_sounds'] as bool? ?? false,
       );
 
   /// False on iOS when the alarm API only reads sounds compiled into the app.
@@ -24,6 +30,11 @@ class SoundCapabilities {
   /// the same question for the same reason.
   final bool bundledSoundsRingAlarm;
 
+  /// True when the platform can copy a file the user picked into the app.
+  /// iOS and Android say so. Anything with no handler, the web included,
+  /// cannot, so "Pick a file" is hidden there.
+  final bool canImportSounds;
+
   /// Android does everything. So does anything with no handler on the
   /// channel, since nothing there restricts a sound file.
   static const permissive = SoundCapabilities(
@@ -34,10 +45,17 @@ class SoundCapabilities {
 
 /// One file the platform copied into the app's own sound folder.
 class ImportedSound {
-  const ImportedSound({required this.path, required this.duration});
+  const ImportedSound({
+    required this.path,
+    required this.duration,
+    this.sizeBytes,
+  });
 
   final String path;
   final Duration duration;
+
+  /// Size of the saved file. Null when the platform did not say.
+  final int? sizeBytes;
 
   static ImportedSound? fromMap(Object? raw) {
     if (raw is! Map) return null;
@@ -45,9 +63,11 @@ class ImportedSound {
     final ms = raw['duration_ms'];
     if (path is! String || path.isEmpty) return null;
     if (ms is! int || ms <= 0) return null;
+    final size = raw['size_bytes'];
     return ImportedSound(
       path: path,
       duration: Duration(milliseconds: ms),
+      sizeBytes: size is int ? size : null,
     );
   }
 }
@@ -63,11 +83,44 @@ class ImportedSound {
 /// platform answers [MissingPluginException] and this hands back a default.
 final class SoundHost {
   SoundHost([MethodChannel? channel])
-    : _channel = channel ?? const MethodChannel(channelName);
+    : _channel = channel ?? const MethodChannel(channelName) {
+    _channel.setMethodCallHandler(_handle);
+  }
 
   static const channelName = 'app.critalarm/sound';
 
   final MethodChannel _channel;
+  final _previewEnded = StreamController<String>.broadcast();
+  final _incomingAudio = StreamController<PickedSoundFile>.broadcast();
+
+  /// The path of a preview that stopped on its own: it played to the end, or
+  /// a call or another app took the audio. Not fired for [stopPreview]. The
+  /// path is the one [startPreview] was given, so a late event for an older
+  /// preview can be told apart from the one playing now.
+  Stream<String> get previewEnded => _previewEnded.stream;
+
+  /// A sound file another app shared while this one was running, already
+  /// copied into the app's cache. A share that started the app is held
+  /// natively instead, for [takeIncomingAudio].
+  Stream<PickedSoundFile> get incomingAudio => _incomingAudio.stream;
+
+  Future<Object?> _handle(MethodCall call) async {
+    switch (call.method) {
+      case 'previewEnded':
+        final args = call.arguments;
+        final path = args is Map ? args['path'] : null;
+        _previewEnded.add(path is String ? path : '');
+      case 'incomingAudio':
+        final file = pickedSoundFileFrom(call.arguments);
+        if (file != null) _incomingAudio.add(file);
+    }
+    return null;
+  }
+
+  /// The shared file the platform is holding, taken once and cleared. Null
+  /// when there is none.
+  Future<PickedSoundFile?> takeIncomingAudio() async =>
+      pickedSoundFileFrom(await _invoke<Object?>('takeIncomingAudio'));
 
   /// Copies the eight bundled sounds where the OS alarm and notification APIs
   /// can find them by name. Safe to call on every launch.
@@ -90,6 +143,21 @@ final class SoundHost {
       }) ??
       false;
 
+  /// Plays [start] to [end] of a file that is not saved yet, such as the one
+  /// open in the cropper. Stops by itself at [end].
+  Future<bool> startClipPreview({
+    required String path,
+    required Duration start,
+    required Duration end,
+  }) async =>
+      await _invoke<bool>('startPreview', {
+        'path': path,
+        'is_asset': false,
+        'start_ms': start.inMilliseconds,
+        'end_ms': end.inMilliseconds,
+      }) ??
+      false;
+
   Future<bool> stopPreview() async =>
       await _invoke<bool>('stopPreview') ?? false;
 
@@ -100,21 +168,61 @@ final class SoundHost {
     return Duration(milliseconds: ms == null || ms < 0 ? 0 : ms);
   }
 
-  /// Copies [sourcePath] into the app's sound folder under [id], converting
-  /// it to the platform's format if it is not already usable. On iOS it also
-  /// lands in `Library/Sounds` so `UNNotificationSound(named:)` can find it.
+  /// Cuts [start] to [end] out of [sourcePath] and saves it in the app's
+  /// sound folder under [id], with a short fade at each end. iOS writes a caf
+  /// into `Library/Sounds` so `UNNotificationSound(named:)` can find it.
+  /// Android writes a mono wav.
   Future<ImportedSound?> importSound({
     required String sourcePath,
     required String id,
+    required Duration start,
+    required Duration end,
   }) async => ImportedSound.fromMap(
     await _invoke<Map<Object?, Object?>>('importSound', {
       'source_path': sourcePath,
       'id': id,
+      'start_ms': start.inMilliseconds,
+      'end_ms': end.inMilliseconds,
     }),
   );
 
+  /// How loud [path] is across [count] even slices, each 0 to 1 with the
+  /// loudest slice at 1. Empty when nothing could read the file.
+  ///
+  /// A read given a [cancelToken] stops early, with an empty answer, once
+  /// [cancelPeaks] is called with the same token.
+  Future<List<double>> readPeaks({
+    required String path,
+    required bool isAsset,
+    required int count,
+    String? cancelToken,
+  }) async {
+    final raw = await _invoke<Object?>('readPeaks', {
+      'path': path,
+      'is_asset': isAsset,
+      'count': count,
+      'token': ?cancelToken,
+    });
+    if (raw is! List) return const [];
+    return [
+      for (final value in raw)
+        if (value is num) value.toDouble().clamp(0.0, 1.0),
+    ];
+  }
+
+  /// Stops a [readPeaks] started with [token], if it is still running.
+  Future<void> cancelPeaks(String token) =>
+      _invoke<Object?>('cancelPeaks', {'token': token});
+
   Future<bool> deleteSound(String path) async =>
       await _invoke<bool>('deleteSound', {'path': path}) ?? false;
+
+  /// Hands the current default and per-topic choices to whatever plays the
+  /// sound when a push arrives. On iOS that is the notification service
+  /// extension, which runs in its own process and cannot read the app's
+  /// preferences. Call it after every change to the choices or the files.
+  Future<bool> publishSoundAssignments() async =>
+      await _invoke<bool>('publishSoundAssignments') ?? false;
 
   Future<T?> _invoke<T>(String method, [Object? arguments]) async {
     try {

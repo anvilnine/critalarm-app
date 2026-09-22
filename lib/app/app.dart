@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/incoming_audio_bindings.dart';
 import 'package:critalarm/app/push_bindings.dart';
 import 'package:critalarm/app/quick_action_bindings.dart';
 import 'package:critalarm/app/reminder_bindings.dart';
@@ -12,7 +13,11 @@ import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/push/push_host.dart';
+import 'package:critalarm/core/sound/incoming_audio.dart';
+import 'package:critalarm/core/sound/sound_host.dart';
+import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/telemetry/reminder_analytics.dart';
+import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
@@ -102,6 +107,48 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     );
   }
 
+  /// Shows snackbars from outside any screen, such as a shared file that
+  /// could not be opened.
+  final _messenger = GlobalKey<ScaffoldMessengerState>();
+
+  /// "Share to Crit Alarm" from Voice Memos, Files and other apps. The file
+  /// opens in the cropper, the same one "Pick a file" uses.
+  late final AppIncomingAudioBindings _incomingAudio = AppIncomingAudioBindings(
+    incoming: getIt<IncomingAudio>(),
+    host: getIt<SoundHost>(),
+    routeChanges: _router.routerDelegate,
+    incidentChanges: getIt<IncidentsCubit>().stream,
+    open: _openCropper,
+    showMessage: (message) => _messenger.currentState
+      ?..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          // Above the floating tab bar, which would cover it otherwise.
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            AppFloatingTabBar.height + AppFloatingTabBar.edgeGap + 8,
+          ),
+        ),
+      ),
+  );
+
+  /// A share that lands while a cropper is already open replaces it, so the
+  /// user never has two croppers stacked. The one replaced deletes its own
+  /// copy as it closes.
+  void _openCropper(PickedSoundFile file) {
+    final top = _router.routerDelegate.currentConfiguration.last.route;
+    final onCropper = top.name == AppRoute.soundCrop;
+    unawaited(
+      onCropper
+          ? _router.pushReplacementNamed(AppRoute.soundCrop, extra: file)
+          : _router.pushNamed(AppRoute.soundCrop, extra: file),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -114,6 +161,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     appAccountIdentityChanges.addListener(_replan);
     // Plan once the first frame is up, so launch never waits on it.
     WidgetsBinding.instance.addPostFrameCallback((_) => _replan());
+    _incomingAudio.start();
   }
 
   @override
@@ -123,6 +171,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_reminders.dispose());
     unawaited(_quickActions.dispose());
     appAccountIdentityChanges.removeListener(_replan);
+    unawaited(_incomingAudio.dispose());
     super.dispose();
   }
 
@@ -132,6 +181,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_push.onResumed());
     unawaited(_reminders.onResumed());
     _replan();
+    unawaited(_incomingAudio.onResumed());
   }
 
   /// Every open and resume re-plans: time zone, switches, topics and
@@ -165,6 +215,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
           supportedLocales: context.supportedLocales,
           locale: context.locale,
           routerConfig: _router,
+          scaffoldMessengerKey: _messenger,
           builder: (context, child) => TourHost(
             router: _router,
             child: AppAmbientShell(

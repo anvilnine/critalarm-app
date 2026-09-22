@@ -21,6 +21,10 @@ enum GlyphType {
   wifi,
   list,
   clock,
+  play,
+  stop,
+  record,
+  pencil,
 }
 
 /// Vector glyph icon painted according to index.html on a 24x24 viewBox.
@@ -292,6 +296,44 @@ class _GlyphPainter extends CustomPainter {
           ..lineTo(12, 12)
           ..lineTo(15, 14);
         canvas.drawPath(hands, strokePaint);
+
+      case GlyphType.play:
+        // M8.5 5l11 7-11 7z, filled, corners rounded by the stroke
+        final path = Path()
+          ..moveTo(8.5, 5)
+          ..lineTo(19.5, 12)
+          ..lineTo(8.5, 19)
+          ..close();
+        canvas
+          ..drawPath(path, fillPaint)
+          ..drawPath(path, strokePaint);
+
+      case GlyphType.stop:
+        // rounded square 10x10 in the middle
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTWH(7, 7, 10, 10),
+            const Radius.circular(2),
+          ),
+          fillPaint,
+        );
+
+      case GlyphType.record:
+        // circle cx 12 cy 12 r 6 fill
+        canvas.drawCircle(const Offset(12, 12), 6, fillPaint);
+
+      case GlyphType.pencil:
+        // M4 20l1-4L16 5l3 3L8 19zM14 7l3 3
+        final path = Path()
+          ..moveTo(4, 20)
+          ..lineTo(5, 16)
+          ..lineTo(16, 5)
+          ..lineTo(19, 8)
+          ..lineTo(8, 19)
+          ..close()
+          ..moveTo(14, 7)
+          ..lineTo(17, 10);
+        canvas.drawPath(path, strokePaint);
     }
 
     canvas.restore();

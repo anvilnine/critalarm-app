@@ -1,6 +1,8 @@
+import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
@@ -19,6 +21,7 @@ import 'package:critalarm/features/permissions/presentation/device_permissions_s
 import 'package:critalarm/features/reminders/presentation/confirm_ring_screen.dart';
 import 'package:critalarm/features/reminders/presentation/reminder_lab_screen.dart';
 import 'package:critalarm/features/reminders/presentation/reminder_settings_screen.dart';
+import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
@@ -27,7 +30,9 @@ import 'package:critalarm/features/settings/presentation/face_gallery_screen.dar
 import 'package:critalarm/features/settings/presentation/privacy_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/server_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/settings_screen.dart';
+import 'package:critalarm/features/settings/presentation/sound_crop_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_picker_screen.dart';
+import 'package:critalarm/features/settings/presentation/sound_recorder_screen.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
@@ -53,6 +58,8 @@ abstract final class AppRoute {
   static const settingsDisconnected = 'settingsDisconnected';
   static const devicePermissions = 'devicePermissions';
   static const soundPicker = 'soundPicker';
+  static const soundCrop = 'soundCrop';
+  static const soundRecord = 'soundRecord';
   static const alarmSettings = 'alarmSettings';
   static const serverSettings = 'serverSettings';
   static const account = 'account';
@@ -108,6 +115,44 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           ),
         );
       },
+    ),
+    // The cropper for a file the user just picked. The file travels as
+    // `extra`, so a refresh on the web or a stray link arrives with none,
+    // and the screen goes straight back. It also leaves when the platform
+    // cannot import sounds.
+    GoRoute(
+      path: '/sounds/crop',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.soundCrop,
+      pageBuilder: (context, state) {
+        final file = state.extra;
+        return AmbientPage(
+          key: state.pageKey,
+          // Opaque, because a shared file opens it straight over the tab
+          // shell, which does not fade out under an ambient page the way the
+          // sound list does. The ambient backdrop sits outside the navigator,
+          // so it still shows.
+          opaque: true,
+          child: SoundCropScreen(file: file is PickedSoundFile ? file : null),
+        );
+      },
+    ),
+    // The recorder. Once a clip is recorded the same route shows the
+    // cropper for it, so back from the cropper lands on the sound list.
+    // Leaves at once where the platform cannot import sounds.
+    GoRoute(
+      path: '/sounds/record',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.soundRecord,
+      redirect: (context, state) async =>
+          (await getIt<SoundHost>().capabilities()).canImportSounds
+          ? null
+          : '/sounds',
+      pageBuilder: (context, state) => AmbientPage(
+        key: state.pageKey,
+        opaque: true,
+        child: const SoundRecorderScreen(),
+      ),
     ),
     // The three root destinations live inside the shell, so the floating tab
     // bar stays on screen and each tab keeps its own back stack. Anything that

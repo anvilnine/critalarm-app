@@ -52,6 +52,7 @@ class AppRadioRow extends StatelessWidget {
     this.meta,
     this.note,
     this.leading,
+    this.waveform,
     this.onTap,
     super.key,
   });
@@ -64,12 +65,28 @@ class AppRadioRow extends StatelessWidget {
   /// Third line, used when a sound cannot ring the alarm on this platform.
   final String? note;
   final Widget? leading;
+
+  /// A waveform under the title, for sound rows. With one, the meta line
+  /// moves up next to the title so the row stays two lines tall.
+  final Widget? waveform;
   final bool selected;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final titleText = Text(
+      title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontFamily: AppTypography.fontBody,
+        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: colors.ink,
+      ),
+    );
     return Semantics(
       selected: selected,
       inMutuallyExclusiveGroup: true,
@@ -104,19 +121,40 @@ class AppRadioRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontBody,
-                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: colors.ink,
+                      if (waveform != null) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Flexible(child: titleText),
+                            if (meta != null) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                meta!,
+                                style: TextStyle(
+                                  fontFamily: AppTypography.fontMono,
+                                  fontFamilyFallback:
+                                      AppTypography.fontMonoFallbacks,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                  color: colors.ink3,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ),
-                      if (meta != null) ...[
+                        const SizedBox(height: 5),
+                        SizedBox(
+                          height: 22,
+                          width: double.infinity,
+                          child: waveform,
+                        ),
+                      ] else
+                        titleText,
+                      if (meta != null && waveform == null) ...[
                         const SizedBox(height: 2),
                         Text(
                           meta!,

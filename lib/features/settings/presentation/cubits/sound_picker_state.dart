@@ -1,5 +1,6 @@
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
+import 'package:flutter/foundation.dart';
 
 /// What the sound picker is showing.
 class SoundPickerState {
@@ -11,12 +12,16 @@ class SoundPickerState {
     this.defaultSoundId = '',
     this.topicName,
     this.previewingSoundId,
-    this.isImporting = false,
     this.capabilities = SoundCapabilities.permissive,
     this.errorCode,
+    this.platform = TargetPlatform.android,
+    this.isLoadingPeaks = true,
   });
 
   final bool isLoading;
+
+  /// True until every waveform the list can read has been read.
+  final bool isLoadingPeaks;
   final List<AlarmSound> bundled;
   final List<AlarmSound> userSounds;
 
@@ -30,12 +35,14 @@ class SoundPickerState {
   final String? topicName;
 
   final String? previewingSoundId;
-  final bool isImporting;
   final SoundCapabilities capabilities;
 
   /// One of the `SoundImportRejection` names, or `copyFailed`. The screen
   /// turns it into a sentence.
   final String? errorCode;
+
+  /// Which platform's length limit the rows are checked against.
+  final TargetPlatform platform;
 
   bool get isPerTopic => topicName != null;
 
@@ -48,11 +55,13 @@ class SoundPickerState {
     String? topicName,
     String? previewingSoundId,
     bool clearPreviewing = false,
-    bool? isImporting,
     SoundCapabilities? capabilities,
     String? errorCode,
     bool clearError = false,
+    TargetPlatform? platform,
+    bool? isLoadingPeaks,
   }) => SoundPickerState(
+    isLoadingPeaks: isLoadingPeaks ?? this.isLoadingPeaks,
     isLoading: isLoading ?? this.isLoading,
     bundled: bundled ?? this.bundled,
     userSounds: userSounds ?? this.userSounds,
@@ -62,8 +71,8 @@ class SoundPickerState {
     previewingSoundId: clearPreviewing
         ? null
         : previewingSoundId ?? this.previewingSoundId,
-    isImporting: isImporting ?? this.isImporting,
     capabilities: capabilities ?? this.capabilities,
     errorCode: clearError ? null : errorCode ?? this.errorCode,
+    platform: platform ?? this.platform,
   );
 }
