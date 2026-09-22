@@ -471,6 +471,30 @@ import AlarmKit
       )
       result(nil)
 
+    case "cacheIncidentContent":
+      // The app loaded this incident in the foreground, so the extension does
+      // not have to call the server for it when the next repeat lands.
+      guard let incidentId = args["incident_id"] as? String,
+            let title = args["title"] as? String,
+            let body = args["body"] as? String else {
+        result(FlutterError(
+          code: "bad_args", message: "incident_id, title and body required", details: nil
+        ))
+        return
+      }
+      IncidentContentCache.write(
+        IncidentContent(
+          title: title,
+          body: body,
+          tags: args["tags"] as? [String] ?? [],
+          click: args["click"] as? String,
+          topic: args["topic"] as? String
+        ),
+        for: incidentId,
+        lastMessageAt: args["last_message_at"] as? Int
+      )
+      result(nil)
+
     default:
       result(FlutterMethodNotImplemented)
     }
