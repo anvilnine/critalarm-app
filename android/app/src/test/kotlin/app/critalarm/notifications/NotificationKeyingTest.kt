@@ -257,6 +257,8 @@ class NotificationKeyingTest {
 
     private companion object {
         /** Our own types with a `cancel` of their own. Add one when you write one. */
-        val OUR_HELPERS = setOf("ScheduledAlarmReceiver")
+        // Our own two-argument cancels, which take a context and an incident
+        // id rather than a tag and a notification id.
+        val OUR_HELPERS = setOf("ScheduledAlarmReceiver", "IncidentRearm")
     }
 }

@@ -188,11 +188,19 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
                 if (state.isAcknowledged) {
                   return AcknowledgedScreen(state: state, colors: colors);
                 }
-                // While it is ringing this screen holds the only Stop control.
-                // An Android back press or an edge swipe used to dismiss it and
-                // leave the phone screaming with no way back.
+                // Back is not an acknowledge. It silences the phone and sets
+                // the next ring for the same incident, the same as Stop on the
+                // notification does, and only then lets the person out. Back
+                // used to be swallowed whole, because leaving without
+                // silencing left the phone screaming with no way back.
                 return PopScope(
                   canPop: false,
+                  onPopInvokedWithResult: (didPop, _) {
+                    if (didPop) return;
+                    final cubit = context.read<CriticalAlarmCubit>();
+                    final router = GoRouter.of(context);
+                    unawaited(cubit.silence().then((_) => router.go('/')));
+                  },
                   child: _RingingScreen(state: state, colors: colors),
                 );
               },
