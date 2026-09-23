@@ -28,6 +28,7 @@ enum AlarmDebug {
                 "acked_locally": localMarks.contains(incidentId),
                 "phone_state": DebugStateRule.phoneState(
                     .init(
+                        active: !marks.contains(incidentId),
                         acknowledged: marks.contains(incidentId),
                         inLocalAckedSet: localMarks.contains(incidentId),
                         live: alarmIsLive(incidentId: incidentId),
