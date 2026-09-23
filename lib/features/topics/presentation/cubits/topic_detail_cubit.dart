@@ -402,24 +402,36 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
 
   /// Sends one acknowledge per guess and returns the ids the server would not
   /// take, having put each of those back in the shared list. A 409 means it
-  /// was already acknowledged somewhere else, which is a success here.
+  /// was already acknowledged, closed or expired somewhere else, which is a
+  /// success here.
   Future<List<String>> _sendAcks(Map<String, OptimisticAck> guesses) async {
     final stillOpen = <String>[];
-    final acked = <Incident>[];
+    final fromServer = <Incident>[];
     for (final entry in guesses.entries) {
       final result = await _incidentRepository.ackIncident(entry.key);
       final failure = result.exceptionOrNull();
       if (failure == null) {
         final incident = result.getOrNull();
-        if (incident != null) acked.add(incident);
+        if (incident != null) fromServer.add(incident);
         continue;
       }
-      if (failure is ApiFailure && failure.statusCode == 409) continue;
+      if (failure is ApiFailure && failure.statusCode == 409) {
+        // The phone still held this one as open, so it has missed a change.
+        // Ask for the incident by id: a list read with `since` may never
+        // mention it again, and the stale open row would come back on the
+        // next refresh.
+        final fresh = (await _incidentRepository.getIncident(
+          entry.key,
+        )).getOrNull();
+        if (fresh != null) fromServer.add(fresh);
+        continue;
+      }
       stillOpen.add(entry.key);
       _incidents.revert(entry.value);
     }
-    // The server's own copies, which carry the real acked_at.
-    _incidents.applyIncidents(acked);
+    // The server's own copies, which carry the real acked_at, and land in the
+    // store as well as the list.
+    _incidents.applyIncidents(fromServer);
     return stillOpen;
   }
 
