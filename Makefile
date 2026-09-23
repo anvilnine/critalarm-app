@@ -113,6 +113,19 @@ release-android:
 release-android-dry:
 	./scripts/release-android.sh --dry-run
 
+# Both stores on the build number already in pubspec. No bump: set it first.
+# The two builds run one after the other, because Xcode and Gradle at the same
+# time fight over the machine. The gates run once, in the iOS step. The two
+# uploads run side by side, and the target fails if either one does.
+release-both:
+	./scripts/release-ios.sh --build-only
+	./scripts/release-android.sh --build-only --skip-gates
+	./scripts/release-ios.sh --upload-only & ios=$$!; \
+	./scripts/release-android.sh --upload-only & android=$$!; \
+	wait $$ios; ios_status=$$?; \
+	wait $$android; android_status=$$?; \
+	[ $$ios_status -eq 0 ] && [ $$android_status -eq 0 ]
+
 # --- Worktrees ---------------------------------------------------------------
 # One folder per branch under worktrees/. See worktrees/README.md for the flow.
 

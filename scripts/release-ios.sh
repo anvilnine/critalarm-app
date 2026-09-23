@@ -13,6 +13,7 @@
 #   ./scripts/release-ios.sh              build, validate and upload
 #   ./scripts/release-ios.sh --bump       same, after bumping the build number
 #   ./scripts/release-ios.sh --build-only just build the ipa
+#   ./scripts/release-ios.sh --upload-only upload the ipa already under build/, no gates, no build
 #   ./scripts/release-ios.sh --dry-run    build and validate, never upload
 #
 # WHAT YOU NEED ONCE
@@ -45,6 +46,7 @@ secrets_dir="$(cd ../secrets 2>/dev/null && pwd || true)"
 bump=0
 skip_gates=0
 build_only=0
+upload_only=0
 dry_run=0
 allow_dirty=0
 
@@ -53,6 +55,7 @@ while [ $# -gt 0 ]; do
     --bump) bump=1 ;;
     --skip-gates) skip_gates=1 ;;
     --build-only) build_only=1 ;;
+    --upload-only) upload_only=1 ;;
     --dry-run) dry_run=1 ;;
     --allow-dirty) allow_dirty=1 ;;
     -h|--help) awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "$0"; exit 0 ;;
@@ -63,6 +66,12 @@ done
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 die() { printf '\033[31mrelease-ios: %s\033[0m\n' "$1" >&2; exit 1; }
+
+# The ipa under build/ already carries its number. Moving pubspec now would
+# upload one number and commit another.
+if [ "$upload_only" -eq 1 ] && [ "$bump" -eq 1 ]; then
+  die "--upload-only cannot take --bump. Bump, then build, then upload."
+fi
 
 # ---------------------------------------------------------------- preconditions
 
@@ -97,13 +106,17 @@ if [ "$bump" -eq 1 ]; then
   # after the whole upload has finished.
   perl -pi -e "s/^version: .*/version: $name+$number/" pubspec.yaml
   say "Build number is now $name+$number"
+elif [ "$upload_only" -eq 1 ]; then
+  say "Uploading the ipa already built for $name+$number."
 else
   say "Building $name+$number. Pass --bump if Apple already has this build number."
 fi
 
 # ------------------------------------------------------------------------- gates
 
-if [ "$skip_gates" -eq 0 ]; then
+if [ "$upload_only" -eq 1 ]; then
+  echo "release-ios: --upload-only, skipping gates and build."
+elif [ "$skip_gates" -eq 0 ]; then
   say "Running the gates"
   make test
   make analyze
@@ -114,17 +127,24 @@ fi
 
 # ------------------------------------------------------------------------- build
 
-say "Generating Google.xcconfig"
-./scripts/gen-google-xcconfig.sh
+if [ "$upload_only" -eq 0 ]; then
+  say "Generating Google.xcconfig"
+  ./scripts/gen-google-xcconfig.sh
 
-say "Building the ipa"
-# No SKIP_PAYWALL here on purpose. That flag fakes a Pro subscription and hides
-# the paywall, which is the one screen App Review looks hardest at.
-fvm flutter build ipa --release
+  say "Building the ipa"
+  # No SKIP_PAYWALL here on purpose. That flag fakes a Pro subscription and
+  # hides the paywall, which is the one screen App Review looks hardest at.
+  fvm flutter build ipa --release
+fi
 
 ipa="$(ls -t build/ios/ipa/*.ipa 2>/dev/null | head -n 1 || true)"
-[ -n "$ipa" ] || die "no .ipa under build/ios/ipa. The build printed why."
-say "Built $(basename "$ipa") ($(du -h "$ipa" | cut -f1))"
+if [ "$upload_only" -eq 1 ]; then
+  [ -n "$ipa" ] || die "no .ipa under build/ios/ipa. Run without --upload-only, or with --build-only first."
+  say "Found $(basename "$ipa") ($(du -h "$ipa" | cut -f1))"
+else
+  [ -n "$ipa" ] || die "no .ipa under build/ios/ipa. The build printed why."
+  say "Built $(basename "$ipa") ($(du -h "$ipa" | cut -f1))"
+fi
 
 if [ "$build_only" -eq 1 ]; then
   echo "release-ios: --build-only, stopping here."
