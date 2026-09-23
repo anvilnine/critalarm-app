@@ -500,11 +500,18 @@ void main() {
       final now = DateTime.now().toUtc();
       server.seedCalm();
       // Add a P4 message with no incident id, older than 30 minutes.
-      final oldTime = now.subtract(const Duration(minutes: 31)).millisecondsSinceEpoch ~/ 1000;
-      server.publishMessage('prod-db', priority: 4, message: 'old p4');
-      // Patch its time to be old by directly publishing via seedState
-      server.reset();
-      final prodDb = Topic(name: 'prod-db', critical: true, createdAt: now.subtract(const Duration(days: 30)));
+      final oldTime =
+          now.subtract(const Duration(minutes: 31)).millisecondsSinceEpoch ~/
+          1000;
+      server
+        ..publishMessage('prod-db', priority: 4, message: 'old p4')
+        // Patch its time to be old by directly publishing via seedState
+        ..reset();
+      final prodDb = Topic(
+        name: 'prod-db',
+        critical: true,
+        createdAt: now.subtract(const Duration(days: 30)),
+      );
       server.seedState(
         topics: [prodDb],
         messages: [
@@ -513,7 +520,6 @@ void main() {
             topic: 'prod-db',
             time: oldTime,
             priority: 4,
-            tags: const [],
           ),
         ],
       );
@@ -527,7 +533,11 @@ void main() {
 
     test('P4 inside an acked incident does not keep face worried', () async {
       final now = DateTime.now().toUtc();
-      final prodDb = Topic(name: 'prod-db', critical: true, createdAt: now.subtract(const Duration(days: 30)));
+      final prodDb = Topic(
+        name: 'prod-db',
+        critical: true,
+        createdAt: now.subtract(const Duration(days: 30)),
+      );
       final ackedAt = now.subtract(const Duration(minutes: 2));
       final p4Msg = Message(
         id: 'm_p4',
@@ -563,7 +573,11 @@ void main() {
       var now = DateTime.now().toUtc();
       DateTime clock() => now;
 
-      final prodDb = Topic(name: 'prod-db', critical: true, deskTimerS: 600, createdAt: now.subtract(const Duration(days: 30)));
+      final prodDb = Topic(
+        name: 'prod-db',
+        critical: true,
+        createdAt: now.subtract(const Duration(days: 30)),
+      );
       final ackedAt = now.subtract(const Duration(minutes: 2));
       server.seedState(
         topics: [prodDb],
@@ -578,7 +592,14 @@ void main() {
         ],
       );
 
-      final cubit = HomeCubit(incidentsCubit, topicsCubit, incidentRepo, null, null, clock);
+      final cubit = HomeCubit(
+        incidentsCubit,
+        topicsCubit,
+        incidentRepo,
+        null,
+        null,
+        clock,
+      );
       addTearDown(cubit.close);
       await cubit.load();
       await _settle();

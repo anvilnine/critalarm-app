@@ -2,9 +2,9 @@ import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
-import 'package:critalarm/design_system/motion.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/design_system/motion.dart';
 import 'package:flutter/material.dart';
 
 /// Custom iOS-style toggle switch (48x28) matching index.html .tsw.

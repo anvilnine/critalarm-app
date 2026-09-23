@@ -10,7 +10,6 @@ void main() {
     baseUrl: 'https://alerts.example.com',
     tier: 'free',
     historyDays: 30,
-    quietHoursHolding: false,
   );
 
   test('parses native snapshot sections and converts epoch seconds to UTC', () {

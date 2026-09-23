@@ -6,9 +6,9 @@ import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
-import 'package:critalarm/design_system/motion.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/design_system/motion.dart';
 import 'package:flutter/material.dart';
 
 /// Expressive stage container matching index.html .stage.
@@ -118,7 +118,7 @@ class AppStage extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       children: [
                         ...previousChildren,
-                        if (currentChild != null) currentChild,
+                        ?currentChild,
                       ],
                     ),
                     transitionBuilder: (child, animation) => FadeTransition(
@@ -138,7 +138,8 @@ class AppStage extends StatelessWidget {
                           )
                         : KeyedSubtree(
                             key: ValueKey('stage_horizontal_content_$sub'),
-                            child: subWidget ??
+                            child:
+                                subWidget ??
                                 Text(
                                   sub ?? '',
                                   style: horizontalSubStyle(colors),
@@ -187,7 +188,7 @@ class AppStage extends StatelessWidget {
                     alignment: Alignment.centerLeft,
                     children: [
                       ...previousChildren,
-                      if (currentChild != null) currentChild,
+                      ?currentChild,
                     ],
                   ),
                   transitionBuilder: (child, animation) => FadeTransition(
@@ -284,7 +285,7 @@ class AppStage extends StatelessWidget {
                 alignment: Alignment.topCenter,
                 children: [
                   ...previousChildren,
-                  if (currentChild != null) currentChild,
+                  ?currentChild,
                 ],
               ),
               transitionBuilder: (child, animation) => FadeTransition(

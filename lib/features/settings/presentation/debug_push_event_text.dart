@@ -32,5 +32,6 @@ String _dateText(DateTime? time, DateTime now) {
       : duration.inHours > 0
       ? '${duration.inHours}h'
       : '${duration.inMinutes}m';
-  return '$absolute · ${difference.isNegative ? '$relative ago' : 'in $relative'}';
+  final when = difference.isNegative ? '$relative ago' : 'in $relative';
+  return '$absolute · $when';
 }

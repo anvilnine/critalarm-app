@@ -3,8 +3,8 @@ import 'dart:convert';
 
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/api_client.dart';
-import 'package:critalarm/core/net/launch_retry.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
+import 'package:critalarm/core/net/launch_retry.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/design/motion.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
@@ -5,7 +7,8 @@ import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:flutter/material.dart';
 
-/// Scope holding the current pulse value (0.0 to 1.0) for descendant skeleton bones.
+/// Scope holding the current pulse value (0.0 to 1.0) for descendant
+/// skeleton bones.
 class _SkeletonScope extends InheritedWidget {
   const _SkeletonScope({
     required this.pulseValue,
@@ -26,10 +29,10 @@ class _SkeletonScope extends InheritedWidget {
       pulseValue != oldWidget.pulseValue;
 }
 
-/// A wrapper that drives a subtle breathing pulse across nested [AppSkeletonBone]
-/// widgets.
+/// A wrapper that drives a subtle breathing pulse across nested
+/// [AppSkeletonBone] widgets.
 ///
-/// Respects [context.reduceMotion] — if animations are reduced, it holds a
+/// Respects `context.reduceMotion` — if animations are reduced, it holds a
 /// static baseline opacity without running the animation ticker.
 class AppSkeleton extends StatefulWidget {
   const AppSkeleton({
@@ -70,7 +73,7 @@ class _AppSkeletonState extends State<AppSkeleton>
         ..value = 0.0;
     } else {
       if (!_controller.isAnimating) {
-        _controller.repeat(reverse: true);
+        unawaited(_controller.repeat(reverse: true));
       }
     }
   }
@@ -85,7 +88,7 @@ class _AppSkeletonState extends State<AppSkeleton>
   Widget build(BuildContext context) {
     if (_reduceMotion) {
       return _SkeletonScope(
-        pulseValue: 0.0,
+        pulseValue: 0,
         child: widget.child,
       );
     }
@@ -102,7 +105,7 @@ class _AppSkeletonState extends State<AppSkeleton>
 
 /// A single skeleton placeholder block.
 ///
-/// Automatically shades using [context.appColors.ink] with opacities that look
+/// Automatically shades using `context.appColors.ink` with opacities that look
 /// natural and distinct in both Light and Dark themes.
 class AppSkeletonBone extends StatelessWidget {
   const AppSkeletonBone({
@@ -152,7 +155,7 @@ class AppSkeletonBone extends StatelessWidget {
   }
 }
 
-/// Skeleton representation of [AppMessageCard] matching its exact dimensions,
+/// Skeleton representation of `AppMessageCard` matching its exact dimensions,
 /// padding, and shape.
 class AppMessageCardSkeleton extends StatelessWidget {
   const AppMessageCardSkeleton({super.key});
@@ -214,7 +217,7 @@ class AppMessageCardSkeleton extends StatelessWidget {
   }
 }
 
-/// Skeleton representation of a token row ([_TokenRow] / [AppListRow]).
+/// Skeleton representation of a token row (`_TokenRow` / `AppListRow`).
 class AppTokenRowSkeleton extends StatelessWidget {
   const AppTokenRowSkeleton({super.key});
 
@@ -296,7 +299,7 @@ class AppTokensSectionSkeleton extends StatelessWidget {
           SizedBox(height: 8),
           AppTokenRowSkeleton(),
           SizedBox(height: 8),
-          AppButtonSkeleton(height: 36),
+          AppButtonSkeleton(),
         ],
       ),
     );

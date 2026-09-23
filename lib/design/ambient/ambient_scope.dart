@@ -1,8 +1,11 @@
+import 'package:critalarm/app/shell/app_ambient_shell.dart'
+    show AppAmbientShell;
 import 'package:critalarm/design/ambient/ambient_profile.dart';
 import 'package:critalarm/design/ambient/ambient_transition.dart';
 import 'package:flutter/widgets.dart';
 
-/// Controller coordinating ambient canvas profile overrides from descendant screens.
+/// Controller coordinating ambient canvas profile overrides from descendant
+/// screens.
 class AmbientController extends ChangeNotifier {
   AmbientProfile? _overrideProfile;
   AmbientDirection? _overrideDirection;
