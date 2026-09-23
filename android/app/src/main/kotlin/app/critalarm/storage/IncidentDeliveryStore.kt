@@ -52,6 +52,7 @@ class IncidentDeliveryStore(context: Context) {
                 remove("closed:$incidentId")
                 remove("acked_at:$incidentId")
                 remove("desk_timer_fires_at:$incidentId")
+                remove("local_acked_at:$incidentId")
             }
         }.apply()
     }
@@ -63,6 +64,14 @@ class IncidentDeliveryStore(context: Context) {
             .remove("active:$incidentId")
             .apply()
     }
+
+    fun markLocallyAcknowledged(incidentId: String, atMillis: Long = System.currentTimeMillis()) {
+        markAcknowledged(incidentId, atMillis)
+        preferences.edit().putLong("local_acked_at:$incidentId", atMillis).apply()
+    }
+
+    fun locallyAcknowledgedAtMillis(incidentId: String): Long? =
+        preferences.getLong("local_acked_at:$incidentId", 0L).takeIf { it > 0L }
 
     /**
      * A closed incident is also an acknowledged one, so a repeat push that
@@ -118,6 +127,7 @@ class IncidentDeliveryStore(context: Context) {
         val acknowledged: Boolean,
         val closed: Boolean,
         val acknowledgedAtMillis: Long?,
+        val locallyAcknowledgedAtMillis: Long?,
         val deskTimerFiresAtMillis: Long?,
         val ringUntilMillis: Long?,
         val rearmFiresAtMillis: Long?,
@@ -127,7 +137,8 @@ class IncidentDeliveryStore(context: Context) {
     internal fun debugEntries(): List<DebugEntry> = incidentIds().map { incidentId ->
         DebugEntry(
             incidentId, isActive(incidentId), isAcknowledged(incidentId), isClosed(incidentId),
-            acknowledgedAtMillis(incidentId), deskTimerFiresAtMillis(incidentId), ringUntilMillis(incidentId),
+            acknowledgedAtMillis(incidentId), locallyAcknowledgedAtMillis(incidentId),
+            deskTimerFiresAtMillis(incidentId), ringUntilMillis(incidentId),
             rearmFiresAtMillis(incidentId), topicOf(incidentId),
         )
     }
@@ -143,13 +154,12 @@ class IncidentDeliveryStore(context: Context) {
     internal fun clearAcknowledgedMarks() {
         val edit = preferences.edit()
         incidentIds().forEach { incidentId ->
-            edit.remove("acknowledged:$incidentId")
-            edit.remove("acked_at:$incidentId")
+            edit.remove("local_acked_at:$incidentId")
         }
         edit.apply()
     }
 
-    private fun rearmFiresAtMillis(incidentId: String): Long? =
+    internal fun rearmFiresAtMillis(incidentId: String): Long? =
         preferences.getLong("rearm_fires_at:$incidentId", 0L).takeIf { it > 0L }
 
     /**
@@ -196,6 +206,7 @@ class IncidentDeliveryStore(context: Context) {
             "ring_until:",
             "topic:",
             "rearm_fires_at:",
+            "local_acked_at:",
         )
     }
 }

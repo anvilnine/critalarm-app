@@ -12,6 +12,7 @@ import Foundation
 /// Stored as `[incident_id: marked_at_ms]` so old entries can be pruned.
 enum AckedIncidentStore {
     static let key = "acked_incidents_v1"
+    static let localKey = "locally_acked_incidents_v1"
     static let appGroup = "group.app.critalarm"
 
     static var groupDefaults: UserDefaults? { UserDefaults(suiteName: appGroup) }
@@ -30,6 +31,23 @@ enum AckedIncidentStore {
         var entries = read(from: defaults)
         entries[incidentId] = Int(now.timeIntervalSince1970 * 1_000)
         defaults.set(entries, forKey: key)
+        var localEntries = readLocal(from: defaults)
+        localEntries[incidentId] = entries[incidentId]
+        defaults.set(localEntries, forKey: localKey)
+    }
+
+    static func markRemotelyAcknowledged(
+        incidentId: String,
+        at now: Date = Date(),
+        in defaults: UserDefaults? = groupDefaults
+    ) {
+        guard let defaults else { return }
+        var entries = read(from: defaults)
+        entries[incidentId] = Int(now.timeIntervalSince1970 * 1_000)
+        defaults.set(entries, forKey: key)
+        var localEntries = readLocal(from: defaults)
+        localEntries.removeValue(forKey: incidentId)
+        defaults.set(localEntries, forKey: localKey)
     }
 
     static func contains(
@@ -46,8 +64,13 @@ enum AckedIncidentStore {
     ) {
         guard let defaults else { return }
         var entries = read(from: defaults)
-        guard entries.removeValue(forKey: incidentId) != nil else { return }
-        defaults.set(entries, forKey: key)
+        if entries.removeValue(forKey: incidentId) != nil {
+            defaults.set(entries, forKey: key)
+        }
+        var localEntries = readLocal(from: defaults)
+        if localEntries.removeValue(forKey: incidentId) != nil {
+            defaults.set(localEntries, forKey: localKey)
+        }
     }
 
     /// Drops every mark older than `window` seconds.
@@ -61,6 +84,9 @@ enum AckedIncidentStore {
         let entries = read(from: defaults)
         let kept = entries.filter { $0.value >= cutoff }
         if kept.count != entries.count { defaults.set(kept, forKey: key) }
+        let localEntries = readLocal(from: defaults)
+        let keptLocal = localEntries.filter { $0.value >= cutoff }
+        if keptLocal.count != localEntries.count { defaults.set(keptLocal, forKey: localKey) }
     }
 
     static func all(in defaults: UserDefaults? = groupDefaults) -> Set<String> {
@@ -70,11 +96,16 @@ enum AckedIncidentStore {
 
     static func debugEntries(in defaults: UserDefaults? = groupDefaults) -> [[String: Any]] {
         guard let defaults else { return [] }
-        return read(from: defaults).map { ["incident_id": $0.key, "marked_at": $0.value / 1_000] }
+        return readLocal(from: defaults).map { ["incident_id": $0.key, "marked_at": $0.value / 1_000] }
     }
 
-    static func clearAll(in defaults: UserDefaults? = groupDefaults) {
-        defaults?.removeObject(forKey: key)
+    static func clearLocalMarks(in defaults: UserDefaults? = groupDefaults) {
+        defaults?.removeObject(forKey: localKey)
+    }
+
+    static func locallyAcknowledged(in defaults: UserDefaults? = groupDefaults) -> Set<String> {
+        guard let defaults else { return [] }
+        return Set(readLocal(from: defaults).keys)
     }
 
     /// How long a mark for an incident on `topic` is worth keeping.
@@ -102,5 +133,9 @@ enum AckedIncidentStore {
 
     private static func read(from defaults: UserDefaults) -> [String: Int] {
         (defaults.dictionary(forKey: key) as? [String: Int]) ?? [:]
+    }
+
+    private static func readLocal(from defaults: UserDefaults) -> [String: Int] {
+        (defaults.dictionary(forKey: localKey) as? [String: Int]) ?? [:]
     }
 }

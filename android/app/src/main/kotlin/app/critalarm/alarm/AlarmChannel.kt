@@ -200,7 +200,7 @@ class AlarmChannel(private val context: Context) {
         // carried the ACK action is its own id and nothing else takes it down.
         manager?.cancel(MessageNotificationFactory.notificationId(incidentId))
         if (handOverToStatusCard) {
-            deliveries.markAcknowledged(incidentId, ackedAtMillis)
+            deliveries.markLocallyAcknowledged(incidentId, ackedAtMillis)
             // Without this the user keeps a promoted RINGING card on an
             // incident the app has already acked, and never sees an AWAKE one.
             NativeConnectionStore(context).canonicalServer()?.let { server ->

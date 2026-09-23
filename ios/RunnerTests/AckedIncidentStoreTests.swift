@@ -8,6 +8,7 @@ final class AckedIncidentStoreTests: XCTestCase {
     override func setUp() {
         super.setUp()
         store.removeObject(forKey: AckedIncidentStore.key)
+        store.removeObject(forKey: AckedIncidentStore.localKey)
     }
 
     func testMarkThenContains() {
@@ -45,6 +46,29 @@ final class AckedIncidentStoreTests: XCTestCase {
         AckedIncidentStore.mark(incidentId: "inc_2", in: store)
 
         XCTAssertEqual(AckedIncidentStore.all(in: store), ["inc_1", "inc_2"])
+    }
+
+    func testRemoteAcknowledgementDoesNotAppearAsLocallyAcknowledged() {
+        AckedIncidentStore.markRemotelyAcknowledged(incidentId: "inc_remote", in: store)
+
+        XCTAssertTrue(AckedIncidentStore.contains(incidentId: "inc_remote", in: store))
+        XCTAssertFalse(AckedIncidentStore.locallyAcknowledged(in: store).contains("inc_remote"))
+    }
+
+    func testLocalAcknowledgementIsIncludedInDebugMarks() {
+        AckedIncidentStore.mark(incidentId: "inc_local", in: store)
+
+        XCTAssertEqual(AckedIncidentStore.locallyAcknowledged(in: store), ["inc_local"])
+        XCTAssertEqual(AckedIncidentStore.debugEntries(in: store).count, 1)
+    }
+
+    func testClearingDebugMarksKeepsTheRepeatSuppressionMark() {
+        AckedIncidentStore.mark(incidentId: "inc_local", in: store)
+
+        AckedIncidentStore.clearLocalMarks(in: store)
+
+        XCTAssertTrue(AckedIncidentStore.contains(incidentId: "inc_local", in: store))
+        XCTAssertFalse(AckedIncidentStore.locallyAcknowledged(in: store).contains("inc_local"))
     }
 
     /// The Dart topic timer cache writes `repeat|max_ring|desk_timer` seconds

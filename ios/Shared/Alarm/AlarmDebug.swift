@@ -16,6 +16,7 @@ enum AlarmDebug {
         let rearming = IncidentRearm.debugEntries()
         let cache = IncidentContentCache.debugEntries()
         let marks = AckedIncidentStore.all()
+        let localMarks = AckedIncidentStore.locallyAcknowledged()
         let now = Date()
 
         let incidentRows = pending.map { incidentId, entry -> [String: Any] in
@@ -24,11 +25,11 @@ enum AlarmDebug {
                 "id": incidentId,
                 "topic": entry.topic,
                 "rearm_pending": rearmAt != nil,
-                "acked_locally": marks.contains(incidentId),
+                "acked_locally": localMarks.contains(incidentId),
                 "phone_state": DebugStateRule.phoneState(
                     .init(
                         acknowledged: marks.contains(incidentId),
-                        inLocalAckedSet: marks.contains(incidentId),
+                        inLocalAckedSet: localMarks.contains(incidentId),
                         live: alarmIsLive(incidentId: incidentId),
                         rearmPending: rearmAt != nil,
                         ringUntil: entry.ringUntil
@@ -56,6 +57,7 @@ enum AlarmDebug {
             }
             return row
         } + rearming.map { ["kind": "rearm", "identifier": $0.key, "fires_at": epochSeconds($0.value)] }
+            + alarmScheduleRows(incidentIds: knownIds)
 
         return [
             "incidents": incidentRows,
@@ -84,7 +86,7 @@ enum AlarmDebug {
     }
 
     static func clearAckedSet() {
-        AckedIncidentStore.clearAll()
+        AckedIncidentStore.clearLocalMarks()
         PushEventLog.record("debug_action", ["action": "clear_acked_set"])
     }
 
@@ -121,5 +123,28 @@ enum AlarmDebug {
         }
         #endif
         return false
+    }
+
+    private static func alarmScheduleRows(incidentIds: Set<String>) -> [[String: Any]] {
+        #if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            let ids = Dictionary(uniqueKeysWithValues: incidentIds.map {
+                (IncidentAlarmScheduler.alarmId(for: $0), $0)
+            })
+            return (try? AlarmManager.shared.alarms)?.compactMap { alarm in
+                guard let incidentId = ids[alarm.id] else { return nil }
+                var row: [String: Any] = [
+                    "kind": "alarmkit",
+                    "identifier": incidentId,
+                    "state": String(describing: alarm.state),
+                ]
+                if case let .fixed(date)? = alarm.schedule {
+                    row["fires_at"] = epochSeconds(date)
+                }
+                return row
+            } ?? []
+        }
+        #endif
+        return []
     }
 }

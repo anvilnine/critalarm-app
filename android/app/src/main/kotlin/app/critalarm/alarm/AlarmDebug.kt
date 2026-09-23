@@ -3,7 +3,6 @@ package app.critalarm.alarm
 import android.app.AlarmManager
 import android.app.NotificationManager
 import android.content.Context
-import android.os.Build
 import android.os.PowerManager
 import app.critalarm.storage.AckQueueStore
 import app.critalarm.storage.IncidentDeliveryStore
@@ -14,10 +13,14 @@ internal object AlarmDebug {
     fun snapshot(context: Context): Map<String, Any?> {
         val deliveries = IncidentDeliveryStore(context)
         val ackQueue = AckQueueStore(context).debugEntries()
-        val localAcked = ackQueue.mapNotNull { it["incident_id"] as? String }.toSet()
+        val deliveryEntries = deliveries.debugEntries()
+        val localAcked = deliveryEntries
+            .filter { it.locallyAcknowledgedAtMillis != null }
+            .map { it.incidentId }
+            .toSet()
         val now = System.currentTimeMillis()
-        val incidents = deliveries.debugEntries().map { entry ->
-            val pending = entry.rearmFiresAtMillis != null && ScheduledAlarmReceiver.isScheduled(context, entry.incidentId)
+        val incidents = deliveryEntries.map { entry ->
+            val pending = ScheduledAlarmReceiver.isScheduled(context, entry.incidentId, entry.rearmFiresAtMillis)
             buildMap<String, Any> {
                 put("id", entry.incidentId)
                 entry.topic?.let { put("topic", it) }
@@ -43,21 +46,37 @@ internal object AlarmDebug {
                 )
             }
         }
-        val scheduled = deliveries.debugEntries().mapNotNull { entry ->
-            if (!ScheduledAlarmReceiver.isScheduled(context, entry.incidentId)) return@mapNotNull null
+        val scheduled = deliveryEntries.mapNotNull { entry ->
+            if (!ScheduledAlarmReceiver.isScheduled(context, entry.incidentId, entry.rearmFiresAtMillis)) return@mapNotNull null
             buildMap<String, Any> {
                 put("kind", "rearm")
                 put("identifier", entry.incidentId)
                 entry.rearmFiresAtMillis?.let { put("fires_at", seconds(it)) }
             }
+        }.toMutableList()
+        val nextAlarmClock = context.getSystemService(AlarmManager::class.java)?.nextAlarmClock
+        val nextIncident = nextAlarmClock?.let { clock ->
+            deliveryEntries.firstOrNull {
+                it.rearmFiresAtMillis == clock.triggerTime &&
+                    ScheduledAlarmReceiver.isScheduled(context, it.incidentId, it.rearmFiresAtMillis)
+            }
+        }
+        if (nextAlarmClock != null && nextIncident != null) {
+            scheduled.add(mapOf(
+                "kind" to "alarm_manager",
+                "identifier" to nextIncident.incidentId,
+                "fires_at" to seconds(nextAlarmClock.triggerTime),
+            ))
         }
 
         return mapOf(
             "incidents" to incidents,
             "ack_queue" to ackQueue,
-            "acked_set" to deliveries.debugEntries()
-                .filter { it.acknowledged }
-                .map { mapOf("incident_id" to it.incidentId, "marked_at" to (it.acknowledgedAtMillis?.let(::seconds))) },
+            "acked_set" to deliveryEntries.mapNotNull { entry ->
+                entry.locallyAcknowledgedAtMillis?.let { markedAt ->
+                    mapOf("incident_id" to entry.incidentId, "marked_at" to seconds(markedAt))
+                }
+            },
             "scheduled" to scheduled,
             "permissions" to mapOf(
                 "notifications" to notificationPermission(context),
@@ -87,7 +106,6 @@ internal object AlarmDebug {
     private fun seconds(millis: Long): Int = (millis / 1_000L).toInt()
 
     private fun notificationPermission(context: Context): String {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return "authorized"
         val manager = context.getSystemService(NotificationManager::class.java) ?: return "unsupported"
         return if (manager.areNotificationsEnabled()) "authorized" else "denied"
     }
