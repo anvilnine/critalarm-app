@@ -56,7 +56,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
 
     final askFor = fullRefresh
         ? null
-        : (since ?? await store.incidents.newestOpenedAt());
+        : (since ?? await store.incidents.newestUpdatedAt());
     store.recordLastSince(askFor);
 
     try {
@@ -107,6 +107,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
   Future<AppResult<Incident>> ackIncident(String id) async {
     try {
       final incident = await _client.ackIncident(id);
+      await store?.incidents.upsertAll([incident]);
       return incident.toSuccess();
     } on ApiException catch (e) {
       return Failure.api(
@@ -124,6 +125,7 @@ class InMemoryIncidentRepository implements IncidentRepository {
   Future<AppResult<Incident>> closeIncident(String id) async {
     try {
       final incident = await _client.closeIncident(id);
+      await store?.incidents.upsertAll([incident]);
       return incident.toSuccess();
     } on ApiException catch (e) {
       return Failure.api(
@@ -135,6 +137,11 @@ class InMemoryIncidentRepository implements IncidentRepository {
     } on Exception catch (e) {
       return Failure.unexpected(message: e.toString()).toFailure();
     }
+  }
+
+  @override
+  Future<void> saveIncident(Incident incident) async {
+    await store?.incidents.upsertAll([incident]);
   }
 
   @override

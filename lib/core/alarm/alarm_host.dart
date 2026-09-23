@@ -232,6 +232,12 @@ final class AlarmHost {
   /// Clears local native acknowledgement marks.
   Future<void> clearAckedSet() => _invoke<void>('clearAckedSet');
 
+  /// Writes the open incident ids into the app group. The notification
+  /// delegate reads them to know while an alarm is under way, so it can keep
+  /// other banners off. Off iOS there is no handler and the call is a no-op.
+  Future<void> setOpenIncidents(List<String> incidentIds) async =>
+      _invoke<void>('setOpenIncidents', {'incident_ids': incidentIds});
+
   /// Onboarding uses this once so the Allow prompt happens before the relay
   /// ever tries a remote start.
   Future<bool> startLocalActivity({

@@ -45,6 +45,17 @@ class IncidentDeliveryStore(context: Context) {
         .map { it.removePrefix("acknowledged:") }
         .filter { it.isNotEmpty() && isAcknowledged(it) && !isClosed(it) }
 
+    /**
+     * Every incident this device has open and has not acked: the `active:`
+     * flag is set when a push rings one and removed by the ack. While one is
+     * in here the phone can still ring for it, even when nothing is playing
+     * this second, because a re-arm is waiting.
+     */
+    fun activeIncidentIds(): List<String> = preferences.all.keys
+        .filter { it.startsWith("active:") }
+        .map { it.removePrefix("active:") }
+        .filter { it.isNotEmpty() && isActive(it) }
+
     fun activate(incidentId: String, reopen: Boolean = false) {
         preferences.edit().putBoolean("active:$incidentId", true).apply {
             if (reopen) {
@@ -55,6 +66,15 @@ class IncidentDeliveryStore(context: Context) {
                 remove("local_acked_at:$incidentId")
             }
         }.apply()
+    }
+
+    /**
+     * Drops the active flag and nothing else. For an incident this phone can
+     * no longer ring for because `ring_until` has passed: it was never acked
+     * and it was never closed, so neither of those belongs here.
+     */
+    fun deactivate(incidentId: String) {
+        preferences.edit().remove("active:$incidentId").apply()
     }
 
     fun markAcknowledged(incidentId: String, atMillis: Long = System.currentTimeMillis()) {

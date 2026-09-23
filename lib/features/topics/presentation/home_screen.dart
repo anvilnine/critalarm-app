@@ -92,10 +92,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   /// the tour is pointing at things.
   Future<void> _runHomeAsk() async {
     if (_tour.state.isRunning) return;
-    await runHomeAsk(
-      context,
-      isRinging: context.read<HomeCubit>().state.ringingIncidentId != null,
-    );
+    await runHomeAsk(context);
   }
 
   @override

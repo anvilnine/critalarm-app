@@ -18,6 +18,7 @@ class CriticalAlarmState {
   const CriticalAlarmState({
     this.status = CriticalAlarmStatus.initial,
     this.incident,
+    this.openIncidents = const <Incident>[],
     this.topic = '',
     this.word = '',
     this.subtext = '',
@@ -36,6 +37,9 @@ class CriticalAlarmState {
 
   final CriticalAlarmStatus status;
   final Incident? incident;
+
+  /// The open incidents still ringing, newest first by [Incident.openedAt].
+  final List<Incident> openIncidents;
   final String topic;
   final String word;
   final String subtext;
@@ -59,6 +63,7 @@ class CriticalAlarmState {
   CriticalAlarmState copyWith({
     CriticalAlarmStatus? status,
     Incident? incident,
+    List<Incident>? openIncidents,
     String? topic,
     String? word,
     String? subtext,
@@ -79,6 +84,7 @@ class CriticalAlarmState {
     return CriticalAlarmState(
       status: status ?? this.status,
       incident: incident ?? this.incident,
+      openIncidents: openIncidents ?? this.openIncidents,
       topic: topic ?? this.topic,
       word: word ?? this.word,
       subtext: subtext ?? this.subtext,
@@ -105,6 +111,7 @@ class CriticalAlarmState {
           runtimeType == other.runtimeType &&
           status == other.status &&
           incident == other.incident &&
+          listEquals(openIncidents, other.openIncidents) &&
           topic == other.topic &&
           word == other.word &&
           subtext == other.subtext &&
@@ -124,6 +131,7 @@ class CriticalAlarmState {
   int get hashCode => Object.hash(
     status,
     incident,
+    Object.hashAll(openIncidents),
     topic,
     word,
     subtext,

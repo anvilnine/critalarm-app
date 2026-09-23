@@ -18,6 +18,7 @@ class SharedPrefsHomePromptRepository implements HomePromptRepository {
   static const _feedbackAskedKey = 'home_prompt_feedback_asked_at';
   static const _proLaterKey = 'home_prompt_pro_later_at';
   static const _lastAcknowledgedKey = 'home_prompt_last_acknowledged_at';
+  static const _afterAckSheetKey = 'home_prompt_after_ack_sheet_at';
 
   DateTime? _readTime(String key) {
     final ms = _prefs.getInt(key);
@@ -139,4 +140,10 @@ class SharedPrefsHomePromptRepository implements HomePromptRepository {
 
   @override
   Future<void> markAcknowledged() => _stampNow(_lastAcknowledgedKey);
+
+  @override
+  DateTime? getAfterAckSheetShownAt() => _readTime(_afterAckSheetKey);
+
+  @override
+  Future<void> markAfterAckSheetShown() => _stampNow(_afterAckSheetKey);
 }

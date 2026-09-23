@@ -66,4 +66,9 @@ abstract class HomePromptRepository {
   /// When an alarm was last acknowledged from inside the app.
   DateTime? getLastAcknowledgedAt();
   Future<void> markAcknowledged();
+
+  /// When the after-ack reminder or Pro sheet last showed. Stamped as the
+  /// sheet opens, so a second ack the same calendar day shows nothing.
+  DateTime? getAfterAckSheetShownAt();
+  Future<void> markAfterAckSheetShown();
 }

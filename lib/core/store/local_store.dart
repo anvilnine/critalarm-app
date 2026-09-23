@@ -23,7 +23,7 @@ class LocalStore {
       messages = MessageStore(db);
 
   /// Bumped whenever a table changes, with a matching step in [_upgrade].
-  static const schemaVersion = 1;
+  static const schemaVersion = 2;
 
   static const fileName = 'critalarm.db';
 
@@ -106,7 +106,7 @@ class LocalStore {
         CREATE TABLE incidents (
           id TEXT PRIMARY KEY, topic TEXT NOT NULL, state TEXT NOT NULL,
           opened_at INTEGER NOT NULL, acked_at INTEGER, closed_at INTEGER,
-          last_message_at INTEGER NOT NULL, max_ring_s INTEGER,
+          updated_at INTEGER, last_message_at INTEGER NOT NULL, max_ring_s INTEGER,
           priority INTEGER NOT NULL, synced_at INTEGER NOT NULL
         )
       ''')
@@ -127,7 +127,13 @@ class LocalStore {
   }
 
   static Future<void> _upgrade(Database db, int from, int to) async {
-    // Version 1 is the first schema, so there is nothing to step through yet.
+    if (from < 2) {
+      await db.execute('ALTER TABLE incidents ADD COLUMN updated_at INTEGER');
+      await db.execute(
+        'UPDATE incidents '
+        'SET updated_at = COALESCE(closed_at, acked_at, opened_at)',
+      );
+    }
   }
 }
 
@@ -179,6 +185,7 @@ class IncidentStore {
         'opened_at': openedAt ?? syncedAt,
         'acked_at': _epoch(incident.ackedAt),
         'closed_at': _epoch(incident.closedAt),
+        'updated_at': _epoch(incident.updatedAt),
         'last_message_at':
             _epoch(incident.lastMessageAt) ?? openedAt ?? syncedAt,
         'max_ring_s': null,
@@ -193,12 +200,20 @@ class IncidentStore {
   }
 
   /// The newest `opened_at` held, or null when the store is empty.
-  ///
-  /// This is what goes on the wire as `since` (api.md §3.2), which is
-  /// exclusive, so the server answers with what this phone has not seen.
   Future<DateTime?> newestOpenedAt() async {
     final rows = await _db.rawQuery(
       'SELECT MAX(opened_at) AS newest FROM incidents',
+    );
+    return _time(rows.first['newest']);
+  }
+
+  /// The newest `updated_at` held, or null when the store is empty.
+  ///
+  /// This is what goes on the wire as `since` (api.md §3.2), which is
+  /// exclusive, so the server answers with what this phone has not seen.
+  Future<DateTime?> newestUpdatedAt() async {
+    final rows = await _db.rawQuery(
+      'SELECT MAX(updated_at) AS newest FROM incidents',
     );
     return _time(rows.first['newest']);
   }
@@ -302,6 +317,7 @@ class IncidentStore {
       openedAt: _time(row['opened_at']),
       ackedAt: _time(row['acked_at']),
       closedAt: _time(row['closed_at']),
+      updatedAt: _time(row['updated_at']),
       lastMessageAt: _time(row['last_message_at']),
       messages: messages,
     );
