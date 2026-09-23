@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:critalarm/core/net/launch_retry.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
+import 'package:critalarm/core/net/launch_retry.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
 import 'package:flutter/foundation.dart';

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
 import 'package:critalarm/core/ack/ack_queue_entry.dart';
+import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
 import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -19,32 +19,20 @@ enum AlarmDebugAction {
 /// Coordinates diagnostic reads and explicit developer actions.
 final class AlarmDebugCubit extends Cubit<AlarmDebugState> {
   AlarmDebugCubit({
-    required Future<Map<String, Object?>> Function() readNative,
-    required Future<DebugEnvironment> Function() readEnvironment,
-    required List<AckQueueEntry> Function() readDartAckQueue,
-    required List<DebugPushEvent> Function() readPushEvents,
-    required List<DebugLaunchCall> Function() readLaunchCalls,
-    required Future<DebugStoreStats> Function() readStoreStats,
-    required Future<void> Function() flushNow,
-    required Future<void> Function() cancelAllRearms,
-    required Future<void> Function() clearContentCache,
-    required Future<void> Function() clearAckedSet,
-    required Future<void> Function() reconcileNow,
-    required void Function(String action) recordDebugAction,
+    required this._readNative,
+    required this._readEnvironment,
+    required this._readDartAckQueue,
+    required this._readPushEvents,
+    required this._readLaunchCalls,
+    required this._readStoreStats,
+    required this._flushNow,
+    required this._cancelAllRearms,
+    required this._clearContentCache,
+    required this._clearAckedSet,
+    required this._reconcileNow,
+    required this._recordDebugAction,
     DateTime Function()? clock,
-  }) : _readNative = readNative,
-       _readEnvironment = readEnvironment,
-       _readDartAckQueue = readDartAckQueue,
-       _readPushEvents = readPushEvents,
-       _readLaunchCalls = readLaunchCalls,
-       _readStoreStats = readStoreStats,
-       _flushNow = flushNow,
-       _cancelAllRearms = cancelAllRearms,
-       _clearContentCache = clearContentCache,
-       _clearAckedSet = clearAckedSet,
-       _reconcileNow = reconcileNow,
-       _recordDebugAction = recordDebugAction,
-       _clock = clock ?? DateTime.now,
+  }) : _clock = clock ?? DateTime.now,
        super(const AlarmDebugState());
 
   final Future<Map<String, Object?>> Function() _readNative;

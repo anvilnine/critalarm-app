@@ -1,11 +1,15 @@
 import 'package:critalarm/design/components/skeleton.dart';
-import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/theme/theme.dart';
+import 'package:critalarm/design/tokens/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Widget wrapWithTheme(Widget child, {bool isDark = false, bool reduceMotion = false}) {
+  Widget wrapWithTheme(
+    Widget child, {
+    bool isDark = false,
+    bool reduceMotion = false,
+  }) {
     return MaterialApp(
       theme: isDark ? buildDarkTheme() : buildLightTheme(),
       home: MediaQuery(
@@ -24,7 +28,6 @@ void main() {
           const AppSkeleton(
             child: AppSkeletonBone(width: 100, height: 20),
           ),
-          isDark: false,
         ),
       );
       await tester.pump(const Duration(milliseconds: 100));
@@ -35,7 +38,7 @@ void main() {
           matching: find.byType(Container),
         ),
       );
-      final decoration = container.decoration as BoxDecoration;
+      final decoration = container.decoration! as BoxDecoration;
       expect(decoration.color, isNotNull);
       // In light mode, ink is #1A140F (RGB: 26, 20, 15)
       expect(decoration.color!.r, closeTo(AppColors.light.ink.r, 0.01));
@@ -61,7 +64,7 @@ void main() {
           matching: find.byType(Container),
         ),
       );
-      final decoration = container.decoration as BoxDecoration;
+      final decoration = container.decoration! as BoxDecoration;
       expect(decoration.color, isNotNull);
       // In dark mode, ink is #F7F1EA (RGB: 247, 241, 234)
       expect(decoration.color!.r, closeTo(AppColors.dark.ink.r, 0.01));
@@ -87,7 +90,7 @@ void main() {
           matching: find.byType(Container),
         ),
       );
-      final firstColor = (firstContainer.decoration as BoxDecoration).color!;
+      final firstColor = (firstContainer.decoration! as BoxDecoration).color!;
 
       // Advance time by 450ms (half of 900ms pulse cycle)
       await tester.pump(const Duration(milliseconds: 450));
@@ -98,7 +101,7 @@ void main() {
           matching: find.byType(Container),
         ),
       );
-      final secondColor = (secondContainer.decoration as BoxDecoration).color!;
+      final secondColor = (secondContainer.decoration! as BoxDecoration).color!;
 
       // With reduced motion, opacity should not animate or change
       expect(firstColor.a, equals(secondColor.a));
@@ -106,9 +109,11 @@ void main() {
   });
 
   group('AppMessageCardSkeleton', () {
-    testWidgets('renders matching AppMessageCard dimensions and structure', (tester) async {
+    testWidgets('renders matching AppMessageCard dimensions and structure', (
+      tester,
+    ) async {
       await tester.pumpWidget(
-        wrapWithTheme(const AppMessageCardSkeleton(), isDark: false),
+        wrapWithTheme(const AppMessageCardSkeleton()),
       );
       await tester.pump(const Duration(milliseconds: 50));
 
@@ -131,7 +136,6 @@ void main() {
       await tester.pumpWidget(
         wrapWithTheme(
           const AppSkeleton(child: AppTokenRowSkeleton()),
-          isDark: false,
         ),
       );
       await tester.pump(const Duration(milliseconds: 50));
@@ -142,7 +146,7 @@ void main() {
 
     testWidgets('renders full tokens section skeleton', (tester) async {
       await tester.pumpWidget(
-        wrapWithTheme(const AppTokensSectionSkeleton(), isDark: false),
+        wrapWithTheme(const AppTokensSectionSkeleton()),
       );
       await tester.pump(const Duration(milliseconds: 50));
 

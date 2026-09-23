@@ -86,8 +86,9 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
   @override
   void dispose() {
     widget.router.routerDelegate.removeListener(_handleRouteChanged);
-    _controller.removeListener(_handleOverrideChanged);
-    _controller.dispose();
+    _controller
+      ..removeListener(_handleOverrideChanged)
+      ..dispose();
     super.dispose();
   }
 

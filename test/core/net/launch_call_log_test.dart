@@ -23,9 +23,10 @@ void main() {
     final log = LaunchCallLog();
     final first = DateTime.utc(2026, 9, 23, 10);
     final second = DateTime.utc(2026, 9, 23, 11);
-    log.recordSuccess('topics', at: first);
-    log.recordSuccess('register', at: first);
-    log.recordSuccess('topics', at: second);
+    log
+      ..recordSuccess('topics', at: first)
+      ..recordSuccess('register', at: first)
+      ..recordSuccess('topics', at: second);
 
     expect(log.lastSuccessByName, {'topics': second, 'register': first});
   });

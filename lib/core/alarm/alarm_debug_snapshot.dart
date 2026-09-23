@@ -132,19 +132,21 @@ final class AlarmDebugSnapshot {
   };
 }
 
-List<Map<String, Object?>> _rows(Object? value) =>
-    value is List ? value.whereType<Map>().map(_stringMap).toList() : const [];
+List<Map<String, Object?>> _rows(Object? value) => value is List
+    ? value.whereType<Map<Object?, Object?>>().map(_stringMap).toList()
+    : const [];
 
 Map<String, Object?> _stringMap(Map<Object?, Object?> value) => {
   for (final entry in value.entries)
-    if (entry.key is String) entry.key as String: entry.value,
+    if (entry.key is String) entry.key! as String: entry.value,
 };
 
 DateTime? _parseDate(Object? value) {
   if (value is DateTime) return value.toUtc();
   if (value is String) return DateTime.tryParse(value)?.toUtc();
-  if (value is int)
+  if (value is int) {
     return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
+  }
   return null;
 }
 
@@ -211,6 +213,18 @@ final class DebugEnvironment {
     this.quietHoursEnd,
   });
 
+  factory DebugEnvironment.fromJson(Map<String, Object?> json) =>
+      DebugEnvironment(
+        serverMode: json['server_mode'] as String?,
+        baseUrl: json['base_url'] as String?,
+        tier: json['tier'] as String?,
+        historyDays: json['history_days'] as int?,
+        quietHoursEnabled: json['quiet_hours_enabled'] == true,
+        quietHoursHolding: json['quiet_hours_holding'] == true,
+        quietHoursStart: json['quiet_hours_start'] as String?,
+        quietHoursEnd: json['quiet_hours_end'] as String?,
+      );
+
   final String? serverMode;
   final String? baseUrl;
   final String? tier;
@@ -230,18 +244,6 @@ final class DebugEnvironment {
     'quiet_hours_start': quietHoursStart,
     'quiet_hours_end': quietHoursEnd,
   };
-
-  factory DebugEnvironment.fromJson(Map<String, Object?> json) =>
-      DebugEnvironment(
-        serverMode: json['server_mode'] as String?,
-        baseUrl: json['base_url'] as String?,
-        tier: json['tier'] as String?,
-        historyDays: json['history_days'] as int?,
-        quietHoursEnabled: json['quiet_hours_enabled'] == true,
-        quietHoursHolding: json['quiet_hours_holding'] == true,
-        quietHoursStart: json['quiet_hours_start'] as String?,
-        quietHoursEnd: json['quiet_hours_end'] as String?,
-      );
 }
 
 enum DebugAckSource { dart, native, combined }
@@ -290,7 +292,7 @@ final class DebugIncident {
     };
     return DebugIncident(
       id: id,
-      topic: json['topic'] is String ? json['topic'] as String : null,
+      topic: json['topic'] is String ? json['topic']! as String : null,
       phoneState: rawState is String && knownStates.contains(rawState)
           ? rawState
           : 'unknown',
@@ -300,7 +302,7 @@ final class DebugIncident {
       ackedLocally: json['acked_locally'] == true,
       deskTimerFiresAt: _seconds(json['desk_timer_fires_at']),
       lastPushKind: json['last_push_kind'] is String
-          ? json['last_push_kind'] as String
+          ? json['last_push_kind']! as String
           : null,
       lastPushAt: _seconds(json['last_push_at']),
       contentCachedAt: _seconds(json['content_cached_at']),
@@ -349,8 +351,8 @@ final class DebugAckEntry {
     required this.incidentId,
     required this.attempts,
     required this.nextAttemptAt,
-    this.lastError,
     required this.source,
+    this.lastError,
   });
 
   final String action;
@@ -365,15 +367,19 @@ final class DebugAckEntry {
     final id = json['incident_id'];
     final attempts = json['attempts'];
     final next = _seconds(json['next_attempt_at']);
-    if (action is! String || id is! String || attempts is! int || next == null)
+    if (action is! String ||
+        id is! String ||
+        attempts is! int ||
+        next == null) {
       return null;
+    }
     return DebugAckEntry(
       action: action,
       incidentId: id,
       attempts: attempts,
       nextAttemptAt: next,
       lastError: json['last_error'] is String
-          ? json['last_error'] as String
+          ? json['last_error']! as String
           : null,
       source: DebugAckSource.native,
     );
@@ -384,8 +390,12 @@ final class DebugAckEntry {
     final id = json['incident_id'];
     final attempts = json['attempts'];
     final next = _parseDate(json['next_attempt_at']);
-    if (action is! String || id is! String || attempts is! int || next == null)
+    if (action is! String ||
+        id is! String ||
+        attempts is! int ||
+        next == null) {
       return null;
+    }
     return DebugAckEntry(
       action: action,
       incidentId: id,
@@ -483,22 +493,22 @@ final class DebugPermissions {
     this.alarmkit = 'unsupported',
     this.batteryExempt,
   });
-  final String notifications;
-  final String alarmkit;
-  final bool? batteryExempt;
 
   factory DebugPermissions.fromMap(Map<String, Object?> json) =>
       DebugPermissions(
         notifications: json['notifications'] is String
-            ? json['notifications'] as String
+            ? json['notifications']! as String
             : 'unsupported',
         alarmkit: json['alarmkit'] is String
-            ? json['alarmkit'] as String
+            ? json['alarmkit']! as String
             : 'unsupported',
         batteryExempt: json['battery_exempt'] is bool
-            ? json['battery_exempt'] as bool
+            ? json['battery_exempt']! as bool
             : null,
       );
+  final String notifications;
+  final String alarmkit;
+  final bool? batteryExempt;
 
   Map<String, Object?> toJson() => {
     'notifications': notifications,
@@ -563,6 +573,20 @@ final class DebugStoreStats {
     this.lastSyncAt,
     this.lastSince,
   });
+
+  factory DebugStoreStats.fromJson(Map<String, Object?> json) =>
+      DebugStoreStats(
+        incidentCount: json['incident_count'] is int
+            ? json['incident_count']! as int
+            : 0,
+        messageCount: json['message_count'] is int
+            ? json['message_count']! as int
+            : 0,
+        oldestIncidentAt: _parseDate(json['oldest_incident_at']),
+        databaseBytes: json['database_bytes'] as int?,
+        lastSyncAt: _parseDate(json['last_sync_at']),
+        lastSince: json['last_since'] as String?,
+      );
   static const empty = DebugStoreStats();
   final int incidentCount;
   final int messageCount;
@@ -570,20 +594,6 @@ final class DebugStoreStats {
   final int? databaseBytes;
   final DateTime? lastSyncAt;
   final String? lastSince;
-
-  factory DebugStoreStats.fromJson(Map<String, Object?> json) =>
-      DebugStoreStats(
-        incidentCount: json['incident_count'] is int
-            ? json['incident_count'] as int
-            : 0,
-        messageCount: json['message_count'] is int
-            ? json['message_count'] as int
-            : 0,
-        oldestIncidentAt: _parseDate(json['oldest_incident_at']),
-        databaseBytes: json['database_bytes'] as int?,
-        lastSyncAt: _parseDate(json['last_sync_at']),
-        lastSince: json['last_since'] as String?,
-      );
 
   Map<String, Object?> toJson() => {
     'incident_count': incidentCount,

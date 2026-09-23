@@ -7,8 +7,8 @@ import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/models/incident.dart';
-import 'package:critalarm/core/net/launch_retry.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
+import 'package:critalarm/core/net/launch_retry.dart';
 import 'package:critalarm/core/push/incident_push.dart';
 import 'package:flutter/foundation.dart';
 

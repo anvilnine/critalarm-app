@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/settings/presentation/debug_push_event_text.dart';
 import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_state.dart';
+import 'package:critalarm/features/settings/presentation/debug_push_event_text.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -210,8 +210,11 @@ class _AlarmDebugScreenState extends State<AlarmDebugScreen> with RouteAware {
                       else
                         ...snapshot.launchCalls.map(
                           (call) => _row(
-                            '${call.name}${call.attempt == null ? '' : ' #${call.attempt}'}',
-                            '${call.succeeded ? 'success' : call.error} · ${_dateText(call.at)}',
+                            call.attempt == null
+                                ? call.name
+                                : '${call.name} #${call.attempt}',
+                            '${call.succeeded ? 'success' : call.error}'
+                            ' · ${_dateText(call.at)}',
                           ),
                         ),
                     ],
@@ -285,7 +288,8 @@ class _AlarmDebugScreenState extends State<AlarmDebugScreen> with RouteAware {
     _row(LocaleKeys.settings_alarm_debug_ringing.tr(), '${snapshot.ringing}'),
     _row(
       LocaleKeys.settings_alarm_debug_server.tr(),
-      '${snapshot.environment.serverMode ?? '—'} · ${snapshot.environment.baseUrl ?? '—'}',
+      '${snapshot.environment.serverMode ?? '—'}'
+      ' · ${snapshot.environment.baseUrl ?? '—'}',
     ),
     _row(
       LocaleKeys.settings_alarm_debug_tier.tr(),
@@ -297,7 +301,11 @@ class _AlarmDebugScreenState extends State<AlarmDebugScreen> with RouteAware {
     ),
     _row(
       LocaleKeys.settings_alarm_debug_quiet_hours.tr(),
-      '${snapshot.environment.quietHoursEnabled ? 'on' : 'off'} · ${snapshot.environment.quietHoursStart ?? '—'}–${snapshot.environment.quietHoursEnd ?? '—'} · ${snapshot.environment.quietHoursHolding ? 'holding' : 'not holding'}',
+      '${snapshot.environment.quietHoursEnabled ? 'on' : 'off'}'
+      ' · ${snapshot.environment.quietHoursStart ?? '—'}'
+      '–${snapshot.environment.quietHoursEnd ?? '—'}'
+      ' · '
+      '${snapshot.environment.quietHoursHolding ? 'holding' : 'not holding'}',
     ),
     _row(
       LocaleKeys.settings_alarm_debug_alarmkit.tr(),
@@ -384,15 +392,22 @@ class _AlarmDebugScreenState extends State<AlarmDebugScreen> with RouteAware {
     ),
   );
 
-  Widget _incidentRow(DebugIncident incident) => _row(
-    '${incident.topic ?? '—'} · ${incident.id}',
-    '${incident.phoneState} · ring until ${_dateText(incident.ringUntil)}'
-        '${incident.rearmPending ? ' · re-arm ${_dateText(incident.rearmFiresAt)}' : ''}',
-  );
+  Widget _incidentRow(DebugIncident incident) {
+    final rearm = incident.rearmPending
+        ? ' · re-arm ${_dateText(incident.rearmFiresAt)}'
+        : '';
+    return _row(
+      '${incident.topic ?? '—'} · ${incident.id}',
+      '${incident.phoneState} · ring until ${_dateText(incident.ringUntil)}'
+          '$rearm',
+    );
+  }
 
   Widget _ackRow(DebugAckEntry entry) => _row(
     '${entry.action} · ${entry.incidentId}',
-    '${entry.source.name} · attempts ${entry.attempts} · next ${_dateText(entry.nextAttemptAt)}${entry.lastError == null ? '' : ' · ${entry.lastError}'}',
+    '${entry.source.name} · attempts ${entry.attempts}'
+        ' · next ${_dateText(entry.nextAttemptAt)}'
+        '${entry.lastError == null ? '' : ' · ${entry.lastError}'}',
   );
 
   Widget _button(
@@ -434,5 +449,6 @@ String _dateText(DateTime? time) {
       : duration.inHours > 0
       ? '${duration.inHours}h'
       : '${duration.inMinutes}m';
-  return '$absolute · ${difference.isNegative ? '$relative ago' : 'in $relative'}';
+  final when = difference.isNegative ? '$relative ago' : 'in $relative';
+  return '$absolute · $when';
 }

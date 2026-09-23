@@ -100,19 +100,19 @@ class _TopicMessagesView extends StatelessWidget {
                             switchOutCurve: AppCurves.easeOut,
                             layoutBuilder: (currentChild, previousChildren) =>
                                 Stack(
-                              alignment: Alignment.topCenter,
-                              children: [
-                                ...previousChildren,
-                                if (currentChild != null) currentChild,
-                              ],
-                            ),
+                                  alignment: Alignment.topCenter,
+                                  children: [
+                                    ...previousChildren,
+                                    ?currentChild,
+                                  ],
+                                ),
                             transitionBuilder: (child, animation) =>
                                 FadeTransition(
-                              opacity: animation,
-                              child: child,
-                            ),
-                            child: state.showMessagesSkeleton &&
-                                    messages.isEmpty
+                                  opacity: animation,
+                                  child: child,
+                                ),
+                            child:
+                                state.showMessagesSkeleton && messages.isEmpty
                                 ? const KeyedSubtree(
                                     key: ValueKey('messages_view_skeleton'),
                                     child: Column(
@@ -126,40 +126,42 @@ class _TopicMessagesView extends StatelessWidget {
                                     ),
                                   )
                                 : messages.isEmpty
-                                    ? KeyedSubtree(
-                                        key: const ValueKey(
-                                          'messages_view_empty',
-                                        ),
-                                        child: AppEmptyState(
-                                          title: LocaleKeys
-                                              .topic_messages_empty_title
-                                              .tr(),
-                                          description: LocaleKeys
-                                              .topic_messages_empty_body
-                                              .tr(),
-                                          buttonLabel: null,
-                                          isLive: false,
-                                        ),
-                                      )
-                                    : KeyedSubtree(
-                                        key: ValueKey(
-                                          'messages_view_list_${messages.length}',
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            for (var i = 0;
-                                                i < messages.length;
-                                                i++) ...[
-                                              _card(
-                                                messages[i],
-                                                state.topicName,
-                                                isNewest: i == 0,
-                                              ),
-                                              const SizedBox(height: 10),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
+                                ? KeyedSubtree(
+                                    key: const ValueKey(
+                                      'messages_view_empty',
+                                    ),
+                                    child: AppEmptyState(
+                                      title: LocaleKeys
+                                          .topic_messages_empty_title
+                                          .tr(),
+                                      description: LocaleKeys
+                                          .topic_messages_empty_body
+                                          .tr(),
+                                      buttonLabel: null,
+                                      isLive: false,
+                                    ),
+                                  )
+                                : KeyedSubtree(
+                                    key: ValueKey(
+                                      'messages_view_list_${messages.length}',
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        for (
+                                          var i = 0;
+                                          i < messages.length;
+                                          i++
+                                        ) ...[
+                                          _card(
+                                            messages[i],
+                                            state.topicName,
+                                            isNewest: i == 0,
+                                          ),
+                                          const SizedBox(height: 10),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
