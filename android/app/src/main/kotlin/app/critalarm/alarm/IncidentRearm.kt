@@ -3,6 +3,7 @@ package app.critalarm.alarm
 import android.content.Context
 import android.util.Log
 import app.critalarm.push.IncidentPushKind
+import app.critalarm.reminders.ReminderReceiver
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.storage.TopicTimerStore
@@ -33,6 +34,7 @@ object IncidentRearm {
         val topic = deliveries.topicOf(incidentId)
         val timers = topic?.let { TopicTimerStore(context).timersFor(it) }
         val quietHours = QuietHoursWindow.read(context)
+        val ringUntil = deliveries.ringUntilMillis(incidentId)
 
         val allowed = RearmRule.canRearm(
             incidentId = incidentId,
@@ -41,7 +43,7 @@ object IncidentRearm {
             kind = IncidentPushKind.REPEAT,
             criticalOn = criticalOn(context, topic),
             ackedLocally = deliveries.isAcknowledged(incidentId),
-            ringUntilMillis = deliveries.ringUntilMillis(incidentId),
+            ringUntilMillis = ringUntil,
             nowMillis = nowMillis,
             quietHoursHold = quietHours.holdsRing(
                 minuteOfDay = QuietHoursWindow.minuteOfDay(nowMillis),
@@ -50,6 +52,7 @@ object IncidentRearm {
         )
         if (!allowed) {
             Log.i(TAG, "rearm_skipped incident_id=$incidentId")
+            if (ringUntil != null && nowMillis >= ringUntil) endRingWindow(context, incidentId)
             return null
         }
 
@@ -57,10 +60,11 @@ object IncidentRearm {
         val at = RearmRule.nextRingAtMillis(
             nowMillis = nowMillis,
             repeatIntervalS = intervalS,
-            ringUntilMillis = deliveries.ringUntilMillis(incidentId),
+            ringUntilMillis = ringUntil,
         )
         if (at == null) {
             Log.i(TAG, "rearm_skipped reason=past_ring_until incident_id=$incidentId")
+            endRingWindow(context, incidentId)
             return null
         }
 
@@ -77,6 +81,18 @@ object IncidentRearm {
         deliveries.rememberRearmFiresAt(incidentId, at)
         Log.i(TAG, "rearm_set incident_id=$incidentId in_s=$seconds")
         return seconds
+    }
+
+    /**
+     * `ring_until` has passed, so this phone will never ring for the incident
+     * again. Nobody acked it and nobody closed it, so the only thing to drop
+     * is the active flag. Reminders that were waiting for the phone to go
+     * quiet go out now, rather than waiting for an ack that is not coming.
+     */
+    private fun endRingWindow(context: Context, incidentId: String) {
+        IncidentDeliveryStore(context).deactivate(incidentId)
+        ReminderReceiver.releaseHeld(context)
+        Log.i(TAG, "ring_window_over incident_id=$incidentId")
     }
 
     /** Drops a pending re-arm. Safe to call when there is none. */

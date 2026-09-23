@@ -6,17 +6,17 @@ import android.content.Intent
 import android.util.Log
 import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.alarm.IncidentRearm
+import app.critalarm.reminders.ReminderReceiver
 import app.critalarm.storage.AckQueueStore
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.notifications.AlarmNotificationFactory
-import app.critalarm.notifications.IncidentCardState
+import app.critalarm.notifications.IncidentCards
+import app.critalarm.notifications.IncidentPhoneState
 import app.critalarm.notifications.MessageNotificationFactory
 import app.critalarm.notifications.StatusNotificationFactory
-import app.critalarm.push.FcmIncidentPayload
 import app.critalarm.push.IncidentContent
 import app.critalarm.push.IncidentContentFetcher
-import app.critalarm.push.IncidentPushKind
 import app.critalarm.push.LateContentRule
 import app.critalarm.push.SingleCardRule
 import android.app.NotificationManager
@@ -66,6 +66,8 @@ class IncidentActionReceiver : BroadcastReceiver() {
             } else {
                 deliveries.markClosed(incidentId, ackedAtMillis)
             }
+            // Anything that waited while the alarm was up can go out now.
+            ReminderReceiver.releaseHeld(context)
             // One alarm service for the whole app, so stopping it outright
             // stops whatever is ringing rather than the incident this button
             // belongs to. The service holds every un-acked incident and hands
@@ -141,8 +143,8 @@ class IncidentActionReceiver : BroadcastReceiver() {
                     // Stop that came before this is still out and will try to
                     // put the card back when it lands.
                     deliveries.markClosed(incidentId)
-                    manager.cancel(StatusNotificationFactory.notificationId(incidentId))
-                    Log.i(TAG, "status_notification_cancelled incident_id=$incidentId")
+                    ReminderReceiver.releaseHeld(context)
+                    IncidentCards.clear(context, incidentId, "closed")
                 }
                 connection.disconnect()
             } catch (_: Exception) {
@@ -177,38 +179,26 @@ class IncidentActionReceiver : BroadcastReceiver() {
     private fun silence(context: Context, intent: Intent, incidentId: String) {
         val title = intent.getStringExtra(EXTRA_TITLE)?.takeIf(String::isNotEmpty)
         val body = intent.getStringExtra(EXTRA_BODY)?.takeIf(String::isNotEmpty)
-        val handOver = intent.getBooleanExtra(EXTRA_HAND_OVER, true)
         AlarmForegroundService.stopIncident(context, incidentId)
         val seconds = IncidentRearm.rearm(context, incidentId, title = title, body = body)
         Log.i(TAG, "alarm_silenced incident_id=$incidentId rearm_in_s=${seconds ?: -1}")
 
-        val manager = context.getSystemService(NotificationManager::class.java)
-        if (seconds == null) {
-            // Nothing is coming back, so nothing should look like it is. The
-            // demo alarm lands here, and so does an incident past ring_until.
-            manager.cancel(AlarmNotificationFactory.notificationId(incidentId))
-            return
-        }
         val server = intent.getStringExtra(EXTRA_SERVER)
-            ?.let { runCatching { URI(it) }.getOrNull() } ?: return
-        val payload = FcmIncidentPayload(
+            ?.let { runCatching { URI(it) }.getOrNull() }
+        val nextRingAtMillis = seconds?.let { System.currentTimeMillis() + it * 1000L }
+        // Post the silenced card first, then take the alarm card down, so the
+        // swap never shows a gap.
+        IncidentCards.show(
+            context = context,
             incidentId = incidentId,
+            state = IncidentPhoneState.Silenced(nextRingAtMillis),
             server = server,
-            kind = IncidentPushKind.OPEN,
-            priority = 5,
             title = title,
             body = body,
         )
-        manager.notify(
-            AlarmNotificationFactory.notificationId(incidentId),
-            AlarmNotificationFactory.create(
-                context = context,
-                payload = payload,
-                content = IncidentContentFetcher.fallback(payload),
-                handOverToStatusCard = handOver,
-                silencedInSeconds = seconds,
-            ),
-        )
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.cancel(AlarmNotificationFactory.notificationId(incidentId))
+        manager.cancel(MessageNotificationFactory.notificationId(incidentId))
     }
 
     /**
@@ -303,18 +293,13 @@ class IncidentActionReceiver : BroadcastReceiver() {
         /**
          * The acked card for one incident.
          *
-         * Posted untagged, under the id alone, because
-         * [AlarmForegroundService] posts the alarm card with startForeground,
-         * which takes no tag. Android keys a notification by tag and id
-         * together, so one tagged post and one untagged post of the same id
-         * are two cards and two status bar chips.
-         *
          * [content] is null for the first post, right after the alarm stops,
          * and the resolved content once the fetch answers. [title] and [body]
          * are what the card being replaced was showing.
          *
          * Shared with AlarmChannel so in-app Stop hands the card over the same
-         * way the notification's Stop button does.
+         * way the notification's Stop button does. [IncidentCards.show] is where
+         * the card itself is decided and posted.
          */
         fun postStatusCard(
             context: Context,
@@ -326,27 +311,18 @@ class IncidentActionReceiver : BroadcastReceiver() {
             ackedAtMillis: Long,
             deskTimerEndMillis: Long?,
         ) {
-            // Only the incident id, the server and the text are read off this.
-            // A stopped alarm was a priority 5 incident push, which is what the
-            // two values below say.
-            val payload = FcmIncidentPayload(
+            IncidentCards.show(
+                context = context,
                 incidentId = incidentId,
-                server = server,
-                kind = IncidentPushKind.OPEN,
-                priority = 5,
-                title = title,
-                body = body,
-            )
-            context.getSystemService(NotificationManager::class.java).notify(
-                StatusNotificationFactory.notificationId(incidentId),
-                StatusNotificationFactory.create(
-                    context = context,
-                    payload = payload,
-                    content = content ?: IncidentContentFetcher.fallback(payload),
-                    state = IncidentCardState.ACKED,
+                state = IncidentPhoneState.Acked(
                     ackedAtMillis = ackedAtMillis,
                     deskTimerEndMillis = deskTimerEndMillis,
+                    deskTimerSeconds = null,
                 ),
+                server = server,
+                title = title,
+                body = body,
+                content = content,
             )
         }
     }

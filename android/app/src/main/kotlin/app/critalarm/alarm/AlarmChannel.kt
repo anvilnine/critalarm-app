@@ -6,8 +6,10 @@ import android.content.Intent
 import android.util.Log
 import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.notifications.AlarmNotificationFactory
+import app.critalarm.notifications.IncidentCards
+import app.critalarm.notifications.IncidentPhoneState
 import app.critalarm.notifications.MessageNotificationFactory
-import app.critalarm.notifications.StatusNotificationFactory
+import app.critalarm.reminders.ReminderReceiver
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import io.flutter.plugin.common.MethodCall
@@ -122,14 +124,22 @@ class AlarmChannel(private val context: Context) {
                     return
                 }
                 stopService("dart_silence")
-                result.success(
-                    IncidentRearm.rearm(
-                        context = context,
-                        incidentId = incidentId,
-                        title = call.argument<String>("title"),
-                        body = call.argument<String>("body"),
-                    ),
+                val seconds = IncidentRearm.rearm(
+                    context = context,
+                    incidentId = incidentId,
+                    title = call.argument<String>("title"),
+                    body = call.argument<String>("body"),
                 )
+                IncidentCards.show(
+                    context = context,
+                    incidentId = incidentId,
+                    state = IncidentPhoneState.Silenced(
+                        seconds?.let { System.currentTimeMillis() + it * 1000L },
+                    ),
+                    title = call.argument<String>("title"),
+                    body = call.argument<String>("body"),
+                )
+                result.success(seconds)
             }
 
             "cancelRearm" -> {
@@ -201,6 +211,8 @@ class AlarmChannel(private val context: Context) {
         manager?.cancel(MessageNotificationFactory.notificationId(incidentId))
         if (handOverToStatusCard) {
             deliveries.markLocallyAcknowledged(incidentId, ackedAtMillis)
+            // Anything that waited while the alarm was up can go out now.
+            ReminderReceiver.releaseHeld(context)
             // Without this the user keeps a promoted RINGING card on an
             // incident the app has already acked, and never sees an AWAKE one.
             NativeConnectionStore(context).canonicalServer()?.let { server ->
@@ -217,7 +229,8 @@ class AlarmChannel(private val context: Context) {
             }
         } else {
             deliveries.markClosed(incidentId)
-            manager?.cancel(StatusNotificationFactory.notificationId(incidentId))
+            ReminderReceiver.releaseHeld(context)
+            IncidentCards.clear(context, incidentId, "closed")
         }
         stopped
     } catch (e: Exception) {

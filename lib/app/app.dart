@@ -12,6 +12,7 @@ import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
+import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
@@ -24,6 +25,7 @@ import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
+import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
@@ -64,6 +66,9 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     getIt<IncidentsCubit>(),
     getIt<TopicsCubit>(),
     _router.go,
+    () => _router.routerDelegate.currentConfiguration.uri.path,
+    (incidentId) => CriticalAlarmCubit.current?.select(incidentId),
+    getIt<AlarmFocus>(),
   );
 
   /// Reminder taps. They route through the same router as everything else,
@@ -71,6 +76,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   late final ReminderBindings _reminders = ReminderBindings(
     scheduler: getIt<ReminderScheduler>(),
     prompts: getIt<HomePromptRepository>(),
+    focus: getIt<AlarmFocus>(),
     navigate: _openPath,
     openUrl: (url) async {
       await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -124,21 +130,25 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     routeChanges: _router.routerDelegate,
     incidentChanges: getIt<IncidentsCubit>().stream,
     open: _openCropper,
-    showMessage: (message) => _messenger.currentState
-      ?..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          // Above the floating tab bar, which would cover it otherwise.
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.fromLTRB(
-            16,
-            0,
-            16,
-            AppFloatingTabBar.height + AppFloatingTabBar.edgeGap + 8,
+    showMessage: (message) {
+      // A failed audio share never talks over an alarm.
+      if (getIt<AlarmFocus>().on) return;
+      _messenger.currentState
+        ?..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(message),
+            // Above the floating tab bar, which would cover it otherwise.
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.fromLTRB(
+              16,
+              0,
+              16,
+              AppFloatingTabBar.height + AppFloatingTabBar.edgeGap + 8,
+            ),
           ),
-        ),
-      ),
+        );
+    },
   );
 
   /// A share that lands while a cropper is already open replaces it, so the

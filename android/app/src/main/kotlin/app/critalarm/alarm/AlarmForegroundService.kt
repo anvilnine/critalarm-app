@@ -6,6 +6,8 @@ import android.content.Intent
 import android.os.IBinder
 import android.os.PowerManager
 import app.critalarm.notifications.AlarmNotificationFactory
+import app.critalarm.notifications.IncidentCards
+import app.critalarm.notifications.IncidentPhoneState
 import app.critalarm.push.FcmIncidentPayload
 import android.util.Log
 
@@ -51,6 +53,9 @@ class AlarmForegroundService : Service() {
                 handOverToStatusCard = next.handOver,
             ),
         )
+        // The ringing card replaces whatever status card was up, whether it was
+        // the silenced one a re-arm fire is ringing over, or a handover.
+        IncidentCards.show(this, next.incidentId, IncidentPhoneState.Ringing)
         player.start()
     }
 

@@ -31,6 +31,9 @@
 		A24A00000000000000000034 /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
 		A24A00000000000000000041 /* AlarmScheduleRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000004 /* AlarmScheduleRuleTests.swift */; };
 		A24A00000000000000000042 /* AckedIncidentStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000005 /* AckedIncidentStoreTests.swift */; };
+		A24A00000000000000000051 /* OpenIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000071 /* OpenIncidentStore.swift */; };
+		A24A00000000000000000052 /* OpenIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000071 /* OpenIncidentStore.swift */; };
+		A24A00000000000000000053 /* OpenIncidentStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000081 /* OpenIncidentStoreTests.swift */; };
 		A24A00000000000000000043 /* NativeAckSenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000006 /* NativeAckSenderTests.swift */; };
 		A19B00000000000000000011 /* DebugStateRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19B00000000000000000001 /* DebugStateRule.swift */; };
 		A19B00000000000000000012 /* DebugStateRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19B00000000000000000001 /* DebugStateRule.swift */; };
@@ -177,6 +180,8 @@
 		A24A00000000000000000003 /* NativeAckSender.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeAckSender.swift; sourceTree = "<group>"; };
 		A24A00000000000000000004 /* AlarmScheduleRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmScheduleRuleTests.swift; sourceTree = "<group>"; };
 		A24A00000000000000000005 /* AckedIncidentStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AckedIncidentStoreTests.swift; sourceTree = "<group>"; };
+		A24A00000000000000000071 /* OpenIncidentStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenIncidentStore.swift; sourceTree = "<group>"; };
+		A24A00000000000000000081 /* OpenIncidentStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenIncidentStoreTests.swift; sourceTree = "<group>"; };
 		A24A00000000000000000006 /* NativeAckSenderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeAckSenderTests.swift; sourceTree = "<group>"; };
 		A19B00000000000000000001 /* DebugStateRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DebugStateRule.swift; sourceTree = "<group>"; };
 		A19B00000000000000000002 /* DebugStateRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DebugStateRuleTests.swift; sourceTree = "<group>"; };
@@ -320,6 +325,7 @@
 				A28A00000000000000000103 /* RearmRuleTests.swift */,
 				A19B00000000000000000002 /* DebugStateRuleTests.swift */,
 				A24A00000000000000000005 /* AckedIncidentStoreTests.swift */,
+				A24A00000000000000000081 /* OpenIncidentStoreTests.swift */,
 				A24A00000000000000000006 /* NativeAckSenderTests.swift */,
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
 				78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */,
@@ -442,6 +448,7 @@
 			isa = PBXGroup;
 			children = (
 				A24A00000000000000000001 /* AckedIncidentStore.swift */,
+				A24A00000000000000000071 /* OpenIncidentStore.swift */,
 				A24A00000000000000000002 /* AlarmScheduleRule.swift */,
 				A28A00000000000000000101 /* RearmRule.swift */,
 				A19B00000000000000000001 /* DebugStateRule.swift */,
@@ -782,6 +789,8 @@
 				A28A00000000000000000211 /* IncidentRearm.swift in Sources */,
 				A28A00000000000000000201 /* RearmRule.swift in Sources */,
 				A24A00000000000000000012 /* AckedIncidentStore.swift in Sources */,
+				A24A00000000000000000052 /* OpenIncidentStore.swift in Sources */,
+				A24A00000000000000000053 /* OpenIncidentStoreTests.swift in Sources */,
 				A24A00000000000000000022 /* AlarmScheduleRule.swift in Sources */,
 				A24A00000000000000000032 /* NativeAckSender.swift in Sources */,
 				A24A00000000000000000041 /* AlarmScheduleRuleTests.swift in Sources */,
@@ -820,6 +829,7 @@
 				A19B00000000000000000012 /* DebugStateRule.swift in Sources */,
 				A19B00000000000000000014 /* AlarmDebug.swift in Sources */,
 				A24A00000000000000000011 /* AckedIncidentStore.swift in Sources */,
+				A24A00000000000000000051 /* OpenIncidentStore.swift in Sources */,
 				A24A00000000000000000021 /* AlarmScheduleRule.swift in Sources */,
 				A24A00000000000000000031 /* NativeAckSender.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,

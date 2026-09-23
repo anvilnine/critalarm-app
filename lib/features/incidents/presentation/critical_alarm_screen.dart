@@ -6,6 +6,8 @@ import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
+import 'package:critalarm/features/history/presentation/history_formatting.dart';
+import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
@@ -60,22 +62,35 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   /// the first test alarm, the Pro sheet, or nothing now because it is the
   /// middle of the night.
   Future<void> _afterAck(CriticalAlarmState state) async {
+    // Read now, used after the wait: another incident can land in those
+    // 1.5 seconds, and a sheet must not open over it.
+    final cubit = context.read<CriticalAlarmCubit>();
     await Future<void>.delayed(const Duration(milliseconds: 1500));
     final store = getIt<ReminderStore>();
+    final prompts = getIt<HomePromptRepository>();
     final incident = state.incident;
     // A delivered review or feedback reminder counts as an ask before the
     // Pro rules read the ask times.
     await getIt<ReminderSettler>().settleAsks(now: DateTime.now());
     final proShouldAsk = await getIt<ProPromptRules>().shouldAsk();
+    final now = DateTime.now();
+    final lastSheet = prompts.getAfterAckSheetShownAt();
     final next = AfterAckDecider.decide(
       isSetupDone: await getIt<SetupGate>().isDone(),
-      ackedAt: DateTime.now(),
+      ackedAt: now,
       isTestAck: incident == null || IncidentKinds.isTest(incident),
       isRemindersSheetShown: store.readSheetShown(),
       isWeb: kIsWeb,
       offersOn: store.readSwitches().offers,
       proShouldAsk: proShouldAsk,
+      hasOtherOpenIncident: cubit.state.openIncidents.isNotEmpty,
+      alreadyShownToday: lastSheet != null && _sameDay(lastSheet, now),
     );
+    // Stamped before the sheet opens, so the second ack of the same day gets
+    // nothing whichever of the two was shown.
+    if (next == AfterAck.remindersSheet || next == AfterAck.proSheet) {
+      await prompts.markAfterAckSheetShown();
+    }
     // Only the two sheets need this screen. Planning the morning after and
     // owing the Pro sheet happen even if the user already left it.
     switch (next) {
@@ -93,6 +108,9 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
         break;
     }
   }
+
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   @override
   Widget build(BuildContext context) {
@@ -306,6 +324,7 @@ class _RingingScreen extends StatelessWidget {
                         _word(TextAlign.left),
                         const SizedBox(height: Spacing.s2),
                         _topic(TextAlign.left),
+                        _alarmCountPill(context),
                         const SizedBox(height: Spacing.s2),
                         _subtext(TextAlign.left),
                         const SizedBox(height: Spacing.s4),
@@ -336,6 +355,7 @@ class _RingingScreen extends StatelessWidget {
                 _word(TextAlign.center),
                 const SizedBox(height: Spacing.s2),
                 _topic(TextAlign.center),
+                _alarmCountPill(context),
                 const SizedBox(height: Spacing.s2),
                 _subtext(TextAlign.center),
               ],
@@ -424,6 +444,65 @@ class _RingingScreen extends StatelessWidget {
     );
   }
 
+  /// The "2 alarms" pill under the topic name. Hidden until a second incident
+  /// is open; tapping it opens the sheet that lists the others.
+  Widget _alarmCountPill(BuildContext context) {
+    final count = state.openIncidents.length;
+    if (count <= 1) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: Spacing.s2),
+      child: GestureDetector(
+        onTap: () => unawaited(_showOtherAlarms(context)),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colors.hairline.withValues(alpha: 0.5)),
+          ),
+          child: Text(
+            LocaleKeys.critical_alarm_alarm_count_pill.plural(count),
+            style: TextStyle(
+              fontFamily: AppTypography.fontMono,
+              fontFamilyFallback: AppTypography.fontMonoFallbacks,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              color: colors.ink2,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Lists every open incident that is not the one on screen. Tapping a row
+  /// swaps it to the top and answers nothing; the person still has to tap
+  /// "I'm up" for the one they picked.
+  Future<void> _showOtherAlarms(BuildContext context) async {
+    final cubit = context.read<CriticalAlarmCubit>();
+    final shownId = state.incident?.id;
+    final others = state.openIncidents
+        .where((i) => i.id != shownId)
+        .toList(growable: false);
+    await showAppSheet<void>(
+      context: context,
+      title: LocaleKeys.critical_alarm_alarm_others_sheet_title.tr(),
+      content: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final incident in others)
+            _OtherAlarmRow(
+              incident: incident,
+              onTap: () {
+                cubit.select(incident.id);
+                Navigator.of(sheetContext).pop();
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _detailSheet() {
     return AppSheet(
       child: Column(
@@ -493,14 +572,14 @@ class AcknowledgedScreen extends StatelessWidget {
     final ringDuration = (startedAt != null && ackedAt != null)
         ? ackedAt.difference(startedAt)
         : null;
-    final startedLabel = startedAt != null ? _formatClock(startedAt) : '—';
-    final ackedLabel = ackedAt != null ? _formatClock(ackedAt) : '—';
+    final startedLabel = startedAt != null ? _formatClock(startedAt) : '';
+    final ackedLabel = ackedAt != null ? _formatClock(ackedAt) : '';
     final ackedSub = isDemo
         ? LocaleKeys.onboarding_connect_celebration_subtitle.tr()
         : LocaleKeys.critical_alarm_acked_sub.tr(
             namedArgs: {
               'duration': ringDuration == null
-                  ? '—'
+                  ? ''
                   : _formatRingDuration(ringDuration),
             },
           );
@@ -776,4 +855,78 @@ String _formatRingDuration(Duration duration) {
   final minutes = duration.inMinutes;
   final seconds = duration.inSeconds % 60;
   return '$minutes min $seconds s';
+}
+
+/// One row in the "other alarms" sheet: the topic, the page title and how long
+/// the incident has been open.
+class _OtherAlarmRow extends StatelessWidget {
+  const _OtherAlarmRow({required this.incident, required this.onTap});
+
+  final Incident incident;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final title = incident.messages.firstOrNull?.title ?? incident.topic;
+    final openedAt = incident.openedAt;
+    final age = openedAt == null
+        ? ''
+        : formatRingDuration(DateTime.now().difference(openedAt));
+
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: Radii.mdAll,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 11),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      incident.topic,
+                      style: TextStyle(
+                        fontFamily: AppTypography.fontMono,
+                        fontFamilyFallback: AppTypography.fontMonoFallbacks,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        color: colors.ink3,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTypography.fontBody,
+                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: colors.ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                age,
+                style: TextStyle(
+                  fontFamily: AppTypography.fontMono,
+                  fontFamilyFallback: AppTypography.fontMonoFallbacks,
+                  fontSize: 12,
+                  color: colors.ink3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
