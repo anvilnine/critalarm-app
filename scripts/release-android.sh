@@ -9,6 +9,7 @@
 #   ./scripts/release-android.sh              build and push to internal testing
 #   ./scripts/release-android.sh --bump       same, after bumping the build number
 #   ./scripts/release-android.sh --build-only just build the aab
+#   ./scripts/release-android.sh --upload-only upload the aab already under build/, no gates, no build
 #   ./scripts/release-android.sh --dry-run    do everything except commit
 #   ./scripts/release-android.sh --track closed
 #   ./scripts/release-android.sh --track production --rollout 0.1
@@ -91,6 +92,7 @@ track="internal"
 bump=0
 skip_gates=0
 build_only=0
+upload_only=0
 dry_run=0
 allow_dirty=0
 status="completed"
@@ -102,6 +104,7 @@ while [ $# -gt 0 ]; do
     --bump) bump=1 ;;
     --skip-gates) skip_gates=1 ;;
     --build-only) build_only=1 ;;
+    --upload-only) upload_only=1 ;;
     --dry-run) dry_run=1 ;;
     --allow-dirty) allow_dirty=1 ;;
     --draft) status="draft" ;;
@@ -116,6 +119,12 @@ done
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 die() { printf '\033[31mrelease-android: %s\033[0m\n' "$1" >&2; exit 1; }
+
+# The bundle under build/ already carries its version code. Moving pubspec now
+# would upload one number and commit another.
+if [ "$upload_only" -eq 1 ] && [ "$bump" -eq 1 ]; then
+  die "--upload-only cannot take --bump. Bump, then build, then upload."
+fi
 
 case "$track" in
   internal|closed|open|production) ;;
@@ -174,13 +183,17 @@ if [ "$bump" -eq 1 ]; then
   # whole bundle has finished uploading.
   perl -pi -e "s/^version: .*/version: $name+$number/" pubspec.yaml
   say "Build number is now $name+$number"
+elif [ "$upload_only" -eq 1 ]; then
+  say "Uploading the bundle already built for $name+$number."
 else
   say "Building $name+$number. Pass --bump if Play already has this version code."
 fi
 
 # ------------------------------------------------------------------------- gates
 
-if [ "$skip_gates" -eq 0 ]; then
+if [ "$upload_only" -eq 1 ]; then
+  echo "release-android: --upload-only, skipping gates and build."
+elif [ "$skip_gates" -eq 0 ]; then
   say "Running the gates"
   make test
   make analyze
@@ -191,14 +204,20 @@ fi
 
 # ------------------------------------------------------------------------- build
 
-say "Building the app bundle"
-# No SKIP_PAYWALL. That flag fakes a subscription and hides the paywall, which
-# is the screen a reviewer looks hardest at.
-fvm flutter build appbundle --release
-
 aab="build/app/outputs/bundle/release/app-release.aab"
-[ -f "$aab" ] || die "no bundle at $aab. The build printed why."
-say "Built $(basename "$aab") ($(du -h "$aab" | cut -f1))"
+
+if [ "$upload_only" -eq 1 ]; then
+  [ -f "$aab" ] || die "no bundle at $aab. Run without --upload-only, or with --build-only first."
+  say "Found $(basename "$aab") ($(du -h "$aab" | cut -f1))"
+else
+  say "Building the app bundle"
+  # No SKIP_PAYWALL. That flag fakes a subscription and hides the paywall,
+  # which is the screen a reviewer looks hardest at.
+  fvm flutter build appbundle --release
+
+  [ -f "$aab" ] || die "no bundle at $aab. The build printed why."
+  say "Built $(basename "$aab") ($(du -h "$aab" | cut -f1))"
+fi
 
 if [ "$build_only" -eq 1 ]; then
   echo "release-android: --build-only, stopping here."
