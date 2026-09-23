@@ -36,16 +36,22 @@ abstract final class AfterAckDecider {
     required bool isWeb,
     required bool offersOn,
     required bool proShouldAsk,
+    bool hasOtherOpenIncident = false,
+    bool alreadyShownToday = false,
   }) {
     if (!isSetupDone) return AfterAck.nothing;
+    // While another incident is still open, or a sheet already showed today,
+    // no sheet pops up over the alarm. Planning and owing still run, because
+    // neither puts anything on screen.
+    final sheetBlocked = hasOtherOpenIncident || alreadyShownToday;
     if (isTestAck && !isRemindersSheetShown && !isWeb) {
-      return AfterAck.remindersSheet;
+      return sheetBlocked ? AfterAck.nothing : AfterAck.remindersSheet;
     }
     if (MorningAfterRule.isNight(ackedAt)) {
       if (!proShouldAsk) return AfterAck.nothing;
       if (offersOn && !isTestAck) return AfterAck.planMorningAfter;
       return AfterAck.proSheetLater;
     }
-    return proShouldAsk ? AfterAck.proSheet : AfterAck.nothing;
+    return proShouldAsk && !sheetBlocked ? AfterAck.proSheet : AfterAck.nothing;
   }
 }

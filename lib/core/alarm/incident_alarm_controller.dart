@@ -24,6 +24,7 @@ final class IncidentAlarmController {
     required this.api,
     this.tokens,
     this.quietHours,
+    this.applyIncident,
     AlarmTriggerPath? path,
     DateTime Function()? now,
     this.wait = defaultLaunchWait,
@@ -38,6 +39,11 @@ final class IncidentAlarmController {
   /// The quiet hours window, or null where nothing has one to offer, which is
   /// every test that does not care about it.
   final QuietHoursStore? quietHours;
+
+  /// Hands a fetched incident to the shared list, so a state change this phone
+  /// missed while it was off still reaches the store. Null in tests that only
+  /// care about the card.
+  final void Function(Incident incident)? applyIncident;
 
   final DateTime Function() _now;
 
@@ -213,6 +219,7 @@ final class IncidentAlarmController {
         rethrow;
       }
       if (incident.isOpen || incident.isAcked) continue;
+      applyIncident?.call(incident);
       await onIncidentFinished(incidentId, state: incident.incidentState);
     }
   }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
 import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
@@ -27,14 +28,13 @@ bool _isAsking = false;
 ///
 /// When one is due, waits a moment so home has settled, and gives up if
 /// another screen has been pushed on top in the meantime.
-Future<void> runHomeAsk(
-  BuildContext context, {
-  required bool isRinging,
-}) async {
+Future<void> runHomeAsk(BuildContext context) async {
   if (_isAsking) return;
+  // Nothing pops up while an alarm is under way.
+  if (getIt<AlarmFocus>().on) return;
   _isAsking = true;
   try {
-    final reminderAsk = await _nextReminderAsk(isRinging: isRinging);
+    final reminderAsk = await _nextReminderAsk();
     if (reminderAsk != HomeReminderAsk.none) {
       await Future<void>.delayed(const Duration(milliseconds: 800));
       if (!context.mounted) return;
@@ -43,7 +43,7 @@ Future<void> runHomeAsk(
       return;
     }
 
-    final ask = await getIt<HomeAskRules>().next(isRinging: isRinging);
+    final ask = await getIt<HomeAskRules>().next();
     if (ask == HomeAsk.none) return;
 
     await Future<void>.delayed(const Duration(milliseconds: 800));
@@ -73,7 +73,7 @@ Future<void> runHomeAsk(
 /// The Reminders sheet for an install that tested before this update, or a
 /// Pro sheet a night ack left for the daytime. Checked before the consent
 /// sheet and the review popup.
-Future<HomeReminderAsk> _nextReminderAsk({required bool isRinging}) async {
+Future<HomeReminderAsk> _nextReminderAsk() async {
   final store = getIt<ReminderStore>();
   final prompts = getIt<HomePromptRepository>();
   // A delivered review or feedback reminder counts as an ask before any ask
@@ -86,7 +86,7 @@ Future<HomeReminderAsk> _nextReminderAsk({required bool isRinging}) async {
     isSetupDone: await getIt<SetupGate>().isDone(),
     now: DateTime.now(),
     isWeb: kIsWeb,
-    isRinging: isRinging,
+    isRinging: false,
     isSheetShown: store.readSheetShown(),
     hasCriticalTopic: getIt<TopicsCubit>().state.topics.any((t) => t.critical),
     lastAcknowledgedAt: prompts.getLastAcknowledgedAt(),

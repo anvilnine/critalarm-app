@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:critalarm/app/reminder_bindings.dart';
+import 'package:critalarm/core/alarm/alarm_focus.dart';
+import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/telemetry/reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/reminders/domain/reminder_kind.dart';
@@ -36,6 +38,7 @@ void main() {
     bindings = ReminderBindings(
       scheduler: scheduler,
       prompts: prompts,
+      focus: AlarmFocus(),
       navigate: routes.add,
       openUrl: (url) async => urls.add(url),
       openStoreReview: () async => reviews++,
@@ -87,6 +90,7 @@ void main() {
     final stuck = ReminderBindings(
       scheduler: scheduler,
       prompts: prompts,
+      focus: AlarmFocus(),
       navigate: routes.add,
       openUrl: (url) async => urls.add(url),
       openStoreReview: () async => reviews++,
@@ -103,6 +107,7 @@ void main() {
     final throwing = ReminderBindings(
       scheduler: scheduler,
       prompts: prompts,
+      focus: AlarmFocus(),
       navigate: routes.add,
       openUrl: (_) async => throw StateError('no browser'),
       openStoreReview: () async => throw StateError('no store'),
@@ -121,5 +126,35 @@ void main() {
         payload: {'url': 'https://play.google.com/store/account/subscriptions'},
       ),
     );
+  });
+
+  test('a reminder tap opens no url while an alarm is up', () async {
+    final ringing = StreamController<List<Incident>>.broadcast();
+    final focus = AlarmFocus(incidents: ringing.stream);
+    final guarded = ReminderBindings(
+      scheduler: scheduler,
+      prompts: prompts,
+      focus: focus,
+      navigate: routes.add,
+      openUrl: (url) async => urls.add(url),
+      openStoreReview: () async => reviews++,
+      openFeedbackForm: (source) async => forms.add(source),
+    );
+    ringing.add([
+      Incident(id: 'inc_1', topic: 'ops', openedAt: DateTime.now()),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+
+    await guarded.handle(
+      const ReminderTap(
+        kind: ReminderKind.planHeadsUp,
+        actionId: 'update_payment',
+        payload: {'url': 'https://play.google.com/store/account/subscriptions'},
+      ),
+    );
+
+    expect(urls, isEmpty);
+    await focus.dispose();
+    await ringing.close();
   });
 }
