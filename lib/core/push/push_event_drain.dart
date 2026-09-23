@@ -55,7 +55,7 @@ final class PushEventDrain {
       final rawName = row['name'];
       if (rawName is! String || rawName.isEmpty) continue;
       final name = rawName;
-      if (_allowed.contains(name) || name == 'debug_action') {
+      if (_allowed.contains(name) || _diagnosticOnly.contains(name)) {
         _append(DebugPushEvent(Map<String, Object?>.from(row)));
       }
       if (!_allowed.contains(name)) continue;
@@ -82,5 +82,10 @@ final class PushEventDrain {
     AnalyticsEvents.timeToAckMs,
     AnalyticsEvents.pushReceived,
     AnalyticsEvents.pushDropped,
+  };
+
+  static const Set<String> _diagnosticOnly = {
+    'debug_action',
+    'push_state_change',
   };
 }

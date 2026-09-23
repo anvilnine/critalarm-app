@@ -77,6 +77,7 @@ internal object AlarmDebug {
                     mapOf("incident_id" to entry.incidentId, "marked_at" to seconds(markedAt))
                 }
             },
+            "push_events" to PushEventLog(context).recent(),
             "scheduled" to scheduled,
             "permissions" to mapOf(
                 "notifications" to notificationPermission(context),

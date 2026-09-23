@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Immutable, phone-local view of the alarm state shown by Alarm Debug.
 ///
 /// Native timestamps use epoch seconds. Dart's ack queue is adapted at its
@@ -39,6 +41,9 @@ final class AlarmDebugSnapshot {
       native['ack_queue'],
     ).map(DebugAckEntry.fromNative).whereType<DebugAckEntry>();
     final ackQueue = _mergeAcks([...nativeAcks, ...dartAckQueue]);
+    final nativePushEvents = _rows(
+      native['push_events'],
+    ).map(DebugPushEvent.fromJson).whereType<DebugPushEvent>();
     return AlarmDebugSnapshot(
       takenAt: takenAt.toUtc(),
       environment: environment,
@@ -52,7 +57,7 @@ final class AlarmDebugSnapshot {
       scheduled: _rows(
         native['scheduled'],
       ).map(DebugScheduled.fromNative).whereType<DebugScheduled>(),
-      pushEvents: pushEvents,
+      pushEvents: _mergePushEvents([...nativePushEvents, ...pushEvents]),
       launchCalls: launchCalls,
       store: store,
       permissions: permissions,
@@ -173,6 +178,25 @@ List<DebugAckEntry> _mergeAcks(Iterable<DebugAckEntry> entries) {
     );
   }
   return List.unmodifiable(merged.values);
+}
+
+List<DebugPushEvent> _mergePushEvents(Iterable<DebugPushEvent> events) {
+  final merged = <String, DebugPushEvent>{};
+  for (final event in events) {
+    final sortedValues = Map.fromEntries(
+      event.values.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+    );
+    merged.putIfAbsent(jsonEncode(sortedValues), () => event);
+  }
+  final result = merged.values.toList()
+    ..sort((a, b) {
+      final aAt = a.at;
+      final bAt = b.at;
+      if (aAt == null) return bAt == null ? 0 : 1;
+      if (bAt == null) return -1;
+      return bAt.compareTo(aAt);
+    });
+  return List.unmodifiable(result);
 }
 
 final class DebugEnvironment {

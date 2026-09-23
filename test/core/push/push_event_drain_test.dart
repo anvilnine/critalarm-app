@@ -50,6 +50,7 @@ void main() {
       PushEventDrain.storageKey,
       jsonEncode([
         {'name': 'debug_action', 'action': 'refresh'},
+        {'name': 'push_state_change', 'kind': 'ack'},
         {'name': 'unknown_event'},
         {'name': 3},
       ]),
@@ -57,7 +58,10 @@ void main() {
 
     expect(await drain.drain(), 0);
     expect(gate.events, isEmpty);
-    expect(drain.recent().map((event) => event.name), ['debug_action']);
+    expect(drain.recent().map((event) => event.name), [
+      'push_state_change',
+      'debug_action',
+    ]);
   });
 }
 
