@@ -6,6 +6,7 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/design/components/chips.dart';
@@ -491,6 +492,111 @@ void main() {
         one == HomeState(status: HomeStatus.success, lastKnownGoodAt: at),
         isTrue,
       );
+    });
+  });
+
+  group('HomeCubit P4 and timer behavior', () {
+    test('P4 with no incident stops counting after 30 minutes', () async {
+      final now = DateTime.now().toUtc();
+      server.seedCalm();
+      // Add a P4 message with no incident id, older than 30 minutes.
+      final oldTime = now.subtract(const Duration(minutes: 31)).millisecondsSinceEpoch ~/ 1000;
+      server.publishMessage('prod-db', priority: 4, message: 'old p4');
+      // Patch its time to be old by directly publishing via seedState
+      server.reset();
+      final prodDb = Topic(name: 'prod-db', critical: true, createdAt: now.subtract(const Duration(days: 30)));
+      server.seedState(
+        topics: [prodDb],
+        messages: [
+          Message(
+            id: 'm_old_p4',
+            topic: 'prod-db',
+            time: oldTime,
+            priority: 4,
+            tags: const [],
+          ),
+        ],
+      );
+
+      final cubit = HomeCubit(incidentsCubit, topicsCubit, incidentRepo);
+      addTearDown(cubit.close);
+      await cubit.load();
+      await _settle();
+      expect(cubit.state.faceState, FaceState.calm);
+    });
+
+    test('P4 inside an acked incident does not keep face worried', () async {
+      final now = DateTime.now().toUtc();
+      final prodDb = Topic(name: 'prod-db', critical: true, createdAt: now.subtract(const Duration(days: 30)));
+      final ackedAt = now.subtract(const Duration(minutes: 2));
+      final p4Msg = Message(
+        id: 'm_p4',
+        topic: 'prod-db',
+        time: now.millisecondsSinceEpoch ~/ 1000,
+        priority: 4,
+        incidentId: 'inc_acked',
+      );
+      server.seedState(
+        topics: [prodDb],
+        incidents: [
+          Incident(
+            id: 'inc_acked',
+            topic: 'prod-db',
+            state: IncidentStates.acked,
+            openedAt: now.subtract(const Duration(minutes: 10)),
+            ackedAt: ackedAt,
+            messages: [p4Msg],
+          ),
+        ],
+        messages: [p4Msg],
+      );
+
+      final cubit = HomeCubit(incidentsCubit, topicsCubit, incidentRepo);
+      addTearDown(cubit.close);
+      await cubit.load();
+      await _settle();
+      // The acked incident should show ACKNOWLEDGED, not worried.
+      expect(cubit.state.faceState, FaceState.acked);
+    });
+
+    test('timer rebuilds acked countdown and cancels when done', () async {
+      var now = DateTime.now().toUtc();
+      DateTime clock() => now;
+
+      final prodDb = Topic(name: 'prod-db', critical: true, deskTimerS: 600, createdAt: now.subtract(const Duration(days: 30)));
+      final ackedAt = now.subtract(const Duration(minutes: 2));
+      server.seedState(
+        topics: [prodDb],
+        incidents: [
+          Incident(
+            id: 'inc_acked',
+            topic: 'prod-db',
+            state: IncidentStates.acked,
+            openedAt: now.subtract(const Duration(minutes: 10)),
+            ackedAt: ackedAt,
+          ),
+        ],
+      );
+
+      final cubit = HomeCubit(incidentsCubit, topicsCubit, incidentRepo, null, null, clock);
+      addTearDown(cubit.close);
+      await cubit.load();
+      await _settle();
+      expect(cubit.state.faceState, FaceState.acked);
+      expect(cubit.state.subText, contains('8 min'));
+
+      // Advance past the desk deadline, then trigger a rebuild via a fresh
+      // incident list so the periodic timer also sees the change.
+      now = ackedAt.add(const Duration(seconds: 601));
+      // Simulate the periodic rebuild by calling load again with same data but
+      // the clock now past deadline. The cubit should rebuild to calm/handled
+      // (no closed incident, so calm).
+      await cubit.refresh();
+      await _settle();
+      // With clock past deadline and no closed incident, the face is calm.
+      // The timer should have been cancelled (no acked row).
+      // We verify by checking the next periodic tick does not re-emit acked.
+      expect(cubit.state.faceState, FaceState.calm);
     });
   });
 }

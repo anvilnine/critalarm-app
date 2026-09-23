@@ -1,4 +1,5 @@
 import 'package:critalarm/app/reminder_bindings.dart';
+import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/telemetry/reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/reminders/domain/reminder_kind.dart';
@@ -51,6 +52,7 @@ void main() {
     final bindings = ReminderBindings(
       scheduler: FakeReminderScheduler(),
       prompts: FakeHomePromptRepository(),
+      focus: AlarmFocus(),
       navigate: (_) {},
       openUrl: (_) async {},
       openStoreReview: () async {},

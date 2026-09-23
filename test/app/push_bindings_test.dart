@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:critalarm/app/push_bindings.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
@@ -64,6 +67,18 @@ void main() {
   late IncidentsCubit incidents;
   late TopicsCubit topics;
   late AppPushBindings bindings;
+  late StreamController<List<Incident>> focusList;
+  late AlarmFocus focus;
+  late String currentLocation;
+
+  /// Puts one open incident on the shared list, which is what turns alarm
+  /// focus on.
+  Future<void> ringOne() async {
+    focusList.add([
+      Incident(id: 'inc_1', topic: 'ops', openedAt: DateTime.now()),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+  }
 
   void answerWith(Object? Function(MethodCall call) handler) {
     messenger.setMockMethodCallHandler(channel, (call) async => handler(call));
@@ -80,20 +95,28 @@ void main() {
 
   setUp(() {
     log = [];
+    currentLocation = '/';
     answerWith((_) => null);
     host = PushHost();
     incidents = IncidentsCubit(GetIncidentsUsecase(_CountingIncidents(log)));
     topics = TopicsCubit(GetTopicsUsecase(_CountingTopics(log)));
+    focusList = StreamController<List<Incident>>.broadcast();
+    focus = AlarmFocus(incidents: focusList.stream);
     bindings = AppPushBindings(
       host,
       incidents,
       topics,
       (location) => log.add('go $location'),
+      () => currentLocation,
+      (incidentId) => log.add('select $incidentId'),
+      focus,
     )..start();
   });
 
   tearDown(() async {
     await bindings.dispose();
+    await focus.dispose();
+    await focusList.close();
     await host.dispose();
     await incidents.close();
     await topics.close();
@@ -113,6 +136,42 @@ void main() {
   });
 
   test('a tap that lands while the app is open opens its screen', () async {
+    await sendFromPlatform('onNotificationTap', {
+      'incident_id': 'inc_9a8b7c',
+      'tap_id': '1',
+    });
+    expect(log, ['go /incidents/inc_9a8b7c']);
+  });
+
+  test('a tap while /alarm is up selects, not navigates', () async {
+    currentLocation = '/alarm';
+    await sendFromPlatform('onNotificationTap', {
+      'incident_id': 'inc_9a8b7c',
+      'tap_id': '1',
+    });
+    expect(log, ['select inc_9a8b7c']);
+  });
+
+  test('a tap while an incident is up selects, not navigates', () async {
+    currentLocation = '/incidents/inc_showing';
+    await sendFromPlatform('onNotificationTap', {
+      'incident_id': 'inc_9a8b7c',
+      'tap_id': '1',
+    });
+    expect(log, ['select inc_9a8b7c']);
+  });
+
+  test('a tap on another topic is dropped while an alarm is up', () async {
+    await ringOne();
+    await sendFromPlatform('onNotificationTap', {
+      'topic': 'ops',
+      'tap_id': '1',
+    });
+    expect(log, isEmpty);
+  });
+
+  test('a tap on an incident still opens while an alarm is up', () async {
+    await ringOne();
     await sendFromPlatform('onNotificationTap', {
       'incident_id': 'inc_9a8b7c',
       'tap_id': '1',

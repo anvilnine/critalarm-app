@@ -14,6 +14,8 @@ void main() {
       bool offersOn = false,
       bool proShouldAsk = true,
       bool isSetupDone = true,
+      bool hasOtherOpenIncident = false,
+      bool alreadyShownToday = false,
     }) => AfterAckDecider.decide(
       ackedAt: ackedAt ?? DateTime(2026, 9, 22, 14),
       isTestAck: isTestAck,
@@ -22,6 +24,8 @@ void main() {
       offersOn: offersOn,
       proShouldAsk: proShouldAsk,
       isSetupDone: isSetupDone,
+      hasOtherOpenIncident: hasOtherOpenIncident,
+      alreadyShownToday: alreadyShownToday,
     );
 
     test('the first test ack shows the Reminders sheet', () {
@@ -88,6 +92,43 @@ void main() {
     test('a daytime ack asks about Pro only when the rules say so', () {
       expect(decide(), AfterAck.proSheet);
       expect(decide(proShouldAsk: false), AfterAck.nothing);
+    });
+
+    test('no sheet while another incident is still open', () {
+      expect(decide(hasOtherOpenIncident: true), AfterAck.nothing);
+      expect(
+        decide(
+          isTestAck: true,
+          isRemindersSheetShown: false,
+          hasOtherOpenIncident: true,
+        ),
+        AfterAck.nothing,
+      );
+    });
+
+    test('no sheet on the second ack of the same day', () {
+      expect(decide(alreadyShownToday: true), AfterAck.nothing);
+      expect(
+        decide(
+          isTestAck: true,
+          isRemindersSheetShown: false,
+          alreadyShownToday: true,
+        ),
+        AfterAck.nothing,
+      );
+    });
+
+    test('planning the morning after runs even with a sheet blocked', () {
+      // Nothing about it goes on screen, so an alarm it would cover does
+      // not stop it.
+      expect(
+        decide(
+          ackedAt: DateTime(2026, 9, 23, 3),
+          offersOn: true,
+          hasOtherOpenIncident: true,
+        ),
+        AfterAck.planMorningAfter,
+      );
     });
   });
 

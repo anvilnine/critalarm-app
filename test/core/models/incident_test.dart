@@ -100,5 +100,46 @@ void main() {
       expect(deserialized.messages.length, 1);
       expect(deserialized.messages.first.id, 'm_10');
     });
+
+    test('parses updated_at when the server sends it', () {
+      final updatedAt = DateTime.utc(2026, 9, 11, 5, 30);
+      final inc = Incident.fromJson({
+        'id': 'inc_1',
+        'topic': 'prod',
+        'state': 'acked',
+        'opened_at': DateTime.utc(2026, 9, 11, 5).toIso8601String(),
+        'acked_at': DateTime.utc(2026, 9, 11, 5, 10).toIso8601String(),
+        'updated_at': updatedAt.toIso8601String(),
+      });
+
+      expect(inc.updatedAt, updatedAt);
+    });
+
+    test('missing updated_at falls back to the newest of the three times', () {
+      final openedAt = DateTime.utc(2026, 9, 11, 5);
+      final ackedAt = DateTime.utc(2026, 9, 11, 5, 10);
+      final closedAt = DateTime.utc(2026, 9, 11, 5, 20);
+      final inc = Incident.fromJson({
+        'id': 'inc_1',
+        'topic': 'prod',
+        'state': 'closed',
+        'opened_at': openedAt.toIso8601String(),
+        'acked_at': ackedAt.toIso8601String(),
+        'closed_at': closedAt.toIso8601String(),
+      });
+
+      expect(inc.updatedAt, closedAt);
+    });
+
+    test('missing updated_at with only opened_at falls back to opened_at', () {
+      final openedAt = DateTime.utc(2026, 9, 11, 5);
+      final inc = Incident.fromJson({
+        'id': 'inc_1',
+        'topic': 'prod',
+        'opened_at': openedAt.toIso8601String(),
+      });
+
+      expect(inc.updatedAt, openedAt);
+    });
   });
 }

@@ -521,6 +521,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       name: AppRoute.alarm,
       pageBuilder: (context, state) => AmbientPage(
         key: state.pageKey,
+        opaque: true,
         child: const CriticalAlarmScreen(),
       ),
     ),
@@ -531,6 +532,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         final id = state.pathParameters['id'];
         return AmbientPage(
           key: state.pageKey,
+          opaque: true,
           child: CriticalAlarmScreen(incidentId: id),
         );
       },
@@ -540,6 +542,7 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       name: AppRoute.lockScreen,
       pageBuilder: (context, state) => AmbientPage(
         key: state.pageKey,
+        opaque: true,
         child: const LockScreen(),
       ),
     ),
