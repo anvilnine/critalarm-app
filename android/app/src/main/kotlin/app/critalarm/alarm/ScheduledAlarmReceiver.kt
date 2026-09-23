@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import app.critalarm.storage.IncidentDeliveryStore
 
 /**
  * Rings a local alarm after a delay, with no push involved.
@@ -22,6 +23,7 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val incidentId = intent.getStringExtra(EXTRA_INCIDENT_ID)
         if (incidentId.isNullOrEmpty()) return
+        IncidentDeliveryStore(context).clearRearm(incidentId)
         Log.i(TAG, "scheduled_alarm_fired incident_id=$incidentId")
 
         val service = Intent(context, AlarmForegroundService::class.java).apply {
@@ -113,13 +115,26 @@ class ScheduledAlarmReceiver : BroadcastReceiver() {
         /** Drops a pending alarm. Safe to call when there is none. */
         fun cancel(context: Context, incidentId: String) {
             val manager = context.getSystemService(AlarmManager::class.java) ?: return
-            pendingIntent(context, incidentId, "", "", null)?.let(manager::cancel)
+            pendingIntent(
+                context = context,
+                incidentId = incidentId,
+                server = "",
+                title = "",
+                body = null,
+                flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+            )?.let(manager::cancel)
         }
 
-        internal fun isScheduled(context: Context, incidentId: String): Boolean =
-            pendingIntent(
-                context, incidentId, "", "", null,
-                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        internal fun isScheduled(context: Context, incidentId: String, firesAtMillis: Long?): Boolean =
+            firesAtMillis != null &&
+                IncidentDeliveryStore(context).rearmFiresAtMillis(incidentId) == firesAtMillis &&
+                pendingIntent(
+                context = context,
+                incidentId = incidentId,
+                server = "",
+                title = "",
+                body = null,
+                flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
             ) != null
 
         private fun pendingIntent(

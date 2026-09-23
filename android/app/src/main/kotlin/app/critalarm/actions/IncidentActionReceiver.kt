@@ -62,7 +62,7 @@ class IncidentActionReceiver : BroadcastReceiver() {
             // rather than acknowledged is what keeps it out of the list launch
             // reconcile walks.
             if (handOver) {
-                deliveries.markAcknowledged(incidentId, ackedAtMillis)
+                deliveries.markLocallyAcknowledged(incidentId, ackedAtMillis)
             } else {
                 deliveries.markClosed(incidentId, ackedAtMillis)
             }
