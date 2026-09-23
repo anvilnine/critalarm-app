@@ -146,6 +146,46 @@ void main() {
     expect(event?.at, DateTime.utc(2026, 9, 23, 10, 0, 0, 123));
   });
 
+  test('native diagnostic events merge with retained events newest first', () {
+    final retainedDuplicate = DebugPushEvent({
+      'name': 'push_state_change',
+      'kind': 'ack',
+      'at_ms': 1790157600000,
+    });
+    final snapshot = AlarmDebugSnapshot.fromNative(
+      {
+        'push_events': [
+          {
+            'name': 'debug_action',
+            'action': 'cancel_all_rearms',
+            'at_ms': 1790157602000,
+          },
+          {
+            'at_ms': 1790157600000,
+            'kind': 'ack',
+            'name': 'push_state_change',
+          },
+        ],
+      },
+      takenAt: takenAt,
+      environment: environment,
+      pushEvents: [
+        retainedDuplicate,
+        DebugPushEvent({
+          'name': 'push_received',
+          'incident_id': 'inc_1',
+          'at_ms': 1790157599000,
+        }),
+      ],
+    );
+
+    expect(
+      snapshot.pushEvents.map((event) => event.name),
+      ['debug_action', 'push_state_change', 'push_received'],
+    );
+    expect(snapshot.pushEvents, hasLength(3));
+  });
+
   test('unknown phone state stays displayable as unknown', () {
     final snapshot = AlarmDebugSnapshot.fromNative(
       {

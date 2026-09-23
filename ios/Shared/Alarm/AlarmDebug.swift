@@ -64,6 +64,7 @@ enum AlarmDebug {
             "incidents": incidentRows,
             "ack_queue": AckQueueStore.debugEntries(),
             "acked_set": AckedIncidentStore.debugEntries(),
+            "push_events": PushEventLog.recent(),
             "scheduled": scheduled,
             "permissions": [
                 "notifications": notificationPermission(await settings),
