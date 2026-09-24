@@ -5,6 +5,7 @@ import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/app/widget_sync.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/alarm_build_mode.dart';
@@ -50,6 +51,7 @@ import 'package:critalarm/core/telemetry/reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/core/version/app_version.dart';
+import 'package:critalarm/core/widgets/widget_host.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
 import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
@@ -295,6 +297,7 @@ Future<void> configureDependencies({
     ..registerSingleton<SharedPreferences>(prefs)
     ..registerLazySingleton<PushHost>(PushHost.new)
     ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
+    ..registerLazySingleton<WidgetHost>(WidgetHost.new)
     ..registerLazySingleton<AppBadge>(() => AppBadge(getIt<PushHost>()))
     ..registerLazySingleton<ApiSessionStore>(
       () => SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
@@ -358,6 +361,7 @@ Future<void> configureDependencies({
       () => KeychainMirrorConnectionRepository(
         SharedPrefsConnectionRepository(getIt<SharedPreferences>()),
         getIt<NseCredentialStore>(),
+        widgets: getIt<WidgetHost>(),
       ),
     )
     ..registerLazySingleton<OnboardingProgressRepository>(
@@ -736,6 +740,17 @@ Future<void> configureDependencies({
         maxRingSeconds: (topic) =>
             getIt<TopicsCubit>().state.named(topic)?.maxRingS,
         host: getIt<AlarmHost>(),
+      ),
+    )
+    // The home and lock screen widgets read a snapshot of the two lists
+    // above. This writes it whenever either list changes.
+    ..registerLazySingleton(
+      () => WidgetSync(
+        topics: getIt<TopicsCubit>(),
+        incidents: getIt<IncidentsCubit>(),
+        host: getIt<WidgetHost>(),
+        isConnected: () async =>
+            (await getIt<ConnectionRepository>().getConnection()).isSuccess(),
       ),
     )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and
