@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
 import app.critalarm.MainActivity
 import app.critalarm.R
@@ -14,6 +15,7 @@ import app.critalarm.notifications.LiveUpdate.shortCriticalText
 import app.critalarm.push.FcmIncidentPayload
 import app.critalarm.push.IncidentContent
 import app.critalarm.push.IncidentContentFetcher
+import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.TopicTimerStore
 import app.critalarm.storage.TopicTimers
 
@@ -52,6 +54,9 @@ object StatusNotificationFactory {
      * [countdownEndMillis] is the instant the chronometer counts down to, when
      * the rule found one. Null means nothing to count, and the timer counts up
      * from [ackedAtMillis] instead.
+     *
+     * [ackTimeKnown] false means another device acked and this phone only
+     * knows when the push arrived, so the card says "Acknowledged" with no time.
      */
     fun create(
         context: Context,
@@ -61,16 +66,23 @@ object StatusNotificationFactory {
         ackedAtMillis: Long = System.currentTimeMillis(),
         silencedInSeconds: Int? = null,
         countdownEndMillis: Long? = null,
+        ackTimeKnown: Boolean = true,
     ): Notification {
         NotificationChannels.ensureCreated(context)
         val incidentId = payload.incidentId ?: ""
         val immutable = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val title = NtfyEmoji.prefixTitle(content.title, content.tags)
+        // The content carries no topic when it came from the push alone, as on
+        // a remote ack. The store remembers it from the first delivery.
+        val topic = content.topic ?: IncidentDeliveryStore(context).topicOf(incidentId)
         val body = silencedInSeconds?.let { silencedText(it) } ?: content.body
         // An acked card leads with when it was acked, then the message, the
         // same order as the iOS Live Activity.
         val ackedLine = if (silencedInSeconds == null && state == IncidentCardState.ACKED) {
-            LiveCardText.ackedLine(ackedAtMillis)
+            LiveCardText.ackedLine(
+                ackedAtMillis = ackedAtMillis.takeIf { ackTimeKnown },
+                pattern = LiveCardText.patternFor(DateFormat.is24HourFormat(context)),
+            )
         } else {
             null
         }
@@ -82,7 +94,7 @@ object StatusNotificationFactory {
             .setLargeIcon(FaceBitmap.render(state.face, FACE_PX))
             .setContentTitle(title)
             .setContentText(text)
-            .setSubText(content.topic)
+            .setSubText(topic)
             .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
             .setColor(state.accentColor)
             .setOngoing(true)
@@ -142,7 +154,7 @@ object StatusNotificationFactory {
             )
         }
 
-        applyChronometer(context, builder, content, state, ackedAtMillis, countdownEndMillis)
+        applyChronometer(context, builder, topic, state, ackedAtMillis, countdownEndMillis)
         return builder.build()
     }
 
@@ -176,12 +188,12 @@ object StatusNotificationFactory {
     private fun applyChronometer(
         context: Context,
         builder: NotificationCompat.Builder,
-        content: IncidentContent,
+        topic: String?,
         state: IncidentCardState,
         ackedAtMillis: Long,
         countdownEndMillis: Long?,
     ) {
-        val timers = content.topic?.let { TopicTimerStore(context).timersFor(it) }
+        val timers = topic?.let { TopicTimerStore(context).timersFor(it) }
         val countdown = countdownEndMillis?.let { Countdown(ackedAtMillis, it) }
             ?: countdownFor(state, timers, ackedAtMillis, null)
         builder.setShowWhen(true).setUsesChronometer(true)
