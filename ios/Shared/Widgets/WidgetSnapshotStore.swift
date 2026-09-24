@@ -26,11 +26,18 @@ enum WidgetSnapshotStore {
         return WidgetSnapshot.decode(data)
     }
 
-    static func write(_ snapshot: WidgetSnapshot, in defaults: UserDefaults? = groupDefaults) {
+    /// [reload] false is for the widget's own timeline provider: it is
+    /// already drawing, and asking WidgetKit to reload every widget from
+    /// inside a reload spends the daily budget for nothing.
+    static func write(
+        _ snapshot: WidgetSnapshot,
+        reload: Bool = true,
+        in defaults: UserDefaults? = groupDefaults
+    ) {
         lock.lock()
         save(snapshot, in: defaults)
         lock.unlock()
-        reloadWidgets()
+        if reload { reloadWidgets() }
     }
 
     /// Stores a snapshot Dart built. Anything that does not decode is refused.

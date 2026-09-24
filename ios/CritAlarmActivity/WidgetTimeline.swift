@@ -32,7 +32,9 @@ enum SnapshotLoader {
         // out. That patch is newer than what the server said a moment ago.
         let current = WidgetSnapshotStore.read()
         if let current, current.updatedAt != stored.updatedAt { return current }
-        WidgetSnapshotStore.write(fresh)
+        // No reload: this is already inside one. The other widget kinds pick
+        // the fresh snapshot up on their own next reload.
+        WidgetSnapshotStore.write(fresh, reload: false)
         return fresh
     }
 
