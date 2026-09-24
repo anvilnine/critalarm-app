@@ -46,9 +46,11 @@ struct IncidentActivityWidget: Widget {
             } compactLeading: {
                 FaceView(face: card.face, size: 20)
             } compactTrailing: {
-                LiveTimer(start: card.timerStart)
+                liveTimer(card.timerStart)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(card.state == .open ? CritAlarmPalette.crit : .white)
+                    .lineLimit(1)
+                    .multilineTextAlignment(.trailing)
                     .frame(maxWidth: 44)
             } minimal: {
                 FaceView(face: card.face, size: 20)
@@ -95,16 +97,14 @@ private struct LiveCard {
 }
 
 /// A clock that counts up from [start] by itself, with no push to redraw it.
+///
+/// A plain `Text`, so it can join the words around it on one line. On its
+/// own a timer takes every point it is offered and pushes itself to the far
+/// edge.
 @available(iOS 16.2, *)
-private struct LiveTimer: View {
-    let start: Date
-
-    var body: some View {
-        Text(timerInterval: start...Date.distantFuture, countsDown: false)
-            .monospacedDigit()
-            .lineLimit(1)
-            .multilineTextAlignment(.trailing)
-    }
+private func liveTimer(_ start: Date) -> Text {
+    Text(timerInterval: start...Date.distantFuture, countsDown: false)
+        .monospacedDigit()
 }
 
 @available(iOS 16.2, *)
@@ -153,11 +153,11 @@ private struct LockScreenCard: View {
             Text(LiveCardText.staleLine)
                 .lineLimit(2)
         } else if card.state == .acked, let ackedAt = card.ackedAt {
-            HStack(spacing: 6) {
+            // Two lines: beside the Done button one line cuts the clock off.
+            VStack(alignment: .leading, spacing: 2) {
                 Text(LiveCardText.ackedLine(ackedAt))
-                LiveTimer(start: ackedAt)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(CritAlarmPalette.ink)
+                Text("Awake for ")
+                    + liveTimer(ackedAt).fontWeight(.semibold).foregroundColor(CritAlarmPalette.ink)
             }
             .lineLimit(1)
         } else if card.state == .acked {
@@ -169,13 +169,9 @@ private struct LockScreenCard: View {
             }
             .lineLimit(1)
         } else if card.state == .open {
-            HStack(spacing: 6) {
-                Text("Open for")
-                LiveTimer(start: card.openedAt)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(CritAlarmPalette.ink)
-            }
-            .lineLimit(1)
+            (Text("Open for ")
+                + liveTimer(card.openedAt).fontWeight(.semibold).foregroundColor(CritAlarmPalette.ink))
+                .lineLimit(1)
         } else {
             Text(card.openedAt, style: .relative)
         }
@@ -194,9 +190,9 @@ private struct IslandBottom: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
-                LiveTimer(start: card.timerStart)
+                liveTimer(card.timerStart)
                     .font(.title3.weight(.semibold))
-                    .multilineTextAlignment(.leading)
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
