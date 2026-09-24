@@ -6,6 +6,6 @@
     <string name="widget_topic_description">One topic, with I\'m up and Done buttons.</string>
     <string name="widget_open_count_label">Open count</string>
     <string name="widget_open_count_description">How many incidents are open.</string>
-    <string name="widget_config_title">Pick a topic</string>
+    <string name="widget_config_title">Choose a topic</string>
     <string name="widget_config_empty">Open Crit Alarm first</string>
 </resources>
