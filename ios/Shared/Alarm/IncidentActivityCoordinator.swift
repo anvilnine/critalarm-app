@@ -326,6 +326,7 @@ public final class IncidentActivityCoordinator {
         )
         // Marked first, so a repeat push that crosses this does not ring.
         AckedIncidentStore.markRemotelyAcknowledged(incidentId: incidentId)
+        WidgetSnapshotStore.patch(state == .acked ? .acked(incidentId, at: Date()) : .ended(incidentId))
         await IncidentRearm.cancel(incidentId: incidentId)
         setAlarmActive(false, incidentId: incidentId)
         if state != .acked {
