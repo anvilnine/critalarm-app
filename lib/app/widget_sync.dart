@@ -55,13 +55,14 @@ class WidgetSync {
     _subscriptions.clear();
   }
 
-  /// Writes the next snapshot even if it matches the last one. The native
-  /// side can store the signed-out snapshot on its own (a 401 in the
-  /// notification extension or a widget refresh), so the app calls this on
-  /// resume.
+  /// Lets the next snapshot be written even if it matches the last one. The
+  /// native side can store a snapshot on its own (a 401 in the notification
+  /// extension, a widget refresh, or a lock screen action), so the app calls
+  /// this on resume. It writes nothing by itself: the lists here are still
+  /// the ones from before the resume, and writing them could cover a newer
+  /// native change. The refresh that follows the resume does the write.
   void forget() {
     _lastWritten = null;
-    _schedule();
   }
 
   void _schedule() {
