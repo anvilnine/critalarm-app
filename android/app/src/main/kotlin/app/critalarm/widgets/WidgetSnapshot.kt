@@ -56,10 +56,14 @@ data class WidgetSnapshot(
             return a.id < b.id
         }
 
-        /** Trimmed, cut to [TITLE_MAX_LENGTH], and the topic name when empty. */
+        /**
+         * Trimmed, cut to [TITLE_MAX_LENGTH] code points (the same cut Dart
+         * and Swift make), and the topic name when empty.
+         */
         internal fun title(raw: String?, topic: String): String {
             val picked = raw?.trim()?.takeIf { it.isNotEmpty() } ?: topic
-            return picked.take(TITLE_MAX_LENGTH)
+            if (picked.codePointCount(0, picked.length) <= TITLE_MAX_LENGTH) return picked
+            return picked.substring(0, picked.offsetByCodePoints(0, TITLE_MAX_LENGTH))
         }
     }
 }

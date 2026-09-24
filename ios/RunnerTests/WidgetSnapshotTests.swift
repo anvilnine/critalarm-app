@@ -51,6 +51,16 @@ final class WidgetSnapshotTests: XCTestCase {
 
     // MARK: the fixtures
 
+    func testEveryCaseInTheTitleFixture() throws {
+        let object = try JSONSerialization.jsonObject(with: fixtureData("widget_titles_v1.json")) as? [String: Any]
+        XCTAssertEqual(object?["max_code_points"] as? Int, WidgetSnapshot.titleMaxLength)
+        let cases = try XCTUnwrap(object?["cases"] as? [[String: String]])
+        XCTAssertFalse(cases.isEmpty)
+        for c in cases {
+            XCTAssertEqual(WidgetSnapshot.title(c["raw"], topic: c["topic"] ?? ""), c["title"], c["note"] ?? "")
+        }
+    }
+
     func testTheFixtureDecodes() throws {
         let snapshot = try fixture()
         XCTAssertEqual(snapshot.updatedAt, 1_759_046_400)

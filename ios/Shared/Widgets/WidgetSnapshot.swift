@@ -85,10 +85,12 @@ struct WidgetSnapshot: Codable, Equatable {
         }
     }
 
-    /// Trimmed, cut to [titleMaxLength], and the topic name when empty.
+    /// Trimmed, cut to [titleMaxLength] code points (unicode scalars, the
+    /// same cut Dart and Kotlin make), and the topic name when empty.
     static func title(_ raw: String?, topic: String) -> String {
         let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return String((trimmed.isEmpty ? topic : trimmed).prefix(titleMaxLength))
+        let picked = trimmed.isEmpty ? topic : trimmed
+        return String(String.UnicodeScalarView(picked.unicodeScalars.prefix(titleMaxLength)))
     }
 }
 

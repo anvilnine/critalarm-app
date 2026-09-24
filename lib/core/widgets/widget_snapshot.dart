@@ -102,7 +102,7 @@ final class WidgetIncident {
   };
 }
 
-/// Longest title a snapshot carries.
+/// Longest title a snapshot carries, in Unicode code points.
 const widgetTitleMaxLength = 120;
 
 /// Whole seconds since the epoch, rounded down.
@@ -120,14 +120,22 @@ String widgetIncidentTitle(Incident incident) {
     if (newest == null || message.time >= newest.time) newest = message;
   }
   final title = newest?.title?.trim() ?? '';
-  final text = newest?.message.trim() ?? '';
-  final picked = title.isNotEmpty
-      ? title
-      : text.isNotEmpty
-      ? text
-      : incident.topic;
-  return picked.length > widgetTitleMaxLength
-      ? picked.substring(0, widgetTitleMaxLength)
+  return widgetTitle(
+    title.isNotEmpty ? title : newest?.message,
+    incident.topic,
+  );
+}
+
+/// [raw] trimmed, else [topic], cut to [widgetTitleMaxLength] code points.
+///
+/// Swift and Kotlin cut the same way, so an emoji is never split in half and
+/// all three agree on where the cut falls.
+String widgetTitle(String? raw, String topic) {
+  final trimmed = raw?.trim() ?? '';
+  final picked = trimmed.isEmpty ? topic : trimmed;
+  final runes = picked.runes;
+  return runes.length > widgetTitleMaxLength
+      ? String.fromCharCodes(runes.take(widgetTitleMaxLength))
       : picked;
 }
 
