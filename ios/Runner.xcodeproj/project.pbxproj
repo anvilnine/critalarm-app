@@ -133,6 +133,14 @@
 		A31000000000000000000034 /* WidgetLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000003 /* WidgetLink.swift */; };
 		A31000000000000000000044 /* WidgetSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000004 /* WidgetSnapshotTests.swift */; };
 		A31000000000000000000054 /* WidgetLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000005 /* WidgetLinkTests.swift */; };
+		A31000000000000000000111 /* WidgetFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000101 /* WidgetFetcher.swift */; };
+		A31000000000000000000112 /* WidgetTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000102 /* WidgetTimeline.swift */; };
+		A31000000000000000000113 /* TopicEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000103 /* TopicEntity.swift */; };
+		A31000000000000000000114 /* WidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000104 /* WidgetViews.swift */; };
+		A31000000000000000000115 /* TopicsWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000105 /* TopicsWidget.swift */; };
+		A31000000000000000000116 /* TopicWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000106 /* TopicWidget.swift */; };
+		A31000000000000000000117 /* OpenCountWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000107 /* OpenCountWidget.swift */; };
+		A31000000000000000000118 /* WidgetDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000108 /* WidgetDisplayTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -268,6 +276,14 @@
 		A31000000000000000000003 /* WidgetLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetLink.swift; sourceTree = "<group>"; };
 		A31000000000000000000004 /* WidgetSnapshotTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotTests.swift; sourceTree = "<group>"; };
 		A31000000000000000000005 /* WidgetLinkTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetLinkTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000101 /* WidgetFetcher.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetFetcher.swift; sourceTree = "<group>"; };
+		A31000000000000000000102 /* WidgetTimeline.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetTimeline.swift; sourceTree = "<group>"; };
+		A31000000000000000000103 /* TopicEntity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TopicEntity.swift; sourceTree = "<group>"; };
+		A31000000000000000000104 /* WidgetViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetViews.swift; sourceTree = "<group>"; };
+		A31000000000000000000105 /* TopicsWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TopicsWidget.swift; sourceTree = "<group>"; };
+		A31000000000000000000106 /* TopicWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TopicWidget.swift; sourceTree = "<group>"; };
+		A31000000000000000000107 /* OpenCountWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenCountWidget.swift; sourceTree = "<group>"; };
+		A31000000000000000000108 /* WidgetDisplayTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetDisplayTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -346,6 +362,7 @@
 				A24A00000000000000000081 /* OpenIncidentStoreTests.swift */,
 				A31000000000000000000004 /* WidgetSnapshotTests.swift */,
 				A31000000000000000000005 /* WidgetLinkTests.swift */,
+				A31000000000000000000108 /* WidgetDisplayTests.swift */,
 				A24A00000000000000000006 /* NativeAckSenderTests.swift */,
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
 				78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */,
@@ -374,6 +391,13 @@
 				27BE1B266C87A73BE64F5093 /* CritAlarmActivityBundle.swift */,
 				459470031D166B3CA2B80886 /* FaceView.swift */,
 				88FF122110739F2C4E9B4941 /* IncidentActivityWidget.swift */,
+				A31000000000000000000101 /* WidgetFetcher.swift */,
+				A31000000000000000000102 /* WidgetTimeline.swift */,
+				A31000000000000000000103 /* TopicEntity.swift */,
+				A31000000000000000000104 /* WidgetViews.swift */,
+				A31000000000000000000105 /* TopicsWidget.swift */,
+				A31000000000000000000106 /* TopicWidget.swift */,
+				A31000000000000000000107 /* OpenCountWidget.swift */,
 				F183319FE83F2E039E0C88D3 /* Info.plist */,
 				0729842DADC1254D34F8C509 /* CritAlarmActivity.entitlements */,
 			);
@@ -819,6 +843,7 @@
 				A31000000000000000000034 /* WidgetLink.swift in Sources */,
 				A31000000000000000000044 /* WidgetSnapshotTests.swift in Sources */,
 				A31000000000000000000054 /* WidgetLinkTests.swift in Sources */,
+				A31000000000000000000118 /* WidgetDisplayTests.swift in Sources */,
 				A28A00000000000000000221 /* RearmRuleTests.swift in Sources */,
 				A19B00000000000000000011 /* DebugStateRule.swift in Sources */,
 				A19B00000000000000000013 /* DebugStateRuleTests.swift in Sources */,
@@ -937,6 +962,13 @@
 				84353DF6B9FF22B8BB32717B /* CritAlarmActivityBundle.swift in Sources */,
 				CF1F6744B717A05554FDAF49 /* FaceView.swift in Sources */,
 				A93DE8C5BF97C64AEB9101C2 /* IncidentActivityWidget.swift in Sources */,
+				A31000000000000000000111 /* WidgetFetcher.swift in Sources */,
+				A31000000000000000000112 /* WidgetTimeline.swift in Sources */,
+				A31000000000000000000113 /* TopicEntity.swift in Sources */,
+				A31000000000000000000114 /* WidgetViews.swift in Sources */,
+				A31000000000000000000115 /* TopicsWidget.swift in Sources */,
+				A31000000000000000000116 /* TopicWidget.swift in Sources */,
+				A31000000000000000000117 /* OpenCountWidget.swift in Sources */,
 				813000DE811E6C46E4681595 /* IncidentActivityCoordinator.swift in Sources */,
 				BABE51D86ECDA0FCAC490506 /* IncidentAlarmAttributes.swift in Sources */,
 				0E04C12CE8C8FB55A85CBFBD /* IncidentAlarmScheduler.swift in Sources */,
