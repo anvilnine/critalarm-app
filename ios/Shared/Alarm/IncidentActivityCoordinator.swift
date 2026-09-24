@@ -238,7 +238,8 @@ public final class IncidentActivityCoordinator {
         server: String,
         title: String,
         state: IncidentActivityState = .open,
-        openedAt: Date = Date()
+        openedAt: Date = Date(),
+        ackedAt: Date? = nil
     ) -> Bool {
         #if canImport(ActivityKit)
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
@@ -257,12 +258,12 @@ public final class IncidentActivityCoordinator {
             incidentId: incidentId, topic: topic, server: server
         )
         let content = CritAlarmIncidentAttributes.ContentState(
-            state: state, title: title, openedAt: openedAt
+            state: state, title: title, openedAt: openedAt, ackedAt: ackedAt
         )
         do {
             _ = try Activity.request(
                 attributes: attributes,
-                content: .init(state: content, staleDate: nil),
+                content: .init(state: content, staleDate: ackedAt.map(LiveCardText.staleDate)),
                 pushType: .token
             )
             NSLog("CritAlarmActivity: activity_started incident_id=%@ state=%@", incidentId, state.rawValue)
@@ -302,7 +303,7 @@ public final class IncidentActivityCoordinator {
         guard let activity = activity(for: incidentId) else { return }
         var content = activity.content.state
         content.ringsAgainInSeconds = seconds
-        await activity.update(.init(state: content, staleDate: nil))
+        await activity.update(.init(state: content, staleDate: activity.content.staleDate))
         NSLog(
             "CritAlarmActivity: activity_silenced incident_id=%@ rings_again_in_s=%d",
             incidentId, seconds
@@ -329,16 +330,45 @@ public final class IncidentActivityCoordinator {
         WidgetSnapshotStore.patch(state == .acked ? .acked(incidentId, at: Date()) : .ended(incidentId))
         await IncidentRearm.cancel(incidentId: incidentId)
         setAlarmActive(false, incidentId: incidentId)
-        if state != .acked {
+        if state == .acked {
+            await markCardAcked(incidentId: incidentId)
+        } else {
             end(incidentId: incidentId, finalState: state)
         }
     }
 
+    /// Puts the acknowledge time and the stale date on a card this phone
+    /// shows. The server's `update` push carries neither (api.md §5.3), so
+    /// the time comes from the widget snapshot, which keeps the first one it
+    /// learned. A card that already has one is left alone, which also stops
+    /// this update from feeding back through `watchContentState`.
+    private func markCardAcked(incidentId: String, at now: Date = Date()) async {
+        #if canImport(ActivityKit)
+        guard let activity = activity(for: incidentId) else { return }
+        var content = activity.content.state
+        guard content.ackedAt == nil else { return }
+        let ackedAt = WidgetSnapshotStore.ackedAt(incidentId: incidentId) ?? now
+        content.state = .acked
+        content.ringsAgainInSeconds = nil
+        content.ackedAt = ackedAt
+        await activity.update(.init(state: content, staleDate: LiveCardText.staleDate(ackedAt: ackedAt)))
+        NSLog("CritAlarmActivity: activity_acked incident_id=%@", incidentId)
+        #endif
+    }
+
     /// "I'm up" on the alarm. AlarmKit's own card is going away, so ours takes
     /// over as the acknowledge surface.
-    public func alarmStopped(incidentId: String) {
+    ///
+    /// A card the user silenced earlier is already showing, so that one
+    /// changes to acknowledged in place instead.
+    public func alarmStopped(incidentId: String) async {
         setAlarmActive(false, incidentId: incidentId)
         #if canImport(ActivityKit)
+        let now = Date()
+        if activity(for: incidentId) != nil {
+            await markCardAcked(incidentId: incidentId, at: now)
+            return
+        }
         let pending = PendingIncidentStore.read(incidentId: incidentId)
         startLocalActivity(
             incidentId: incidentId,
@@ -346,7 +376,8 @@ public final class IncidentActivityCoordinator {
             server: pending?.server ?? "",
             title: pending?.title ?? "Incident acknowledged",
             state: .acked,
-            openedAt: pending?.openedAt ?? Date()
+            openedAt: pending?.openedAt ?? now,
+            ackedAt: now
         )
         #endif
     }
