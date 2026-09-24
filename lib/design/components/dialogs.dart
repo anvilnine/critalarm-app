@@ -26,8 +26,7 @@ class AppDialogAction<T> {
 /// A centered card over a dimmed scrim, matching the design system.
 ///
 /// [body] is rendered with [AppBulletedText], so a line starting with `• ` is
-/// drawn as a bullet. [content] is an arbitrary widget (an input, a face) shown
-/// in place of [body] when set.
+/// drawn as a bullet. [content] adds arbitrary content after [body].
 class AppDialog extends StatelessWidget {
   const AppDialog({
     this.kicker,
@@ -102,9 +101,7 @@ class AppDialog extends StatelessWidget {
               ),
               const SizedBox(height: 6),
             ],
-            if (content != null)
-              content!
-            else if (body != null)
+            if (body != null)
               AppBulletedText(
                 body!,
                 style: TextStyle(
@@ -115,6 +112,10 @@ class AppDialog extends StatelessWidget {
                   color: bodyColor,
                 ),
               ),
+            if (content != null) ...[
+              if (body != null) const SizedBox(height: 12),
+              content!,
+            ],
             if (actions.isNotEmpty) ...[
               const SizedBox(height: 18),
               Wrap(

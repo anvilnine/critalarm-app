@@ -284,6 +284,8 @@
     "critical_toggle_title": "Critical delivery",
     "critical_toggle_subtitle": "Rings through silent mode and Do Not Disturb",
     "critical_toggle_subtitle_time_sensitive": "Time-Sensitive notification with sound, repeated until you acknowledge it. Ringing through silent mode needs iOS 26.",
+    "critical_info_title": "Critical delivery",
+    "critical_info_aria": "About critical delivery",
     "stage_word_critical": "CRITICAL",
     "stage_word_warning": "1 warning",
     "stage_word_clear": "All clear",
@@ -306,6 +308,7 @@
     "delete_button": "Delete topic",
     "delete_dialog_title": "Delete {topic}?",
     "delete_dialog_content": "This removes the topic, its tokens and every alarm it has ever raised. Anything still sending to it stops working.",
+    "delete_confirm_toggle": "I understand. Delete this topic and its messages.",
     "delete_dialog_confirm": "Delete",
     "delete_failed": "Could not delete {topic}. {reason}"
   },

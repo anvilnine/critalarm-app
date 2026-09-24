@@ -72,6 +72,7 @@ class AppToggleRow extends StatelessWidget {
     required this.value,
     this.subtitle,
     this.onChanged,
+    this.titleAction,
     super.key,
   });
 
@@ -79,6 +80,7 @@ class AppToggleRow extends StatelessWidget {
   final String? subtitle;
   final bool value;
   final ValueChanged<bool>? onChanged;
+  final Widget? titleAction;
 
   @override
   Widget build(BuildContext context) {
@@ -97,15 +99,25 @@ class AppToggleRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colors.ink,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colors.ink,
+                        ),
+                      ),
+                    ),
+                    if (titleAction != null) ...[
+                      const SizedBox(width: 4),
+                      titleAction!,
+                    ],
+                  ],
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
