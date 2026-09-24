@@ -3,6 +3,7 @@ package app.critalarm.widgets
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import com.google.gson.JsonParser
+import org.json.JSONObject
 import org.junit.Test
 
 class WidgetSnapshotTest {
@@ -54,5 +55,20 @@ class WidgetSnapshotTest {
             JsonParser.parseString("""{"v":1,"updated_at":1759046400,"connected":false,"open_count":0,"topics":[]}"""),
             JsonParser.parseString(WidgetSnapshotJson.write(WidgetSnapshot.disconnected(1759046400L))),
         )
+    }
+
+    @Test
+    fun `every case in widget_titles_v1 json`() {
+        val fixture = JSONObject(WidgetFixtures.read("widget_titles_v1.json"))
+        assertEquals(WidgetSnapshot.TITLE_MAX_LENGTH, fixture.getInt("max_code_points"))
+        val cases = fixture.getJSONArray("cases")
+        for (i in 0 until cases.length()) {
+            val case = cases.getJSONObject(i)
+            assertEquals(
+                case.getString("note"),
+                case.getString("title"),
+                WidgetSnapshot.title(case.getString("raw"), case.getString("topic")),
+            )
+        }
     }
 }

@@ -173,6 +173,19 @@ void main() {
       expect(widgetIncidentTitle(_incident('inc_1')), 'prod');
     });
 
+    test('every case in widget_titles_v1.json', () {
+      final fixture = _readFixture('widget_titles_v1.json');
+      expect(fixture['max_code_points'], widgetTitleMaxLength);
+      for (final raw in fixture['cases'] as List) {
+        final c = raw as Map<String, dynamic>;
+        expect(
+          widgetTitle(c['raw'] as String, c['topic'] as String),
+          c['title'],
+          reason: c['note'] as String,
+        );
+      }
+    });
+
     test('is cut to 120 characters', () {
       final long = 'a' * 200;
       final title = widgetIncidentTitle(
