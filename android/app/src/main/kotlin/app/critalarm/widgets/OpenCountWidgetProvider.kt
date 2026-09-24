@@ -6,7 +6,7 @@ import android.content.Context
 
 /**
  * The 1x1 open count. Also offered for the lock screen where the OS still
- * allows lock screen widgets (D7).
+ * allows lock screen widgets.
  */
 class OpenCountWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {

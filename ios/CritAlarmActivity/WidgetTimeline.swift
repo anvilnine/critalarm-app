@@ -38,7 +38,8 @@ enum SnapshotLoader {
         return fresh
     }
 
-    /// The next time WidgetKit should ask again (D6). iOS may stretch it.
+    /// The next time WidgetKit should ask again, 15 minutes out so a stale
+    /// widget catches up even with the app closed. iOS may stretch it.
     static func nextReload(after now: Date) -> Date {
         now.addingTimeInterval(15 * 60)
     }
