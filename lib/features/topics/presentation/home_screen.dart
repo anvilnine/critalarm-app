@@ -24,6 +24,7 @@ import 'package:critalarm/features/tour/presentation/tour_steps.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
@@ -150,35 +151,54 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     required bool enabled,
     required Widget child,
   }) {
-    if (!enabled) return child;
-    return AppSwipeActions(
-      groupTag: 'home_topics',
-      start: [
-        AppSwipeAction(
-          label: LocaleKeys.home_swipe_mark_read.tr(),
-          glyph: GlyphType.check,
-          isPrimary: true,
-          onPressed: () => unawaited(home.markRead(topic.name)),
-        ),
-      ],
-      end: [
-        AppSwipeAction(
-          label: topic.isPinned
-              ? LocaleKeys.home_swipe_unpin.tr()
-              : LocaleKeys.home_swipe_pin.tr(),
-          glyph: GlyphType.pin,
-          isPrimary: true,
-          onPressed: () => unawaited(home.togglePin(topic.name)),
-        ),
-        AppSwipeAction(
-          label: topic.isMuted
-              ? LocaleKeys.home_swipe_unmute.tr()
-              : LocaleKeys.home_swipe_mute.tr(),
-          glyph: topic.isMuted ? GlyphType.bell : GlyphType.bellOff,
-          onPressed: () => unawaited(home.toggleMute(topic.name)),
-        ),
-      ],
-      child: child,
+    final key = ValueKey('topic_row_${topic.name}');
+    if (!enabled) return KeyedSubtree(key: key, child: child);
+
+    final markRead = LocaleKeys.home_swipe_mark_read.tr();
+    final pin = topic.isPinned
+        ? LocaleKeys.home_swipe_unpin.tr()
+        : LocaleKeys.home_swipe_pin.tr();
+    final mute = topic.isMuted
+        ? LocaleKeys.home_swipe_unmute.tr()
+        : LocaleKeys.home_swipe_mute.tr();
+
+    // The same three actions for VoiceOver and TalkBack, which cannot swipe
+    // a row open: they show up in the actions rotor on the row.
+    return Semantics(
+      key: key,
+      customSemanticsActions: {
+        CustomSemanticsAction(label: markRead): () =>
+            unawaited(home.markRead(topic.name)),
+        CustomSemanticsAction(label: pin): () =>
+            unawaited(home.togglePin(topic.name)),
+        CustomSemanticsAction(label: mute): () =>
+            unawaited(home.toggleMute(topic.name)),
+      },
+      child: AppSwipeActions(
+        groupTag: 'home_topics',
+        start: [
+          AppSwipeAction(
+            label: markRead,
+            glyph: GlyphType.check,
+            isPrimary: true,
+            onPressed: () => unawaited(home.markRead(topic.name)),
+          ),
+        ],
+        end: [
+          AppSwipeAction(
+            label: pin,
+            glyph: GlyphType.pin,
+            isPrimary: true,
+            onPressed: () => unawaited(home.togglePin(topic.name)),
+          ),
+          AppSwipeAction(
+            label: mute,
+            glyph: topic.isMuted ? GlyphType.bell : GlyphType.bellOff,
+            onPressed: () => unawaited(home.toggleMute(topic.name)),
+          ),
+        ],
+        child: child,
+      ),
     );
   }
 
@@ -242,7 +262,8 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           home,
           topic,
           // Tour rows are examples, not topics, so there is nothing to pin.
-          enabled: !showExamples,
+          // Old rows from an unreachable server are look-only.
+          enabled: !showExamples && !state.isStale,
           child: AppListRow(
             name: topic.name,
             meta: topic.meta,
