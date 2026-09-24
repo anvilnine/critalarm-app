@@ -177,7 +177,6 @@ class _SettingsScreenContent extends StatelessWidget {
         final colors = context.appColors;
 
         return AppScreenScaffold(
-          withEdgeBlur: true,
           topBar: AppTopBar(title: LocaleKeys.settings_title.tr()),
           slivers: [
             /*
