@@ -291,22 +291,6 @@ class _SettingsScreenContent extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: 14),
-                      _buildNavRow(
-                        context,
-                        title: LocaleKeys.settings_privacy_row_title.tr(),
-                        subtitle: LocaleKeys.settings_privacy_row_subtitle.tr(),
-                        path: '/settings/privacy',
-                      ),
-                      const SizedBox(height: 8),
-                      _buildNavRow(
-                        context,
-                        title: LocaleKeys.settings_about_row_title.tr(),
-                        subtitle: LocaleKeys.settings_about_row_subtitle.tr(),
-                        path: '/settings/about',
-                      ),
-                      const SizedBox(height: 14),
-                      const HelpSection(),
-                      const SizedBox(height: 14),
                       AppSectionHeader(
                         LocaleKeys.settings_plan_header.tr(),
                       ),
@@ -329,23 +313,28 @@ class _SettingsScreenContent extends StatelessWidget {
                           onTap: () => getIt<TourCubit>().request(),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      AppListRow(
-                        name: LocaleKeys.settings_redo_onboarding_title.tr(),
-                        meta: LocaleKeys.settings_redo_onboarding_subtitle.tr(),
-                        faceState: null,
-                        trailing: AppGlyph(
-                          GlyphType.arrow,
-                          color: colors.ink3,
-                          size: 16,
+                      // Debug builds only: a release user gets the tour above.
+                      if (kDebugMode) ...[
+                        const SizedBox(height: 8),
+                        AppListRow(
+                          name: LocaleKeys.settings_redo_onboarding_title.tr(),
+                          meta: LocaleKeys.settings_redo_onboarding_subtitle
+                              .tr(),
+                          faceState: null,
+                          trailing: AppGlyph(
+                            GlyphType.arrow,
+                            color: colors.ink3,
+                            size: 16,
+                          ),
+                          // From Settings this is a look at the screens, not
+                          // a real run, so no step is skipped for being
+                          // granted.
+                          onTap: () => context.pushNamed(
+                            AppRoute.onboarding,
+                            queryParameters: const {'demo': 'true'},
+                          ),
                         ),
-                        // From Settings this is a look at the screens, not
-                        // a real run, so no step is skipped for being granted.
-                        onTap: () => context.pushNamed(
-                          AppRoute.onboarding,
-                          queryParameters: const {'demo': 'true'},
-                        ),
-                      ),
+                      ],
                       if (buildSkipsPaywall || buildHasPaywallLab) ...[
                         const SizedBox(height: 8),
                         _buildNavRow(
@@ -356,6 +345,22 @@ class _SettingsScreenContent extends StatelessWidget {
                           path: '/settings/developer',
                         ),
                       ],
+                      const SizedBox(height: 14),
+                      const HelpSection(),
+                      const SizedBox(height: 8),
+                      _buildNavRow(
+                        context,
+                        title: LocaleKeys.settings_privacy_row_title.tr(),
+                        subtitle: LocaleKeys.settings_privacy_row_subtitle.tr(),
+                        path: '/settings/privacy',
+                      ),
+                      const SizedBox(height: 8),
+                      _buildNavRow(
+                        context,
+                        title: LocaleKeys.settings_about_row_title.tr(),
+                        subtitle: LocaleKeys.settings_about_row_subtitle.tr(),
+                        path: '/settings/about',
+                      ),
                     ],
                   ),
                 ),
