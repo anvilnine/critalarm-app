@@ -6,12 +6,12 @@ import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
-import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
 
-/// The floating tab bar stood on its end, for a display wide enough to run
-/// two panes. Same slots, same yellow selection, same red dot. It sits down
-/// the left edge so the panes keep the full height of the display.
+/// The floating tab bar stood on its end, for a display on its side or wide
+/// enough to run two panes. Same slots, same yellow selection, same red dot,
+/// glyphs only. It sits down the left edge, or the right on an unfolded
+/// iPhone Fold, so the content keeps the full height of the display.
 class AppNavRail extends StatelessWidget {
   const AppNavRail({
     required this.items,
@@ -26,11 +26,15 @@ class AppNavRail extends StatelessWidget {
     super.key,
   });
 
-  /// The rail itself, before any inset.
-  static const double width = 68;
+  /// One round slot. Every tab and both buttons are this size.
+  static const double slotSize = 48;
 
-  /// How far in from the left edge the rail floats.
-  static const double edgeInset = 18;
+  /// The rail itself, before any inset: one slot plus the rail's padding.
+  static const double width = slotSize + 12;
+
+  /// How far in from the edge the rail floats, on top of the display's own
+  /// safe area on that side.
+  static const double edgeInset = 14;
 
   /// What a screen should leave free on its left so content clears the rail.
   static const double contentGap = width + edgeInset + 14;
@@ -77,7 +81,7 @@ class AppNavRail extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (var i = 0; i < items.length; i++) ...[
-              if (i > 0) const SizedBox(height: 2),
+              if (i > 0) const SizedBox(height: 4),
               _wrapTab(
                 i,
                 _RailSlot(
@@ -127,65 +131,53 @@ class _RailSlot extends StatelessWidget {
     final colors = context.appColors;
     final fg = isCurrent ? colors.inkFixed : colors.onPanel;
 
-    return Semantics(
-      button: true,
-      selected: isCurrent,
-      label: item.label,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: Radii.fullAll,
-        child: AnimatedContainer(
-          duration: AppDurations.quick,
-          curve: AppCurves.easeSpring,
-          width: 56,
-          padding: const EdgeInsets.symmetric(vertical: 9),
-          decoration: BoxDecoration(
-            color: isCurrent ? colors.yellow : Colors.transparent,
-            borderRadius: Radii.fullAll,
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AppGlyph(item.glyph, size: 20, color: fg),
-                  const SizedBox(height: 3),
-                  Text(
-                    item.label.toUpperCase(),
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontDisplay,
-                      fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 9,
-                      letterSpacing: 0.63,
-                      height: 1,
-                      color: fg,
-                    ),
-                  ),
-                ],
-              ),
-              if (item.showFlag)
-                Positioned(
-                  top: 0,
-                  right: 3,
-                  child: Container(
-                    width: 9,
-                    height: 9,
-                    decoration: BoxDecoration(
-                      color: colors.high,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isCurrent ? colors.yellow : colors.panel,
-                        width: 2,
+    // Glyph only. A label squeezed under the glyph in a 56 wide slot read as
+    // clipped on iPad, and the rail is too narrow to spell a name out beside
+    // it. The name still reaches VoiceOver and shows as a tooltip on a long
+    // press or a pointer hover.
+    return Tooltip(
+      message: item.label,
+      excludeFromSemantics: true,
+      child: Semantics(
+        button: true,
+        selected: isCurrent,
+        label: item.label,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: AnimatedContainer(
+            duration: AppDurations.quick,
+            curve: AppCurves.easeSpring,
+            width: AppNavRail.slotSize,
+            height: AppNavRail.slotSize,
+            decoration: BoxDecoration(
+              color: isCurrent ? colors.yellow : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                AppGlyph(item.glyph, size: 22, color: fg),
+                if (item.showFlag)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: colors.high,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isCurrent ? colors.yellow : colors.panel,
+                          width: 2,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -213,12 +205,12 @@ class _RailSearch extends StatelessWidget {
           AppHaptics.selection();
           onTap();
         },
-        borderRadius: Radii.fullAll,
+        customBorder: const CircleBorder(),
         child: Container(
-          width: 56,
-          height: 48,
+          width: AppNavRail.slotSize,
+          height: AppNavRail.slotSize,
           decoration: BoxDecoration(
-            borderRadius: Radii.fullAll,
+            shape: BoxShape.circle,
             border: Border.all(color: colors.panelLine, width: 1.5),
           ),
           child: Center(
@@ -252,13 +244,13 @@ class _RailCompose extends StatelessWidget {
           AppHaptics.capture();
           onTap();
         },
-        borderRadius: Radii.fullAll,
+        customBorder: const CircleBorder(),
         child: Container(
-          width: 56,
-          height: 48,
+          width: AppNavRail.slotSize,
+          height: AppNavRail.slotSize,
           decoration: BoxDecoration(
             color: colors.highlight,
-            borderRadius: Radii.fullAll,
+            shape: BoxShape.circle,
           ),
           child: Center(
             child: AppGlyph(

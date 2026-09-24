@@ -145,10 +145,14 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     final size = AppSize.of(context);
     final twoPane = size.isExpanded && widget.detail != null;
 
-    // On an expanded display the tab bar stands up as a rail on the left, so
-    // the screen keeps clear of it sideways instead of above the bottom edge.
-    final railGap = size.isExpanded && widget.hasTabBar
-        ? AppNavRail.contentGap
+    // On its side, or wide enough for two panes, the tab bar stands up as a
+    // rail down one edge, so the screen keeps clear of it sideways instead of
+    // above the bottom edge. The display's own safe area on that side, the
+    // notch on a phone turned sideways, comes on top.
+    final hasRail = size.hasRail && widget.hasTabBar;
+    final railOnRight = size.navPlacement == AppNavPlacement.right;
+    final railGap = hasRail
+        ? AppNavRail.contentGap + (railOnRight ? padding.right : padding.left)
         : 0.0;
     final available = boxWidth - railGap;
 
@@ -166,7 +170,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         (widget.topBar == null ? 0 : AppScreenScaffold.topBarHeight);
 
     // The tab bar leaves room for itself, and so does a pinned bar.
-    final tabBarRoom = widget.hasTabBar && !size.isExpanded
+    final tabBarRoom = widget.hasTabBar && !size.hasRail
         ? AppFloatingTabBar.contentGap
         : 0.0;
 
@@ -241,7 +245,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           // The tab bar floats over every branch screen, so the fade behind it
           // lives here rather than in the shell: this side of the tree is
           // inside the screen's SeverityScope, so the wash follows the retint.
-          if (effectiveWithFades && widget.hasTabBar && !size.isExpanded)
+          if (effectiveWithFades && widget.hasTabBar && !size.hasRail)
             Positioned(
               bottom: 0,
               left: 0,
@@ -368,7 +372,9 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
 
     if (railGap > 0) {
       body = Padding(
-        padding: EdgeInsets.only(left: railGap),
+        padding: railOnRight
+            ? EdgeInsets.only(right: railGap)
+            : EdgeInsets.only(left: railGap),
         child: body,
       );
     }

@@ -16,12 +16,14 @@ import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
+import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/telemetry/reminder_analytics.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
+import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
@@ -255,11 +257,16 @@ class _CritAlarmAppState extends State<CritAlarmApp>
           locale: context.locale,
           routerConfig: _router,
           scaffoldMessengerKey: _messenger,
-          builder: (context, child) => TourHost(
-            router: _router,
-            child: AppAmbientShell(
+          builder: (context, child) => AppDeviceScope(
+            isIphone:
+                getIt.isRegistered<DeviceForm>() &&
+                getIt<DeviceForm>().isIphone,
+            child: TourHost(
               router: _router,
-              child: child ?? const SizedBox.shrink(),
+              child: AppAmbientShell(
+                router: _router,
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
         ),
