@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A32000000000000000000011 /* LiveCardText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* LiveCardText.swift */; };
+		A32000000000000000000012 /* LiveCardText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* LiveCardText.swift */; };
+		A32000000000000000000013 /* LiveCardText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* LiveCardText.swift */; };
+		A32000000000000000000014 /* LiveCardText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* LiveCardText.swift */; };
+		A32000000000000000000021 /* LiveCardTextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000002 /* LiveCardTextTests.swift */; };
 		A24A00000000000000000035 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
 		A24A00000000000000000011 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
 		A24A00000000000000000012 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
@@ -193,6 +198,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A32000000000000000000001 /* LiveCardText.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveCardText.swift; sourceTree = "<group>"; };
+		A32000000000000000000002 /* LiveCardTextTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveCardTextTests.swift; sourceTree = "<group>"; };
 		A24A00000000000000000001 /* AckedIncidentStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AckedIncidentStore.swift; sourceTree = "<group>"; };
 		A24A00000000000000000002 /* AlarmScheduleRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmScheduleRule.swift; sourceTree = "<group>"; };
 		A28A00000000000000000101 /* RearmRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RearmRule.swift; sourceTree = "<group>"; };
@@ -362,6 +369,7 @@
 				A24A00000000000000000081 /* OpenIncidentStoreTests.swift */,
 				A31000000000000000000004 /* WidgetSnapshotTests.swift */,
 				A31000000000000000000005 /* WidgetLinkTests.swift */,
+				A32000000000000000000002 /* LiveCardTextTests.swift */,
 				A31000000000000000000108 /* WidgetDisplayTests.swift */,
 				A24A00000000000000000006 /* NativeAckSenderTests.swift */,
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
@@ -505,6 +513,7 @@
 				8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */,
 				9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */,
 				A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */,
+				A32000000000000000000001 /* LiveCardText.swift */,
 			);
 			path = Alarm;
 			sourceTree = "<group>";
@@ -838,6 +847,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A32000000000000000000011 /* LiveCardText.swift in Sources */,
+				A32000000000000000000021 /* LiveCardTextTests.swift in Sources */,
 				A31000000000000000000014 /* WidgetSnapshot.swift in Sources */,
 				A31000000000000000000024 /* WidgetSnapshotStore.swift in Sources */,
 				A31000000000000000000034 /* WidgetLink.swift in Sources */,
@@ -885,6 +896,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A32000000000000000000012 /* LiveCardText.swift in Sources */,
 				A31000000000000000000011 /* WidgetSnapshot.swift in Sources */,
 				A31000000000000000000021 /* WidgetSnapshotStore.swift in Sources */,
 				A31000000000000000000031 /* WidgetLink.swift in Sources */,
@@ -920,6 +932,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A32000000000000000000013 /* LiveCardText.swift in Sources */,
 				A31000000000000000000012 /* WidgetSnapshot.swift in Sources */,
 				A31000000000000000000022 /* WidgetSnapshotStore.swift in Sources */,
 				A28A00000000000000000213 /* IncidentRearm.swift in Sources */,
@@ -948,6 +961,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A32000000000000000000014 /* LiveCardText.swift in Sources */,
 				A31000000000000000000013 /* WidgetSnapshot.swift in Sources */,
 				A31000000000000000000023 /* WidgetSnapshotStore.swift in Sources */,
 				A31000000000000000000033 /* WidgetLink.swift in Sources */,

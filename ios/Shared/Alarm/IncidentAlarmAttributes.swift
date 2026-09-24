@@ -59,16 +59,27 @@ public struct CritAlarmIncidentAttributes: ActivityAttributes {
         /// clears it.
         public var ringsAgainInSeconds: Int?
 
+        /// Set only by this device, never by the server.
+        ///
+        /// When this phone saw the acknowledge, for the "Acknowledged at"
+        /// line and the clock. Optional for the same reason as
+        /// `ringsAgainInSeconds`: a server push carries only the three fields
+        /// above, still decodes, and clears it. The card then reads the time
+        /// from the widget snapshot instead.
+        public var ackedAt: Date?
+
         public init(
             state: IncidentActivityState,
             title: String,
             openedAt: Date,
-            ringsAgainInSeconds: Int? = nil
+            ringsAgainInSeconds: Int? = nil,
+            ackedAt: Date? = nil
         ) {
             self.state = state
             self.title = title
             self.openedAt = openedAt
             self.ringsAgainInSeconds = ringsAgainInSeconds
+            self.ackedAt = ackedAt
         }
 
         // The relay writes snake_case, matching every other payload in api.md.
@@ -77,6 +88,7 @@ public struct CritAlarmIncidentAttributes: ActivityAttributes {
             case title
             case openedAt = "opened_at"
             case ringsAgainInSeconds = "rings_again_in_seconds"
+            case ackedAt = "acked_at"
         }
     }
 
