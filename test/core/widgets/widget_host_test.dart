@@ -21,14 +21,14 @@ void main() {
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
   test('write sends the whole snapshot as json', () async {
-    await const WidgetHost().write('{"v":1}');
+    await WidgetHost().write('{"v":1}');
 
     expect(calls.single.method, 'write');
     expect(calls.single.arguments, {'json': '{"v":1}'});
   });
 
   test('clear sends clear', () async {
-    await const WidgetHost().clear();
+    await WidgetHost().clear();
 
     expect(calls.single.method, 'clear');
   });
@@ -36,8 +36,8 @@ void main() {
   test('a platform with no handler is quiet', () async {
     messenger.setMockMethodCallHandler(channel, null);
 
-    await expectLater(const WidgetHost().write('{}'), completes);
-    await expectLater(const WidgetHost().clear(), completes);
+    await expectLater(WidgetHost().write('{}'), completes);
+    await expectLater(WidgetHost().clear(), completes);
   });
 
   test('a platform error is quiet', () async {
@@ -45,6 +45,6 @@ void main() {
       throw PlatformException(code: 'boom');
     });
 
-    await expectLater(const WidgetHost().write('{}'), completes);
+    await expectLater(WidgetHost().write('{}'), completes);
   });
 }

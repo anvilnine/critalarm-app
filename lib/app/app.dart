@@ -203,6 +203,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     unawaited(_push.onResumed());
+    getIt<WidgetSync>().forget();
     unawaited(_reminders.onResumed());
     _replan();
     unawaited(_incomingAudio.onResumed());

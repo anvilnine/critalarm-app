@@ -63,6 +63,7 @@ void main() {
   late TopicsCubit topics;
   late IncidentsCubit incidents;
   late WidgetSync sync;
+  late WidgetHost host;
   late bool connected;
   var clock = DateTime.utc(2026, 9, 25);
 
@@ -95,10 +96,11 @@ void main() {
       GetIncidentsUsecase(incidentRepo),
       identityChanges: identity,
     );
+    host = WidgetHost();
     sync = WidgetSync(
       topics: topics,
       incidents: incidents,
-      host: const WidgetHost(),
+      host: host,
       isConnected: () async => connected,
       now: () => clock,
       debounce: Duration.zero,
@@ -172,5 +174,30 @@ void main() {
       'open_count': 0,
       'topics': <Object?>[],
     });
+  });
+
+  test('the same lists are written again after a clear', () async {
+    await topics.refresh();
+    await incidents.refresh();
+    await settle();
+
+    await host.clear();
+    await topics.refresh();
+    await incidents.refresh();
+    await settle();
+
+    expect(calls.map((call) => call.method), ['write', 'clear', 'write']);
+    expect(written(2)['open_count'], 1);
+  });
+
+  test('forget writes the same lists again', () async {
+    await topics.refresh();
+    await incidents.refresh();
+    await settle();
+
+    sync.forget();
+    await settle();
+
+    expect(calls.map((call) => call.method), ['write', 'write']);
   });
 }
