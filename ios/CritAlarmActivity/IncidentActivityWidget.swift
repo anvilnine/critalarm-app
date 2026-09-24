@@ -30,8 +30,16 @@ struct IncidentActivityWidget: Widget {
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    StatusPill(card: card)
-                        .padding(.trailing, 4)
+                    // The topic sits under the pill. Above the title it cost
+                    // the island a row and pushed the clock off the bottom.
+                    VStack(alignment: .trailing, spacing: 4) {
+                        StatusPill(card: card)
+                        Text(card.topic.isEmpty ? "Crit Alarm" : card.topic)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(card.title)
@@ -51,7 +59,8 @@ struct IncidentActivityWidget: Widget {
                     .foregroundStyle(card.state == .open ? CritAlarmPalette.crit : .white)
                     .lineLimit(1)
                     .multilineTextAlignment(.trailing)
-                    .frame(maxWidth: 44)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: 50)
             } minimal: {
                 FaceView(face: card.face, size: 20)
             }
@@ -186,12 +195,14 @@ private struct IslandBottom: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(line)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                liveTimer(card.timerStart)
-                    .font(.title3.weight(.semibold))
+                if let line {
+                    Text(line)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                (Text(clockLabel).font(.caption).foregroundColor(.secondary)
+                    + liveTimer(card.timerStart).font(.title3.weight(.semibold)))
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -203,16 +214,22 @@ private struct IslandBottom: View {
         .padding(.horizontal, 4)
     }
 
-    private var line: String {
-        if card.state == .open, card.ringsAgainInSeconds != nil {
-            return "Stopped. It rings again."
+    /// Nothing on a ringing card: the pill already says so.
+    private var line: String? {
+        if card.state == .open, let seconds = card.ringsAgainInSeconds {
+            return "Stopped. Rings again in \(seconds) s."
         }
         if card.state == .acked {
             if card.isStale { return LiveCardText.staleLine }
             if let ackedAt = card.ackedAt { return LiveCardText.ackedLine(ackedAt) }
             return "Acknowledged"
         }
-        return card.topic.isEmpty ? "Crit Alarm" : card.topic
+        return nil
+    }
+
+    /// Says what the clock counts, so it never reads as a countdown.
+    private var clockLabel: String {
+        card.state == .acked && card.ackedAt != nil ? "Awake for " : "Open for "
     }
 }
 
