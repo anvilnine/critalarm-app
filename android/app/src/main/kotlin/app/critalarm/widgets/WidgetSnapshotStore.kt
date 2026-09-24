@@ -2,6 +2,7 @@ package app.critalarm.widgets
 
 import android.content.Context
 import android.util.Log
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Where the widget snapshot lives: the `critalarm_widgets` preferences, key
@@ -20,9 +21,28 @@ class WidgetSnapshotStore(context: Context) {
             Log.w(TAG, "widget_snapshot_refused")
             return false
         }
-        synchronized(LOCK) { preferences.edit().putString(KEY, json).apply() }
+        synchronized(LOCK) {
+            preferences.edit().putString(KEY, json).apply()
+            CHANGES.incrementAndGet()
+        }
         WidgetRedraw.all(context)
         return true
+    }
+
+    /**
+     * Counts app writes and patches in this process. [WidgetRefresher] reads
+     * it before its GETs and hands it to [writeFetched] after.
+     */
+    fun changes(): Long = CHANGES.get()
+
+    /** Stores [fetched] unless something was written since [changesBefore]. */
+    fun writeFetched(fetched: WidgetSnapshot, changesBefore: Long) {
+        synchronized(LOCK) {
+            val changed = CHANGES.get() != changesBefore
+            WidgetFreshness.afterFetch(fetched, read(), changed)?.let(::save)
+            if (changed) Log.i(TAG, "widget_fetch_overtaken")
+        }
+        WidgetRedraw.all(context)
     }
 
     fun write(snapshot: WidgetSnapshot) {
@@ -48,6 +68,7 @@ class WidgetSnapshotStore(context: Context) {
                     (result.partial ?: current)?.let { save(it.copy(updatedAt = 0L)) }
                 WidgetPatchResult.Unchanged -> Unit
             }
+            if (result != WidgetPatchResult.Unchanged) CHANGES.incrementAndGet()
             result
         }
         Log.i(TAG, "widget_snapshot_patch result=${result.javaClass.simpleName}")
@@ -63,6 +84,7 @@ class WidgetSnapshotStore(context: Context) {
         const val KEY = "widget_snapshot_v1"
         private const val TAG = "CritAlarmWidgets"
         private val LOCK = Any()
+        private val CHANGES = AtomicLong()
 
         fun nowSeconds(): Long = System.currentTimeMillis() / 1000L
     }

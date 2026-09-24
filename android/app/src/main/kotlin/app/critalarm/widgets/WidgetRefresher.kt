@@ -16,7 +16,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * credentials the app already stored (api.md §3.1, §3.2), all inside one
  * [BUDGET_MS] so a widget update running under `goAsync()` always finishes.
  * Any failure keeps the old snapshot. A 401 means the token is gone, so the
- * widgets say "not connected".
+ * widgets say "not connected". A patch that lands during the GETs wins over
+ * the fetch, which then leaves the snapshot stale.
  */
 object WidgetRefresher {
     const val BUDGET_MS = 8_000L
@@ -52,6 +53,7 @@ object WidgetRefresher {
 
     private fun fetch(store: WidgetSnapshotStore, base: String, token: String) {
         val deadline = SystemClock.elapsedRealtime() + BUDGET_MS
+        val changesBefore = store.changes()
         val answers = mutableListOf<String>()
         for (path in PATHS) {
             val remaining = deadline - SystemClock.elapsedRealtime()
@@ -76,7 +78,7 @@ object WidgetRefresher {
             return
         }
         Log.i(TAG, "widget_fetch_ok topics=${snapshot.topics.size} open=${snapshot.openCount}")
-        store.write(snapshot)
+        store.writeFetched(snapshot, changesBefore)
     }
 
     private sealed class Answer {
