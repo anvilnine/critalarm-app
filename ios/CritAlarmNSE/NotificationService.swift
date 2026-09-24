@@ -78,7 +78,10 @@ final class NotificationService: UNNotificationServiceExtension {
                 NSLog("CritAlarmNSE incident_fetch_fallback incident_id=%@", push.incidentId ?? "-")
                 PushEventLog.record("push_dropped", ["reason": "fetch_failed"])
             }
-            self?.deliver(resolved, push: push)
+            // A fetch that worked already put the whole incident into the
+            // widget snapshot, so the `.opened` patch would only repeat it.
+            let fetched = push.needsContentFetch && !usedFallback && resolved != nil
+            self?.deliver(resolved, push: push, fetched: fetched)
         }
     }
 
@@ -99,7 +102,7 @@ final class NotificationService: UNNotificationServiceExtension {
         return push.priority >= 4 ? .timeSensitive : .active
     }
 
-    private func deliver(_ resolved: IncidentContent?, push: IncidentPush?) {
+    private func deliver(_ resolved: IncidentContent?, push: IncidentPush?, fetched: Bool = false) {
         guard let handler = contentHandler, let content = pending else { return }
         contentHandler = nil
         pending = nil
@@ -118,15 +121,15 @@ final class NotificationService: UNNotificationServiceExtension {
         }
 
         applyPickedSound(to: content, topic: resolved?.topic)
-        patchWidgets(push: push, resolved: resolved)
+        if !fetched { patchWidgets(push: push, resolved: resolved) }
 
         NSLog("CritAlarmNSE delivered title=%@", content.title)
         handler(content)
     }
 
-    /// Every `open` and `repeat` reaches the widgets, fetched or not. A push
-    /// with its text inline carries no topic, so an id the snapshot has not
-    /// seen asks the widget to fetch on its next reload.
+    /// Every `open` and `repeat` the fetch did not already cover reaches the
+    /// widgets. A push with its text inline carries no topic, so an id the
+    /// snapshot has not seen asks the widget to fetch on its next reload.
     private func patchWidgets(push: IncidentPush?, resolved: IncidentContent?) {
         guard let push, push.kind == .open || push.kind == .repeat,
               let incidentId = push.incidentId

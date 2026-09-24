@@ -97,19 +97,6 @@ enum WidgetSnapshotStore {
         }
     }
 
-    /// Asks the next reload to fetch.
-    static func markStale(in defaults: UserDefaults? = groupDefaults) {
-        lock.lock()
-        let marked = read(in: defaults).map { snapshot -> WidgetSnapshot in
-            var stale = snapshot
-            stale.updatedAt = 0
-            return stale
-        }
-        if let marked, marked.connected { save(marked, in: defaults) }
-        lock.unlock()
-        reloadWidgets()
-    }
-
     /// When [incidentId] was acknowledged, if the snapshot knows.
     static func ackedAt(incidentId: String, in defaults: UserDefaults? = groupDefaults) -> Date? {
         guard let snapshot = read(in: defaults),
