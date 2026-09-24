@@ -49,11 +49,16 @@ class AppSwipeActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Slidable(
-      groupTag: groupTag,
-      startActionPane: start.isEmpty ? null : _pane(start),
-      endActionPane: end.isEmpty ? null : _pane(end),
-      child: child,
+    // Clipped to the row, so the row slides away under its own edge instead
+    // of out past the sheet it sits on.
+    return ClipRRect(
+      borderRadius: Radii.mdAll,
+      child: Slidable(
+        groupTag: groupTag,
+        startActionPane: start.isEmpty ? null : _pane(start),
+        endActionPane: end.isEmpty ? null : _pane(end),
+        child: child,
+      ),
     );
   }
 
