@@ -120,6 +120,19 @@
 		FC678E988BB03EB22189B384 /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
 		FCC5FE50E2B32C65DAE754E8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 798CCEC30ED822B6D363FB7E /* Foundation.framework */; };
 		FD773139A83FCEC454AD6252 /* p3.apns in Resources */ = {isa = PBXBuildFile; fileRef = ACCD930E3ED1D741B0A061A9 /* p3.apns */; };
+		A31000000000000000000011 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000001 /* WidgetSnapshot.swift */; };
+		A31000000000000000000012 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000001 /* WidgetSnapshot.swift */; };
+		A31000000000000000000013 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000001 /* WidgetSnapshot.swift */; };
+		A31000000000000000000014 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000001 /* WidgetSnapshot.swift */; };
+		A31000000000000000000021 /* WidgetSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000002 /* WidgetSnapshotStore.swift */; };
+		A31000000000000000000022 /* WidgetSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000002 /* WidgetSnapshotStore.swift */; };
+		A31000000000000000000023 /* WidgetSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000002 /* WidgetSnapshotStore.swift */; };
+		A31000000000000000000024 /* WidgetSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000002 /* WidgetSnapshotStore.swift */; };
+		A31000000000000000000031 /* WidgetLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000003 /* WidgetLink.swift */; };
+		A31000000000000000000033 /* WidgetLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000003 /* WidgetLink.swift */; };
+		A31000000000000000000034 /* WidgetLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000003 /* WidgetLink.swift */; };
+		A31000000000000000000044 /* WidgetSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000004 /* WidgetSnapshotTests.swift */; };
+		A31000000000000000000054 /* WidgetLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000005 /* WidgetLinkTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -250,6 +263,11 @@
 		F4C3109ABCF417BB50CBFEBB /* p4.apns */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = p4.apns; sourceTree = "<group>"; };
 		F706A2A4516835A56FA2F295 /* IncidentContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentContent.swift; sourceTree = "<group>"; };
 		F8CD8DDE3EBA196FC51BFDDE /* AlarmActivityWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmActivityWidget.swift; sourceTree = "<group>"; };
+		A31000000000000000000001 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
+		A31000000000000000000002 /* WidgetSnapshotStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotStore.swift; sourceTree = "<group>"; };
+		A31000000000000000000003 /* WidgetLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetLink.swift; sourceTree = "<group>"; };
+		A31000000000000000000004 /* WidgetSnapshotTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000005 /* WidgetLinkTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetLinkTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -326,6 +344,8 @@
 				A19B00000000000000000002 /* DebugStateRuleTests.swift */,
 				A24A00000000000000000005 /* AckedIncidentStoreTests.swift */,
 				A24A00000000000000000081 /* OpenIncidentStoreTests.swift */,
+				A31000000000000000000004 /* WidgetSnapshotTests.swift */,
+				A31000000000000000000005 /* WidgetLinkTests.swift */,
 				A24A00000000000000000006 /* NativeAckSenderTests.swift */,
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
 				78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */,
@@ -380,6 +400,7 @@
 				A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */,
 				A13F0C1E4B7D25A9E0116001 /* IncidentContentCache.swift */,
 				9886D275E53BA770B3EB7666 /* Alarm */,
+				A31000000000000000000006 /* Widgets */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -484,6 +505,16 @@
 			);
 			name = PushFixtures;
 			path = ../scripts/push;
+			sourceTree = "<group>";
+		};
+		A31000000000000000000006 /* Widgets */ = {
+			isa = PBXGroup;
+			children = (
+				A31000000000000000000001 /* WidgetSnapshot.swift */,
+				A31000000000000000000002 /* WidgetSnapshotStore.swift */,
+				A31000000000000000000003 /* WidgetLink.swift */,
+			);
+			path = Widgets;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -783,6 +814,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A31000000000000000000014 /* WidgetSnapshot.swift in Sources */,
+				A31000000000000000000024 /* WidgetSnapshotStore.swift in Sources */,
+				A31000000000000000000034 /* WidgetLink.swift in Sources */,
+				A31000000000000000000044 /* WidgetSnapshotTests.swift in Sources */,
+				A31000000000000000000054 /* WidgetLinkTests.swift in Sources */,
 				A28A00000000000000000221 /* RearmRuleTests.swift in Sources */,
 				A19B00000000000000000011 /* DebugStateRule.swift in Sources */,
 				A19B00000000000000000013 /* DebugStateRuleTests.swift in Sources */,
@@ -824,6 +860,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A31000000000000000000011 /* WidgetSnapshot.swift in Sources */,
+				A31000000000000000000021 /* WidgetSnapshotStore.swift in Sources */,
+				A31000000000000000000031 /* WidgetLink.swift in Sources */,
 				A28A00000000000000000212 /* IncidentRearm.swift in Sources */,
 				A28A00000000000000000202 /* RearmRule.swift in Sources */,
 				A19B00000000000000000012 /* DebugStateRule.swift in Sources */,
@@ -856,6 +895,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A31000000000000000000012 /* WidgetSnapshot.swift in Sources */,
+				A31000000000000000000022 /* WidgetSnapshotStore.swift in Sources */,
 				A28A00000000000000000213 /* IncidentRearm.swift in Sources */,
 				A28A00000000000000000203 /* RearmRule.swift in Sources */,
 				A24A00000000000000000035 /* NativeAckSender.swift in Sources */,
@@ -882,6 +923,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A31000000000000000000013 /* WidgetSnapshot.swift in Sources */,
+				A31000000000000000000023 /* WidgetSnapshotStore.swift in Sources */,
+				A31000000000000000000033 /* WidgetLink.swift in Sources */,
 				A28A00000000000000000241 /* IncidentPush.swift in Sources */,
 				A28A00000000000000000231 /* QuietHours.swift in Sources */,
 				A28A00000000000000000214 /* IncidentRearm.swift in Sources */,
