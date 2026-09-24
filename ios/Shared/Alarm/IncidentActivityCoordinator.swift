@@ -41,6 +41,11 @@ public final class IncidentActivityCoordinator {
     public static let pendingTokensKey = "flutter.pending_activity_tokens"
     public static let pushToStartReadyKey = "flutter.live_activity_push_to_start_ready"
 
+    /// The demo card onboarding starts to get the Allow prompt. Same value as
+    /// `NotificationPermissionsCubit.onboardingIncidentId` in Dart. No server
+    /// knows it, so no ack, stale date or snapshot patch applies to it.
+    public static let onboardingIncidentId = "inc_onboarding"
+
     /// Set by `IncidentAlarmScheduler` while an AlarmKit alarm exists for an
     /// incident. Nothing else may start a card for those.
     private var alarmingIncidents: Set<String> = []
@@ -320,7 +325,8 @@ public final class IncidentActivityCoordinator {
         _ state: IncidentActivityState,
         incidentId: String
     ) async {
-        guard state != .open else { return }
+        // The demo card's own content updates come through here too.
+        guard state != .open, incidentId != Self.onboardingIncidentId else { return }
         NSLog(
             "CritAlarmActivity: remote_state_applied incident_id=%@ state=%@",
             incidentId, state.rawValue
@@ -344,7 +350,8 @@ public final class IncidentActivityCoordinator {
     /// this update from feeding back through `watchContentState`.
     private func markCardAcked(incidentId: String, at now: Date = Date()) async {
         #if canImport(ActivityKit)
-        guard let activity = activity(for: incidentId) else { return }
+        guard incidentId != Self.onboardingIncidentId,
+              let activity = activity(for: incidentId) else { return }
         var content = activity.content.state
         guard content.ackedAt == nil else { return }
         let ackedAt = WidgetSnapshotStore.ackedAt(incidentId: incidentId) ?? now
