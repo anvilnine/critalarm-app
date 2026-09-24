@@ -17,12 +17,14 @@ final class DeviceForm {
     try {
       final info = await (plugin ?? DeviceInfoPlugin()).deviceInfo;
       return DeviceForm(
-        isIphone:
-            info is IosDeviceInfo &&
-            info.model.toLowerCase().startsWith('iphone'),
+        isIphone: info is IosDeviceInfo && isIphoneModel(info.model),
       );
     } on Object {
       return const DeviceForm();
     }
   }
 }
+
+/// True when `UIDevice.model` names an iPhone. iOS answers "iPhone", "iPad"
+/// or "iPod touch", and the simulator answers the same as the device.
+bool isIphoneModel(String model) => model.toLowerCase().startsWith('iphone');
