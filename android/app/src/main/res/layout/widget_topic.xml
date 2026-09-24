@@ -60,12 +60,11 @@
                     android:textStyle="bold"
                     android:visibility="gone" />
 
-                <TextView
+                <Chronometer
                     android:id="@+id/topic_since"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:singleLine="true"
-                    android:text="since 09:15"
                     android:textColor="@color/widget_ink_muted"
                     android:textSize="11sp" />
             </LinearLayout>

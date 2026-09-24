@@ -4,7 +4,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.text.format.DateFormat
+import android.os.SystemClock
 import android.view.View
 import android.widget.RemoteViews
 import app.critalarm.MainActivity
@@ -13,7 +13,6 @@ import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.notifications.CritAlarmFace
 import app.critalarm.notifications.FaceBitmap
 import app.critalarm.storage.NativeConnectionStore
-import java.util.Date
 
 /**
  * Builds the RemoteViews for the three widgets from the snapshot. The words
@@ -60,9 +59,7 @@ object WidgetViews {
         row.setTextViewText(R.id.row_title, incident?.title ?: "")
         row.setViewVisibility(R.id.row_title, if (incident == null) View.GONE else View.VISIBLE)
         showState(row, incident, R.id.row_state, R.id.row_state_awake, R.id.row_state_quiet)
-        val since = WidgetRows.sinceSeconds(incident)
-        row.setTextViewText(R.id.row_since, since?.let { clock(context, it) } ?: "")
-        row.setViewVisibility(R.id.row_since, if (since == null) View.GONE else View.VISIBLE)
+        showTimer(row, R.id.row_since, incident)
         row.setOnClickPendingIntent(R.id.row, topicIntent(context, topic.name))
         return row
     }
@@ -89,9 +86,7 @@ object WidgetViews {
         val facePx = (TOPIC_FACE_DP * context.resources.displayMetrics.density).toInt()
         views.setImageViewBitmap(R.id.topic_face, FaceBitmap.render(WidgetRows.face(incident), facePx))
         showState(views, incident, R.id.topic_state, R.id.topic_state_awake, R.id.topic_state_quiet)
-        val since = WidgetRows.sinceSeconds(incident)
-        views.setTextViewText(R.id.topic_since, since?.let { "since ${clock(context, it)}" } ?: "")
-        views.setViewVisibility(R.id.topic_since, if (since == null) View.GONE else View.VISIBLE)
+        showTimer(views, R.id.topic_since, incident)
         views.setTextViewText(R.id.topic_name, topic.name)
         views.setTextViewText(R.id.topic_title, incident?.title ?: WidgetRows.ALL_QUIET)
         views.setOnClickPendingIntent(android.R.id.background, topicIntent(context, topic.name))
@@ -156,8 +151,21 @@ object WidgetViews {
         views.setTextViewText(shown, WidgetRows.stateWord(incident))
     }
 
-    private fun clock(context: Context, seconds: Long): String =
-        DateFormat.getTimeFormat(context).format(Date(seconds * 1000L))
+    /**
+     * A live count-up since the incident opened, like the iOS widget's timer.
+     * The launcher ticks it, so nothing here has to redraw every second.
+     */
+    private fun showTimer(views: RemoteViews, id: Int, incident: WidgetIncident?) {
+        val opened = WidgetRows.openedSeconds(incident)
+        if (opened == null) {
+            views.setChronometer(id, SystemClock.elapsedRealtime(), null, false)
+            views.setViewVisibility(id, View.GONE)
+            return
+        }
+        val base = WidgetRows.chronometerBase(opened, System.currentTimeMillis(), SystemClock.elapsedRealtime())
+        views.setChronometer(id, base, null, true)
+        views.setViewVisibility(id, View.VISIBLE)
+    }
 
     private fun topicIntent(context: Context, topic: String): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {

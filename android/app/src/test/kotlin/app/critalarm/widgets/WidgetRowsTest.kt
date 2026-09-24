@@ -90,11 +90,20 @@ class WidgetRowsTest {
     }
 
     @Test
-    fun `since reads the ack for an acked incident and the open otherwise`() {
-        assertEquals(1759046100L, WidgetRows.sinceSeconds(open))
-        assertEquals(1759042920L, WidgetRows.sinceSeconds(acked))
-        assertEquals(1759042800L, WidgetRows.sinceSeconds(acked.copy(ackedAt = null)))
-        assertNull(WidgetRows.sinceSeconds(open.copy(openedAt = 0L)))
-        assertNull(WidgetRows.sinceSeconds(null))
+    fun `the timer counts from the open, acked or not`() {
+        assertEquals(1759046100L, WidgetRows.openedSeconds(open))
+        assertEquals(1759042800L, WidgetRows.openedSeconds(acked))
+        assertNull(WidgetRows.openedSeconds(open.copy(openedAt = 0L)))
+        assertNull(WidgetRows.openedSeconds(null))
+    }
+
+    @Test
+    fun `the chronometer base sits the incident age behind elapsed realtime`() {
+        // Opened 8 min 55 s ago: the chronometer reads 8:55 at once.
+        val now = 1759046100_000L + 535_000L
+        assertEquals(1_000_000L - 535_000L, WidgetRows.chronometerBase(1759046100L, now, 1_000_000L))
+        // Over an hour: 1 h 6 min 55 s.
+        val later = 1759046100_000L + 4_015_000L
+        assertEquals(5_000_000L - 4_015_000L, WidgetRows.chronometerBase(1759046100L, later, 5_000_000L))
     }
 }
