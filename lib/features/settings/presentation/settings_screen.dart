@@ -180,6 +180,7 @@ class _SettingsScreenContent extends StatelessWidget {
         return AppScreenScaffold(
           topBar: AppTopBar(title: LocaleKeys.settings_title.tr()),
           slivers: [
+            /*
             SliverToBoxAdapter(
               child: Column(
                 children: [
@@ -196,6 +197,7 @@ class _SettingsScreenContent extends StatelessWidget {
                 ],
               ),
             ),
+            */
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
