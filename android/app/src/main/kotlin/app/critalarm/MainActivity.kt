@@ -37,6 +37,9 @@ class MainActivity : FlutterFragmentActivity() {
      */
     private var pendingTap: Map<String, String>? = null
 
+    /** The route of the tap this activity was created with. See [LaunchTap]. */
+    private var launchRoute: String? = null
+
     private var tapSequence = 0
 
     /** A reminder tap Dart has not taken yet. Separate from incident taps. */
@@ -308,6 +311,12 @@ class MainActivity : FlutterFragmentActivity() {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
         }
+        // Read once, before Flutter asks for the initial route. Dart's
+        // takePending at startup gets the same tap; its tap_id is what stops
+        // the resume that follows from opening the screen a second time.
+        val launch = LaunchTap { readTap(intent) }
+        pendingTap = launch.tap
+        launchRoute = launch.route
         super.onCreate(savedInstanceState)
         val shared = readIncomingAudio(intent)
         if (savedInstanceState == null) {
@@ -328,10 +337,10 @@ class MainActivity : FlutterFragmentActivity() {
     /**
      * A tapped notification opens the incident it belongs to. A priority 1-3
      * message has no incident (api.md §1.7), so its notification carries the
-     * topic and opens that instead.
+     * topic and opens that instead. Flutter asks more than once, so this
+     * never reads the intent itself: [onCreate] already did.
      */
-    override fun getInitialRoute(): String? =
-        routeFor(readTap(intent)) ?: super.getInitialRoute()
+    override fun getInitialRoute(): String? = launchRoute ?: super.getInitialRoute()
 
     /**
      * The tap a notification put on an intent, read once.
@@ -360,9 +369,6 @@ class MainActivity : FlutterFragmentActivity() {
         if (open != null) tap[EXTRA_OPEN] = open
         return tap
     }
-
-    /** See [TapRoute]. */
-    private fun routeFor(tap: Map<String, String>?): String? = TapRoute.routeFor(tap)
 
     companion object {
         const val EXTRA_ALARM_INCIDENT_ID = "alarm_incident_id"
