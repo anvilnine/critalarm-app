@@ -74,7 +74,7 @@ void main() {
     final withWidgets = KeychainMirrorConnectionRepository(
       inner,
       const NseCredentialStore(),
-      widgets: const WidgetHost(),
+      widgets: WidgetHost(),
     );
 
     await withWidgets.saveConnection(connection);

@@ -9,7 +9,7 @@ import 'package:flutter/services.dart';
 /// raises [MissingPluginException] and this swallows it, the same as
 /// `NseCredentialStore`.
 final class WidgetHost {
-  const WidgetHost([this.channel = const MethodChannel(channelName)]);
+  WidgetHost([this.channel = const MethodChannel(channelName)]);
 
   static const channelName = 'app.critalarm/widgets';
 
@@ -18,8 +18,16 @@ final class WidgetHost {
   /// Stores [json], a whole snapshot, and redraws every widget.
   Future<void> write(String json) => _invoke('write', {'json': json});
 
+  /// How many times [clear] has run. `WidgetSync` keys its "already written"
+  /// check on this, so the same lists are written again after a sign-out.
+  int get clears => _clears;
+  int _clears = 0;
+
   /// Stores the signed-out snapshot and redraws every widget.
-  Future<void> clear() => _invoke('clear');
+  Future<void> clear() {
+    _clears++;
+    return _invoke('clear');
+  }
 
   Future<void> _invoke(String method, [Object? arguments]) async {
     try {

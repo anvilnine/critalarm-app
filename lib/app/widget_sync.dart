@@ -36,7 +36,8 @@ class WidgetSync {
   bool _incidentsLoaded = false;
 
   /// The last snapshot written, without `updated_at`, so a write that only
-  /// moves the clock is skipped.
+  /// moves the clock is skipped. It carries the host's clear count, so a
+  /// sign-out in between always leads to a fresh write.
   String? _lastWritten;
 
   void start() {
@@ -52,6 +53,15 @@ class WidgetSync {
       await subscription.cancel();
     }
     _subscriptions.clear();
+  }
+
+  /// Writes the next snapshot even if it matches the last one. The native
+  /// side can store the signed-out snapshot on its own (a 401 in the
+  /// notification extension or a widget refresh), so the app calls this on
+  /// resume.
+  void forget() {
+    _lastWritten = null;
+    _schedule();
   }
 
   void _schedule() {
@@ -70,9 +80,10 @@ class WidgetSync {
       now: _now(),
     );
     final json = snapshot.toJson();
-    final withoutClock = jsonEncode({...json}..remove('updated_at'));
-    if (withoutClock == _lastWritten) return;
-    _lastWritten = withoutClock;
+    final key =
+        '${_host.clears}:${jsonEncode({...json}..remove('updated_at'))}';
+    if (key == _lastWritten) return;
+    _lastWritten = key;
     await _host.write(jsonEncode(json));
   }
 }
