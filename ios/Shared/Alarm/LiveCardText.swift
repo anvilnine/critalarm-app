@@ -32,12 +32,18 @@ enum LiveCardText {
         }
     }
 
-    /// "Acknowledged at 03:12", in the phone's own time zone.
-    static func ackedLine(_ ackedAt: Date, timeZone: TimeZone = .current) -> String {
+    /// "Acknowledged at 03:12", or "3:12 AM" on a 12 hour phone. Follows
+    /// the phone's own time zone and clock setting.
+    static func ackedLine(
+        _ ackedAt: Date,
+        timeZone: TimeZone = .current,
+        locale: Locale = .current
+    ) -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.locale = locale
         formatter.timeZone = timeZone
-        formatter.dateFormat = "HH:mm"
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
         return "Acknowledged at \(formatter.string(from: ackedAt))"
     }
 
