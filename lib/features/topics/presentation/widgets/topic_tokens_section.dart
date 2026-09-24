@@ -410,7 +410,6 @@ class _TopicTokensSectionContentState
                             ),
                             AppButton(
                               label: LocaleKeys.topic_tokens_new_button.tr(),
-                              variant: AppButtonVariant.ghost,
                               size: AppButtonSize.sm,
                               isFullWidth: true,
                               isLoading: state.isWorking,
