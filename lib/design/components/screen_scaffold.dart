@@ -224,16 +224,19 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                 isTop: true,
               ),
             ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: padding.bottom + 60,
-              child: ProgressiveBlurEdge(
+            // A pinned bottom bar brings its own blur (AppScrollScrim), so
+            // skip this one there or the two stack.
+            if (widget.bottomBar == null || !widget.withFades)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
                 height: padding.bottom + 60,
-                isTop: false,
+                child: ProgressiveBlurEdge(
+                  height: padding.bottom + 60,
+                  isTop: false,
+                ),
               ),
-            ),
           ],
           // The tab bar floats over every branch screen, so the fade behind it
           // lives here rather than in the shell: this side of the tree is

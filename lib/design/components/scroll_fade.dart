@@ -1,6 +1,5 @@
-import 'dart:ui' show ImageFilter;
-
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/design_system/widgets/progressive_blur.dart';
 import 'package:flutter/material.dart';
 
 /// Which edge the fade sits on.
@@ -96,28 +95,6 @@ class AppScrollScrim extends StatelessWidget {
   /// strongest the wash gets, right at the bottom edge.
   final Color tint;
 
-  /// One entry per blur layer: how much of the strip it covers measured from
-  /// the bottom edge, how hard it blurs, and how much of it is blended in.
-  ///
-  /// A blur does not ramp, it stops, so a layer laid on at full strength
-  /// leaves a line across the content at its own top edge. Two things keep
-  /// that line off the screen. The layer that reaches the top of the strip is
-  /// blended in at 6 percent, too little to make a line anyone can find, and
-  /// the layers that blend in harder stop at or below the top of the button,
-  /// which is opaque and covers the edge. Only the first two tops land in the
-  /// open, whatever the safe area and the button add up to.
-  ///
-  /// The opacity has to come from an [Opacity] and never from a [ShaderMask]:
-  /// a shader mask paints its child into a layer of its own, and a backdrop
-  /// filter inside one finds nothing behind it to blur.
-  static const List<(double, double, double)> _blurLayers = [
-    (1, 5, 0.06),
-    (0.86, 8, 0.2),
-    (0.74, 10, 0.45),
-    (0.62, 12, 0.7),
-    (0.5, 14, 1),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
@@ -127,22 +104,10 @@ class AppScrollScrim extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            for (final (run, sigma, alpha) in _blurLayers)
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: Opacity(
-                  opacity: alpha,
-                  child: ClipRect(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-                      child: SizedBox(
-                        height: height * run,
-                        width: double.infinity,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            // The same slice-by-slice blur the scaffold edges use. Stacked
+            // layers of different strength each leave a line where they
+            // stop, and that line showed across the list.
+            ProgressiveBlurEdge(height: height, isTop: false),
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: _fadeRamp(tint, ScrollFadeEdge.bottom),
