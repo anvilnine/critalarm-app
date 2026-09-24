@@ -29,6 +29,7 @@ export 'segmented_control.dart';
 export 'sheets.dart';
 export 'skeleton.dart';
 export 'stage.dart';
+export 'swipe_actions.dart';
 export 'switches.dart';
 export 'toasts.dart';
 export 'top_bar.dart';
