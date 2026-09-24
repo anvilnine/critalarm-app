@@ -67,13 +67,23 @@ object StatusNotificationFactory {
         val immutable = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val title = NtfyEmoji.prefixTitle(content.title, content.tags)
         val body = silencedInSeconds?.let { silencedText(it) } ?: content.body
+        // An acked card leads with when it was acked, then the message, the
+        // same order as the iOS Live Activity.
+        val ackedLine = if (silencedInSeconds == null && state == IncidentCardState.ACKED) {
+            LiveCardText.ackedLine(ackedAtMillis)
+        } else {
+            null
+        }
+        val text = ackedLine ?: body
+        val bigText = listOfNotNull(ackedLine, body.takeIf { it.isNotBlank() }).joinToString("\n")
 
         val builder = NotificationCompat.Builder(context, NotificationChannels.cardChannelId())
             .setSmallIcon(R.drawable.ic_stat_alarm)
             .setLargeIcon(FaceBitmap.render(state.face, FACE_PX))
             .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentText(text)
+            .setSubText(content.topic)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
             .setColor(state.accentColor)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

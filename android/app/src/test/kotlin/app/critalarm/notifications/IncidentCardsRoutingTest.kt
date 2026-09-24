@@ -64,6 +64,18 @@ class IncidentCardsRoutingTest {
     }
 
     @Test
+    fun `a tap on the status card opens the incident`() {
+        val status = source("src/main/kotlin/app/critalarm/notifications/StatusNotificationFactory.kt")
+        val launch = status.substringAfter("private fun incidentLaunchIntent(", "")
+        assertTrue("the status card must build a launch intent", launch.isNotEmpty())
+        assertTrue(
+            "the launch intent must carry the incident id MainActivity reads",
+            launch.substringBefore("\n\n").contains("putExtra(MainActivity.EXTRA_INCIDENT_ID, incidentId)"),
+        )
+        assertTrue("the card's content intent must be the launch intent", status.contains("incidentLaunchIntent(context, incidentId)"))
+    }
+
+    @Test
     fun `the ack remembers the server deadline`() {
         val receiver = source("src/main/kotlin/app/critalarm/actions/IncidentActionReceiver.kt")
         assertTrue("the ack must read desk_timer_fires_at off the response", receiver.contains("rememberDeskTimer("))
