@@ -69,20 +69,6 @@ private struct IncidentTitle: View {
     }
 }
 
-/// How long the incident has been going.
-private struct Since: View {
-    let incident: WidgetIncident
-
-    var body: some View {
-        if incident.openedAt > 0 {
-            Text(openedDate(incident), style: .relative)
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(WidgetColors.muted)
-                .lineLimit(1)
-        }
-    }
-}
-
 private struct SmallTopic: View {
     let topic: WidgetTopic
 
@@ -132,7 +118,7 @@ private struct MediumTopic: View {
                 Spacer(minLength: 0)
                 if let incident = topic.incident {
                     HStack(alignment: .center) {
-                        Since(incident: incident)
+                        RunningTime(incident: incident)
                         Spacer(minLength: 8)
                         IncidentActionButton(incident: incident)
                     }

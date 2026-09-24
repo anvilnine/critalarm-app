@@ -34,7 +34,9 @@ struct TopicsWidgetView: View {
                 SmallCount(snapshot: snapshot)
                     .widgetURL(WidgetLink.homeURL)
             } else {
+                // Rows open their topic; the header and the gaps open Home.
                 TopicList(snapshot: snapshot, limit: WidgetDisplay.rowLimit(family: familyName))
+                    .widgetURL(WidgetLink.homeURL)
             }
         } else {
             EmptyState(face: .watching, message: WidgetCopy.connect)
