@@ -10,6 +10,7 @@ import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
+import 'package:critalarm/design_system/widgets/progressive_blur.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -33,6 +34,7 @@ class AppScreenScaffold extends StatefulWidget {
     this.backgroundColor,
     this.withGhosts = true,
     this.withFades = true,
+    this.withEdgeBlur = false,
     this.ghostOpacity = 1,
     this.resizeForKeyboard = false,
     super.key,
@@ -72,6 +74,10 @@ class AppScreenScaffold extends StatefulWidget {
   final Color? backgroundColor;
   final bool withGhosts;
   final bool withFades;
+
+  /// A soft blur on the list where it runs under the top bar and the tab
+  /// bar. It sits under the bars, so they stay sharp.
+  final bool withEdgeBlur;
 
   /// Dials the background shapes down, for a screen whose text sits straight
   /// on top of them.
@@ -207,6 +213,28 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       return Stack(
         children: [
           Positioned.fill(child: list),
+          if (widget.withEdgeBlur) ...[
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: padding.top + AppScreenScaffold.topBarHeight + 16,
+              child: ProgressiveBlurEdge(
+                height: padding.top + AppScreenScaffold.topBarHeight + 16,
+                isTop: true,
+              ),
+            ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: padding.bottom + 60,
+              child: ProgressiveBlurEdge(
+                height: padding.bottom + 60,
+                isTop: false,
+              ),
+            ),
+          ],
           // The tab bar floats over every branch screen, so the fade behind it
           // lives here rather than in the shell: this side of the tree is
           // inside the screen's SeverityScope, so the wash follows the retint.
