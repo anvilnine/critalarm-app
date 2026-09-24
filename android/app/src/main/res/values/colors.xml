@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#FF8A1F</color>
+
+    <!-- Home screen widgets. The light palette from
+         lib/design/tokens/colors.dart; values-night holds the dark one. -->
+    <color name="widget_background">#F7F2E9</color>
+    <color name="widget_hairline">#241A140F</color>
+    <color name="widget_ink">#1A140F</color>
+    <color name="widget_ink_muted">#6E543F</color>
+    <color name="widget_ringing">#F5473A</color>
+    <color name="widget_awake">#2A3BD8</color>
+    <color name="widget_row_pressed">#121A140F</color>
+    <color name="widget_button">#2A3BD8</color>
+    <color name="widget_on_button">#FFFFFF</color>
 </resources>
