@@ -23,6 +23,12 @@ enum AppButtonVariant {
 
   /// Dark panel background (#1A140F) with onPanel text (#F7F1EA).
   crit,
+
+  /// Transparent background with critical red text. Destructive text action.
+  dangerText,
+
+  /// Critical red fill with white text. Destructive primary action.
+  destructive,
 }
 
 /// Button sizes defined by the Crit Alarm Design System.
@@ -114,6 +120,13 @@ class _AppButtonState extends State<AppButton> {
         bg = colors.panel;
         fg = colors.onPanel;
         shadows = AppShadows.lightSm;
+      case AppButtonVariant.dangerText:
+        bg = _isHovered ? colors.canvasGhost : Colors.transparent;
+        fg = colors.crit;
+      case AppButtonVariant.destructive:
+        bg = _isHovered ? colors.critAlt : colors.crit;
+        fg = colors.onError;
+        shadows = AppShadows.lightSm;
     }
 
     // An off button keeps flat colours of its own. It used to be wrapped in an
@@ -133,6 +146,12 @@ class _AppButtonState extends State<AppButton> {
           // quieter label and stroke.
           fg = colors.ink3;
           border = BorderSide(color: fg, width: 2);
+        case AppButtonVariant.dangerText:
+          fg = colors.ink3;
+        case AppButtonVariant.destructive:
+          bg = colors.ash;
+          fg = colors.ink2;
+          shadows = const <BoxShadow>[];
       }
     }
 
