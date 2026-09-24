@@ -60,17 +60,27 @@ extension View {
 /// the live card carries.
 struct StateWord: View {
     let incident: WidgetIncident?
+    @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
         let face = CritAlarmFace.forIncident(incident)
-        Text(WidgetDisplay.stateWord(incident).uppercased())
+        let word = Text(WidgetDisplay.stateWord(incident).uppercased())
             .font(.system(size: 10, weight: .bold))
             .lineLimit(1)
             .fixedSize()
             .padding(.horizontal, 7)
             .padding(.vertical, 2)
-            .background(incident == nil ? WidgetColors.hairline : face.canvas, in: Capsule())
-            .foregroundStyle(incident == nil ? WidgetColors.muted : face.stroke)
+        if renderingMode == .fullColor {
+            word
+                .background(incident == nil ? WidgetColors.hairline : face.canvas, in: Capsule())
+                .foregroundStyle(incident == nil ? WidgetColors.muted : face.stroke)
+        } else {
+            // A filled capsule turns into a blob when tinted. An outline
+            // keeps the word readable and takes the accent colour.
+            word
+                .overlay(Capsule().stroke(lineWidth: 1))
+                .widgetAccentable()
+        }
     }
 }
 
@@ -164,10 +174,23 @@ enum WidgetCopy {
 /// card. Nothing here talks to the server itself.
 struct IncidentActionButton: View {
     let incident: WidgetIncident
+    @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
         if let title = WidgetDisplay.buttonTitle(incident) {
-            if incident.state == WidgetIncident.open {
+            if renderingMode != .fullColor {
+                // Tinted or clear: an outlined capsule in the accent colour.
+                Group {
+                    if incident.state == WidgetIncident.open {
+                        Button(intent: AckAlarmIntent(incidentId: incident.id)) { label(title) }
+                    } else {
+                        Button(intent: CloseIncidentIntent(incidentId: incident.id)) { label(title) }
+                    }
+                }
+                .buttonStyle(.plain)
+                .overlay(Capsule().stroke(lineWidth: 1.5))
+                .widgetAccentable()
+            } else if incident.state == WidgetIncident.open {
                 Button(intent: AckAlarmIntent(incidentId: incident.id)) { label(title) }
                     .buttonStyle(.plain)
                     .background(CritAlarmFace.alarmed.canvas, in: Capsule())

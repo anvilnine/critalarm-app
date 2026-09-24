@@ -47,10 +47,18 @@ struct FaceView: View {
     let face: CritAlarmFace
     var size: CGFloat = 40
 
+    /// Tinted and clear home screens and the lock screen keep only how bright
+    /// a colour is, so the coloured square would turn into a flat blob and
+    /// the dark ink would vanish. There the face is drawn as light lines on
+    /// a faint square instead.
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    private var fullColor: Bool { renderingMode == .fullColor }
+    private var featureColor: Color { fullColor ? face.stroke : .white }
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
-                .fill(face.canvas)
+                .fill(fullColor ? face.canvas : Color.white.opacity(0.18))
             Canvas { context, canvasSize in
                 draw(in: &context, size: canvasSize)
             }
@@ -59,7 +67,7 @@ struct FaceView: View {
         .frame(width: size, height: size)
         .overlay(
             RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
-                .stroke(CritAlarmPalette.ink, lineWidth: max(1.5, size * 0.05))
+                .stroke(fullColor ? CritAlarmPalette.ink : Color.white, lineWidth: max(1.5, size * 0.05))
         )
         .accessibilityLabel(Text(face.rawValue))
     }
@@ -84,19 +92,19 @@ struct FaceView: View {
                     to: CGPoint(x: x + w * 0.12, y: eyeY),
                     control: CGPoint(x: x, y: eyeY - h * 0.14)
                 )
-                context.stroke(path, with: .color(face.stroke), style: style)
+                context.stroke(path, with: .color(featureColor), style: style)
             }
         case .alarmed:
             for x in [leftX, rightX] {
                 let r = w * 0.13
                 let rect = CGRect(x: x - r, y: eyeY - r, width: r * 2, height: r * 2)
-                context.stroke(Path(ellipseIn: rect), with: .color(face.stroke), style: style)
+                context.stroke(Path(ellipseIn: rect), with: .color(featureColor), style: style)
             }
         default:
             for x in [leftX, rightX] {
                 let r = w * 0.085
                 let rect = CGRect(x: x - r, y: eyeY - r, width: r * 2, height: r * 2)
-                context.fill(Path(ellipseIn: rect), with: .color(face.stroke))
+                context.fill(Path(ellipseIn: rect), with: .color(featureColor))
             }
         }
 
@@ -107,7 +115,7 @@ struct FaceView: View {
                 var path = Path()
                 path.move(to: CGPoint(x: x - w * 0.13 * inward, y: eyeY - h * 0.22))
                 path.addLine(to: CGPoint(x: x + w * 0.13 * inward, y: eyeY - h * 0.22 + lift))
-                context.stroke(path, with: .color(face.stroke), style: style)
+                context.stroke(path, with: .color(featureColor), style: style)
             }
         }
 
@@ -118,7 +126,7 @@ struct FaceView: View {
         case .alarmed:
             let rect = CGRect(x: w * 0.34, y: mouthY - h * 0.10, width: w * 0.32, height: h * 0.22)
             mouth.addEllipse(in: rect)
-            context.fill(mouth, with: .color(face.stroke))
+            context.fill(mouth, with: .color(featureColor))
         case .worried:
             mouth.move(to: CGPoint(x: w * 0.32, y: mouthY + h * 0.04))
             mouth.addCurve(
@@ -126,14 +134,14 @@ struct FaceView: View {
                 control1: CGPoint(x: w * 0.44, y: mouthY - h * 0.08),
                 control2: CGPoint(x: w * 0.56, y: mouthY + h * 0.12)
             )
-            context.stroke(mouth, with: .color(face.stroke), style: style)
+            context.stroke(mouth, with: .color(featureColor), style: style)
         default:
             mouth.move(to: CGPoint(x: w * 0.34, y: mouthY - h * 0.02))
             mouth.addQuadCurve(
                 to: CGPoint(x: w * 0.66, y: mouthY - h * 0.02),
                 control: CGPoint(x: w * 0.5, y: mouthY + h * 0.12)
             )
-            context.stroke(mouth, with: .color(face.stroke), style: style)
+            context.stroke(mouth, with: .color(featureColor), style: style)
         }
     }
 }
