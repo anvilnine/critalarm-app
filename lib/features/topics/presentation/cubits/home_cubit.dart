@@ -162,6 +162,9 @@ class HomeCubit extends Cubit<HomeState> {
       _lastPreviews ?? const {},
     );
     if (rowsOnly) {
+      // Only over a list that loaded. A failure keeps the rows it chose to
+      // show, and a pin must not bring back rows it dropped.
+      if (state.status != HomeStatus.success || state.isStale) return;
       emit(state.copyWith(topicItems: items));
       return;
     }
@@ -388,16 +391,6 @@ class HomeCubit extends Cubit<HomeState> {
       now: now,
     );
 
-    // A topic this phone has never marked starts out read, so the first list
-    // after an update does not put a badge on everything. From here on only
-    // what arrives later counts.
-    final prefs = _listPrefs;
-    if (prefs != null) {
-      for (final t in topics) {
-        if (prefs.lastReadAt(t.name) == null) await prefs.markRead(t.name, now);
-      }
-    }
-
     final items = _buildTopicItems(
       result.rows,
       topics,
@@ -412,6 +405,17 @@ class HomeCubit extends Cubit<HomeState> {
     // over the newer one: an acknowledge answer that arrived after the close
     // painted the screen blue again.
     if (id != _buildId) return state;
+
+    // A topic this phone has never marked starts out read, so the first list
+    // after an update does not put a badge on everything. From here on only
+    // what arrives later counts. Only the newest build writes, and the rows
+    // above already count an unmarked topic as read, so they stay right.
+    final prefs = _listPrefs;
+    if (prefs != null) {
+      for (final t in topics) {
+        if (prefs.lastReadAt(t.name) == null) await prefs.markRead(t.name, now);
+      }
+    }
 
     _lastIncidents = incidents;
     _lastTopics = topics;
