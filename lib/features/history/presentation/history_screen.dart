@@ -77,6 +77,7 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
             return false;
           },
           child: AppScreenScaffold(
+            withEdgeBlur: true,
             onFaceRefresh: () => context.read<HistoryCubit>().refresh(),
             topBar: AppTopBar(
               title: LocaleKeys.history_title.tr(),
