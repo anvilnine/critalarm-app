@@ -11,6 +11,7 @@ final class LiveCardTextTests: XCTestCase {
         let decoded = try JSONDecoder().decode(ContentState.self, from: Data(serverJSON.utf8))
         XCTAssertEqual(decoded.state, .acked)
         XCTAssertEqual(decoded.title, "Database down")
+        XCTAssertEqual(decoded.openedAt, Date(timeIntervalSince1970: 1_757_740_800))
         XCTAssertNil(decoded.ackedAt)
         XCTAssertNil(decoded.ringsAgainInSeconds)
     }
@@ -18,7 +19,14 @@ final class LiveCardTextTests: XCTestCase {
     func testAckedAtDecodesWhenPresent() throws {
         let json = #"{"state":"acked","title":"Database down","opened_at":1757740800,"acked_at":1757740860}"#
         let decoded = try JSONDecoder().decode(ContentState.self, from: Data(json.utf8))
-        XCTAssertNotNil(decoded.ackedAt)
+        XCTAssertEqual(decoded.ackedAt, Date(timeIntervalSince1970: 1_757_740_860))
+    }
+
+    func testFractionalSecondsDecode() throws {
+        let json = #"{"state":"open","title":"t","opened_at":1757740800.5,"rings_again_in_seconds":90}"#
+        let decoded = try JSONDecoder().decode(ContentState.self, from: Data(json.utf8))
+        XCTAssertEqual(decoded.openedAt, Date(timeIntervalSince1970: 1_757_740_800.5))
+        XCTAssertEqual(decoded.ringsAgainInSeconds, 90)
     }
 
     func testLocalStateRoundTrips() throws {
@@ -29,8 +37,10 @@ final class LiveCardTextTests: XCTestCase {
         )
         let data = try JSONEncoder().encode(state)
         XCTAssertEqual(try JSONDecoder().decode(ContentState.self, from: data), state)
-        let keys = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any]).keys
-        XCTAssertTrue(keys.contains("acked_at"))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["opened_at"] as? Double, 1_757_740_800)
+        XCTAssertEqual(json["acked_at"] as? Double, 1_757_740_860)
+        XCTAssertNil(json["rings_again_in_seconds"])
     }
 
     func testStaleDateIsFourHoursAfterTheAck() {
@@ -46,12 +56,17 @@ final class LiveCardTextTests: XCTestCase {
         XCTAssertEqual(LiveCardText.pillLabel(state: .expired, isStale: false), "Missed")
     }
 
-    func testAckedLineUsesTwentyFourHourTimeInTheGivenZone() {
+    func testAckedLineFollowsTheZoneAndTheClockSetting() {
         let ackedAt = Date(timeIntervalSince1970: 3 * 3600 + 12 * 60)
         let utc = TimeZone(identifier: "UTC")!
         let manila = TimeZone(identifier: "Asia/Manila")!
-        XCTAssertEqual(LiveCardText.ackedLine(ackedAt, timeZone: utc), "Acknowledged at 03:12")
-        XCTAssertEqual(LiveCardText.ackedLine(ackedAt, timeZone: manila), "Acknowledged at 11:12")
+        let britain = Locale(identifier: "en_GB")
+        XCTAssertEqual(LiveCardText.ackedLine(ackedAt, timeZone: utc, locale: britain), "Acknowledged at 03:12")
+        XCTAssertEqual(LiveCardText.ackedLine(ackedAt, timeZone: manila, locale: britain), "Acknowledged at 11:12")
+        // Newer ICU puts a narrow no-break space before AM.
+        let us = LiveCardText.ackedLine(ackedAt, timeZone: utc, locale: Locale(identifier: "en_US"))
+            .replacingOccurrences(of: "\u{202F}", with: " ")
+        XCTAssertEqual(us, "Acknowledged at 3:12 AM")
     }
 
     func testTimerCountsFromTheAckOnlyWhenKnown() {

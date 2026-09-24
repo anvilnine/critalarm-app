@@ -90,6 +90,29 @@ public struct CritAlarmIncidentAttributes: ActivityAttributes {
             case ringsAgainInSeconds = "rings_again_in_seconds"
             case ackedAt = "acked_at"
         }
+
+        // Written by hand for the dates. api.md §5.3 sends `opened_at` as
+        // seconds since 1970, and the default Codable reads a number as
+        // seconds since 2001, which put server-started cards 31 years out.
+        // Local cards go through the same pair, so both sides use 1970.
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            state = try container.decode(IncidentActivityState.self, forKey: .state)
+            title = try container.decode(String.self, forKey: .title)
+            openedAt = Date(timeIntervalSince1970: try container.decode(Double.self, forKey: .openedAt))
+            ringsAgainInSeconds = try container.decodeIfPresent(Int.self, forKey: .ringsAgainInSeconds)
+            ackedAt = try container.decodeIfPresent(Double.self, forKey: .ackedAt)
+                .map(Date.init(timeIntervalSince1970:))
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(state, forKey: .state)
+            try container.encode(title, forKey: .title)
+            try container.encode(openedAt.timeIntervalSince1970, forKey: .openedAt)
+            try container.encodeIfPresent(ringsAgainInSeconds, forKey: .ringsAgainInSeconds)
+            try container.encodeIfPresent(ackedAt?.timeIntervalSince1970, forKey: .ackedAt)
+        }
     }
 
     public let incidentId: String
