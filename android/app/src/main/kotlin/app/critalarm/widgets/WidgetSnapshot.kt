@@ -365,4 +365,15 @@ object WidgetFreshness {
         return snapshot.updatedAt == 0L ||
             nowSeconds - snapshot.updatedAt >= WidgetSnapshot.STALE_AFTER_SECONDS
     }
+
+    /**
+     * What a finished fetch stores. When a patch or an app write landed while
+     * the GETs ran, [fetched] may be older than what is stored, so the stored
+     * snapshot stays and is marked stale for the next redraw to fetch again.
+     */
+    fun afterFetch(
+        fetched: WidgetSnapshot,
+        current: WidgetSnapshot?,
+        changedMeanwhile: Boolean,
+    ): WidgetSnapshot? = if (!changedMeanwhile) fetched else current?.copy(updatedAt = 0L)
 }
