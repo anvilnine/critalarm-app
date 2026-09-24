@@ -620,4 +620,102 @@ void main() {
       expect(cubit.state.faceState, FaceState.calm);
     });
   });
+
+  group('HomeCubit face after an acknowledge', () {
+    final start = DateTime.now().toUtc();
+    final prodDb = Topic(
+      name: 'prod-db',
+      critical: true,
+      createdAt: start.subtract(const Duration(days: 30)),
+    );
+    final acked = Incident(
+      id: 'inc_1',
+      topic: 'prod-db',
+      state: IncidentStates.acked,
+      openedAt: start.subtract(const Duration(minutes: 3)),
+      ackedAt: start.subtract(const Duration(minutes: 1)),
+    );
+
+    /// Long enough for several of the short ticks the tests below use.
+    Future<void> someTicks() =>
+        Future<void>.delayed(const Duration(milliseconds: 60));
+
+    test('a slow build for an older list cannot bring the acknowledged face '
+        'back', () async {
+      final now = start;
+      server.seedState(topics: [prodDb], incidents: [acked]);
+      final gated = _GatedIncidents(incidentRepo);
+      final cubit = HomeCubit(
+        incidentsCubit,
+        topicsCubit,
+        gated,
+        null,
+        null,
+        () => now,
+        const Duration(milliseconds: 10),
+      );
+      addTearDown(cubit.close);
+      await cubit.load();
+      await _settle();
+      expect(cubit.state.severity, SeverityMode.ack);
+
+      // The server's answer to the acknowledge lands, and the build for it is
+      // slow.
+      final gate = Completer<void>();
+      gated.hold = gate;
+      incidentsCubit.applyIncident(acked.copyWith(ackedAt: start));
+      await _settle();
+
+      // "At my desk" closes it, and that build finishes first.
+      incidentsCubit.applyIncident(
+        acked.copyWith(state: IncidentStates.closed, closedAt: start),
+      );
+      await someTicks();
+      expect(cubit.state.word, 'HANDLED');
+      expect(cubit.state.severity, SeverityMode.none);
+
+      // The older build finishes late. It must not hand its list to the
+      // timer, or the next tick paints the screen blue again.
+      gate.complete();
+      await someTicks();
+      expect(cubit.state.severity, SeverityMode.none);
+      expect(cubit.state.word, 'HANDLED');
+    });
+
+    test(
+      'the handled face goes back to calm on its own after 30 seconds',
+      () async {
+        var now = start;
+        server.seedState(
+          topics: [prodDb],
+          incidents: [
+            acked.copyWith(
+              state: IncidentStates.closed,
+              closedAt: start.subtract(const Duration(seconds: 5)),
+            ),
+          ],
+        );
+        final cubit = HomeCubit(
+          incidentsCubit,
+          topicsCubit,
+          incidentRepo,
+          null,
+          null,
+          () => now,
+          const Duration(milliseconds: 10),
+        );
+        addTearDown(cubit.close);
+        await cubit.load();
+        await _settle();
+        expect(cubit.state.faceState, FaceState.success);
+        expect(cubit.state.word, 'HANDLED');
+
+        // Nothing reloads. Only the clock moves.
+        now = start.add(const Duration(seconds: 26));
+        await someTicks();
+        expect(cubit.state.faceState, FaceState.calm);
+        expect(cubit.state.word, 'All clear');
+      },
+    );
+  });
 }
