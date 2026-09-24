@@ -75,6 +75,7 @@ struct AckAlarmIntent: LiveActivityIntent {
         // Marked before anything goes on the wire, so the next repeat push
         // does not ring even if the ack takes minutes to land.
         AckedIncidentStore.mark(incidentId: incidentId)
+        WidgetSnapshotStore.patch(.acked(incidentId, at: Date()))
         NSLog("CritAlarmAlarm: alarm_acked incident_id=%@", incidentId)
         // Any ring this phone set for itself goes with the acknowledge. This
         // also cancels the AlarmKit alarm that is alerting right now.
@@ -105,6 +106,7 @@ struct CloseIncidentIntent: LiveActivityIntent {
 
     func perform() async throws -> some IntentResult {
         AckQueueStore.enqueue(action: "close", incidentId: incidentId)
+        WidgetSnapshotStore.patch(.ended(incidentId))
         NSLog("CritAlarmActivity: incident_closed incident_id=%@", incidentId)
         await IncidentActivityCoordinator.shared.closed(incidentId: incidentId)
         await NativeAckSender.send(action: "close", incidentId: incidentId)

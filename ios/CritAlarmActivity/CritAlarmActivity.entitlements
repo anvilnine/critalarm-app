@@ -6,5 +6,9 @@
 	<array>
 		<string>group.app.critalarm</string>
 	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)app.critalarm</string>
+	</array>
 </dict>
 </plist>

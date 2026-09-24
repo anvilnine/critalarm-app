@@ -57,6 +57,19 @@
 				<string>$(GOOGLE_REVERSED_CLIENT_ID)</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<!-- critalarm:// links from the home and lock screen widgets.
+			     AppDelegate.openWidgetLink turns them into a tap; Flutter's
+			     own deep linking stays off (FlutterDeepLinkingEnabled). -->
+			<key>CFBundleURLName</key>
+			<string>app.critalarm.links</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>critalarm</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
