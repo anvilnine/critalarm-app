@@ -25,6 +25,7 @@ enum GlyphType {
   stop,
   record,
   pencil,
+  info,
 }
 
 /// Vector glyph icon painted according to index.html on a 24x24 viewBox.
@@ -333,6 +334,14 @@ class _GlyphPainter extends CustomPainter {
           ..close()
           ..moveTo(14, 7)
           ..lineTo(17, 10);
+        canvas.drawPath(path, strokePaint);
+
+      case GlyphType.info:
+        canvas.drawCircle(const Offset(12, 12), 9, strokePaint);
+        canvas.drawCircle(const Offset(12, 8), 1.1, fillPaint);
+        final path = Path()
+          ..moveTo(12, 11)
+          ..lineTo(12, 16);
         canvas.drawPath(path, strokePaint);
     }
 
