@@ -4,11 +4,14 @@ import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.d
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 
-/// Routes a tapped notification can ask for. Anything else from the platform is
-/// ignored, so a stray route name cannot drop the user somewhere odd.
+/// Routes a tapped notification or widget can ask for. Anything else from the
+/// platform is ignored, so a stray route name cannot drop the user somewhere
+/// odd. Home is on the list for the open count widget.
 bool isPushDeepLink(String? location) =>
     location != null &&
-    (location.startsWith('/incidents/') || location.startsWith('/topics/'));
+    (location == '/' ||
+        location.startsWith('/incidents/') ||
+        location.startsWith('/topics/'));
 
 /// Where the app opens.
 ///

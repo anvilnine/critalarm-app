@@ -54,4 +54,19 @@ void main() {
     );
     expect(PushDeepLink.fromNotificationData({}), isNull);
   });
+
+  test('the open count widget opens Home', () {
+    expect(PushDeepLink.fromNotificationData({'open': 'home'}), '/');
+  });
+
+  test('an incident or topic still wins over open=home', () {
+    expect(
+      PushDeepLink.fromNotificationData({'open': 'home', 'topic': 'prod'}),
+      '/topics/prod',
+    );
+  });
+
+  test('any other open value opens nothing', () {
+    expect(PushDeepLink.fromNotificationData({'open': 'settings'}), isNull);
+  });
 }
