@@ -13,7 +13,7 @@ struct TopicWidget: Widget {
             TopicWidgetView(snapshot: entry.snapshot, topicName: entry.topic)
         }
         .configurationDisplayName("Topic")
-        .description("One topic, with I'm up and Done.")
+        .description("One topic, with I'm up and Done buttons.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

@@ -60,4 +60,19 @@ final class WidgetDisplayTests: XCTestCase {
         XCTAssertEqual(WidgetDisplay.buttonTitle(incident(WidgetIncident.acked)), "Done")
         XCTAssertNil(WidgetDisplay.buttonTitle(nil))
     }
+
+    func testTheCountFaceFollowsTheWorstState() {
+        let acked = WidgetTopic(name: "db", critical: false, count: 1, incident: incident(WidgetIncident.acked))
+        let open = WidgetTopic(name: "prod", critical: false, count: 1, incident: incident(WidgetIncident.open))
+        let quiet = WidgetTopic(name: "web", critical: false, count: 0, incident: nil)
+        func count(_ topics: [WidgetTopic]) -> WidgetSnapshot {
+            WidgetSnapshot(updatedAt: 1_759_046_400, connected: true, openCount: topics.count, topics: topics)
+        }
+
+        // Ringing anywhere wins, even below an acked row.
+        XCTAssertEqual(WidgetDisplay.worstIncident(count([acked, quiet, open]))?.state, WidgetIncident.open)
+        XCTAssertEqual(WidgetDisplay.worstIncident(count([quiet, acked]))?.state, WidgetIncident.acked)
+        XCTAssertNil(WidgetDisplay.worstIncident(count([quiet])))
+        XCTAssertNil(WidgetDisplay.worstIncident(snapshot(topics: 0)))
+    }
 }

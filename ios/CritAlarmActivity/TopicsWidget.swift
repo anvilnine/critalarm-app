@@ -62,7 +62,7 @@ struct SmallCount: View {
         let incident = snapshot.openCount > 0 ? top?.incident : nil
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
-                FaceView(face: .forIncident(incident), size: 36)
+                FaceView(face: .forIncident(WidgetDisplay.worstIncident(snapshot)), size: 36)
                 Spacer(minLength: 0)
                 if let incident { StateWord(incident: incident) }
             }

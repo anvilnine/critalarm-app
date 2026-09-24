@@ -433,6 +433,14 @@ enum WidgetDisplay {
         }
     }
 
+    /// The incident behind the count face: a ringing one if any topic has
+    /// one, else an acked one, else nil for the calm face. The same rule as
+    /// `WidgetRows.worstFace` on Android.
+    static func worstIncident(_ snapshot: WidgetSnapshot) -> WidgetIncident? {
+        snapshot.topics.first { $0.incident?.state == WidgetIncident.open }?.incident
+            ?? snapshot.topics.first { $0.incident?.state == WidgetIncident.acked }?.incident
+    }
+
     /// The label on the per-topic widget's button, or nil for no button.
     /// "I'm up" acknowledges a ringing incident, "Done" closes an acked one.
     static func buttonTitle(_ incident: WidgetIncident?) -> String? {
