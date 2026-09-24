@@ -116,10 +116,11 @@ struct CloseIncidentIntent: LiveActivityIntent {
             incidentId, Bundle.main.bundleIdentifier ?? "unknown"
         )
         await IncidentActivityCoordinator.shared.closed(incidentId: incidentId)
-        // The widget drops the incident only once the server has the close,
-        // the same as Android. If this try fails, Dart sends the queued close
-        // later and its next snapshot write drops the row.
-        if await NativeAckSender.send(action: "close", incidentId: incidentId) {
+        // The widget drops the incident only once the server says it is over,
+        // the same as Android. A 409 or a failed try leaves the row; Dart sends
+        // the queued close later and its next snapshot write settles it.
+        let status = await NativeAckSender.sendForStatus(action: "close", incidentId: incidentId)
+        if NativeAckSender.endsTheIncident(status: status) {
             WidgetSnapshotStore.patch(.ended(incidentId))
         }
         return .result()

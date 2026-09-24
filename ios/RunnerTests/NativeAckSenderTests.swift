@@ -147,4 +147,14 @@ final class NativeAckSenderTests: XCTestCase {
         XCTAssertTrue(StubURLProtocol.requests.isEmpty)
         XCTAssertEqual(AckQueueStore.pendingCount(defaults: queue), 1)
     }
+
+    func testOnlyAFinishedCloseEndsTheWidgetRow() {
+        for status in [200, 204, 404, 410] {
+            XCTAssertTrue(NativeAckSender.endsTheIncident(status: status), "\(status)")
+        }
+        // 409: not acked, maybe opened again. nil: no answer at all.
+        XCTAssertFalse(NativeAckSender.endsTheIncident(status: 409))
+        XCTAssertFalse(NativeAckSender.endsTheIncident(status: 500))
+        XCTAssertFalse(NativeAckSender.endsTheIncident(status: nil))
+    }
 }
