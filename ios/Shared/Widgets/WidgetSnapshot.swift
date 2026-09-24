@@ -401,3 +401,45 @@ extension WidgetSnapshot {
         Int(value < 10_000_000_000 ? value : value / 1000)
     }
 }
+
+// MARK: - What the widgets show
+
+/// The small rules the widget views follow, kept here so the tests can reach
+/// them without WidgetKit. The family is its WidgetKit name as a string
+/// (`systemSmall`, `systemMedium`, `systemLarge`).
+enum WidgetDisplay {
+    /// How many topic rows fit in a list widget of [family].
+    static func rowLimit(family: String) -> Int {
+        switch family {
+        case "systemMedium": return 3
+        case "systemLarge": return 7
+        default: return 1
+        }
+    }
+
+    /// The first [limit] topics in display order, and how many are left over
+    /// for the "+N more" line.
+    static func rows(_ snapshot: WidgetSnapshot, limit: Int) -> (rows: [WidgetTopic], more: Int) {
+        let shown = Array(snapshot.topics.prefix(max(0, limit)))
+        return (shown, snapshot.topics.count - shown.count)
+    }
+
+    /// The word beside a topic: the same words the live card uses.
+    static func stateWord(_ incident: WidgetIncident?) -> String {
+        switch incident?.state {
+        case WidgetIncident.open: return "Ringing"
+        case WidgetIncident.acked: return "Awake"
+        default: return "Quiet"
+        }
+    }
+
+    /// The label on the per-topic widget's button, or nil for no button.
+    /// "I'm up" acknowledges a ringing incident, "Done" closes an acked one.
+    static func buttonTitle(_ incident: WidgetIncident?) -> String? {
+        switch incident?.state {
+        case WidgetIncident.open: return "I'm up"
+        case WidgetIncident.acked: return "Done"
+        default: return nil
+        }
+    }
+}
