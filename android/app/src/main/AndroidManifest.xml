@@ -152,6 +152,53 @@
             </intent-filter>
         </receiver>
 
+        <!-- Home screen widgets. They read the snapshot in the
+             critalarm_widgets preferences and never ring or notify. The
+             launcher needs the receivers exported to send them updates. -->
+        <receiver
+            android:name=".widgets.TopicListWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_topic_list_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_topic_list_info" />
+        </receiver>
+        <receiver
+            android:name=".widgets.TopicWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_topic_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_topic_info" />
+        </receiver>
+        <receiver
+            android:name=".widgets.OpenCountWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_open_count_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_open_count_info" />
+        </receiver>
+        <activity
+            android:name=".widgets.TopicWidgetConfigActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:taskAffinity=""
+            android:theme="@style/WidgetConfigTheme">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

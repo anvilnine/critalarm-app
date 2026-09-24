@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home screen widgets, dark palette from lib/design/tokens/colors.dart. -->
+    <color name="widget_background">#241D18</color>
+    <color name="widget_hairline">#24FFFFFF</color>
+    <color name="widget_ink">#F7F1EA</color>
+    <color name="widget_ink_muted">#9A8877</color>
+    <color name="widget_ringing">#FF6A5E</color>
+    <color name="widget_awake">#7C8AFF</color>
+    <color name="widget_row_pressed">#14FFFFFF</color>
+    <color name="widget_button">#2A3BD8</color>
+    <color name="widget_on_button">#FFFFFF</color>
+</resources>
