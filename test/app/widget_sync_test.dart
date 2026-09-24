@@ -190,14 +190,18 @@ void main() {
     expect(written(2)['open_count'], 1);
   });
 
-  test('forget writes the same lists again', () async {
+  test('forget writes nothing until the next refresh', () async {
     await topics.refresh();
     await incidents.refresh();
     await settle();
 
     sync.forget();
     await settle();
+    expect(calls.map((call) => call.method), ['write']);
 
+    await topics.refresh();
+    await incidents.refresh();
+    await settle();
     expect(calls.map((call) => call.method), ['write', 'write']);
   });
 }
