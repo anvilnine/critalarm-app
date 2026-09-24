@@ -232,7 +232,6 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     return SeverityScope(
       severity: state.severity,
       child: AppScreenScaffold(
-        withEdgeBlur: true,
         onFaceRefresh: () async {
           final promptCubit = context.read<HomePromptCubit>();
           final homeCubit = context.read<HomeCubit>();

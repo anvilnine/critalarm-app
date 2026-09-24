@@ -34,7 +34,7 @@ class AppScreenScaffold extends StatefulWidget {
     this.backgroundColor,
     this.withGhosts = true,
     this.withFades = true,
-    this.withEdgeBlur = false,
+    this.withEdgeBlur = true,
     this.ghostOpacity = 1,
     this.resizeForKeyboard = false,
     super.key,
@@ -76,7 +76,8 @@ class AppScreenScaffold extends StatefulWidget {
   final bool withFades;
 
   /// A soft blur on the list where it runs under the top bar and the tab
-  /// bar. It sits under the bars, so they stay sharp.
+  /// bar. It sits under the bars, so they stay sharp. On by default so every
+  /// screen gets it; turn it off for a screen where it gets in the way.
   final bool withEdgeBlur;
 
   /// Dials the background shapes down, for a screen whose text sits straight
@@ -183,6 +184,10 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
               ? tabBarRoom + bottomBarRoom
               : math.max(tabBarRoom, bottomBarRoom));
 
+      // Never taller than the room the list leaves at its end, so the last
+      // row is sharp once the list is scrolled all the way down.
+      final edgeBlurBottom = math.min(padding.bottom + 60, bottomInset);
+
       Widget list = CustomScrollView(
         controller: widget.scrollController,
         physics:
@@ -218,9 +223,9 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
               top: 0,
               left: 0,
               right: 0,
-              height: padding.top + AppScreenScaffold.topBarHeight + 16,
+              height: topInset + 16,
               child: ProgressiveBlurEdge(
-                height: padding.top + AppScreenScaffold.topBarHeight + 16,
+                height: topInset + 16,
                 isTop: true,
               ),
             ),
@@ -231,9 +236,9 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                 bottom: 0,
                 left: 0,
                 right: 0,
-                height: padding.bottom + 60,
+                height: edgeBlurBottom,
                 child: ProgressiveBlurEdge(
-                  height: padding.bottom + 60,
+                  height: edgeBlurBottom,
                   isTop: false,
                 ),
               ),
