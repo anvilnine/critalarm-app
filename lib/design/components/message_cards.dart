@@ -124,12 +124,12 @@ class _ShareButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Transform.translate(
-      offset: const Offset(8, 8),
+      offset: const Offset(12, 12),
       child: Semantics(
         button: true,
         label: label,
         child: InkResponse(
-          radius: 20,
+          radius: 22,
           onTap: () {
             final box = context.findRenderObject() as RenderBox?;
             final origin = box == null || !box.hasSize
@@ -138,8 +138,8 @@ class _ShareButton extends StatelessWidget {
             onShare(origin);
           },
           child: SizedBox(
-            width: 36,
-            height: 36,
+            width: 44,
+            height: 44,
             child: Center(
               child: AppGlyph(
                 GlyphType.share,
