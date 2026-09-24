@@ -20,6 +20,7 @@ import app.critalarm.reminders.ReminderChannel
 import app.critalarm.reminders.ReminderTapIntent
 import app.critalarm.sound.IncomingAudioHolder
 import app.critalarm.sound.SoundChannel
+import app.critalarm.widgets.WidgetChannel
 import io.flutter.plugin.common.MethodChannel
 
 // FlutterFragmentActivity, not FlutterActivity: flutter_local_notifications
@@ -69,6 +70,9 @@ class MainActivity : FlutterFragmentActivity() {
         val alarms = AlarmChannel(applicationContext)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AlarmChannel.NAME)
             .setMethodCallHandler(alarms::handle)
+        val widgets = WidgetChannel(applicationContext)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WidgetChannel.NAME)
+            .setMethodCallHandler(widgets::handle)
         val reminders = ReminderChannel(applicationContext) {
             val tap = pendingReminderTap
             pendingReminderTap = null
@@ -343,29 +347,31 @@ class MainActivity : FlutterFragmentActivity() {
         val incidentId = intent.getStringExtra(EXTRA_ALARM_INCIDENT_ID)
             ?: intent.getStringExtra(EXTRA_INCIDENT_ID)
         val topic = intent.getStringExtra(EXTRA_TOPIC)
-        if (incidentId == null && topic == null) return null
+        val open = intent.getStringExtra(EXTRA_OPEN)
+        if (incidentId == null && topic == null && open == null) return null
         intent.removeExtra(EXTRA_ALARM_INCIDENT_ID)
         intent.removeExtra(EXTRA_INCIDENT_ID)
         intent.removeExtra(EXTRA_TOPIC)
+        intent.removeExtra(EXTRA_OPEN)
         tapSequence += 1
         val tap = mutableMapOf(KEY_TAP_ID to tapSequence.toString())
         if (incidentId != null) tap[EXTRA_INCIDENT_ID] = incidentId
         if (topic != null) tap[EXTRA_TOPIC] = topic
+        if (open != null) tap[EXTRA_OPEN] = open
         return tap
     }
 
-    /** The same mapping Dart's PushDeepLink makes: incident first, topic next. */
-    private fun routeFor(tap: Map<String, String>?): String? {
-        if (tap == null) return null
-        tap[EXTRA_INCIDENT_ID]?.let { return "/incidents/${Uri.encode(it)}" }
-        tap[EXTRA_TOPIC]?.let { return "/topics/${Uri.encode(it)}" }
-        return null
-    }
+    /** See [TapRoute]. */
+    private fun routeFor(tap: Map<String, String>?): String? = TapRoute.routeFor(tap)
 
     companion object {
         const val EXTRA_ALARM_INCIDENT_ID = "alarm_incident_id"
         const val EXTRA_INCIDENT_ID = "incident_id"
         const val EXTRA_TOPIC = "topic"
+
+        /** `open=home` comes from the open count widget and opens Home. */
+        const val EXTRA_OPEN = "open"
+        const val OPEN_HOME = "home"
 
         /** Matches PushHost.channelName in Dart and the channel in AppDelegate. */
         const val PUSH_CHANNEL = "app.critalarm/push"
