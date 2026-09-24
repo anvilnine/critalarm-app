@@ -76,7 +76,12 @@ struct AckAlarmIntent: LiveActivityIntent {
         // does not ring even if the ack takes minutes to land.
         AckedIncidentStore.mark(incidentId: incidentId)
         WidgetSnapshotStore.patch(.acked(incidentId, at: Date()))
-        NSLog("CritAlarmAlarm: alarm_acked incident_id=%@", incidentId)
+        // A home screen widget button may run this in the widget extension
+        // instead of the app. The log says which, for the device check.
+        NSLog(
+            "CritAlarmAlarm: alarm_acked incident_id=%@ process=%@",
+            incidentId, Bundle.main.bundleIdentifier ?? "unknown"
+        )
         // Any ring this phone set for itself goes with the acknowledge. This
         // also cancels the AlarmKit alarm that is alerting right now.
         await IncidentRearm.cancel(incidentId: incidentId)
@@ -107,7 +112,10 @@ struct CloseIncidentIntent: LiveActivityIntent {
     func perform() async throws -> some IntentResult {
         AckQueueStore.enqueue(action: "close", incidentId: incidentId)
         WidgetSnapshotStore.patch(.ended(incidentId))
-        NSLog("CritAlarmActivity: incident_closed incident_id=%@", incidentId)
+        NSLog(
+            "CritAlarmActivity: incident_closed incident_id=%@ process=%@",
+            incidentId, Bundle.main.bundleIdentifier ?? "unknown"
+        )
         await IncidentActivityCoordinator.shared.closed(incidentId: incidentId)
         await NativeAckSender.send(action: "close", incidentId: incidentId)
         return .result()
