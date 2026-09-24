@@ -45,7 +45,7 @@ struct OpenCountView: View {
     private var circular: some View {
         if let snapshot = connected {
             VStack(spacing: 1) {
-                FaceView(face: snapshot.openCount > 0 ? .alarmed : .calm, size: 22)
+                FaceView(face: .forIncident(WidgetDisplay.worstIncident(snapshot)), size: 22)
                     .widgetAccentable()
                 Text("\(snapshot.openCount)")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
@@ -67,7 +67,7 @@ struct OpenCountView: View {
     private var rectangular: some View {
         if let snapshot = connected {
             HStack(spacing: 8) {
-                FaceView(face: snapshot.openCount > 0 ? .alarmed : .calm, size: 30)
+                FaceView(face: .forIncident(WidgetDisplay.worstIncident(snapshot)), size: 30)
                     .widgetAccentable()
                 VStack(alignment: .leading, spacing: 0) {
                     Text(snapshot.openCount > 0 ? WidgetCopy.open(snapshot.openCount) : WidgetCopy.allQuiet)
@@ -98,7 +98,7 @@ struct OpenCountView: View {
         if let snapshot = connected {
             Text(snapshot.openCount > 0
                  ? "Crit Alarm: \(WidgetCopy.open(snapshot.openCount))"
-                 : "Crit Alarm: all quiet")
+                 : "Crit Alarm: \(WidgetCopy.allQuiet)")
         } else {
             Text(WidgetCopy.connect)
         }

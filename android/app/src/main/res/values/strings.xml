@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="widget_topic_list_label">Topics</string>
-    <string name="widget_topic_list_description">Every topic and what is ringing right now.</string>
+    <string name="widget_topic_list_description">Your topics, ringing ones first.</string>
     <string name="widget_topic_label">Topic</string>
     <string name="widget_topic_description">One topic, with I\'m up and Done buttons.</string>
-    <string name="widget_open_count_label">Open count</string>
-    <string name="widget_open_count_description">How many incidents are open.</string>
+    <string name="widget_open_count_label">Open incidents</string>
+    <string name="widget_open_count_description">How many incidents are open right now.</string>
     <string name="widget_config_title">Choose a topic</string>
     <string name="widget_config_empty">Open Crit Alarm first</string>
 </resources>
