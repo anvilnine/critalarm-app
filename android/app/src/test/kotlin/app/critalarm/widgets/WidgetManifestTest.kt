@@ -71,7 +71,7 @@ class WidgetManifestTest {
 
     @Test
     fun `widget layouts use only views RemoteViews takes on API 28`() {
-        val allowed = setOf("LinearLayout", "FrameLayout", "TextView", "ImageView", "Button", "include")
+        val allowed = setOf("LinearLayout", "FrameLayout", "TextView", "ImageView", "Button", "Chronometer", "include")
         val layouts = listOf("widget_topic_list", "widget_topic_row", "widget_topic", "widget_open_count")
         for (layout in layouts) {
             val text = File(res, "layout/$layout.xml").readText()

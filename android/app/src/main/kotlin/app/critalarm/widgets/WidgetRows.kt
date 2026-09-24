@@ -70,10 +70,14 @@ object WidgetRows {
             ?: snapshot.topics.firstOrNull { it.incident?.state == WidgetSnapshot.ACKED }?.incident,
     )
 
-    /** The time the state word counts from: the ack when there is one, else the open. */
-    fun sinceSeconds(incident: WidgetIncident?): Long? {
-        if (incident == null) return null
-        val at = if (incident.state == WidgetSnapshot.ACKED) incident.ackedAt ?: incident.openedAt else incident.openedAt
-        return at.takeIf { it > 0L }
-    }
+    /** When the timer counts from: the open, the same as iOS. Null when unknown. */
+    fun openedSeconds(incident: WidgetIncident?): Long? = incident?.openedAt?.takeIf { it > 0L }
+
+    /**
+     * The base a RemoteViews Chronometer needs to show the time since
+     * [openedAtSeconds]. A chronometer counts up from a base on the
+     * elapsedRealtime clock, so the wall clock age is moved onto that clock.
+     */
+    fun chronometerBase(openedAtSeconds: Long, nowMillis: Long, elapsedRealtimeMillis: Long): Long =
+        elapsedRealtimeMillis - (nowMillis - openedAtSeconds * 1000L)
 }
