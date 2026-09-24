@@ -31,6 +31,7 @@ class HomeCubit extends Cubit<HomeState> {
     this._messageSync,
     this._getConnection,
     DateTime Function()? clock,
+    this.tick = const Duration(seconds: 5),
   ]) : _now = clock ?? DateTime.now,
        super(const HomeState());
 
@@ -50,6 +51,11 @@ class HomeCubit extends Cubit<HomeState> {
   final GetConnectionUsecase? _getConnection;
 
   final DateTime Function() _now;
+
+  /// How often the face is worked out again from the lists already held, so a
+  /// countdown or a face that only lasts a while moves without a reload. A
+  /// test passes something short so it does not have to wait.
+  final Duration tick;
 
   StreamSubscription<IncidentsState>? _incidentsSub;
   StreamSubscription<TopicsState>? _topicsSub;
@@ -106,9 +112,9 @@ class HomeCubit extends Cubit<HomeState> {
     return super.close();
   }
 
-  void _syncTimer(bool hasAcked) {
-    if (hasAcked) {
-      _timer ??= Timer.periodic(const Duration(seconds: 30), (_) {
+  void _syncTimer(bool needsTick) {
+    if (needsTick) {
+      _timer ??= Timer.periodic(tick, (_) {
         if (isClosed) return;
         final incidents = _lastIncidents;
         final topics = _lastTopics;
@@ -138,7 +144,7 @@ class HomeCubit extends Cubit<HomeState> {
             topicItems: items,
           ),
         );
-        _syncTimer(result.hasAckedRow);
+        _syncTimer(result.needsTick);
       });
     } else {
       _timer?.cancel();
@@ -181,7 +187,7 @@ class HomeCubit extends Cubit<HomeState> {
     _builtFromTopics = topics.topics;
 
     final id = ++_buildId;
-    final next = await _buildState(incidents.incidents, topics.topics);
+    final next = await _buildState(incidents.incidents, topics.topics, id);
     if (isClosed || id != _buildId) return;
     emit(next);
   }
@@ -245,6 +251,7 @@ class HomeCubit extends Cubit<HomeState> {
   Future<HomeState> _buildState(
     List<Incident> incidents,
     List<Topic> topics,
+    int id,
   ) async {
     if (topics.isEmpty) {
       _lastIncidents = incidents;
@@ -315,11 +322,18 @@ class HomeCubit extends Cubit<HomeState> {
 
     final items = _buildTopicItems(result.rows, topics, priorities);
 
+    // A newer build started while this one waited on the polls, so this list
+    // is already out of date and the caller throws the state away. Leave the
+    // lists the timer reads alone too, or its next tick draws this old list
+    // over the newer one: an acknowledge answer that arrived after the close
+    // painted the screen blue again.
+    if (id != _buildId) return state;
+
     _lastIncidents = incidents;
     _lastTopics = topics;
     _lastWarningTopics = warningTopics;
     _lastPriorities = priorities;
-    _syncTimer(result.hasAckedRow);
+    _syncTimer(result.needsTick);
 
     return state.copyWith(
       status: HomeStatus.success,
