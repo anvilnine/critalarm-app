@@ -111,13 +111,17 @@ struct CloseIncidentIntent: LiveActivityIntent {
 
     func perform() async throws -> some IntentResult {
         AckQueueStore.enqueue(action: "close", incidentId: incidentId)
-        WidgetSnapshotStore.patch(.ended(incidentId))
         NSLog(
             "CritAlarmActivity: incident_closed incident_id=%@ process=%@",
             incidentId, Bundle.main.bundleIdentifier ?? "unknown"
         )
         await IncidentActivityCoordinator.shared.closed(incidentId: incidentId)
-        await NativeAckSender.send(action: "close", incidentId: incidentId)
+        // The widget drops the incident only once the server has the close,
+        // the same as Android. If this try fails, Dart sends the queued close
+        // later and its next snapshot write drops the row.
+        if await NativeAckSender.send(action: "close", incidentId: incidentId) {
+            WidgetSnapshotStore.patch(.ended(incidentId))
+        }
         return .result()
     }
 }
