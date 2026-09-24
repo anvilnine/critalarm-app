@@ -27,6 +27,9 @@ export 'primary_button.dart';
 /// Horizontal filled progress track.
 export 'progress_rail.dart';
 
+/// Subtle blur overlay at the top and bottom edges of a scroll area.
+export 'progressive_blur.dart';
+
 /// "SHOW ALL (N)" / "SHOW LESS" reveal keeping hidden rows reachable.
 export 'reveal_more.dart';
 

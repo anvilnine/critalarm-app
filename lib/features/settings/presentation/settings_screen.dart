@@ -6,6 +6,7 @@ import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/design_system/widgets/progressive_blur.dart';
 import 'package:critalarm/features/feedback/presentation/help_section.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/domain/entities/storage_settings.dart';
@@ -177,9 +178,13 @@ class _SettingsScreenContent extends StatelessWidget {
       builder: (context, state) {
         final colors = context.appColors;
 
-        return AppScreenScaffold(
-          topBar: AppTopBar(title: LocaleKeys.settings_title.tr()),
-          slivers: [
+        final padding = MediaQuery.paddingOf(context);
+        return ProgressiveBlur(
+          topHeight: padding.top + AppScreenScaffold.topBarHeight + 16,
+          bottomHeight: padding.bottom + 60,
+          child: AppScreenScaffold(
+            topBar: AppTopBar(title: LocaleKeys.settings_title.tr()),
+            slivers: [
             /*
             SliverToBoxAdapter(
               child: Column(
@@ -370,6 +375,7 @@ class _SettingsScreenContent extends StatelessWidget {
               ),
             ),
           ],
+          ),
         );
       },
     );

@@ -8,6 +8,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
+import 'package:critalarm/design_system/widgets/progressive_blur.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
 import 'package:critalarm/features/prompts/presentation/home_asks.dart';
@@ -229,9 +230,13 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       ],
     ];
 
-    return SeverityScope(
-      severity: state.severity,
-      child: AppScreenScaffold(
+    final padding = MediaQuery.paddingOf(context);
+    return ProgressiveBlur(
+      topHeight: padding.top + AppScreenScaffold.topBarHeight + 16,
+      bottomHeight: padding.bottom + 60,
+      child: SeverityScope(
+        severity: state.severity,
+        child: AppScreenScaffold(
         onFaceRefresh: () async {
           final promptCubit = context.read<HomePromptCubit>();
           final homeCubit = context.read<HomeCubit>();
@@ -429,6 +434,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           ),
         ],
       ),
+    ),
     );
   }
 }
