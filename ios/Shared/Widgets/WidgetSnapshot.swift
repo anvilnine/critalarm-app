@@ -4,9 +4,9 @@ import Foundation
 ///
 /// Dart writes it over the `app.critalarm/widgets` channel, and the extension,
 /// the intents and the delegate patch it. The format is
-/// `backlog/home-widgets-plan.md` section 1, the same bytes Android keeps in
-/// its `critalarm_widgets` preferences. `test/fixtures/widget_snapshot_v1.json`
-/// is the sample every platform's tests read.
+/// `test/fixtures/widget_snapshot_v1.json`, the same bytes Android keeps in
+/// its `critalarm_widgets` preferences, and every platform's tests read that
+/// sample.
 ///
 /// Foundation only, so every target and the tests can compile it.
 struct WidgetSnapshot: Codable, Equatable {

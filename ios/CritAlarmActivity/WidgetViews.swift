@@ -50,7 +50,8 @@ enum WidgetColors {
 }
 
 extension View {
-    /// The home screen card behind every system-family widget (G7).
+    /// The home screen card behind every system-family widget. iOS 17
+    /// requires a container background, or the widget draws a placeholder.
     func homeWidgetBackground() -> some View {
         containerBackground(for: .widget) { WidgetColors.background }
     }

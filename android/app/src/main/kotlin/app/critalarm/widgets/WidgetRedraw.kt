@@ -7,8 +7,9 @@ import android.content.Context
 
 /**
  * Draws every widget again after the snapshot changed, then fetches when the
- * snapshot is stale. There is no collection adapter (plan deviation X2), so a
- * redraw is always a full updateAppWidget.
+ * snapshot is stale. The list widget draws its rows straight into its
+ * RemoteViews with no collection adapter, so a redraw is always a full
+ * updateAppWidget.
  */
 object WidgetRedraw {
     /** Assumed until the launcher reports the list widget's height. */
@@ -43,8 +44,8 @@ object WidgetRedraw {
 
     /**
      * Fetches when stale from inside a provider's onUpdate. goAsync keeps the
-     * broadcast open until the refresher is done, and its 8 s budget (G6)
-     * bounds that.
+     * broadcast open until the refresher is done, and its 8 s budget keeps
+     * that inside the time Android gives a broadcast receiver.
      */
     fun refreshFrom(receiver: BroadcastReceiver, context: Context) {
         val pending = receiver.goAsync()

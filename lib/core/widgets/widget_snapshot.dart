@@ -6,9 +6,9 @@ import 'package:flutter/foundation.dart';
 /// The one document the home and lock screen widgets read.
 ///
 /// Dart, the iOS extensions and the Android widgets all agree on these bytes.
-/// `backlog/home-widgets-plan.md` section 1 is the format, and
-/// `test/fixtures/widget_snapshot_v1.json` is a sample every platform's tests
-/// read. Nothing in Dart reads it back, so there is no `fromJson`.
+/// `test/fixtures/widget_snapshot_v1.json` is the format, and every
+/// platform's tests read that sample. Nothing in Dart reads it back, so there
+/// is no `fromJson`.
 @immutable
 final class WidgetSnapshot {
   const WidgetSnapshot({

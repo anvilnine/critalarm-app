@@ -19,7 +19,7 @@ import app.critalarm.storage.NativeConnectionStore
  * come from [WidgetRows], the faces from [FaceBitmap].
  */
 object WidgetViews {
-    /** A list of 8 rows stays well under the RemoteViews binder limit (G8). */
+    /** Small faces keep a list of 8 rows well under the RemoteViews binder limit. */
     private const val ROW_FACE_PX = 48
     private const val TOPIC_FACE_DP = 34
     private const val COUNT_FACE_DP = 24

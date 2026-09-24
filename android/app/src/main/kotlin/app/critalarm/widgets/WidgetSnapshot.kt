@@ -8,9 +8,8 @@ import java.time.Instant
  * The one document the home screen widgets read.
  *
  * Dart writes it through [WidgetChannel] and the push and action paths patch it
- * here. The format is `backlog/home-widgets-plan.md` section 1, the same bytes
- * iOS keeps in its app group. `test/fixtures/widget_snapshot_v1.json` is the
- * sample every platform's tests read.
+ * here. The format is `test/fixtures/widget_snapshot_v1.json`, the same bytes
+ * iOS keeps in its app group, and every platform's tests read that sample.
  */
 data class WidgetSnapshot(
     val updatedAt: Long,

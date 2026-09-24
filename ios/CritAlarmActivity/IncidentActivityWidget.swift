@@ -170,7 +170,7 @@ private struct LockScreenCard: View {
             }
             .lineLimit(1)
         } else if card.state == .acked {
-            // Acknowledged somewhere this phone did not see (G9): no time to
+            // Acknowledged somewhere this phone did not see: no time to
             // show, so the open time stays instead.
             VStack(alignment: .leading, spacing: 2) {
                 Text("Acknowledged")
