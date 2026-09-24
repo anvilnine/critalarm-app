@@ -1,8 +1,6 @@
 import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/list_rows.dart';
 import 'package:critalarm/design/tokens/colors.dart';
-import 'package:critalarm/design/tokens/radii.dart';
-import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/features/search/domain/entities/search_result.dart';
@@ -15,9 +13,11 @@ import 'package:flutter/material.dart';
 
 /// The results, sitting directly above the search bar.
 ///
-/// It grows upward from the bar as matches come in and stops at [maxHeight],
-/// after which it scrolls. With nothing to show it takes no space at all, so
-/// the bar sits alone over the blurred screen.
+/// No card behind them: the rows sit straight on the blurred screen, grow
+/// upward from the bar as matches come in, and stop at [maxHeight], which
+/// reaches the top of the display. Past that the list scrolls under the
+/// status bar. With nothing to show it takes no space at all, so the bar
+/// sits alone over the blurred screen.
 class SearchPanel extends StatelessWidget {
   const SearchPanel({
     required this.state,
@@ -25,6 +25,7 @@ class SearchPanel extends StatelessWidget {
     required this.onTapResult,
     required this.onTapRecent,
     required this.onClearRecent,
+    this.topInset = 0,
     super.key,
   });
 
@@ -41,10 +42,12 @@ class SearchPanel extends StatelessWidget {
   final ValueChanged<String> onTapRecent;
   final VoidCallback onClearRecent;
 
+  /// Room left above the first row once the list is long enough to reach the
+  /// top, so it starts below the status bar and scrolls up under it.
+  final double topInset;
+
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final children = _children(context);
     if (children.isEmpty) return const SizedBox.shrink();
 
@@ -55,25 +58,16 @@ class SearchPanel extends StatelessWidget {
       // style with underlines and the rows have nothing to draw ink on.
       child: Material(
         type: MaterialType.transparency,
-        child: Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: colors.panel,
-            borderRadius: Radii.lgAll,
-            border: Border.all(color: colors.panelLine),
-            boxShadow: AppShadows.shadowLg(isDark: isDark),
+        child: ListView(
+          shrinkWrap: true,
+          padding: EdgeInsets.fromLTRB(
+            Spacing.s1,
+            topInset + Spacing.s2,
+            Spacing.s1,
+            Spacing.s1,
           ),
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(
-              Spacing.s2,
-              Spacing.s2,
-              Spacing.s2,
-              Spacing.s1,
-            ),
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            children: children,
-          ),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          children: children,
         ),
       ),
     );
@@ -185,7 +179,7 @@ class _NoMatches extends StatelessWidget {
           fontFamily: AppTypography.fontBody,
           fontFamilyFallback: AppTypography.fontBodyFallbacks,
           fontSize: 14,
-          color: colors.onPanelMuted,
+          color: colors.ink3,
         ),
       ),
     );

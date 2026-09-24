@@ -19,6 +19,7 @@ import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
@@ -293,6 +294,7 @@ Future<void> configureDependencies({
 
   getIt
     ..registerSingleton<SharedPreferences>(prefs)
+    ..registerSingleton<DeviceForm>(await DeviceForm.read())
     ..registerLazySingleton<PushHost>(PushHost.new)
     ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
     ..registerLazySingleton<AppBadge>(() => AppBadge(getIt<PushHost>()))
