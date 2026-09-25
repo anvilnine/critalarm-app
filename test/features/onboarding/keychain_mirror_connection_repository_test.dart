@@ -1,6 +1,7 @@
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
+import 'package:critalarm/core/widgets/widget_host.dart';
 import 'package:critalarm/features/onboarding/data/repositories/keychain_mirror_connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
@@ -60,6 +61,27 @@ void main() {
 
     expect(inner.saved, isNull);
     expect(calls.map((c) => c.method), ['write', 'clear']);
+  });
+
+  test('clearing also blanks the widgets', () async {
+    const widgetChannel = MethodChannel(WidgetHost.channelName);
+    final widgetCalls = <MethodCall>[];
+    messenger.setMockMethodCallHandler(widgetChannel, (call) async {
+      widgetCalls.add(call);
+      return null;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(widgetChannel, null));
+    final withWidgets = KeychainMirrorConnectionRepository(
+      inner,
+      const NseCredentialStore(),
+      widgets: WidgetHost(),
+    );
+
+    await withWidgets.saveConnection(connection);
+    await withWidgets.clearConnection();
+    await settle();
+
+    expect(widgetCalls.map((c) => c.method), ['clear']);
   });
 
   test('a failed save leaves the keychain alone', () async {

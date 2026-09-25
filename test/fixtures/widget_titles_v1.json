@@ -1,0 +1,35 @@
+{
+  "max_code_points": 120,
+  "cases": [
+    {
+      "note": "a skin-tone emoji is two code points; the cut keeps the first",
+      "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa👍🏽b",
+      "topic": "prod",
+      "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa👍"
+    },
+    {
+      "note": "a UTF-16 cut would split the second emoji in half",
+      "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa🚨🚨",
+      "topic": "prod",
+      "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa🚨"
+    },
+    {
+      "note": "120 code points stay whole",
+      "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa🚨",
+      "topic": "prod",
+      "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa🚨"
+    },
+    {
+      "note": "trimmed",
+      "raw": "  Disk full  ",
+      "topic": "prod",
+      "title": "Disk full"
+    },
+    {
+      "note": "blank falls back to the topic",
+      "raw": "   ",
+      "topic": "prod",
+      "title": "prod"
+    }
+  ]
+}
