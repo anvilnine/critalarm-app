@@ -58,10 +58,6 @@ import AlarmKit
 
     let started = super.application(application, didFinishLaunchingWithOptions: launchOptions)
 
-    #if DEBUG
-    // SPIKE ONLY. Removed once the onboarding permissions screen owns this.
-    if #available(iOS 26.0, *) { Task { await IncidentAlarmScheduler.requestAuthorization() } }
-    #endif
     startAlarmAndActivityStreams()
     reminders.registerCategories = { [weak self] in self?.registerNotificationCategories() }
     registerNotificationCategories()
