@@ -2,6 +2,11 @@ import XCTest
 
 /// The `critalarm://` links widgets open, and the tap maps they turn into.
 final class WidgetLinkTests: XCTestCase {
+    func testPaywallRoundTrip() {
+        XCTAssertEqual(WidgetLink.paywallURL.absoluteString, "critalarm://paywall")
+        XCTAssertEqual(WidgetLink.tap(from: WidgetLink.paywallURL), ["open": "paywall"])
+    }
+
     func testTopicRoundTrip() {
         let url = WidgetLink.url(topic: "prod")
         XCTAssertEqual(url.absoluteString, "critalarm://topics/prod")
