@@ -115,6 +115,7 @@ import 'package:critalarm/features/permissions/domain/usecases/open_permission_s
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
 import 'package:critalarm/features/prompts/data/repositories/shared_prefs_home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
+import 'package:critalarm/features/prompts/domain/pro_ending.dart';
 import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/domain/setup_gate.dart';
@@ -1116,6 +1117,21 @@ Future<void> configureDependencies({
         },
       ),
     )
+    ..registerLazySingleton(
+      () => ProEnding(
+        prompts: getIt<HomePromptRepository>(),
+        plan: getIt<PlanStatusSource>(),
+        readIdentity: () => getIt<DeviceIdentityStore>().readOrCreate(),
+        readServerMode: () => getIt<AccountRepository>().readServerMode(),
+        refreshRegistration: () async {
+          if (!buildSkipsPaywall) {
+            await getIt<RevenueCatService>().invalidateCustomerInfoCache();
+          }
+          await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
+        },
+        onPaidChanged: () => getIt<WidgetSync>().rewrite(),
+      ),
+    )
     ..registerFactoryParam<HomePromptCubit, ShellCubit?, void>(
       (shellCubit, _) => HomePromptCubit(
         getConnectionUsecase: getIt<GetConnectionUsecase>(),
@@ -1123,6 +1139,7 @@ Future<void> configureDependencies({
         identityRepository: getIt<IdentityRepository>(),
         accountRepository: getIt<AccountRepository>(),
         homePromptRepository: getIt<HomePromptRepository>(),
+        proEnding: getIt<ProEnding>(),
         identityChanges: appAccountIdentityChanges,
       ),
     );
