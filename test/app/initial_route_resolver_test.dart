@@ -1,5 +1,6 @@
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
@@ -92,6 +93,17 @@ void main() {
       expect(
         initialLocationFor(hasCompletedOnboarding: true, deepLink: '/'),
         '/',
+      );
+    });
+
+    test('a locked widget tap opens the paywall', () {
+      expect(isPushDeepLink(PushDeepLink.paywallLocation), isTrue);
+      expect(
+        initialLocationFor(
+          hasCompletedOnboarding: true,
+          deepLink: PushDeepLink.paywallLocation,
+        ),
+        '/paywall',
       );
     });
 
