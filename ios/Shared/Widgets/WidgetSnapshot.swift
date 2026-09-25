@@ -22,6 +22,9 @@ struct WidgetSnapshot: Codable, Equatable {
     var connected: Bool
     var openCount: Int
     var topics: [WidgetTopic]
+    /// True when the account is not on Pro. Written only when true, so a
+    /// snapshot from before this field reads as unlocked.
+    var locked: Bool = false
 
     enum CodingKeys: String, CodingKey {
         case v
@@ -29,6 +32,35 @@ struct WidgetSnapshot: Codable, Equatable {
         case connected
         case openCount = "open_count"
         case topics
+        case locked
+    }
+
+    init(updatedAt: Int, connected: Bool, openCount: Int, topics: [WidgetTopic], locked: Bool = false) {
+        self.updatedAt = updatedAt
+        self.connected = connected
+        self.openCount = openCount
+        self.topics = topics
+        self.locked = locked
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        v = try container.decode(Int.self, forKey: .v)
+        updatedAt = try container.decode(Int.self, forKey: .updatedAt)
+        connected = try container.decode(Bool.self, forKey: .connected)
+        openCount = try container.decode(Int.self, forKey: .openCount)
+        topics = try container.decode([WidgetTopic].self, forKey: .topics)
+        locked = try container.decodeIfPresent(Bool.self, forKey: .locked) ?? false
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(v, forKey: .v)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(connected, forKey: .connected)
+        try container.encode(openCount, forKey: .openCount)
+        try container.encode(topics, forKey: .topics)
+        if locked { try container.encode(true, forKey: .locked) }
     }
 
     /// The snapshot in [data], or nil for anything that is not version 1.
@@ -69,7 +101,7 @@ struct WidgetSnapshot: Codable, Equatable {
     /// snapshot is never stale, so a widget placed before the app was opened
     /// never fetches.
     func isStale(now: Date) -> Bool {
-        guard connected else { return false }
+        guard connected, !locked else { return false }
         return updatedAt == 0 || Self.seconds(now) - updatedAt >= Self.staleAfter
     }
 
@@ -188,7 +220,7 @@ enum WidgetPatch: Equatable {
     case upsert(WidgetIncidentRecord)
 
     func apply(to snapshot: WidgetSnapshot?, now: Date) -> WidgetPatchResult {
-        guard let snapshot, snapshot.connected else { return .unchanged }
+        guard let snapshot, snapshot.connected, !snapshot.locked else { return .unchanged }
         let nowSeconds = WidgetSnapshot.seconds(now)
         switch self {
         case let .opened(id, topic, title, openedAt):

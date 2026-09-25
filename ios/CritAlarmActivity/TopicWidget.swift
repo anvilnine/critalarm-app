@@ -29,7 +29,9 @@ struct TopicWidgetView: View {
 
     @ViewBuilder
     private var content: some View {
-        if let snapshot, snapshot.connected {
+        if let snapshot, snapshot.locked {
+            LockedState()
+        } else if let snapshot, snapshot.connected {
             if let topicName {
                 if let topic = snapshot.topics.first(where: { $0.name == topicName }) {
                     Group {
@@ -145,5 +147,11 @@ private struct MediumTopic: View {
     SnapshotEntry(date: .now, snapshot: .gallerySample, topic: "prod")
     SnapshotEntry(date: .now, snapshot: .gallerySample, topic: "backups")
     SnapshotEntry(date: .now, snapshot: nil, topic: "prod")
+}
+
+#Preview("Locked", as: .systemSmall) {
+    TopicWidget()
+} timeline: {
+    SnapshotEntry(date: .now, snapshot: WidgetSnapshot(updatedAt: 0, connected: true, openCount: 0, topics: [], locked: true))
 }
 #endif

@@ -159,8 +159,29 @@ struct EmptyState: View {
     }
 }
 
+/// What every widget shows on a free account. Tapping opens the plans.
+struct LockedState: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "lock.fill")
+                .font(.title2)
+                .foregroundStyle(WidgetColors.ink)
+            Text(WidgetCopy.locked)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(WidgetColors.ink)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .widgetURL(WidgetLink.paywallURL)
+    }
+}
+
 /// The copy the empty states use.
 enum WidgetCopy {
+    static let locked = "Widgets are part of Pro. Tap to see plans."
+    static let lockedShort = "Pro"
     static let connect = "Open Crit Alarm to connect"
     static let allQuiet = "All quiet"
     static let noTopics = "No topics yet"
