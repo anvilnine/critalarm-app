@@ -9,3 +9,8 @@ export 'face_widget.dart';
 export 'ghost_field.dart';
 export 'idle_face.dart';
 export 'pulse_ring_widget.dart';
+export 'ringing/ringing_choreography.dart';
+export 'ringing/ringing_face_painter.dart';
+export 'ringing/ringing_face_widget.dart';
+export 'ringing/ringing_frame.dart';
+export 'ringing/ringing_style.dart';

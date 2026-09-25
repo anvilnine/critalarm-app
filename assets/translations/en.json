@@ -573,6 +573,8 @@
     "developer_dialog_sheet_subtitle": "Preview the dialog and sheet library",
     "developer_faces_title": "Face expressions",
     "developer_faces_subtitle": "Demo all character faces, tilts and animations",
+    "developer_ringing_faces_title": "Ringing faces",
+    "developer_ringing_faces_subtitle": "18 animated alarm faces, panic to meltdown",
     "developer_welcome_title": "Welcome screen",
     "developer_welcome_subtitle": "Try the twelve onboarding welcome animations",
     "developer_alarm_debug_title": "Alarm debug",

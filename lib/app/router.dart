@@ -32,6 +32,7 @@ import 'package:critalarm/features/settings/presentation/developer_settings_scre
 import 'package:critalarm/features/settings/presentation/dialog_sheet_gallery_screen.dart';
 import 'package:critalarm/features/settings/presentation/face_gallery_screen.dart';
 import 'package:critalarm/features/settings/presentation/privacy_settings_screen.dart';
+import 'package:critalarm/features/settings/presentation/ringing_faces_screen.dart';
 import 'package:critalarm/features/settings/presentation/server_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/sound_crop_screen.dart';
@@ -79,6 +80,7 @@ abstract final class AppRoute {
   static const alarmDebug = 'alarmDebug';
   static const dialogSheetGallery = 'dialogSheetGallery';
   static const faceGallery = 'faceGallery';
+  static const ringingFaces = 'ringingFaces';
   static const reminderLab = 'reminderLab';
   static const paywall = 'paywall';
   static const proWelcome = 'proWelcome';
@@ -407,6 +409,14 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                       pageBuilder: (context, state) => AmbientPage(
                         key: state.pageKey,
                         child: const FaceGalleryScreen(),
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'ringing-faces',
+                      name: AppRoute.ringingFaces,
+                      pageBuilder: (context, state) => AmbientPage(
+                        key: state.pageKey,
+                        child: const RingingFacesScreen(),
                       ),
                     ),
                     GoRoute(
