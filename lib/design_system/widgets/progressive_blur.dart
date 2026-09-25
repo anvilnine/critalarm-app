@@ -11,7 +11,8 @@ import 'package:flutter/material.dart';
 /// bar itself stays sharp.
 ///
 /// What it draws follows [appEdgeEffect]: the shader blur, the older slice
-/// blur, or nothing (the fade and none effects draw no blur).
+/// blur, or nothing (the fade and none effects draw no blur). It draws
+/// nothing in landscape, whatever the effect.
 class ProgressiveBlurEdge extends StatelessWidget {
   const ProgressiveBlurEdge({
     required this.height,
@@ -31,6 +32,11 @@ class ProgressiveBlurEdge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Portrait only. Held sideways, a phone or tablet keeps the colour fade
+    // and draws no blur.
+    if (MediaQuery.orientationOf(context) == Orientation.landscape) {
+      return const SizedBox.shrink();
+    }
     return ValueListenableBuilder<EdgeEffect>(
       valueListenable: appEdgeEffect,
       builder: (context, effect, _) {
