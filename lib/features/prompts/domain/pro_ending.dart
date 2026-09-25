@@ -36,34 +36,15 @@ final class ProEndingView {
 /// whether Pro will renew and when it ends.
 class ProEnding {
   ProEnding({
-    required HomePromptRepository prompts,
-    required PlanStatusSource plan,
-    required Future<DeviceIdentity> Function() readIdentity,
-    required Future<ServerMode?> Function() readServerMode,
-    required Future<void> Function() refreshRegistration,
-    void Function()? onPaidChanged,
+    required this._prompts,
+    required this._plan,
+    required this._readIdentity,
+    required this._readServerMode,
+    required this._refreshRegistration,
+    this._onPaidChanged,
     DateTime Function()? now,
     DeviceTimeZone Function()? timeZone,
-  }) : // The public parameter names are kept separate
-       // from the private fields, as other ask rules do.
-       // ignore: prefer_initializing_formals
-       _prompts = prompts,
-       // Keep the public parameter name and private field.
-       // ignore: prefer_initializing_formals
-       _plan = plan,
-       // Keep the public parameter name and private field.
-       // ignore: prefer_initializing_formals
-       _readIdentity = readIdentity,
-       // Keep the public parameter name and private field.
-       // ignore: prefer_initializing_formals
-       _readServerMode = readServerMode,
-       // Keep the public parameter name and private field.
-       // ignore: prefer_initializing_formals
-       _refreshRegistration = refreshRegistration,
-       // Keep the public parameter name and private field.
-       // ignore: prefer_initializing_formals
-       _onPaidChanged = onPaidChanged,
-       _now = now ?? DateTime.now,
+  }) : _now = now ?? DateTime.now,
        _timeZone = timeZone ?? DeviceTimeZone.fromDart;
 
   /// Asking the server for the tier again, or the store for the plan, happens
