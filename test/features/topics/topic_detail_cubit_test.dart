@@ -1,10 +1,14 @@
+import 'dart:convert';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/result/result.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
@@ -18,12 +22,25 @@ import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.d
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// A topic list that never loads.
 class _FailingTopics implements TopicRepository {
   @override
   Future<AppResult<List<Topic>>> getTopics() async =>
       const Failure.api(statusCode: 500).toFailure();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
+
+class _StaticTopics implements TopicRepository {
+  _StaticTopics(this.topics);
+  final List<Topic> topics;
+
+  @override
+  Future<AppResult<List<Topic>>> getTopics() async => topics.toSuccess();
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -209,5 +226,69 @@ void main() {
             .having((s) => s.errorMessage, 'has error', isNotNull),
       ],
     );
+
+    group('turningOffIsOneWay', () {
+      Future<TopicDetailCubit> cubitFor({
+        required String tier,
+        required int? limit,
+        required int criticalCount,
+      }) async {
+        SharedPreferences.setMockInitialValues({
+          'device_id': 'dev_1',
+          'account_id': 'acc_1',
+          'account_tier': tier,
+          'account_caps': jsonEncode(
+            AccountCaps(criticalTopics: limit).toJson(),
+          ),
+        });
+        final store = DeviceIdentityStore(
+          await SharedPreferences.getInstance(),
+        );
+        final repo = _StaticTopics([
+          for (var i = 0; i < criticalCount; i++)
+            Topic(name: 't$i', critical: true),
+        ]);
+        final topics = TopicsCubit(GetTopicsUsecase(repo));
+        addTearDown(topics.close);
+        await topics.refresh();
+        final cubit = TopicDetailCubit(
+          incidentsCubit,
+          topics,
+          updateTopicUsecase,
+          incidentRepo,
+          identityStore: store,
+        );
+        addTearDown(cubit.close);
+        return cubit;
+      }
+
+      test('free with 3 critical and a limit of 2 is one way', () async {
+        final cubit = await cubitFor(tier: 'free', limit: 2, criticalCount: 3);
+        expect(await cubit.turningOffIsOneWay(), isTrue);
+      });
+
+      test('free at the limit is not one way', () async {
+        final cubit = await cubitFor(tier: 'free', limit: 2, criticalCount: 2);
+        expect(await cubit.turningOffIsOneWay(), isFalse);
+      });
+
+      test('paid is never one way', () async {
+        final cubit = await cubitFor(
+          tier: 'hosted',
+          limit: null,
+          criticalCount: 5,
+        );
+        expect(await cubit.turningOffIsOneWay(), isFalse);
+      });
+
+      test('no limit is never one way', () async {
+        final cubit = await cubitFor(
+          tier: 'free',
+          limit: null,
+          criticalCount: 5,
+        );
+        expect(await cubit.turningOffIsOneWay(), isFalse);
+      });
+    });
   });
 }
