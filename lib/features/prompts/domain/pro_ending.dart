@@ -5,6 +5,7 @@ import 'package:critalarm/features/prompts/domain/pro_ending_rule.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/reminders/domain/device_time_zone.dart';
 import 'package:critalarm/features/reminders/domain/plan_status_source.dart';
+import 'package:critalarm/features/reminders/domain/reminder_inputs.dart';
 import 'package:flutter/foundation.dart';
 
 enum ProPlanSheet { none, ending, ended }
@@ -63,7 +64,8 @@ class ProEnding {
        _now = now ?? DateTime.now,
        _timeZone = timeZone ?? DeviceTimeZone.fromDart;
 
-  /// Asking the server for the tier again happens at most this often.
+  /// Asking the server for the tier again, or the store for the plan, happens
+  /// at most this often.
   static const Duration refreshGap = Duration(minutes: 5);
 
   final HomePromptRepository _prompts;
@@ -77,6 +79,12 @@ class ProEnding {
 
   DateTime? _lastRefreshAt;
   bool? _lastPaid;
+
+  /// The last store answer, kept for [refreshGap]. Home asks on every health
+  /// tick, and each store read is two network calls.
+  PlanStatus? _cachedPlan;
+  DateTime? _cachedPlanAt;
+  String? _cachedPlanAccount;
 
   Future<ProEndingView> read() async {
     if (await _readServerMode() != ServerMode.hosted) {
@@ -109,9 +117,11 @@ class ProEnding {
           : ProEndingView.nothing;
     }
 
-    final plan = await _plan.read(_timeZone());
+    final plan = await _readPlan(now, identity.accountId);
     final endsAt = plan?.expiresAt;
-    if (endsAt != null) await _prompts.setProKnownExpiry(endsAt);
+    if (endsAt != null && endsAt != _prompts.getProKnownExpiry()) {
+      await _prompts.setProKnownExpiry(endsAt);
+    }
     if (plan == null ||
         endsAt == null ||
         !ProEndingRule.isCancelled(plan, now)) {
@@ -146,8 +156,21 @@ class ProEnding {
     return _prompts.dismissProEndingPill();
   }
 
-  Future<void> markEndedSheetShown() =>
-      _prompts.setProEndedSheetDueFor(null);
+  Future<void> markEndedSheetShown() => _prompts.setProEndedSheetDueFor(null);
+
+  Future<PlanStatus?> _readPlan(DateTime now, String? accountId) async {
+    final at = _cachedPlanAt;
+    if (at != null &&
+        _cachedPlanAccount == accountId &&
+        now.difference(at) < refreshGap) {
+      return _cachedPlan;
+    }
+    final plan = await _plan.read(_timeZone());
+    _cachedPlan = plan;
+    _cachedPlanAt = now;
+    _cachedPlanAccount = accountId;
+    return plan;
+  }
 
   bool _mayRefresh(DateTime now) =>
       _lastRefreshAt == null || now.difference(_lastRefreshAt!) >= refreshGap;

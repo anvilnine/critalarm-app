@@ -10,12 +10,25 @@ import '../../helpers/fake_home_prompt_repository.dart';
 
 class _Plan implements PlanStatusSource {
   PlanStatus? status;
+  int reads = 0;
   @override
-  Future<PlanStatus?> read(DeviceTimeZone timeZone) async => status;
+  Future<PlanStatus?> read(DeviceTimeZone timeZone) async {
+    reads++;
+    return status;
+  }
+}
+
+class _CountingPrompts extends FakeHomePromptRepository {
+  int expiryWrites = 0;
+  @override
+  Future<void> setProKnownExpiry(DateTime at) async {
+    expiryWrites++;
+    await super.setProKnownExpiry(at);
+  }
 }
 
 void main() {
-  late FakeHomePromptRepository prompts;
+  late _CountingPrompts prompts;
   late _Plan plan;
   late DeviceIdentity identity;
   late ServerMode mode;
@@ -37,7 +50,7 @@ void main() {
   );
 
   setUp(() {
-    prompts = FakeHomePromptRepository();
+    prompts = _CountingPrompts();
     plan = _Plan();
     identity = account('acc_1', 'hosted');
     mode = ServerMode.hosted;
@@ -172,6 +185,26 @@ void main() {
     clock = clock.add(const Duration(minutes: 5));
     await ending.read();
     expect(refreshes, 2);
+  });
+
+  test('two reads within 5 minutes ask the store once', () async {
+    plan.status = cancelled();
+    await ending.read();
+    clock = clock.add(const Duration(minutes: 4));
+    await ending.read();
+    expect(plan.reads, 1);
+    clock = clock.add(const Duration(minutes: 1));
+    await ending.read();
+    expect(plan.reads, 2);
+  });
+
+  test('the known end date is written only when it changes', () async {
+    plan.status = cancelled();
+    await ending.read();
+    clock = clock.add(const Duration(minutes: 5));
+    await ending.read();
+    expect(plan.reads, 2);
+    expect(prompts.expiryWrites, 1);
   });
 
   test('a failed refresh does not throw', () async {
