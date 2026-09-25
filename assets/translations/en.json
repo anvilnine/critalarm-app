@@ -110,7 +110,16 @@
     "demo_alarm_body": "A test page from Crit Alarm. Stop the alarm to finish setup.",
     "hook_no_alarm_title": "Alarms are not available here",
     "hook_no_alarm_body": "This phone cannot ring a local test alarm. Real pages still arrive as notifications.",
-    "ready_activity_title": "Crit Alarm is ready"
+    "ready_activity_title": "Crit Alarm is ready",
+    "hook_not_asked_title": "Allow alarms first",
+    "hook_not_asked_body": "Crit Alarm needs alarm access to ring your phone.",
+    "hook_not_asked_button": "Allow alarms",
+    "hook_alarms_off_title": "Alarms are turned off",
+    "hook_alarms_off_body": "Crit Alarm cannot ring your phone without alarm access. Turn on Alarms & Timers for Crit Alarm in Settings, then try again.",
+    "hook_open_settings": "Open Settings",
+    "hook_failed_title": "The test alarm could not be set",
+    "hook_failed_body": "Your phone did not let Crit Alarm set an alarm. Allow alarms and reminders for Crit Alarm in Settings, then try again.",
+    "hook_ok": "OK"
   },
   "onboarding_permissions": {
     "denied_title": "Permissions required",

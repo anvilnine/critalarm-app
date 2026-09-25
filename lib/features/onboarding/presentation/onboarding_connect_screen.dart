@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/design/design.dart';
@@ -9,6 +10,8 @@ import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_con
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
+import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
+import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -113,8 +116,86 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     }
   }
 
+  /// Says why "Ring my phone" did nothing, and offers the one tap that fixes
+  /// it. Without this a refused alarm left the button looking dead.
+  Future<void> _explainTestAlarmFailure(OnboardingConnectState state) async {
+    final alarm = state.alarm;
+    if (alarm == AlarmAuthorization.notDetermined) {
+      final allow = await showAppDialog<bool>(
+        context: context,
+        title: LocaleKeys.onboarding_connect_hook_not_asked_title.tr(),
+        body: LocaleKeys.onboarding_connect_hook_not_asked_body.tr(),
+        actions: [
+          AppDialogAction(
+            label: LocaleKeys.common_not_now.tr(),
+            value: false,
+            variant: AppButtonVariant.ghost,
+          ),
+          AppDialogAction(
+            label: LocaleKeys.onboarding_connect_hook_not_asked_button.tr(),
+            value: true,
+          ),
+        ],
+      );
+      if (allow == true && mounted) {
+        await context.push('/permissions/ask');
+      }
+      return;
+    }
+    if (alarm == AlarmAuthorization.denied) {
+      final open = await showAppDialog<bool>(
+        context: context,
+        title: LocaleKeys.onboarding_connect_hook_alarms_off_title.tr(),
+        body: LocaleKeys.onboarding_connect_hook_alarms_off_body.tr(),
+        actions: [
+          AppDialogAction(
+            label: LocaleKeys.common_not_now.tr(),
+            value: false,
+            variant: AppButtonVariant.ghost,
+          ),
+          AppDialogAction(
+            label: LocaleKeys.onboarding_connect_hook_open_settings.tr(),
+            value: true,
+          ),
+        ],
+      );
+      if (open == true) {
+        await getIt<OpenPermissionSettingsUsecase>()(
+          DevicePermissionType.alarms,
+        );
+      }
+      return;
+    }
+    // An iPhone below iOS 26 has no alarm to set at all. Anything else is the
+    // phone refusing, which on Android means Alarms & reminders is off.
+    final oldIphone = RingClaim.forPhone(alarm) == RingClaim.timeSensitive;
+    await showAppDialog<void>(
+      context: context,
+      title: oldIphone
+          ? LocaleKeys.onboarding_connect_hook_no_alarm_title.tr()
+          : LocaleKeys.onboarding_connect_hook_failed_title.tr(),
+      body: oldIphone
+          ? LocaleKeys.onboarding_connect_hook_no_alarm_body.tr()
+          : LocaleKeys.onboarding_connect_hook_failed_body.tr(),
+      actions: [
+        AppDialogAction(
+          label: LocaleKeys.onboarding_connect_hook_ok.tr(),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    return BlocListener<OnboardingConnectCubit, OnboardingConnectState>(
+      listenWhen: (prev, curr) =>
+          prev.testAlarmStatus != curr.testAlarmStatus && curr.isAlarmFailure,
+      listener: (context, state) => unawaited(_explainTestAlarmFailure(state)),
+      child: _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     return BlocConsumer<OnboardingConnectCubit, OnboardingConnectState>(
       listenWhen: (prev, curr) =>
           (!prev.canNavigateToHome && curr.canNavigateToHome) ||
@@ -606,8 +687,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                 const SizedBox(height: 8),
                 AppFeatureBullet(
                   text:
-                      RingClaim.forPhone(state.alarm) ==
-                          RingClaim.timeSensitive
+                      RingClaim.forPhone(state.alarm) == RingClaim.timeSensitive
                       ? LocaleKeys.onboarding_connect_hook_step1_time_sensitive
                             .tr()
                       : LocaleKeys.onboarding_connect_hook_step1.tr(),
