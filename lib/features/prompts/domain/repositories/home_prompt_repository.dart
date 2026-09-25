@@ -95,7 +95,9 @@ abstract class HomePromptRepository {
   String? getProPaidAccountId();
   Future<void> setProPaidAccountId(String? accountId);
 
-  /// True from the moment the app sees Pro end until the sheet has shown.
-  bool isProEndedSheetDue();
-  Future<void> setProEndedSheetDue({required bool due});
+  /// The account the "Pro ended" sheet is waiting to show for. Set the
+  /// moment the app sees Pro end on that account, cleared once the sheet has
+  /// shown. Any other account sees nothing.
+  String? getProEndedSheetDueFor();
+  Future<void> setProEndedSheetDueFor(String? accountId);
 }

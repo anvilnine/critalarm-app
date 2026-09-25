@@ -103,7 +103,8 @@ class ProEnding {
     await _notePaid(identity, isPaid);
 
     if (!isPaid) {
-      return _prompts.isProEndedSheetDue()
+      final dueFor = _prompts.getProEndedSheetDueFor();
+      return dueFor != null && dueFor == identity.accountId
           ? const ProEndingView(sheet: ProPlanSheet.ended)
           : ProEndingView.nothing;
     }
@@ -146,7 +147,7 @@ class ProEnding {
   }
 
   Future<void> markEndedSheetShown() =>
-      _prompts.setProEndedSheetDue(due: false);
+      _prompts.setProEndedSheetDueFor(null);
 
   bool _mayRefresh(DateTime now) =>
       _lastRefreshAt == null || now.difference(_lastRefreshAt!) >= refreshGap;
@@ -157,13 +158,15 @@ class ProEnding {
   Future<void> _notePaid(DeviceIdentity identity, bool isPaid) async {
     final accountId = identity.accountId;
     if (isPaid) {
-      await _prompts.setProEndedSheetDue(due: false);
+      if (_prompts.getProEndedSheetDueFor() != null) {
+        await _prompts.setProEndedSheetDueFor(null);
+      }
       if (accountId != null) await _prompts.setProPaidAccountId(accountId);
     } else {
       final paidAccount = _prompts.getProPaidAccountId();
       if (paidAccount != null) {
         if (paidAccount == accountId) {
-          await _prompts.setProEndedSheetDue(due: true);
+          await _prompts.setProEndedSheetDueFor(accountId);
         }
         await _prompts.setProPaidAccountId(null);
       }
