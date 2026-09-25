@@ -5,6 +5,7 @@ import 'package:critalarm/features/onboarding/domain/repositories/notification_p
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Platform implementation of [NotificationPermissionRepository] using
 /// [FlutterLocalNotificationsPlugin] and a custom platform method channel for
@@ -14,11 +15,26 @@ class PlatformNotificationPermissionRepository
   PlatformNotificationPermissionRepository({
     FlutterLocalNotificationsPlugin? plugin,
     MethodChannel? channel,
+    this.prefs,
   }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
        _channel = channel ?? const MethodChannel('app.critalarm/settings');
 
   final FlutterLocalNotificationsPlugin _plugin;
   final MethodChannel _channel;
+
+  /// Null in tests. Holds [_askedKey].
+  final SharedPreferences? prefs;
+
+  /// Set once the app has shown the system prompt. Neither platform tells an
+  /// app apart "never asked" from "said no", so the app remembers it asked.
+  static const _askedKey = 'notifications_prompt_shown';
+
+  /// What a phone without the permission reports: denied once the prompt
+  /// has been shown, not determined before that.
+  NotificationPermissionStatus get _notGranted =>
+      (prefs?.getBool(_askedKey) ?? false)
+      ? NotificationPermissionStatus.denied
+      : NotificationPermissionStatus.notDetermined;
 
   @override
   Future<AppResult<NotificationPermissionStatus>> checkPermission() async {
@@ -33,9 +49,7 @@ class PlatformNotificationPermissionRepository
           >();
       if (android != null) {
         final areEnabled = await android.areNotificationsEnabled() ?? false;
-        return (areEnabled
-                ? NotificationPermissionStatus.granted
-                : NotificationPermissionStatus.notDetermined)
+        return (areEnabled ? NotificationPermissionStatus.granted : _notGranted)
             .toSuccess();
       }
 
@@ -46,9 +60,7 @@ class PlatformNotificationPermissionRepository
           'checkNotificationPermission',
         );
         if (granted != null) {
-          return (granted
-                  ? NotificationPermissionStatus.granted
-                  : NotificationPermissionStatus.notDetermined)
+          return (granted ? NotificationPermissionStatus.granted : _notGranted)
               .toSuccess();
         }
       } on PlatformException catch (_) {
@@ -57,7 +69,7 @@ class PlatformNotificationPermissionRepository
         // Same, on a platform with no channel at all.
       }
 
-      return NotificationPermissionStatus.notDetermined.toSuccess();
+      return _notGranted.toSuccess();
     } on Exception catch (e) {
       return Failure.unexpected(message: e.toString()).toFailure();
     }
@@ -69,6 +81,7 @@ class PlatformNotificationPermissionRepository
       if (kIsWeb) {
         return NotificationPermissionStatus.granted.toSuccess();
       }
+      await prefs?.setBool(_askedKey, true);
 
       final android = _plugin
           .resolvePlatformSpecificImplementation<

@@ -365,6 +365,23 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     _countdownTimer?.cancel();
 
     final host = alarmHost;
+    // Read again on every tap. The user may have just come back from
+    // Settings, and the failure dialog explains itself from this value. The
+    // idle status lets a second failure in a row open the dialog again.
+    AlarmAuthorization? authorization;
+    try {
+      authorization = await host?.authorizationStatus();
+    } on Object catch (_) {
+      authorization = null;
+    }
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        alarm: authorization,
+        testAlarmStatus: TestAlarmStatus.idle,
+      ),
+    );
+
     // Android parses this back out of the alarm intent and drops the whole
     // start when it is not an http or https URL, so an empty string meant the
     // service stopped itself and the countdown below congratulated the user

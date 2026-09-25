@@ -14,6 +14,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 /// Screen 1 of Onboarding (/onboarding): Permissions.
 ///
@@ -27,6 +28,7 @@ class OnboardingPermissionsScreen extends StatelessWidget {
     super.key,
     this.initialStep = NotificationPermissionStep.initial,
     this.replayForDemo = false,
+    this.standalone = false,
   });
 
   final NotificationPermissionStep initialStep;
@@ -35,24 +37,30 @@ class OnboardingPermissionsScreen extends StatelessWidget {
   /// even the ones already granted.
   final bool replayForDemo;
 
+  /// Opened from Health to ask for a permission the user was never asked.
+  /// Not part of onboarding: it asks what is left, then closes.
+  final bool standalone;
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) {
         final cubit = getIt<NotificationPermissionsCubit>(
           param1: initialStep,
-          param2: replayForDemo,
+          param2: (replayForDemo: replayForDemo, standalone: standalone),
         );
         unawaited(cubit.refresh());
         return cubit;
       },
-      child: const _OnboardingPermissionsView(),
+      child: _OnboardingPermissionsView(standalone: standalone),
     );
   }
 }
 
 class _OnboardingPermissionsView extends StatefulWidget {
-  const _OnboardingPermissionsView();
+  const _OnboardingPermissionsView({required this.standalone});
+
+  final bool standalone;
 
   @override
   State<_OnboardingPermissionsView> createState() =>
@@ -116,7 +124,11 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
       listener: (context, state) {
         if (state.canNavigate) {
           context.read<NotificationPermissionsCubit>().navigationHandled();
-          goToOnboardingStep(context, OnboardingStep.widgets);
+          if (widget.standalone) {
+            _close(context);
+          } else {
+            goToOnboardingStep(context, OnboardingStep.widgets);
+          }
           return;
         }
         final ambient = OnboardingAmbientScope.maybeOf(context);
@@ -154,11 +166,22 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         final previewHint = LocaleKeys.onboarding_permissions_preview_hint.tr();
 
         return AppScreenScaffold(
-          backgroundColor: Colors.transparent,
+          // On its own the screen sits over Health, not over the onboarding
+          // canvas, so it paints its own background.
+          backgroundColor: widget.standalone ? null : Colors.transparent,
           withGhosts: false,
           withFades: false,
           hasTabBar: false,
-          topBar: AppTopBar(title: LocaleKeys.app_title.tr()),
+          topBar: AppTopBar(
+            title: LocaleKeys.app_title.tr(),
+            leading: widget.standalone
+                ? AppIconButton(
+                    glyph: GlyphType.close,
+                    ariaLabel: LocaleKeys.common_back.tr(),
+                    onPressed: () => _close(context),
+                  )
+                : null,
+          ),
           bottomBar: Column(
             mainAxisSize: MainAxisSize.min,
             children: state.isDenied
@@ -313,6 +336,14 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         );
       },
     );
+  }
+
+  void _close(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/settings/permissions');
+    }
   }
 
   String _title(bool isStep2, bool alarmless) {

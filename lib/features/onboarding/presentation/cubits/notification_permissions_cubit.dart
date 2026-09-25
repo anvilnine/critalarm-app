@@ -17,6 +17,7 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     this.alarm,
     this.checkPermission,
     this.replayForDemo = false,
+    this.standalone = false,
     NotificationPermissionStep initialStep = NotificationPermissionStep.initial,
   }) : super(NotificationPermissionsState(step: initialStep));
 
@@ -33,6 +34,17 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   /// step is shown even where the permission is already granted, because the
   /// point is seeing the screens, not getting through them.
   final bool replayForDemo;
+
+  /// True when Health opened this screen on its own, outside onboarding, to
+  /// ask for a permission the user has never been asked. Then only a real
+  /// system prompt earns a step, and the screen closes once none is left.
+  final bool standalone;
+
+  /// Whether step 2 still has a prompt behind it. In onboarding it always
+  /// shows, even as an explanation. On its own it needs AlarmKit to be able
+  /// to ask, which it does only once.
+  bool _hasAlarmStep(AlarmAuthorization authorization) =>
+      !standalone || authorization == AlarmAuthorization.notDetermined;
 
   /// The incident id the onboarding card uses. Not a real incident: it exists
   /// so the Allow prompt for Live Activities happens here rather than the
@@ -76,7 +88,7 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
         alarmHost != null && authorization != AlarmAuthorization.unsupported;
     final alarmGranted = authorization == AlarmAuthorization.authorized;
 
-    final hasStep2 = alarmSupported;
+    final hasStep2 = alarmSupported && _hasAlarmStep(authorization);
 
     if (isClosed) return;
 
@@ -94,7 +106,7 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
 
     // Without an alarm permission to ask for, step 2 only explains what this
     // phone does. There is nothing left to grant.
-    final step2Granted = !alarmSupported || alarmGranted;
+    final step2Granted = !hasStep2 || alarmGranted;
     final everythingGranted = notificationsGranted && step2Granted;
 
     emit(
@@ -149,7 +161,9 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   /// "Not now", and what a refused or failed prompt does too: move to the
   /// next step without asking, or finish when there is none.
   void skipStep() {
-    if (state.activeSubstep == 0 && alarm != null) {
+    if (state.activeSubstep == 0 &&
+        alarm != null &&
+        _hasAlarmStep(state.alarm)) {
       emit(
         state.copyWith(
           activeSubstep: 1,
@@ -165,12 +179,13 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
 
   void _afterNotificationsGranted() {
     final alarmHost = alarm;
-    if (alarmHost == null) {
+    if (alarmHost == null || !_hasAlarmStep(state.alarm)) {
       emit(
         state.copyWith(
           notificationsGranted: true,
-          criticalAlertsGranted: true,
-          alarmSupported: false,
+          criticalAlertsGranted:
+              alarmHost == null || state.criticalAlertsGranted,
+          alarmSupported: alarmHost != null && state.alarmSupported,
           step: NotificationPermissionStep.granted,
           canNavigate: true,
           clearError: true,
