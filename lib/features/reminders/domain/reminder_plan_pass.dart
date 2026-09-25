@@ -26,6 +26,11 @@ import 'package:flutter/foundation.dart';
 ///    scheduling the same id again is safe.
 /// 5. Record what reached the scheduler so the next pass can settle it.
 ///
+/// While `isPaused` answers true (onboarding or a "How to use the app" guide
+/// is under way) the pass stops before step 1: nothing is settled, planned,
+/// scheduled or cancelled. What was scheduled before stays as it was, and the
+/// next pass after the pause plans as usual.
+///
 /// Any other failed step is logged and the rest of the pass goes on;
 /// nothing is thrown to the caller. A run asked for while one is going runs
 /// once more after it.
@@ -36,6 +41,7 @@ final class ReminderPlanPass implements ReminderPlanTrigger {
     required ReminderSettler settler,
     required Future<ReminderInputs?> Function() readInputs,
     required ReminderCopy copy,
+    Future<bool> Function()? isPaused,
     ReminderPlanner planner = const ReminderPlanner(),
     bool isWeb = kIsWeb,
     DateTime Function()? clock,
@@ -62,6 +68,10 @@ final class ReminderPlanPass implements ReminderPlanTrigger {
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
+       _isPaused = isPaused,
+       // The fields are private and the parameters are public, so they
+       // cannot be initializing formals.
+       // ignore: prefer_initializing_formals
        _planner = planner,
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
@@ -74,6 +84,9 @@ final class ReminderPlanPass implements ReminderPlanTrigger {
   final ReminderSettler _settler;
   final Future<ReminderInputs?> Function() _readInputs;
   final ReminderCopy _copy;
+
+  /// `!SetupGate.isDone` in the app. Null in tests, and counts as running.
+  final Future<bool> Function()? _isPaused;
   final ReminderPlanner _planner;
   final bool _isWeb;
   final DateTime Function() _clock;
@@ -110,6 +123,18 @@ final class ReminderPlanPass implements ReminderPlanTrigger {
 
   Future<void> _runOnce() async {
     if (_isWeb) return;
+
+    bool paused;
+    try {
+      paused = await (_isPaused?.call() ?? Future<bool>.value(false));
+    } on Object catch (error) {
+      _log('reading the pause failed: ${error.runtimeType}');
+      paused = false;
+    }
+    if (paused) {
+      _log('paused during onboarding or a guide');
+      return;
+    }
 
     try {
       await _store.reload();
