@@ -10,8 +10,9 @@ import 'package:go_router/go_router.dart';
 
 const double _kBackGestureWidth = 20;
 const double _kMinFlingVelocity = 1;
-const Duration _kDroppedSwipePageAnimationDuration =
-    Duration(milliseconds: 300);
+const Duration _kDroppedSwipePageAnimationDuration = Duration(
+  milliseconds: 300,
+);
 
 /// Builds synchronized slide and fade transitions for routes over an ambient
 /// canvas.
@@ -26,14 +27,18 @@ Widget buildAmbientTransitions({
     return child;
   }
 
-  final primaryCurve =
-      isPopGestureInProgress ? Curves.linear : AppCurves.easeOut;
-  final primaryFadeCurve =
-      isPopGestureInProgress ? Curves.linear : Curves.easeOut;
-  final secondaryCurve =
-      isPopGestureInProgress ? Curves.linear : AppCurves.easeOut;
-  final secondaryFadeCurve =
-      isPopGestureInProgress ? Curves.linear : Curves.easeOut;
+  final primaryCurve = isPopGestureInProgress
+      ? Curves.linear
+      : AppCurves.easeOut;
+  final primaryFadeCurve = isPopGestureInProgress
+      ? Curves.linear
+      : Curves.easeOut;
+  final secondaryCurve = isPopGestureInProgress
+      ? Curves.linear
+      : AppCurves.easeOut;
+  final secondaryFadeCurve = isPopGestureInProgress
+      ? Curves.linear
+      : Curves.easeOut;
 
   final primarySlide = animation.drive(
     Tween<Offset>(
@@ -123,6 +128,17 @@ mixin AmbientRoutePopGestureMixin<T> on PageRoute<T> {
   }
 }
 
+/// [full], or [Duration.zero] when the OS asks to reduce motion.
+///
+/// [buildAmbientTransitions] already skips the slide under reduce motion, but
+/// the route still ran for [full], which kept Hero flights moving. A zero
+/// duration cuts both. Reads MediaQuery without depending on it, since a
+/// route's durations are read outside build.
+Duration _motionFor(NavigatorState? navigator, Duration full) {
+  final query = navigator?.context.getInheritedWidgetOfExactType<MediaQuery>();
+  return (query?.data.disableAnimations ?? false) ? Duration.zero : full;
+}
+
 /// A transparent, flicker-free [CustomTransitionPage] designed for [GoRoute],
 /// equipped with iOS back-swipe navigation.
 class AmbientPage<T> extends CustomTransitionPage<T> {
@@ -159,10 +175,12 @@ class _AmbientPageRoute<T> extends PageRoute<T>
   final AmbientPage<T> page;
 
   @override
-  Duration get transitionDuration => page.transitionDuration;
+  Duration get transitionDuration =>
+      _motionFor(navigator, page.transitionDuration);
 
   @override
-  Duration get reverseTransitionDuration => page.reverseTransitionDuration;
+  Duration get reverseTransitionDuration =>
+      _motionFor(navigator, page.reverseTransitionDuration);
 
   @override
   bool get opaque => page.opaque;
@@ -224,10 +242,11 @@ class AmbientPageRoute<T> extends PageRoute<T>
   final WidgetBuilder builder;
 
   @override
-  Duration get transitionDuration => AppDurations.slow;
+  Duration get transitionDuration => _motionFor(navigator, AppDurations.slow);
 
   @override
-  Duration get reverseTransitionDuration => AppDurations.slow;
+  Duration get reverseTransitionDuration =>
+      _motionFor(navigator, AppDurations.slow);
 
   @override
   bool get opaque => false;

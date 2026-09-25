@@ -2,6 +2,7 @@ import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/design_system/motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -162,7 +163,7 @@ class _AppTextFieldState extends State<AppTextField> {
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
           child: AnimatedContainer(
-            duration: AppDurations.quick,
+            duration: context.motion(AppDurations.quick),
             // A minimum, not a fixed height: the box has to grow for wrapped
             // text and for a large Dynamic Type setting.
             constraints: const BoxConstraints(minHeight: 48),

@@ -6,6 +6,9 @@ import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/design_system/motion.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// One destination in the floating bar.
@@ -258,6 +261,8 @@ class _CloseSlot extends StatelessWidget {
 
     return Semantics(
       button: true,
+      label: LocaleKeys.common_close.tr(),
+      excludeSemantics: true,
       child: InkWell(
         onTap: () {
           AppHaptics.selection();
@@ -302,11 +307,14 @@ class _TabSlot extends StatelessWidget {
       button: true,
       selected: isCurrent,
       label: item.label,
+      // The flag dot is colour only, so say it out loud.
+      value: item.showFlag ? LocaleKeys.common_needs_attention.tr() : null,
+      excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
         borderRadius: Radii.fullAll,
         child: AnimatedContainer(
-          duration: AppDurations.quick,
+          duration: context.motion(AppDurations.quick),
           curve: AppCurves.easeSpring,
           constraints: const BoxConstraints(minHeight: 44),
           padding: EdgeInsets.symmetric(horizontal: iconsOnly ? 0 : 14),

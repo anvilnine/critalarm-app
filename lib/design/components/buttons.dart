@@ -5,6 +5,9 @@ import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/design_system/motion.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// Button variants defined by the Crit Alarm Design System.
@@ -238,18 +241,20 @@ class _AppButtonState extends State<AppButton> {
       );
     }
 
+    final pressDuration = context.motion(AppDurations.quick);
+
     final buttonCore = AnimatedSlide(
-      duration: AppDurations.quick,
+      duration: pressDuration,
       curve: AppCurves.easeSpring,
       offset: Offset(0, translateY / height),
       child: AnimatedScale(
-        duration: AppDurations.quick,
+        duration: pressDuration,
         curve: AppCurves.easeSpring,
         scale: scale,
         // easeOut, not easeSpring: the spring overshoots past 1, and a shadow
         // animating to none then gets a negative blur, which Flutter rejects.
         child: AnimatedContainer(
-          duration: AppDurations.quick,
+          duration: pressDuration,
           curve: AppCurves.easeOut,
           constraints: BoxConstraints(minHeight: height),
           padding: EdgeInsets.symmetric(
@@ -270,6 +275,7 @@ class _AppButtonState extends State<AppButton> {
       button: true,
       enabled: _isEnabled,
       label: widget.label,
+      value: widget.isLoading ? LocaleKeys.common_loading.tr() : null,
       excludeSemantics: true,
       child: MouseRegion(
         cursor: _isEnabled
@@ -343,12 +349,14 @@ class _AppIconButtonState extends State<AppIconButton> {
 
     final scale = _isActive ? 0.95 : 1.0;
 
+    final duration = context.motion(AppDurations.quick);
+
     Widget button = AnimatedScale(
-      duration: AppDurations.quick,
+      duration: duration,
       curve: AppCurves.easeSpring,
       scale: scale,
       child: AnimatedContainer(
-        duration: AppDurations.quick,
+        duration: duration,
         curve: AppCurves.easeSpring,
         width: widget.size,
         height: widget.size,
@@ -370,6 +378,7 @@ class _AppIconButtonState extends State<AppIconButton> {
       button = Semantics(
         label: widget.ariaLabel,
         button: true,
+        enabled: _isEnabled,
         child: button,
       );
     }
