@@ -141,6 +141,30 @@ import AlarmKit
       }
     }
 
+    // The home and lock screen widgets. Dart hands over a whole snapshot and
+    // the store asks WidgetKit to redraw.
+    let widgets = FlutterMethodChannel(
+      name: "app.critalarm/widgets",
+      binaryMessenger: messenger
+    )
+    widgets.setMethodCallHandler { call, result in
+      switch call.method {
+      case "write":
+        guard let args = call.arguments as? [String: Any],
+              let json = args["json"] as? String,
+              WidgetSnapshotStore.writeJSON(json) else {
+          result(FlutterError(code: "bad_args", message: "json must be a version 1 snapshot", details: nil))
+          return
+        }
+        result(nil)
+      case "clear":
+        WidgetSnapshotStore.clear()
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+
     reminders.attach(messenger: messenger)
   }
 
@@ -252,6 +276,7 @@ import AlarmKit
       // Dart drains. A running app is told so it can send it now.
       AckQueueStore.enqueue(action: "ack", incidentId: incidentId)
       AckedIncidentStore.mark(incidentId: incidentId)
+      WidgetSnapshotStore.patch(.acked(incidentId, at: Date()))
       // "I'm up" ends the loop, so the ring this phone set for itself goes.
       Task { await IncidentRearm.cancel(incidentId: incidentId) }
       if dartIsListening {
@@ -288,18 +313,33 @@ import AlarmKit
       var tap: [String: String] = [:]
       if let incidentId { tap["incident_id"] = incidentId }
       if let topic = info["topic"] as? String { tap["topic"] = topic }
-      if !tap.isEmpty {
-        tapSequence += 1
-        tap["tap_id"] = "\(tapSequence)"
-        // Held and sent. See `pendingTap`.
-        pendingTap = tap
-        if dartIsListening {
-          pushChannel?.invokeMethod("onNotificationTap", arguments: tap)
-        }
-      }
+      if !tap.isEmpty { postTap(tap) }
     }
 
     completionHandler()
+  }
+
+  /// Held and sent. See `pendingTap`.
+  private func postTap(_ tap: [String: String]) {
+    var tap = tap
+    tapSequence += 1
+    tap["tap_id"] = "\(tapSequence)"
+    pendingTap = tap
+    if dartIsListening {
+      pushChannel?.invokeMethod("onNotificationTap", arguments: tap)
+    }
+  }
+
+  /// A `critalarm://` link from a widget. Flutter's deep linking is off, so
+  /// the link becomes the same tap a notification makes and Dart picks the
+  /// screen. Any other link is ignored.
+  func openWidgetLink(_ url: URL) {
+    guard let tap = WidgetLink.tap(from: url) else {
+      NSLog("CritAlarm: widget_link_ignored")
+      return
+    }
+    NSLog("CritAlarm: widget_link_opened")
+    postTap(tap)
   }
 
   /// Hands Dart whatever is waiting, once. A cold launch from a tap comes

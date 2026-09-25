@@ -130,6 +130,8 @@ enum IncidentContentFetcher {
                 completion(nil, nil)
                 return
             }
+            // The widgets get the whole incident while it is in hand.
+            WidgetSnapshotStore.upsertIncident(json: data, now: Date())
             let parsed = parse(data)
             NSLog("CritAlarmNSE %@ incident_id=%@", parsed == nil ? "incident_fetch_unreadable" : "incident_fetch_ok", incidentId)
             completion(parsed, parsed == nil ? nil : lastMessageAt(data))

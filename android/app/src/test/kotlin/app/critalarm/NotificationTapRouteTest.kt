@@ -23,10 +23,14 @@ class NotificationTapRouteTest {
     private val manifest = File("src/main/AndroidManifest.xml")
     private val activity = File("src/main/kotlin/app/critalarm/MainActivity.kt")
 
+    /** MainActivity hands the mapping to TapRoute, so the routes live there. */
+    private val tapRoute = File("src/main/kotlin/app/critalarm/TapRoute.kt")
+
     @Test
     fun `the manifest is where this test thinks it is`() {
         assertTrue("expected ${manifest.absolutePath}", manifest.isFile)
         assertTrue("expected ${activity.absolutePath}", activity.isFile)
+        assertTrue("expected ${tapRoute.absolutePath}", tapRoute.isFile)
     }
 
     @Test
@@ -55,7 +59,7 @@ class NotificationTapRouteTest {
 
     @Test
     fun `MainActivity hands go_router a path and never a URI`() {
-        val text = activity.readText()
+        val text = activity.readText() + tapRoute.readText()
         val returns = Regex("return \"([^\"]*)\\$\\{?").findAll(text)
             .map { it.groupValues[1] }
             .toList()

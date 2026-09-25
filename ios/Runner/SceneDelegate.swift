@@ -10,13 +10,22 @@ class SceneDelegate: FlutterSceneDelegate {
     options connectionOptions: UIScene.ConnectionOptions
   ) {
     IncomingAudioInbox.receive(connectionOptions.urlContexts)
+    openWidgetLinks(connectionOptions.urlContexts)
     super.scene(scene, willConnectTo: session, options: connectionOptions)
   }
 
   /// A warm open: the app was already running when the file was shared.
   override func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
     IncomingAudioInbox.receive(URLContexts)
+    openWidgetLinks(URLContexts)
     super.scene(scene, openURLContexts: URLContexts)
+  }
+
+  /// A `critalarm://` link from a widget. Files keep going to the inbox above.
+  private func openWidgetLinks(_ contexts: Set<UIOpenURLContext>) {
+    let links = contexts.map(\.url).filter { !$0.isFileURL && $0.scheme == WidgetLink.scheme }
+    guard let app = UIApplication.shared.delegate as? AppDelegate else { return }
+    for url in links { app.openWidgetLink(url) }
   }
 }
 

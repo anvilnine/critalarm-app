@@ -83,9 +83,14 @@ object IncidentCards {
                     return
                 }
                 val acked = resolved as IncidentPhoneState.Acked
+                // Only an ack made on this phone has a time worth printing. A
+                // remote ack stores when its push arrived, which is not when
+                // anyone pressed anything.
+                val ackTimeKnown = deliveries.locallyAcknowledgedAtMillis(incidentId) != null
                 postStatus(
                     context, incidentId, resolvedServer, title, body, content,
                     IncidentCardState.ACKED, acked.ackedAtMillis, decision.countdownEndMillis, null,
+                    ackTimeKnown,
                 )
                 Log.i(TAG, "card_shown incident_id=$incidentId state=acked until=${decision.countdownEndMillis ?: "none"}")
             }
@@ -114,6 +119,7 @@ object IncidentCards {
         ackedAtMillis: Long,
         countdownEndMillis: Long?,
         silencedInSeconds: Int?,
+        ackTimeKnown: Boolean = true,
     ) {
         val payload = FcmIncidentPayload(
             incidentId = incidentId,
@@ -133,6 +139,7 @@ object IncidentCards {
                 ackedAtMillis = ackedAtMillis,
                 silencedInSeconds = silencedInSeconds,
                 countdownEndMillis = countdownEndMillis,
+                ackTimeKnown = ackTimeKnown,
             ),
         )
     }

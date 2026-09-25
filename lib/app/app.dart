@@ -11,6 +11,7 @@ import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/app/widget_sync.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
@@ -184,6 +185,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
       _quickActions.start();
     });
     _incomingAudio.start();
+    getIt<WidgetSync>().start();
     _autoDelete();
   }
 
@@ -195,6 +197,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_quickActions.dispose());
     appAccountIdentityChanges.removeListener(_replan);
     unawaited(_incomingAudio.dispose());
+    unawaited(getIt<WidgetSync>().dispose());
     super.dispose();
   }
 
@@ -202,6 +205,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     unawaited(_push.onResumed());
+    getIt<WidgetSync>().forget();
     unawaited(_reminders.onResumed());
     _replan();
     unawaited(_incomingAudio.onResumed());
