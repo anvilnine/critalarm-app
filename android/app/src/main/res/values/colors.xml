@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#FF8A1F</color>
+    <color name="splash_background">#FFC93C</color>
 
     <!-- Home screen widgets. The light palette from
          lib/design/tokens/colors.dart; values-night holds the dark one. -->
