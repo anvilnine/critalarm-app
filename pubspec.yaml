@@ -63,6 +63,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  shaders:
+    - shaders/edge_blur.frag
   assets:
     - assets/translations/
     - assets/sounds/

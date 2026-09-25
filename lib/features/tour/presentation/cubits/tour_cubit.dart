@@ -5,8 +5,11 @@ import 'package:critalarm/features/tour/presentation/cubits/tour_state.dart';
 import 'package:critalarm/features/tour/presentation/tour_steps.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Which step of the "How to use the app" tour is showing. One for the whole
-/// app, because the tour walks across screens.
+/// Which "How to use the app" guide is showing, and which step of it. One
+/// for the whole app, because the full replay walks across screens.
+///
+/// Each screen has its own short guide that plays the first time the user
+/// gets there. Settings replays all of them in one go.
 ///
 /// This only keeps count. Moving between screens, scrolling and drawing the
 /// spotlight is the TourHost's job.
@@ -18,27 +21,39 @@ class TourCubit extends Cubit<TourState> {
   /// The name the example topic goes by.
   static const exampleTopicName = 'prod-db';
 
-  /// Asks for the tour on first run only. Home calls this every time it
-  /// opens.
-  void requestIfNew() {
-    if (_repository.hasSeenTour()) return;
-    request();
+  bool hasSeen(TourGuide guide) => _repository.hasSeenGuide(guide.name);
+
+  /// True once the Topics guide has been seen or skipped. It is the first
+  /// one anybody gets, straight after onboarding, so the sheets and
+  /// reminders that wait for setup wait for it.
+  bool get hasSeenFirstGuide => hasSeen(TourGuide.home);
+
+  /// Asks for [guide] if this device has not seen it yet. Called as its
+  /// screen comes up. Ignored while another guide is going: that screen's
+  /// guide plays on the next visit instead.
+  void requestIfNew(TourGuide guide) {
+    if (hasSeen(guide)) return;
+    _request(guide);
   }
 
-  /// Asks for the tour, seen or not. Settings calls this.
-  void request() {
-    if (state.status != TourStatus.idle) return;
-    emit(state.copyWith(status: TourStatus.requested));
+  /// Asks for every guide back to back, seen or not. Settings calls this.
+  void request() => _request(null);
+
+  void _request(TourGuide? guide) {
+    if (state.isActive) return;
+    emit(TourState(status: TourStatus.requested, guide: guide));
   }
 
-  /// Starts the tour. [firstTopicName] is the user's first topic, or null when
-  /// they have none, in which case the tour shows example topics.
+  /// Starts what was asked for. [firstTopicName] is the user's first topic,
+  /// or null when they have none, in which case the tour shows example
+  /// topics.
   void begin({String? firstTopicName}) {
     if (state.status != TourStatus.requested) return;
     final usingExamples = firstTopicName == null;
     emit(
       TourState(
         status: TourStatus.running,
+        guide: state.guide,
         topicName: firstTopicName ?? exampleTopicName,
         usingExamples: usingExamples,
       ),
@@ -60,17 +75,23 @@ class TourCubit extends Cubit<TourState> {
   }
 
   /// Skip and Done both land here. Either way the user has seen enough not to
-  /// be shown it again unasked.
+  /// be shown it again unasked. The full replay counts for every guide.
   void finish() {
-    if (state.status == TourStatus.idle) return;
-    unawaited(_repository.markTourSeen());
+    if (!state.isActive) return;
+    final guide = state.guide;
+    unawaited(
+      _repository.markGuidesSeen(
+        guide == null ? TourGuide.values.map((g) => g.name) : [guide.name],
+      ),
+    );
     emit(const TourState());
   }
 
-  /// Something more important took the screen, such as an alarm. The tour
-  /// goes without being marked seen, so it comes back next time Home opens.
+  /// Something more important took the screen, such as an alarm. The guide
+  /// goes without being marked seen, so it comes back next time its screen
+  /// opens.
   void stop() {
-    if (state.status == TourStatus.idle) return;
+    if (!state.isActive) return;
     emit(const TourState());
   }
 
@@ -80,6 +101,4 @@ class TourCubit extends Cubit<TourState> {
     if (!state.isRunning || state.stepIndex != stepIndex) return;
     next();
   }
-
-  static int get stepCount => tourSteps.length;
 }

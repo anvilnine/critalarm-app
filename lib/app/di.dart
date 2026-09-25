@@ -22,6 +22,7 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/device/dev_edge_effect_switch.dart';
 import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
@@ -55,6 +56,7 @@ import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/core/widgets/widget_host.dart';
+import 'package:critalarm/design_system/edge_effect.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
 import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
@@ -317,9 +319,28 @@ Future<void> configureDependencies({
     getIt.registerSingleton<RevenueCatService>(revenueCatService);
   }
 
+  final deviceForm = await DeviceForm.read();
+  final autoEffect = autoEdgeEffect(
+    platform: defaultTargetPlatform,
+    shaderSupported: await loadEdgeBlurShader(),
+    isLowRamDevice: deviceForm.isLowRamDevice,
+  );
+  appEdgeEffect.value = autoEffect;
+  if (buildSkipsPaywall) {
+    if (!getIt.isRegistered<DevEdgeEffectSwitch>()) {
+      getIt.registerSingleton<DevEdgeEffectSwitch>(
+        DevEdgeEffectSwitch(prefs, auto: autoEffect),
+      );
+    }
+    final edgeSwitch = getIt<DevEdgeEffectSwitch>();
+    void applyEdgeOverride() => appEdgeEffect.value = edgeSwitch.effective;
+    edgeSwitch.addListener(applyEdgeOverride);
+    applyEdgeOverride();
+  }
+
   getIt
     ..registerSingleton<SharedPreferences>(prefs)
-    ..registerSingleton<DeviceForm>(await DeviceForm.read())
+    ..registerSingleton<DeviceForm>(deviceForm)
     ..registerLazySingleton<TopicListPrefsRepository>(
       () => SharedPrefsTopicListPrefsRepository(getIt<SharedPreferences>()),
     )
@@ -551,6 +572,9 @@ Future<void> configureDependencies({
         copy: ReminderCopy(
           isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
         ),
+        // Nothing is planned during onboarding or a "How to use the app"
+        // guide. The app plans again when the guide ends.
+        isPaused: () async => !await getIt<SetupGate>().isDone(),
       ),
     )
     // Web plans nothing.
@@ -566,7 +590,8 @@ Future<void> configureDependencies({
           );
           return done.getOrNull() ?? false;
         },
-        hasSeenTour: () => getIt<TourRepository>().hasSeenTour(),
+        hasSeenTour: () => getIt<TourCubit>().hasSeenFirstGuide,
+        isTourActive: () => getIt<TourCubit>().state.isActive,
       ),
     )
     ..registerLazySingleton<ProPromptRules>(

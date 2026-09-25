@@ -6,13 +6,21 @@ class SharedPrefsTourRepository implements TourRepository {
 
   final SharedPreferences _prefs;
 
-  /// The key the first version of the tour wrote. Kept, so a device that
-  /// already sat through that one is not shown this one unasked.
-  static const _key = 'has_completed_showcase_tour';
+  /// The key the one long tour wrote. Kept, so a device that already sat
+  /// through that is not shown the per-screen guides unasked.
+  static const _legacyKey = 'has_completed_showcase_tour';
+
+  /// The guides seen so far, by name.
+  static const _key = 'tour_guides_seen';
 
   @override
-  bool hasSeenTour() => _prefs.getBool(_key) ?? false;
+  bool hasSeenGuide(String guide) =>
+      (_prefs.getBool(_legacyKey) ?? false) ||
+      (_prefs.getStringList(_key)?.contains(guide) ?? false);
 
   @override
-  Future<void> markTourSeen() => _prefs.setBool(_key, true);
+  Future<void> markGuidesSeen(Iterable<String> guides) {
+    final seen = {...?_prefs.getStringList(_key), ...guides};
+    return _prefs.setStringList(_key, seen.toList()..sort());
+  }
 }

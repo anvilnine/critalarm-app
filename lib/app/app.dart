@@ -41,6 +41,8 @@ import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/theme_mode_mapper.dart';
+import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
+import 'package:critalarm/features/tour/presentation/cubits/tour_state.dart';
 import 'package:critalarm/features/tour/presentation/tour_host.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -172,6 +174,8 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     );
   }
 
+  StreamSubscription<TourState>? _tourSub;
+
   @override
   void initState() {
     super.initState();
@@ -182,6 +186,11 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     // this. Re-plan from what is left right away.
     appAccountIdentityChanges.addListener(_replan);
     appPlanChanges.addListener(_replan);
+    // Planning waits while a "How to use the app" guide is up, so plan the
+    // moment one ends rather than on the next resume.
+    _tourSub = getIt<TourCubit>().stream
+        .where((tour) => !tour.isActive)
+        .listen((_) => _replan());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Plan once the first frame is up, so launch never waits on it.
       _replan();
@@ -199,6 +208,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_quickActions.dispose());
     appAccountIdentityChanges.removeListener(_replan);
     appPlanChanges.removeListener(_replan);
+    unawaited(_tourSub?.cancel());
     unawaited(_incomingAudio.dispose());
     unawaited(getIt<WidgetSync>().dispose());
     super.dispose();

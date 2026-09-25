@@ -14,10 +14,12 @@ import 'package:flutter/material.dart';
 /// The results, sitting directly above the search bar.
 ///
 /// No card behind them: the rows sit straight on the blurred screen, grow
-/// upward from the bar as matches come in, and stop at [maxHeight], which
-/// reaches the top of the display. Past that the list scrolls under the
-/// status bar. With nothing to show it takes no space at all, so the bar
-/// sits alone over the blurred screen.
+/// upward from the bar as matches come in, and stop at [maxHeight], the full
+/// height of the display. The list itself runs edge to edge: [bottomInset]
+/// keeps the last row clear of the bar and [topInset] the first row clear of
+/// the status bar, and past that the rows scroll under both instead of being
+/// clipped short of them. With nothing to show it takes no space at all, so
+/// the bar sits alone over the blurred screen.
 class SearchPanel extends StatelessWidget {
   const SearchPanel({
     required this.state,
@@ -26,6 +28,7 @@ class SearchPanel extends StatelessWidget {
     required this.onTapRecent,
     required this.onClearRecent,
     this.topInset = 0,
+    this.bottomInset = 0,
     super.key,
   });
 
@@ -46,6 +49,10 @@ class SearchPanel extends StatelessWidget {
   /// top, so it starts below the status bar and scrolls up under it.
   final double topInset;
 
+  /// Room left below the last row for the search bar, and the keyboard when
+  /// it is up. Rows scroll through it, under the bar.
+  final double bottomInset;
+
   @override
   Widget build(BuildContext context) {
     final children = _children(context);
@@ -64,7 +71,7 @@ class SearchPanel extends StatelessWidget {
             Spacing.s1,
             topInset + Spacing.s2,
             Spacing.s1,
-            Spacing.s1,
+            bottomInset + Spacing.s1,
           ),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           children: children,
