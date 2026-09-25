@@ -15,6 +15,7 @@ object TapRoute {
         tap[MainActivity.EXTRA_INCIDENT_ID]?.let { return "/incidents/${encode(it)}" }
         tap[MainActivity.EXTRA_TOPIC]?.let { return "/topics/${encode(it)}" }
         if (tap[MainActivity.EXTRA_OPEN] == MainActivity.OPEN_HOME) return "/"
+        if (tap[MainActivity.EXTRA_OPEN] == MainActivity.OPEN_PAYWALL) return "/paywall"
         return null
     }
 

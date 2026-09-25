@@ -26,6 +26,15 @@ object WidgetViews {
 
     fun listViews(context: Context, snapshot: WidgetSnapshot?, heightDp: Int): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_topic_list)
+        if (snapshot?.locked == true) {
+            views.setOnClickPendingIntent(android.R.id.background, paywallIntent(context))
+            views.setTextViewText(R.id.list_count, "")
+            views.setViewVisibility(R.id.rows, View.GONE)
+            views.setViewVisibility(R.id.list_more, View.GONE)
+            views.setViewVisibility(R.id.list_message, View.VISIBLE)
+            views.setTextViewText(R.id.list_message, WidgetRows.LOCKED)
+            return views
+        }
         views.removeAllViews(R.id.rows)
         views.setOnClickPendingIntent(android.R.id.background, homeIntent(context))
         val message = message(snapshot)
@@ -71,6 +80,13 @@ object WidgetViews {
         appWidgetId: Int,
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_topic)
+        if (snapshot?.locked == true) {
+            views.setViewVisibility(R.id.topic_content, View.GONE)
+            views.setViewVisibility(R.id.topic_message, View.VISIBLE)
+            views.setTextViewText(R.id.topic_message, WidgetRows.LOCKED)
+            views.setOnClickPendingIntent(android.R.id.background, paywallIntent(context))
+            return views
+        }
         val topic = snapshot?.topics?.firstOrNull { it.name == topicName }
         val message = message(snapshot) ?: if (topic == null) WidgetRows.TOPIC_NOT_FOUND else null
         if (message != null || topic == null) {
@@ -103,6 +119,13 @@ object WidgetViews {
 
     fun countViews(context: Context, snapshot: WidgetSnapshot?): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_open_count)
+        if (snapshot?.locked == true) {
+            views.setOnClickPendingIntent(android.R.id.background, paywallIntent(context))
+            views.setViewVisibility(R.id.count_content, View.GONE)
+            views.setViewVisibility(R.id.count_message, View.VISIBLE)
+            views.setTextViewText(R.id.count_message, WidgetRows.LOCKED_SHORT)
+            return views
+        }
         views.setOnClickPendingIntent(android.R.id.background, homeIntent(context))
         // No topics is still a count: zero, all quiet.
         val message = if (snapshot == null || !snapshot.connected) WidgetRows.NOT_CONNECTED else null
@@ -183,6 +206,15 @@ object WidgetViews {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         return PendingIntent.getActivity(context, requestCode("home"), intent, FLAGS)
+    }
+
+    private fun paywallIntent(context: Context): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            data = Uri.parse("critalarm://paywall")
+            putExtra(MainActivity.EXTRA_OPEN, MainActivity.OPEN_PAYWALL)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        return PendingIntent.getActivity(context, requestCode("paywall"), intent, FLAGS)
     }
 
     /**
