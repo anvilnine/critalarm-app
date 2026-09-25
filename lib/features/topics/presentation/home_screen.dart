@@ -79,24 +79,27 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   String? _handedOver;
 
   final TourCubit _tour = getIt<TourCubit>();
+  StreamSubscription<TourState>? _tourSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // First run only. The tour waits for this screen to finish arriving
-    // before it points at anything, so asking straight away is fine.
+    // The TourHost asks for this screen's guide on the first visit. The asks
+    // hold off until no guide is running, and run again once one ends.
+    _tourSub = _tour.stream
+        .where((tour) => !tour.isActive)
+        .listen((_) => unawaited(_runHomeAsk()));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _tour.requestIfNew();
       unawaited(_runHomeAsk());
     });
   }
 
-  /// The consent sheet or the review popup, when one is due. Never while
-  /// the tour is pointing at things.
+  /// The Pro, Reminders and consent sheets and the review popup, when one is
+  /// due. Never while a guide is up or about to be: they wait for it to end.
   Future<void> _runHomeAsk() async {
-    if (_tour.state.isRunning) return;
+    if (!mounted || _tour.state.isActive) return;
     await runHomeAsk(context);
   }
 
@@ -110,6 +113,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_tourSub?.cancel());
     appRouteObserver.unsubscribe(this);
     super.dispose();
   }
@@ -233,7 +237,8 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     // so the user sees what trouble looks like before it happens. Someone
     // with no topics yet also gets two calm ones. They all go when the tour
     // does.
-    final showExamples = tour.isRunning && real.status == HomeStatus.success;
+    final showExamples =
+        tour.showsHomeExamples && real.status == HomeStatus.success;
     final state = !showExamples
         ? real
         : real.isEmpty
@@ -327,7 +332,8 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         ),
         // The one pill floating above the tab bar: Pro ending first, then the
         // sign-in reminder.
-        bottomBar: _nudgeBar(context, prompt),
+        // Nothing but the guide while one is up: the pill comes back after.
+        bottomBar: tour.isActive ? null : _nudgeBar(context, prompt),
         detail: state.topicItems.isEmpty
             ? null
             : (selected == null
@@ -344,7 +350,12 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         slivers: [
           // Single slot orchestrating blocker errors, health warnings,
           // and dismissible growth prompts above the stage.
-          const SliverToBoxAdapter(child: HomePromptSlot()),
+          // Hidden while a guide is up, so no card slides in under it.
+          SliverToBoxAdapter(
+            child: tour.isActive
+                ? const SizedBox.shrink()
+                : const HomePromptSlot(),
+          ),
           // A failed load has something to say too, and it says it up here
           // rather than leaving the face out and the screen silent.
           if (state.topicItems.isNotEmpty || state.status == HomeStatus.failure)

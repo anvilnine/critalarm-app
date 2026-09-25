@@ -563,6 +563,9 @@ Future<void> configureDependencies({
         copy: ReminderCopy(
           isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
         ),
+        // Nothing is planned during onboarding or a "How to use the app"
+        // guide. The app plans again when the guide ends.
+        isPaused: () async => !await getIt<SetupGate>().isDone(),
       ),
     )
     // Web plans nothing.
@@ -578,7 +581,8 @@ Future<void> configureDependencies({
           );
           return done.getOrNull() ?? false;
         },
-        hasSeenTour: () => getIt<TourRepository>().hasSeenTour(),
+        hasSeenTour: () => getIt<TourCubit>().hasSeenFirstGuide,
+        isTourActive: () => getIt<TourCubit>().state.isActive,
       ),
     )
     ..registerLazySingleton<ProPromptRules>(
