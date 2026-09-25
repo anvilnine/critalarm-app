@@ -297,6 +297,7 @@
     "sound_row_title": "Alarm sound",
     "sound_row_default": "Using the default",
     "messages_header": "Messages",
+    "settings_header": "Topic settings",
     "stop_alarm_button": "Stop the alarm",
     "retry_button": "Try again",
     "ack_failed": "The server did not confirm. This phone is quiet, but the page is still open. Tap Stop the alarm again.",
