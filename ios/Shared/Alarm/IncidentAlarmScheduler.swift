@@ -99,9 +99,9 @@ public enum IncidentAlarmScheduler {
         try? AlarmManager.shared.cancel(id: id)
 
         // Two buttons, and they are not the same thing. Stop silences and
-        // sets the next ring; "I'm up" is the acknowledge and the only way out
-        // of the loop. The secondary button is `.custom`, so it runs our
-        // intent instead of whatever AlarmKit would do with a snooze.
+        // sets the next ring; "I'm up" opens the app to the active incident
+        // without stopping the alarm in the background. The secondary button is
+        // `.custom`, so it runs our intent instead of whatever AlarmKit would do with a snooze.
         let alert = AlarmPresentation.Alert(
             title: LocalizedStringResource(stringLiteral: title),
             stopButton: AlarmButton(
@@ -129,7 +129,7 @@ public enum IncidentAlarmScheduler {
             duration: delay,
             attributes: attributes,
             stopIntent: StopAlarmIntent(incidentId: incidentId),
-            secondaryIntent: AckAlarmIntent(incidentId: incidentId),
+            secondaryIntent: OpenIncidentIntent(incidentId: incidentId),
             sound: .named(sound ?? soundName)
         )
 
