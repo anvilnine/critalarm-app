@@ -214,7 +214,13 @@
     "meta_acknowledged": "Acknowledged {time} ago",
     "meta_handled": "Handled {time}",
     "no_alarm_body": "Nothing is ringing.",
-    "no_alarm_last": "Last alarm handled at {time}."
+    "no_alarm_last": "Last alarm handled at {time}.",
+    "swipe_pin": "Pin",
+    "swipe_unpin": "Unpin",
+    "swipe_mute": "Mute",
+    "swipe_unmute": "Unmute",
+    "swipe_mark_read": "Mark read",
+    "unread_aria_label": "{count} unread"
   },
   "topics_list": {
     "back_aria_label": "Back",
@@ -334,7 +340,8 @@
   },
   "topic_messages": {
     "empty_title": "No messages yet",
-    "empty_body": "Anything sent to this topic shows up here."
+    "empty_body": "Anything sent to this topic shows up here.",
+    "share_label": "Share"
   },
   "create_topic": {
     "title": "New topic",

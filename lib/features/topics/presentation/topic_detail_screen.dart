@@ -8,6 +8,7 @@ import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
+import 'package:critalarm/features/topics/presentation/formatters/message_share_text.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_tokens_section.dart';
 import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
@@ -448,6 +449,14 @@ class _TopicDetailScreenContent extends StatelessWidget {
                                               body: latest.body,
                                               source: latest.source,
                                               isHigh: latest.isHigh,
+                                              shareLabel: LocaleKeys
+                                                  .topic_messages_share_label
+                                                  .tr(),
+                                              onShare: (origin) => shareMessage(
+                                                latest,
+                                                state.topicName,
+                                                origin,
+                                              ),
                                             ),
                                           ),
                                         ),
