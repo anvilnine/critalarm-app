@@ -195,13 +195,12 @@ import AlarmKit
   /// api.md §5.1: the INCIDENT category with its single ACK action, plus the
   /// reminder categories Dart has asked for. One call sets all of them,
   /// because `setNotificationCategories` replaces whatever was there.
-  /// `foreground: false` keeps the ack off the main path, so tapping "I'm
-  /// up" stops the alarm without opening the app.
+  /// `.foreground` opens the app so the user acknowledges inside Crit Alarm.
   func registerNotificationCategories() {
     let ack = UNNotificationAction(
       identifier: Self.ackAction,
       title: "I'm up",
-      options: []
+      options: [.foreground]
     )
     let incident = UNNotificationCategory(
       identifier: Self.incidentCategory,
@@ -268,24 +267,12 @@ import AlarmKit
     let incidentId = info["incident_id"] as? String
 
     if response.actionIdentifier == Self.ackAction, let incidentId {
-      // No engine is guaranteed here, so the ack goes straight on the queue
-      // Dart drains. A running app is told so it can send it now.
-      AckQueueStore.enqueue(action: "ack", incidentId: incidentId)
-      AckedIncidentStore.mark(incidentId: incidentId)
-      WidgetSnapshotStore.patch(.acked(incidentId, at: Date()))
-      // "I'm up" ends the loop, so the ring this phone set for itself goes.
-      Task { await IncidentRearm.cancel(incidentId: incidentId) }
-      if dartIsListening {
-        pushChannel?.invokeMethod("onAckQueued", arguments: incidentId)
-      } else {
-        pendingAck = incidentId
-      }
-      // One native try, so the server stops repeating within a round trip
-      // even with no engine up. iOS keeps the app alive until the completion
-      // handler runs, and the sender gives up after eight seconds.
-      NativeAckSender.send(action: "ack", incidentId: incidentId) { _ in
-        DispatchQueue.main.async { completionHandler() }
-      }
+      // Tapping "I'm up" opens the app to the active incident screen.
+      // It does not acknowledge or stop the alarm in the background.
+      var tap: [String: String] = ["incident_id": incidentId]
+      if let topic = info["topic"] as? String { tap["topic"] = topic }
+      postTap(tap)
+      completionHandler()
       return
     }
 
@@ -360,6 +347,9 @@ import AlarmKit
   private func startAlarmAndActivityStreams() {
     if #available(iOS 16.2, *) {
       IncidentActivityCoordinator.shared.start()
+      IncidentActivityCoordinator.shared.onOpenIncident = { [weak self] incidentId in
+        self?.openWidgetLink(WidgetLink.url(incidentId: incidentId))
+      }
       IncidentActivityCoordinator.shared.onTokenCaptured = { [weak self] kind, token, incidentId, activityId in
         var payload: [String: Any] = ["kind": kind.rawValue, "token": token]
         if let incidentId { payload["incident_id"] = incidentId }

@@ -53,6 +53,27 @@ public final class IncidentActivityCoordinator {
     /// Told about a new token so it can send it now instead of next launch.
     public var onTokenCaptured: ((TokenKind, String, String?, String?) -> Void)?
 
+    /// Tells the host app to open an incident triggered by an alarm button.
+    public var onOpenIncident: ((String) -> Void)? {
+        didSet {
+            if let pending = pendingOpenIncidentId, let onOpenIncident {
+                pendingOpenIncidentId = nil
+                onOpenIncident(pending)
+            }
+        }
+    }
+
+    private var pendingOpenIncidentId: String?
+
+    /// Called by an alarm button intent to route to the incident in the app.
+    public func openIncident(incidentId: String) {
+        if let onOpenIncident {
+            onOpenIncident(incidentId)
+        } else {
+            pendingOpenIncidentId = incidentId
+        }
+    }
+
     private var streamsStarted = false
     private var perActivityWatchers: [String: Task<Void, Never>] = [:]
 

@@ -18,9 +18,9 @@ final class PushDeliveryTests: XCTestCase {
         XCTAssertEqual(incident?.actions.count, 1)
         XCTAssertEqual(incident?.actions.first?.identifier, "ACK")
         XCTAssertEqual(incident?.actions.first?.title, "I'm up")
-        XCTAssertFalse(
-            incident?.actions.first?.options.contains(.foreground) ?? true,
-            "acking must not have to open the app"
+        XCTAssertTrue(
+            incident?.actions.first?.options.contains(.foreground) ?? false,
+            "tapping I'm up opens the app"
         )
     }
 
@@ -64,5 +64,24 @@ final class PushDeliveryTests: XCTestCase {
         XCTAssertNil(group.array(forKey: PushEventLog.groupKey), "the backlog is cleared")
 
         UserDefaults.standard.removeObject(forKey: PushEventLog.dartKey)
+    }
+
+    @available(iOS 16.2, *)
+    func testOpenIncidentIntentRequestsForegroundLaunch() {
+        XCTAssertTrue(OpenIncidentIntent.openAppWhenRun, "OpenIncidentIntent must request foreground launch")
+    }
+
+    @available(iOS 16.2, *)
+    func testOpenIncidentIntentCallsCoordinator() async throws {
+        let expectation = expectation(description: "openIncident called")
+        await MainActor.run {
+            IncidentActivityCoordinator.shared.onOpenIncident = { incidentId in
+                XCTAssertEqual(incidentId, "inc_test_123")
+                expectation.fulfill()
+            }
+        }
+        let intent = OpenIncidentIntent(incidentId: "inc_test_123")
+        _ = try await intent.perform()
+        await fulfillment(of: [expectation], timeout: 2.0)
     }
 }
