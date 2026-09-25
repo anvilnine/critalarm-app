@@ -123,7 +123,7 @@ final class HttpApiClient implements ApiClient {
     Map<String, String>? query,
   }) async {
     final session = await _sessions.read();
-    if (session == null) throw StateError('No API session configured');
+    if (session == null) throw const NoApiSessionException();
     return (session, _path(session.baseUri, segments, query));
   }
 
@@ -534,7 +534,7 @@ final class HttpApiClient implements ApiClient {
     required String topicHash,
   }) async {
     final session = await _sessions.read();
-    if (session == null) throw StateError('No API session configured');
+    if (session == null) throw const NoApiSessionException();
     await _send(
       'POST',
       _rawPath(
@@ -553,7 +553,7 @@ final class HttpApiClient implements ApiClient {
     required String topicHash,
   }) async {
     final session = await _sessions.read();
-    if (session == null) throw StateError('No API session configured');
+    if (session == null) throw const NoApiSessionException();
     await _send(
       'DELETE',
       _rawPath(
@@ -574,7 +574,7 @@ final class HttpApiClient implements ApiClient {
     String? activityId,
   }) async {
     final session = await _sessions.read();
-    if (session == null) throw StateError('No API session configured');
+    if (session == null) throw const NoApiSessionException();
     final uri = _rawPath(
       session.relayUri,
       'relay/v1/devices/${Uri.encodeComponent(deviceId)}/tokens',
@@ -626,7 +626,7 @@ final class HttpApiClient implements ApiClient {
     String? since,
   }) async {
     final session = await _sessions.read();
-    if (session == null) throw StateError('No API session configured');
+    if (session == null) throw const NoApiSessionException();
     final uri = _rawPath(
       session.baseUri,
       '${Uri.encodeComponent(topic)}/json',
