@@ -40,17 +40,27 @@ abstract final class ReminderTapRoute {
   static const String morningAfterSource = 'reminder_morning_after';
   static const String proLaterSource = 'reminder_pro_later';
 
-  static ReminderTapAction? resolve(ReminderTap tap) => switch (tap.kind) {
+  /// Home, for a Pro tap from someone who already pays.
+  static const String homePath = '/';
+
+  /// [isPaid] sends a Pro nudge home instead of to the paywall: a reminder
+  /// planned before the purchase can still land after it.
+  static ReminderTapAction? resolve(
+    ReminderTap tap, {
+    bool isPaid = false,
+  }) => switch (tap.kind) {
     ReminderKind.fireDrill => const OpenRouteAction(ringPath),
     ReminderKind.silentTopic => _topic(tap.payload[ReminderArgs.topic]),
     ReminderKind.backup => const OpenRouteAction(signInPath),
     ReminderKind.planHeadsUp => _url(tap.payload[ReminderArgs.url]),
-    ReminderKind.morningAfter => const OpenRouteAction(
-      '/paywall?source=$morningAfterSource',
-    ),
-    ReminderKind.proLater => const OpenRouteAction(
-      '/paywall?source=$proLaterSource',
-    ),
+    ReminderKind.morningAfter =>
+      isPaid
+          ? const OpenRouteAction(homePath)
+          : const OpenRouteAction('/paywall?source=$morningAfterSource'),
+    ReminderKind.proLater =>
+      isPaid
+          ? const OpenRouteAction(homePath)
+          : const OpenRouteAction('/paywall?source=$proLaterSource'),
     ReminderKind.reviewAsk => const OpenStoreReviewAction(),
     ReminderKind.feedbackAsk => const OpenFeedbackFormAction(
       FeedbackLinks.reminderSource,

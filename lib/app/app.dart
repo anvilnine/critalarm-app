@@ -12,6 +12,7 @@ import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
+import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
@@ -23,6 +24,7 @@ import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/telemetry/reminder_analytics.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design_system/theme.dart';
+import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
@@ -76,6 +78,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   late final ReminderBindings _reminders = ReminderBindings(
     scheduler: getIt<ReminderScheduler>(),
     prompts: getIt<HomePromptRepository>(),
+    readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
     focus: getIt<AlarmFocus>(),
     navigate: _openPath,
     openUrl: (url) async {
@@ -173,6 +176,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     // Sign-in, sign-out, a linked provider and an account delete all bump
     // this. Re-plan from what is left right away.
     appAccountIdentityChanges.addListener(_replan);
+    appPlanChanges.addListener(_replan);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Plan once the first frame is up, so launch never waits on it.
       _replan();
@@ -192,6 +196,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_reminders.dispose());
     unawaited(_quickActions.dispose());
     appAccountIdentityChanges.removeListener(_replan);
+    appPlanChanges.removeListener(_replan);
     unawaited(_incomingAudio.dispose());
     super.dispose();
   }

@@ -50,8 +50,7 @@ class ProPromptRules {
 
   /// Reads what is stored and answers.
   Future<bool> shouldAsk() async {
-    final isPaid =
-        (await accountRepository.readIsPaid()) || _proOverride.isForcingPro;
+    final isPaid = (await _readIsPaid()) || _proOverride.isForcingPro;
     final serverMode = await accountRepository.readServerMode();
     final isSetupDone = await (_isSetupDone?.call() ??
         Future<bool>.value(true));
@@ -72,6 +71,16 @@ class ProPromptRules {
           homePromptRepository.getProPromptLaterAt() != null,
       now: _now(),
     );
+  }
+
+  /// A failed read counts as paid, the same as the reminder inputs reader,
+  /// so a paying user is never asked because of a Keychain hiccup.
+  Future<bool> _readIsPaid() async {
+    try {
+      return await accountRepository.readIsPaid();
+    } on Object {
+      return true;
+    }
   }
 
   /// The rules themselves, with nothing to read from. Nobody is asked before

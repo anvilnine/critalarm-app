@@ -1,7 +1,11 @@
+import 'dart:async';
+
+import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/quiet_hours.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/account_access.dart';
+import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
@@ -46,9 +50,12 @@ class SettingsCubit extends Cubit<SettingsState> {
     this.onAutoDeleteChanged,
     this.onConnectionChanged,
     ProOverride? proOverride,
+    PlanChanges? planChanges,
   }) : _proOverride = proOverride ?? appProOverride,
+       _planChanges = planChanges ?? appPlanChanges,
        super(const SettingsState()) {
     _proOverride.listenable?.addListener(_onForceProChanged);
+    _planChanges.addListener(_onPlanChanged);
   }
 
   final GetConnectionUsecase? getConnectionUsecase;
@@ -87,23 +94,33 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   final ProOverride _proOverride;
 
+  /// Moves when a purchase lands or a registration brings a new tier, so the
+  /// plan row and the critical usage line update without a restart.
+  final PlanChanges _planChanges;
+
+  AccountAccess _access(DeviceIdentity? identity) => AccountAccess(
+    identity,
+    proOverride: _proOverride,
+    planChanges: _planChanges,
+  );
+
+  /// The plan may have moved. Read the saved tier and caps again.
+  void _onPlanChanged() {
+    if (isClosed || state.status == SettingsStatus.initial) return;
+    unawaited(_loadAccess());
+  }
+
   /// The developer Force Pro switch moved. The plan row reads
   /// [AccountAccess.isPaid], so hand it a fresh one and let the screen rebuild.
   void _onForceProChanged() {
     if (isClosed) return;
-    emit(
-      state.copyWith(
-        access: AccountAccess(
-          state.access.identity,
-          proOverride: _proOverride,
-        ),
-      ),
-    );
+    emit(state.copyWith(access: _access(state.access.identity)));
   }
 
   @override
   Future<void> close() {
     _proOverride.listenable?.removeListener(_onForceProChanged);
+    _planChanges.removeListener(_onPlanChanged);
     return super.close();
   }
 
@@ -241,12 +258,19 @@ class SettingsCubit extends Cubit<SettingsState> {
       );
     }
 
+    await _loadAccess();
+  }
+
+  /// The plan row and the critical usage line: the saved identity, which
+  /// holds tier and caps, and the topics counted against them.
+  Future<void> _loadAccess() async {
     final identity = await identityStore?.readOrCreate();
     final result = await getTopics?.call(const NoParams());
+    if (isClosed) return;
     emit(
       state.copyWith(
         status: SettingsStatus.success,
-        access: AccountAccess(identity, proOverride: _proOverride),
+        access: _access(identity),
         topics: result?.getOrNull() ?? [],
         errorMessage: result?.exceptionOrNull()?.message,
       ),

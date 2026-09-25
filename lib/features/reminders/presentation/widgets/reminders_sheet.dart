@@ -22,6 +22,7 @@ Future<void> showRemindersSheet({
   required BuildContext context,
   required ReminderStore store,
   required bool isSelfHosted,
+  bool isPaid = false,
   Future<void> Function()? onAnswered,
 }) {
   final analytics = getIt.isRegistered<ReminderAnalytics>()
@@ -32,6 +33,7 @@ Future<void> showRemindersSheet({
     context: context,
     content: (sheetContext) => RemindersSheet(
       isSelfHosted: isSelfHosted,
+      isPaid: isPaid,
       onTurnOn: ({required offers}) {
         Navigator.of(sheetContext).pop();
         unawaited(analytics?.sheetAnswered(answer: 'on', offers: offers));
@@ -41,6 +43,7 @@ Future<void> showRemindersSheet({
                 RemindersSheetChoice.turnOn(
                   offersTicked: offers,
                   isSelfHosted: isSelfHosted,
+                  isPaid: isPaid,
                 ),
               )
               .then((_) => onAnswered?.call()),
@@ -63,6 +66,7 @@ Future<void> showRemindersSheet({
 class RemindersSheet extends StatefulWidget {
   const RemindersSheet({
     required this.isSelfHosted,
+    this.isPaid = false,
     this.onTurnOn,
     this.onNoThanks,
     super.key,
@@ -70,6 +74,9 @@ class RemindersSheet extends StatefulWidget {
 
   /// Hides the backup bullet and the Offers box: neither exists there.
   final bool isSelfHosted;
+
+  /// Hides the Offers box: Pro offers mean nothing to someone who has Pro.
+  final bool isPaid;
   final void Function({required bool offers})? onTurnOn;
   final VoidCallback? onNoThanks;
 
@@ -83,7 +90,9 @@ class _RemindersSheetState extends State<RemindersSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final showsOffers = !widget.isSelfHosted || SelfHostedMatrix.showsOffers;
+    final showsOffers =
+        !widget.isPaid &&
+        (!widget.isSelfHosted || SelfHostedMatrix.showsOffers);
     final onTurnOn = widget.onTurnOn;
 
     return Column(

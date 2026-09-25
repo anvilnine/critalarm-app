@@ -10,10 +10,14 @@ import '../../helpers/fake_home_prompt_repository.dart';
 
 class FakeAccountRepository implements AccountRepository {
   bool isPaid = false;
+  bool isPaidThrows = false;
   ServerMode? serverMode = ServerMode.hosted;
 
   @override
-  Future<bool> readIsPaid() async => isPaid;
+  Future<bool> readIsPaid() async {
+    if (isPaidThrows) throw StateError('keychain');
+    return isPaid;
+  }
 
   @override
   Future<ServerMode?> readServerMode() async => serverMode;
@@ -207,6 +211,11 @@ void main() {
 
     test('never asks a paid user', () async {
       accountRepo.isPaid = true;
+      expect(await buildRules().shouldAsk(), isFalse);
+    });
+
+    test('a failed paid read counts as paid, so no ask', () async {
+      accountRepo.isPaidThrows = true;
       expect(await buildRules().shouldAsk(), isFalse);
     });
 

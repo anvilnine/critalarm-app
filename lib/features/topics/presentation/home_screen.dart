@@ -9,6 +9,7 @@ import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design_system/widgets/progressive_blur.dart';
+import 'package:critalarm/features/paywall/presentation/widgets/pro_status_badge.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
 import 'package:critalarm/features/prompts/presentation/home_asks.dart';
@@ -248,7 +249,10 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         // rather than only this one.
         topBar: AppTopBar(
           title: LocaleKeys.topics_list_title.tr(),
-          trailing: const RefreshActivityIndicator(),
+          trailing: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [ProStatusBadge(), RefreshActivityIndicator()],
+          ),
         ),
         // The backup nudge floats above the tab bar rather than sitting in
         // the list, so it stays put however many topics there are and never

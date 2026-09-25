@@ -17,6 +17,7 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_permission
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
+import 'package:critalarm/features/paywall/presentation/pro_welcome_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
 import 'package:critalarm/features/reminders/presentation/confirm_ring_screen.dart';
 import 'package:critalarm/features/reminders/presentation/reminder_lab_screen.dart';
@@ -76,6 +77,7 @@ abstract final class AppRoute {
   static const faceGallery = 'faceGallery';
   static const reminderLab = 'reminderLab';
   static const paywall = 'paywall';
+  static const proWelcome = 'proWelcome';
   static const alarm = 'alarm';
   static const incidentDetail = 'incidentDetail';
   static const lockScreen = 'lockScreen';
@@ -457,6 +459,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
               : HostedPaywallScreen(source: source),
         );
       },
+    ),
+    // Where a purchase lands. Replaces the paywall so Back never returns to
+    // it.
+    GoRoute(
+      path: '/paywall/success',
+      name: AppRoute.proWelcome,
+      pageBuilder: (context, state) => AmbientPage(
+        key: state.pageKey,
+        child: const ProWelcomeScreen(),
+      ),
     ),
     // Both "Ring me now" paths land here: the fire drill reminder and the
     // quick action. It covers the display, so it sits on the root navigator.

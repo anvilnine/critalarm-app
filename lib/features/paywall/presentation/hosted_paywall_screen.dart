@@ -7,6 +7,7 @@ import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dar
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
 /// The paywall, drawn by RevenueCat.
 ///
@@ -53,15 +54,24 @@ class _HostedPaywallLauncherState extends State<_HostedPaywallLauncher> {
 
   Future<void> _present() async {
     final cubit = context.read<PaywallCubit>();
+    var bought = false;
     try {
       await cubit.loadSubscriptionData(source: widget.source);
-      await cubit.presentNativePaywall();
+      final result = await cubit.presentNativePaywall();
+      bought =
+          (result == PaywallResult.purchased ||
+              result == PaywallResult.restored) &&
+          cubit.state.isPro;
     } on Object catch (_) {
       // RevenueCat could not draw its paywall. Leaving is better than parking
       // the user on an empty canvas with no way out. The SDK has already shown
       // its own error alert by this point.
     }
     if (!mounted) return;
+    if (bought) {
+      context.pushReplacement('/paywall/success');
+      return;
+    }
     if (context.canPop()) {
       context.pop();
     } else {

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/models/device_identity.dart';
@@ -17,7 +18,11 @@ final class RegisterDeviceUsecase {
     this._tokens, {
     String Function()? platform,
     this.identifyAccount,
-  }) : _platform = platform ?? defaultPushPlatform;
+    PlanChanges? planChanges,
+  }) : _platform = platform ?? defaultPushPlatform,
+       _planChanges = planChanges ?? appPlanChanges;
+
+  final PlanChanges _planChanges;
 
   final Future<void> Function(String)? identifyAccount;
   final ApiClient _api;
@@ -57,6 +62,11 @@ final class RegisterDeviceUsecase {
       caps: response.caps,
       accountJoinToken: response.accountJoinToken,
     );
+    // Screens that read the tier once, like Settings and History, reload on
+    // this. Only a real change bumps, so the launch registration stays quiet.
+    if (response.tier != identity.tier || response.caps != identity.caps) {
+      _planChanges.bump();
+    }
     await _releaseRetiredDevice(identity, relayUri);
     await identifyAccount?.call(response.accountId);
     return response;

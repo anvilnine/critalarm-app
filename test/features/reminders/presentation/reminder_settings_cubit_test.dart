@@ -28,13 +28,16 @@ void main() {
     trigger = _CountingTrigger();
   });
 
-  ReminderSettingsCubit build({ServerMode mode = ServerMode.hosted}) =>
-      ReminderSettingsCubit(
-        store: store,
-        scheduler: scheduler,
-        readServerMode: () async => mode,
-        trigger: trigger,
-      );
+  ReminderSettingsCubit build({
+    ServerMode mode = ServerMode.hosted,
+    Future<bool> Function()? readIsPaid,
+  }) => ReminderSettingsCubit(
+    store: store,
+    scheduler: scheduler,
+    readServerMode: () async => mode,
+    trigger: trigger,
+    readIsPaid: readIsPaid,
+  );
 
   test('loads Reminders on, Offers off, and the OS state', () async {
     scheduler.state = const ReminderSystemState(notificationsAllowed: false);
@@ -63,5 +66,25 @@ void main() {
     final cubit = build(mode: ServerMode.selfhosted);
     await cubit.load();
     expect(cubit.state.isSelfHosted, isTrue);
+  });
+
+  test('shows Offers to a free hosted user', () async {
+    final cubit = build(readIsPaid: () async => false);
+    await cubit.load();
+    expect(cubit.state.isPaid, isFalse);
+    expect(cubit.state.showsOffers, isTrue);
+  });
+
+  test('a paid user does not see Offers', () async {
+    final cubit = build(readIsPaid: () async => true);
+    await cubit.load();
+    expect(cubit.state.isPaid, isTrue);
+    expect(cubit.state.showsOffers, isFalse);
+  });
+
+  test('a failed paid read hides Offers', () async {
+    final cubit = build(readIsPaid: () async => throw StateError('keychain'));
+    await cubit.load();
+    expect(cubit.state.showsOffers, isFalse);
   });
 }

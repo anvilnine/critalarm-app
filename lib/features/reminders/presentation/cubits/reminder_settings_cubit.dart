@@ -16,6 +16,7 @@ class ReminderSettingsCubit extends Cubit<ReminderSettingsState> {
     required ReminderScheduler scheduler,
     required Future<ServerMode?> Function() readServerMode,
     required ReminderPlanTrigger trigger,
+    Future<bool> Function()? readIsPaid,
     ReminderAnalytics? analytics,
   }) : // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
@@ -36,6 +37,10 @@ class ReminderSettingsCubit extends Cubit<ReminderSettingsState> {
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
+       _readIsPaid = readIsPaid,
+       // The fields are private and the parameters are public, so they
+       // cannot be initializing formals.
+       // ignore: prefer_initializing_formals
        _analytics = analytics,
        super(const ReminderSettingsState());
 
@@ -43,17 +48,22 @@ class ReminderSettingsCubit extends Cubit<ReminderSettingsState> {
   final ReminderScheduler _scheduler;
   final Future<ServerMode?> Function() _readServerMode;
   final ReminderPlanTrigger _trigger;
+
+  /// Null in tests that do not care, and counts as free.
+  final Future<bool> Function()? _readIsPaid;
   final ReminderAnalytics? _analytics;
 
   Future<void> load() async {
     final mode = await _readServerMode();
     final system = await _scheduler.systemState();
+    final isPaid = await _safeIsPaid();
     if (isClosed) return;
     emit(
       state.copyWith(
         switches: _store.readSwitches(),
         notificationsAllowed: system.notificationsAllowed,
         isSelfHosted: mode == ServerMode.selfhosted,
+        isPaid: isPaid,
         isLoaded: true,
       ),
     );
@@ -67,6 +77,17 @@ class ReminderSettingsCubit extends Cubit<ReminderSettingsState> {
   Future<void> setOffers({required bool isOn}) async {
     await _analytics?.switchChanged(name: 'offers', isOn: isOn);
     await _save(state.switches.copyWith(offers: isOn));
+  }
+
+  /// A failed read counts as paid, so the Offers switch stays hidden.
+  Future<bool> _safeIsPaid() async {
+    final read = _readIsPaid;
+    if (read == null) return false;
+    try {
+      return await read();
+    } on Object {
+      return true;
+    }
   }
 
   Future<void> _save(ReminderSwitches switches) async {

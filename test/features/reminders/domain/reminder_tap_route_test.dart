@@ -65,6 +65,16 @@ void main() {
     );
   });
 
+  test('Pro taps go home for a paid user', () {
+    for (final kind in [ReminderKind.morningAfter, ReminderKind.proLater]) {
+      final action = ReminderTapRoute.resolve(
+        ReminderTap(kind: kind, actionId: 'open'),
+        isPaid: true,
+      );
+      expect(path(action), '/');
+    }
+  });
+
   test('review opens the store page and feedback opens the form', () {
     expect(resolve(ReminderKind.reviewAsk), isA<OpenStoreReviewAction>());
     final feedback = resolve(ReminderKind.feedbackAsk);

@@ -7,6 +7,7 @@ environment:
   sdk: ^3.12.2
 
 dependencies:
+  confetti: ^0.8.0
   crypto: ^3.0.7
   device_info_plus: ^12.4.0
   easy_localization: ^3.0.8

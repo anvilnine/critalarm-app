@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/paywall/paywall_variant.dart';
@@ -36,7 +37,9 @@ class PaywallCubit extends Cubit<PaywallState> {
     PaywallVariantOverride? variantOverride,
     this.analytics,
     List<Duration>? tierRefreshWaits,
+    PlanChanges? planChanges,
   }) : _proOverride = proOverride ?? appProOverride,
+       _planChanges = planChanges ?? appPlanChanges,
        _variantOverride = variantOverride ?? appPaywallVariantOverride,
        _tierRefreshWaits = tierRefreshWaits ?? _defaultTierRefreshWaits,
        super(
@@ -66,6 +69,7 @@ class PaywallCubit extends Cubit<PaywallState> {
   ];
 
   final List<Duration> _tierRefreshWaits;
+  final PlanChanges _planChanges;
   final Future<void> Function()? refreshRegistration;
   final TelemetryGate? telemetryGate;
   final DeviceIdentityStore? identityStore;
@@ -78,7 +82,12 @@ class PaywallCubit extends Cubit<PaywallState> {
   Future<bool> _isPaid() async => AccountAccess(
     await identityStore?.readOrCreate(),
     proOverride: _proOverride,
+    planChanges: _planChanges,
   ).isPaid;
+
+  /// What the server says, ignoring the store and the developer switch.
+  Future<bool> _isRegisteredPaid() async =>
+      AccountAccess(await identityStore?.readOrCreate()).isRegisteredPaid;
 
   /// The developer Force Pro switch moved, so the paywall has to say something
   /// different about this device.
@@ -219,7 +228,7 @@ class PaywallCubit extends Cubit<PaywallState> {
       await result.fold(
         (customerInfo) async {
           await analytics?.purchaseCompleted(variant: variant, plan: plan);
-          final isPro = await _refreshTierUntilPaid();
+          final isPro = await _refreshTierUntilPaid() || await _isPaid();
           if (isClosed) return;
           emit(
             state.copyWith(
@@ -282,7 +291,7 @@ class PaywallCubit extends Cubit<PaywallState> {
 
       await result.fold(
         (customerInfo) async {
-          final isPro = await _refreshTierUntilPaid();
+          final isPro = await _refreshTierUntilPaid() || await _isPaid();
           if (isClosed) return;
           emit(
             state.copyWith(
@@ -334,14 +343,28 @@ class PaywallCubit extends Cubit<PaywallState> {
   /// upgrade happened.
   Future<bool> _refreshTierUntilPaid() async {
     await _refreshRegistration();
-    if (await _isPaid()) return true;
+    if (await _isRegisteredPaid()) return true;
     for (final wait in _tierRefreshWaits) {
       await Future<void>.delayed(wait);
-      if (isClosed) return false;
       await _refreshRegistration();
-      if (await _isPaid()) return true;
+      if (await _isRegisteredPaid()) return true;
     }
     return false;
+  }
+
+  /// Turns the app Pro from the store's answer, so the buyer does not wait on
+  /// the server. Reads the customer info again rather than trusting a stream
+  /// event to have landed already.
+  Future<void> _mirrorStorePro() async {
+    if (getCustomerInfoUsecase == null) return;
+    (await getCustomerInfoUsecase!(const NoParams())).fold(
+      (info) => _planChanges.setStoreSaysPro(
+        value: info.entitlements.active.containsKey(
+          SubscriptionTier.proEntitlement,
+        ),
+      ),
+      (_) {},
+    );
   }
 
   /// Presents the native RevenueCat Paywall UI.
@@ -357,8 +380,12 @@ class PaywallCubit extends Cubit<PaywallState> {
 
     if (result == PaywallResult.purchased || result == PaywallResult.restored) {
       await analytics?.purchaseCompleted(variant: variant, plan: plan);
-      await _refreshTierUntilPaid();
-      await loadSubscriptionData();
+      await _mirrorStorePro();
+      // The server hears about the purchase through a webhook a few seconds
+      // later. Keep asking in the background and move on now. The
+      // registration bumps PlanChanges once the tier flips.
+      unawaited(_refreshTierUntilPaid());
+      if (!isClosed) emit(state.copyWith(isPro: await _isPaid()));
     } else {
       await analytics?.purchaseFailed(
         variant: variant,

@@ -1,8 +1,14 @@
+import 'dart:async';
+
+import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/models/account_access.dart';
+import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
+import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
@@ -22,7 +28,11 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     this._identityStore,
     this._getTopics,
     this._proOverride,
-  ]) : super(const CreateTopicState());
+    PlanChanges? planChanges,
+  ]) : _planChanges = planChanges ?? appPlanChanges,
+       super(const CreateTopicState()) {
+    _planChanges.addListener(_onPlanChanged);
+  }
 
   final CreateTopicUsecase _createTopicUsecase;
 
@@ -30,12 +40,62 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   /// under the critical switch match what the phone will do. Null in tests.
   AlarmHost? alarm;
 
+  /// Says whether the server is self-hosted. A self-hosted server has no
+  /// tier, so it is never the free tier. Null in tests, and then the server
+  /// is treated as not self-hosted.
+  ApiSessionStore? sessionStore;
+
   /// Reads the server this app is connected to. Optional so a test can build
   /// the cubit without one.
   final GetConnectionUsecase? _getConnection;
   final DeviceIdentityStore? _identityStore;
   final GetTopicsUsecase? _getTopics;
   final ProOverride? _proOverride;
+
+  /// Moves when a purchase lands, so the free-tier banner and the Go Pro
+  /// button go away right after buying.
+  final PlanChanges _planChanges;
+
+  /// The last identity read, kept so a cap refusal can tell "Pro is still
+  /// turning on" from "you are on the free plan".
+  DeviceIdentity? _identity;
+
+  AccountAccess _access(DeviceIdentity? identity) => AccountAccess(
+    identity,
+    proOverride: _proOverride,
+    planChanges: _planChanges,
+  );
+
+  /// Reads the plan again and redraws the free-tier parts of the screen.
+  void _onPlanChanged() {
+    if (isClosed) return;
+    unawaited(_reloadPlan());
+  }
+
+  Future<void> _reloadPlan() async {
+    final identityStore = _identityStore;
+    if (identityStore == null) return;
+    final identity = await identityStore.readOrCreate();
+    final isSelfHosted = await _isSelfHosted();
+    if (isClosed) return;
+    _identity = identity;
+    final access = _access(identity);
+    emit(
+      state.copyWith(
+        isFreeTier: !access.isPaid && !isSelfHosted,
+        criticalLimit: access.caps?.criticalTopics,
+      ),
+    );
+  }
+
+  Future<bool> _isSelfHosted() async =>
+      (await sessionStore?.read())?.mode == ServerMode.selfhosted;
+
+  @override
+  Future<void> close() {
+    _planChanges.removeListener(_onPlanChanged);
+    return super.close();
+  }
 
   /// Fills in the base URL and checks account limits so the screen can display
   /// remaining free-tier critical allowance.
@@ -62,8 +122,11 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     final identityStore = _identityStore;
     if (identityStore != null) {
       final identity = await identityStore.readOrCreate();
-      final access = AccountAccess(identity, proOverride: _proOverride);
-      isFreeTier = !access.isPaid;
+      _identity = identity;
+      final access = _access(identity);
+      // Matches the Settings screen: a self-hosted server has no tier, so
+      // it is never treated as the free plan.
+      isFreeTier = !access.isPaid && !await _isSelfHosted();
       limit = access.caps?.criticalTopics;
       final getTopics = _getTopics;
       if (getTopics != null) {
@@ -210,6 +273,9 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
             // put that under a text field.
             errorMessage: apiErrorMessage(failure.message, cap: cap?.name),
             capReached: cap,
+            // The store says Pro but the server has not caught up, so a cap
+            // here means "wait a moment", not "go Pro".
+            isProPending: _access(_identity).isProPending,
           ),
         );
       },

@@ -4,8 +4,11 @@ import 'package:critalarm/app/state/app_data_status.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/models/account_access.dart';
+import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -32,6 +35,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     this._incidentRepository, {
     this.alarm,
     this.identityStore,
+    this.sessionStore,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
        super(const TopicDetailState());
@@ -51,6 +55,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   /// History does. Null in tests, and then nothing is hidden.
   final DeviceIdentityStore? identityStore;
 
+  /// Says whether the server is self-hosted, which has no window at all.
+  /// Null in tests, and then the server is treated as not self-hosted.
+  final ApiSessionStore? sessionStore;
+
   final DateTime Function() _now;
 
   StreamSubscription<IncidentsState>? _incidentsSub;
@@ -66,10 +74,12 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
   Future<DateTime?> _lowerBound() async {
     final identity = await identityStore?.readOrCreate();
     if (identity == null) return null;
+    final session = await sessionStore?.read();
     return HistoryWindow.lowerBound(
-      tier: identity.tier,
+      isPaid: AccountAccess(identity).isPaid,
       historyDays: identity.caps.historyDays ?? 7,
       now: _now(),
+      isSelfHosted: session?.mode == ServerMode.selfhosted,
     );
   }
 
