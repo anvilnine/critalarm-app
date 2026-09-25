@@ -3,6 +3,37 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('Pro ending storage round-trips', () async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = SharedPrefsHomePromptRepository(
+      await SharedPreferences.getInstance(),
+    );
+    expect(repo.getProEndingSheetShownFor(), isNull);
+    await repo.markProEndingSheetShown('2026-10-20');
+    expect(repo.getProEndingSheetShownFor(), '2026-10-20');
+
+    await repo.dismissProEndingPill();
+    expect(repo.getProEndingPillDismissedAt(), isNotNull);
+
+    await repo.markProEndingLastDaysDismissed('2026-10-20');
+    expect(repo.getProEndingLastDaysDismissedFor(), '2026-10-20');
+
+    final at = DateTime(2026, 10, 20, 9);
+    await repo.setProKnownExpiry(at);
+    expect(repo.getProKnownExpiry(), at);
+
+    await repo.setProPaidAccountId('acc_1');
+    expect(repo.getProPaidAccountId(), 'acc_1');
+    await repo.setProPaidAccountId(null);
+    expect(repo.getProPaidAccountId(), isNull);
+
+    expect(repo.getProEndedSheetDueFor(), isNull);
+    await repo.setProEndedSheetDueFor('acc_1');
+    expect(repo.getProEndedSheetDueFor(), 'acc_1');
+    await repo.setProEndedSheetDueFor(null);
+    expect(repo.getProEndedSheetDueFor(), isNull);
+  });
+
   late SharedPrefsHomePromptRepository repository;
 
   setUp(() async {

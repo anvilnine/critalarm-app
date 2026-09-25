@@ -59,4 +59,14 @@ class WidgetSnapshotLedgerTest {
         assertEquals(before, ledger.changes())
         assertEquals(written, ledger.read())
     }
+
+    @Test
+    fun `a patch leaves a locked snapshot alone`() {
+        saved = WidgetFixtures.read("widget_snapshot_v1_locked.json")
+        val result = ledger.patch(1_759_046_500L) { _, _ ->
+            WidgetPatchResult.Changed(WidgetFixtures.snapshot())
+        }
+        assertEquals(WidgetPatchResult.Unchanged, result)
+        assertTrue(WidgetSnapshotJson.parse(saved)!!.locked)
+    }
 }

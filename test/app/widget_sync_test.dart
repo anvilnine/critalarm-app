@@ -65,6 +65,7 @@ void main() {
   late WidgetSync sync;
   late WidgetHost host;
   late bool connected;
+  late bool locked;
   var clock = DateTime.utc(2026, 9, 25);
 
   Map<String, dynamic> written(int index) =>
@@ -81,6 +82,7 @@ void main() {
       return null;
     });
     connected = true;
+    locked = false;
     clock = DateTime.utc(2026, 9, 25);
     topicRepo = _Topics()..topics = const [Topic(name: 'prod')];
     incidentRepo = _Incidents()
@@ -102,6 +104,7 @@ void main() {
       incidents: incidents,
       host: host,
       isConnected: () async => connected,
+      isLocked: () async => locked,
       now: () => clock,
       debounce: Duration.zero,
     )..start();
@@ -203,5 +206,26 @@ void main() {
     await incidents.refresh();
     await settle();
     expect(calls.map((call) => call.method), ['write', 'write']);
+  });
+
+  test('a locked account writes the locked snapshot', () async {
+    locked = true;
+    await topics.refresh();
+    await incidents.refresh();
+    await settle();
+    expect(written(calls.length - 1)['locked'], isTrue);
+    expect(written(calls.length - 1)['topics'], isEmpty);
+  });
+
+  test('rewrite writes again when the lock changes', () async {
+    await topics.refresh();
+    await incidents.refresh();
+    await settle();
+    final before = calls.length;
+    locked = true;
+    sync.rewrite();
+    await settle();
+    expect(calls.length, before + 1);
+    expect(written(calls.length - 1)['locked'], isTrue);
   });
 }

@@ -59,6 +59,8 @@ class WidgetSnapshotLedger(
         operation: (WidgetSnapshot?, Long) -> WidgetPatchResult,
     ): WidgetPatchResult = synchronized(lock) {
         val current = read()
+        // Widgets are part of Pro. Nothing patches topic data back in.
+        if (current?.locked == true) return@synchronized WidgetPatchResult.Unchanged
         val result = operation(current, nowSeconds)
         when (result) {
             is WidgetPatchResult.Changed -> save(result.snapshot)

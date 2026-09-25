@@ -18,6 +18,7 @@ import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
@@ -117,6 +118,7 @@ import 'package:critalarm/features/permissions/domain/usecases/open_permission_s
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
 import 'package:critalarm/features/prompts/data/repositories/shared_prefs_home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
+import 'package:critalarm/features/prompts/domain/pro_ending.dart';
 import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/domain/setup_gate.dart';
@@ -775,6 +777,13 @@ Future<void> configureDependencies({
         host: getIt<WidgetHost>(),
         isConnected: () async =>
             (await getIt<ConnectionRepository>().getConnection()).isSuccess(),
+        // Widgets are part of Pro on the hosted plan. A self-hosted server
+        // has no plans, so it never locks.
+        isLocked: () async {
+          final account = getIt<AccountRepository>();
+          return await account.readServerMode() == ServerMode.hosted &&
+              !await account.readIsPaid();
+        },
       ),
     )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and
@@ -1128,12 +1137,28 @@ Future<void> configureDependencies({
             await getIt<RevenueCatService>().invalidateCustomerInfoCache();
           }
           await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
+          getIt<WidgetSync>().rewrite();
         },
       ),
     )
     ..registerFactory(
       () => ProStatusCubit(
         readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
+      ),
+    )
+    ..registerLazySingleton(
+      () => ProEnding(
+        prompts: getIt<HomePromptRepository>(),
+        plan: getIt<PlanStatusSource>(),
+        readIdentity: () => getIt<DeviceIdentityStore>().readOrCreate(),
+        readServerMode: () => getIt<AccountRepository>().readServerMode(),
+        refreshRegistration: () async {
+          if (!buildSkipsPaywall) {
+            await getIt<RevenueCatService>().invalidateCustomerInfoCache();
+          }
+          await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
+        },
+        onPaidChanged: () => getIt<WidgetSync>().rewrite(),
       ),
     )
     ..registerFactoryParam<HomePromptCubit, ShellCubit?, void>(
@@ -1143,6 +1168,7 @@ Future<void> configureDependencies({
         identityRepository: getIt<IdentityRepository>(),
         accountRepository: getIt<AccountRepository>(),
         homePromptRepository: getIt<HomePromptRepository>(),
+        proEnding: getIt<ProEnding>(),
         identityChanges: appAccountIdentityChanges,
       ),
     );

@@ -1,7 +1,9 @@
 package app.critalarm.widgets
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import com.google.gson.JsonParser
 import org.json.JSONObject
 import org.junit.Test
@@ -70,5 +72,27 @@ class WidgetSnapshotTest {
                 WidgetSnapshot.title(case.getString("raw"), case.getString("topic")),
             )
         }
+    }
+
+    @Test
+    fun `the locked fixture parses locked`() {
+        val snapshot = WidgetSnapshotJson.parse(WidgetFixtures.read("widget_snapshot_v1_locked.json"))!!
+        assertTrue(snapshot.locked)
+        assertTrue(snapshot.topics.isEmpty())
+    }
+
+    @Test
+    fun `a snapshot without locked reads unlocked`() {
+        assertFalse(WidgetFixtures.snapshot().locked)
+    }
+
+    @Test
+    fun `locked is written only when true`() {
+        val locked = WidgetSnapshotJson.parse(WidgetFixtures.read("widget_snapshot_v1_locked.json"))!!
+        assertEquals(
+            JsonParser.parseString(WidgetFixtures.read("widget_snapshot_v1_locked.json")),
+            JsonParser.parseString(WidgetSnapshotJson.write(locked)),
+        )
+        assertFalse(WidgetSnapshotJson.write(WidgetFixtures.snapshot()).contains("locked"))
     }
 }

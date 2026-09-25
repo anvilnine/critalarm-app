@@ -26,7 +26,9 @@ struct TopicsWidgetView: View {
 
     @ViewBuilder
     private var content: some View {
-        if let snapshot, snapshot.connected {
+        if let snapshot, snapshot.locked {
+            LockedState()
+        } else if let snapshot, snapshot.connected {
             if snapshot.topics.isEmpty {
                 EmptyState(face: .watching, message: WidgetCopy.noTopics)
                     .widgetURL(WidgetLink.homeURL)
@@ -141,5 +143,11 @@ struct TopicList: View {
     TopicsWidget()
 } timeline: {
     SnapshotEntry(date: .now, snapshot: .gallerySample)
+}
+
+#Preview("Locked", as: .systemSmall) {
+    TopicsWidget()
+} timeline: {
+    SnapshotEntry(date: .now, snapshot: WidgetSnapshot(updatedAt: 0, connected: true, openCount: 0, topics: [], locked: true))
 }
 #endif

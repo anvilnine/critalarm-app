@@ -7,6 +7,7 @@ import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
+import 'package:critalarm/features/prompts/domain/pro_ending.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,7 +17,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// 1. No server connected (Crit blocker error)
 /// 2. Critical health issues (Crit blocker error)
 /// 3. Battery optimization off (Warning)
-/// 4. Account backup prompt (Engagement, 7-day snooze)
+/// 4. Pro ends soon (cancelled plan, 5-day snooze)
+/// 5. Account backup prompt (Engagement, 7-day snooze)
 ///
 /// Pro is not on this list. It is a sheet now, asked for by `ProPromptRules`
 /// in `lib/features/prompts/domain/pro_prompt_rules.dart` at a moment that
@@ -28,6 +30,7 @@ class HomePromptCubit extends Cubit<HomePromptState> {
     required this.identityRepository,
     required this.accountRepository,
     required this.homePromptRepository,
+    this.proEnding,
     AccountIdentityChanges? identityChanges,
     this.cooldownDuration = const Duration(seconds: 45),
   })  : _identityChanges = identityChanges ?? appAccountIdentityChanges,
@@ -43,6 +46,7 @@ class HomePromptCubit extends Cubit<HomePromptState> {
   final IdentityRepository identityRepository;
   final AccountRepository accountRepository;
   final HomePromptRepository homePromptRepository;
+  final ProEnding? proEnding;
   final AccountIdentityChanges _identityChanges;
   final Duration cooldownDuration;
 
@@ -148,7 +152,21 @@ class HomePromptCubit extends Cubit<HomePromptState> {
       }
     }
 
-    // Priority 4: Account Backup Prompt
+    // Priority 4: a cancelled Pro plan that has not ended yet.
+    final ending = await proEnding?.read();
+    if (isClosed) return;
+    if (ending != null && ending.showPill) {
+      emit(
+        state.copyWith(
+          promptType: HomePromptType.proEnding,
+          proEndsAt: ending.endsAt,
+          missingPermissions: const [],
+        ),
+      );
+      return;
+    }
+
+    // Priority 5: Account Backup Prompt
     final serverMode = await accountRepository.readServerMode();
     final canHaveAccounts = serverMode != ServerMode.selfhosted;
     if (canHaveAccounts) {
@@ -195,6 +213,10 @@ class HomePromptCubit extends Cubit<HomePromptState> {
 
     if (current == HomePromptType.accountBackup) {
       await homePromptRepository.dismissAccountPrompt();
+    } else if (current == HomePromptType.proEnding) {
+      final endsAt = state.proEndsAt;
+      if (endsAt != null) await proEnding?.dismissPill(endsAt);
+      await homePromptRepository.markBannerResolvedOrDismissed();
     } else {
       await homePromptRepository.markBannerResolvedOrDismissed();
     }

@@ -17,6 +17,8 @@ object WidgetRows {
     const val NO_TOPICS = "No topics yet"
     const val TOPIC_NOT_FOUND = "Topic not found"
     const val ALL_QUIET = "All quiet"
+    const val LOCKED = "Widgets are part of Pro. Tap to see plans."
+    const val LOCKED_SHORT = "Pro"
 
     data class Rows(val rows: List<WidgetTopic>, val more: Int)
 

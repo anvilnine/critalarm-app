@@ -67,6 +67,11 @@ class WidgetRowsTest {
     }
 
     @Test
+    fun `the short locked label matches iOS`() {
+        assertEquals("Pro", WidgetRows.LOCKED_SHORT)
+    }
+
+    @Test
     fun `button titles match iOS`() {
         assertEquals("I'm up", WidgetRows.buttonTitle(open))
         assertEquals("Done", WidgetRows.buttonTitle(acked))

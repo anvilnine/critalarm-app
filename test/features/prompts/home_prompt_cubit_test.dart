@@ -15,6 +15,7 @@ import 'package:critalarm/features/permissions/domain/entities/device_permission
 import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
+import 'package:critalarm/features/prompts/domain/pro_ending.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -134,6 +135,21 @@ class FakeAccountRepo implements AccountRepository {
   Future<void> recoverFromDeadCredential() async {}
 }
 
+class _FakeProEnding implements ProEnding {
+  ProEndingView view = ProEndingView.nothing;
+  DateTime? dismissedFor;
+
+  @override
+  Future<ProEndingView> read() async => view;
+
+  @override
+  Future<void> dismissPill(DateTime endsAt) async => dismissedFor = endsAt;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
+
 void main() {
   late FakeHomePromptRepository promptRepo;
   late FakeGetConnectionUsecase getConnection;
@@ -141,6 +157,7 @@ void main() {
   late FakeIdentityRepo identityRepo;
   late FakeAccountRepo accountRepo;
   late AccountIdentityChanges identityChanges;
+  late _FakeProEnding proEnding;
 
   setUp(() {
     promptRepo = FakeHomePromptRepository();
@@ -149,6 +166,7 @@ void main() {
     identityChanges = AccountIdentityChanges();
     identityRepo = FakeIdentityRepo(identityChanges);
     accountRepo = FakeAccountRepo();
+    proEnding = _FakeProEnding();
   });
 
   HomePromptCubit buildCubit({
@@ -160,6 +178,7 @@ void main() {
       identityRepository: identityRepo,
       accountRepository: accountRepo,
       homePromptRepository: promptRepo,
+      proEnding: proEnding,
       cooldownDuration: cooldown,
       identityChanges: identityChanges,
     );
@@ -417,6 +436,49 @@ void main() {
       // Account backup prompt is skipped and Pro is not a slot prompt
       expect(cubit.state.promptType, HomePromptType.none);
       await cubit.close();
+    });
+  });
+
+  group('Pro ending pill', () {
+    late HomePromptCubit cubit;
+
+    setUp(() {
+      getConnection.result = const ServerConnection(
+        serverUrl: 'https://api.critalarm.app',
+        adminToken: 'token123',
+      ).toSuccess();
+      shellCubit.setHealth(const ShellHealth());
+      identityRepo.identity = null;
+      accountRepo
+        ..serverMode = ServerMode.hosted
+        ..isPaid = false;
+      cubit = buildCubit();
+    });
+
+    tearDown(() async {
+      await cubit.close();
+    });
+
+    test('the Pro ending pill beats the sign-in pill', () async {
+      final endsAt = DateTime(2026, 10, 20);
+      proEnding.view = ProEndingView(showPill: true, endsAt: endsAt);
+      await cubit.load();
+      expect(cubit.state.promptType, HomePromptType.proEnding);
+      expect(cubit.state.proEndsAt, endsAt);
+    });
+
+    test('closing the Pro ending pill tells ProEnding', () async {
+      final endsAt = DateTime(2026, 10, 20);
+      proEnding.view = ProEndingView(showPill: true, endsAt: endsAt);
+      await cubit.load();
+      await cubit.dismissCurrent();
+      expect(proEnding.dismissedFor, endsAt);
+      expect(cubit.state.promptType, HomePromptType.none);
+    });
+
+    test('no pill due falls through to the sign-in pill', () async {
+      await cubit.load();
+      expect(cubit.state.promptType, HomePromptType.accountBackup);
     });
   });
 }

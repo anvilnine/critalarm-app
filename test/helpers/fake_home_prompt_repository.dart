@@ -135,4 +135,51 @@ class FakeHomePromptRepository implements HomePromptRepository {
   Future<void> markAfterAckSheetShown() async {
     afterAckSheetShownAt = now();
   }
+
+  String? proEndingSheetFor;
+  DateTime? proEndingPillDismissedAt;
+  String? proEndingLastDaysFor;
+  DateTime? proKnownExpiry;
+  String? proPaidAccountId;
+  String? proEndedDueFor;
+
+  @override
+  String? getProEndingSheetShownFor() => proEndingSheetFor;
+
+  @override
+  Future<void> markProEndingSheetShown(String key) async =>
+      proEndingSheetFor = key;
+
+  @override
+  DateTime? getProEndingPillDismissedAt() => proEndingPillDismissedAt;
+
+  @override
+  Future<void> dismissProEndingPill() async => proEndingPillDismissedAt = now();
+
+  @override
+  String? getProEndingLastDaysDismissedFor() => proEndingLastDaysFor;
+
+  @override
+  Future<void> markProEndingLastDaysDismissed(String key) async =>
+      proEndingLastDaysFor = key;
+
+  @override
+  DateTime? getProKnownExpiry() => proKnownExpiry;
+
+  @override
+  Future<void> setProKnownExpiry(DateTime at) async => proKnownExpiry = at;
+
+  @override
+  String? getProPaidAccountId() => proPaidAccountId;
+
+  @override
+  Future<void> setProPaidAccountId(String? accountId) async =>
+      proPaidAccountId = accountId;
+
+  @override
+  String? getProEndedSheetDueFor() => proEndedDueFor;
+
+  @override
+  Future<void> setProEndedSheetDueFor(String? accountId) async =>
+      proEndedDueFor = accountId;
 }

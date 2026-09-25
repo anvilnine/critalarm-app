@@ -16,6 +16,7 @@ data class WidgetSnapshot(
     val connected: Boolean,
     val openCount: Int,
     val topics: List<WidgetTopic>,
+    val locked: Boolean = false,
 ) {
     /** Topics with an open incident first, then acked, then quiet, each by name. */
     fun sorted(): WidgetSnapshot = copy(topics = topics.sortedWith(DISPLAY_ORDER))
@@ -99,6 +100,7 @@ object WidgetSnapshotJson {
                 connected = root.getBoolean("connected"),
                 openCount = root.getInt("open_count"),
                 topics = (0 until topics.length()).map { parseTopic(topics.getJSONObject(it)) },
+                locked = root.optBoolean("locked", false),
             )
         }.getOrNull()
     }
@@ -127,6 +129,7 @@ object WidgetSnapshotJson {
         put("connected", snapshot.connected)
         put("open_count", snapshot.openCount)
         put("topics", JSONArray().apply { snapshot.topics.forEach { put(writeTopic(it)) } })
+        if (snapshot.locked) put("locked", true)
     }.toString()
 
     private fun writeTopic(topic: WidgetTopic) = JSONObject().apply {
@@ -364,7 +367,7 @@ object WidgetFreshness {
      * signed-out snapshot is never stale.
      */
     fun isStale(snapshot: WidgetSnapshot?, nowSeconds: Long): Boolean {
-        if (snapshot == null || !snapshot.connected) return false
+        if (snapshot == null || !snapshot.connected || snapshot.locked) return false
         return snapshot.updatedAt == 0L ||
             nowSeconds - snapshot.updatedAt >= WidgetSnapshot.STALE_AFTER_SECONDS
     }
