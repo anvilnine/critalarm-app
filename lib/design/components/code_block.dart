@@ -62,10 +62,11 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
                 right: MediaQuery.textScalerOf(context).scale(80),
                 top: 4,
               ),
-              // Text.rich, not RichText: RichText ignores the system text
-              // size, so the code stayed small under Dynamic Type.
-              child: Text.rich(
-                _buildSyntaxHighlightedSpan(widget.code, colors),
+              // RichText ignores the system text size unless told, so the
+              // code stayed small under Dynamic Type.
+              child: RichText(
+                textScaler: MediaQuery.textScalerOf(context),
+                text: _buildSyntaxHighlightedSpan(widget.code, colors),
               ),
             ),
           ),
