@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/widget_sync.dart';
 import 'package:critalarm/core/paywall/dev_paywall_variant_switch.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
@@ -51,8 +52,11 @@ class DeveloperSettingsScreen extends StatelessWidget {
                       title: LocaleKeys.settings_developer_pro_title.tr(),
                       subtitle: LocaleKeys.settings_developer_pro_subtitle.tr(),
                       value: isPro,
-                      onChanged: (val) =>
-                          unawaited(proSwitch.setPro(isPro: val)),
+                      onChanged: (val) {
+                        unawaited(proSwitch.setPro(isPro: val));
+                        // The widgets lock and unlock with Pro.
+                        getIt<WidgetSync>().rewrite();
+                      },
                     ),
                   ),
                   if (buildHasPaywallLab) ...[
