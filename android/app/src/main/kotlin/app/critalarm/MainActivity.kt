@@ -379,6 +379,9 @@ class MainActivity : FlutterFragmentActivity() {
         const val EXTRA_OPEN = "open"
         const val OPEN_HOME = "home"
 
+        /** open=paywall comes from a locked widget. */
+        const val OPEN_PAYWALL = "paywall"
+
         /** Matches PushHost.channelName in Dart and the channel in AppDelegate. */
         const val PUSH_CHANNEL = "app.critalarm/push"
 
