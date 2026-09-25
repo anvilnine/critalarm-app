@@ -46,7 +46,7 @@ struct OpenCountView: View {
     @ViewBuilder
     private var circular: some View {
         if isLocked {
-            Image(systemName: "lock.fill").font(.title3).widgetURL(WidgetLink.paywallURL)
+            Image(systemName: "lock.fill").font(.title3)
         } else if let snapshot = connected {
             VStack(spacing: 1) {
                 FaceView(face: .forIncident(WidgetDisplay.worstIncident(snapshot)), size: 22)
@@ -70,7 +70,7 @@ struct OpenCountView: View {
     @ViewBuilder
     private var rectangular: some View {
         if isLocked {
-            Label(WidgetCopy.lockedShort, systemImage: "lock.fill").font(.headline).widgetURL(WidgetLink.paywallURL)
+            Label(WidgetCopy.lockedShort, systemImage: "lock.fill").font(.headline)
         } else if let snapshot = connected {
             HStack(spacing: 8) {
                 FaceView(face: .forIncident(WidgetDisplay.worstIncident(snapshot)), size: 30)
