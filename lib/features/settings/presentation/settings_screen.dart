@@ -330,7 +330,7 @@ class _SettingsScreenContent extends StatelessWidget {
                           // a real run, so no step is skipped for being
                           // granted.
                           onTap: () => context.pushNamed(
-                            AppRoute.onboarding,
+                            AppRoute.onboardingWelcome,
                             queryParameters: const {'demo': 'true'},
                           ),
                         ),

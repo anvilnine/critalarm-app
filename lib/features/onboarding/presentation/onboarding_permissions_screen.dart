@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/permission_dialog_preview.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -12,7 +14,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
 /// Screen 1 of Onboarding (/onboarding): Permissions.
 ///
@@ -115,7 +116,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
       listener: (context, state) {
         if (state.canNavigate) {
           context.read<NotificationPermissionsCubit>().navigationHandled();
-          context.go('/onboarding/connect');
+          goToOnboardingStep(context, OnboardingStep.widgets);
           return;
         }
         final ambient = OnboardingAmbientScope.maybeOf(context);
@@ -157,13 +158,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
           withGhosts: false,
           withFades: false,
           hasTabBar: false,
-          topBar: AppTopBar(
-            title: LocaleKeys.app_title.tr(),
-            trailing: _StepPill(
-              current: isStep2 ? 2 : 1,
-              total: state.totalSteps,
-            ),
-          ),
+          topBar: AppTopBar(title: LocaleKeys.app_title.tr()),
           bottomBar: Column(
             mainAxisSize: MainAxisSize.min,
             children: state.isDenied
@@ -359,40 +354,5 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     return isApple
         ? LocaleKeys.onboarding_permissions_preview_notif_desc.tr()
         : LocaleKeys.onboarding_permissions_preview_notif_desc_android.tr();
-  }
-}
-
-/// "Step 1 of 2" marker that sits at the right of the top bar. On a phone with
-/// no alarm permission to ask for there is only one step, and it says so.
-class _StepPill extends StatelessWidget {
-  const _StepPill({required this.current, required this.total});
-
-  final int current;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.hairline.withValues(alpha: 0.5)),
-      ),
-      child: Text(
-        LocaleKeys.onboarding_permissions_step_pill.tr(
-          namedArgs: {'current': '$current', 'total': '$total'},
-        ),
-        style: TextStyle(
-          fontFamily: AppTypography.fontMono,
-          fontFamilyFallback: AppTypography.fontMonoFallbacks,
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-          color: colors.ink2,
-        ),
-      ),
-    );
   }
 }

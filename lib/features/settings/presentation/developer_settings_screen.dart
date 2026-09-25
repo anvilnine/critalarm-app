@@ -87,6 +87,19 @@ class DeveloperSettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   AppListRow(
+                    name: LocaleKeys.settings_developer_welcome_title.tr(),
+                    meta: LocaleKeys.settings_developer_welcome_subtitle.tr(),
+                    faceState: null,
+                    trailing: AppGlyph(
+                      GlyphType.arrow,
+                      color: context.appColors.ink3,
+                      size: 16,
+                    ),
+                    onTap: () =>
+                        context.push('/onboarding/welcome?preview=true&v=1'),
+                  ),
+                  const SizedBox(height: 8),
+                  AppListRow(
                     name: LocaleKeys.reminders_lab_row_title.tr(),
                     meta: LocaleKeys.reminders_lab_row_subtitle.tr(),
                     faceState: null,
