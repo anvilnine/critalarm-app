@@ -344,53 +344,6 @@ class _TopicDetailScreenContent extends StatelessWidget {
                                   ),
                           ),
                         ),
-                        TourAnchor(
-                          id: TourAnchorId.topicCritical,
-                          child: AppToggleRow(
-                            title: LocaleKeys.topic_detail_critical_toggle_title
-                                .tr(),
-                            titleAction: AppIconButton(
-                              glyph: GlyphType.info,
-                              ariaLabel: LocaleKeys
-                                  .topic_detail_critical_info_aria
-                                  .tr(),
-                              size: 28,
-                              glyphSize: 14,
-                              onPressed: () => unawaited(
-                                showAppDialog<void>(
-                                  context: context,
-                                  title: LocaleKeys
-                                      .topic_detail_critical_info_title
-                                      .tr(),
-                                  body: _criticalInfoText(state),
-                                  actions: [
-                                    AppDialogAction<void>(
-                                      label: LocaleKeys.common_close.tr(),
-                                      variant: AppButtonVariant.ghost,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            value: state.critical,
-                            // No alarm permission, no critical delivery: the
-                            // push would arrive as a plain notification and
-                            // never ring.
-                            onChanged: state.canEditCritical
-                                ? (val) {
-                                    AppHaptics.selection();
-                                    unawaited(
-                                      context
-                                          .read<TopicDetailCubit>()
-                                          .toggleCriticalDelivery(
-                                            isCritical: val,
-                                          ),
-                                    );
-                                  }
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
                         AppSectionHeader(
                           LocaleKeys.topic_detail_messages_header.tr(),
                         ),
@@ -491,6 +444,68 @@ class _TopicDetailScreenContent extends StatelessWidget {
                             startCurlFlow: startCurlFlow,
                           ),
                         const AppSectionDivider(),
+                        AppSectionHeader(
+                          LocaleKeys.topic_detail_settings_header.tr(),
+                        ),
+                        TourAnchor(
+                          id: TourAnchorId.topicCritical,
+                          child: AppToggleRow(
+                            title: LocaleKeys.topic_detail_critical_toggle_title
+                                .tr(),
+                            // A bare glyph, not a ringed button, so it sits
+                            // quietly next to the switch.
+                            action: Semantics(
+                              button: true,
+                              label: LocaleKeys.topic_detail_critical_info_aria
+                                  .tr(),
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => unawaited(
+                                  showAppDialog<void>(
+                                    context: context,
+                                    title: LocaleKeys
+                                        .topic_detail_critical_info_title
+                                        .tr(),
+                                    body: _criticalInfoText(state),
+                                    actions: [
+                                      AppDialogAction<void>(
+                                        label: LocaleKeys.common_close.tr(),
+                                        variant: AppButtonVariant.ghost,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                child: SizedBox.square(
+                                  dimension: 36,
+                                  child: Center(
+                                    child: AppGlyph(
+                                      GlyphType.info,
+                                      color: context.appColors.ink3,
+                                      size: 18,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            value: state.critical,
+                            // No alarm permission, no critical delivery: the
+                            // push would arrive as a plain notification and
+                            // never ring.
+                            onChanged: state.canEditCritical
+                                ? (val) {
+                                    AppHaptics.selection();
+                                    unawaited(
+                                      context
+                                          .read<TopicDetailCubit>()
+                                          .toggleCriticalDelivery(
+                                            isCritical: val,
+                                          ),
+                                    );
+                                  }
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         // Per-topic sound. Stored on the device only, so it
                         // is not part of the topic the server knows about.
                         TourAnchor(
@@ -509,7 +524,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: Spacing.s5),
+                        const AppSectionDivider(),
                         // Last on the sheet, so nothing is reached past to
                         // get to it.
                         TourAnchor(
