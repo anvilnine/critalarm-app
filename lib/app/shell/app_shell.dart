@@ -258,7 +258,9 @@ class _AppShellContentState extends State<_AppShellContent>
         ? keyboard + _panelGap
         : bottomInset + AppFloatingTabBar.edgeGap;
     final panelBottom = barBottom + AppFloatingTabBar.height + _panelGap;
-    final panelMaxHeight = screen.height - panelBottom - padding.top - 16;
+    // Results may run all the way to the top of the display. The panel pads
+    // its first row below the status bar and scrolls the rest up under it.
+    final panelMaxHeight = screen.height - panelBottom;
     final width = (screen.width - _gutter * 2).clamp(0.0, _maxWidth);
 
     final currentPath = GoRouterState.of(context).uri.path;
@@ -299,29 +301,13 @@ class _AppShellContentState extends State<_AppShellContent>
               ),
             ],
 
-            // Wide enough for two panes, so the rail stands up on the left and
-            // leaves the panes the full height of the display. The search bar
-            // still comes up at the bottom, where the thumb is.
-            if (size.isExpanded && !_isSearching)
-              Positioned(
-                left: AppNavRail.edgeInset,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: AppNavRail(
-                    currentIndex: widget.navigationShell.currentIndex,
-                    items: items,
-                    wrapTab: _tourTab,
-                    wrapButton: _tourButton,
-                    onSelect: _goBranch,
-                    composeLabel: LocaleKeys.nav_new_topic.tr(),
-                    onCompose: () => context.pushNamed(AppRoute.createTopic),
-                    searchLabel: LocaleKeys.search_open_aria_label.tr(),
-                    onSearch: _openSearch,
-                  ),
-                ),
-              )
-            else if (!size.isExpanded || _isSearching)
+            // On its side or wide enough for two panes, the rail stands up
+            // down one edge and leaves the content the full height of the
+            // display. The search bar still comes up at the bottom, where the
+            // thumb is.
+            if (size.hasRail && !_isSearching)
+              _rail(items, size, padding, hideTabBar)
+            else
               AnimatedPositioned(
                 duration: AppDurations.slow,
                 curve: AppCurves.easeOut,
@@ -343,6 +329,50 @@ class _AppShellContentState extends State<_AppShellContent>
           ],
         );
       },
+    );
+  }
+
+  /// The rail slides off its own edge on a pushed screen, the way the bar
+  /// drops off the bottom.
+  Widget _rail(
+    List<AppTabItem> items,
+    AppSize size,
+    EdgeInsets padding,
+    bool hide,
+  ) {
+    final onRight = size.navPlacement == AppNavPlacement.right;
+    final inset =
+        AppNavRail.edgeInset + (onRight ? padding.right : padding.left);
+    final offset = hide ? -(AppNavRail.width + inset + 20) : inset;
+
+    return AnimatedPositioned(
+      duration: AppDurations.slow,
+      curve: AppCurves.easeOut,
+      left: onRight ? null : offset,
+      right: onRight ? offset : null,
+      top: padding.top,
+      bottom: padding.bottom,
+      child: Center(
+        child: IgnorePointer(
+          ignoring: hide,
+          child: AnimatedOpacity(
+            duration: AppDurations.slow,
+            curve: AppCurves.easeOut,
+            opacity: hide ? 0.0 : 1.0,
+            child: AppNavRail(
+              currentIndex: widget.navigationShell.currentIndex,
+              items: items,
+              wrapTab: _tourTab,
+              wrapButton: _tourButton,
+              onSelect: _goBranch,
+              composeLabel: LocaleKeys.nav_new_topic.tr(),
+              onCompose: () => context.pushNamed(AppRoute.createTopic),
+              searchLabel: LocaleKeys.search_open_aria_label.tr(),
+              onSearch: _openSearch,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -395,6 +425,7 @@ class _AppShellContentState extends State<_AppShellContent>
               child: SearchPanel(
                 state: state,
                 maxHeight: maxHeight < 0 ? 0 : maxHeight,
+                topInset: MediaQuery.paddingOf(context).top,
                 onTapResult: (result) => unawaited(_openResult(result)),
                 onTapRecent: _fillFromRecent,
                 onClearRecent: () => unawaited(_search.clearRecent()),
