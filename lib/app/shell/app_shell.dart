@@ -258,9 +258,6 @@ class _AppShellContentState extends State<_AppShellContent>
         ? keyboard + _panelGap
         : bottomInset + AppFloatingTabBar.edgeGap;
     final panelBottom = barBottom + AppFloatingTabBar.height + _panelGap;
-    // Results may run all the way to the top of the display. The panel pads
-    // its first row below the status bar and scrolls the rest up under it.
-    final panelMaxHeight = screen.height - panelBottom;
     final width = (screen.width - _gutter * 2).clamp(0.0, _maxWidth);
 
     final currentPath = GoRouterState.of(context).uri.path;
@@ -293,11 +290,15 @@ class _AppShellContentState extends State<_AppShellContent>
 
             if (_isSearching) ...[
               Positioned.fill(child: _scrim()),
+              // Results run edge to edge, the full height of the display. The
+              // panel pads its first row below the status bar and its last
+              // row above the bar, and scrolls under both rather than being
+              // cut off short of them.
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: panelBottom,
-                child: _panel(width, panelMaxHeight),
+                bottom: 0,
+                child: _panel(width, screen.height, panelBottom),
               ),
             ],
 
@@ -400,7 +401,7 @@ class _AppShellContentState extends State<_AppShellContent>
     );
   }
 
-  Widget _panel(double width, double maxHeight) {
+  Widget _panel(double width, double maxHeight, double bottomInset) {
     return BlocBuilder<SearchCubit, SearchState>(
       bloc: _search,
       builder: (context, state) => AnimatedBuilder(
@@ -426,6 +427,7 @@ class _AppShellContentState extends State<_AppShellContent>
                 state: state,
                 maxHeight: maxHeight < 0 ? 0 : maxHeight,
                 topInset: MediaQuery.paddingOf(context).top,
+                bottomInset: bottomInset,
                 onTapResult: (result) => unawaited(_openResult(result)),
                 onTapRecent: _fillFromRecent,
                 onClearRecent: () => unawaited(_search.clearRecent()),
