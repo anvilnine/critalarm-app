@@ -1,0 +1,38 @@
+{
+  "v": 1,
+  "updated_at": 1759046400,
+  "connected": true,
+  "open_count": 3,
+  "topics": [
+    {
+      "name": "prod",
+      "critical": true,
+      "count": 2,
+      "incident": {
+        "id": "inc_9a8b7c",
+        "state": "open",
+        "title": "Database down",
+        "opened_at": 1759046100,
+        "acked_at": null
+      }
+    },
+    {
+      "name": "backups",
+      "critical": false,
+      "count": 1,
+      "incident": {
+        "id": "inc_4d5e6f",
+        "state": "acked",
+        "title": "nas-backup exited 1",
+        "opened_at": 1759042800,
+        "acked_at": 1759042920
+      }
+    },
+    {
+      "name": "staging",
+      "critical": false,
+      "count": 0,
+      "incident": null
+    }
+  ]
+}

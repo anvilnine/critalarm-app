@@ -8,6 +8,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_con
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -189,17 +190,15 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           resizeForKeyboard: true,
           topBar: AppTopBar(
             title: LocaleKeys.app_title.tr(),
-            leading: AppIconButton(
-              glyph: GlyphType.back,
-              ariaLabel: LocaleKeys.common_back.tr(),
-              onPressed: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/onboarding');
-                }
-              },
-            ),
+            // Onboarding moves forward only. Opened from Settings the screen
+            // sits on top of it, and Back returns there.
+            leading: context.canPop()
+                ? AppIconButton(
+                    glyph: GlyphType.back,
+                    ariaLabel: LocaleKeys.common_back.tr(),
+                    onPressed: context.pop,
+                  )
+                : null,
           ),
           bottomBar: state.isConnected
               ? _buildHookBottomBar(context, state, cubit)
@@ -265,19 +264,17 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         // Everything above sits at the top; the card drops to the bottom,
         // with the face centered in the middle area.
         if (!state.isSelfHosting) ...[
-          const Spacer(),
-          const Center(
-            child: Hero(
-              tag: 'onboarding-face',
-              flightShuttleBuilder: faceFlightShuttleBuilder,
-              child: FaceWidget(
-                state: FaceState.watching,
-                size: 80,
-                isLive: true,
-              ),
+          const SizedBox(height: Spacing.s4),
+          const Expanded(
+            child: OnboardingAnimationLoop(
+              loop: [
+                WelcomeVariant.pipeline,
+                WelcomeVariant.parade,
+                WelcomeVariant.orbit,
+              ],
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: Spacing.s4),
         ] else
           const SizedBox(height: Spacing.s6),
 

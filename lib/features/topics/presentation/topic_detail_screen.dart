@@ -8,6 +8,7 @@ import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
+import 'package:critalarm/features/topics/presentation/formatters/message_share_text.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_tokens_section.dart';
 import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
@@ -100,24 +101,49 @@ class _TopicDetailScreenContent extends StatelessWidget {
   /// topic back and says why on the screen underneath, which by then is the
   /// topics list.
   Future<void> _confirmDelete(BuildContext context, String topicName) async {
-    final confirmed = await showAppDialog<bool>(
+    var acknowledged = false;
+    final confirmed = await showDialog<bool>(
       context: context,
-      title: LocaleKeys.topic_detail_delete_dialog_title.tr(
-        namedArgs: {'topic': topicName},
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
+          child: AppDialog(
+            title: LocaleKeys.topic_detail_delete_dialog_title.tr(
+              namedArgs: {'topic': topicName},
+            ),
+            body: LocaleKeys.topic_detail_delete_dialog_content.tr(),
+            content: AppToggleRow(
+              title: LocaleKeys.topic_detail_delete_confirm_toggle.tr(),
+              value: acknowledged,
+              onChanged: (value) => setDialogState(() {
+                acknowledged = value;
+              }),
+            ),
+            actions: [
+              AppButton(
+                label: LocaleKeys.common_cancel.tr(),
+                variant: AppButtonVariant.ghost,
+                size: AppButtonSize.sm,
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+              ),
+              AppButton(
+                label: LocaleKeys.topic_detail_delete_dialog_confirm.tr(),
+                variant: AppButtonVariant.destructive,
+                size: AppButtonSize.sm,
+                onPressed: acknowledged
+                    ? () => Navigator.of(dialogContext).pop(true)
+                    : null,
+              ),
+            ],
+          ),
+        ),
       ),
-      body: LocaleKeys.topic_detail_delete_dialog_content.tr(),
-      actions: [
-        AppDialogAction(
-          label: LocaleKeys.common_cancel.tr(),
-          value: false,
-          variant: AppButtonVariant.ghost,
-        ),
-        AppDialogAction(
-          label: LocaleKeys.topic_detail_delete_dialog_confirm.tr(),
-          value: true,
-          variant: AppButtonVariant.crit,
-        ),
-      ],
     );
     if (confirmed != true || !context.mounted) return;
 
@@ -318,50 +344,6 @@ class _TopicDetailScreenContent extends StatelessWidget {
                                   ),
                           ),
                         ),
-                        TourAnchor(
-                          id: TourAnchorId.topicCritical,
-                          child: AppToggleRow(
-                            title: LocaleKeys.topic_detail_critical_toggle_title
-                                .tr(),
-                            subtitle: _criticalSubtitle(state),
-                            value: state.critical,
-                            // No alarm permission, no critical delivery: the
-                            // push would arrive as a plain notification and
-                            // never ring.
-                            onChanged: state.canEditCritical
-                                ? (val) {
-                                    AppHaptics.selection();
-                                    unawaited(
-                                      context
-                                          .read<TopicDetailCubit>()
-                                          .toggleCriticalDelivery(
-                                            isCritical: val,
-                                          ),
-                                    );
-                                  }
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        // Per-topic sound. Stored on the device only, so it
-                        // is not part of the topic the server knows about.
-                        TourAnchor(
-                          id: TourAnchorId.topicSound,
-                          child: AppListRow(
-                            name: LocaleKeys.topic_detail_sound_row_title.tr(),
-                            meta: LocaleKeys.topic_detail_sound_row_default
-                                .tr(),
-                            trailing: AppGlyph(
-                              GlyphType.arrow,
-                              color: context.appColors.ink3,
-                              size: 16,
-                            ),
-                            onTap: () => context.push(
-                              '${GoRouterState.of(context).uri.path}/sounds',
-                            ),
-                          ),
-                        ),
-                        const AppSectionDivider(),
                         AppSectionHeader(
                           LocaleKeys.topic_detail_messages_header.tr(),
                         ),
@@ -420,6 +402,14 @@ class _TopicDetailScreenContent extends StatelessWidget {
                                               body: latest.body,
                                               source: latest.source,
                                               isHigh: latest.isHigh,
+                                              shareLabel: LocaleKeys
+                                                  .topic_messages_share_label
+                                                  .tr(),
+                                              onShare: (origin) => shareMessage(
+                                                latest,
+                                                state.topicName,
+                                                origin,
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -453,14 +443,95 @@ class _TopicDetailScreenContent extends StatelessWidget {
                             topicName: state.topicName,
                             startCurlFlow: startCurlFlow,
                           ),
-                        const SizedBox(height: Spacing.s5),
+                        const AppSectionDivider(),
+                        AppSectionHeader(
+                          LocaleKeys.topic_detail_settings_header.tr(),
+                        ),
+                        TourAnchor(
+                          id: TourAnchorId.topicCritical,
+                          child: AppToggleRow(
+                            title: LocaleKeys.topic_detail_critical_toggle_title
+                                .tr(),
+                            // A bare glyph, not a ringed button, so it sits
+                            // quietly next to the switch.
+                            action: Semantics(
+                              button: true,
+                              label: LocaleKeys.topic_detail_critical_info_aria
+                                  .tr(),
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => unawaited(
+                                  showAppDialog<void>(
+                                    context: context,
+                                    title: LocaleKeys
+                                        .topic_detail_critical_info_title
+                                        .tr(),
+                                    body: _criticalInfoText(state),
+                                    actions: [
+                                      AppDialogAction<void>(
+                                        label: LocaleKeys.common_close.tr(),
+                                        variant: AppButtonVariant.ghost,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                child: SizedBox.square(
+                                  dimension: 36,
+                                  child: Center(
+                                    child: AppGlyph(
+                                      GlyphType.info,
+                                      color: context.appColors.ink3,
+                                      size: 18,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            value: state.critical,
+                            // No alarm permission, no critical delivery: the
+                            // push would arrive as a plain notification and
+                            // never ring.
+                            onChanged: state.canEditCritical
+                                ? (val) {
+                                    AppHaptics.selection();
+                                    unawaited(
+                                      context
+                                          .read<TopicDetailCubit>()
+                                          .toggleCriticalDelivery(
+                                            isCritical: val,
+                                          ),
+                                    );
+                                  }
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Per-topic sound. Stored on the device only, so it
+                        // is not part of the topic the server knows about.
+                        TourAnchor(
+                          id: TourAnchorId.topicSound,
+                          child: AppListRow(
+                            name: LocaleKeys.topic_detail_sound_row_title.tr(),
+                            meta: LocaleKeys.topic_detail_sound_row_default
+                                .tr(),
+                            trailing: AppGlyph(
+                              GlyphType.arrow,
+                              color: context.appColors.ink3,
+                              size: 16,
+                            ),
+                            onTap: () => context.push(
+                              '${GoRouterState.of(context).uri.path}/sounds',
+                            ),
+                          ),
+                        ),
+                        const AppSectionDivider(),
                         // Last on the sheet, so nothing is reached past to
                         // get to it.
                         TourAnchor(
                           id: TourAnchorId.topicDelete,
                           child: AppButton(
                             label: LocaleKeys.topic_detail_delete_button.tr(),
-                            variant: AppButtonVariant.ghost,
+                            variant: AppButtonVariant.dangerText,
                             size: AppButtonSize.sm,
                             isFullWidth: true,
                             onPressed: () => unawaited(
@@ -483,9 +554,9 @@ class _TopicDetailScreenContent extends StatelessWidget {
   }
 }
 
-/// The line under the critical switch. An iPhone older than iOS 26 has no
-/// AlarmKit, so it must not be promised a ring through silent mode.
-String _criticalSubtitle(TopicDetailState state) {
+/// Copy explaining critical delivery. Older iPhones cannot ring through silent
+/// mode, so use the platform-specific [RingClaim].
+String _criticalInfoText(TopicDetailState state) {
   if (!state.canEditCritical) {
     return LocaleKeys.topic_detail_critical_needs_alarm.tr();
   }

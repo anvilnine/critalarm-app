@@ -50,6 +50,12 @@ final class NotificationService: UNNotificationServiceExtension {
             NSLog("CritAlarmNSE sound_dropped reason=acked_locally incident_id=%@", incidentId)
         }
 
+        // A reopen is the one state change this extension sees. The widgets
+        // move that incident back to ringing.
+        if push.kind == .reopen, let incidentId = push.incidentId {
+            WidgetSnapshotStore.patch(.reopened(incidentId))
+        }
+
         // SPIKE (docs/specs/remote-alarm-ios-spike.md): can a Notification
         // Service Extension schedule an AlarmKit alarm? Everything else in
         // Part A hangs off the answer.
@@ -72,7 +78,10 @@ final class NotificationService: UNNotificationServiceExtension {
                 NSLog("CritAlarmNSE incident_fetch_fallback incident_id=%@", push.incidentId ?? "-")
                 PushEventLog.record("push_dropped", ["reason": "fetch_failed"])
             }
-            self?.deliver(resolved, push: push)
+            // A fetch that worked already put the whole incident into the
+            // widget snapshot, so the `.opened` patch would only repeat it.
+            let fetched = push.needsContentFetch && !usedFallback && resolved != nil
+            self?.deliver(resolved, push: push, fetched: fetched)
         }
     }
 
@@ -93,7 +102,7 @@ final class NotificationService: UNNotificationServiceExtension {
         return push.priority >= 4 ? .timeSensitive : .active
     }
 
-    private func deliver(_ resolved: IncidentContent?, push: IncidentPush?) {
+    private func deliver(_ resolved: IncidentContent?, push: IncidentPush?, fetched: Bool = false) {
         guard let handler = contentHandler, let content = pending else { return }
         contentHandler = nil
         pending = nil
@@ -112,9 +121,22 @@ final class NotificationService: UNNotificationServiceExtension {
         }
 
         applyPickedSound(to: content, topic: resolved?.topic)
+        if !fetched { patchWidgets(push: push, resolved: resolved) }
 
         NSLog("CritAlarmNSE delivered title=%@", content.title)
         handler(content)
+    }
+
+    /// Every `open` and `repeat` the fetch did not already cover reaches the
+    /// widgets. A push with its text inline carries no topic, so an id the
+    /// snapshot has not seen asks the widget to fetch on its next reload.
+    private func patchWidgets(push: IncidentPush?, resolved: IncidentContent?) {
+        guard let push, push.kind == .open || push.kind == .repeat,
+              let incidentId = push.incidentId
+        else { return }
+        WidgetSnapshotStore.patch(
+            .opened(incidentId, topic: resolved?.topic, title: resolved?.title, openedAt: Date())
+        )
     }
 
     /// Swaps the payload's `alarm.caf` for the sound the user picked for this

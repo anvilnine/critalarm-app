@@ -75,7 +75,13 @@ struct AckAlarmIntent: LiveActivityIntent {
         // Marked before anything goes on the wire, so the next repeat push
         // does not ring even if the ack takes minutes to land.
         AckedIncidentStore.mark(incidentId: incidentId)
-        NSLog("CritAlarmAlarm: alarm_acked incident_id=%@", incidentId)
+        WidgetSnapshotStore.patch(.acked(incidentId, at: Date()))
+        // A home screen widget button may run this in the widget extension
+        // instead of the app. The log says which, for the device check.
+        NSLog(
+            "CritAlarmAlarm: alarm_acked incident_id=%@ process=%@",
+            incidentId, Bundle.main.bundleIdentifier ?? "unknown"
+        )
         // Any ring this phone set for itself goes with the acknowledge. This
         // also cancels the AlarmKit alarm that is alerting right now.
         await IncidentRearm.cancel(incidentId: incidentId)
@@ -105,9 +111,18 @@ struct CloseIncidentIntent: LiveActivityIntent {
 
     func perform() async throws -> some IntentResult {
         AckQueueStore.enqueue(action: "close", incidentId: incidentId)
-        NSLog("CritAlarmActivity: incident_closed incident_id=%@", incidentId)
+        NSLog(
+            "CritAlarmActivity: incident_closed incident_id=%@ process=%@",
+            incidentId, Bundle.main.bundleIdentifier ?? "unknown"
+        )
         await IncidentActivityCoordinator.shared.closed(incidentId: incidentId)
-        await NativeAckSender.send(action: "close", incidentId: incidentId)
+        // The widget drops the incident only once the server says it is over,
+        // the same as Android. A 409 or a failed try leaves the row; Dart sends
+        // the queued close later and its next snapshot write settles it.
+        let status = await NativeAckSender.sendForStatus(action: "close", incidentId: incidentId)
+        if NativeAckSender.endsTheIncident(status: status) {
+            WidgetSnapshotStore.patch(.ended(incidentId))
+        }
         return .result()
     }
 }

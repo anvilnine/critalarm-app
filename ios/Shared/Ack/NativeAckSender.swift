@@ -52,6 +52,26 @@ enum NativeAckSender {
         }
     }
 
+    /// The same one try, answering with the HTTP status, or nil when nothing
+    /// came back (no credentials, offline). The close intent needs the status
+    /// to tell a finished incident from a 409.
+    static func sendForStatus(action: String, incidentId: String) async -> Int? {
+        await withCheckedContinuation { continuation in
+            sendReportingStatus(action: action, incidentId: incidentId) { status in
+                continuation.resume(returning: status)
+            }
+        }
+    }
+
+    /// True when a close answer means the incident is over, so the widget can
+    /// drop it: 2xx closed it, 404 or 410 means it is not there any more. A
+    /// 409 means it is not acked (it may have opened again), so it stays. The
+    /// same rule as `ActionResponseRule.endsTheIncident` on Android.
+    static func endsTheIncident(status: Int?) -> Bool {
+        guard let status else { return false }
+        return (200 ..< 300).contains(status) || status == 404 || status == 410
+    }
+
     /// Calls back with true once the server has the ack (2xx) or already had
     /// it (409); the queue entry is gone by then. False leaves the entry for
     /// Dart. `action` is `ack` or `close`, the same words the queue uses.
@@ -63,9 +83,27 @@ enum NativeAckSender {
         queue: UserDefaults = .standard,
         completion: @escaping (Bool) -> Void
     ) {
+        sendReportingStatus(
+            action: action, incidentId: incidentId, session: session,
+            urlSession: urlSession, queue: queue
+        ) { status in
+            completion(status.map { (200 ..< 300).contains($0) || $0 == 409 } ?? false)
+        }
+    }
+
+    /// The try itself. Calls back with the HTTP status, or nil when no answer
+    /// came back. The queue entry goes on 2xx or 409, as above.
+    static func sendReportingStatus(
+        action: String,
+        incidentId: String,
+        session: NseCredentials.Session? = NseCredentials.read(),
+        urlSession: URLSession = makeSession(),
+        queue: UserDefaults = .standard,
+        statusCompletion: @escaping (Int?) -> Void
+    ) {
         guard let session else {
             NSLog("CritAlarmAck: ack_native_skipped reason=no_credentials action=%@ incident_id=%@", action, incidentId)
-            completion(false)
+            statusCompletion(nil)
             return
         }
 
@@ -73,18 +111,18 @@ enum NativeAckSender {
         urlSession.dataTask(with: request) { _, response, error in
             if let error {
                 NSLog("CritAlarmAck: ack_native_failed action=%@ incident_id=%@ reason=%@", action, incidentId, "\(error)")
-                completion(false)
+                statusCompletion(nil)
                 return
             }
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             guard (200 ..< 300).contains(status) || status == 409 else {
                 NSLog("CritAlarmAck: ack_native_failed_%d action=%@ incident_id=%@", status, action, incidentId)
-                completion(false)
+                statusCompletion(status)
                 return
             }
             AckQueueStore.remove(incidentId: incidentId, action: action, defaults: queue)
             NSLog("CritAlarmAck: ack_native_sent status=%d action=%@ incident_id=%@", status, action, incidentId)
-            completion(true)
+            statusCompletion(status)
         }.resume()
     }
 }

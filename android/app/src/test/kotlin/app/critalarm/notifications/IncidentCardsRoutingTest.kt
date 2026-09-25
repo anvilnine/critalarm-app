@@ -64,6 +64,31 @@ class IncidentCardsRoutingTest {
     }
 
     @Test
+    fun `a tap on the status card opens the incident`() {
+        val status = source("src/main/kotlin/app/critalarm/notifications/StatusNotificationFactory.kt")
+        val launch = status.substringAfter("private fun incidentLaunchIntent(", "")
+        assertTrue("the status card must build a launch intent", launch.isNotEmpty())
+        assertTrue(
+            "the launch intent must carry the incident id MainActivity reads",
+            launch.substringBefore("\n\n").contains("putExtra(MainActivity.EXTRA_INCIDENT_ID, incidentId)"),
+        )
+        assertTrue("the card's content intent must be the launch intent", status.contains("incidentLaunchIntent(context, incidentId)"))
+    }
+
+    @Test
+    fun `a remote ack card does not print the push arrival as the ack time`() {
+        val cards = source("src/main/kotlin/app/critalarm/notifications/IncidentCards.kt")
+        assertTrue(
+            "the acked card must only print a time this phone recorded",
+            cards.contains("val ackTimeKnown = deliveries.locallyAcknowledgedAtMillis(incidentId) != null"),
+        )
+        val status = source("src/main/kotlin/app/critalarm/notifications/StatusNotificationFactory.kt")
+        assertTrue("an unknown ack time must reach the line as null", status.contains("ackedAtMillis.takeIf { ackTimeKnown }"))
+        val router = source("src/main/kotlin/app/critalarm/push/PushRouter.kt")
+        assertTrue("a remote ack must not count as an ack made here", !router.contains("markLocallyAcknowledged("))
+    }
+
+    @Test
     fun `the ack remembers the server deadline`() {
         val receiver = source("src/main/kotlin/app/critalarm/actions/IncidentActionReceiver.kt")
         assertTrue("the ack must read desk_timer_fires_at off the response", receiver.contains("rememberDeskTimer("))

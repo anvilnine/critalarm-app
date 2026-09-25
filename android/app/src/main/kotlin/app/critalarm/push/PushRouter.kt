@@ -17,6 +17,8 @@ import app.critalarm.reminders.ReminderReceiver
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.storage.PushEventLog
+import app.critalarm.widgets.WidgetSnapshotPatch
+import app.critalarm.widgets.WidgetSnapshotStore
 
 /**
  * One card per incident, never two.
@@ -124,6 +126,7 @@ class PushRouter(private val context: Context) {
         val alreadyActive = store.isActive(incidentId)
         val reopen = payload.kind == IncidentPushKind.REOPEN
         store.activate(incidentId, reopen = reopen)
+        patchWidgets(payload, incidentId, store)
         // Written before anything is posted, because a Stop can land seconds
         // later and the re-arm reads this with no network call. A reopen moves
         // opened_at, so the server sends a new value and it lands here too.
@@ -189,6 +192,9 @@ class PushRouter(private val context: Context) {
             StateKindRule.Card.ACKED -> {
                 val ackedAt = store.acknowledgedAtMillis(incidentId) ?: System.currentTimeMillis()
                 store.markAcknowledged(incidentId, ackedAt)
+                WidgetSnapshotStore(context).patch { snapshot, now ->
+                    WidgetSnapshotPatch.acked(snapshot, incidentId, ackedAt / 1000L, now)
+                }
                 IncidentActionReceiver.postStatusCard(
                     context = context,
                     incidentId = incidentId,
@@ -202,6 +208,9 @@ class PushRouter(private val context: Context) {
             }
             else -> {
                 store.markClosed(incidentId)
+                WidgetSnapshotStore(context).patch { snapshot, now ->
+                    WidgetSnapshotPatch.ended(snapshot, incidentId, now)
+                }
                 IncidentCards.show(
                     context = context,
                     incidentId = incidentId,
@@ -222,6 +231,7 @@ class PushRouter(private val context: Context) {
     }
 
     private fun handleMessage(payload: FcmIncidentPayload, channelId: String) {
+        payload.incidentId?.let { patchWidgets(payload, it, IncidentDeliveryStore(context)) }
         val withAck = channelId == NotificationChannels.highChannelId() && payload.incidentId != null
         // Post the fallback now and fill in the real text when the fetch
         // answers. The fetch cannot run here: this is the main thread when the
@@ -264,6 +274,7 @@ class PushRouter(private val context: Context) {
             }
             postMessage(payload, content, channelId, withAck)
             Log.i(TAG, "message_content_resolved incident_id=$incidentId")
+            placeOnWidgets(incidentId, content)
         }.start()
     }
 
@@ -278,6 +289,7 @@ class PushRouter(private val context: Context) {
             // The push carries no topic (api.md §5.2), and the re-arm needs one
             // to read the repeat interval and the critical switch.
             content.topic?.let { IncidentDeliveryStore(context).rememberTopic(incidentId, it) }
+            placeOnWidgets(incidentId, content)
             // Re-read rather than trust the state from before the network call.
             // The fetch waits up to ten seconds for connect and ten for read,
             // and the user can press Stop inside the first one. Re-posting the
@@ -321,6 +333,29 @@ class PushRouter(private val context: Context) {
                 }
             }
         }.start()
+    }
+
+    /**
+     * An incident opened or reopened, for the home screen widgets. A brand new
+     * incident has no topic yet, so the patch asks for a fetch and the widget
+     * refresh places it.
+     */
+    private fun patchWidgets(payload: FcmIncidentPayload, incidentId: String, store: IncidentDeliveryStore) {
+        WidgetSnapshotStore(context).patch { snapshot, now ->
+            if (payload.kind == IncidentPushKind.REOPEN) {
+                WidgetSnapshotPatch.reopened(snapshot, incidentId, now)
+            } else {
+                WidgetSnapshotPatch.opened(snapshot, incidentId, store.topicOf(incidentId), payload.title, now, now)
+            }
+        }
+    }
+
+    /** The fetch named the topic, which the push did not, so the widgets can place it. */
+    private fun placeOnWidgets(incidentId: String, content: IncidentContent) {
+        val topic = content.topic ?: return
+        WidgetSnapshotStore(context).patch { snapshot, now ->
+            WidgetSnapshotPatch.opened(snapshot, incidentId, topic, content.title, now, now)
+        }
     }
 
     companion object {

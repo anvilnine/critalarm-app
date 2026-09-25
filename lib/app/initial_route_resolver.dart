@@ -4,11 +4,14 @@ import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.d
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 
-/// Routes a tapped notification can ask for. Anything else from the platform is
-/// ignored, so a stray route name cannot drop the user somewhere odd.
+/// Routes a tapped notification or widget can ask for. Anything else from the
+/// platform is ignored, so a stray route name cannot drop the user somewhere
+/// odd. Home is on the list for the open count widget.
 bool isPushDeepLink(String? location) =>
     location != null &&
-    (location.startsWith('/incidents/') || location.startsWith('/topics/'));
+    (location == '/' ||
+        location.startsWith('/incidents/') ||
+        location.startsWith('/topics/'));
 
 /// Where the app opens.
 ///
@@ -18,7 +21,7 @@ bool isPushDeepLink(String? location) =>
 /// [step] says which onboarding screen to resume at instead.
 String initialLocationFor({
   required bool hasCompletedOnboarding,
-  OnboardingStep step = OnboardingStep.permissions,
+  OnboardingStep step = OnboardingStep.welcome,
   String? deepLink,
 }) {
   // A tapped notification wins: the user asked for that screen by name.
@@ -46,7 +49,7 @@ class InitialRouteResolver {
 
     return initialLocationFor(
       hasCompletedOnboarding: completed.getOrNull() ?? false,
-      step: draft.getOrNull()?.step ?? OnboardingStep.permissions,
+      step: draft.getOrNull()?.step ?? OnboardingStep.welcome,
       deepLink: deepLink ?? _platformRoute(),
     );
   }

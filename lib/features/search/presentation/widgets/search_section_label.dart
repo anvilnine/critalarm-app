@@ -35,7 +35,7 @@ class SearchSectionLabel extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   fontSize: 10,
                   letterSpacing: 0.8,
-                  color: colors.onPanelMuted,
+                  color: colors.ink3,
                 ),
               ),
             ),

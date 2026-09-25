@@ -10,6 +10,7 @@ import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
+import 'package:critalarm/design_system/widgets/progressive_blur.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -33,6 +34,7 @@ class AppScreenScaffold extends StatefulWidget {
     this.backgroundColor,
     this.withGhosts = true,
     this.withFades = true,
+    this.withEdgeBlur = true,
     this.ghostOpacity = 1,
     this.resizeForKeyboard = false,
     super.key,
@@ -72,6 +74,11 @@ class AppScreenScaffold extends StatefulWidget {
   final Color? backgroundColor;
   final bool withGhosts;
   final bool withFades;
+
+  /// A soft blur on the list where it runs under the top bar and the tab
+  /// bar. It sits under the bars, so they stay sharp. On by default so every
+  /// screen gets it; turn it off for a screen where it gets in the way.
+  final bool withEdgeBlur;
 
   /// Dials the background shapes down, for a screen whose text sits straight
   /// on top of them.
@@ -139,10 +146,14 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     final size = AppSize.of(context);
     final twoPane = size.isExpanded && widget.detail != null;
 
-    // On an expanded display the tab bar stands up as a rail on the left, so
-    // the screen keeps clear of it sideways instead of above the bottom edge.
-    final railGap = size.isExpanded && widget.hasTabBar
-        ? AppNavRail.contentGap
+    // On its side, or wide enough for two panes, the tab bar stands up as a
+    // rail down one edge, so the screen keeps clear of it sideways instead of
+    // above the bottom edge. The display's own safe area on that side, the
+    // notch on a phone turned sideways, comes on top.
+    final hasRail = size.hasRail && widget.hasTabBar;
+    final railOnRight = size.navPlacement == AppNavPlacement.right;
+    final railGap = hasRail
+        ? AppNavRail.contentGap + (railOnRight ? padding.right : padding.left)
         : 0.0;
     final available = boxWidth - railGap;
 
@@ -160,7 +171,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         (widget.topBar == null ? 0 : AppScreenScaffold.topBarHeight);
 
     // The tab bar leaves room for itself, and so does a pinned bar.
-    final tabBarRoom = widget.hasTabBar && !size.isExpanded
+    final tabBarRoom = widget.hasTabBar && !size.hasRail
         ? AppFloatingTabBar.contentGap
         : 0.0;
 
@@ -176,6 +187,10 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           (tabBarRoom > 0 && bottomBarRoom > 0
               ? tabBarRoom + bottomBarRoom
               : math.max(tabBarRoom, bottomBarRoom));
+
+      // Never taller than the room the list leaves at its end, so the last
+      // row is sharp once the list is scrolled all the way down.
+      final edgeBlurBottom = math.min(padding.bottom + 60, bottomInset);
 
       Widget list = CustomScrollView(
         controller: widget.scrollController,
@@ -207,10 +222,35 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       return Stack(
         children: [
           Positioned.fill(child: list),
+          if (widget.withEdgeBlur) ...[
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: topInset + 16,
+              child: ProgressiveBlurEdge(
+                height: topInset + 16,
+                isTop: true,
+              ),
+            ),
+            // A pinned bottom bar brings its own blur (AppScrollScrim), so
+            // skip this one there or the two stack.
+            if (widget.bottomBar == null || !widget.withFades)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: edgeBlurBottom,
+                child: ProgressiveBlurEdge(
+                  height: edgeBlurBottom,
+                  isTop: false,
+                ),
+              ),
+          ],
           // The tab bar floats over every branch screen, so the fade behind it
           // lives here rather than in the shell: this side of the tree is
           // inside the screen's SeverityScope, so the wash follows the retint.
-          if (effectiveWithFades && widget.hasTabBar && !size.isExpanded)
+          if (effectiveWithFades && widget.hasTabBar && !size.hasRail)
             Positioned(
               bottom: 0,
               left: 0,
@@ -337,7 +377,9 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
 
     if (railGap > 0) {
       body = Padding(
-        padding: EdgeInsets.only(left: railGap),
+        padding: railOnRight
+            ? EdgeInsets.only(right: railGap)
+            : EdgeInsets.only(left: railGap),
         child: body,
       );
     }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/storage/nse_credential_store.dart';
+import 'package:critalarm/core/widgets/widget_host.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 
@@ -13,10 +14,18 @@ import 'package:critalarm/features/onboarding/domain/repositories/connection_rep
 /// make that call, it runs in its own process, and it cannot ask Dart for
 /// them. Shared preferences are out of reach from there; the keychain is not.
 final class KeychainMirrorConnectionRepository implements ConnectionRepository {
-  const KeychainMirrorConnectionRepository(this._inner, this._nse);
+  const KeychainMirrorConnectionRepository(
+    this._inner,
+    this._nse, {
+    this._widgets,
+  });
 
   final ConnectionRepository _inner;
   final NseCredentialStore _nse;
+
+  /// Signing out blanks every home and lock screen widget. Optional so a test
+  /// that only cares about the keychain can leave it out.
+  final WidgetHost? _widgets;
 
   @override
   Future<AppResult<ServerConnection>> getConnection() => _inner.getConnection();
@@ -40,7 +49,11 @@ final class KeychainMirrorConnectionRepository implements ConnectionRepository {
   @override
   Future<AppResult<Unit>> clearConnection() async {
     final result = await _inner.clearConnection();
-    if (result.isSuccess()) unawaited(_nse.clear());
+    if (result.isSuccess()) {
+      unawaited(_nse.clear());
+      final widgets = _widgets;
+      if (widgets != null) unawaited(widgets.clear());
+    }
     return result;
   }
 }
