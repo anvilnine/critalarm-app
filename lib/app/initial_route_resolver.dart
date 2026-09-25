@@ -21,7 +21,7 @@ bool isPushDeepLink(String? location) =>
 /// [step] says which onboarding screen to resume at instead.
 String initialLocationFor({
   required bool hasCompletedOnboarding,
-  OnboardingStep step = OnboardingStep.permissions,
+  OnboardingStep step = OnboardingStep.welcome,
   String? deepLink,
 }) {
   // A tapped notification wins: the user asked for that screen by name.
@@ -49,7 +49,7 @@ class InitialRouteResolver {
 
     return initialLocationFor(
       hasCompletedOnboarding: completed.getOrNull() ?? false,
-      step: draft.getOrNull()?.step ?? OnboardingStep.permissions,
+      step: draft.getOrNull()?.step ?? OnboardingStep.welcome,
       deepLink: deepLink ?? _platformRoute(),
     );
   }

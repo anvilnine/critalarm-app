@@ -96,7 +96,7 @@ class DeveloperSettingsScreen extends StatelessWidget {
                       size: 16,
                     ),
                     onTap: () =>
-                        context.push('/onboarding/welcome?preview=true'),
+                        context.push('/onboarding/welcome?preview=true&v=1'),
                   ),
                   const SizedBox(height: 8),
                   AppListRow(

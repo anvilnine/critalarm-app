@@ -2,8 +2,17 @@ import 'package:flutter/foundation.dart';
 
 /// Which onboarding screen the user had reached.
 enum OnboardingStep {
+  /// The faces say hello.
+  welcome,
+
+  /// A curl makes a phone ring, drawn for the user's own platform.
+  howItRings,
+
   /// Notification permission, and on iOS 26 the alarm permission after it.
   permissions,
+
+  /// The home screen widgets, a Pro feature.
+  widgets,
 
   /// Pick Crit Alarm Cloud or your own server.
   connect,
@@ -14,11 +23,14 @@ enum OnboardingStep {
   static OnboardingStep fromName(String? name) =>
       OnboardingStep.values.firstWhere(
         (step) => step.name == name,
-        orElse: () => OnboardingStep.permissions,
+        orElse: () => OnboardingStep.welcome,
       );
 
   String get route => switch (this) {
+    OnboardingStep.welcome => '/onboarding/welcome',
+    OnboardingStep.howItRings => '/onboarding/how-it-rings',
     OnboardingStep.permissions => '/onboarding',
+    OnboardingStep.widgets => '/onboarding/widgets',
     OnboardingStep.connect || OnboardingStep.test => '/onboarding/connect',
   };
 }
@@ -28,7 +40,7 @@ enum OnboardingStep {
 @immutable
 class OnboardingDraft {
   const OnboardingDraft({
-    this.step = OnboardingStep.permissions,
+    this.step = OnboardingStep.welcome,
     this.serverUrl = '',
     this.adminToken = '',
     this.isSelfHosting = false,
