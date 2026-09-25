@@ -60,7 +60,11 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
     }
   }
 
-  /// Opens the system screen for one permission.
+  /// Turns one permission on.
+  ///
+  /// A permission the user has never been asked about gets the same prompt
+  /// screen onboarding shows, on its own. Asking there is one tap, where the
+  /// system settings screen is a hunt.
   ///
   /// Battery is the one row that says what it is about first. Android's screen
   /// for it asks a blunt yes or no with no context, and nothing else in the
@@ -70,6 +74,14 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
     DevicePermissionsCubit cubit,
     DevicePermissionType type,
   ) async {
+    if (await cubit.neverAsked(type)) {
+      if (!context.mounted) return;
+      await context.push('/permissions/ask');
+      if (!context.mounted) return;
+      await cubit.loadPermissions();
+      return;
+    }
+    if (!context.mounted) return;
     if (type != DevicePermissionType.batteryOptimization) {
       await cubit.openSettings(type);
       return;

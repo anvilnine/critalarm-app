@@ -86,6 +86,7 @@ abstract final class AppRoute {
   static const incidentDetail = 'incidentDetail';
   static const lockScreen = 'lockScreen';
   static const testRing = 'testRing';
+  static const askPermissions = 'askPermissions';
 }
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -472,6 +473,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       pageBuilder: (context, state) => AmbientPage(
         key: state.pageKey,
         child: const ProWelcomeScreen(),
+      ),
+    ),
+    // Health's "Turn on" for a permission the user was never asked. The
+    // onboarding prompt screen, on its own, outside the onboarding flow.
+    GoRoute(
+      path: '/permissions/ask',
+      name: AppRoute.askPermissions,
+      pageBuilder: (context, state) => AmbientPage(
+        key: state.pageKey,
+        child: const OnboardingPermissionsScreen(standalone: true),
       ),
     ),
     // Both "Ring me now" paths land here: the fire drill reminder and the

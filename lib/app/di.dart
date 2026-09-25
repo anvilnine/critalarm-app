@@ -422,7 +422,9 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton<SoundFilePicker>(PlatformSoundFilePicker.new)
     ..registerLazySingleton<NotificationPermissionRepository>(
-      PlatformNotificationPermissionRepository.new,
+      () => PlatformNotificationPermissionRepository(
+        prefs: getIt<SharedPreferences>(),
+      ),
     )
     ..registerLazySingleton<DevicePermissionsRepository>(
       () => PlatformDevicePermissionsRepository(alarm: getIt<AlarmHost>()),
@@ -911,14 +913,15 @@ Future<void> configureDependencies({
     ..registerFactoryParam<
       NotificationPermissionsCubit,
       NotificationPermissionStep?,
-      bool?
+      ({bool replayForDemo, bool standalone})?
     >(
-      (initialStep, replayForDemo) => NotificationPermissionsCubit(
+      (initialStep, mode) => NotificationPermissionsCubit(
         getIt<RequestNotificationPermissionUsecase>(),
         getIt<OpenNotificationSettingsUsecase>(),
         alarm: getIt<AlarmHost>(),
         checkPermission: getIt<CheckNotificationPermissionUsecase>(),
-        replayForDemo: replayForDemo ?? false,
+        replayForDemo: mode?.replayForDemo ?? false,
+        standalone: mode?.standalone ?? false,
         initialStep: initialStep ?? NotificationPermissionStep.initial,
       ),
     )
@@ -1137,6 +1140,7 @@ Future<void> configureDependencies({
       () => DevicePermissionsCubit(
         getIt<GetDevicePermissionsUsecase>(),
         getIt<OpenPermissionSettingsUsecase>(),
+        checkNotifications: getIt<CheckNotificationPermissionUsecase>(),
       ),
     )
     ..registerFactory(
