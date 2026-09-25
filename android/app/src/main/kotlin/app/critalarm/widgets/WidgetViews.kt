@@ -33,6 +33,7 @@ object WidgetViews {
             views.setViewVisibility(R.id.list_more, View.GONE)
             views.setViewVisibility(R.id.list_message, View.VISIBLE)
             views.setTextViewText(R.id.list_message, WidgetRows.LOCKED)
+            showLock(views, R.id.list_message)
             return views
         }
         views.removeAllViews(R.id.rows)
@@ -44,6 +45,7 @@ object WidgetViews {
             views.setViewVisibility(R.id.list_more, View.GONE)
             views.setViewVisibility(R.id.list_message, View.VISIBLE)
             views.setTextViewText(R.id.list_message, message)
+            hideLock(views, R.id.list_message)
             return views
         }
         views.setViewVisibility(R.id.rows, View.VISIBLE)
@@ -84,6 +86,7 @@ object WidgetViews {
             views.setViewVisibility(R.id.topic_content, View.GONE)
             views.setViewVisibility(R.id.topic_message, View.VISIBLE)
             views.setTextViewText(R.id.topic_message, WidgetRows.LOCKED)
+            showLock(views, R.id.topic_message)
             views.setOnClickPendingIntent(android.R.id.background, paywallIntent(context))
             return views
         }
@@ -93,6 +96,7 @@ object WidgetViews {
             views.setViewVisibility(R.id.topic_content, View.GONE)
             views.setViewVisibility(R.id.topic_message, View.VISIBLE)
             views.setTextViewText(R.id.topic_message, message)
+            hideLock(views, R.id.topic_message)
             views.setOnClickPendingIntent(android.R.id.background, homeIntent(context))
             return views
         }
@@ -121,9 +125,11 @@ object WidgetViews {
         val views = RemoteViews(context.packageName, R.layout.widget_open_count)
         if (snapshot?.locked == true) {
             views.setOnClickPendingIntent(android.R.id.background, paywallIntent(context))
-            views.setViewVisibility(R.id.count_content, View.GONE)
-            views.setViewVisibility(R.id.count_message, View.VISIBLE)
-            views.setTextViewText(R.id.count_message, WidgetRows.LOCKED_SHORT)
+            views.setViewVisibility(R.id.count_content, View.VISIBLE)
+            views.setViewVisibility(R.id.count_message, View.GONE)
+            views.setImageViewResource(R.id.count_face, R.drawable.ic_widget_lock)
+            views.setViewVisibility(R.id.count_number, View.GONE)
+            views.setTextViewText(R.id.count_label, WidgetRows.LOCKED_SHORT)
             return views
         }
         views.setOnClickPendingIntent(android.R.id.background, homeIntent(context))
@@ -149,6 +155,16 @@ object WidgetViews {
         }
         return views
     }
+
+    /**
+     * The lock above a message. The launcher reuses the last views when the
+     * layout is the same, so every other message clears it with [hideLock].
+     */
+    private fun showLock(views: RemoteViews, id: Int) =
+        views.setTextViewCompoundDrawables(id, 0, R.drawable.ic_widget_lock, 0, 0)
+
+    private fun hideLock(views: RemoteViews, id: Int) =
+        views.setTextViewCompoundDrawables(id, 0, 0, 0, 0)
 
     /** The empty states every list shares, or null when there is something to list. */
     private fun message(snapshot: WidgetSnapshot?): String? = when {
