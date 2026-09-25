@@ -36,9 +36,9 @@ enum EdgeEffect {
 
 /// The edge effect a device gets when nobody overrides it.
 ///
-/// iOS gets the shader blur. Android starts on the fade, because blurs made
-/// scrolling lag there, and a phone Android itself calls low on memory gets
-/// nothing. Anything without Impeller (web, older Android) gets the fade.
+/// Anything that can run the shader gets the shader blur, iOS and Android
+/// alike. A phone Android itself calls low on memory gets nothing. Anything
+/// without Impeller (web, older Android) gets the fade.
 EdgeEffect autoEdgeEffect({
   required TargetPlatform platform,
   required bool shaderSupported,
@@ -47,10 +47,7 @@ EdgeEffect autoEdgeEffect({
   if (platform == TargetPlatform.android && isLowRamDevice) {
     return EdgeEffect.none;
   }
-  if (platform == TargetPlatform.iOS && shaderSupported) {
-    return EdgeEffect.shaderBlur;
-  }
-  return EdgeEffect.fade;
+  return shaderSupported ? EdgeEffect.shaderBlur : EdgeEffect.fade;
 }
 
 /// The effect every screen draws. Set once at startup, and again whenever the

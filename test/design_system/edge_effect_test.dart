@@ -26,11 +26,22 @@ void main() {
       );
     });
 
-    test('Android gets the fade even with Impeller', () {
+    test('Android with Impeller gets the shader blur', () {
       expect(
         autoEdgeEffect(
           platform: TargetPlatform.android,
           shaderSupported: true,
+          isLowRamDevice: false,
+        ),
+        EdgeEffect.shaderBlur,
+      );
+    });
+
+    test('Android without Impeller gets the fade', () {
+      expect(
+        autoEdgeEffect(
+          platform: TargetPlatform.android,
+          shaderSupported: false,
           isLowRamDevice: false,
         ),
         EdgeEffect.fade,
