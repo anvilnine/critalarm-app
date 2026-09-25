@@ -59,6 +59,41 @@ void main() {
       expect(tourSteps.last.anchor, TourAnchorId.settingsTour);
     });
 
+    test('every guide has at least one step', () {
+      for (final guide in TourGuide.values) {
+        expect(tourStepsFor(guide), isNotEmpty, reason: guide.name);
+      }
+    });
+
+    test('a guide only points at its own screen', () {
+      const places = {
+        TourGuide.home: TourPlace.home,
+        TourGuide.search: TourPlace.home,
+        TourGuide.createTopic: TourPlace.createTopic,
+        TourGuide.topic: TourPlace.topic,
+        TourGuide.settings: TourPlace.settings,
+      };
+      for (final entry in places.entries) {
+        for (final step in tourStepsFor(entry.key)) {
+          expect(step.place, entry.value, reason: '${step.anchor}');
+        }
+      }
+    });
+
+    test('the search guide is the typed search examples', () {
+      final steps = tourStepsFor(TourGuide.search);
+      expect(steps.map((s) => s.searchQuery), ['sound', 'uptime kuma']);
+    });
+
+    test('the full replay is every guide, with no step left out', () {
+      final perGuide = [
+        for (final guide in TourGuide.values) ...tourStepsFor(guide),
+      ];
+      expect(perGuide.toSet(), tourSteps.toSet());
+      expect(perGuide, hasLength(tourSteps.length));
+      expect(tourStepsFor(null), tourSteps);
+    });
+
     test('the example wording is used only while examples are shown', () {
       final step = tourSteps.firstWhere((s) => s.exampleBodyKey != null);
       expect(step.bodyKeyFor(usingExamples: true), step.exampleBodyKey);
@@ -76,6 +111,27 @@ void main() {
 
     test('a topic name with odd characters stays one path segment', () {
       expect(tourPath(TourPlace.topic, 'a b/c'), '/topics/a%20b%2Fc');
+    });
+  });
+
+  group('tourGuideForPath', () {
+    test("each screen's first visit maps to its guide", () {
+      expect(tourGuideForPath('/'), TourGuide.home);
+      expect(tourGuideForPath('/topics/new'), TourGuide.createTopic);
+      expect(tourGuideForPath('/topics/prod-db'), TourGuide.topic);
+      expect(tourGuideForPath('/history/topics/prod-db'), TourGuide.topic);
+      expect(tourGuideForPath('/history'), TourGuide.history);
+      expect(tourGuideForPath('/settings'), TourGuide.settings);
+    });
+
+    test('screens without a guide, and deeper pages, get none', () {
+      expect(tourGuideForPath('/onboarding/welcome'), isNull);
+      expect(tourGuideForPath('/incidents/abc'), isNull);
+      expect(tourGuideForPath('/alarm'), isNull);
+      expect(tourGuideForPath('/topics/prod-db/messages'), isNull);
+      expect(tourGuideForPath('/history/topics/prod-db/sounds'), isNull);
+      expect(tourGuideForPath('/settings/permissions'), isNull);
+      expect(tourGuideForPath(''), isNull);
     });
   });
 

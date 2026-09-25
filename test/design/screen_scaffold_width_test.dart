@@ -1,3 +1,4 @@
+import 'package:critalarm/design/components/nav_rail.dart';
 import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/theme/theme.dart';
@@ -6,7 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Pumps the scaffold on a display of [size] and returns how wide the row
 /// inside it ended up.
-Future<double> rowWidth(WidgetTester tester, Size size) async {
+Future<double> rowWidth(
+  WidgetTester tester,
+  Size size, {
+  bool hasTabBar = false,
+}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -14,10 +19,10 @@ Future<double> rowWidth(WidgetTester tester, Size size) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: buildLightTheme(),
-      home: const AppScreenScaffold(
-        hasTabBar: false,
+      home: AppScreenScaffold(
+        hasTabBar: hasTabBar,
         withGhosts: false,
-        slivers: [
+        slivers: const [
           SliverToBoxAdapter(child: SizedBox(height: 60, key: Key('row'))),
         ],
       ),
@@ -44,6 +49,15 @@ void main() {
       await rowWidth(tester, const Size(1210, 834)),
       AppSize.contentMaxWidth,
     );
+  });
+
+  testWidgets('a phone on its side centres the column on the display, not '
+      'on the room the rail leaves', (tester) async {
+    const size = Size(874, 402);
+    await rowWidth(tester, size, hasTabBar: true);
+    final row = tester.getRect(find.byKey(const Key('row')));
+    expect(row.center.dx, size.width / 2);
+    expect(row.left, greaterThanOrEqualTo(AppNavRail.contentGap));
   });
 
   testWidgets('a phone hides the detail pane', (tester) async {
