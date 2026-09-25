@@ -15,6 +15,10 @@ abstract final class PushDeepLink {
   static const openHome = 'home';
   static const homeLocation = '/';
 
+  /// `open=paywall` comes from a locked widget. Widgets are part of Pro.
+  static const openPaywall = 'paywall';
+  static const paywallLocation = '/paywall';
+
   static String incidentLocation(String incidentId) =>
       '/incidents/${Uri.encodeComponent(incidentId)}';
 
@@ -37,6 +41,7 @@ abstract final class PushDeepLink {
     final topic = data[topicKey];
     if (topic != null && topic.isNotEmpty) return topicLocation(topic);
     if (data[openKey] == openHome) return homeLocation;
+    if (data[openKey] == openPaywall) return paywallLocation;
     return null;
   }
 }

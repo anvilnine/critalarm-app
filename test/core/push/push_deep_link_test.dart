@@ -69,4 +69,11 @@ void main() {
   test('any other open value opens nothing', () {
     expect(PushDeepLink.fromNotificationData({'open': 'settings'}), isNull);
   });
+
+  test('open=paywall opens the paywall', () {
+    expect(
+      PushDeepLink.fromNotificationData({'open': 'paywall'}),
+      '/paywall',
+    );
+  });
 }

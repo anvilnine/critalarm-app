@@ -275,6 +275,36 @@ void main() {
     );
   });
 
+  group('the lock', () {
+    test('a locked build is exactly widget_snapshot_v1_locked.json', () {
+      final snapshot = buildWidgetSnapshot(
+        topics: const [Topic(name: 'prod', critical: true)],
+        incidents: [_incident('inc_1')],
+        connected: true,
+        locked: true,
+        now: _now,
+      );
+      expect(snapshot.toJson(), _readFixture('widget_snapshot_v1_locked.json'));
+    });
+
+    test('an unlocked snapshot writes no locked key', () {
+      final snapshot = _build(const [Topic(name: 'prod')], const []);
+      expect(snapshot.toJson().containsKey('locked'), isFalse);
+    });
+
+    test('signed out wins over locked', () {
+      final snapshot = buildWidgetSnapshot(
+        topics: const [],
+        incidents: const [],
+        connected: false,
+        locked: true,
+        now: _now,
+      );
+      expect(snapshot.connected, isFalse);
+      expect(snapshot.locked, isFalse);
+    });
+  });
+
   test('times are whole seconds, rounded down', () {
     expect(
       epochSeconds(DateTime.fromMillisecondsSinceEpoch(1999, isUtc: true)),
