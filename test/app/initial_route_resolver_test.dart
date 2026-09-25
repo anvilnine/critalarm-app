@@ -16,10 +16,10 @@ class MockReadOnboardingDraftUsecase extends Mock
 
 void main() {
   group('initialLocationFor', () {
-    test('opens onboarding at step one when nothing is saved', () {
+    test('opens onboarding at the welcome screen when nothing is saved', () {
       expect(
         initialLocationFor(hasCompletedOnboarding: false),
-        '/onboarding',
+        '/onboarding/welcome',
       );
     });
 
@@ -132,7 +132,7 @@ void main() {
         platformRoute: () => '/',
       )();
 
-      expect(location, '/onboarding');
+      expect(location, '/onboarding/welcome');
     });
 
     test('resumes the saved step', () async {

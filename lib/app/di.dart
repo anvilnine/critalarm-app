@@ -670,6 +670,10 @@ Future<void> configureDependencies({
       () => ClearOnboardingDraftUsecase(getIt<OnboardingProgressRepository>()),
     )
     ..registerLazySingleton(
+      () =>
+          RememberOnboardingStepUsecase(getIt<OnboardingProgressRepository>()),
+    )
+    ..registerLazySingleton(
       () => InitialRouteResolver(
         getIt<GetOnboardingCompletedUsecase>(),
         getIt<ReadOnboardingDraftUsecase>(),
