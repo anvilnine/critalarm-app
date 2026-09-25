@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/widget_sync.dart';
+import 'package:critalarm/core/device/dev_edge_effect_switch.dart';
 import 'package:critalarm/core/paywall/dev_paywall_variant_switch.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design_system/edge_effect.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -59,6 +61,8 @@ class DeveloperSettingsScreen extends StatelessWidget {
                       },
                     ),
                   ),
+                  const SizedBox(height: 14),
+                  const _EdgeEffectPicker(),
                   if (buildHasPaywallLab) ...[
                     const SizedBox(height: 14),
                     const _PaywallVariantPicker(),
@@ -210,6 +214,72 @@ class _PaywallVariantPicker extends StatelessWidget {
                   ? AppGlyph(GlyphType.check, color: colors.highlight, size: 16)
                   : null,
               onTap: () => unawaited(variantSwitch.setVariant(choice)),
+            ),
+            const SizedBox(height: 4),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Pins the list edges to one effect, so every tier can be tried on the same
+/// phone. Null means the phone picks through [autoEdgeEffect].
+class _EdgeEffectPicker extends StatelessWidget {
+  const _EdgeEffectPicker();
+
+  static String _label(EdgeEffect? effect) {
+    switch (effect) {
+      case null:
+        return LocaleKeys.settings_developer_edge_effect_auto.tr();
+      case EdgeEffect.shaderBlur:
+        return LocaleKeys.settings_developer_edge_effect_shader_blur.tr();
+      case EdgeEffect.sliceBlur:
+        return LocaleKeys.settings_developer_edge_effect_slice_blur.tr();
+      case EdgeEffect.fade:
+        return LocaleKeys.settings_developer_edge_effect_fade.tr();
+      case EdgeEffect.none:
+        return LocaleKeys.settings_developer_edge_effect_none.tr();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final edgeSwitch = getIt<DevEdgeEffectSwitch>();
+    const choices = <EdgeEffect?>[null, ...EdgeEffect.values];
+
+    return ValueListenableBuilder<EdgeEffect?>(
+      valueListenable: edgeSwitch,
+      builder: (context, selected, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            LocaleKeys.settings_developer_edge_effect_title.tr(),
+            style: TextStyle(
+              color: colors.ink,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            LocaleKeys.settings_developer_edge_effect_subtitle.tr(
+              args: [_label(edgeSwitch.auto)],
+            ),
+            style: TextStyle(color: colors.ink3, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          for (final choice in choices) ...[
+            AppListRow(
+              name: _label(choice),
+              meta: '',
+              faceState: null,
+              trailing: choice == selected
+                  ? AppGlyph(GlyphType.check, color: colors.highlight, size: 16)
+                  : null,
+              onTap: () => unawaited(edgeSwitch.setEffect(choice)),
             ),
             const SizedBox(height: 4),
           ],
