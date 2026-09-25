@@ -38,6 +38,16 @@ void main() {
     );
   });
 
+  test('a call with no server set up throws an Exception, not an Error', () {
+    sessionStore.session = null;
+    final client = HttpApiClient(
+      MockClient((_) async => http.Response('[]', 200)),
+      sessionStore,
+    );
+
+    expect(client.getTopics(), throwsA(isA<NoApiSessionException>()));
+  });
+
   test('GET info uses candidate URL without authorization', () async {
     late http.Request captured;
     final client = HttpApiClient(

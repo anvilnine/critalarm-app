@@ -246,9 +246,11 @@ class _AppButtonState extends State<AppButton> {
         duration: AppDurations.quick,
         curve: AppCurves.easeSpring,
         scale: scale,
+        // easeOut, not easeSpring: the spring overshoots past 1, and a shadow
+        // animating to none then gets a negative blur, which Flutter rejects.
         child: AnimatedContainer(
           duration: AppDurations.quick,
-          curve: AppCurves.easeSpring,
+          curve: AppCurves.easeOut,
           constraints: BoxConstraints(minHeight: height),
           padding: EdgeInsets.symmetric(
             horizontal: horizontalPadding,
