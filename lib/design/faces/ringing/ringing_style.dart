@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 /// The ways the face can ring. Each one is a looping animation built from
 /// the same rig as every other face, plus the extras in `ringing_frame.dart`.
 enum RingingStyle {
@@ -156,4 +158,12 @@ extension RingingStylePresentation on RingingStyle {
     RingingStyle.bouncing => 0.5,
     _ => 0.25,
   };
+}
+
+/// A random style other than [current], so a shuffle never picks the face
+/// already showing.
+RingingStyle nextRingingStyle(RingingStyle current, math.Random random) {
+  const all = RingingStyle.values;
+  final pick = random.nextInt(all.length - 1);
+  return all[pick >= current.index ? pick + 1 : pick];
 }

@@ -373,6 +373,9 @@ class _RingingScreen extends StatelessWidget {
     );
   }
 
+  /// How much wider the ringing face's stage is than its head.
+  static const double _ringingStageScale = RingingFacePainter.stageUnits / 200;
+
   Widget _face(double faceSize) {
     final isDemo = state.incident?.id == 'inc_demo';
     return FittedBox(
@@ -390,10 +393,19 @@ class _RingingScreen extends StatelessWidget {
                   ? 'onboarding-face'
                   : 'alarm-face-${state.incident?.id}',
               flightShuttleBuilder: faceFlightShuttleBuilder,
-              child: FaceWidget(
-                state: state.faceState,
-                size: faceSize,
-                isLive: state.isLive,
+              // The ringing face's stage is wider than its head, to leave
+              // room for sweat, stars and steam. This keeps the head the
+              // size the old face was and lets the extras spill out.
+              child: SizedBox.square(
+                dimension: faceSize,
+                child: OverflowBox(
+                  maxWidth: faceSize * _ringingStageScale,
+                  maxHeight: faceSize * _ringingStageScale,
+                  child: ShufflingRingingFace(
+                    size: faceSize * _ringingStageScale,
+                    isLive: state.isLive,
+                  ),
+                ),
               ),
             ),
           ],

@@ -14,3 +14,4 @@ export 'ringing/ringing_face_painter.dart';
 export 'ringing/ringing_face_widget.dart';
 export 'ringing/ringing_frame.dart';
 export 'ringing/ringing_style.dart';
+export 'ringing/shuffling_ringing_face.dart';
