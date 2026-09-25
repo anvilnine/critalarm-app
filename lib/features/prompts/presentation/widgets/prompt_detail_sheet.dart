@@ -22,6 +22,7 @@ Future<void> showPromptDetailSheet({
   required String actionLabel,
   required VoidCallback onAction,
   required VoidCallback onDismiss,
+  String? dismissLabel,
 }) {
   return showAppSheet<void>(
     context: context,
@@ -38,6 +39,7 @@ Future<void> showPromptDetailSheet({
         Navigator.of(sheetContext).pop();
         onDismiss();
       },
+      dismissLabel: dismissLabel,
     ),
   );
 }
@@ -52,6 +54,7 @@ class PromptDetailSheet extends StatelessWidget {
     required this.actionLabel,
     required this.onAction,
     required this.onDismiss,
+    this.dismissLabel,
     super.key,
   });
 
@@ -59,6 +62,7 @@ class PromptDetailSheet extends StatelessWidget {
   final String title;
   final String body;
   final String actionLabel;
+  final String? dismissLabel;
   final VoidCallback onAction;
   final VoidCallback onDismiss;
 
@@ -92,7 +96,7 @@ class PromptDetailSheet extends StatelessWidget {
         ),
         const SizedBox(height: Spacing.s2),
         AppButton(
-          label: LocaleKeys.common_not_now.tr(),
+          label: dismissLabel ?? LocaleKeys.common_not_now.tr(),
           variant: AppButtonVariant.ghost,
           isFullWidth: true,
           onPressed: onDismiss,
