@@ -293,6 +293,18 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     );
   }
 
+  /// True when turning critical off here cannot be undone on the free plan:
+  /// the account already has more critical topics than the plan allows, so
+  /// the server would refuse to turn it back on (api.md §4.2).
+  Future<bool> turningOffIsOneWay() async {
+    final identity = await identityStore?.readOrCreate();
+    if (identity == null || AccountAccess(identity).isPaid) return false;
+    final limit = identity.caps.criticalTopics;
+    if (limit == null) return false;
+    final count = _topics.state.topics.where((topic) => topic.critical).length;
+    return count > limit;
+  }
+
   Future<void> toggleCriticalDelivery({required bool isCritical}) async {
     emit(state.copyWith(isUpdatingCritical: true, clearError: true));
 

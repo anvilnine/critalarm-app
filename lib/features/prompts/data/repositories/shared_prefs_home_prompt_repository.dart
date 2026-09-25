@@ -146,4 +146,55 @@ class SharedPrefsHomePromptRepository implements HomePromptRepository {
 
   @override
   Future<void> markAfterAckSheetShown() => _stampNow(_afterAckSheetKey);
+
+  static const _proEndingSheetKey = 'home_prompt_pro_ending_sheet_for';
+  static const _proEndingPillKey = 'home_prompt_pro_ending_pill_dismissed_at';
+  static const _proEndingLastDaysKey = 'home_prompt_pro_ending_last_days_for';
+  static const _proKnownExpiryKey = 'home_prompt_pro_known_expiry';
+  static const _proPaidAccountKey = 'home_prompt_pro_paid_account';
+  static const _proEndedDueKey = 'home_prompt_pro_ended_due_for';
+
+  @override
+  String? getProEndingSheetShownFor() => _prefs.getString(_proEndingSheetKey);
+
+  @override
+  Future<void> markProEndingSheetShown(String key) =>
+      _prefs.setString(_proEndingSheetKey, key);
+
+  @override
+  DateTime? getProEndingPillDismissedAt() => _readTime(_proEndingPillKey);
+
+  @override
+  Future<void> dismissProEndingPill() => _stampNow(_proEndingPillKey);
+
+  @override
+  String? getProEndingLastDaysDismissedFor() =>
+      _prefs.getString(_proEndingLastDaysKey);
+
+  @override
+  Future<void> markProEndingLastDaysDismissed(String key) =>
+      _prefs.setString(_proEndingLastDaysKey, key);
+
+  @override
+  DateTime? getProKnownExpiry() => _readTime(_proKnownExpiryKey);
+
+  @override
+  Future<void> setProKnownExpiry(DateTime at) =>
+      _prefs.setInt(_proKnownExpiryKey, at.millisecondsSinceEpoch);
+
+  @override
+  String? getProPaidAccountId() => _prefs.getString(_proPaidAccountKey);
+
+  @override
+  Future<void> setProPaidAccountId(String? accountId) => accountId == null
+      ? _prefs.remove(_proPaidAccountKey)
+      : _prefs.setString(_proPaidAccountKey, accountId);
+
+  @override
+  String? getProEndedSheetDueFor() => _prefs.getString(_proEndedDueKey);
+
+  @override
+  Future<void> setProEndedSheetDueFor(String? accountId) => accountId == null
+      ? _prefs.remove(_proEndedDueKey)
+      : _prefs.setString(_proEndedDueKey, accountId);
 }

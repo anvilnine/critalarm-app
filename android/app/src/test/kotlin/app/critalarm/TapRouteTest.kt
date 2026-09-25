@@ -37,4 +37,9 @@ class TapRouteTest {
         assertEquals("/topics/my%20topic%2Fx", TapRoute.routeFor(mapOf("topic" to "my topic/x")))
         assertEquals("/topics/a!b'c(d)e~f*g-h_i.j", TapRoute.routeFor(mapOf("topic" to "a!b'c(d)e~f*g-h_i.j")))
     }
+
+    @Test
+    fun `open paywall opens the paywall`() {
+        assertEquals("/paywall", TapRoute.routeFor(mapOf("open" to "paywall")))
+    }
 }

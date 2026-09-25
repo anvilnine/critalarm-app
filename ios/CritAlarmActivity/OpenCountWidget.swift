@@ -9,7 +9,7 @@ struct OpenCountWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: Self.kind, provider: TopicsProvider()) { entry in
             OpenCountView(snapshot: entry.snapshot)
-                .widgetURL(WidgetLink.homeURL)
+                .widgetURL(entry.snapshot?.locked == true ? WidgetLink.paywallURL : WidgetLink.homeURL)
         }
         .configurationDisplayName("Open incidents")
         .description("How many incidents are open right now.")
@@ -20,6 +20,8 @@ struct OpenCountWidget: Widget {
 struct OpenCountView: View {
     let snapshot: WidgetSnapshot?
     @Environment(\.widgetFamily) private var family
+
+    private var isLocked: Bool { snapshot?.locked == true }
 
     private var connected: WidgetSnapshot? {
         guard let snapshot, snapshot.connected else { return nil }
@@ -43,7 +45,9 @@ struct OpenCountView: View {
 
     @ViewBuilder
     private var circular: some View {
-        if let snapshot = connected {
+        if isLocked {
+            Image(systemName: "lock.fill").font(.title3)
+        } else if let snapshot = connected {
             VStack(spacing: 1) {
                 FaceView(face: .forIncident(WidgetDisplay.worstIncident(snapshot)), size: 22)
                     .widgetAccentable()
@@ -65,7 +69,9 @@ struct OpenCountView: View {
 
     @ViewBuilder
     private var rectangular: some View {
-        if let snapshot = connected {
+        if isLocked {
+            Label(WidgetCopy.lockedShort, systemImage: "lock.fill").font(.headline)
+        } else if let snapshot = connected {
             HStack(spacing: 8) {
                 FaceView(face: .forIncident(WidgetDisplay.worstIncident(snapshot)), size: 30)
                     .widgetAccentable()
@@ -95,7 +101,9 @@ struct OpenCountView: View {
 
     @ViewBuilder
     private var inline: some View {
-        if let snapshot = connected {
+        if isLocked {
+            Label("Crit Alarm \(WidgetCopy.lockedShort)", systemImage: "lock.fill")
+        } else if let snapshot = connected {
             Text(snapshot.openCount > 0
                  ? "Crit Alarm: \(WidgetCopy.open(snapshot.openCount))"
                  : "Crit Alarm: \(WidgetCopy.allQuiet)")
@@ -108,7 +116,9 @@ struct OpenCountView: View {
 
     @ViewBuilder
     private var small: some View {
-        if let snapshot = connected {
+        if isLocked {
+            LockedState()
+        } else if let snapshot = connected {
             SmallCount(snapshot: snapshot)
         } else {
             EmptyState(face: .watching, message: WidgetCopy.connect)
@@ -135,5 +145,11 @@ struct OpenCountView: View {
     OpenCountWidget()
 } timeline: {
     SnapshotEntry(date: .now, snapshot: .gallerySample)
+}
+
+#Preview("Count locked", as: .accessoryCircular) {
+    OpenCountWidget()
+} timeline: {
+    SnapshotEntry(date: .now, snapshot: WidgetSnapshot(updatedAt: 0, connected: true, openCount: 0, topics: [], locked: true))
 }
 #endif

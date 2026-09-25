@@ -45,4 +45,10 @@ class WidgetFreshnessTest {
         )
         assertNull(WidgetFreshness.afterFetch(fetched, null, changedMeanwhile = true))
     }
+
+    @Test
+    fun `a locked snapshot is never stale`() {
+        val locked = WidgetSnapshotJson.parse(WidgetFixtures.read("widget_snapshot_v1_locked.json"))!!
+        assertFalse(WidgetFreshness.isStale(locked.copy(updatedAt = 0L), 2_000_000_000L))
+    }
 }

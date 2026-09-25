@@ -9,10 +9,12 @@ import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/pro_status_badge.dart';
+import 'package:critalarm/features/prompts/domain/pro_ending.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
 import 'package:critalarm/features/prompts/presentation/home_asks.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/home_prompt_slot.dart';
+import 'package:critalarm/features/prompts/presentation/widgets/pro_plan_sheet.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/prompt_detail_sheet.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
@@ -323,32 +325,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             children: [ProStatusBadge(), RefreshActivityIndicator()],
           ),
         ),
-        // The backup nudge floats above the tab bar rather than sitting in
-        // the list, so it stays put however many topics there are and never
-        // pushes one off the screen.
-        bottomBar: prompt.promptType != HomePromptType.accountBackup
-            ? null
-            : AppPinnedNudgeBar(
-                face: FaceState.watching,
-                title: LocaleKeys.home_account_prompt_title.tr(),
-                linkLabel: LocaleKeys.home_prompt_why.tr(),
-                onTap: () => unawaited(
-                  showPromptDetailSheet(
-                    context: context,
-                    face: FaceState.watching,
-                    title: LocaleKeys.home_account_prompt_title.tr(),
-                    body: LocaleKeys.home_account_prompt_body.tr(),
-                    actionLabel: LocaleKeys.home_account_prompt_button.tr(),
-                    onAction: () => openAppPath(context, '/settings/account'),
-                    onDismiss: () => unawaited(
-                      context.read<HomePromptCubit>().dismissCurrent(),
-                    ),
-                  ),
-                ),
-                onDismiss: () => unawaited(
-                  context.read<HomePromptCubit>().dismissCurrent(),
-                ),
-              ),
+        // The one pill floating above the tab bar: Pro ending first, then the
+        // sign-in reminder.
+        bottomBar: _nudgeBar(context, prompt),
         detail: state.topicItems.isEmpty
             ? null
             : (selected == null
@@ -512,5 +491,52 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         ],
       ),
     );
+  }
+
+  /// The one pill floating above the tab bar: Pro ending first, then the
+  /// sign-in reminder.
+  Widget? _nudgeBar(BuildContext context, HomePromptState prompt) {
+    final cubit = context.read<HomePromptCubit>();
+    switch (prompt.promptType) {
+      case HomePromptType.proEnding:
+        final endsAt = prompt.proEndsAt!;
+        return AppPinnedNudgeBar(
+          face: FaceState.watching,
+          title: LocaleKeys.home_pro_ending_pill.tr(
+            namedArgs: {'weekday': DateFormat('EEEE').format(endsAt)},
+          ),
+          linkLabel: LocaleKeys.home_prompt_why.tr(),
+          onTap: () => unawaited(
+            showProPlanSheet(
+              context,
+              ProEndingView(sheet: ProPlanSheet.ending, endsAt: endsAt),
+              onDismiss: () => unawaited(cubit.dismissCurrent()),
+            ),
+          ),
+          onDismiss: () => unawaited(cubit.dismissCurrent()),
+        );
+      case HomePromptType.accountBackup:
+        return AppPinnedNudgeBar(
+          face: FaceState.watching,
+          title: LocaleKeys.home_account_prompt_title.tr(),
+          linkLabel: LocaleKeys.home_prompt_why.tr(),
+          onTap: () => unawaited(
+            showPromptDetailSheet(
+              context: context,
+              face: FaceState.watching,
+              title: LocaleKeys.home_account_prompt_title.tr(),
+              body: LocaleKeys.home_account_prompt_body.tr(),
+              actionLabel: LocaleKeys.home_account_prompt_button.tr(),
+              onAction: () => openAppPath(context, '/settings/account'),
+              onDismiss: () => unawaited(cubit.dismissCurrent()),
+            ),
+          ),
+          onDismiss: () => unawaited(cubit.dismissCurrent()),
+        );
+      case HomePromptType.none:
+      case HomePromptType.noServer:
+      case HomePromptType.criticalHealth:
+        return null;
+    }
   }
 }

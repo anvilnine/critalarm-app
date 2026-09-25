@@ -9,10 +9,12 @@ import Foundation
 /// - `critalarm://topics/<name>` opens that topic.
 /// - `critalarm://incidents/<id>` opens that incident.
 /// - `critalarm://home` opens Home.
+/// - `critalarm://paywall` opens the plans screen.
 enum WidgetLink {
     static let scheme = "critalarm"
 
     static let homeURL = URL(string: "\(scheme)://home")!
+    static let paywallURL = URL(string: "\(scheme)://paywall")!
 
     static func url(topic: String) -> URL {
         URL(string: "\(scheme)://topics/\(escape(topic))")!
@@ -31,6 +33,8 @@ enum WidgetLink {
         switch parts.host {
         case "home":
             return path.isEmpty || path == "/" ? ["open": "home"] : nil
+        case "paywall":
+            return path.isEmpty || path == "/" ? ["open": "paywall"] : nil
         case "topics":
             return segment(path).map { ["topic": $0] }
         case "incidents":

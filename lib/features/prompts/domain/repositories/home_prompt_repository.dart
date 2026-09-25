@@ -71,4 +71,33 @@ abstract class HomePromptRepository {
   /// sheet opens, so a second ack the same calendar day shows nothing.
   DateTime? getAfterAckSheetShownAt();
   Future<void> markAfterAckSheetShown();
+
+  /// The billing period (`ProEndingRule.keyFor`) the "Pro ends" sheet was
+  /// shown for. It shows once per period.
+  String? getProEndingSheetShownFor();
+  Future<void> markProEndingSheetShown(String key);
+
+  /// When the "Pro ends" pill was last closed outside the last 2 days.
+  DateTime? getProEndingPillDismissedAt();
+  Future<void> dismissProEndingPill();
+
+  /// The billing period whose last-days pill was closed. It stays gone then.
+  String? getProEndingLastDaysDismissedFor();
+  Future<void> markProEndingLastDaysDismissed(String key);
+
+  /// The last end date the store reported for Pro. Once it passes, the app
+  /// asks the server for the tier again.
+  DateTime? getProKnownExpiry();
+  Future<void> setProKnownExpiry(DateTime at);
+
+  /// The account last seen on Pro. Pro ending on this same account shows the
+  /// "Pro ended" sheet; a different account (sign out, switch) does not.
+  String? getProPaidAccountId();
+  Future<void> setProPaidAccountId(String? accountId);
+
+  /// The account the "Pro ended" sheet is waiting to show for. Set the
+  /// moment the app sees Pro end on that account, cleared once the sheet has
+  /// shown. Any other account sees nothing.
+  String? getProEndedSheetDueFor();
+  Future<void> setProEndedSheetDueFor(String? accountId);
 }
