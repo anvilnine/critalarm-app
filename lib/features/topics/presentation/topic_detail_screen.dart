@@ -170,6 +170,25 @@ class _TopicDetailScreenContent extends StatelessWidget {
     );
   }
 
+  Future<bool?> _confirmTurnOffCritical(BuildContext context) =>
+      showAppDialog<bool>(
+        context: context,
+        title: LocaleKeys.topic_detail_critical_off_one_way_title.tr(),
+        body: LocaleKeys.topic_detail_critical_off_one_way_body.tr(),
+        actions: [
+          AppDialogAction(
+            label: LocaleKeys.common_cancel.tr(),
+            value: false,
+            variant: AppButtonVariant.ghost,
+          ),
+          AppDialogAction(
+            label: LocaleKeys.topic_detail_critical_off_one_way_confirm.tr(),
+            value: true,
+            variant: AppButtonVariant.crit,
+          ),
+        ],
+      );
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<TopicDetailCubit, TopicDetailState>(
@@ -492,14 +511,21 @@ class _TopicDetailScreenContent extends StatelessWidget {
                             // push would arrive as a plain notification and
                             // never ring.
                             onChanged: state.canEditCritical
-                                ? (val) {
+                                ? (val) async {
                                     AppHaptics.selection();
-                                    unawaited(
-                                      context
-                                          .read<TopicDetailCubit>()
-                                          .toggleCriticalDelivery(
-                                            isCritical: val,
-                                          ),
+                                    final cubit =
+                                        context.read<TopicDetailCubit>();
+                                    if (!val &&
+                                        await cubit.turningOffIsOneWay()) {
+                                      if (!context.mounted) return;
+                                      final confirmed =
+                                          await _confirmTurnOffCritical(
+                                        context,
+                                      );
+                                      if (confirmed != true) return;
+                                    }
+                                    await cubit.toggleCriticalDelivery(
+                                      isCritical: val,
                                     );
                                   }
                                 : null,
