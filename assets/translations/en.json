@@ -220,7 +220,15 @@
     "swipe_mute": "Mute",
     "swipe_unmute": "Unmute",
     "swipe_mark_read": "Mark read",
-    "unread_aria_label": "{count} unread"
+    "unread_aria_label": "{count} unread",
+    "pro_ending_title": "Pro ends {weekday}, {date}",
+    "pro_ending_pill": "Pro ends {weekday}",
+    "pro_ending_body": "After that:\n• Home screen widgets lock\n• History keeps {history_days} days\n• {p4_daily} low-priority pushes a day\n• No new critical topics past {critical_topics}\n\nYour alarms keep ringing.",
+    "pro_ending_action": "Keep Pro",
+    "pro_ended_title": "Your Pro plan ended",
+    "pro_ended_body": "Your alarms keep ringing.\n\nWhat changed:\n• Home screen widgets are locked\n• History keeps {history_days} days\n• {p4_daily} low-priority pushes a day\n• No new critical topics past {critical_topics}",
+    "pro_ended_action": "See plans",
+    "pro_ended_dismiss": "OK"
   },
   "topics_list": {
     "back_aria_label": "Back",

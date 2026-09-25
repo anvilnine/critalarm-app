@@ -5,10 +5,13 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
+import 'package:critalarm/features/prompts/domain/pro_ending.dart';
 import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
 import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/prompts/domain/setup_gate.dart';
+import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/prompts/presentation/widgets/consent_prompt_sheet.dart';
+import 'package:critalarm/features/prompts/presentation/widgets/pro_plan_sheet.dart';
 import 'package:critalarm/features/reminders/domain/home_reminder_ask_rules.dart';
 import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
 import 'package:critalarm/features/reminders/domain/reminder_settler.dart';
@@ -17,6 +20,7 @@ import 'package:critalarm/features/reminders/presentation/widgets/reminder_ask_s
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:in_app_review/in_app_review.dart';
 
 bool _isAsking = false;
@@ -34,6 +38,20 @@ Future<void> runHomeAsk(BuildContext context) async {
   if (getIt<AlarmFocus>().on) return;
   _isAsking = true;
   try {
+    // Pro ending or ended comes first: it has a date attached.
+    final pro = await getIt<ProEnding>().read();
+    if (pro.sheet != ProPlanSheet.none) {
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+      if (!context.mounted) return;
+      if (ModalRoute.of(context)?.isCurrent == false) return;
+      await showProPlanSheet(context, pro);
+      // The pill waits for the sheet, so ask the home prompts again.
+      if (context.mounted) {
+        unawaited(context.read<HomePromptCubit>().load());
+      }
+      return;
+    }
+
     final reminderAsk = await _nextReminderAsk();
     if (reminderAsk != HomeReminderAsk.none) {
       await Future<void>.delayed(const Duration(milliseconds: 800));
