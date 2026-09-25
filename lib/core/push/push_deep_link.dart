@@ -9,6 +9,12 @@ abstract final class PushDeepLink {
   static const incidentIdKey = 'incident_id';
   static const topicKey = 'topic';
 
+  /// `open=home` comes from the open count widget, which has no incident or
+  /// topic of its own and opens Home.
+  static const openKey = 'open';
+  static const openHome = 'home';
+  static const homeLocation = '/';
+
   static String incidentLocation(String incidentId) =>
       '/incidents/${Uri.encodeComponent(incidentId)}';
 
@@ -30,6 +36,7 @@ abstract final class PushDeepLink {
     }
     final topic = data[topicKey];
     if (topic != null && topic.isNotEmpty) return topicLocation(topic);
+    if (data[openKey] == openHome) return homeLocation;
     return null;
   }
 }

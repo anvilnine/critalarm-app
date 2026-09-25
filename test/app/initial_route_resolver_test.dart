@@ -87,8 +87,16 @@ void main() {
       );
     });
 
+    test('home is a deep link, for the open count widget', () {
+      expect(isPushDeepLink('/'), isTrue);
+      expect(
+        initialLocationFor(hasCompletedOnboarding: true, deepLink: '/'),
+        '/',
+      );
+    });
+
     test('a route that is not a push deep link is ignored', () {
-      for (final route in ['/', '/settings', 'nonsense', null]) {
+      for (final route in ['/settings', 'nonsense', '//', null]) {
         expect(
           initialLocationFor(
             hasCompletedOnboarding: true,

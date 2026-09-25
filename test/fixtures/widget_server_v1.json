@@ -1,0 +1,45 @@
+{
+  "now": 1759046400,
+  "topics": [
+    { "name": "staging", "critical": false, "repeat_interval_s": 30, "max_ring_s": 1800, "desk_timer_s": 600, "relay_content": "none", "created_at": 1758000000 },
+    { "name": "prod", "critical": true, "repeat_interval_s": 30, "max_ring_s": 1800, "desk_timer_s": 600, "relay_content": "none", "created_at": 1758000000 },
+    { "name": "backups", "critical": false, "repeat_interval_s": 30, "max_ring_s": 1800, "desk_timer_s": 600, "relay_content": "full", "created_at": 1758000000 }
+  ],
+  "open": [
+    {
+      "id": "inc_9a8b7c", "topic": "prod", "state": "open",
+      "opened_at": 1759046100, "acked_at": null, "closed_at": null,
+      "last_message_at": 1759046100, "updated_at": 1759046100,
+      "messages": [
+        { "id": "msg_2", "topic": "prod", "time": 1759046100, "event": "message", "title": "Database down", "message": "primary is not answering", "priority": 5, "incident_id": "inc_9a8b7c" },
+        { "id": "msg_1", "topic": "prod", "time": 1759046050, "event": "message", "title": "Database slow", "message": "p99 over 2s", "priority": 5, "incident_id": "inc_9a8b7c" }
+      ]
+    },
+    {
+      "id": "inc_ghost1", "topic": "deleted-topic", "state": "open",
+      "opened_at": 1759046200, "acked_at": null, "closed_at": null,
+      "last_message_at": 1759046200, "updated_at": 1759046200,
+      "messages": [
+        { "id": "msg_9", "topic": "deleted-topic", "time": 1759046200, "event": "message", "title": "Not shown", "message": "topic is gone", "priority": 5, "incident_id": "inc_ghost1" }
+      ]
+    }
+  ],
+  "acked": [
+    {
+      "id": "inc_1a2b3c", "topic": "prod", "state": "acked",
+      "opened_at": 1759040000, "acked_at": 1759040100, "closed_at": null,
+      "last_message_at": 1759040000, "updated_at": 1759040100,
+      "messages": [
+        { "id": "msg_0", "topic": "prod", "time": 1759040000, "event": "message", "title": "Disk 90%", "message": "vol1", "priority": 5, "incident_id": "inc_1a2b3c" }
+      ]
+    },
+    {
+      "id": "inc_4d5e6f", "topic": "backups", "state": "acked",
+      "opened_at": 1759042800, "acked_at": 1759042920, "closed_at": null,
+      "last_message_at": 1759042800, "updated_at": 1759042920,
+      "messages": [
+        { "id": "msg_5", "topic": "backups", "time": 1759042800, "event": "message", "title": "  ", "message": "  nas-backup exited 1  ", "priority": 5, "incident_id": "inc_4d5e6f" }
+      ]
+    }
+  ]
+}
