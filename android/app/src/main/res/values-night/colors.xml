@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="splash_background">#171310</color>
+
     <!-- Home screen widgets, dark palette from lib/design/tokens/colors.dart. -->
     <color name="widget_background">#241D18</color>
     <color name="widget_hairline">#24FFFFFF</color>
