@@ -52,6 +52,31 @@ struct StopAlarmIntent: LiveActivityIntent {
     }
 }
 
+/// "I'm up" on the alarm: opens Crit Alarm to the active incident
+/// without stopping or acknowledging the alarm in the background.
+@available(iOS 16.2, *)
+struct OpenIncidentIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Open Incident"
+    static var description = IntentDescription("Opens Crit Alarm to the active incident.")
+
+    static var openAppWhenRun: Bool = true
+
+    @Parameter(title: "Incident")
+    var incidentId: String
+
+    init() {}
+
+    init(incidentId: String) {
+        self.incidentId = incidentId
+    }
+
+    func perform() async throws -> some IntentResult {
+        NSLog("CritAlarmAlarm: open_incident_intent incident_id=%@", incidentId)
+        await IncidentActivityCoordinator.shared.openIncident(incidentId: incidentId)
+        return .result()
+    }
+}
+
 /// "I'm up". The acknowledge, and the only way out of the ring loop.
 @available(iOS 16.2, *)
 struct AckAlarmIntent: LiveActivityIntent {
