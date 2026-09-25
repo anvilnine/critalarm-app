@@ -149,24 +149,30 @@ import 'package:critalarm/features/search/domain/usecases/get_docs_index_usecase
 import 'package:critalarm/features/search/domain/usecases/get_recent_searches_usecase.dart';
 import 'package:critalarm/features/search/presentation/cubits/search_cubit.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_alarm_sound_repository.dart';
+import 'package:critalarm/features/settings/data/repositories/shared_prefs_appearance_settings_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_privacy_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_storage_settings_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_theme_preference_repository.dart';
 import 'package:critalarm/features/settings/data/services/sound_file_picker.dart';
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
+import 'package:critalarm/features/settings/domain/repositories/appearance_settings_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/sound_file_picker.dart';
 import 'package:critalarm/features/settings/domain/repositories/storage_settings_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/theme_preference_repository.dart';
 import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/delete_user_sound_usecase.dart';
+import 'package:critalarm/features/settings/domain/usecases/get_appearance_settings_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_theme_mode_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_analytics_enabled_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_crash_reporting_enabled_usecase.dart';
+import 'package:critalarm/features/settings/domain/usecases/set_haptics_enabled_usecase.dart';
+import 'package:critalarm/features/settings/domain/usecases/set_reduce_motion_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_theme_mode_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubit.dart';
+import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/recorder_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_crop_cubit.dart';
@@ -388,6 +394,9 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton<OnboardingProgressRepository>(
       () => SharedPrefsOnboardingProgressRepository(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<AppearanceSettingsRepository>(
+      () => SharedPrefsAppearanceSettingsRepository(getIt<SharedPreferences>()),
     )
     ..registerLazySingleton<PrivacyRepository>(
       () => SharedPrefsPrivacyRepository(getIt<SharedPreferences>()),
@@ -696,6 +705,17 @@ Future<void> configureDependencies({
       () => ClearConnectionUsecase(getIt<ConnectionRepository>()),
     )
     ..registerLazySingleton(
+      () => GetAppearanceSettingsUsecase(
+        getIt<AppearanceSettingsRepository>(),
+      ),
+    )
+    ..registerLazySingleton(
+      () => SetReduceMotionUsecase(getIt<AppearanceSettingsRepository>()),
+    )
+    ..registerLazySingleton(
+      () => SetHapticsEnabledUsecase(getIt<AppearanceSettingsRepository>()),
+    )
+    ..registerLazySingleton(
       () => GetPrivacySettingsUsecase(getIt<PrivacyRepository>()),
     )
     ..registerLazySingleton(
@@ -920,6 +940,13 @@ Future<void> configureDependencies({
       () => ThemeCubit(
         getIt<GetThemeModeUsecase>(),
         getIt<SetThemeModeUsecase>(),
+      ),
+    )
+    ..registerFactory(
+      () => AppearanceCubit(
+        getIt<GetAppearanceSettingsUsecase>(),
+        getIt<SetReduceMotionUsecase>(),
+        getIt<SetHapticsEnabledUsecase>(),
       ),
     )
     ..registerFactory(
