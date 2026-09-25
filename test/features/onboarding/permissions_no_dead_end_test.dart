@@ -72,6 +72,91 @@ void main() {
     );
   });
 
+  group('no denied screen', () {
+    blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
+      'refused notifications land on step two',
+      setUp: () {
+        when(() => request(any())).thenAnswer(
+          (_) async => NotificationPermissionStatus.denied.toSuccess(),
+        );
+      },
+      build: () => NotificationPermissionsCubit(
+        request,
+        openSettings,
+        alarm: fake.host,
+      ),
+      act: (cubit) => cubit.requestNotifications(),
+      verify: (cubit) {
+        expect(cubit.state.isDenied, isFalse);
+        expect(cubit.state.activeSubstep, 1);
+        expect(cubit.state.canNavigate, isFalse);
+      },
+    );
+
+    blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
+      'not now on step one goes to step two without asking',
+      build: () => NotificationPermissionsCubit(
+        request,
+        openSettings,
+        alarm: fake.host,
+      ),
+      act: (cubit) => cubit.skipStep(),
+      verify: (cubit) {
+        expect(cubit.state.activeSubstep, 1);
+        verifyNever(() => request(any()));
+      },
+    );
+
+    blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
+      'not now on step two finishes',
+      build: () => NotificationPermissionsCubit(
+        request,
+        openSettings,
+        alarm: fake.host,
+      ),
+      seed: () => const NotificationPermissionsState(activeSubstep: 1),
+      act: (cubit) => cubit.skipStep(),
+      verify: (cubit) {
+        expect(cubit.state.canNavigate, isTrue);
+        expect(fake.callsTo('requestAuthorization'), isEmpty);
+      },
+    );
+
+    blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
+      'coming back to the app does not send the user back to step one',
+      setUp: () {
+        when(() => check(any())).thenAnswer(
+          (_) async => NotificationPermissionStatus.denied.toSuccess(),
+        );
+        fake.answers['authorizationStatus'] = 'notDetermined';
+      },
+      build: () => NotificationPermissionsCubit(
+        request,
+        openSettings,
+        alarm: fake.host,
+        checkPermission: check,
+      ),
+      seed: () => const NotificationPermissionsState(activeSubstep: 1),
+      act: (cubit) => cubit.refresh(),
+      verify: (cubit) => expect(cubit.state.activeSubstep, 1),
+    );
+
+    blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
+      'coming back mid request leaves the request alone',
+      build: () => NotificationPermissionsCubit(
+        request,
+        openSettings,
+        alarm: fake.host,
+        checkPermission: check,
+      ),
+      seed: () => const NotificationPermissionsState(
+        step: NotificationPermissionStep.requesting,
+      ),
+      act: (cubit) => cubit.refresh(),
+      expect: () => const <NotificationPermissionsState>[],
+    );
+  });
+
   group('unsupported is not a grant', () {
     blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
       'an OS with no alarm permission still reports two steps',

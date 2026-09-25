@@ -18,10 +18,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// Screen 1 of Onboarding (/onboarding): Permissions.
 ///
 /// A stepper that only shows the steps this phone actually has, and only the
-/// ones the user has not already answered. Nothing here blocks: a refused
-/// permission is explained and onboarding carries on, because Apple's own
+/// ones the user has not already answered. Nothing here blocks: "Not now" or a
+/// refused prompt moves straight to the next step, because Apple's own
 /// guidance forbids holding the app hostage over one, and AlarmKit never
-/// prompts twice.
+/// prompts twice. Home's health banner asks again later.
 class OnboardingPermissionsScreen extends StatelessWidget {
   const OnboardingPermissionsScreen({
     super.key,
@@ -192,6 +192,16 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                           ? cubit.continueWithout
                           : requestStep,
                     ),
+                    // Nothing to skip when the step only explains.
+                    if (!alarmless) ...[
+                      const SizedBox(height: Spacing.s3),
+                      AppButton(
+                        label: LocaleKeys.onboarding_permissions_not_now.tr(),
+                        variant: AppButtonVariant.paper,
+                        isFullWidth: true,
+                        onPressed: state.isRequesting ? null : cubit.skipStep,
+                      ),
+                    ],
                   ],
           ),
           slivers: [

@@ -1,5 +1,6 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/core/alarm/alarm_host.dart';
-import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
@@ -50,6 +51,9 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     if (check == null && alarmHost == null) {
       return;
     }
+    // A system dialog sends the app to the background and back, which lands
+    // here. Leave a request that is still running alone.
+    if (state.isRequesting) return;
 
     emit(state.copyWith(isChecking: true));
 
@@ -101,8 +105,12 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
         notificationsGranted: notificationsGranted,
         criticalAlertsGranted: alarmGranted || !alarmSupported,
         // A granted step is not worth a screen. Land on the first one that
-        // still needs an answer.
-        activeSubstep: notificationsGranted && hasStep2 ? 1 : 0,
+        // still needs an answer, but never send the user back a step they
+        // already answered or skipped.
+        activeSubstep: math.max(
+          state.activeSubstep,
+          notificationsGranted && hasStep2 ? 1 : 0,
+        ),
         step: everythingGranted
             ? NotificationPermissionStep.granted
             : NotificationPermissionStep.initial,
@@ -130,25 +138,29 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
         if (status == NotificationPermissionStatus.granted) {
           _afterNotificationsGranted();
         } else {
-          emit(
-            state.copyWith(
-              step: NotificationPermissionStep.denied,
-              canNavigate: false,
-              clearError: true,
-            ),
-          );
+          // A refusal moves on. Home's health banner keeps asking later.
+          skipStep();
         }
       },
-      (failure) {
-        emit(
-          state.copyWith(
-            step: NotificationPermissionStep.denied,
-            errorMessage: failureMessage(failure),
-            canNavigate: false,
-          ),
-        );
-      },
+      (_) => skipStep(),
     );
+  }
+
+  /// "Not now", and what a refused or failed prompt does too: move to the
+  /// next step without asking, or finish when there is none.
+  void skipStep() {
+    if (state.activeSubstep == 0 && alarm != null) {
+      emit(
+        state.copyWith(
+          activeSubstep: 1,
+          step: NotificationPermissionStep.initial,
+          canNavigate: false,
+          clearError: true,
+        ),
+      );
+      return;
+    }
+    continueWithout();
   }
 
   void _afterNotificationsGranted() {

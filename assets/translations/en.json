@@ -140,7 +140,8 @@
     "step2_unsupported_title": "Your phone can still page you",
     "step2_unsupported_subtitle": "Alarms that ring through silent mode need iOS 26. On this phone a page arrives as a notification with sound.",
     "step2_unsupported_button": "Continue",
-    "denied_skip": "Continue without this"
+    "denied_skip": "Continue without this",
+    "not_now": "Not now"
   },
   "tour": {
     "progress": "{step} of {count}",
