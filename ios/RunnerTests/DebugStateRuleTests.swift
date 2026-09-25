@@ -23,11 +23,11 @@ final class DebugStateRuleTests: XCTestCase {
         XCTAssertEqual(
             DebugStateRule.phoneState(
                 .init(
-                    live: true,
-                    closed: true,
-                    acknowledged: true,
-                    inLocalAckedSet: true,
                     active: true,
+                    acknowledged: true,
+                    closed: true,
+                    inLocalAckedSet: true,
+                    live: true,
                     rearmPending: true,
                     ringUntil: now.addingTimeInterval(-1)
                 ),
