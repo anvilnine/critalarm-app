@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
@@ -15,7 +16,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 
-/// Runs the "How to use the app" tour over the whole app.
+/// Runs the "How to use the app" guides over the whole app.
+///
+/// Each screen has its own short guide. The first time the user lands on a
+/// screen that has one, this asks for it. A guide stays on its own screen;
+/// only the full replay from Settings moves between screens.
 ///
 /// For each step it opens the right screen, waits until that screen has
 /// finished arriving, scrolls the spot into view, waits for it to stop
@@ -69,11 +74,19 @@ class _TourHostState extends State<TourHost> {
   /// way there are the tour's own, not the user leaving.
   bool _moving = false;
 
+  /// The screen a single guide was asked for on. Leaving it ends the guide.
+  String _guidePath = '';
+
   @override
   void initState() {
     super.initState();
     _sub = _tour.stream.listen(_onTour);
     widget.router.routerDelegate.addListener(_onRoute);
+    // The first screen never reports a route change, so it is checked once
+    // it is up.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _requestForScreen();
+    });
   }
 
   @override
@@ -113,7 +126,10 @@ class _TourHostState extends State<TourHost> {
   /// back cannot be turned into "previous step" reliably.
   void _onRoute() {
     final tour = _tour.state;
-    if (tour.status == TourStatus.idle) return;
+    if (!tour.isActive) {
+      _requestForScreen();
+      return;
+    }
     final path = _currentPath;
     if (path.startsWith('/incidents') ||
         path == '/alarm' ||
@@ -122,17 +138,37 @@ class _TourHostState extends State<TourHost> {
       _tour.stop();
       return;
     }
-    if (tour.isRunning &&
-        !_moving &&
-        path != tourPath(tour.step.place, tour.topicName)) {
+    final expected = tour.isFullReplay
+        ? tourPath(tour.step.place, tour.topicName)
+        : _guidePath;
+    if (tour.isRunning && !_moving && path != expected) {
       _tour.finish();
+      // Back landed on a screen of its own. Its first visit is now.
+      _requestForScreen();
     }
   }
 
+  /// Asks for the guide of the screen now showing, the first time the user
+  /// gets there. Nothing is asked for while an alarm has the screen.
+  void _requestForScreen() {
+    if (getIt<AlarmFocus>().on) return;
+    final guide = tourGuideForPath(_currentPath);
+    if (guide != null) _tour.requestIfNew(guide);
+  }
+
   Future<void> _begin() async {
+    _guidePath = _currentPath;
     final topics = getIt<TopicsCubit>();
     await topics.ensureLoaded();
     final list = topics.state.topics;
+    // The user may have left in the meantime, with the Android back button.
+    // A guide only makes sense on the screen it was asked for on.
+    final guide = _tour.state.guide;
+    if (guide != null && _currentPath != _guidePath) {
+      _tour.stop();
+      _requestForScreen();
+      return;
+    }
     _tour.begin(firstTopicName: list.isEmpty ? null : list.first.name);
   }
 
@@ -143,7 +179,8 @@ class _TourHostState extends State<TourHost> {
     final tour = _tour.state;
     final step = tour.step;
     final path = tourPath(step.place, tour.topicName);
-    if (_currentPath != path) {
+    // A single guide is already on its screen. Only the full replay moves.
+    if (tour.isFullReplay && _currentPath != path) {
       _moving = true;
       if (step.place == TourPlace.createTopic) {
         // Opened over Topics, the way the + button opens it, so back lands
@@ -289,10 +326,12 @@ class _TourHostState extends State<TourHost> {
     _tour.back();
   }
 
-  /// Skip and the last step's button. Both hand the user back to Topics.
+  /// Skip and the last step's button. The full replay hands the user back
+  /// to Topics. A single guide leaves them where they are.
   void _done() {
+    final wasFullReplay = _tour.state.isFullReplay;
     _tour.finish();
-    widget.router.go('/');
+    if (wasFullReplay) widget.router.go('/');
   }
 
   @override
@@ -457,7 +496,7 @@ class _TourCard extends StatelessWidget {
                     LocaleKeys.tour_progress.tr(
                       namedArgs: {
                         'step': '${tour.stepIndex + 1}',
-                        'count': '${TourCubit.stepCount}',
+                        'count': '${tour.steps.length}',
                       },
                     ),
                     style: TextStyle(

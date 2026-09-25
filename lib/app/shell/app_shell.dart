@@ -106,6 +106,10 @@ class _AppShellContentState extends State<_AppShellContent>
   /// The tour opened search to show it off, so the tour closes it again.
   bool _tourOpenedSearch = false;
 
+  /// The tour typed into a search the user opened, so the tour clears what
+  /// it typed and leaves search open.
+  bool _tourTypedSearch = false;
+
   StreamSubscription<TourState>? _tourSub;
 
   @override
@@ -159,16 +163,32 @@ class _AppShellContentState extends State<_AppShellContent>
     if (query == null) {
       if (_tourOpenedSearch) {
         _tourOpenedSearch = false;
+        _tourTypedSearch = false;
         _closeSearch();
+      } else if (_tourTypedSearch) {
+        _tourTypedSearch = false;
+        _controller.clear();
+        _search.clearQuery();
       }
       return;
     }
-    _tourOpenedSearch = true;
-    _openSearch(focus: false);
+    if (_isSearching) {
+      if (!_tourOpenedSearch) _tourTypedSearch = true;
+    } else {
+      _tourOpenedSearch = true;
+      _openSearch(focus: false);
+    }
+    _focusNode.unfocus();
     _controller
       ..text = query
       ..selection = TextSelection.collapsed(offset: query.length);
     _search.updateQuery(query);
+  }
+
+  /// The search button. The first time, search gets its own short guide.
+  void _openSearchFromBar() {
+    _openSearch();
+    getIt<TourCubit>().requestIfNew(TourGuide.search);
   }
 
   void _closeSearch() {
@@ -369,7 +389,7 @@ class _AppShellContentState extends State<_AppShellContent>
               composeLabel: LocaleKeys.nav_new_topic.tr(),
               onCompose: () => context.pushNamed(AppRoute.createTopic),
               searchLabel: LocaleKeys.search_open_aria_label.tr(),
-              onSearch: _openSearch,
+              onSearch: _openSearchFromBar,
             ),
           ),
         ),
@@ -462,7 +482,7 @@ class _AppShellContentState extends State<_AppShellContent>
       composeLabel: LocaleKeys.nav_new_topic.tr(),
       onCompose: () => context.pushNamed(AppRoute.createTopic),
       searchLabel: LocaleKeys.search_open_aria_label.tr(),
-      onSearch: _openSearch,
+      onSearch: _openSearchFromBar,
       isSearching: _isSearching,
       searchController: _controller,
       searchFocusNode: _focusNode,

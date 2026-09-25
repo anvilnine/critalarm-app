@@ -90,10 +90,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     _nameFocus = FocusNode();
     _tokenNameFocus = FocusNode();
     // Step 1 is a single field, so open with the keyboard already on it
-    // instead of making the user tap it first. Not during the tour: it
-    // opens this screen to point at the field, and the keyboard would
-    // cover the card.
-    if (!getIt<TourCubit>().state.isRunning) _focusNameField();
+    // instead of making the user tap it first. Not during a guide, or when
+    // this screen's own guide is about to start: it points at the field, and
+    // the keyboard would cover the card.
+    if (!getIt<TourCubit>().state.isActive) _focusNameField();
   }
 
   @override
