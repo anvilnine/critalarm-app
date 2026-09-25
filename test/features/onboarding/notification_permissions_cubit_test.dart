@@ -68,7 +68,7 @@ void main() {
     );
 
     blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
-      'requestPermissions denied emits requesting then denied path',
+      'requestPermissions denied moves on instead of showing a denied screen',
       setUp: () {
         when(() => mockRequestPermission(any())).thenAnswer(
           (_) async => NotificationPermissionStatus.denied.toSuccess(),
@@ -84,13 +84,14 @@ void main() {
           step: NotificationPermissionStep.requesting,
         ),
         const NotificationPermissionsState(
-          step: NotificationPermissionStep.denied,
+          step: NotificationPermissionStep.granted,
+          canNavigate: true,
         ),
       ],
     );
 
     blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
-      'requestPermissions failure emits requesting then denied with error',
+      'requestPermissions failure moves on too',
       setUp: () {
         when(() => mockRequestPermission(any())).thenAnswer(
           (_) async => const Failure.unexpected(
@@ -108,8 +109,8 @@ void main() {
           step: NotificationPermissionStep.requesting,
         ),
         const NotificationPermissionsState(
-          step: NotificationPermissionStep.denied,
-          errorMessage: 'Something went wrong on the server. Try again.',
+          step: NotificationPermissionStep.granted,
+          canNavigate: true,
         ),
       ],
     );
