@@ -141,7 +141,7 @@ class FakeHomePromptRepository implements HomePromptRepository {
   String? proEndingLastDaysFor;
   DateTime? proKnownExpiry;
   String? proPaidAccountId;
-  bool proEndedDue = false;
+  String? proEndedDueFor;
 
   @override
   String? getProEndingSheetShownFor() => proEndingSheetFor;
@@ -177,9 +177,9 @@ class FakeHomePromptRepository implements HomePromptRepository {
       proPaidAccountId = accountId;
 
   @override
-  bool isProEndedSheetDue() => proEndedDue;
+  String? getProEndedSheetDueFor() => proEndedDueFor;
 
   @override
-  Future<void> setProEndedSheetDue({required bool due}) async =>
-      proEndedDue = due;
+  Future<void> setProEndedSheetDueFor(String? accountId) async =>
+      proEndedDueFor = accountId;
 }

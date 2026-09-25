@@ -115,13 +115,38 @@ void main() {
     expect((await ending.read()).sheet, ProPlanSheet.none);
   });
 
+  test('Pro lapses on A, then a sign out to C shows nothing', () async {
+    await ending.read();
+    identity = account('acc_1', 'free');
+    await ending.read();
+    identity = account('acc_3', 'free');
+    expect((await ending.read()).sheet, ProPlanSheet.none);
+  });
+
+  test('a self-hosted detour does not carry the ended sheet to C', () async {
+    await ending.read();
+    identity = account('acc_1', 'free');
+    await ending.read();
+    mode = ServerMode.selfhosted;
+    await ending.read();
+    mode = ServerMode.hosted;
+    identity = account('acc_3', 'free');
+    expect((await ending.read()).sheet, ProPlanSheet.none);
+  });
+
+  test('free to free shows nothing', () async {
+    identity = account('acc_1', 'free');
+    await ending.read();
+    expect((await ending.read()).sheet, ProPlanSheet.none);
+  });
+
   test('free to paid clears a pending ended sheet', () async {
     await ending.read();
     identity = account('acc_1', 'free');
     await ending.read();
     identity = account('acc_1', 'hosted');
     expect((await ending.read()).sheet, ProPlanSheet.none);
-    expect(prompts.proEndedDue, isFalse);
+    expect(prompts.proEndedDueFor, isNull);
   });
 
   test('a known expiry that passed asks the server again', () async {

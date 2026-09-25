@@ -27,9 +27,11 @@ void main() {
     await repo.setProPaidAccountId(null);
     expect(repo.getProPaidAccountId(), isNull);
 
-    expect(repo.isProEndedSheetDue(), isFalse);
-    await repo.setProEndedSheetDue(due: true);
-    expect(repo.isProEndedSheetDue(), isTrue);
+    expect(repo.getProEndedSheetDueFor(), isNull);
+    await repo.setProEndedSheetDueFor('acc_1');
+    expect(repo.getProEndedSheetDueFor(), 'acc_1');
+    await repo.setProEndedSheetDueFor(null);
+    expect(repo.getProEndedSheetDueFor(), isNull);
   });
 
   late SharedPrefsHomePromptRepository repository;

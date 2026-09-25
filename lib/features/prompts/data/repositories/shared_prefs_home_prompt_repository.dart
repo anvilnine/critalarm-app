@@ -152,7 +152,7 @@ class SharedPrefsHomePromptRepository implements HomePromptRepository {
   static const _proEndingLastDaysKey = 'home_prompt_pro_ending_last_days_for';
   static const _proKnownExpiryKey = 'home_prompt_pro_known_expiry';
   static const _proPaidAccountKey = 'home_prompt_pro_paid_account';
-  static const _proEndedDueKey = 'home_prompt_pro_ended_due';
+  static const _proEndedDueKey = 'home_prompt_pro_ended_due_for';
 
   @override
   String? getProEndingSheetShownFor() => _prefs.getString(_proEndingSheetKey);
@@ -191,9 +191,10 @@ class SharedPrefsHomePromptRepository implements HomePromptRepository {
       : _prefs.setString(_proPaidAccountKey, accountId);
 
   @override
-  bool isProEndedSheetDue() => _prefs.getBool(_proEndedDueKey) ?? false;
+  String? getProEndedSheetDueFor() => _prefs.getString(_proEndedDueKey);
 
   @override
-  Future<void> setProEndedSheetDue({required bool due}) =>
-      _prefs.setBool(_proEndedDueKey, due);
+  Future<void> setProEndedSheetDueFor(String? accountId) => accountId == null
+      ? _prefs.remove(_proEndedDueKey)
+      : _prefs.setString(_proEndedDueKey, accountId);
 }
