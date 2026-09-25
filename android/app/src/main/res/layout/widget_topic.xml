@@ -115,10 +115,14 @@
             android:textStyle="bold" />
     </LinearLayout>
 
+    <!-- Wraps its text and sits in the middle, so the lock a free account
+         sees (a top compound drawable) stays right above the words. -->
     <TextView
         android:id="@+id/topic_message"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:drawablePadding="6dp"
         android:gravity="center"
         android:textColor="@color/widget_ink_muted"
         android:textSize="14sp"
