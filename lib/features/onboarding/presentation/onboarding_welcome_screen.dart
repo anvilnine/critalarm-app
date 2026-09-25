@@ -221,9 +221,13 @@ class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
 
   @override
   Widget build(BuildContext context) => _NoIntrinsicSize(
-    child: AnimatedSwitcher(
-      duration: const Duration(milliseconds: 450),
-      child: KeyedSubtree(key: ValueKey(_variant), child: _heroFor(_variant)),
+    // The heroes are mock-ups of the app. Their fake topic names and times
+    // mean nothing read aloud; the title and text below say what they show.
+    child: ExcludeSemantics(
+      child: AnimatedSwitcher(
+        duration: context.motion(const Duration(milliseconds: 450)),
+        child: KeyedSubtree(key: ValueKey(_variant), child: _heroFor(_variant)),
+      ),
     ),
   );
 }
@@ -311,9 +315,14 @@ class _IntroLayout extends StatelessWidget {
                   ],
                   Expanded(
                     child: _NoIntrinsicSize(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 450),
-                        child: hero,
+                      // A mock-up; the words below carry the meaning.
+                      child: ExcludeSemantics(
+                        child: AnimatedSwitcher(
+                          duration: context.motion(
+                            const Duration(milliseconds: 450),
+                          ),
+                          child: hero,
+                        ),
                       ),
                     ),
                   ),

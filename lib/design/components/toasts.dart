@@ -53,7 +53,9 @@ class AppToast extends StatelessWidget {
     if (child != null) {
       content = child!;
     } else {
+      // RichText ignores the system text size unless told.
       content = RichText(
+        textScaler: MediaQuery.textScalerOf(context),
         text: TextSpan(
           style: TextStyle(
             fontFamily: AppTypography.fontBody,
@@ -82,26 +84,32 @@ class AppToast extends StatelessWidget {
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 18, 10),
-      decoration: BoxDecoration(
-        color: colors.panel,
-        borderRadius: Radii.fullAll,
-        boxShadow: AppShadows.lg,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FaceWidget(
-            state: resolvedFace,
-            size: 32,
-            overrideFillColor: colors.panel,
-            overrideStrokeColor: stroke,
-            overrideInkColor: colors.onPanel,
-          ),
-          const SizedBox(width: 12),
-          Flexible(child: content),
-        ],
+    // A live region, so VoiceOver and TalkBack speak the toast when it
+    // appears instead of leaving it for the user to find.
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 18, 10),
+        decoration: BoxDecoration(
+          color: colors.panel,
+          borderRadius: Radii.fullAll,
+          boxShadow: AppShadows.lg,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FaceWidget(
+              state: resolvedFace,
+              size: 32,
+              overrideFillColor: colors.panel,
+              overrideStrokeColor: stroke,
+              overrideInkColor: colors.onPanel,
+            ),
+            const SizedBox(width: 12),
+            Flexible(child: content),
+          ],
+        ),
       ),
     );
   }

@@ -15,7 +15,13 @@
     "save": "Save",
     "close": "Close",
     "back": "Back",
-    "not_now": "Not now"
+    "not_now": "Not now",
+    "loading": "Loading",
+    "copy": "Copy",
+    "copied": "Copied",
+    "pinned": "Pinned",
+    "muted": "Muted",
+    "needs_attention": "Needs attention"
   },
   "onboarding_welcome": {
     "title": "Welcome to Crit Alarm",
@@ -296,6 +302,7 @@
     "load_failed": "Could not reach your server.",
     "retry_button": "Try again",
     "filter_aria_label": "Filter history",
+    "filter_active_aria_label": "Filter history. A filter is on.",
     "summary": {
       "one": "1 alarm in 30 days. Longest ring {longest}.",
       "other": "{} alarms in 30 days. Longest ring {longest}."
@@ -632,6 +639,16 @@
     "alarms_row_subtitle": "Sound",
     "server_row_title": "Server",
     "server_row_subtitle": "Which server pages this phone",
+    "appearance_row_title": "Appearance",
+    "appearance_row_subtitle": "Theme, motion and haptics",
+    "appearance_header": "Appearance",
+    "appearance_theme_header": "Theme",
+    "appearance_motion_header": "Motion and touch",
+    "reduce_motion_title": "Reduce motion",
+    "reduce_motion_subtitle": "Cut animations instead of playing them.",
+    "reduce_motion_system_subtitle": "On in your device settings.",
+    "haptics_title": "Haptics",
+    "haptics_subtitle": "A tap you can feel when you confirm something. Alarm vibration is not affected.",
     "privacy_row_title": "Privacy",
     "privacy_row_subtitle": "Analytics and crash reports",
     "about_row_title": "About",
@@ -759,6 +776,8 @@
   },
   "storage_errors": {
     "save_theme_preference": "Could not save theme preference",
+    "save_reduce_motion_preference": "Could not save the reduce motion setting",
+    "save_haptics_preference": "Could not save the haptics setting",
     "save_analytics_preference": "Could not save analytics preference",
     "save_crash_reporting_preference": "Could not save crash reporting preference",
     "save_recent_searches": "Could not save recent searches",

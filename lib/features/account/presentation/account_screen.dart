@@ -600,8 +600,11 @@ List<Widget> buildLegalFooterSpans(
 
   Widget link(String label, String url, VoidCallback onTap) {
     return Semantics(
-      label: '$label: $url',
-      button: true,
+      // A link, read once by its name. The raw URL is noise to a listener.
+      link: true,
+      linkUrl: Uri.tryParse(url),
+      label: label,
+      excludeSemantics: true,
       child: GestureDetector(
         onTap: onTap,
         child: Text(label, style: linkStyle),

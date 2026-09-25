@@ -1,3 +1,4 @@
+import 'package:critalarm/design_system/motion.dart';
 import 'package:critalarm/features/permissions/presentation/widgets/setup_health_banner.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
@@ -37,11 +38,11 @@ class HomePromptSlot extends StatelessWidget {
         }
 
         return AnimatedSize(
-          duration: const Duration(milliseconds: 350),
+          duration: context.motion(const Duration(milliseconds: 350)),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 350),
+            duration: context.motion(const Duration(milliseconds: 350)),
             switchInCurve: Curves.easeOutBack,
             switchOutCurve: Curves.easeIn,
             transitionBuilder: (child, animation) {

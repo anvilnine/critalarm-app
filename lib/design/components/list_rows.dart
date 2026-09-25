@@ -7,6 +7,7 @@ import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/design_system/motion.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -116,157 +117,178 @@ class _AppListRowState extends State<AppListRow> {
     final translateY = (_isHovered && !widget.isQuiet) ? -1.0 : 0.0;
     final scale = _isPressed ? 0.98 : 1.0;
 
-    final row = MouseRegion(
-      cursor: widget.onTap != null
-          ? SystemMouseCursors.click
-          : SystemMouseCursors.basic,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
-        onTap: widget.onTap,
-        child: AnimatedSlide(
-          duration: AppDurations.quick,
-          curve: AppCurves.easeSpring,
-          offset: Offset(0, translateY / 40.0),
-          child: AnimatedScale(
-            duration: AppDurations.quick,
+    final duration = context.motion(AppDurations.quick);
+
+    // Says the row is a button (and selected when it is). Not a container
+    // of its own: the row's text and tap merge into the nearest node, so a
+    // caller's Semantics wrapper (Home's swipe actions) stays on the same
+    // node VoiceOver focuses.
+    // The pin and crossed-bell glyphs are pictures only, so their meaning
+    // goes on the row as its value.
+    final states = [
+      if (widget.isPinned) LocaleKeys.common_pinned.tr(),
+      if (widget.isMuted) LocaleKeys.common_muted.tr(),
+    ];
+
+    final row = Semantics(
+      button: widget.onTap != null,
+      selected: widget.isSelected,
+      value: states.isEmpty ? null : states.join(', '),
+      child: MouseRegion(
+        cursor: widget.onTap != null
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _isPressed = true),
+          onTapUp: (_) => setState(() => _isPressed = false),
+          onTapCancel: () => setState(() => _isPressed = false),
+          onTap: widget.onTap,
+          child: AnimatedSlide(
+            duration: duration,
             curve: AppCurves.easeSpring,
-            scale: scale,
-            // easeOut, not easeSpring: the spring overshoots past 1, and a
-            // shadow animating to none then gets a negative blur.
-            child: AnimatedContainer(
-              duration: AppDurations.quick,
-              curve: AppCurves.easeOut,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: Radii.mdAll,
-                boxShadow: shadows,
-                border: widget.isSelected
-                    ? Border.all(color: colors.highlight, width: 2.5)
-                    : null,
-              ),
-              child: Row(
-                children: [
-                  if (widget.faceState != null) ...[
-                    FaceWidget(
-                      state: widget.faceState!,
-                      size: 40,
-                      overrideFillColor: faceFill,
-                      overrideStrokeColor: faceStroke,
-                      overrideInkColor: faceInk,
-                    ),
-                    const SizedBox(width: 14),
-                  ],
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                widget.name,
-                                style: TextStyle(
-                                  fontFamily: AppTypography.fontMono,
-                                  fontFamilyFallback:
-                                      AppTypography.fontMonoFallbacks,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15,
-                                  color: nameColor,
+            offset: Offset(0, translateY / 40.0),
+            child: AnimatedScale(
+              duration: duration,
+              curve: AppCurves.easeSpring,
+              scale: scale,
+              // easeOut, not easeSpring: the spring overshoots past 1, and a
+              // shadow animating to none then gets a negative blur.
+              child: AnimatedContainer(
+                duration: duration,
+                curve: AppCurves.easeOut,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: Radii.mdAll,
+                  boxShadow: shadows,
+                  border: widget.isSelected
+                      ? Border.all(color: colors.highlight, width: 2.5)
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    if (widget.faceState != null) ...[
+                      FaceWidget(
+                        state: widget.faceState!,
+                        size: 40,
+                        overrideFillColor: faceFill,
+                        overrideStrokeColor: faceStroke,
+                        overrideInkColor: faceInk,
+                      ),
+                      const SizedBox(width: 14),
+                    ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  widget.name,
+                                  style: TextStyle(
+                                    fontFamily: AppTypography.fontMono,
+                                    fontFamilyFallback:
+                                        AppTypography.fontMonoFallbacks,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                    color: nameColor,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
+                              if (widget.isPinned) ...[
+                                const SizedBox(width: 6),
+                                AppGlyph(
+                                  GlyphType.pin,
+                                  size: 13,
+                                  strokeWidth: 2.4,
+                                  color: metaColor,
+                                ),
+                              ],
+                              if (widget.isMuted) ...[
+                                const SizedBox(width: 6),
+                                AppGlyph(
+                                  GlyphType.bellOff,
+                                  size: 13,
+                                  strokeWidth: 2.4,
+                                  color: metaColor,
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (widget.preview != null &&
+                              widget.preview!.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.preview!,
+                              style: TextStyle(
+                                fontFamily: AppTypography.fontBody,
+                                fontFamilyFallback:
+                                    AppTypography.fontBodyFallbacks,
+                                fontSize: 13,
+                                fontWeight: widget.unreadCount > 0
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: nameColor,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            if (widget.isPinned) ...[
-                              const SizedBox(width: 6),
-                              AppGlyph(
-                                GlyphType.pin,
-                                size: 13,
-                                strokeWidth: 2.4,
-                                color: metaColor,
-                              ),
-                            ],
-                            if (widget.isMuted) ...[
-                              const SizedBox(width: 6),
-                              AppGlyph(
-                                GlyphType.bellOff,
-                                size: 13,
-                                strokeWidth: 2.4,
-                                color: metaColor,
-                              ),
-                            ],
                           ],
-                        ),
-                        if (widget.preview != null &&
-                            widget.preview!.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            widget.preview!,
-                            style: TextStyle(
-                              fontFamily: AppTypography.fontBody,
-                              fontFamilyFallback:
-                                  AppTypography.fontBodyFallbacks,
-                              fontSize: 13,
-                              fontWeight: widget.unreadCount > 0
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: nameColor,
+                          // An empty meta leaves no blank line under the name.
+                          if (widget.meta.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.meta,
+                              style: TextStyle(
+                                fontFamily: AppTypography.fontBody,
+                                fontFamilyFallback:
+                                    AppTypography.fontBodyFallbacks,
+                                fontSize: 12,
+                                color: metaColor,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          ],
                         ],
-                        // An empty meta leaves no blank line under the name.
-                        if (widget.meta.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            widget.meta,
-                            style: TextStyle(
-                              fontFamily: AppTypography.fontBody,
-                              fontFamilyFallback:
-                                  AppTypography.fontBodyFallbacks,
-                              fontSize: 12,
-                              color: metaColor,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (widget.unreadCount > 0) ...[
-                    const SizedBox(width: 8),
-                    _UnreadPill(count: widget.unreadCount),
-                  ],
-                  if (widget.trailing != null) ...[
-                    const SizedBox(width: 8),
-                    Flexible(
-                      flex: 0,
-                      child: widget.trailing!,
-                    ),
-                  ],
-                  if (widget.timeText != null) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      widget.timeText!,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontMono,
-                        fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                        fontSize: 12,
-                        color: metaColor,
                       ),
                     ),
+                    if (widget.unreadCount > 0) ...[
+                      const SizedBox(width: 8),
+                      _UnreadPill(count: widget.unreadCount),
+                    ],
+                    if (widget.trailing != null) ...[
+                      const SizedBox(width: 8),
+                      Flexible(
+                        flex: 0,
+                        child: widget.trailing!,
+                      ),
+                    ],
+                    if (widget.timeText != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        widget.timeText!,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontMono,
+                          fontFamilyFallback: AppTypography.fontMonoFallbacks,
+                          fontSize: 12,
+                          color: metaColor,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -277,7 +299,7 @@ class _AppListRowState extends State<AppListRow> {
     // Muted is a choice about this list, not a state of the topic, so the row
     // fades rather than changing colour.
     return AnimatedOpacity(
-      duration: AppDurations.quick,
+      duration: duration,
       opacity: widget.isMuted ? 0.55 : 1,
       child: row,
     );
@@ -295,8 +317,8 @@ class _UnreadPill extends StatelessWidget {
     final colors = context.appColors;
 
     return Container(
-      constraints: const BoxConstraints(minWidth: 22),
-      height: 22,
+      // A minimum, not a fixed height, so the count grows with Dynamic Type.
+      constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
       padding: const EdgeInsets.symmetric(horizontal: 7),
       alignment: Alignment.center,
       decoration: BoxDecoration(

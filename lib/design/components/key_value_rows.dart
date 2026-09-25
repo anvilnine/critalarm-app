@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -111,27 +113,32 @@ class _AppKeyValueRowState extends State<AppKeyValueRow> {
             const SizedBox(width: 8),
             Flexible(
               flex: 0,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: _copyValue,
-                  child: Container(
-                    height: 30,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      borderRadius: Radii.fullAll,
-                      border: Border.all(color: colors.hairline, width: 1.5),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      _copied ? 'Copied' : 'Copy',
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontBody,
-                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: colors.ink,
+              child: Semantics(
+                button: true,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: _copyValue,
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 30),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: Radii.fullAll,
+                        border: Border.all(color: colors.hairline, width: 1.5),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _copied
+                            ? LocaleKeys.common_copied.tr()
+                            : LocaleKeys.common_copy.tr(),
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colors.ink,
+                        ),
                       ),
                     ),
                   ),

@@ -47,30 +47,33 @@ class _CopyButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
-    return GestureDetector(
-      onTap: () async {
-        AppHaptics.selection();
-        await Clipboard.setData(ClipboardData(text: value));
-        if (!context.mounted) return;
-        onCopied(LocaleKeys.create_topic_copied_toast.tr());
-      },
-      child: Container(
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: Radii.fullAll,
-          border: Border.all(color: colors.hairline, width: 1.5),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          LocaleKeys.create_topic_copy_button.tr(),
-          style: TextStyle(
-            fontFamily: AppTypography.fontBody,
-            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: colors.ink,
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        onTap: () async {
+          AppHaptics.selection();
+          await Clipboard.setData(ClipboardData(text: value));
+          if (!context.mounted) return;
+          onCopied(LocaleKeys.create_topic_copied_toast.tr());
+        },
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 30),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: Radii.fullAll,
+            border: Border.all(color: colors.hairline, width: 1.5),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            LocaleKeys.create_topic_copy_button.tr(),
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontFamilyFallback: AppTypography.fontBodyFallbacks,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: colors.ink,
+            ),
           ),
         ),
       ),
@@ -89,28 +92,31 @@ class _ShareButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
-    return GestureDetector(
-      onTap: () {
-        AppHaptics.selection();
-        unawaited(SharePlus.instance.share(ShareParams(text: value)));
-      },
-      child: Container(
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: Radii.fullAll,
-          border: Border.all(color: colors.hairline, width: 1.5),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          LocaleKeys.create_topic_share_button.tr(),
-          style: TextStyle(
-            fontFamily: AppTypography.fontBody,
-            fontFamilyFallback: AppTypography.fontBodyFallbacks,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: colors.ink,
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        onTap: () {
+          AppHaptics.selection();
+          unawaited(SharePlus.instance.share(ShareParams(text: value)));
+        },
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 30),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: Radii.fullAll,
+            border: Border.all(color: colors.hairline, width: 1.5),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            LocaleKeys.create_topic_share_button.tr(),
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontFamilyFallback: AppTypography.fontBodyFallbacks,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: colors.ink,
+            ),
           ),
         ),
       ),

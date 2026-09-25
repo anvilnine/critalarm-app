@@ -330,7 +330,7 @@ class _AppShellContentState extends State<_AppShellContent>
               _rail(items, size, padding, hideTabBar)
             else
               AnimatedPositioned(
-                duration: AppDurations.slow,
+                duration: context.motion(AppDurations.slow),
                 curve: AppCurves.easeOut,
                 left: 0,
                 right: 0,
@@ -339,7 +339,7 @@ class _AppShellContentState extends State<_AppShellContent>
                   child: IgnorePointer(
                     ignoring: hideTabBar,
                     child: AnimatedOpacity(
-                      duration: AppDurations.slow,
+                      duration: context.motion(AppDurations.slow),
                       curve: AppCurves.easeOut,
                       opacity: hideTabBar ? 0.0 : 1.0,
                       child: _bar(items, size, width),
@@ -367,7 +367,7 @@ class _AppShellContentState extends State<_AppShellContent>
     final offset = hide ? -(AppNavRail.width + inset + 20) : inset;
 
     return AnimatedPositioned(
-      duration: AppDurations.slow,
+      duration: context.motion(AppDurations.slow),
       curve: AppCurves.easeOut,
       left: onRight ? null : offset,
       right: onRight ? offset : null,
@@ -377,7 +377,7 @@ class _AppShellContentState extends State<_AppShellContent>
         child: IgnorePointer(
           ignoring: hide,
           child: AnimatedOpacity(
-            duration: AppDurations.slow,
+            duration: context.motion(AppDurations.slow),
             curve: AppCurves.easeOut,
             opacity: hide ? 0.0 : 1.0,
             child: AppNavRail(

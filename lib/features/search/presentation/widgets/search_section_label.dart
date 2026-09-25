@@ -20,8 +20,9 @@ class SearchSectionLabel extends StatelessWidget {
     final colors = context.appColors;
     final label = action;
 
-    return SizedBox(
-      height: height,
+    return ConstrainedBox(
+      // A minimum, so the row grows with Dynamic Type instead of clipping.
+      constraints: const BoxConstraints(minHeight: height),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(Spacing.s4, 0, Spacing.s4, 0),
         child: Row(

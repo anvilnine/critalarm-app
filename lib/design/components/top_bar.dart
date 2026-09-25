@@ -49,17 +49,21 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
             Expanded(
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text(
-                  title!,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontDisplay,
-                    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
-                    letterSpacing: -0.02 * 18,
-                    color: colors.onCanvas,
+                // A heading, so VoiceOver's headings rotor can jump to it.
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    title!,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontDisplay,
+                      fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                      letterSpacing: -0.02 * 18,
+                      color: colors.onCanvas,
+                    ),
                   ),
                 ),
               ),

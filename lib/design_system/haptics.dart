@@ -18,9 +18,15 @@ import 'package:flutter/services.dart';
 /// A0 maps these onto Crit Alarm's own moments. The alarm screen and the two
 /// acknowledge stages are the ones that matter here.
 abstract final class AppHaptics {
+  /// The user's Haptics switch in Settings → Appearance. AppearanceCubit
+  /// keeps this in step with the saved choice; nothing else should set it.
+  /// It only covers these taps and confirmations, never the alarm's own
+  /// vibration.
+  static bool userEnabled = true;
+
   /// Guard even though [HapticFeedback] already no-ops on web — keeps the
   /// platform channel untouched off-device.
-  static bool get _enabled => !kIsWeb;
+  static bool get _enabled => !kIsWeb && userEnabled;
 
   /// A deliberate, solid press. For the actions the user means to take.
   static void capture() {

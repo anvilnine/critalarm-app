@@ -5,6 +5,9 @@ import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/design_system/motion.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -54,8 +57,15 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Padding(
-              padding: const EdgeInsets.only(right: 80, top: 4),
+              // Room for the Copy pill, which grows with the text size.
+              padding: EdgeInsets.only(
+                right: MediaQuery.textScalerOf(context).scale(80),
+                top: 4,
+              ),
+              // RichText ignores the system text size unless told, so the
+              // code stayed small under Dynamic Type.
               child: RichText(
+                textScaler: MediaQuery.textScalerOf(context),
                 text: _buildSyntaxHighlightedSpan(widget.code, colors),
               ),
             ),
@@ -64,32 +74,37 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
           Positioned(
             top: 0,
             right: 0,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _copyHovered = true),
-              onExit: (_) => setState(() => _copyHovered = false),
-              child: GestureDetector(
-                onTap: _handleCopy,
-                child: AnimatedContainer(
-                  duration: AppDurations.quick,
-                  height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: _copyHovered
-                        ? colors.panelHover
-                        : Colors.transparent,
-                    borderRadius: Radii.fullAll,
-                    border: Border.all(color: colors.panelLine, width: 1.5),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _copied ? 'Copied' : 'Copy',
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: colors.onPanel,
+            child: Semantics(
+              button: true,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                onEnter: (_) => setState(() => _copyHovered = true),
+                onExit: (_) => setState(() => _copyHovered = false),
+                child: GestureDetector(
+                  onTap: _handleCopy,
+                  child: AnimatedContainer(
+                    duration: context.motion(AppDurations.quick),
+                    constraints: const BoxConstraints(minHeight: 32),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: _copyHovered
+                          ? colors.panelHover
+                          : Colors.transparent,
+                      borderRadius: Radii.fullAll,
+                      border: Border.all(color: colors.panelLine, width: 1.5),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _copied
+                          ? LocaleKeys.common_copied.tr()
+                          : LocaleKeys.common_copy.tr(),
+                      style: TextStyle(
+                        fontFamily: AppTypography.fontBody,
+                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colors.onPanel,
+                      ),
                     ),
                   ),
                 ),
