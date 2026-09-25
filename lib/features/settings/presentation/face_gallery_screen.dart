@@ -78,6 +78,10 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
   ];
 
   FaceState _selectedFace = FaceState.laughing;
+
+  /// Set when a ringing face is picked, which the hero then shows instead
+  /// of [_selectedFace].
+  RingingStyle? _selectedRinging;
   FacePaletteMode _paletteMode = FacePaletteMode.screenshot;
   bool _isLive = true;
   double _customTiltDegrees = 0;
@@ -261,50 +265,51 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
           _groupHeader(group, colors),
           _groupGrid(group, colors),
         ],
+        _ringingHeader(colors),
+        _ringingGrid(colors),
       ],
     );
   }
 
-  Widget _groupHeader(_FaceGroup group, AppColors colors) =>
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Row(
-            children: [
-              Text(
-                group.title,
-                style: TextStyle(
-                  fontFamily: AppTypography.fontBody,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
-                  color: colors.ink3,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.hairline,
-                  borderRadius: Radii.smAll,
-                ),
-                child: Text(
-                  '${group.faces.length} faces',
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: colors.ink2,
-                  ),
-                ),
-              ),
-            ],
+  Widget _groupHeader(_FaceGroup group, AppColors colors) => SliverToBoxAdapter(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Row(
+        children: [
+          Text(
+            group.title,
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+              color: colors.ink3,
+            ),
           ),
-        ),
-      );
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 6,
+              vertical: 2,
+            ),
+            decoration: BoxDecoration(
+              color: colors.hairline,
+              borderRadius: Radii.smAll,
+            ),
+            child: Text(
+              '${group.faces.length} faces',
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: colors.ink2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _groupGrid(_FaceGroup group, AppColors colors) => SliverPadding(
     padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
@@ -321,7 +326,11 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
           delegate: SliverChildBuilderDelegate(
             (context, index) {
               final face = group.faces[index];
-              return _buildFaceCard(face, face == _selectedFace, colors);
+              return _buildFaceCard(
+                face,
+                _selectedRinging == null && face == _selectedFace,
+                colors,
+              );
             },
             childCount: group.faces.length,
           ),
@@ -330,7 +339,93 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
     ),
   );
 
+  Widget _ringingHeader(AppColors colors) => SliverToBoxAdapter(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+      child: Row(
+        children: [
+          Text(
+            'RINGING',
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+              color: colors.ink3,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: colors.hairline,
+              borderRadius: Radii.smAll,
+            ),
+            child: Text(
+              '${RingingStyle.values.length} faces',
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: colors.ink2,
+              ),
+            ),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: () => context.push('/settings/developer/ringing-faces'),
+            child: Text(
+              'Open lab',
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: colors.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _ringingGrid(AppColors colors) => SliverPadding(
+    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+    sliver: SliverLayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.crossAxisExtent > 540 ? 4 : 2;
+        return SliverGrid(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.88,
+          ),
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final style = RingingStyle.values[index];
+              return _buildCard(
+                isSelected: style == _selectedRinging,
+                label: style.label,
+                colors: colors,
+                onTap: () => setState(() => _selectedRinging = style),
+                face: RingingFaceWidget(
+                  style: style,
+                  size: 88,
+                  isLive: _isLive,
+                ),
+              );
+            },
+            childCount: RingingStyle.values.length,
+          ),
+        );
+      },
+    ),
+  );
+
   Widget _buildHeroStage(AppColors colors) {
+    final ringing = _selectedRinging;
+    if (ringing != null) return _buildRingingHero(ringing, colors);
     final tilt = _getEffectiveTilt(_selectedFace);
     final fill = _resolveFillColor(_selectedFace, colors);
     final stroke = _resolveStrokeColor(_selectedFace, colors);
@@ -394,6 +489,68 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
     );
   }
 
+  Widget _buildRingingHero(RingingStyle style, AppColors colors) {
+    // The palette modes pick a head colour per expression; a ringing face is
+    // always the alarm, so only the screenshot mode keeps its own yellow.
+    final fill = _paletteMode == FacePaletteMode.severity
+        ? colors.critCanvas
+        : null;
+    return AppSheet(
+      child: Column(
+        children: [
+          Center(
+            child: RingingFaceWidget(
+              style: style,
+              size: _previewSize * 1.6,
+              isLive: _isLive,
+              fillColor: fill,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            style.label,
+            style: TextStyle(
+              fontFamily: AppTypography.fontDisplay,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: colors.ink,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            style.description,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontSize: 13,
+              color: colors.ink2,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: colors.cream,
+              borderRadius: Radii.smAll,
+            ),
+            child: SelectableText(
+              'RingingFaceWidget(style: RingingStyle.${style.name})',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11,
+                color: colors.ink,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFaceCard(
     FaceState face,
     bool isSelected,
@@ -403,15 +560,40 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
     final fill = _resolveFillColor(face, colors);
     final stroke = _resolveStrokeColor(face, colors);
 
+    return _buildCard(
+      isSelected: isSelected,
+      label: face.label,
+      colors: colors,
+      onTap: () => setState(() {
+        _selectedFace = face;
+        _selectedRinging = null;
+        if (_useNaturalTilt) {
+          _customTiltDegrees = face.defaultTilt * 180 / math.pi;
+        }
+      }),
+      face: FaceWidget(
+        state: face,
+        size: 68,
+        isLive: _isLive,
+        tiltAngle: tilt,
+        overrideFillColor: fill,
+        overrideStrokeColor: stroke,
+      ),
+    );
+  }
+
+  /// One tappable card in a grid: a face over its name.
+  Widget _buildCard({
+    required bool isSelected,
+    required String label,
+    required AppColors colors,
+    required VoidCallback onTap,
+    required Widget face,
+  }) {
     return InkWell(
       onTap: () {
         AppHaptics.selection();
-        setState(() {
-          _selectedFace = face;
-          if (_useNaturalTilt) {
-            _customTiltDegrees = face.defaultTilt * 180 / math.pi;
-          }
-        });
+        onTap();
       },
       borderRadius: Radii.mdAll,
       child: AnimatedContainer(
@@ -429,21 +611,10 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(
-              child: Center(
-                child: FaceWidget(
-                  state: face,
-                  size: 68,
-                  isLive: _isLive,
-                  tiltAngle: tilt,
-                  overrideFillColor: fill,
-                  overrideStrokeColor: stroke,
-                ),
-              ),
-            ),
+            Expanded(child: Center(child: face)),
             const SizedBox(height: 6),
             Text(
-              face.label,
+              label,
               style: TextStyle(
                 fontFamily: AppTypography.fontBody,
                 fontSize: 13,

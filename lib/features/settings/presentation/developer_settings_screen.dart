@@ -91,6 +91,21 @@ class DeveloperSettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   AppListRow(
+                    name: LocaleKeys.settings_developer_ringing_faces_title
+                        .tr(),
+                    meta: LocaleKeys.settings_developer_ringing_faces_subtitle
+                        .tr(),
+                    faceState: null,
+                    trailing: AppGlyph(
+                      GlyphType.arrow,
+                      color: context.appColors.ink3,
+                      size: 16,
+                    ),
+                    onTap: () =>
+                        context.push('/settings/developer/ringing-faces'),
+                  ),
+                  const SizedBox(height: 8),
+                  AppListRow(
                     name: LocaleKeys.settings_developer_welcome_title.tr(),
                     meta: LocaleKeys.settings_developer_welcome_subtitle.tr(),
                     faceState: null,
