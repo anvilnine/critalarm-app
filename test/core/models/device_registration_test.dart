@@ -1,7 +1,22 @@
+import 'dart:io';
+
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('AccountCaps.free matches the free column in docs/api.md', () {
+    final api = File('docs/api.md').readAsStringSync();
+    int free(String cap) => int.parse(
+      RegExp(
+        '^\\| `$cap` \\| (\\d+) \\|',
+        multiLine: true,
+      ).firstMatch(api)!.group(1)!,
+    );
+    expect(AccountCaps.free.criticalTopics, free('critical_topics'));
+    expect(AccountCaps.free.p4Daily, free('p4_daily'));
+    expect(AccountCaps.free.historyDays, free('history_days'));
+  });
+
   group('AccountCaps', () {
     // The `free` column of the cap table in docs/api.md §4.2.
     test('defaults match the contract cap table', () {
