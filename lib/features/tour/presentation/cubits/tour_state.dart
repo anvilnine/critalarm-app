@@ -5,11 +5,11 @@ enum TourStatus {
   /// Nothing on screen.
   idle,
 
-  /// Someone asked for the tour. The host picks it up, works out which topic
+  /// Someone asked for a guide. The host picks it up, works out which topic
   /// to show, and starts it.
   requested,
 
-  /// The tour is on screen.
+  /// A guide is on screen.
   running,
 }
 
@@ -17,12 +17,18 @@ enum TourStatus {
 class TourState {
   const TourState({
     this.status = TourStatus.idle,
+    this.guide,
     this.stepIndex = 0,
     this.topicName = '',
     this.usingExamples = false,
   });
 
   final TourStatus status;
+
+  /// The guide asked for or playing. Null while idle, and also for the full
+  /// replay from Settings, which plays every guide back to back.
+  final TourGuide? guide;
+
   final int stepIndex;
 
   /// The topic the topic steps open.
@@ -34,10 +40,27 @@ class TourState {
 
   bool get isRunning => status == TourStatus.running;
 
-  TourStep get step => tourSteps[stepIndex];
+  /// True from the moment a guide is asked for until it is gone. Sheets,
+  /// asks and reminders wait for this to go false.
+  bool get isActive => status != TourStatus.idle;
+
+  /// True for the full replay, which moves between screens on its own. A
+  /// single guide stays on the screen it was asked for on.
+  bool get isFullReplay => isActive && guide == null;
+
+  /// The steps being played.
+  List<TourStep> get steps => tourStepsFor(guide);
+
+  TourStep get step => steps[stepIndex];
 
   bool get isFirstStep => stepIndex == 0;
-  bool get isLastStep => stepIndex == tourSteps.length - 1;
+  bool get isLastStep => stepIndex == steps.length - 1;
+
+  /// True while the Topics list should carry the example topics: during the
+  /// home guide and the full replay, not while another screen's guide plays
+  /// over it.
+  bool get showsHomeExamples =>
+      isRunning && (guide == null || guide == TourGuide.home);
 
   /// True when [name] is the example topic the tour made up, so the topic
   /// screen draws it from the example rather than asking the server for it.
@@ -52,6 +75,7 @@ class TourState {
   }) {
     return TourState(
       status: status ?? this.status,
+      guide: guide,
       stepIndex: stepIndex ?? this.stepIndex,
       topicName: topicName ?? this.topicName,
       usingExamples: usingExamples ?? this.usingExamples,
@@ -63,10 +87,12 @@ class TourState {
       identical(this, other) ||
       other is TourState &&
           status == other.status &&
+          guide == other.guide &&
           stepIndex == other.stepIndex &&
           topicName == other.topicName &&
           usingExamples == other.usingExamples;
 
   @override
-  int get hashCode => Object.hash(status, stepIndex, topicName, usingExamples);
+  int get hashCode =>
+      Object.hash(status, guide, stepIndex, topicName, usingExamples);
 }

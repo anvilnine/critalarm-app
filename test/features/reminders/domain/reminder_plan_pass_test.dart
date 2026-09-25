@@ -82,12 +82,14 @@ void main() {
   ReminderPlanPass pass(
     Future<ReminderInputs?> Function() readInputs, {
     bool isWeb = false,
+    Future<bool> Function()? isPaused,
   }) => ReminderPlanPass(
     store: store,
     scheduler: scheduler,
     settler: ReminderSettler(store: store, prompts: prompts),
     readInputs: readInputs,
     copy: const ReminderCopy(isIos: true),
+    isPaused: isPaused,
     isWeb: isWeb,
     clock: () => clock,
   );
@@ -298,6 +300,49 @@ void main() {
   test('does nothing on web', () async {
     await pass(() async => drillInputs(), isWeb: true).run();
     expect(scheduler.scheduled, isEmpty);
+  });
+
+  group('paused during onboarding or a guide', () {
+    test('plans, schedules and reads nothing', () async {
+      var reads = 0;
+      await pass(() async {
+        reads++;
+        return drillInputs();
+      }, isPaused: () async => true).run();
+      expect(reads, 0);
+      expect(scheduler.scheduleCalls, isEmpty);
+      expect(store.readPlanned(), isEmpty);
+    });
+
+    test('leaves what was already planned alone', () async {
+      await pass(() async => drillInputs()).run();
+      scheduler.cancelled.clear();
+      await pass(
+        () async => drillInputs(switches: ReminderSwitches.allOff),
+        isPaused: () async => true,
+      ).run();
+      expect(scheduler.cancelled, isEmpty);
+      expect(scheduler.scheduled.keys, [ReminderIds.drill]);
+      expect(store.readPlanned().single.id, ReminderIds.drill);
+    });
+
+    test('the first pass after the pause plans as usual', () async {
+      var paused = true;
+      final p = pass(() async => drillInputs(), isPaused: () async => paused);
+      await p.run();
+      expect(scheduler.scheduled, isEmpty);
+      paused = false;
+      await p.run();
+      expect(scheduler.scheduled.keys, [ReminderIds.drill]);
+    });
+
+    test('a pause that cannot be read does not stop planning', () async {
+      await pass(
+        () async => drillInputs(),
+        isPaused: () async => throw StateError('prefs gone'),
+      ).run();
+      expect(scheduler.scheduled.keys, [ReminderIds.drill]);
+    });
   });
 
   test('a run asked for during a run happens once, after it', () async {

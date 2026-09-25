@@ -1,4 +1,5 @@
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/design_system/edge_effect.dart';
 import 'package:critalarm/design_system/widgets/progressive_blur.dart';
 import 'package:flutter/material.dart';
 
@@ -60,14 +61,20 @@ class AppScrollFade extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return IgnorePointer(
-      child: SizedBox(
-        height: height,
-        width: double.infinity,
-        child: DecoratedBox(
-          decoration: BoxDecoration(gradient: _fadeRamp(base, edge)),
-        ),
-      ),
+    // The none edge effect turns the fades off with the blur.
+    return ValueListenableBuilder<EdgeEffect>(
+      valueListenable: appEdgeEffect,
+      builder: (context, effect, _) => effect.fades
+          ? IgnorePointer(
+              child: SizedBox(
+                height: height,
+                width: double.infinity,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(gradient: _fadeRamp(base, edge)),
+                ),
+              ),
+            )
+          : const SizedBox.shrink(),
     );
   }
 }
@@ -108,10 +115,15 @@ class AppScrollScrim extends StatelessWidget {
             // layers of different strength each leave a line where they
             // stop, and that line showed across the list.
             ProgressiveBlurEdge(height: height, isTop: false),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: _fadeRamp(tint, ScrollFadeEdge.bottom),
-              ),
+            ValueListenableBuilder<EdgeEffect>(
+              valueListenable: appEdgeEffect,
+              builder: (context, effect, _) => effect.fades
+                  ? DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: _fadeRamp(tint, ScrollFadeEdge.bottom),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
           ],
         ),
