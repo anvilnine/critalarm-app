@@ -14,9 +14,10 @@ import 'package:go_router/go_router.dart';
 
 part 'onboarding_intro_steps.dart';
 part 'onboarding_welcome_stories.dart';
+part 'onboarding_welcome_variants.dart';
 
-/// The welcome animations. The first five are only faces, the rest show how
-/// Crit Alarm works.
+/// The welcome animations. The first five are only faces, the next seven
+/// show how Crit Alarm works, and the last three are faces again.
 enum WelcomeVariant {
   /// One big face asleep, wakes up, smiles.
   wakeUp,
@@ -27,7 +28,7 @@ enum WelcomeVariant {
   /// Small faces circle a big one.
   orbit,
 
-  /// A grid of faces lights up in a diagonal wave.
+  /// A grid of every face in every colour, flipping over in waves.
   ripple,
 
   /// A face peeks over a ledge, looks around, then pops up.
@@ -52,9 +53,18 @@ enum WelcomeVariant {
   widgets,
 
   /// A curl in a terminal makes an Android phone ring.
-  androidCurl;
+  androidCurl,
 
-  /// `?v=1` to `?v=12`. Anything else is the first one.
+  /// A face with what Crit Alarm does going round it.
+  featureOrbit,
+
+  /// The parade, but furious: they drop in, stomp and fume.
+  angryParade,
+
+  /// Ringing faces circling a big ringing face.
+  ringingOrbit;
+
+  /// `?v=1` to `?v=15`. Anything else is the first one.
   static WelcomeVariant fromQuery(String? value) {
     final index = (int.tryParse(value ?? '') ?? 1) - 1;
     return index >= 0 && index < values.length ? values[index] : wakeUp;
@@ -110,22 +120,15 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
     WelcomeVariant.pipeline ||
     WelcomeVariant.widgets ||
     WelcomeVariant.androidCurl => const Duration(milliseconds: 900),
+    WelcomeVariant.featureOrbit => const Duration(milliseconds: 1800),
+    WelcomeVariant.angryParade => const Duration(milliseconds: 1500),
+    WelcomeVariant.ringingOrbit => const Duration(milliseconds: 1200),
   };
 
   @override
   Widget build(BuildContext context) {
     return _IntroLayout(
-      top: widget.isPreview
-          ? AppSegmentedControl<WelcomeVariant>(
-              items: WelcomeVariant.values,
-              selectedItem: _variant,
-              labelBuilder: (v) => '${v.index + 1}',
-              onChanged: (v) => setState(() {
-                _variant = v;
-                _replays++;
-              }),
-            )
-          : null,
+      top: widget.isPreview ? _previewSwitch() : null,
       // On first launch the opening face hands over to more animations for
       // as long as the user stays.
       hero: _isPlaylist
@@ -153,6 +156,29 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
           : () => goToOnboardingStep(context, OnboardingStep.howItRings),
     );
   }
+
+  /// Every animation by number, in two rows so fifteen still fit a phone.
+  Widget _previewSwitch() {
+    const perRow = 8;
+    const all = WelcomeVariant.values;
+    Widget row(List<WelcomeVariant> items) =>
+        AppSegmentedControl<WelcomeVariant>(
+          items: items,
+          selectedItem: _variant,
+          labelBuilder: (v) => '${v.index + 1}',
+          onChanged: (v) => setState(() {
+            _variant = v;
+            _replays++;
+          }),
+        );
+    return Column(
+      children: [
+        row(all.sublist(0, perRow)),
+        const SizedBox(height: Spacing.s2),
+        row(all.sublist(perRow)),
+      ],
+    );
+  }
 }
 
 Widget _heroFor(WelcomeVariant variant) => switch (variant) {
@@ -168,6 +194,9 @@ Widget _heroFor(WelcomeVariant variant) => switch (variant) {
   WelcomeVariant.pipeline => const _PipelineHero(),
   WelcomeVariant.widgets => const _WidgetsHero(),
   WelcomeVariant.androidCurl => const _AndroidCurlHero(),
+  WelcomeVariant.featureOrbit => const _FeatureOrbitHero(),
+  WelcomeVariant.angryParade => const _AngryParadeHero(),
+  WelcomeVariant.ringingOrbit => const _RingingOrbitHero(),
 };
 
 /// Plays [first], then each of [loop] round and round, fading between them.
@@ -751,14 +780,15 @@ class _RippleHeroState extends _ClockState<_RippleHero> {
   @override
   double get restAt => 1.2;
 
-  static const List<FaceState> _reactions = [
-    FaceState.happy,
-    FaceState.love,
-    FaceState.cheeky,
-    FaceState.laughing,
-    FaceState.proud,
-    FaceState.surprised,
+  /// Every face there is, bar the blink, which is a moment rather than a
+  /// face.
+  static final List<FaceState> _all = [
+    for (final f in FaceState.values)
+      if (f != FaceState.blink) f,
   ];
+
+  static const double _firstWave = 1.2;
+  static const double _period = 3.2;
 
   @override
   Widget build(BuildContext context) {
@@ -784,7 +814,7 @@ class _RippleHeroState extends _ClockState<_RippleHero> {
                     children: [
                       for (var c = 0; c < cols; c++) ...[
                         if (c > 0) const SizedBox(width: gap),
-                        _cell(r, c, cols, size, t),
+                        _cell(r, c, rows, cols, size, t),
                       ],
                     ],
                   ),
@@ -796,30 +826,89 @@ class _RippleHeroState extends _ClockState<_RippleHero> {
     );
   }
 
-  Widget _cell(int r, int c, int cols, double size, double t) {
-    final d = r + c;
-    final pop = Curves.easeOutBack.transform(_window(t, d * 0.07, 0.5));
+  /// How far wave [k] has to travel to reach the cell: it sweeps down the
+  /// diagonal, then bursts out from the middle, then comes back from the
+  /// far corner, and round again.
+  static double _reach(int k, int r, int c, int rows, int cols) => switch (k %
+      3) {
+    0 => (r + c).toDouble(),
+    1 =>
+      math.sqrt(
+            math.pow(r - (rows - 1) / 2, 2) + math.pow(c - (cols - 1) / 2, 2),
+          ) *
+          1.6,
+    _ => ((rows - 1 - r) + (cols - 1 - c)).toDouble(),
+  };
 
-    // A diagonal wave: each face lights up with its own reaction, holds it,
-    // then settles back to calm.
-    final reaction = _reactions[(r * cols + c) % _reactions.length];
-    final local = (t - 1.2 - d * 0.16) % 4.2;
-    final FaceShape face;
-    var bump = 0.0;
-    if (t < 1.2 || local > 1.6) {
-      face = _withBlink(_shape(FaceState.calm), t, offset: d * 0.37);
-    } else if (local < 0.3) {
-      face = _blend(FaceState.calm, reaction, local / 0.3);
-      bump = math.sin(local / 0.3 * math.pi) * 0.14;
-    } else if (local < 1.2) {
-      face = _shape(reaction);
-    } else {
-      face = _blend(reaction, FaceState.calm, (local - 1.2) / 0.4);
+  Widget _cell(int r, int c, int rows, int cols, double size, double t) {
+    final cell = r * cols + c;
+    final pop = Curves.easeOutBack.transform(
+      _window(t, (r + c) * 0.07, 0.5),
+    );
+
+    // The latest wave to have reached this cell, and how long ago.
+    var wave = -1;
+    var local = 0.0;
+    if (t >= _firstWave) {
+      for (var k = ((t - _firstWave) / _period).floor(); k >= 0; k--) {
+        final arrived =
+            _firstWave + k * _period + _reach(k, r, c, rows, cols) * 0.16;
+        if (t >= arrived) {
+          wave = k;
+          local = t - arrived;
+          break;
+        }
+      }
     }
 
-    return Transform.scale(
-      scale: pop + bump,
-      child: _face(face, size),
+    // Each wave flips the face over like a card: a new colour on the back
+    // and a new face, which it holds, then settles back to calm. Two waves
+    // show every face there is.
+    final fillBefore =
+        _crowdFills[(cell + math.max<int>(wave, 0)) % _crowdFills.length];
+    final fillAfter = _crowdFills[(cell + wave + 1) % _crowdFills.length];
+    final reaction =
+        _all[(math.max<int>(wave, 0) * rows * cols + cell) % _all.length];
+
+    FaceShape face;
+    var flip = 0.0;
+    var bump = 0.0;
+    var fill = wave < 0 ? _crowdFills[cell % _crowdFills.length] : fillAfter;
+    if (wave < 0 || local > 1.7) {
+      face = _withBlink(_shape(FaceState.calm), t, offset: cell * 0.37);
+    } else if (local < 0.4) {
+      flip = local / 0.4;
+      final halfway = flip >= 0.5;
+      if (!halfway) fill = fillBefore;
+      face = halfway ? _shape(reaction) : _shape(FaceState.calm);
+      bump = math.sin(flip * math.pi) * 0.18;
+    } else if (local < 1.3) {
+      face = _shape(reaction);
+    } else {
+      face = _blend(reaction, FaceState.calm, (local - 1.3) / 0.4);
+    }
+
+    // Flip on the axis the wave is travelling along, so it reads as a
+    // wave rolling across.
+    final angle = math.sin(flip * math.pi) * math.pi / 2 * 0.98;
+    final transform = Matrix4.identity()..setEntry(3, 2, 0.002);
+    if (wave % 3 == 1) {
+      transform.rotateX(angle);
+    } else {
+      transform.rotateY(wave % 3 == 0 ? angle : -angle);
+    }
+    final hop = -math.sin(flip * math.pi) * size * 0.18;
+
+    return Transform.translate(
+      offset: Offset(0, hop),
+      child: Transform(
+        alignment: Alignment.center,
+        transform: transform,
+        child: Transform.scale(
+          scale: pop + bump,
+          child: _face(face, size, fill: fill),
+        ),
+      ),
     );
   }
 }
