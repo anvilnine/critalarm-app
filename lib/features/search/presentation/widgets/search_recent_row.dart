@@ -45,7 +45,7 @@ class SearchRecentRow extends StatelessWidget {
                     fontFamily: AppTypography.fontBody,
                     fontFamilyFallback: AppTypography.fontBodyFallbacks,
                     fontSize: 15,
-                    color: colors.onPanel,
+                    color: colors.ink,
                   ),
                 ),
               ),
@@ -53,7 +53,7 @@ class SearchRecentRow extends StatelessWidget {
               AppGlyph(
                 GlyphType.clock,
                 size: 15,
-                color: colors.onPanelMuted,
+                color: colors.ink3,
               ),
             ],
           ),

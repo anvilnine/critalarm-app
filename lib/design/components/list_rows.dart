@@ -1,3 +1,4 @@
+import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -6,6 +7,8 @@ import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// List row item for topics or incident history.
@@ -22,6 +25,10 @@ class AppListRow extends StatefulWidget {
     this.isQuiet = false,
     this.isSelected = false,
     this.onTap,
+    this.preview,
+    this.unreadCount = 0,
+    this.isPinned = false,
+    this.isMuted = false,
     super.key,
   });
 
@@ -42,6 +49,19 @@ class AppListRow extends StatefulWidget {
   final bool isSelected;
 
   final VoidCallback? onTap;
+
+  /// The newest message, one line, between the name and the meta line. Makes
+  /// a list of topics read like an inbox. Null leaves the line out.
+  final String? preview;
+
+  /// A count pill before the trailing chip. Zero draws nothing.
+  final int unreadCount;
+
+  /// A small pin after the name.
+  final bool isPinned;
+
+  /// Greys the row out and puts a crossed bell after the name.
+  final bool isMuted;
 
   @override
   State<AppListRow> createState() => _AppListRowState();
@@ -96,7 +116,7 @@ class _AppListRowState extends State<AppListRow> {
     final translateY = (_isHovered && !widget.isQuiet) ? -1.0 : 0.0;
     final scale = _isPressed ? 0.98 : 1.0;
 
-    return MouseRegion(
+    final row = MouseRegion(
       cursor: widget.onTap != null
           ? SystemMouseCursors.click
           : SystemMouseCursors.basic,
@@ -144,18 +164,62 @@ class _AppListRowState extends State<AppListRow> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          widget.name,
-                          style: TextStyle(
-                            fontFamily: AppTypography.fontMono,
-                            fontFamilyFallback: AppTypography.fontMonoFallbacks,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            color: nameColor,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                widget.name,
+                                style: TextStyle(
+                                  fontFamily: AppTypography.fontMono,
+                                  fontFamilyFallback:
+                                      AppTypography.fontMonoFallbacks,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                  color: nameColor,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (widget.isPinned) ...[
+                              const SizedBox(width: 6),
+                              AppGlyph(
+                                GlyphType.pin,
+                                size: 13,
+                                strokeWidth: 2.4,
+                                color: metaColor,
+                              ),
+                            ],
+                            if (widget.isMuted) ...[
+                              const SizedBox(width: 6),
+                              AppGlyph(
+                                GlyphType.bellOff,
+                                size: 13,
+                                strokeWidth: 2.4,
+                                color: metaColor,
+                              ),
+                            ],
+                          ],
                         ),
+                        if (widget.preview != null &&
+                            widget.preview!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.preview!,
+                            style: TextStyle(
+                              fontFamily: AppTypography.fontBody,
+                              fontFamilyFallback:
+                                  AppTypography.fontBodyFallbacks,
+                              fontSize: 13,
+                              fontWeight: widget.unreadCount > 0
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: nameColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                         // An empty meta leaves no blank line under the name.
                         if (widget.meta.isNotEmpty) ...[
                           const SizedBox(height: 2),
@@ -175,6 +239,10 @@ class _AppListRowState extends State<AppListRow> {
                       ],
                     ),
                   ),
+                  if (widget.unreadCount > 0) ...[
+                    const SizedBox(width: 8),
+                    _UnreadPill(count: widget.unreadCount),
+                  ],
                   if (widget.trailing != null) ...[
                     const SizedBox(width: 8),
                     Flexible(
@@ -200,6 +268,51 @@ class _AppListRowState extends State<AppListRow> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+
+    // Muted is a choice about this list, not a state of the topic, so the row
+    // fades rather than changing colour.
+    return AnimatedOpacity(
+      duration: AppDurations.quick,
+      opacity: widget.isMuted ? 0.55 : 1,
+      child: row,
+    );
+  }
+}
+
+/// How many messages are new. Caps at 99 so the pill never outgrows the row.
+class _UnreadPill extends StatelessWidget {
+  const _UnreadPill({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 22),
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: colors.highlight,
+        borderRadius: Radii.fullAll,
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        semanticsLabel: LocaleKeys.home_unread_aria_label.tr(
+          namedArgs: {'count': '$count'},
+        ),
+        style: TextStyle(
+          fontFamily: AppTypography.fontMono,
+          fontFamilyFallback: AppTypography.fontMonoFallbacks,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+          height: 1,
+          color: colors.onHighlight,
         ),
       ),
     );
