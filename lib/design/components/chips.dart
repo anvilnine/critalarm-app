@@ -163,11 +163,14 @@ class AppPriorityChip extends StatelessWidget {
 
     if (onTap == null) return chip;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: chip,
+    return Semantics(
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: chip,
+        ),
       ),
     );
   }
@@ -280,11 +283,14 @@ class AppTopicChip extends StatelessWidget {
 
     if (onTap == null) return chip;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: chip,
+    return Semantics(
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: chip,
+        ),
       ),
     );
   }

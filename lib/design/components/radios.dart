@@ -3,6 +3,7 @@ import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/design_system/motion.dart';
 import 'package:flutter/material.dart';
 
 /// The dot half of a pick-one row. 22x22, seam ring, accent fill when picked.
@@ -15,7 +16,7 @@ class AppRadio extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return AnimatedContainer(
-      duration: AppDurations.quick,
+      duration: context.motion(AppDurations.quick),
       curve: AppCurves.easeSpring,
       width: 22,
       height: 22,
@@ -100,7 +101,7 @@ class AppRadioRow extends StatelessWidget {
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
-            duration: AppDurations.quick,
+            duration: context.motion(AppDurations.quick),
             curve: AppCurves.easeSpring,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(

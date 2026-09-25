@@ -6,6 +6,9 @@ import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
+import 'package:critalarm/design_system/motion.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// The floating tab bar stood on its end, for a display on its side or wide
@@ -142,11 +145,13 @@ class _RailSlot extends StatelessWidget {
         button: true,
         selected: isCurrent,
         label: item.label,
+        // The flag dot is colour only, so say it out loud.
+        value: item.showFlag ? LocaleKeys.common_needs_attention.tr() : null,
         child: InkWell(
           onTap: onTap,
           customBorder: const CircleBorder(),
           child: AnimatedContainer(
-            duration: AppDurations.quick,
+            duration: context.motion(AppDurations.quick),
             curve: AppCurves.easeSpring,
             width: AppNavRail.slotSize,
             height: AppNavRail.slotSize,

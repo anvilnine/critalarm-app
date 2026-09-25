@@ -12,11 +12,19 @@ class AppSwitch extends StatelessWidget {
   const AppSwitch({
     required this.value,
     this.onChanged,
+    this.semanticLabel,
+    this.semanticHint,
     super.key,
   });
 
   final bool value;
   final ValueChanged<bool>? onChanged;
+
+  /// What the switch turns on or off, read by VoiceOver and TalkBack.
+  final String? semanticLabel;
+
+  /// Extra context read after the label and state, such as a row subtitle.
+  final String? semanticHint;
 
   @override
   Widget build(BuildContext context) {
@@ -25,39 +33,47 @@ class AppSwitch extends StatelessWidget {
     final bg = value ? colors.highlight : colors.hairline;
     final knobOffset = value ? 20.0 : 0.0;
 
-    return MouseRegion(
-      cursor: onChanged != null
-          ? SystemMouseCursors.click
-          : SystemMouseCursors.basic,
-      child: GestureDetector(
-        onTap: onChanged != null ? () => onChanged!(!value) : null,
-        child: AnimatedContainer(
-          duration: AppDurations.quick,
-          curve: AppCurves.easeSpring,
-          width: 48,
-          height: 28,
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: Radii.fullAll,
-          ),
-          child: Stack(
-            children: [
-              AnimatedPositioned(
-                duration: AppDurations.quick,
-                curve: AppCurves.easeSpring,
-                top: 3,
-                left: 3 + knobOffset,
-                child: Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: colors.surface,
-                    boxShadow: AppShadows.lightSm,
+    final duration = context.motion(AppDurations.quick);
+
+    return Semantics(
+      toggled: value,
+      enabled: onChanged != null,
+      label: semanticLabel,
+      hint: semanticHint,
+      child: MouseRegion(
+        cursor: onChanged != null
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        child: GestureDetector(
+          onTap: onChanged != null ? () => onChanged!(!value) : null,
+          child: AnimatedContainer(
+            duration: duration,
+            curve: AppCurves.easeSpring,
+            width: 48,
+            height: 28,
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: Radii.fullAll,
+            ),
+            child: Stack(
+              children: [
+                AnimatedPositioned(
+                  duration: duration,
+                  curve: AppCurves.easeSpring,
+                  top: 3,
+                  left: 3 + knobOffset,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colors.surface,
+                      boxShadow: AppShadows.lightSm,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -97,49 +113,53 @@ class AppToggleRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colors.ink,
+            // The switch carries the title and subtitle, so a screen reader
+            // hears one "Title, switch, on" instead of a silent switch.
+            child: ExcludeSemantics(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontBody,
+                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colors.ink,
+                    ),
                   ),
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  AnimatedSize(
-                    duration: context.motion(AppDurations.base),
-                    curve: AppCurves.easeOut,
-                    alignment: Alignment.topLeft,
-                    child: AnimatedSwitcher(
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    AnimatedSize(
                       duration: context.motion(AppDurations.base),
-                      switchInCurve: AppCurves.easeOut,
-                      switchOutCurve: AppCurves.easeOut,
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: child,
-                      ),
-                      child: Text(
-                        subtitle!,
-                        key: ValueKey(subtitle),
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontBody,
-                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: colors.ink3,
+                      curve: AppCurves.easeOut,
+                      alignment: Alignment.topLeft,
+                      child: AnimatedSwitcher(
+                        duration: context.motion(AppDurations.base),
+                        switchInCurve: AppCurves.easeOut,
+                        switchOutCurve: AppCurves.easeOut,
+                        transitionBuilder: (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: child,
+                        ),
+                        child: Text(
+                          subtitle!,
+                          key: ValueKey(subtitle),
+                          style: TextStyle(
+                            fontFamily: AppTypography.fontBody,
+                            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: colors.ink3,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -150,6 +170,8 @@ class AppToggleRow extends StatelessWidget {
           AppSwitch(
             value: value,
             onChanged: onChanged,
+            semanticLabel: title,
+            semanticHint: subtitle,
           ),
         ],
       ),

@@ -195,10 +195,13 @@ class AppNotificationCard extends StatelessWidget {
 
     final content = isQuiet ? Opacity(opacity: 0.9, child: card) : card;
     if (onTap != null) {
-      return GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: content,
+      return Semantics(
+        button: true,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: content,
+        ),
       );
     }
     return content;
