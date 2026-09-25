@@ -17,6 +17,7 @@ import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
@@ -758,6 +759,13 @@ Future<void> configureDependencies({
         host: getIt<WidgetHost>(),
         isConnected: () async =>
             (await getIt<ConnectionRepository>().getConnection()).isSuccess(),
+        // Widgets are part of Pro on the hosted plan. A self-hosted server
+        // has no plans, so it never locks.
+        isLocked: () async {
+          final account = getIt<AccountRepository>();
+          return await account.readServerMode() == ServerMode.hosted &&
+              !await account.readIsPaid();
+        },
       ),
     )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and
@@ -1104,6 +1112,7 @@ Future<void> configureDependencies({
             await getIt<RevenueCatService>().invalidateCustomerInfoCache();
           }
           await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
+          getIt<WidgetSync>().rewrite();
         },
       ),
     )

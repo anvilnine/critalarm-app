@@ -16,7 +16,19 @@ final class WidgetSnapshot {
     required this.connected,
     required this.openCount,
     required this.topics,
+    this.locked = false,
   });
+
+  /// What a free account on the hosted plan writes: connected, but nothing
+  /// to show. Widgets are part of Pro, so no topic name reaches the home
+  /// screen.
+  factory WidgetSnapshot.lockedFor(DateTime now) => WidgetSnapshot(
+    updatedAt: epochSeconds(now),
+    connected: true,
+    openCount: 0,
+    topics: const [],
+    locked: true,
+  );
 
   /// What `clear` writes: signed out, nothing to show.
   factory WidgetSnapshot.disconnected(DateTime now) => WidgetSnapshot(
@@ -36,12 +48,17 @@ final class WidgetSnapshot {
   final int openCount;
   final List<WidgetTopic> topics;
 
+  /// True when the account is not on Pro. Only written when true, so every
+  /// snapshot written before this field existed still reads as unlocked.
+  final bool locked;
+
   Map<String, Object?> toJson() => {
     'v': version,
     'updated_at': updatedAt,
     'connected': connected,
     'open_count': openCount,
     'topics': [for (final topic in topics) topic.toJson()],
+    if (locked) 'locked': true,
   };
 }
 
@@ -155,8 +172,10 @@ WidgetSnapshot buildWidgetSnapshot({
   required List<Incident> incidents,
   required bool connected,
   required DateTime now,
+  bool locked = false,
 }) {
   if (!connected) return WidgetSnapshot.disconnected(now);
+  if (locked) return WidgetSnapshot.lockedFor(now);
 
   final live = <String, List<Incident>>{};
   for (final incident in incidents) {

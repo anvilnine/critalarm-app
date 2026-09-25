@@ -19,6 +19,7 @@ class WidgetSync {
     required this._incidents,
     required this._host,
     required this._isConnected,
+    required this._isLocked,
     DateTime Function()? now,
     this.debounce = const Duration(milliseconds: 500),
   }) : _now = now ?? DateTime.now;
@@ -27,6 +28,7 @@ class WidgetSync {
   final IncidentsCubit _incidents;
   final WidgetHost _host;
   final Future<bool> Function() _isConnected;
+  final Future<bool> Function() _isLocked;
   final DateTime Function() _now;
   final Duration debounce;
 
@@ -65,6 +67,13 @@ class WidgetSync {
     _lastWritten = null;
   }
 
+  /// Writes again now. Called when the account moves between free and Pro,
+  /// which changes what the widgets may show without either list changing.
+  void rewrite() {
+    forget();
+    _schedule();
+  }
+
   void _schedule() {
     _topicsLoaded |= _topics.state.isReady;
     _incidentsLoaded |= _incidents.state.isReady;
@@ -78,6 +87,7 @@ class WidgetSync {
       topics: _topics.state.topics,
       incidents: _incidents.state.incidents,
       connected: await _isConnected(),
+      locked: await _isLocked(),
       now: _now(),
     );
     final json = snapshot.toJson();
