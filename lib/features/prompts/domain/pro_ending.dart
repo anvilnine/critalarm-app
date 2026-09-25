@@ -30,8 +30,10 @@ final class ProEndingView {
 /// Answers what the home screen shows about Pro ending: the "Pro ends" sheet,
 /// the pill that follows it, or the "Pro ended" sheet.
 ///
-/// Paid or free always comes from the server's tier ([AccountAccess]). The
-/// store only says whether Pro will renew and when it ends.
+/// Paid or free always comes from the server's tier
+/// ([AccountAccess.isRegisteredPaid]), never the developer Force Pro switch,
+/// so turning that switch off never shows "Pro ended". The store only says
+/// whether Pro will renew and when it ends.
 class ProEnding {
   ProEnding({
     required HomePromptRepository prompts,
@@ -92,7 +94,7 @@ class ProEnding {
     }
     final now = _now();
     var identity = await _readIdentity();
-    var isPaid = AccountAccess(identity).isPaid;
+    var isPaid = AccountAccess(identity).isRegisteredPaid;
 
     // The server drops the tier when the store says Pro expired. Until the
     // app registers again it still holds the old tier.
@@ -105,7 +107,7 @@ class ProEnding {
         // Offline or refused. The next resume tries again.
       }
       identity = await _readIdentity();
-      isPaid = AccountAccess(identity).isPaid;
+      isPaid = AccountAccess(identity).isRegisteredPaid;
     }
 
     await _notePaid(identity, isPaid);
