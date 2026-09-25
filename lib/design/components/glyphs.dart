@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// Supported icon glyph names matching docs/design-system/index.html GLYPHS.
@@ -187,26 +189,10 @@ class _GlyphPainter extends CustomPainter {
         canvas.drawPath(path, strokePaint);
 
       case GlyphType.gear:
-        // circle cx 12 cy 12 r 3 + spokes
-        canvas.drawCircle(const Offset(12, 12), 3, strokePaint);
-        final spokes = Path()
-          ..moveTo(12, 2)
-          ..lineTo(12, 5)
-          ..moveTo(12, 19)
-          ..lineTo(12, 22)
-          ..moveTo(2, 12)
-          ..lineTo(5, 12)
-          ..moveTo(19, 12)
-          ..lineTo(22, 12)
-          ..moveTo(4.9, 4.9)
-          ..lineTo(7, 7)
-          ..moveTo(17, 17)
-          ..lineTo(19.1, 19.1)
-          ..moveTo(4.9, 19.1)
-          ..lineTo(7, 17)
-          ..moveTo(17, 7)
-          ..lineTo(19.1, 4.9);
-        canvas.drawPath(spokes, strokePaint);
+        // A cog: eight flat-topped teeth around a ring, and the hub.
+        canvas
+          ..drawPath(_cogPath(), strokePaint)
+          ..drawCircle(const Offset(12, 12), 3, strokePaint);
 
       case GlyphType.copy:
         // Two overlapping document rectangles
@@ -394,6 +380,38 @@ class _GlyphPainter extends CustomPainter {
     }
 
     canvas.restore();
+  }
+
+  /// The outline of a cog with [teeth] teeth, centred on the 24x24 box.
+  /// Each tooth is a trapezoid, so it still reads as a tooth at 14px.
+  static Path _cogPath({int teeth = 8}) {
+    const outer = 10.0;
+    const inner = 7.4;
+    final step = 2 * math.pi / teeth;
+    // Share of each step the tooth takes, at its tip and at its root.
+    final tip = step * 0.22;
+    final root = step * 0.32;
+    Offset at(double r, double a) =>
+        Offset(12 + r * math.cos(a), 12 + r * math.sin(a));
+
+    final path = Path();
+    for (var i = 0; i < teeth; i++) {
+      final a = i * step - math.pi / 2;
+      final p0 = at(inner, a - root);
+      if (i == 0) {
+        path.moveTo(p0.dx, p0.dy);
+      } else {
+        path.lineTo(p0.dx, p0.dy);
+      }
+      final p1 = at(outer, a - tip);
+      final p2 = at(outer, a + tip);
+      final p3 = at(inner, a + root);
+      path
+        ..lineTo(p1.dx, p1.dy)
+        ..lineTo(p2.dx, p2.dy)
+        ..lineTo(p3.dx, p3.dy);
+    }
+    return path..close();
   }
 
   @override
