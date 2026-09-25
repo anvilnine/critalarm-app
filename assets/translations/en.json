@@ -317,7 +317,10 @@
     "delete_dialog_content": "This removes the topic, its tokens and every alarm it has ever raised. Anything still sending to it stops working.",
     "delete_confirm_toggle": "I understand. Delete this topic and its messages.",
     "delete_dialog_confirm": "Delete",
-    "delete_failed": "Could not delete {topic}. {reason}"
+    "delete_failed": "Could not delete {topic}. {reason}",
+    "critical_off_one_way_title": "Turn off critical delivery?",
+    "critical_off_one_way_body": "On the free plan you can't turn this back on.",
+    "critical_off_one_way_confirm": "Turn off"
   },
   "topic_tokens": {
     "header": "Tokens",

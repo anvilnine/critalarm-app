@@ -6,6 +6,7 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -281,6 +282,18 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       openIncidentIds: openIncidents.map((i) => i.id).toList(),
       clearError: true,
     );
+  }
+
+  /// True when turning critical off here cannot be undone on the free plan:
+  /// the account already has more critical topics than the plan allows, so
+  /// the server would refuse to turn it back on (api.md §4.2).
+  Future<bool> turningOffIsOneWay() async {
+    final identity = await identityStore?.readOrCreate();
+    if (identity == null || AccountAccess(identity).isPaid) return false;
+    final limit = identity.caps.criticalTopics;
+    if (limit == null) return false;
+    final count = _topics.state.topics.where((topic) => topic.critical).length;
+    return count > limit;
   }
 
   Future<void> toggleCriticalDelivery({required bool isCritical}) async {
