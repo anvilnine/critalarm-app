@@ -20,6 +20,7 @@ import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
@@ -167,6 +168,8 @@ import 'package:critalarm/features/settings/presentation/cubits/sound_crop_cubit
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
+import 'package:critalarm/features/topics/data/repositories/shared_prefs_topic_list_prefs_repository.dart';
+import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/delete_topic_usecase.dart';
@@ -295,6 +298,10 @@ Future<void> configureDependencies({
 
   getIt
     ..registerSingleton<SharedPreferences>(prefs)
+    ..registerSingleton<DeviceForm>(await DeviceForm.read())
+    ..registerLazySingleton<TopicListPrefsRepository>(
+      () => SharedPrefsTopicListPrefsRepository(getIt<SharedPreferences>()),
+    )
     ..registerLazySingleton<PushHost>(PushHost.new)
     ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
     ..registerLazySingleton<WidgetHost>(WidgetHost.new)
@@ -907,6 +914,9 @@ Future<void> configureDependencies({
         getIt<IncidentRepository>(),
         getIt<MessageSyncService>(),
         getIt<GetConnectionUsecase>(),
+        null,
+        const Duration(seconds: 5),
+        getIt<TopicListPrefsRepository>(),
       ),
     )
     ..registerFactory(

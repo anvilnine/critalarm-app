@@ -44,6 +44,50 @@ void main() {
     });
   });
 
+  group('AppSize tab bar placement', () {
+    test('a phone upright keeps the bar along the bottom', () {
+      const size = AppSize(402, 874, isIphone: true);
+      expect(size.navPlacement, AppNavPlacement.bottom);
+      expect(size.hasRail, isFalse);
+    });
+
+    test('a phone on its side stands the bar up on the left', () {
+      const size = AppSize(874, 402, isIphone: true);
+      expect(size.navPlacement, AppNavPlacement.left);
+      expect(size.hasRail, isTrue);
+    });
+
+    test('an iPad mini upright keeps the bar along the bottom', () {
+      expect(
+        const AppSize(744, 1133).navPlacement,
+        AppNavPlacement.bottom,
+      );
+    });
+
+    test('an iPad on its side stands the bar up on the left', () {
+      expect(const AppSize(1210, 834).navPlacement, AppNavPlacement.left);
+    });
+
+    test('an unfolded iPhone Fold puts the rail on the right', () {
+      expect(
+        const AppSize(720, 960, isIphone: true).navPlacement,
+        AppNavPlacement.right,
+      );
+      expect(
+        const AppSize(960, 720, isIphone: true).navPlacement,
+        AppNavPlacement.right,
+      );
+    });
+
+    test('an iPad the same size as an unfolded Fold stays on the left', () {
+      expect(const AppSize(960, 720).navPlacement, AppNavPlacement.left);
+    });
+
+    test('an opened Android Fold upright keeps the bar along the bottom', () {
+      expect(const AppSize(673, 841).navPlacement, AppNavPlacement.bottom);
+    });
+  });
+
   group('AppSize side gutter', () {
     test('a phone gets no gutter', () {
       expect(const AppSize(402, 874).sideGutter, 0);

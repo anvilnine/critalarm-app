@@ -13,6 +13,8 @@ import 'package:critalarm/features/incidents/domain/repositories/incident_reposi
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/home_face_rule.dart';
+import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
+import 'package:critalarm/features/topics/domain/topic_inbox.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -32,6 +34,7 @@ class HomeCubit extends Cubit<HomeState> {
     this._getConnection,
     DateTime Function()? clock,
     this.tick = const Duration(seconds: 5),
+    this._listPrefs,
   ]) : _now = clock ?? DateTime.now,
        super(const HomeState());
 
@@ -52,6 +55,10 @@ class HomeCubit extends Cubit<HomeState> {
 
   final DateTime Function() _now;
 
+  /// Pin, mute and read marks, kept on this phone. Null in tests that do not
+  /// care, which leaves every row unpinned, unmuted and read.
+  final TopicListPrefsRepository? _listPrefs;
+
   /// How often the face is worked out again from the lists already held, so a
   /// countdown or a face that only lasts a while moves without a reload. A
   /// test passes something short so it does not have to wait.
@@ -65,6 +72,11 @@ class HomeCubit extends Cubit<HomeState> {
   List<Topic>? _lastTopics;
   Set<String>? _lastWarningTopics;
   Map<String, int>? _lastPriorities;
+
+  /// Epoch seconds of every message the last build saw, per topic, for the
+  /// unread count. Kept so a pin or a read mark redraws without a poll.
+  Map<String, List<int>>? _lastMessageTimes;
+  Map<String, String>? _lastPreviews;
 
   /// The lists this screen was last built from. An upstream change that leaves
   /// them alone, such as a refresh starting, is not worth polling every topic
@@ -114,42 +126,97 @@ class HomeCubit extends Cubit<HomeState> {
 
   void _syncTimer(bool needsTick) {
     if (needsTick) {
-      _timer ??= Timer.periodic(tick, (_) {
-        if (isClosed) return;
-        final incidents = _lastIncidents;
-        final topics = _lastTopics;
-        final warningTopics = _lastWarningTopics;
-        final priorities = _lastPriorities;
-        if (incidents == null ||
-            topics == null ||
-            warningTopics == null ||
-            priorities == null) {
-          return;
-        }
-        final result = resolveHomeFace(
-          topics: topics,
-          incidents: incidents,
-          warningTopics: warningTopics,
-          now: _now(),
-        );
-        final items = _buildTopicItems(result.rows, topics, priorities);
-        emit(
-          state.copyWith(
-            faceState: result.hero.faceState,
-            word: result.hero.word,
-            subText: result.hero.subText,
-            severity: result.hero.severity,
-            ringingIncidentId: result.hero.ringingIncidentId,
-            clearRinging: result.hero.ringingIncidentId == null,
-            topicItems: items,
-          ),
-        );
-        _syncTimer(result.needsTick);
-      });
+      _timer ??= Timer.periodic(tick, (_) => _repaint());
     } else {
       _timer?.cancel();
       _timer = null;
     }
+  }
+
+  /// Works the screen out again from the lists already held, without a poll.
+  /// [rowsOnly] leaves the face alone, for a pin or a read mark: those change
+  /// the rows and nothing else, and must not paint over a failure face.
+  void _repaint({bool rowsOnly = false}) {
+    if (isClosed) return;
+    final incidents = _lastIncidents;
+    final topics = _lastTopics;
+    final warningTopics = _lastWarningTopics;
+    final priorities = _lastPriorities;
+    if (incidents == null ||
+        topics == null ||
+        warningTopics == null ||
+        priorities == null) {
+      return;
+    }
+    final result = resolveHomeFace(
+      topics: topics,
+      incidents: incidents,
+      warningTopics: warningTopics,
+      now: _now(),
+    );
+    final items = _buildTopicItems(
+      result.rows,
+      topics,
+      priorities,
+      _lastMessageTimes ?? const {},
+      _lastPreviews ?? const {},
+    );
+    if (rowsOnly) {
+      // Only over a list that loaded. A failure keeps the rows it chose to
+      // show, and a pin must not bring back rows it dropped.
+      if (state.status != HomeStatus.success || state.isStale) return;
+      emit(state.copyWith(topicItems: items));
+      return;
+    }
+    emit(
+      state.copyWith(
+        faceState: result.hero.faceState,
+        word: result.hero.word,
+        subText: result.hero.subText,
+        severity: result.hero.severity,
+        ringingIncidentId: result.hero.ringingIncidentId,
+        clearRinging: result.hero.ringingIncidentId == null,
+        topicItems: items,
+      ),
+    );
+    _syncTimer(result.needsTick);
+  }
+
+  /// Pins [topic] to the top of the list, or unpins it.
+  Future<void> togglePin(String topic) async {
+    final prefs = _listPrefs;
+    if (prefs == null) return;
+    await prefs.setPinned(topic, pinned: !prefs.pinned().contains(topic));
+    _repaint(rowsOnly: true);
+  }
+
+  /// Mutes [topic] on this phone, or unmutes it. Muting greys the row and
+  /// moves it below the rest. Pushes and alarms are untouched.
+  Future<void> toggleMute(String topic) async {
+    final prefs = _listPrefs;
+    if (prefs == null) return;
+    await prefs.setMuted(topic, muted: !prefs.muted().contains(topic));
+    _repaint(rowsOnly: true);
+  }
+
+  /// Marks every message on [topic] read. Stamped at the newest message the
+  /// list holds when that is later than the phone's clock, so a phone running
+  /// a little behind the server does not leave the newest one unread.
+  Future<void> markRead(String topic) async {
+    final prefs = _listPrefs;
+    if (prefs == null) return;
+    await prefs.markRead(topic, _readStamp(topic));
+    _repaint(rowsOnly: true);
+  }
+
+  DateTime _readStamp(String topic) {
+    final now = _now();
+    final times = _lastMessageTimes?[topic] ?? const <int>[];
+    if (times.isEmpty) return now;
+    final newest = DateTime.fromMillisecondsSinceEpoch(
+      times.reduce((a, b) => a > b ? a : b) * 1000,
+    );
+    return newest.isAfter(now) ? newest : now;
   }
 
   Future<void> _rebuildIfChanged() async {
@@ -284,6 +351,8 @@ class HomeCubit extends Cubit<HomeState> {
 
     final warningTopics = <String>{};
     final priorities = <String, int>{};
+    final messageTimes = <String, List<int>>{};
+    final previews = <String, String>{};
     for (final t in topics) {
       final pollResult = await _incidentRepository.pollMessages(
         t.name,
@@ -299,6 +368,8 @@ class HomeCubit extends Cubit<HomeState> {
           ? null
           : msgs.reduce((a, b) => a.time > b.time ? a : b);
       priorities[t.name] = latest?.priority ?? 3;
+      messageTimes[t.name] = [for (final m in msgs) m.time];
+      if (latest != null) previews[t.name] = topicPreview(latest);
       if (msgs.any((m) {
         final isP4OrWarning =
             m.priority == 4 || (m.tags.contains('warning') && m.priority != 5);
@@ -320,7 +391,13 @@ class HomeCubit extends Cubit<HomeState> {
       now: now,
     );
 
-    final items = _buildTopicItems(result.rows, topics, priorities);
+    final items = _buildTopicItems(
+      result.rows,
+      topics,
+      priorities,
+      messageTimes,
+      previews,
+    );
 
     // A newer build started while this one waited on the polls, so this list
     // is already out of date and the caller throws the state away. Leave the
@@ -329,10 +406,23 @@ class HomeCubit extends Cubit<HomeState> {
     // painted the screen blue again.
     if (id != _buildId) return state;
 
+    // A topic this phone has never marked starts out read, so the first list
+    // after an update does not put a badge on everything. From here on only
+    // what arrives later counts. Only the newest build writes, and the rows
+    // above already count an unmarked topic as read, so they stay right.
+    final prefs = _listPrefs;
+    if (prefs != null) {
+      for (final t in topics) {
+        if (prefs.lastReadAt(t.name) == null) await prefs.markRead(t.name, now);
+      }
+    }
+
     _lastIncidents = incidents;
     _lastTopics = topics;
     _lastWarningTopics = warningTopics;
     _lastPriorities = priorities;
+    _lastMessageTimes = messageTimes;
+    _lastPreviews = previews;
     _syncTimer(result.needsTick);
 
     return state.copyWith(
@@ -355,11 +445,16 @@ class HomeCubit extends Cubit<HomeState> {
     List<HomeTopicRow> rows,
     List<Topic> topics,
     Map<String, int> priorities,
+    Map<String, List<int>> messageTimes,
+    Map<String, String> previews,
   ) {
     final topicByName = {for (final t in topics) t.name: t};
-    return rows.map((r) {
+    final pinned = _listPrefs?.pinned() ?? const <String>{};
+    final muted = _listPrefs?.muted() ?? const <String>{};
+    final items = rows.map((r) {
       final t = topicByName[r.name];
       final priority = priorities[r.name] ?? 3;
+      final isMuted = muted.contains(r.name);
       return HomeTopicItem(
         name: r.name,
         meta: r.meta,
@@ -371,8 +466,36 @@ class HomeCubit extends Cubit<HomeState> {
             r.faceState == FaceState.alarmed ||
             r.faceState == FaceState.worried,
         ringsThroughSilent: t?.critical ?? false,
+        preview: previews[r.name],
+        // A muted topic shows no count. Its messages still count as read or
+        // unread underneath, so unmuting brings the number back.
+        unreadCount: isMuted
+            ? 0
+            : unreadCount(
+                messageTimes[r.name] ?? const <int>[],
+                _listPrefs?.lastReadAt(r.name),
+              ),
+        isPinned: pinned.contains(r.name),
+        isMuted: isMuted,
       );
     }).toList();
+
+    final byName = {for (final i in items) i.name: i};
+    final order = orderTopics(
+      [for (final i in items) i.name],
+      pinned: pinned,
+      muted: muted,
+      live: {
+        for (final i in items)
+          if (i.isLive) i.name,
+      },
+      latestAt: {
+        for (final e in messageTimes.entries)
+          if (e.value.isNotEmpty)
+            e.key: e.value.reduce((a, b) => a > b ? a : b),
+      },
+    );
+    return [for (final name in order) byName[name]!];
   }
 }
 
