@@ -1,4 +1,4 @@
-import 'dart:ui' show Offset;
+import 'dart:ui' show Offset, lerpDouble;
 
 import 'package:critalarm/design/faces/face_rig.dart';
 
@@ -131,6 +131,24 @@ class RingingFrame {
     this.spin = 0,
     this.fx = const [],
   });
+
+  /// Blends [t] of the way from [a] to [b], so one ringing style can turn
+  /// into another. The extras do not move between the two: [a]'s fade out
+  /// while [b]'s fade in.
+  factory RingingFrame.lerp(RingingFrame a, RingingFrame b, double t) =>
+      RingingFrame(
+        face: FaceShape.lerp(a.face, b.face, t),
+        tilt: lerpDouble(a.tilt, b.tilt, t)!,
+        nudge: Offset.lerp(a.nudge, b.nudge, t)!,
+        scale: lerpDouble(a.scale, b.scale, t)!,
+        flush: lerpDouble(a.flush, b.flush, t)!,
+        flash: lerpDouble(a.flash, b.flash, t)!,
+        spin: lerpDouble(a.spin, b.spin, t)!,
+        fx: [
+          for (final fx in a.fx) fx.faded(1 - t),
+          for (final fx in b.fx) fx.faded(t),
+        ],
+      );
 
   /// The features, drawn by the ordinary face painter.
   final FaceShape face;
