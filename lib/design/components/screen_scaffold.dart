@@ -159,12 +159,17 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
 
     // A long row is hard to read, the eye has to travel, so cap the column.
     // Two panes have already narrowed it, so they need no gutter of their own.
+    // One column keeps the rail's clearance on both sides, so it sits in the
+    // middle of the display rather than in the middle of what the rail leaves.
     final paneWidth = twoPane
         ? AppScreenScaffold.listPaneWidth(available)
-        : available;
-    final gutter = twoPane || paneWidth <= AppSize.contentMaxWidth
+        : boxWidth;
+    final gutter = twoPane
         ? 0.0
-        : (paneWidth - AppSize.contentMaxWidth) / 2;
+        : math.max(railGap, (paneWidth - AppSize.contentMaxWidth) / 2);
+
+    // What a pinned bottom bar keeps clear of on each side in one column.
+    final sideClearance = twoPane ? 0.0 : railGap;
 
     final topInset =
         padding.top +
@@ -324,9 +329,9 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                       // On a screen with tabs the bar sits above the floating
                       // tab bar, not behind it.
                       padding: EdgeInsets.fromLTRB(
-                        12,
+                        math.max(12, sideClearance),
                         0,
-                        12,
+                        math.max(12, sideClearance),
                         AppScreenScaffold.bottomBarGap + tabBarRoom,
                       ),
                       child: Center(
@@ -375,7 +380,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       );
     }
 
-    if (railGap > 0) {
+    if (twoPane && railGap > 0) {
       body = Padding(
         padding: railOnRight
             ? EdgeInsets.only(right: railGap)
