@@ -183,10 +183,6 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Plan once the first frame is up, so launch never waits on it.
       _replan();
-      // The quick action titles go through tr(), and the translations are
-      // only loaded once MaterialApp has built its Localizations widget in
-      // that first frame. Started earlier, iOS stores the raw keys.
-      _quickActions.start();
     });
     _incomingAudio.start();
     getIt<WidgetSync>().start();
@@ -266,15 +262,18 @@ class _CritAlarmAppState extends State<CritAlarmApp>
           locale: context.locale,
           routerConfig: _router,
           scaffoldMessengerKey: _messenger,
-          builder: (context, child) => AppDeviceScope(
-            isIphone:
-                getIt.isRegistered<DeviceForm>() &&
-                getIt<DeviceForm>().isIphone,
-            child: TourHost(
-              router: _router,
-              child: AppAmbientShell(
+          builder: (context, child) => _OnTranslationsLoaded(
+            onLoaded: _quickActions.start,
+            child: AppDeviceScope(
+              isIphone:
+                  getIt.isRegistered<DeviceForm>() &&
+                  getIt<DeviceForm>().isIphone,
+              child: TourHost(
                 router: _router,
-                child: child ?? const SizedBox.shrink(),
+                child: AppAmbientShell(
+                  router: _router,
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
             ),
           ),
@@ -282,4 +281,32 @@ class _CritAlarmAppState extends State<CritAlarmApp>
       ),
     );
   }
+}
+
+/// Calls [onLoaded] once, the first time it is built.
+///
+/// The quick action titles go through tr(). The translations load from disk
+/// in the background, and a post-frame callback can fire before they finish,
+/// which makes iOS store the raw keys. MaterialApp's builder sits inside its
+/// Localizations widget, and that widget builds nothing until the
+/// translations are loaded, so by the time this runs tr() works.
+class _OnTranslationsLoaded extends StatefulWidget {
+  const _OnTranslationsLoaded({required this.onLoaded, required this.child});
+
+  final VoidCallback onLoaded;
+  final Widget child;
+
+  @override
+  State<_OnTranslationsLoaded> createState() => _OnTranslationsLoadedState();
+}
+
+class _OnTranslationsLoadedState extends State<_OnTranslationsLoaded> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onLoaded();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
