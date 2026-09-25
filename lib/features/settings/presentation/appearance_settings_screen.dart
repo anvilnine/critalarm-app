@@ -95,12 +95,14 @@ class _MotionAndHaptics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Reduce Motion is hidden until it is ready. Uncomment this and the
+    // switch below to bring it back.
     // The OS setting, read past the app's own override: when the device
     // already asks for less motion, the switch shows on and cannot be turned
     // off here.
-    final systemReduces = View.of(
-      context,
-    ).platformDispatcher.accessibilityFeatures.disableAnimations;
+    // final systemReduces = View.of(
+    //   context,
+    // ).platformDispatcher.accessibilityFeatures.disableAnimations;
 
     return BlocBuilder<AppearanceCubit, AppearanceSettings>(
       builder: (context, settings) {
@@ -110,22 +112,22 @@ class _MotionAndHaptics extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            AppToggleRow(
-              title: LocaleKeys.settings_reduce_motion_title.tr(),
-              subtitle: systemReduces
-                  ? LocaleKeys.settings_reduce_motion_system_subtitle.tr()
-                  : LocaleKeys.settings_reduce_motion_subtitle.tr(),
-              value: systemReduces || settings.reduceMotion,
-              onChanged: systemReduces
-                  ? null
-                  : (value) {
-                      AppHaptics.selection();
-                      unawaited(cubit.setReduceMotion(enabled: value));
-                    },
-            ),
+            // AppToggleRow(
+            //   title: LocaleKeys.settings_reduce_motion_title.tr(),
+            //   subtitle: systemReduces
+            //       ? LocaleKeys.settings_reduce_motion_system_subtitle.tr()
+            //       : LocaleKeys.settings_reduce_motion_subtitle.tr(),
+            //   value: systemReduces || settings.reduceMotion,
+            //   onChanged: systemReduces
+            //       ? null
+            //       : (value) {
+            //           AppHaptics.selection();
+            //           unawaited(cubit.setReduceMotion(enabled: value));
+            //         },
+            // ),
             // Web has no haptics, so there is nothing to switch.
             if (!kIsWeb) ...[
-              const SizedBox(height: 8),
+              // const SizedBox(height: 8),
               AppToggleRow(
                 title: LocaleKeys.settings_haptics_title.tr(),
                 subtitle: LocaleKeys.settings_haptics_subtitle.tr(),
