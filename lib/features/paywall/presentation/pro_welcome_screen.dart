@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-
 import 'package:confetti/confetti.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
@@ -46,10 +45,26 @@ class _ProWelcomeScreenState extends State<ProWelcomeScreen>
   final _rightBurst = ConfettiController(duration: const Duration(seconds: 2));
   final _topRain = ConfettiController(duration: const Duration(seconds: 4));
 
+  bool _started = false;
+
   @override
   void initState() {
     super.initState();
     AppHaptics.success();
+  }
+
+  // Started here rather than in initState because it reads MediaQuery.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    // Under reduce motion the faces are simply there: no fly-in, no bob, no
+    // confetti.
+    if (context.reduceMotion) {
+      _entrance.value = 1;
+      return;
+    }
     unawaited(_entrance.forward());
     unawaited(_bob.repeat(reverse: true));
     _topRain.play();

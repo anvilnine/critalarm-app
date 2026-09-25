@@ -247,15 +247,18 @@ class _OlderAlarmsFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: Spacing.s1, bottom: Spacing.s2),
-      child: GestureDetector(
-        onTap: () {
-          AppHaptics.selection();
-          unawaited(context.push('/paywall?source=history_older'));
-        },
-        child: Text(
-          LocaleKeys.history_older_notice.plural(count),
-          style: AppTypography.small(context.appColors.ink3, fontSize: 12),
-          textAlign: TextAlign.center,
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          onTap: () {
+            AppHaptics.selection();
+            unawaited(context.push('/paywall?source=history_older'));
+          },
+          child: Text(
+            LocaleKeys.history_older_notice.plural(count),
+            style: AppTypography.small(context.appColors.ink3, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
         ),
       ),
     );
@@ -377,7 +380,10 @@ class _FilterButton extends StatelessWidget {
       children: [
         AppIconButton(
           glyph: GlyphType.filter,
-          ariaLabel: LocaleKeys.history_filter_aria_label.tr(),
+          // The dot is colour only, so the label carries it too.
+          ariaLabel: filter.isActive
+              ? LocaleKeys.history_filter_active_aria_label.tr()
+              : LocaleKeys.history_filter_aria_label.tr(),
           onPressed: () => unawaited(_open(context)),
         ),
         if (filter.isActive)

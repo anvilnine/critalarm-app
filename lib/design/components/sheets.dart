@@ -58,14 +58,17 @@ class AppSectionHeader extends StatelessWidget {
 
     return Padding(
       padding: padding,
-      child: Text(
-        title,
-        style: TextStyle(
-          fontFamily: AppTypography.fontBody,
-          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: colors.ink3,
+      child: Semantics(
+        header: true,
+        child: Text(
+          title,
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: colors.ink3,
+          ),
         ),
       ),
     );

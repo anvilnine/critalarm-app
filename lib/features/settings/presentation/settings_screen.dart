@@ -7,10 +7,8 @@ import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/feedback/presentation/help_section.dart';
-import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
-import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/settings_health_row.dart';
 import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
 import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
@@ -26,7 +24,7 @@ import 'package:go_router/go_router.dart';
 ///
 /// Everything with more than one control behind it lives on its own screen
 /// under /settings. What stays here is the health summary, the rows that lead
-/// to those screens, and the two single controls (theme and plan).
+/// to those screens, and the one single control (plan).
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
     super.key,
@@ -269,27 +267,12 @@ class _SettingsScreenContent extends StatelessWidget {
                       AppSectionHeader(
                         LocaleKeys.settings_app_header.tr(),
                       ),
-                      BlocBuilder<ThemeCubit, AppThemeMode>(
-                        builder: (context, themeMode) {
-                          return AppSegmentedControl<AppThemeMode>(
-                            items: AppThemeMode.values,
-                            selectedItem: themeMode,
-                            labelBuilder: (mode) => switch (mode) {
-                              AppThemeMode.system =>
-                                LocaleKeys.settings_theme_system.tr(),
-                              AppThemeMode.light =>
-                                LocaleKeys.settings_theme_light.tr(),
-                              AppThemeMode.dark =>
-                                LocaleKeys.settings_theme_dark.tr(),
-                            },
-                            onChanged: (mode) {
-                              AppHaptics.selection();
-                              unawaited(
-                                context.read<ThemeCubit>().setMode(mode),
-                              );
-                            },
-                          );
-                        },
+                      _buildNavRow(
+                        context,
+                        title: LocaleKeys.settings_appearance_row_title.tr(),
+                        subtitle: LocaleKeys.settings_appearance_row_subtitle
+                            .tr(),
+                        path: '/settings/appearance',
                       ),
                       // Web has no local notifications, so no reminders.
                       if (!kIsWeb) ...[

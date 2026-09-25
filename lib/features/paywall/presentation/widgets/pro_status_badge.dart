@@ -17,7 +17,7 @@ class ProStatusBadge extends StatelessWidget {
       create: (_) => getIt<ProStatusCubit>(),
       child: BlocBuilder<ProStatusCubit, bool>(
         builder: (context, isPro) => AnimatedSwitcher(
-          duration: AppDurations.base,
+          duration: context.motion(AppDurations.base),
           transitionBuilder: (child, animation) =>
               ScaleTransition(scale: animation, child: child),
           child: isPro

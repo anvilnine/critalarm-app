@@ -4,6 +4,7 @@ import 'package:critalarm/design/tokens/durations.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/design_system/motion.dart';
 import 'package:flutter/material.dart';
 
 /// Segmented pill control following Crit Alarm design specifications.
@@ -63,33 +64,38 @@ class _SegmentItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        // easeOut, not easeSpring: the spring overshoots past 1, and a shadow
-        // animating to none then gets a negative blur, which Flutter rejects.
-        child: AnimatedContainer(
-          duration: AppDurations.quick,
-          curve: AppCurves.easeOut,
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          decoration: BoxDecoration(
-            color: isSelected ? colors.surface : Colors.transparent,
-            borderRadius: Radii.fullAll,
-            boxShadow: isSelected ? AppShadows.lightSm : null,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              fontFamilyFallback: AppTypography.fontBodyFallbacks,
-              fontSize: 13,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected ? colors.ink : colors.ink3,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      inMutuallyExclusiveGroup: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          // easeOut, not easeSpring: the spring overshoots past 1, and a shadow
+          // animating to none then gets a negative blur, which Flutter rejects.
+          child: AnimatedContainer(
+            duration: context.motion(AppDurations.quick),
+            curve: AppCurves.easeOut,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            decoration: BoxDecoration(
+              color: isSelected ? colors.surface : Colors.transparent,
+              borderRadius: Radii.fullAll,
+              boxShadow: isSelected ? AppShadows.lightSm : null,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? colors.ink : colors.ink3,
+              ),
             ),
           ),
         ),

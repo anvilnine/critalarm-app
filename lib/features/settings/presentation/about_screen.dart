@@ -131,7 +131,10 @@ class _AboutLinkRow extends StatelessWidget {
 
     return Semantics(
       label: '$label: $url',
-      button: true,
+      link: true,
+      linkUrl: Uri.tryParse(url),
+      // The row shows the same label and URL; read them once, not twice.
+      excludeSemantics: true,
       child: GestureDetector(
         onTap: () => unawaited(_open(ScaffoldMessenger.of(context))),
         onLongPress: () => _copy(ScaffoldMessenger.of(context)),

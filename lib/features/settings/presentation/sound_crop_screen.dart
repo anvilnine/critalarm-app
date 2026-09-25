@@ -166,9 +166,13 @@ class _SoundCropView extends StatelessWidget {
                       code: state.errorCode,
                       onBack: () => leave(context),
                     ),
-                    _ when window == null => const Padding(
-                      padding: EdgeInsets.all(48),
-                      child: Center(child: CircularProgressIndicator()),
+                    _ when window == null => Padding(
+                      padding: const EdgeInsets.all(48),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          semanticsLabel: LocaleKeys.common_loading.tr(),
+                        ),
+                      ),
                     ),
                     _ => _Editor(state: state, window: window),
                   },

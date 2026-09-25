@@ -372,8 +372,11 @@ class _LegalLink extends StatelessWidget {
     final colors = context.appColors;
 
     return Semantics(
-      label: '$label: $url',
-      button: true,
+      // A link, read once by its name. The raw URL is noise to a listener.
+      link: true,
+      linkUrl: Uri.tryParse(url),
+      label: label,
+      excludeSemantics: true,
       child: GestureDetector(
         onTap: () => unawaited(
           launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView),
@@ -421,89 +424,98 @@ class _TierCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? colors.cream : colors.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? colors.highlight : colors.hairline,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: isSelected ? colors.highlight : colors.ink3,
-              size: 20,
+    // One node per plan, read as a choice among the others.
+    return Semantics(
+      container: true,
+      button: true,
+      selected: isSelected,
+      inMutuallyExclusiveGroup: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? colors.cream : colors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? colors.highlight : colors.hairline,
+              width: isSelected ? 2 : 1,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          style: TextStyle(
-                            color: colors.ink,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                      if (badge != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colors.highlight,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isSelected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+                color: isSelected ? colors.highlight : colors.ink3,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
                           child: Text(
-                            badge!,
+                            title,
                             style: TextStyle(
-                              color: colors.onHighlight,
-                              fontSize: 10,
+                              color: colors.ink,
                               fontWeight: FontWeight.bold,
+                              fontSize: 15,
                             ),
                           ),
                         ),
+                        if (badge != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.highlight,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              badge!,
+                              style: TextStyle(
+                                color: colors.onHighlight,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    duration,
-                    style: TextStyle(
-                      color: colors.ink3,
-                      fontSize: 12,
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            if (price case final price?)
-              Text(
-                price,
-                style: TextStyle(
-                  color: colors.ink,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+                    const SizedBox(height: 2),
+                    Text(
+                      duration,
+                      style: TextStyle(
+                        color: colors.ink3,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-          ],
+              const SizedBox(width: 12),
+              if (price case final price?)
+                Text(
+                  price,
+                  style: TextStyle(
+                    color: colors.ink,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

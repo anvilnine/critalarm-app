@@ -1412,7 +1412,7 @@ class _LadderHeroState extends _ClockState<_LadderHero> {
         child: Transform.translate(
           offset: Offset((1 - arrive) * 260 + shake, 0),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
+            duration: context.motion(const Duration(milliseconds: 300)),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: tint ?? colors.surface,

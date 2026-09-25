@@ -8,6 +8,9 @@ import 'package:critalarm/design/faces/refresh_face_controller.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/durations.dart';
+import 'package:critalarm/design_system/motion.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -183,16 +186,17 @@ class RefreshActivityIndicator extends StatelessWidget {
         final on = controller.phase == RefreshFacePhase.working;
         return AnimatedOpacity(
           opacity: on ? 1 : 0,
-          duration: AppDurations.quick,
+          duration: context.motion(AppDurations.quick),
           child: AnimatedScale(
             scale: on ? 1 : 0.6,
-            duration: AppDurations.quick,
+            duration: context.motion(AppDurations.quick),
             curve: Curves.easeOutBack,
             child: SizedBox.square(
               dimension: 18,
               // Standing still while hidden, so it does not keep a ticker
               // running for nothing.
               child: CircularProgressIndicator(
+                semanticsLabel: on ? LocaleKeys.common_loading.tr() : null,
                 value: on ? null : 0.75,
                 strokeWidth: 2.5,
                 strokeCap: StrokeCap.round,

@@ -451,23 +451,26 @@ class _RingingScreen extends StatelessWidget {
     if (count <= 1) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: Spacing.s2),
-      child: GestureDetector(
-        onTap: () => unawaited(_showOtherAlarms(context)),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colors.hairline.withValues(alpha: 0.5)),
-          ),
-          child: Text(
-            LocaleKeys.critical_alarm_alarm_count_pill.plural(count),
-            style: TextStyle(
-              fontFamily: AppTypography.fontMono,
-              fontFamilyFallback: AppTypography.fontMonoFallbacks,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-              color: colors.ink2,
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          onTap: () => unawaited(_showOtherAlarms(context)),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colors.hairline.withValues(alpha: 0.5)),
+            ),
+            child: Text(
+              LocaleKeys.critical_alarm_alarm_count_pill.plural(count),
+              style: TextStyle(
+                fontFamily: AppTypography.fontMono,
+                fontFamilyFallback: AppTypography.fontMonoFallbacks,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: colors.ink2,
+              ),
             ),
           ),
         ),

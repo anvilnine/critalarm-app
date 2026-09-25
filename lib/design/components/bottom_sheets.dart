@@ -142,61 +142,64 @@ class AppSheetOptionRow<T> extends StatelessWidget {
         ? Border.all(color: colors.cobalt, width: 1.5)
         : Border.all(color: colors.hairline, width: 1.5);
 
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: Radii.mdAll,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 11),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: option.isSelected ? colors.cobaltTint : colors.cream,
-                  border: circleBorder,
+    return Semantics(
+      selected: option.isSelected,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: Radii.mdAll,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 11),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: option.isSelected ? colors.cobaltTint : colors.cream,
+                    border: circleBorder,
+                  ),
+                  alignment: Alignment.center,
+                  child: option.isSelected
+                      ? AppGlyph(
+                          GlyphType.check,
+                          size: 13,
+                          color: colors.cobalt,
+                        )
+                      : option.glyph != null
+                      ? AppGlyph(
+                          option.glyph!,
+                          color: labelColor,
+                        )
+                      : null,
                 ),
-                alignment: Alignment.center,
-                child: option.isSelected
-                    ? AppGlyph(
-                        GlyphType.check,
-                        size: 13,
-                        color: colors.cobalt,
-                      )
-                    : option.glyph != null
-                    ? AppGlyph(
-                        option.glyph!,
-                        color: labelColor,
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      option.label,
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontBody,
-                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: labelColor,
-                      ),
-                    ),
-                    if (option.meta != null)
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        option.meta!,
-                        style: AppTypography.small(colors.ink3, fontSize: 12),
+                        option.label,
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: labelColor,
+                        ),
                       ),
-                  ],
+                      if (option.meta != null)
+                        Text(
+                          option.meta!,
+                          style: AppTypography.small(colors.ink3, fontSize: 12),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
