@@ -14,16 +14,17 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Only reachable in builds made with --dart-define=SKIP_PAYWALL=true. Lets
-/// whoever is testing the build move between the free and Pro states without
-/// a store purchase.
+/// Only reachable in builds made with --dart-define=SKIP_PAYWALL=true or
+/// --dart-define=PAYWALL_LAB=true. Lets whoever is testing the build move
+/// between the free and Pro states without a store purchase.
+///
+/// The Force Pro switch and the edge picker read switches that DI only
+/// registers in a SKIP_PAYWALL build, so a PAYWALL_LAB only build hides them.
 class DeveloperSettingsScreen extends StatelessWidget {
   const DeveloperSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final proSwitch = getIt<DevProSwitch>();
-
     return AppScreenScaffold(
       topBar: AppTopBar(
         title: LocaleKeys.settings_developer_header.tr(),
@@ -48,26 +49,29 @@ class DeveloperSettingsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ValueListenableBuilder<bool>(
-                    valueListenable: proSwitch,
-                    builder: (context, isPro, _) => AppToggleRow(
-                      title: LocaleKeys.settings_developer_pro_title.tr(),
-                      subtitle: LocaleKeys.settings_developer_pro_subtitle.tr(),
-                      value: isPro,
-                      onChanged: (val) {
-                        unawaited(proSwitch.setPro(isPro: val));
-                        // The widgets lock and unlock with Pro.
-                        getIt<WidgetSync>().rewrite();
-                      },
+                  if (buildSkipsPaywall) ...[
+                    ValueListenableBuilder<bool>(
+                      valueListenable: getIt<DevProSwitch>(),
+                      builder: (context, isPro, _) => AppToggleRow(
+                        title: LocaleKeys.settings_developer_pro_title.tr(),
+                        subtitle: LocaleKeys.settings_developer_pro_subtitle
+                            .tr(),
+                        value: isPro,
+                        onChanged: (val) {
+                          unawaited(getIt<DevProSwitch>().setPro(isPro: val));
+                          // The widgets lock and unlock with Pro.
+                          getIt<WidgetSync>().rewrite();
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  const _EdgeEffectPicker(),
-                  if (buildHasPaywallLab) ...[
                     const SizedBox(height: 14),
-                    const _PaywallVariantPicker(),
+                    const _EdgeEffectPicker(),
+                    const SizedBox(height: 14),
                   ],
-                  const SizedBox(height: 14),
+                  if (buildHasPaywallLab) ...[
+                    const _PaywallVariantPicker(),
+                    const SizedBox(height: 14),
+                  ],
                   AppListRow(
                     name: LocaleKeys.settings_developer_dialog_sheet_title.tr(),
                     meta: LocaleKeys.settings_developer_dialog_sheet_subtitle
