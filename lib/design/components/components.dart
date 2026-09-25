@@ -21,6 +21,7 @@ export 'nav_rail.dart';
 export 'notification_cards.dart';
 export 'pinned_nudge_bar.dart';
 export 'preview_button.dart';
+export 'pro_badge.dart';
 export 'radios.dart';
 export 'screen_scaffold.dart';
 export 'scrim.dart';

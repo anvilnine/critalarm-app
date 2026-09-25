@@ -8,21 +8,21 @@
 /// This is a query filter, never a delete. Buying Pro unhides the old rows
 /// with no download. A plan lapsing hides them again and removes nothing.
 abstract final class HistoryWindow {
-  /// The tier the relay calls the unpaid plan.
-  static const freeTier = 'free';
-
   /// The oldest `opened_at` allowed on screen.
   ///
-  /// A null lower bound means "show everything on the phone". That is every
-  /// tier except [freeTier], and self-hosted mode, which is never sent a
-  /// tier at all and has no caps to apply.
+  /// A null lower bound means "show everything on the phone". That is a paid
+  /// account, and self-hosted mode, which is never sent a tier at all and has
+  /// no caps to apply.
+  ///
+  /// [isPaid] comes from `AccountAccess.isPaid`, so the store saying Pro and
+  /// the developer Force Pro switch count the same as the server saying so.
   static DateTime? lowerBound({
-    required String tier,
+    required bool isPaid,
     required int historyDays,
     required DateTime now,
     bool isSelfHosted = false,
   }) {
-    if (isSelfHosted || tier != freeTier) return null;
+    if (isSelfHosted || isPaid) return null;
     return now.subtract(Duration(days: historyDays));
   }
 }

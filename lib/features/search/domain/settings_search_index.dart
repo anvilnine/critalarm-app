@@ -14,6 +14,7 @@ class SettingsDestination {
     required this.parentTitleKey,
     this.keywords = const <String>[],
     this.devOnly = false,
+    this.needsStorageSection = false,
   });
 
   final String id;
@@ -33,6 +34,10 @@ class SettingsDestination {
 
   /// Only in a build that skips the paywall, matching the Settings screen.
   final bool devOnly;
+
+  /// Lives in the Storage section, which Settings only draws on a paid plan
+  /// or a self-hosted server. Search must not find a row that is not there.
+  final bool needsStorageSection;
 }
 
 /// Everything under Settings that search can reach.
@@ -160,6 +165,7 @@ abstract final class SettingsSearchIndex {
         'history',
         'space',
       ],
+      needsStorageSection: true,
     ),
     SettingsDestination(
       id: 'storage-keep-critical',
@@ -173,6 +179,7 @@ abstract final class SettingsSearchIndex {
         'keep forever',
         'storage',
       ],
+      needsStorageSection: true,
     ),
     SettingsDestination(
       id: 'plan',
@@ -236,11 +243,18 @@ abstract final class SettingsSearchIndex {
 
   /// The rows a given build should search. A release build never offers the
   /// developer screen, so it must never find it either.
-  static List<SettingsDestination> forBuild({required bool includeDevOnly}) {
-    if (includeDevOnly) return all;
+  ///
+  /// [showsStorage] matches `SettingsState.hasStorageSection`: true on a paid
+  /// plan or a self-hosted server. Without it the Storage rows are left out.
+  static List<SettingsDestination> forBuild({
+    required bool includeDevOnly,
+    required bool showsStorage,
+  }) {
     return <SettingsDestination>[
       for (final destination in all)
-        if (!destination.devOnly) destination,
+        if ((includeDevOnly || !destination.devOnly) &&
+            (showsStorage || !destination.needsStorageSection))
+          destination,
     ];
   }
 }

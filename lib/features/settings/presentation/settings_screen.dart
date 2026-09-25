@@ -128,19 +128,31 @@ class _SettingsScreenContent extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  !state.access.isKnown
-                      ? LocaleKeys.account_plan_unavailable.tr()
-                      : isPro
-                      ? LocaleKeys.settings_plan_pro.tr()
-                      : LocaleKeys.settings_plan_free.tr(),
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colors.ink,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        // A purchase the store confirmed counts as Pro before
+                        // the server has registered it.
+                        isPro
+                            ? LocaleKeys.settings_plan_pro.tr()
+                            : !state.access.isKnown
+                            ? LocaleKeys.account_plan_unavailable.tr()
+                            : LocaleKeys.settings_plan_free.tr(),
+                        style: TextStyle(
+                          fontFamily: AppTypography.fontBody,
+                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colors.ink,
+                        ),
+                      ),
+                    ),
+                    if (isPro) ...[
+                      const SizedBox(width: 8),
+                      ProBadge(label: LocaleKeys.paywall_pro_badge.tr()),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(

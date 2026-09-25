@@ -353,6 +353,7 @@
     "token_recap_label": "Token for",
     "token_recap_critical": "Critical delivery on",
     "toast_created": "Topic created",
+    "toast_pro_pending": "Pro is still turning on. Try again in a moment.",
     "name_error_empty": "Give the topic a name.",
     "name_error_invalid": "Use 1 to 64 lowercase letters, digits and hyphens. Try prod-db.",
     "cancel_aria_label": "Cancel",
@@ -618,6 +619,12 @@
     "test_alarm_button": "Send a test alarm"
   },
   "paywall": {
+    "welcome": {
+      "title": "You're on Pro",
+      "body": "Thanks for backing Crit Alarm. Every Pro feature is switched on.",
+      "button": "Let's go"
+    },
+    "pro_badge": "Pro",
     "title": "Crit Alarm Pro",
     "back_aria_label": "Back",
     "stage_word": "Pro",

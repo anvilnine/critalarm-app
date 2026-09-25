@@ -98,7 +98,7 @@ class _ReminderSettingsContentState extends State<_ReminderSettingsContent>
                         onChanged: (value) =>
                             unawaited(cubit.setReminders(isOn: value)),
                       ),
-                      if (!state.isSelfHosted) ...[
+                      if (state.showsOffers) ...[
                         const SizedBox(height: 8),
                         AppToggleRow(
                           title: LocaleKeys.reminders_switch_offers_title.tr(),

@@ -28,7 +28,10 @@ void main() {
     });
 
     test('a release build cannot find the developer screen', () {
-      final release = SettingsSearchIndex.forBuild(includeDevOnly: false);
+      final release = SettingsSearchIndex.forBuild(
+        includeDevOnly: false,
+        showsStorage: true,
+      );
 
       expect(release.any((d) => d.devOnly), isFalse);
       expect(
@@ -39,12 +42,37 @@ void main() {
 
     test('a build that skips the paywall gets everything', () {
       expect(
-        SettingsSearchIndex.forBuild(includeDevOnly: true),
+        SettingsSearchIndex.forBuild(includeDevOnly: true, showsStorage: true),
         hasLength(SettingsSearchIndex.all.length),
       );
       expect(
-        SettingsSearchIndex.forBuild(includeDevOnly: false).length,
+        SettingsSearchIndex.forBuild(
+          includeDevOnly: false,
+          showsStorage: true,
+        ).length,
         lessThan(SettingsSearchIndex.all.length),
+      );
+    });
+
+    test('a free relay account cannot find the Storage rows', () {
+      final free = SettingsSearchIndex.forBuild(
+        includeDevOnly: true,
+        showsStorage: false,
+      );
+
+      expect(free.map((d) => d.id), isNot(contains('storage-delete-after')));
+      expect(free.map((d) => d.id), isNot(contains('storage-keep-critical')));
+    });
+
+    test('a paid or self-hosted account finds the Storage rows', () {
+      final paid = SettingsSearchIndex.forBuild(
+        includeDevOnly: false,
+        showsStorage: true,
+      );
+
+      expect(
+        paid.map((d) => d.id),
+        containsAll(['storage-delete-after', 'storage-keep-critical']),
       );
     });
 

@@ -23,6 +23,7 @@ class ReminderBindings {
     required Future<void> Function() openStoreReview,
     required Future<void> Function(String source) openFeedbackForm,
     ReminderAnalytics? analytics,
+    this.readIsPaid,
   }) : // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
@@ -58,6 +59,11 @@ class ReminderBindings {
 
   final ReminderScheduler _scheduler;
   final HomePromptRepository _prompts;
+
+  /// Whether this account is on Pro. A Pro nudge tapped after buying goes
+  /// home instead of to the paywall. Null counts as free; a failed read
+  /// counts as paid.
+  final Future<bool> Function()? readIsPaid;
   final AlarmFocus _focus;
   final void Function(String path) _navigate;
   final Future<void> Function(Uri url) _openUrl;
@@ -87,7 +93,8 @@ class ReminderBindings {
     }
     // A browser, store or form that fails to open is logged, never thrown.
     try {
-      switch (ReminderTapRoute.resolve(tap)) {
+      final isPaid = await _readIsPaidSafely();
+      switch (ReminderTapRoute.resolve(tap, isPaid: isPaid)) {
         case OpenRouteAction(:final path):
           _navigate(path);
         case OpenUrlAction(:final url):
@@ -114,4 +121,14 @@ class ReminderBindings {
   }
 
   Future<void> dispose() async => _taps?.cancel();
+
+  Future<bool> _readIsPaidSafely() async {
+    final read = readIsPaid;
+    if (read == null) return false;
+    try {
+      return await read();
+    } on Object catch (_) {
+      return true;
+    }
+  }
 }

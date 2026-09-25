@@ -237,6 +237,17 @@ void main() {
       );
     });
 
+    test('a paid user never gets Offers, even with the box ticked', () {
+      expect(
+        RemindersSheetChoice.turnOn(
+          offersTicked: true,
+          isSelfHosted: false,
+          isPaid: true,
+        ),
+        ReminderSwitches.defaults,
+      );
+    });
+
     test('No thanks turns both off', () {
       expect(RemindersSheetChoice.noThanks, ReminderSwitches.allOff);
     });

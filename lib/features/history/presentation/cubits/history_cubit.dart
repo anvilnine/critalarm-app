@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:critalarm/app/state/app_data_status.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
@@ -33,8 +35,12 @@ class HistoryCubit extends Cubit<HistoryState> {
     this.sessionStore,
     this.store,
     this.isSelfHosted = false,
+    PlanChanges? planChanges,
   }) : _now = now ?? DateTime.now,
-       super(const HistoryState());
+       _planChanges = planChanges ?? appPlanChanges,
+       super(const HistoryState()) {
+    _planChanges.addListener(_onPlanChanged);
+  }
 
   /// How many alarms one page of the local read holds.
   static const pageSize = 50;
@@ -53,7 +59,13 @@ class HistoryCubit extends Cubit<HistoryState> {
   /// again from [sessionStore] on every load.
   bool isSelfHosted;
 
-  String _tier = HistoryWindow.freeTier;
+  /// Tells this cubit when the plan may have moved, so buying Pro shows the
+  /// older alarms without an app restart.
+  final PlanChanges _planChanges;
+
+  /// Whether the account counts as paid. Read from [AccountAccess], so the
+  /// store saying Pro and the developer switch count too.
+  bool _isPaid = false;
 
   /// How many pages have been read off disk.
   int _pagesRead = 0;
@@ -72,8 +84,7 @@ class HistoryCubit extends Cubit<HistoryState> {
     // nothing to show, and that is the only time the screen says "loading".
     emit(state.copyWith(status: HistoryStatus.loading));
 
-    final identity = await identityStore?.readOrCreate();
-    if (identityStore != null && identity?.accountId == null) {
+    if (!await _readPlan()) {
       emit(
         state.copyWith(
           status: HistoryStatus.failure,
@@ -84,14 +95,37 @@ class HistoryCubit extends Cubit<HistoryState> {
       );
       return;
     }
+
+    await _incidents.ensureLoaded();
+    _builtFrom = null;
+    await _reload();
+  }
+
+  /// Reads the plan and the server mode again. False when there is an
+  /// identity store but no account in it, so no plan to go on.
+  Future<bool> _readPlan() async {
+    final identity = await identityStore?.readOrCreate();
+    if (identityStore != null && identity?.accountId == null) return false;
     _caps = identity?.caps ?? AccountCaps.free;
-    _tier = identity?.tier ?? HistoryWindow.freeTier;
+    _isPaid =
+        identity != null &&
+        AccountAccess(identity, planChanges: _planChanges).isPaid;
     final session = await sessionStore?.read();
     if (session != null) {
       isSelfHosted = session.mode == ServerMode.selfhosted;
     }
+    return true;
+  }
 
-    await _incidents.ensureLoaded();
+  /// The plan moved. Read it again and redraw, so older alarms appear and
+  /// the upsell footer goes away.
+  void _onPlanChanged() {
+    if (isClosed || state.status == HistoryStatus.initial) return;
+    unawaited(_reloadPlan());
+  }
+
+  Future<void> _reloadPlan() async {
+    if (!await _readPlan() || isClosed) return;
     _builtFrom = null;
     await _reload();
   }
@@ -99,6 +133,8 @@ class HistoryCubit extends Cubit<HistoryState> {
   /// True when the list loaded, so the face can say so.
   Future<bool> refresh() async {
     await _incidents.refresh(full: true);
+    // The plan can move while the tab sits open, so a pull reads it too.
+    await _readPlan();
     _builtFrom = null;
     await _reload();
     return _incidents.state.status != AppDataStatus.failure;
@@ -106,7 +142,7 @@ class HistoryCubit extends Cubit<HistoryState> {
 
   /// The oldest alarm this tier may show, or null for "everything held".
   DateTime? get window => HistoryWindow.lowerBound(
-    tier: _tier,
+    isPaid: _isPaid,
     historyDays: _caps.historyDays ?? 7,
     now: _now(),
     isSelfHosted: isSelfHosted,
@@ -184,6 +220,7 @@ class HistoryCubit extends Cubit<HistoryState> {
 
   @override
   Future<void> close() async {
+    _planChanges.removeListener(_onPlanChanged);
     await _incidentsSub?.cancel();
     return super.close();
   }

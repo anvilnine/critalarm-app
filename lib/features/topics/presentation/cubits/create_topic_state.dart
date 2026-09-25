@@ -31,6 +31,7 @@ class CreateTopicState {
     this.criticalLimit = 2,
     this.criticalUsed = 0,
     this.existingNames = const <String>{},
+    this.isProPending = false,
   });
 
   final CapReached? capReached;
@@ -70,6 +71,10 @@ class CreateTopicState {
   /// from the shared topic list, so nothing here asks the server again.
   final Set<String> existingNames;
 
+  /// True when the last create was refused while the store already said Pro
+  /// and the server had not caught up yet.
+  final bool isProPending;
+
   /// True when the typed name matches a topic the app already holds. The
   /// server still checks on create: this list can be stale and two devices can
   /// race, so it only saves the user a round trip through step 2.
@@ -99,6 +104,7 @@ class CreateTopicState {
     int? criticalLimit,
     int? criticalUsed,
     Set<String>? existingNames,
+    bool? isProPending,
     bool clearError = false,
   }) {
     return CreateTopicState(
@@ -117,6 +123,7 @@ class CreateTopicState {
       criticalLimit: criticalLimit ?? this.criticalLimit,
       criticalUsed: criticalUsed ?? this.criticalUsed,
       existingNames: existingNames ?? this.existingNames,
+      isProPending: isProPending ?? this.isProPending,
     );
   }
 
@@ -139,7 +146,8 @@ class CreateTopicState {
           isFreeTier == other.isFreeTier &&
           criticalLimit == other.criticalLimit &&
           criticalUsed == other.criticalUsed &&
-          setEquals(existingNames, other.existingNames);
+          setEquals(existingNames, other.existingNames) &&
+          isProPending == other.isProPending;
 
   @override
   int get hashCode => Object.hash(
@@ -158,5 +166,6 @@ class CreateTopicState {
     criticalLimit,
     criticalUsed,
     Object.hashAllUnordered(existingNames),
+    isProPending,
   );
 }

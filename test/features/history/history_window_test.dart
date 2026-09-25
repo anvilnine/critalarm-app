@@ -37,29 +37,22 @@ void main() {
   group('HistoryWindow.lowerBound', () {
     test('free stops at now minus history_days', () {
       expect(
-        HistoryWindow.lowerBound(tier: 'free', historyDays: 7, now: now),
+        HistoryWindow.lowerBound(isPaid: false, historyDays: 7, now: now),
         now.subtract(const Duration(days: 7)),
       );
     });
 
-    test('a hosted tier has no lower bound', () {
+    test('a paid account has no lower bound', () {
       expect(
-        HistoryWindow.lowerBound(tier: 'hosted', historyDays: 90, now: now),
+        HistoryWindow.lowerBound(isPaid: true, historyDays: 90, now: now),
         isNull,
       );
     });
 
-    test('a relay tier has no lower bound', () {
-      expect(
-        HistoryWindow.lowerBound(tier: 'relay', historyDays: 90, now: now),
-        isNull,
-      );
-    });
-
-    test('self-hosted has no lower bound, whatever the tier says', () {
+    test('self-hosted has no lower bound, even when not paid', () {
       expect(
         HistoryWindow.lowerBound(
-          tier: 'free',
+          isPaid: false,
           historyDays: 7,
           now: now,
           isSelfHosted: true,

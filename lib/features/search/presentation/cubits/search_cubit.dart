@@ -2,7 +2,12 @@ import 'dart:async';
 
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/account/plan_changes.dart';
+import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/incident.dart';
+import 'package:critalarm/core/storage/api_session_store.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
@@ -40,9 +45,15 @@ class SearchCubit extends Cubit<SearchState> {
     required this._addRecentSearch,
     required this._clearRecentSearches,
     required this._includeDevOnlySettings,
+    this.identityStore,
+    this.sessionStore,
+    PlanChanges? planChanges,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
-       super(const SearchState());
+       _planChanges = planChanges ?? appPlanChanges,
+       super(const SearchState()) {
+    _planChanges.addListener(_onPlanChanged);
+  }
 
   final TopicsCubit _topics;
   final IncidentsCubit _incidents;
@@ -52,6 +63,40 @@ class SearchCubit extends Cubit<SearchState> {
   final ClearRecentSearchesUsecase _clearRecentSearches;
   final bool _includeDevOnlySettings;
   final DateTime Function() _now;
+
+  /// Read to decide whether the Storage rows exist in Settings. Null in
+  /// tests, and then only the store or the developer switch can say paid.
+  final DeviceIdentityStore? identityStore;
+
+  /// Says whether the server is self-hosted, which also shows Storage.
+  final ApiSessionStore? sessionStore;
+
+  /// Moves when a purchase lands, so Storage becomes searchable right away.
+  final PlanChanges _planChanges;
+
+  /// Whether Settings draws its Storage section. Same rule as
+  /// `SettingsState.hasStorageSection`.
+  bool _showsStorage = false;
+
+  Future<bool> _readShowsStorage() async {
+    final identity = await identityStore?.readOrCreate();
+    final session = await sessionStore?.read();
+    return AccountAccess(identity, planChanges: _planChanges).isPaid ||
+        session?.mode == ServerMode.selfhosted;
+  }
+
+  void _onPlanChanged() {
+    if (isClosed || state.status != SearchStatus.ready) return;
+    unawaited(_refreshStorage());
+  }
+
+  Future<void> _refreshStorage() async {
+    final shows = await _readShowsStorage();
+    if (isClosed || shows == _showsStorage) return;
+    _showsStorage = shows;
+    _catalogue = _buildCatalogue();
+    emit(state.copyWith(results: _rank(state.query)));
+  }
 
   /// Every searchable thing, in the order sections should break ties: topics,
   /// past alarms, settings, documentation.
@@ -91,6 +136,7 @@ class SearchCubit extends Cubit<SearchState> {
     await incidentsCall;
     _docs = (await docsCall).getOrNull() ?? const <DocsPage>[];
     final recent = (await recentCall).getOrNull() ?? const <String>[];
+    _showsStorage = await _readShowsStorage();
 
     if (isClosed) return;
 
@@ -145,6 +191,7 @@ class SearchCubit extends Cubit<SearchState> {
 
   @override
   Future<void> close() async {
+    _planChanges.removeListener(_onPlanChanged);
     await _incidentsSub?.cancel();
     await _topicsSub?.cancel();
     return super.close();
@@ -242,6 +289,7 @@ class SearchCubit extends Cubit<SearchState> {
   List<SearchResult> _settingsResults() {
     final destinations = SettingsSearchIndex.forBuild(
       includeDevOnly: _includeDevOnlySettings,
+      showsStorage: _showsStorage,
     );
     return <SearchResult>[
       for (final destination in destinations)

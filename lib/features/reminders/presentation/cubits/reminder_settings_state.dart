@@ -7,6 +7,7 @@ class ReminderSettingsState {
     this.switches = ReminderSwitches.defaults,
     this.notificationsAllowed = true,
     this.isSelfHosted = false,
+    this.isPaid = false,
     this.isLoaded = false,
   });
 
@@ -18,17 +19,25 @@ class ReminderSettingsState {
 
   /// Hides the Offers switch: there is no Pro on a self-hosted server.
   final bool isSelfHosted;
+
+  /// Hides the Offers switch: Pro offers mean nothing to someone with Pro.
+  final bool isPaid;
   final bool isLoaded;
+
+  /// Whether the "News about Pro" switch shows at all.
+  bool get showsOffers => !isSelfHosted && !isPaid;
 
   ReminderSettingsState copyWith({
     ReminderSwitches? switches,
     bool? notificationsAllowed,
     bool? isSelfHosted,
+    bool? isPaid,
     bool? isLoaded,
   }) => ReminderSettingsState(
     switches: switches ?? this.switches,
     notificationsAllowed: notificationsAllowed ?? this.notificationsAllowed,
     isSelfHosted: isSelfHosted ?? this.isSelfHosted,
+    isPaid: isPaid ?? this.isPaid,
     isLoaded: isLoaded ?? this.isLoaded,
   );
 
@@ -38,9 +47,15 @@ class ReminderSettingsState {
       other.switches == switches &&
       other.notificationsAllowed == notificationsAllowed &&
       other.isSelfHosted == isSelfHosted &&
+      other.isPaid == isPaid &&
       other.isLoaded == isLoaded;
 
   @override
-  int get hashCode =>
-      Object.hash(switches, notificationsAllowed, isSelfHosted, isLoaded);
+  int get hashCode => Object.hash(
+    switches,
+    notificationsAllowed,
+    isSelfHosted,
+    isPaid,
+    isLoaded,
+  );
 }

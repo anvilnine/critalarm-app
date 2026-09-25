@@ -519,7 +519,13 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
         // critical topic cap: a device or daily cap is a different problem
         // and Pro is not the answer to it.
         if (state.capReached?.name == 'critical_topics') {
-          unawaited(_askAboutPro(context));
+          // Just bought Pro and the server has not heard yet. Asking them to
+          // buy it again would be wrong, so say it is on its way.
+          if (state.isProPending) {
+            _showToast(LocaleKeys.create_topic_toast_pro_pending.tr());
+          } else {
+            unawaited(_askAboutPro(context));
+          }
         }
         if (state.status == CreateTopicStatus.failure) {
           // A failed create sends the user back to step 1 with the message

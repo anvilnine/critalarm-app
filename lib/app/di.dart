@@ -6,6 +6,7 @@ import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
+import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/alarm_build_mode.dart';
 import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
@@ -98,12 +99,14 @@ import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_wel
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
+import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_customer_info_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_offerings_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/purchase_package_usecase.dart';
 import 'package:critalarm/features/paywall/domain/usecases/restore_purchases_usecase.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/cubits/pro_status_cubit.dart';
 import 'package:critalarm/features/permissions/data/repositories/platform_device_permissions_repository.dart';
 import 'package:critalarm/features/permissions/domain/repositories/device_permissions_repository.dart';
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
@@ -183,6 +186,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
+import 'package:purchases_flutter/purchases_flutter.dart' show CustomerInfo;
 import 'package:shared_preferences/shared_preferences.dart';
 
 final GetIt getIt = GetIt.instance;
@@ -283,6 +287,15 @@ Future<void> configureDependencies({
         await revenueCatService.initialize(
           apiKey: revenueCatKey,
           appUserId: (await identityStore.readOrCreate()).accountId,
+        );
+        // The store knows about a purchase before our server does. Mirror its
+        // Pro entitlement so the app turns Pro the moment the buyer pays.
+        revenueCatService.customerInfoStream.listen(_mirrorStorePro);
+        unawaited(
+          revenueCatService.getCustomerInfo().then(
+            _mirrorStorePro,
+            onError: (Object _) {},
+          ),
         );
       }
     } on Object catch (_) {
@@ -896,6 +909,8 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => SearchCubit(
+        identityStore: getIt<DeviceIdentityStore>(),
+        sessionStore: getIt<ApiSessionStore>(),
         topics: getIt<TopicsCubit>(),
         incidents: getIt<IncidentsCubit>(),
         getDocsIndex: getIt<GetDocsIndexUsecase>(),
@@ -928,15 +943,19 @@ Future<void> configureDependencies({
         getIt<IncidentRepository>(),
         alarm: getIt<AlarmHost>(),
         identityStore: getIt<DeviceIdentityStore>(),
+        sessionStore: getIt<ApiSessionStore>(),
       ),
     )
     ..registerFactory(
-      () => CreateTopicCubit(
-        getIt<CreateTopicUsecase>(),
-        getIt<GetConnectionUsecase>(),
-        getIt<DeviceIdentityStore>(),
-        getIt<GetTopicsUsecase>(),
-      )..alarm = getIt<AlarmHost>(),
+      () =>
+          CreateTopicCubit(
+              getIt<CreateTopicUsecase>(),
+              getIt<GetConnectionUsecase>(),
+              getIt<DeviceIdentityStore>(),
+              getIt<GetTopicsUsecase>(),
+            )
+            ..alarm = getIt<AlarmHost>()
+            ..sessionStore = getIt<ApiSessionStore>(),
     )
     ..registerFactory(
       () => CriticalAlarmCubit(
@@ -998,6 +1017,7 @@ Future<void> configureDependencies({
         store: getIt<ReminderStore>(),
         scheduler: getIt<ReminderScheduler>(),
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
+        readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
         trigger: getIt<ReminderPlanTrigger>(),
         analytics: getIt<ReminderAnalytics>(),
       ),
@@ -1082,6 +1102,11 @@ Future<void> configureDependencies({
         },
       ),
     )
+    ..registerFactory(
+      () => ProStatusCubit(
+        readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
+      ),
+    )
     ..registerFactoryParam<HomePromptCubit, ShellCubit?, void>(
       (shellCubit, _) => HomePromptCubit(
         getConnectionUsecase: getIt<GetConnectionUsecase>(),
@@ -1093,6 +1118,10 @@ Future<void> configureDependencies({
       ),
     );
 }
+
+void _mirrorStorePro(CustomerInfo info) => appPlanChanges.setStoreSaysPro(
+  value: info.entitlements.active.containsKey(SubscriptionTier.proEntitlement),
+);
 
 Future<DebugEnvironment> _readAlarmDebugEnvironment() async {
   final session = await getIt<ApiSessionStore>().read();
