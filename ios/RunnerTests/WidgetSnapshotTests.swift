@@ -7,6 +7,36 @@ import XCTest
 /// Fixture: prod (open inc_9a8b7c, count 2), backups (acked inc_4d5e6f,
 /// count 1), staging (quiet).
 final class WidgetSnapshotTests: XCTestCase {
+    func testTheLockedFixtureDecodesLocked() throws {
+        let snapshot = try XCTUnwrap(WidgetSnapshot.decode(fixtureData("widget_snapshot_v1_locked.json")))
+        XCTAssertTrue(snapshot.locked)
+        XCTAssertTrue(snapshot.topics.isEmpty)
+    }
+
+    func testASnapshotWithoutLockedReadsUnlocked() throws {
+        XCTAssertFalse(try fixture().locked)
+    }
+
+    func testLockedEncodingMatchesTheFixtureKeyForKey() throws {
+        let snapshot = try XCTUnwrap(WidgetSnapshot.decode(fixtureData("widget_snapshot_v1_locked.json")))
+        let written = try JSONSerialization.jsonObject(with: snapshot.encoded()) as? NSDictionary
+        let expected = try JSONSerialization.jsonObject(with: fixtureData("widget_snapshot_v1_locked.json")) as? NSDictionary
+        XCTAssertEqual(written, expected)
+    }
+
+    func testAPatchLeavesALockedSnapshotAlone() throws {
+        let locked = try XCTUnwrap(WidgetSnapshot.decode(fixtureData("widget_snapshot_v1_locked.json")))
+        let result = WidgetPatch.opened("inc_x", topic: "prod", title: "Down", openedAt: Date())
+            .apply(to: locked, now: Date())
+        XCTAssertEqual(result, .unchanged)
+    }
+
+    func testALockedSnapshotIsNeverStale() throws {
+        var locked = try XCTUnwrap(WidgetSnapshot.decode(fixtureData("widget_snapshot_v1_locked.json")))
+        locked.updatedAt = 0
+        XCTAssertFalse(locked.isStale(now: Date()))
+    }
+
     private let defaults = UserDefaults(suiteName: "widget-snapshot-store-tests")!
     private let now = Date(timeIntervalSince1970: 1_759_047_000)
     private var nowSeconds: Int { WidgetSnapshot.seconds(now) }
