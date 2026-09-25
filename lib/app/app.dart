@@ -36,7 +36,9 @@ import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repos
 import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
 import 'package:critalarm/features/reminders/domain/reminder_scheduler.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
+import 'package:critalarm/features/settings/domain/entities/appearance_settings.dart';
 import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_usecase.dart';
+import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/theme_mode_mapper.dart';
 import 'package:critalarm/features/tour/presentation/tour_host.dart';
@@ -250,6 +252,13 @@ class _CritAlarmAppState extends State<CritAlarmApp>
             return cubit;
           },
         ),
+        BlocProvider<AppearanceCubit>(
+          create: (_) {
+            final cubit = getIt<AppearanceCubit>();
+            unawaited(cubit.load());
+            return cubit;
+          },
+        ),
       ],
       child: BlocBuilder<ThemeCubit, AppThemeMode>(
         builder: (context, mode) => MaterialApp.router(
@@ -262,17 +271,19 @@ class _CritAlarmAppState extends State<CritAlarmApp>
           locale: context.locale,
           routerConfig: _router,
           scaffoldMessengerKey: _messenger,
-          builder: (context, child) => _OnTranslationsLoaded(
-            onLoaded: _quickActions.start,
-            child: AppDeviceScope(
-              isIphone:
-                  getIt.isRegistered<DeviceForm>() &&
-                  getIt<DeviceForm>().isIphone,
-              child: TourHost(
-                router: _router,
-                child: AppAmbientShell(
+          builder: (context, child) => _AppearanceScope(
+            child: _OnTranslationsLoaded(
+              onLoaded: _quickActions.start,
+              child: AppDeviceScope(
+                isIphone:
+                    getIt.isRegistered<DeviceForm>() &&
+                    getIt<DeviceForm>().isIphone,
+                child: TourHost(
                   router: _router,
-                  child: child ?? const SizedBox.shrink(),
+                  child: AppAmbientShell(
+                    router: _router,
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 ),
               ),
             ),
@@ -309,4 +320,29 @@ class _OnTranslationsLoadedState extends State<_OnTranslationsLoaded> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// Applies the Appearance choices to everything below it.
+///
+/// Reduce motion goes into [MediaQueryData.disableAnimations], which every
+/// `context.motion` and `context.reduceMotion` already reads, so it can only
+/// add to the OS setting, never switch it off. Haptics are applied by
+/// AppearanceCubit itself.
+class _AppearanceScope extends StatelessWidget {
+  const _AppearanceScope({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AppearanceCubit, AppearanceSettings>(
+      builder: (context, settings) {
+        if (!settings.reduceMotion) return child;
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          child: child,
+        );
+      },
+    );
+  }
 }
