@@ -265,6 +265,9 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                       children: [
                         AppSwitch(
                           value: askAgainNextTime,
+                          semanticLabel: LocaleKeys
+                              .create_topic_confirm_dialog_ask_again
+                              .tr(),
                           onChanged: (val) {
                             setDialogState(() {
                               askAgainNextTime = val;
@@ -273,15 +276,18 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            LocaleKeys.create_topic_confirm_dialog_ask_again
-                                .tr(),
-                            style: TextStyle(
-                              fontFamily: AppTypography.fontBody,
-                              fontFamilyFallback:
-                                  AppTypography.fontBodyFallbacks,
-                              fontSize: 13,
-                              color: colors.ink,
+                          // Read through the switch's label.
+                          child: ExcludeSemantics(
+                            child: Text(
+                              LocaleKeys.create_topic_confirm_dialog_ask_again
+                                  .tr(),
+                              style: TextStyle(
+                                fontFamily: AppTypography.fontBody,
+                                fontFamilyFallback:
+                                    AppTypography.fontBodyFallbacks,
+                                fontSize: 13,
+                                color: colors.ink,
+                              ),
                             ),
                           ),
                         ),
@@ -358,8 +364,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
             title: LocaleKeys.create_topic_critical_toggle_title.tr(),
             // An iPhone older than iOS 26 has no AlarmKit, so it must not be
             // promised a ring through silent mode.
-            subtitle:
-                RingClaim.forPhone(state.alarm) == RingClaim.timeSensitive
+            subtitle: RingClaim.forPhone(state.alarm) == RingClaim.timeSensitive
                 ? LocaleKeys
                       .create_topic_critical_toggle_subtitle_time_sensitive
                       .tr()
@@ -858,8 +863,11 @@ class _LegalLink extends StatelessWidget {
     final colors = context.appColors;
 
     return Semantics(
-      label: '$label: $url',
-      button: true,
+      // A link, read once by its name. The raw URL is noise to a listener.
+      link: true,
+      linkUrl: Uri.tryParse(url),
+      label: label,
+      excludeSemantics: true,
       child: GestureDetector(
         onTap: () => unawaited(
           launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView),

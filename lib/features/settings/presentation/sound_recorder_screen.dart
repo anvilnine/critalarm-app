@@ -390,7 +390,7 @@ class _RecordButton extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
+              duration: context.motion(const Duration(milliseconds: 160)),
               width: isRecording ? 30 : 60,
               height: isRecording ? 30 : 60,
               decoration: BoxDecoration(

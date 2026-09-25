@@ -130,10 +130,12 @@ class _SoundPickerView extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
                 child: state.isLoading
-                    ? const Center(
+                    ? Center(
                         child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: CircularProgressIndicator(),
+                          padding: const EdgeInsets.all(32),
+                          child: CircularProgressIndicator(
+                            semanticsLabel: LocaleKeys.common_loading.tr(),
+                          ),
                         ),
                       )
                     : Column(
