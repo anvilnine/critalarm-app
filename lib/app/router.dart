@@ -15,6 +15,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/notification_p
 import 'package:critalarm/features/onboarding/presentation/onboarding_connect_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
 import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
@@ -52,6 +53,7 @@ abstract final class AppRoute {
   static const onboardingConnect = 'onboardingConnect';
   static const onboardingPermissions = 'onboardingPermissions';
   static const onboardingDenied = 'onboardingDenied';
+  static const onboardingWelcome = 'onboardingWelcome';
   static const topics = 'topics';
   static const history = 'history';
   static const topicDetail = 'topicDetail';
@@ -502,6 +504,19 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
               ),
             );
           },
+        ),
+        GoRoute(
+          path: '/onboarding/welcome',
+          name: AppRoute.onboardingWelcome,
+          pageBuilder: (context, state) => AmbientPage(
+            key: state.pageKey,
+            child: OnboardingWelcomeScreen(
+              variant: WelcomeVariant.fromQuery(
+                state.uri.queryParameters['v'],
+              ),
+              isPreview: state.uri.queryParameters['preview'] == 'true',
+            ),
+          ),
         ),
         GoRoute(
           path: '/onboarding/denied',
