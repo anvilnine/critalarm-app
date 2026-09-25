@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -125,7 +127,7 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
         title: 'Face expressions',
         leading: AppIconButton(
           glyph: GlyphType.back,
-          ariaLabel: 'Back',
+          ariaLabel: LocaleKeys.common_back.tr(),
           onPressed: () {
             if (context.canPop()) {
               context.pop();
@@ -265,46 +267,45 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
     );
   }
 
-  Widget _groupHeader(_FaceGroup group, AppColors colors) =>
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Row(
-            children: [
-              Text(
-                group.title,
-                style: TextStyle(
-                  fontFamily: AppTypography.fontBody,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
-                  color: colors.ink3,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.hairline,
-                  borderRadius: Radii.smAll,
-                ),
-                child: Text(
-                  '${group.faces.length} faces',
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: colors.ink2,
-                  ),
-                ),
-              ),
-            ],
+  Widget _groupHeader(_FaceGroup group, AppColors colors) => SliverToBoxAdapter(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Row(
+        children: [
+          Text(
+            group.title,
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+              color: colors.ink3,
+            ),
           ),
-        ),
-      );
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 6,
+              vertical: 2,
+            ),
+            decoration: BoxDecoration(
+              color: colors.hairline,
+              borderRadius: Radii.smAll,
+            ),
+            child: Text(
+              '${group.faces.length} faces',
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: colors.ink2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _groupGrid(_FaceGroup group, AppColors colors) => SliverPadding(
     padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
@@ -415,7 +416,7 @@ class _FaceGalleryScreenState extends State<FaceGalleryScreen> {
       },
       borderRadius: Radii.mdAll,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: context.motion(const Duration(milliseconds: 180)),
         decoration: BoxDecoration(
           color: colors.surface,
           borderRadius: Radii.mdAll,

@@ -110,9 +110,11 @@ class _AlarmDebugScreenState extends State<AlarmDebugScreen> with RouteAware {
               child: Column(
                 children: [
                   if (snapshot == null && state.loading)
-                    const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator(),
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: CircularProgressIndicator(
+                        semanticsLabel: LocaleKeys.common_loading.tr(),
+                      ),
                     ),
                   _section(context, LocaleKeys.settings_alarm_debug_now.tr(), [
                     if (snapshot != null) ..._nowRows(snapshot),

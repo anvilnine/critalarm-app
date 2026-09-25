@@ -29,8 +29,9 @@ class SearchRecentRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: Radii.smAll,
-      child: SizedBox(
-        height: height,
+      child: ConstrainedBox(
+        // A minimum, so the row grows with Dynamic Type instead of clipping.
+        constraints: const BoxConstraints(minHeight: height),
         child: Padding(
           // Lines up with the section label above it.
           padding: const EdgeInsets.symmetric(horizontal: Spacing.s4),

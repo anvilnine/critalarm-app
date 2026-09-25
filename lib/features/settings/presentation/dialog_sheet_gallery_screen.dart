@@ -1,5 +1,7 @@
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -305,7 +307,7 @@ class DialogSheetGalleryScreen extends StatelessWidget {
         title: 'Dialogs & bottom sheets',
         leading: AppIconButton(
           glyph: GlyphType.back,
-          ariaLabel: 'Back',
+          ariaLabel: LocaleKeys.common_back.tr(),
           onPressed: () {
             if (context.canPop()) {
               context.pop();
