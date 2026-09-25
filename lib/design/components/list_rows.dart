@@ -135,9 +135,11 @@ class _AppListRowState extends State<AppListRow> {
             duration: AppDurations.quick,
             curve: AppCurves.easeSpring,
             scale: scale,
+            // easeOut, not easeSpring: the spring overshoots past 1, and a
+            // shadow animating to none then gets a negative blur.
             child: AnimatedContainer(
               duration: AppDurations.quick,
-              curve: AppCurves.easeSpring,
+              curve: AppCurves.easeOut,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: bg,
