@@ -40,7 +40,15 @@ class HomeFaceResult {
   final List<HomeTopicRow> rows;
 
   bool get hasAckedRow => rows.any((r) => r.faceState == FaceState.acked);
+
+  /// True while the face changes on its own as time passes: a desk timer
+  /// counting down, or a HANDLED or MISSED face that only lasts a while.
+  bool get needsTick => hasAckedRow || hero.faceState == FaceState.success;
 }
+
+/// How long the big face says HANDLED after a close before it goes back to
+/// the resting face. The row keeps the handled time for the hour.
+const handledFaceWindow = Duration(seconds: 30);
 
 HomeFaceResult resolveHomeFace({
   required List<Topic> topics,
@@ -215,9 +223,18 @@ HomeFaceResult resolveHomeFace({
       rows: rows,
     );
   }
-  if (handledEntries.isNotEmpty) {
-    handledEntries.sort((a, b) => b.closedAt.compareTo(a.closedAt));
-    final entry = handledEntries.first;
+  // A close is a moment, so the face only says HANDLED for a short while.
+  // A missed alarm is worth seeing for the whole hour.
+  final heroEntries = handledEntries
+      .where(
+        (h) =>
+            h.incident.state == IncidentStates.expired ||
+            now.difference(h.closedAt) < handledFaceWindow,
+      )
+      .toList();
+  if (heroEntries.isNotEmpty) {
+    heroEntries.sort((a, b) => b.closedAt.compareTo(a.closedAt));
+    final entry = heroEntries.first;
     final isExpired = entry.incident.state == IncidentStates.expired;
     final time = formatHm(entry.closedAt);
     return HomeFaceResult(

@@ -59,16 +59,27 @@ public struct CritAlarmIncidentAttributes: ActivityAttributes {
         /// clears it.
         public var ringsAgainInSeconds: Int?
 
+        /// Set only by this device, never by the server.
+        ///
+        /// When this phone saw the acknowledge, for the "Acknowledged at"
+        /// line and the clock. Optional for the same reason as
+        /// `ringsAgainInSeconds`: a server push carries only the three fields
+        /// above, still decodes, and clears it. The card then reads the time
+        /// from the widget snapshot instead.
+        public var ackedAt: Date?
+
         public init(
             state: IncidentActivityState,
             title: String,
             openedAt: Date,
-            ringsAgainInSeconds: Int? = nil
+            ringsAgainInSeconds: Int? = nil,
+            ackedAt: Date? = nil
         ) {
             self.state = state
             self.title = title
             self.openedAt = openedAt
             self.ringsAgainInSeconds = ringsAgainInSeconds
+            self.ackedAt = ackedAt
         }
 
         // The relay writes snake_case, matching every other payload in api.md.
@@ -77,6 +88,30 @@ public struct CritAlarmIncidentAttributes: ActivityAttributes {
             case title
             case openedAt = "opened_at"
             case ringsAgainInSeconds = "rings_again_in_seconds"
+            case ackedAt = "acked_at"
+        }
+
+        // Written by hand for the dates. api.md §5.3 sends `opened_at` as
+        // seconds since 1970, and the default Codable reads a number as
+        // seconds since 2001, which put server-started cards 31 years out.
+        // Local cards go through the same pair, so both sides use 1970.
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            state = try container.decode(IncidentActivityState.self, forKey: .state)
+            title = try container.decode(String.self, forKey: .title)
+            openedAt = Date(timeIntervalSince1970: try container.decode(Double.self, forKey: .openedAt))
+            ringsAgainInSeconds = try container.decodeIfPresent(Int.self, forKey: .ringsAgainInSeconds)
+            ackedAt = try container.decodeIfPresent(Double.self, forKey: .ackedAt)
+                .map(Date.init(timeIntervalSince1970:))
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(state, forKey: .state)
+            try container.encode(title, forKey: .title)
+            try container.encode(openedAt.timeIntervalSince1970, forKey: .openedAt)
+            try container.encodeIfPresent(ringsAgainInSeconds, forKey: .ringsAgainInSeconds)
+            try container.encodeIfPresent(ackedAt?.timeIntervalSince1970, forKey: .ackedAt)
         }
     }
 

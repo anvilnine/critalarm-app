@@ -1,5 +1,6 @@
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,9 +17,9 @@ void main() {
   });
 
   group('OnboardingDraft', () {
-    test('a fresh install starts at the permissions step', () async {
+    test('a fresh install starts at the welcome step', () async {
       final draft = (await repository.readDraft()).getOrNull()!;
-      expect(draft.step, OnboardingStep.permissions);
+      expect(draft.step, OnboardingStep.welcome);
       expect(draft.serverUrl, isEmpty);
       expect(draft.adminToken, isEmpty);
       expect(draft.isSelfHosting, isFalse);
@@ -52,20 +53,49 @@ void main() {
       await repository.clearDraft();
 
       final draft = (await repository.readDraft()).getOrNull()!;
-      expect(draft.step, OnboardingStep.permissions);
+      expect(draft.step, OnboardingStep.welcome);
       expect(draft.serverUrl, isEmpty);
     });
 
     test('each step knows the screen it belongs to', () {
+      expect(OnboardingStep.welcome.route, '/onboarding/welcome');
+      expect(OnboardingStep.howItRings.route, '/onboarding/how-it-rings');
       expect(OnboardingStep.permissions.route, '/onboarding');
+      expect(OnboardingStep.widgets.route, '/onboarding/widgets');
       expect(OnboardingStep.connect.route, '/onboarding/connect');
       expect(OnboardingStep.test.route, '/onboarding/connect');
     });
 
     test('an unknown saved step falls back to the first one', () {
-      expect(OnboardingStep.fromName('nonsense'), OnboardingStep.permissions);
-      expect(OnboardingStep.fromName(null), OnboardingStep.permissions);
+      expect(OnboardingStep.fromName('nonsense'), OnboardingStep.welcome);
+      expect(OnboardingStep.fromName(null), OnboardingStep.welcome);
       expect(OnboardingStep.fromName('test'), OnboardingStep.test);
+    });
+  });
+
+  group('RememberOnboardingStepUsecase', () {
+    test('saves the step a relaunch should open', () async {
+      await RememberOnboardingStepUsecase(repository)(OnboardingStep.widgets);
+
+      final draft = (await repository.readDraft()).getOrNull()!;
+      expect(draft.step, OnboardingStep.widgets);
+    });
+
+    test('keeps the half-typed server form', () async {
+      await repository.saveDraft(
+        const OnboardingDraft(
+          step: OnboardingStep.connect,
+          serverUrl: 'https://alerts.example.com',
+          isSelfHosting: true,
+        ),
+      );
+
+      await RememberOnboardingStepUsecase(repository)(OnboardingStep.widgets);
+
+      final draft = (await repository.readDraft()).getOrNull()!;
+      expect(draft.step, OnboardingStep.widgets);
+      expect(draft.serverUrl, 'https://alerts.example.com');
+      expect(draft.isSelfHosting, isTrue);
     });
   });
 

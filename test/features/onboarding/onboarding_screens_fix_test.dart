@@ -1,13 +1,13 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/result/result.dart';
-import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/theme/theme.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_connect_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -56,7 +56,7 @@ void main() {
 
   group('OnboardingPermissionsScreen step count and hero', () {
     testWidgets(
-      'shows Step 1 of 2 and FaceWidget has Hero tag',
+      'shows no step count and FaceWidget has Hero tag',
       (tester) async {
         tester.view.physicalSize = const Size(390 * 2, 844 * 2);
         tester.view.devicePixelRatio = 2.0;
@@ -70,7 +70,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
 
         expect(find.byType(OnboardingPermissionsScreen), findsOneWidget);
-        expect(find.text('Step 1 of 2'), findsOneWidget);
+        expect(find.textContaining('Step 1 of'), findsNothing);
 
         final heroFinder = find.ancestor(
           of: find.byType(FaceWidget),
@@ -85,8 +85,8 @@ void main() {
 
   group('OnboardingConnectScreen fixes', () {
     testWidgets(
-      'is not scrollable, Set this up later is TextButton, and contains Hero '
-      'face',
+      'is not scrollable, Set this up later is TextButton, and plays the '
+      'onboarding animations',
       (tester) async {
         tester.view.physicalSize = const Size(390 * 2, 844 * 2);
         tester.view.devicePixelRatio = 2.0;
@@ -117,20 +117,10 @@ void main() {
         );
         expect(skipButtonFinder, findsOneWidget);
 
-        // 3. Check face is present in middle area with Hero tag
-        final heroFinder = find.byWidgetPredicate(
-          (widget) => widget is Hero && widget.tag == 'onboarding-face',
-        );
-        expect(heroFinder, findsOneWidget);
-
-        final faceFinder = find.descendant(
-          of: heroFinder,
-          matching: find.byType(FaceWidget),
-        );
-        expect(faceFinder, findsOneWidget);
-        final face = tester.widget<FaceWidget>(faceFinder);
-        expect(face.state, FaceState.watching);
-        expect(face.size, 80);
+        // 3. The middle area plays the onboarding animations, and there is
+        // no way back out of onboarding.
+        expect(find.byType(OnboardingAnimationLoop), findsOneWidget);
+        expect(find.bySemanticsLabel('Back'), findsNothing);
 
         // 4. Check Crit Alarm Cloud card is present
         expect(find.text('Crit Alarm Cloud'), findsOneWidget);

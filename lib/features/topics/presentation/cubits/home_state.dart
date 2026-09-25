@@ -17,6 +17,10 @@ class HomeTopicItem {
     this.isQuiet = false,
     this.isLive = false,
     this.ringsThroughSilent = false,
+    this.preview,
+    this.unreadCount = 0,
+    this.isPinned = false,
+    this.isMuted = false,
   });
 
   final String name;
@@ -36,6 +40,19 @@ class HomeTopicItem {
   /// through the silent switch.
   final bool ringsThroughSilent;
 
+  /// The newest message on the topic, cut to one line. Null when the topic
+  /// has no message yet.
+  final String? preview;
+
+  /// Messages that came in since the user last read this topic on this phone.
+  final int unreadCount;
+
+  /// Pinned to the top of the list on this phone.
+  final bool isPinned;
+
+  /// Muted on this phone. Greyed out and moved below the rest.
+  final bool isMuted;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -48,7 +65,11 @@ class HomeTopicItem {
           isCrit == other.isCrit &&
           isQuiet == other.isQuiet &&
           isLive == other.isLive &&
-          ringsThroughSilent == other.ringsThroughSilent;
+          ringsThroughSilent == other.ringsThroughSilent &&
+          preview == other.preview &&
+          unreadCount == other.unreadCount &&
+          isPinned == other.isPinned &&
+          isMuted == other.isMuted;
 
   @override
   int get hashCode => Object.hash(
@@ -60,6 +81,10 @@ class HomeTopicItem {
     isQuiet,
     isLive,
     ringsThroughSilent,
+    preview,
+    unreadCount,
+    isPinned,
+    isMuted,
   );
 }
 

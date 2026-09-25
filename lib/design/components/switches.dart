@@ -72,6 +72,7 @@ class AppToggleRow extends StatelessWidget {
     required this.value,
     this.subtitle,
     this.onChanged,
+    this.action,
     super.key,
   });
 
@@ -79,6 +80,9 @@ class AppToggleRow extends StatelessWidget {
   final String? subtitle;
   final bool value;
   final ValueChanged<bool>? onChanged;
+
+  /// Small button shown just before the switch, such as an info button.
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -139,6 +143,10 @@ class AppToggleRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
+          if (action != null) ...[
+            action!,
+            const SizedBox(width: 8),
+          ],
           AppSwitch(
             value: value,
             onChanged: onChanged,

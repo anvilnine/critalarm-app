@@ -5,6 +5,7 @@ import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/app/widget_sync.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
@@ -20,6 +21,7 @@ import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
@@ -51,6 +53,7 @@ import 'package:critalarm/core/telemetry/reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/core/version/app_version.dart';
+import 'package:critalarm/core/widgets/widget_host.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
 import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
@@ -168,6 +171,8 @@ import 'package:critalarm/features/settings/presentation/cubits/sound_crop_cubit
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
+import 'package:critalarm/features/topics/data/repositories/shared_prefs_topic_list_prefs_repository.dart';
+import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/delete_topic_usecase.dart';
@@ -306,8 +311,13 @@ Future<void> configureDependencies({
 
   getIt
     ..registerSingleton<SharedPreferences>(prefs)
+    ..registerSingleton<DeviceForm>(await DeviceForm.read())
+    ..registerLazySingleton<TopicListPrefsRepository>(
+      () => SharedPrefsTopicListPrefsRepository(getIt<SharedPreferences>()),
+    )
     ..registerLazySingleton<PushHost>(PushHost.new)
     ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
+    ..registerLazySingleton<WidgetHost>(WidgetHost.new)
     ..registerLazySingleton<AppBadge>(() => AppBadge(getIt<PushHost>()))
     ..registerLazySingleton<ApiSessionStore>(
       () => SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
@@ -371,6 +381,7 @@ Future<void> configureDependencies({
       () => KeychainMirrorConnectionRepository(
         SharedPrefsConnectionRepository(getIt<SharedPreferences>()),
         getIt<NseCredentialStore>(),
+        widgets: getIt<WidgetHost>(),
       ),
     )
     ..registerLazySingleton<OnboardingProgressRepository>(
@@ -670,6 +681,10 @@ Future<void> configureDependencies({
       () => ClearOnboardingDraftUsecase(getIt<OnboardingProgressRepository>()),
     )
     ..registerLazySingleton(
+      () =>
+          RememberOnboardingStepUsecase(getIt<OnboardingProgressRepository>()),
+    )
+    ..registerLazySingleton(
       () => InitialRouteResolver(
         getIt<GetOnboardingCompletedUsecase>(),
         getIt<ReadOnboardingDraftUsecase>(),
@@ -749,6 +764,17 @@ Future<void> configureDependencies({
         maxRingSeconds: (topic) =>
             getIt<TopicsCubit>().state.named(topic)?.maxRingS,
         host: getIt<AlarmHost>(),
+      ),
+    )
+    // The home and lock screen widgets read a snapshot of the two lists
+    // above. This writes it whenever either list changes.
+    ..registerLazySingleton(
+      () => WidgetSync(
+        topics: getIt<TopicsCubit>(),
+        incidents: getIt<IncidentsCubit>(),
+        host: getIt<WidgetHost>(),
+        isConnected: () async =>
+            (await getIt<ConnectionRepository>().getConnection()).isSuccess(),
       ),
     )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and
@@ -905,6 +931,9 @@ Future<void> configureDependencies({
         getIt<IncidentRepository>(),
         getIt<MessageSyncService>(),
         getIt<GetConnectionUsecase>(),
+        null,
+        const Duration(seconds: 5),
+        getIt<TopicListPrefsRepository>(),
       ),
     )
     ..registerFactory(

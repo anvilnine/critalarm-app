@@ -33,3 +33,18 @@ class ClearOnboardingDraftUsecase implements UseCase<NoParams, Unit> {
   @override
   Future<AppResult<Unit>> call(NoParams input) => _repository.clearDraft();
 }
+
+/// Moves the saved step on and keeps everything else in the draft, so a
+/// relaunch opens the screen the user had reached.
+class RememberOnboardingStepUsecase implements UseCase<OnboardingStep, Unit> {
+  const RememberOnboardingStepUsecase(this._repository);
+
+  final OnboardingProgressRepository _repository;
+
+  @override
+  Future<AppResult<Unit>> call(OnboardingStep input) async {
+    final draft =
+        (await _repository.readDraft()).getOrNull() ?? const OnboardingDraft();
+    return _repository.saveDraft(draft.copyWith(step: input));
+  }
+}

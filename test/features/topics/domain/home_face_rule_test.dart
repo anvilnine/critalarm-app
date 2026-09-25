@@ -112,8 +112,8 @@ void main() {
       expect(result.hero.severity, SeverityMode.ack);
     });
 
-    test('handled hero within one hour of closedAt', () {
-      final closedAt = now.subtract(const Duration(minutes: 30));
+    test('handled hero for 30 seconds after closedAt', () {
+      final closedAt = now.subtract(const Duration(seconds: 10));
       final incidents = [
         _incident(
           'inc1',
@@ -151,7 +151,7 @@ void main() {
     });
 
     test('calm hero shows the last handled time from any age', () {
-      // Handled wins over calm within the hour, so once an incident is old
+      // Handled wins over calm for 30 seconds, so once an incident is old
       // enough to fall out of the handled window it still counts for the
       // calm hero's second line, no matter how long ago it closed.
       final closedAt = now.subtract(const Duration(days: 2));
@@ -285,6 +285,29 @@ void main() {
       );
       expect(result.hero.faceState, FaceState.alarmed);
       expect(result.hero.ringingIncidentId, 'inc2');
+    });
+
+    test('handled hero goes back to calm 30 seconds after the close', () {
+      // The face says HANDLED for a moment and then settles. The row keeps
+      // the handled time for the hour, so nothing is lost.
+      final closedAt = now.subtract(const Duration(seconds: 30));
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.closed,
+            closedAt: closedAt,
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      expect(result.hero.faceState, FaceState.calm);
+      expect(result.hero.word, 'All clear');
+      final row = result.rows.firstWhere((r) => r.name == 'prod-db');
+      expect(row.faceState, FaceState.success);
     });
 
     test('handled row turns calm after 61 minutes', () {

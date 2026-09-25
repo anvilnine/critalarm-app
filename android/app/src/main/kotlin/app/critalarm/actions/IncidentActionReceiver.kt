@@ -19,6 +19,8 @@ import app.critalarm.push.IncidentContent
 import app.critalarm.push.IncidentContentFetcher
 import app.critalarm.push.LateContentRule
 import app.critalarm.push.SingleCardRule
+import app.critalarm.widgets.WidgetSnapshotPatch
+import app.critalarm.widgets.WidgetSnapshotStore
 import android.app.NotificationManager
 import java.net.HttpURLConnection
 import java.net.URI
@@ -63,6 +65,9 @@ class IncidentActionReceiver : BroadcastReceiver() {
             // reconcile walks.
             if (handOver) {
                 deliveries.markLocallyAcknowledged(incidentId, ackedAtMillis)
+                WidgetSnapshotStore(context).patch { snapshot, now ->
+                    WidgetSnapshotPatch.acked(snapshot, incidentId, ackedAtMillis / 1000L, now)
+                }
             } else {
                 deliveries.markClosed(incidentId, ackedAtMillis)
             }
@@ -143,6 +148,9 @@ class IncidentActionReceiver : BroadcastReceiver() {
                     // Stop that came before this is still out and will try to
                     // put the card back when it lands.
                     deliveries.markClosed(incidentId)
+                    WidgetSnapshotStore(context).patch { snapshot, now ->
+                        WidgetSnapshotPatch.ended(snapshot, incidentId, now)
+                    }
                     ReminderReceiver.releaseHeld(context)
                     IncidentCards.clear(context, incidentId, "closed")
                 }

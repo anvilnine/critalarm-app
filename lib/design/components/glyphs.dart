@@ -25,6 +25,10 @@ enum GlyphType {
   stop,
   record,
   pencil,
+  info,
+  pin,
+  bellOff,
+  share,
 }
 
 /// Vector glyph icon painted according to index.html on a 24x24 viewBox.
@@ -333,6 +337,59 @@ class _GlyphPainter extends CustomPainter {
           ..close()
           ..moveTo(14, 7)
           ..lineTo(17, 10);
+        canvas.drawPath(path, strokePaint);
+
+      case GlyphType.pin:
+        // M9 3h6 M10 3v6l-4 5h12l-4-5V3 M12 14v7
+        final path = Path()
+          ..moveTo(9, 3)
+          ..lineTo(15, 3)
+          ..moveTo(10, 3)
+          ..lineTo(10, 9)
+          ..lineTo(6, 14)
+          ..lineTo(18, 14)
+          ..lineTo(14, 9)
+          ..lineTo(14, 3)
+          ..moveTo(12, 14)
+          ..lineTo(12, 21);
+        canvas.drawPath(path, strokePaint);
+
+      case GlyphType.bellOff:
+        // The bell, with a slash through it.
+        final body = Path()
+          ..moveTo(6, 17)
+          ..lineTo(6, 11)
+          ..arcToPoint(const Offset(18, 11), radius: const Radius.circular(6))
+          ..lineTo(18, 17)
+          ..lineTo(20, 19)
+          ..lineTo(4, 19)
+          ..close()
+          ..moveTo(10, 21)
+          ..lineTo(14, 21)
+          ..moveTo(3, 3)
+          ..lineTo(21, 21);
+        canvas.drawPath(body, strokePaint);
+
+      case GlyphType.share:
+        // M12 3v12 M7 8l5-5 5 5 M5 12v7h14v-7
+        final path = Path()
+          ..moveTo(12, 3)
+          ..lineTo(12, 15)
+          ..moveTo(7, 8)
+          ..lineTo(12, 3)
+          ..lineTo(17, 8)
+          ..moveTo(5, 12)
+          ..lineTo(5, 20)
+          ..lineTo(19, 20)
+          ..lineTo(19, 12);
+        canvas.drawPath(path, strokePaint);
+
+      case GlyphType.info:
+        canvas.drawCircle(const Offset(12, 12), 9, strokePaint);
+        canvas.drawCircle(const Offset(12, 8), 1.1, fillPaint);
+        final path = Path()
+          ..moveTo(12, 11)
+          ..lineTo(12, 16);
         canvas.drawPath(path, strokePaint);
     }
 
