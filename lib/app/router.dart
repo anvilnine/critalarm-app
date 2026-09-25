@@ -54,6 +54,8 @@ abstract final class AppRoute {
   static const onboardingPermissions = 'onboardingPermissions';
   static const onboardingDenied = 'onboardingDenied';
   static const onboardingWelcome = 'onboardingWelcome';
+  static const onboardingHowItRings = 'onboardingHowItRings';
+  static const onboardingWidgets = 'onboardingWidgets';
   static const topics = 'topics';
   static const history = 'history';
   static const topicDetail = 'topicDetail';
@@ -511,11 +513,27 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           pageBuilder: (context, state) => AmbientPage(
             key: state.pageKey,
             child: OnboardingWelcomeScreen(
-              variant: WelcomeVariant.fromQuery(
-                state.uri.queryParameters['v'],
-              ),
+              variant: state.uri.queryParameters.containsKey('v')
+                  ? WelcomeVariant.fromQuery(state.uri.queryParameters['v'])
+                  : null,
               isPreview: state.uri.queryParameters['preview'] == 'true',
             ),
+          ),
+        ),
+        GoRoute(
+          path: '/onboarding/how-it-rings',
+          name: AppRoute.onboardingHowItRings,
+          pageBuilder: (context, state) => AmbientPage(
+            key: state.pageKey,
+            child: const OnboardingHowItRingsScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/onboarding/widgets',
+          name: AppRoute.onboardingWidgets,
+          pageBuilder: (context, state) => AmbientPage(
+            key: state.pageKey,
+            child: const OnboardingWidgetsScreen(),
           ),
         ),
         GoRoute(

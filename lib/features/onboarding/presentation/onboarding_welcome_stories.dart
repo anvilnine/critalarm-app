@@ -968,12 +968,8 @@ class _CurlHeroState extends _ClockState<_CurlHero> {
   @override
   Widget build(BuildContext context) {
     final t = this.t % 11;
-    final colors = context.appColors;
-    final typed = (_window(t, 0.3, 1.9) * _curl.length).floor();
-    final caretOn = (t * 2).floor().isEven || typed < _curl.length;
     final seconds = (t - 2.5).clamp(0, 99).floor() + 1;
 
-    final mono = AppTypography.mono(_white, fontSize: 12);
     return Opacity(
       opacity: 1 - _window(t, 10.5, 0.4),
       child: Stack(
@@ -1047,69 +1043,86 @@ class _CurlHeroState extends _ClockState<_CurlHero> {
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 24,
-            bottom: 24,
-            child: _layer(
-              1 - _window(t, 3.4, 0.4),
-              Container(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1C1917),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x40000000),
-                      blurRadius: 24,
-                      offset: Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        _Dot(Color(0xFF57534E)),
-                        _Dot(Color(0xFF57534E)),
-                        _Dot(Color(0xFF57534E)),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text.rich(
-                        TextSpan(
-                          style: mono,
-                          children: [
-                            TextSpan(
-                              text: r'$ ',
-                              style: mono.copyWith(color: colors.yellow),
-                            ),
-                            TextSpan(text: _curl.substring(0, typed)),
-                            WidgetSpan(
-                              alignment: PlaceholderAlignment.middle,
-                              child: Container(
-                                width: 8,
-                                height: 15,
-                                color: caretOn
-                                    ? colors.yellow
-                                    : Colors.transparent,
-                              ),
-                            ),
-                          ],
+          _CurlTerminal(t: t, hideAt: 3.4),
+        ],
+      ),
+    );
+  }
+}
+
+/// The terminal from the site hero: types the curl, then slides away at
+/// [hideAt] once the phone has taken over.
+class _CurlTerminal extends StatelessWidget {
+  const _CurlTerminal({required this.t, required this.hideAt});
+
+  final double t;
+  final double hideAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final typed = (_window(t, 0.3, 1.9) * _curl.length).floor();
+    final caretOn = (t * 2).floor().isEven || typed < _curl.length;
+    final mono = AppTypography.mono(_white, fontSize: 12);
+
+    return Positioned(
+      left: 0,
+      right: 24,
+      bottom: 24,
+      child: _layer(
+        1 - _window(t, hideAt, 0.4),
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C1917),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x40000000),
+                blurRadius: 24,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  _Dot(Color(0xFF57534E)),
+                  _Dot(Color(0xFF57534E)),
+                  _Dot(Color(0xFF57534E)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text.rich(
+                  TextSpan(
+                    style: mono,
+                    children: [
+                      TextSpan(
+                        text: r'$ ',
+                        style: mono.copyWith(color: colors.yellow),
+                      ),
+                      TextSpan(text: _curl.substring(0, typed)),
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: Container(
+                          width: 8,
+                          height: 15,
+                          color: caretOn ? colors.yellow : Colors.transparent,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              from: const Offset(0, 30),
-            ),
+            ],
           ),
-        ],
+        ),
+        from: const Offset(0, 30),
       ),
     );
   }
@@ -1280,6 +1293,81 @@ class _AndroidHeroState extends _ClockState<_AndroidHero> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 12. A curl rings an Android phone. Same story as 8, opened by the terminal
+// from 6.
+
+class _AndroidCurlHero extends StatefulWidget {
+  const _AndroidCurlHero();
+
+  @override
+  State<_AndroidCurlHero> createState() => _AndroidCurlHeroState();
+}
+
+class _AndroidCurlHeroState extends _ClockState<_AndroidCurlHero> {
+  @override
+  double get restAt => 5;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = this.t % 11.5;
+    final seconds = (t - 2.4).clamp(0, 99).floor() + 1;
+
+    return Opacity(
+      opacity: 1 - _window(t, 11, 0.4),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Center(
+              child: Transform.rotate(
+                angle:
+                    math.sin(t * 50) * 0.012 * _shown(t, 2.4, 8.1, fade: 0.1),
+                child: _MiniPhone(
+                  isAndroid: true,
+                  screen: Stack(
+                    children: [
+                      const Positioned.fill(child: _AndroidLock()),
+                      Positioned(
+                        top: 60,
+                        left: 0,
+                        right: 0,
+                        child: _layer(
+                          _shown(t, 2.4, 4.4),
+                          const _AndroidNotice(),
+                          from: const Offset(0, -120),
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: _layer(
+                          _shown(t, 4.1, 8.1),
+                          _AppAlarm(seconds: seconds, press: _press(t, 7.6)),
+                          from: const Offset(0, 80),
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: _layer(
+                          _shown(t, 8, 20),
+                          const _AckScreen(seconds: 5),
+                        ),
+                      ),
+                      _finger(
+                        _appImUp,
+                        _shown(t, 6.9, 7.9, fade: 0.2),
+                        _press(t, 7.6),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          _CurlTerminal(t: t, hideAt: 3.2),
+        ],
       ),
     );
   }

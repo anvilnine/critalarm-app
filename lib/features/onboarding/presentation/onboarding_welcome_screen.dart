@@ -2,16 +2,21 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 
+part 'onboarding_intro_steps.dart';
 part 'onboarding_welcome_stories.dart';
 
-/// The welcome animations on trial. The first five are only faces, the rest
-/// show how Crit Alarm works.
+/// The welcome animations. The first five are only faces, the rest show how
+/// Crit Alarm works.
 enum WelcomeVariant {
   /// One big face asleep, wakes up, smiles.
   wakeUp,
@@ -44,29 +49,33 @@ enum WelcomeVariant {
   pipeline,
 
   /// The home screen widgets: a count, a ringing card, the topic list.
-  widgets;
+  widgets,
 
-  /// `?v=1` to `?v=11`. Anything else is the first one.
+  /// A curl in a terminal makes an Android phone ring.
+  androidCurl;
+
+  /// `?v=1` to `?v=12`. Anything else is the first one.
   static WelcomeVariant fromQuery(String? value) {
     final index = (int.tryParse(value ?? '') ?? 1) - 1;
     return index >= 0 && index < values.length ? values[index] : wakeUp;
   }
 }
 
-/// Onboarding welcome screen (/onboarding/welcome). Says hello before the
-/// permission screens ask for anything. For now it only opens from
-/// Developer options, while one of the five animations is picked.
+/// Onboarding welcome screen (/onboarding/welcome), the first thing a new
+/// user sees. With no [variant] it opens on one of two faces at random, then
+/// keeps playing more animations for as long as the user stays. Developer
+/// options opens it with a [variant] and [isPreview] to try each one.
 class OnboardingWelcomeScreen extends StatefulWidget {
   const OnboardingWelcomeScreen({
-    this.variant = WelcomeVariant.wakeUp,
+    this.variant,
     this.isPreview = false,
     super.key,
   });
 
-  final WelcomeVariant variant;
+  final WelcomeVariant? variant;
 
-  /// Opened from Developer options: shows a switch for the five animations,
-  /// and Get started goes back instead of starting onboarding.
+  /// Opened from Developer options: shows a switch for every animation, and
+  /// Get started goes back instead of starting onboarding.
   final bool isPreview;
 
   @override
@@ -75,11 +84,17 @@ class OnboardingWelcomeScreen extends StatefulWidget {
 }
 
 class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
-  late WelcomeVariant _variant = widget.variant;
+  late WelcomeVariant _variant =
+      widget.variant ??
+      (math.Random().nextBool()
+          ? WelcomeVariant.wakeUp
+          : WelcomeVariant.peekaboo);
 
-  /// Bumped on every tap of the switch, so tapping the one already showing
-  /// plays it again from the start.
+  /// Bumped on every tap of the preview switch, so picking the one already
+  /// showing plays it again from the start.
   int _replays = 0;
+
+  bool get _isPlaylist => widget.variant == null && !widget.isPreview;
 
   /// When the words come in, so they land after the face has done its bit.
   Duration get _textDelay => switch (_variant) {
@@ -93,102 +108,258 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
     WelcomeVariant.android ||
     WelcomeVariant.ladder ||
     WelcomeVariant.pipeline ||
-    WelcomeVariant.widgets => const Duration(milliseconds: 900),
-  };
-
-  Widget get _hero => switch (_variant) {
-    WelcomeVariant.wakeUp => const _WakeUpHero(),
-    WelcomeVariant.parade => const _ParadeHero(),
-    WelcomeVariant.orbit => const _OrbitHero(),
-    WelcomeVariant.ripple => const _RippleHero(),
-    WelcomeVariant.peekaboo => const _PeekabooHero(),
-    WelcomeVariant.curl => const _CurlHero(),
-    WelcomeVariant.iphone => const _IphoneHero(),
-    WelcomeVariant.android => const _AndroidHero(),
-    WelcomeVariant.ladder => const _LadderHero(),
-    WelcomeVariant.pipeline => const _PipelineHero(),
-    WelcomeVariant.widgets => const _WidgetsHero(),
+    WelcomeVariant.widgets ||
+    WelcomeVariant.androidCurl => const Duration(milliseconds: 900),
   };
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return _IntroLayout(
+      top: widget.isPreview
+          ? AppSegmentedControl<WelcomeVariant>(
+              items: WelcomeVariant.values,
+              selectedItem: _variant,
+              labelBuilder: (v) => '${v.index + 1}',
+              onChanged: (v) => setState(() {
+                _variant = v;
+                _replays++;
+              }),
+            )
+          : null,
+      // On first launch the opening face hands over to more animations for
+      // as long as the user stays.
+      hero: _isPlaylist
+          ? OnboardingAnimationLoop(
+              first: _variant,
+              loop: const [
+                WelcomeVariant.ladder,
+                WelcomeVariant.parade,
+                WelcomeVariant.orbit,
+              ],
+            )
+          : KeyedSubtree(
+              key: ValueKey((_variant, _replays)),
+              child: _heroFor(_variant),
+            ),
+      // On first launch the words come in once and stay put while the
+      // animations change above them. The preview replays them each time.
+      wordsKey: ValueKey(widget.isPreview ? _replays : 0),
+      textDelay: _textDelay,
+      title: LocaleKeys.onboarding_welcome_title.tr(),
+      subtitle: LocaleKeys.onboarding_welcome_subtitle.tr(),
+      button: LocaleKeys.onboarding_welcome_button.tr(),
+      onPressed: widget.isPreview
+          ? () => context.pop()
+          : () => goToOnboardingStep(context, OnboardingStep.howItRings),
+    );
+  }
+}
+
+Widget _heroFor(WelcomeVariant variant) => switch (variant) {
+  WelcomeVariant.wakeUp => const _WakeUpHero(),
+  WelcomeVariant.parade => const _ParadeHero(),
+  WelcomeVariant.orbit => const _OrbitHero(),
+  WelcomeVariant.ripple => const _RippleHero(),
+  WelcomeVariant.peekaboo => const _PeekabooHero(),
+  WelcomeVariant.curl => const _CurlHero(),
+  WelcomeVariant.iphone => const _IphoneHero(),
+  WelcomeVariant.android => const _AndroidHero(),
+  WelcomeVariant.ladder => const _LadderHero(),
+  WelcomeVariant.pipeline => const _PipelineHero(),
+  WelcomeVariant.widgets => const _WidgetsHero(),
+  WelcomeVariant.androidCurl => const _AndroidCurlHero(),
+};
+
+/// Plays [first], then each of [loop] round and round, fading between them.
+/// With animations switched off it stays on [first], sitting still.
+class OnboardingAnimationLoop extends StatefulWidget {
+  const OnboardingAnimationLoop({required this.loop, this.first, super.key});
+
+  final WelcomeVariant? first;
+  final List<WelcomeVariant> loop;
+
+  @override
+  State<OnboardingAnimationLoop> createState() =>
+      _OnboardingAnimationLoopState();
+}
+
+class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
+  late WelcomeVariant _variant = widget.first ?? widget.loop.first;
+  Timer? _next;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleNext();
+  }
+
+  @override
+  void dispose() {
+    _next?.cancel();
+    super.dispose();
+  }
+
+  /// How long each animation plays: one full story for the phone ones, a
+  /// few seconds for the faces.
+  Duration get _playFor => switch (_variant) {
+    WelcomeVariant.ladder ||
+    WelcomeVariant.pipeline => const Duration(milliseconds: 9800),
+    _ => const Duration(seconds: 7),
+  };
+
+  void _scheduleNext() {
+    _next = Timer(_playFor, () {
+      if (!mounted) return;
+      // With animations off each face sits still, so there is nothing to
+      // move on from.
+      if (MediaQuery.of(context).disableAnimations) return;
+      final at = widget.loop.indexOf(_variant);
+      setState(() => _variant = widget.loop[(at + 1) % widget.loop.length]);
+      _scheduleNext();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => _NoIntrinsicSize(
+    child: AnimatedSwitcher(
+      duration: const Duration(milliseconds: 450),
+      child: KeyedSubtree(key: ValueKey(_variant), child: _heroFor(_variant)),
+    ),
+  );
+}
+
+/// The shape every intro step shares: an animation filling the top, then a
+/// title, a line of text and one button, which fade in after [textDelay].
+class _IntroLayout extends StatelessWidget {
+  const _IntroLayout({
+    required this.hero,
+    required this.textDelay,
+    required this.title,
+    required this.subtitle,
+    required this.button,
+    required this.onPressed,
+    this.top,
+    this.badge,
+    this.wordsKey,
+  });
+
+  final Widget hero;
+  final Duration textDelay;
+  final String title;
+  final String subtitle;
+  final String button;
+  final VoidCallback onPressed;
+
+  /// Above the animation, such as the preview switch.
+  final Widget? top;
+
+  /// Between the title and the text, such as the Pro badge.
+  final Widget? badge;
+
+  /// A new key plays the words in again.
+  final Key? wordsKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    const step = Duration(milliseconds: 180);
+
+    // Same frame as the permissions and connect screens, so the button sits
+    // in the same place on every onboarding step.
+    return AppScreenScaffold(
       backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Padding(
+      withGhosts: false,
+      withFades: false,
+      hasTabBar: false,
+      physics: const NeverScrollableScrollPhysics(),
+      bottomBar: KeyedSubtree(
+        key: wordsKey,
+        child: _Reveal(
+          delay: textDelay + step * 2,
+          child: AppButton(
+            label: button,
+            size: AppButtonSize.lg,
+            isFullWidth: true,
+            onPressed: onPressed,
+          ),
+        ),
+      ),
+      slivers: [
+        SliverPadding(
           padding: const EdgeInsets.fromLTRB(
             Spacing.s5,
             Spacing.s4,
             Spacing.s5,
-            Spacing.s5,
+            0,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (widget.isPreview) ...[
-                AppSegmentedControl<WelcomeVariant>(
-                  items: WelcomeVariant.values,
-                  selectedItem: _variant,
-                  labelBuilder: (v) => '${v.index + 1}',
-                  onChanged: (v) => setState(() {
-                    _variant = v;
-                    _replays++;
-                  }),
-                ),
-                const SizedBox(height: Spacing.s4),
-              ],
-              Expanded(
-                // A new key restarts every animation on the screen.
-                child: KeyedSubtree(
-                  key: ValueKey((_variant, _replays)),
-                  child: _body(context),
-                ),
+          sliver: SliverFillRemaining(
+            hasScrollBody: false,
+            child: Padding(
+              // The scaffold leaves room for the button under the list, but
+              // SliverFillRemaining measures against the whole viewport, so
+              // it carries that room itself: the lg button, the 12 under it
+              // and the home indicator, plus a gap above the button.
+              padding: EdgeInsets.only(
+                bottom: 60 + 12 + MediaQuery.paddingOf(context).bottom + 12,
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _body(BuildContext context) {
-    final colors = context.appColors;
-    final delay = _textDelay;
-    const step = Duration(milliseconds: 180);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(child: _hero),
-        const SizedBox(height: Spacing.s5),
-        _Reveal(
-          delay: delay,
-          child: Text(
-            LocaleKeys.onboarding_welcome_title.tr(),
-            style: AppTypography.display(colors.onCanvas, fontSize: 36),
-          ),
-        ),
-        const SizedBox(height: Spacing.s2),
-        _Reveal(
-          delay: delay + step,
-          child: Text(
-            LocaleKeys.onboarding_welcome_subtitle.tr(),
-            style: AppTypography.lead(
-              colors.onCanvasMuted,
-              fontSize: 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (top != null) ...[
+                    top!,
+                    const SizedBox(height: Spacing.s4),
+                  ],
+                  Expanded(
+                    child: _NoIntrinsicSize(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 450),
+                        child: hero,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: Spacing.s5),
+                  KeyedSubtree(
+                    key: wordsKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _Reveal(
+                          delay: textDelay,
+                          child: Text(
+                            title,
+                            style: AppTypography.display(
+                              colors.onCanvas,
+                              fontSize: 36,
+                            ),
+                          ),
+                        ),
+                        if (badge != null) ...[
+                          const SizedBox(height: Spacing.s3),
+                          _Reveal(
+                            delay: textDelay + step,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: badge,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: Spacing.s2),
+                        _Reveal(
+                          delay: textDelay + step,
+                          child: Text(
+                            subtitle,
+                            style: AppTypography.lead(
+                              colors.onCanvasMuted,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
-        const SizedBox(height: Spacing.s6),
-        _Reveal(
-          delay: delay + step * 2,
-          child: AppButton(
-            label: LocaleKeys.onboarding_welcome_button.tr(),
-            size: AppButtonSize.lg,
-            isFullWidth: true,
-            onPressed: widget.isPreview
-                ? () => context.pop()
-                : () => context.go('/onboarding'),
           ),
         ),
       ],
@@ -750,4 +921,30 @@ class _PeekabooHeroState extends _ClockState<_PeekabooHero> {
       },
     );
   }
+}
+
+/// Answers "how big do you want to be" with zero, so a scroll view that asks
+/// (SliverFillRemaining does) never reaches the LayoutBuilder inside the
+/// animations, which cannot answer it. The animations fill whatever room
+/// they are given anyway.
+class _NoIntrinsicSize extends SingleChildRenderObjectWidget {
+  const _NoIntrinsicSize({required Widget super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderNoIntrinsicSize();
+}
+
+class _RenderNoIntrinsicSize extends RenderProxyBox {
+  @override
+  double computeMinIntrinsicWidth(double height) => 0;
+
+  @override
+  double computeMaxIntrinsicWidth(double height) => 0;
+
+  @override
+  double computeMinIntrinsicHeight(double width) => 0;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => 0;
 }
