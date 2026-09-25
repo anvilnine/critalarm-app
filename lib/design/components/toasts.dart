@@ -53,9 +53,10 @@ class AppToast extends StatelessWidget {
     if (child != null) {
       content = child!;
     } else {
-      // Text.rich, not RichText: RichText ignores the system text size.
-      content = Text.rich(
-        TextSpan(
+      // RichText ignores the system text size unless told.
+      content = RichText(
+        textScaler: MediaQuery.textScalerOf(context),
+        text: TextSpan(
           style: TextStyle(
             fontFamily: AppTypography.fontBody,
             fontFamilyFallback: AppTypography.fontBodyFallbacks,
