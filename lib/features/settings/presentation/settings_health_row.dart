@@ -37,10 +37,10 @@ class SettingsHealthRow {
       issueCount: missing.length,
       // Same wording as the notice on Home, so the two never disagree.
       subtitle: missing.length == 1
-          ? LocaleKeys.setup_health_banner_one.tr(
+          ? LocaleKeys.notices_setup_health_one.tr(
               namedArgs: {'name': missing.first.title},
             )
-          : LocaleKeys.setup_health_banner_many.tr(
+          : LocaleKeys.notices_setup_health_many.tr(
               namedArgs: {'count': '${missing.length}'},
             ),
     );

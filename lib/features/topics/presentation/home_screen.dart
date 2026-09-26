@@ -251,7 +251,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             ],
             faceState: FaceState.calm,
             word: LocaleKeys.home_stage_word_clear.tr(),
-            subText: LocaleKeys.tour_example_topic_sub.tr(),
+            subText: LocaleKeys.feature_guides_example_topic_sub.tr(),
           )
         : real.copyWith(
             topicItems: [
@@ -518,10 +518,10 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         final endsAt = notice.proEndsAt!;
         return AppPinnedNoticeBar(
           face: FaceState.watching,
-          title: LocaleKeys.home_pro_ending_pill.tr(
+          title: LocaleKeys.notices_pro_ending_pill.tr(
             namedArgs: {'weekday': DateFormat('EEEE').format(endsAt)},
           ),
-          linkLabel: LocaleKeys.home_prompt_why.tr(),
+          linkLabel: LocaleKeys.notices_why.tr(),
           onTap: () => unawaited(
             showProPlanSheet(
               context,
@@ -534,15 +534,15 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       case InAppNoticeType.accountBackup:
         return AppPinnedNoticeBar(
           face: FaceState.watching,
-          title: LocaleKeys.home_account_prompt_title.tr(),
-          linkLabel: LocaleKeys.home_prompt_why.tr(),
+          title: LocaleKeys.notices_account_backup_title.tr(),
+          linkLabel: LocaleKeys.notices_why.tr(),
           onTap: () => unawaited(
             showNoticeDetailSheet(
               context: context,
               face: FaceState.watching,
-              title: LocaleKeys.home_account_prompt_title.tr(),
-              body: LocaleKeys.home_account_prompt_body.tr(),
-              actionLabel: LocaleKeys.home_account_prompt_button.tr(),
+              title: LocaleKeys.notices_account_backup_title.tr(),
+              body: LocaleKeys.notices_account_backup_body.tr(),
+              actionLabel: LocaleKeys.notices_account_backup_button.tr(),
               onAction: () => openAppPath(context, '/settings/account'),
               onDismiss: () => unawaited(cubit.dismissCurrent()),
             ),

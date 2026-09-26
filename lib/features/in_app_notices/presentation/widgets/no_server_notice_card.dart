@@ -32,7 +32,7 @@ class NoServerNoticeCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    LocaleKeys.home_server_banner_title.tr(),
+                    LocaleKeys.notices_no_server_title.tr(),
                     style: TextStyle(
                       fontFamily: AppTypography.fontDisplay,
                       fontFamilyFallback: AppTypography.fontDisplayFallbacks,
@@ -46,12 +46,12 @@ class NoServerNoticeCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              LocaleKeys.home_server_banner_body.tr(),
+              LocaleKeys.notices_no_server_body.tr(),
               style: AppTypography.small(colors.onCanvasMuted),
             ),
             const SizedBox(height: 12),
             AppButton(
-              label: LocaleKeys.home_server_banner_button.tr(),
+              label: LocaleKeys.notices_no_server_button.tr(),
               size: AppButtonSize.sm,
               isFullWidth: true,
               onPressed: () => openAppPath(context, '/onboarding/connect'),

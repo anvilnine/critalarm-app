@@ -279,8 +279,10 @@ class _SettingsScreenContent extends StatelessWidget {
                         const SizedBox(height: 8),
                         _buildNavRow(
                           context,
-                          title: LocaleKeys.reminders_settings_row_title.tr(),
-                          subtitle: LocaleKeys.reminders_settings_row_subtitle
+                          title: LocaleKeys.local_reminders_settings_row_title
+                              .tr(),
+                          subtitle: LocaleKeys
+                              .local_reminders_settings_row_subtitle
                               .tr(),
                           path: '/settings/local-reminders',
                         ),
@@ -297,8 +299,10 @@ class _SettingsScreenContent extends StatelessWidget {
                       FeatureGuideAnchor(
                         id: FeatureGuideAnchorId.settingsFeatureGuides,
                         child: AppListRow(
-                          name: LocaleKeys.settings_tour_row_title.tr(),
-                          meta: LocaleKeys.settings_tour_row_subtitle.tr(),
+                          name: LocaleKeys.settings_feature_guides_row_title
+                              .tr(),
+                          meta: LocaleKeys.settings_feature_guides_row_subtitle
+                              .tr(),
                           faceState: null,
                           trailing: AppGlyph(
                             GlyphType.arrow,

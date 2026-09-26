@@ -2,13 +2,17 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 
 /// The long-press actions on the app icon (idea 17).
 enum QuickActionType {
-  ringMeNow('ring_me_now', '/ring', LocaleKeys.reminders_quick_ring),
+  ringMeNow('ring_me_now', '/ring', LocaleKeys.local_reminders_quick_ring),
   openIncidents(
     'open_incidents',
     '/history',
-    LocaleKeys.reminders_quick_incidents,
+    LocaleKeys.local_reminders_quick_incidents,
   ),
-  newTopic('new_topic', '/topics/new', LocaleKeys.reminders_quick_new_topic);
+  newTopic(
+    'new_topic',
+    '/topics/new',
+    LocaleKeys.local_reminders_quick_new_topic,
+  );
 
   const QuickActionType(this.wire, this.path, this.titleKey);
 

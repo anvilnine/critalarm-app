@@ -16,38 +16,38 @@ void main() {
       ...LocalReminderCopy.feedbackTitles,
       ...LocalReminderCopy.feedbackBodies,
       for (final action in QuickActionType.values) action.titleKey,
-      LocaleKeys.reminders_silent_title,
-      LocaleKeys.reminders_silent_body,
-      LocaleKeys.reminders_backup_title,
-      LocaleKeys.reminders_backup_body,
-      LocaleKeys.reminders_plan_billing_title,
-      LocaleKeys.reminders_plan_billing_body,
-      LocaleKeys.reminders_plan_renew_title,
-      LocaleKeys.reminders_plan_renew_body,
-      LocaleKeys.reminders_plan_ends_title,
-      LocaleKeys.reminders_plan_ends_body,
-      LocaleKeys.reminders_morning_title,
-      LocaleKeys.reminders_morning_body,
-      LocaleKeys.reminders_pro_later_title,
-      LocaleKeys.reminders_pro_later_body,
-      LocaleKeys.reminders_review_action,
-      LocaleKeys.reminders_store_app_store,
-      LocaleKeys.reminders_store_google_play,
-      LocaleKeys.reminders_action_ring,
-      LocaleKeys.reminders_action_curl,
-      LocaleKeys.reminders_action_sign_in,
-      LocaleKeys.reminders_action_update_payment,
-      LocaleKeys.reminders_action_see_pro,
-      LocaleKeys.reminders_hidden_preview,
+      LocaleKeys.local_reminders_silent_title,
+      LocaleKeys.local_reminders_silent_body,
+      LocaleKeys.local_reminders_backup_title,
+      LocaleKeys.local_reminders_backup_body,
+      LocaleKeys.local_reminders_plan_billing_title,
+      LocaleKeys.local_reminders_plan_billing_body,
+      LocaleKeys.local_reminders_plan_renew_title,
+      LocaleKeys.local_reminders_plan_renew_body,
+      LocaleKeys.local_reminders_plan_ends_title,
+      LocaleKeys.local_reminders_plan_ends_body,
+      LocaleKeys.local_reminders_morning_title,
+      LocaleKeys.local_reminders_morning_body,
+      LocaleKeys.local_reminders_pro_later_title,
+      LocaleKeys.local_reminders_pro_later_body,
+      LocaleKeys.local_reminders_review_action,
+      LocaleKeys.local_reminders_store_app_store,
+      LocaleKeys.local_reminders_store_google_play,
+      LocaleKeys.local_reminders_action_ring,
+      LocaleKeys.local_reminders_action_curl,
+      LocaleKeys.local_reminders_action_sign_in,
+      LocaleKeys.local_reminders_action_update_payment,
+      LocaleKeys.local_reminders_action_see_pro,
+      LocaleKeys.local_reminders_hidden_preview,
       LocaleKeys.common_not_now,
       LocaleKeys.settings_help_feedback_row,
-      LocaleKeys.home_pro_prompt_later,
+      LocaleKeys.asks_pro_later,
     ];
     for (final key in keys) {
       final isPlural =
           LocalReminderCopy.pluralKeys.contains(key) ||
-          key == LocaleKeys.reminders_backup_title ||
-          key == LocaleKeys.reminders_morning_body;
+          key == LocaleKeys.local_reminders_backup_title ||
+          key == LocaleKeys.local_reminders_morning_body;
       final text = isPlural
           ? key.plural(2, namedArgs: {'topic': 'prod-db'})
           : key.tr(namedArgs: {'topic': 'prod-db', 'store': 'App Store'});
@@ -72,7 +72,7 @@ void main() {
         for (final text in texts) {
           final reason = '${kind.wireName} ios=$isIos: $text';
           expect(text, isNotEmpty, reason: reason);
-          expect(text, isNot(contains('reminders.')), reason: reason);
+          expect(text, isNot(contains('local_reminders.')), reason: reason);
           expect(text, isNot(contains('{')), reason: reason);
         }
       }
@@ -80,11 +80,11 @@ void main() {
   });
 
   test('the morning after body counts seconds at 1 and at many', () {
-    final one = LocaleKeys.reminders_morning_body.plural(
+    final one = LocaleKeys.local_reminders_morning_body.plural(
       1,
       namedArgs: {'topic': 'prod-db'},
     );
-    final many = LocaleKeys.reminders_morning_body.plural(
+    final many = LocaleKeys.local_reminders_morning_body.plural(
       40,
       namedArgs: {'topic': 'prod-db'},
     );
@@ -93,14 +93,20 @@ void main() {
   });
 
   test('counts read naturally at 1 and at many', () {
-    expect(LocaleKeys.reminders_backup_title.plural(1), contains('1 topic '));
-    expect(LocaleKeys.reminders_backup_title.plural(3), contains('3 topics'));
     expect(
-      LocaleKeys.reminders_ring_last_test.plural(1),
+      LocaleKeys.local_reminders_backup_title.plural(1),
+      contains('1 topic '),
+    );
+    expect(
+      LocaleKeys.local_reminders_backup_title.plural(3),
+      contains('3 topics'),
+    );
+    expect(
+      LocaleKeys.local_reminders_ring_last_test.plural(1),
       'Last test 1 day ago',
     );
     expect(
-      LocaleKeys.reminders_drill_title_8.plural(34),
+      LocaleKeys.local_reminders_drill_title_8.plural(34),
       '34 quiet days',
     );
   });

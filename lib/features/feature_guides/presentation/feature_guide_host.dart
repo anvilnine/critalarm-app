@@ -403,7 +403,7 @@ class _FeatureGuideHostState extends State<FeatureGuideHost> {
             ),
             child: AppIconButton(
               glyph: GlyphType.close,
-              ariaLabel: LocaleKeys.tour_skip.tr(),
+              ariaLabel: LocaleKeys.feature_guides_skip.tr(),
               color: context.appColors.onPanel,
               onPressed: _done,
             ),
@@ -497,7 +497,7 @@ class _FeatureGuideCard extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    LocaleKeys.tour_progress.tr(
+                    LocaleKeys.feature_guides_progress.tr(
                       namedArgs: {
                         'step': '${guide.stepIndex + 1}',
                         'count': '${guide.steps.length}',
@@ -515,7 +515,7 @@ class _FeatureGuideCard extends StatelessWidget {
                   TextButton(
                     onPressed: onSkip,
                     child: Text(
-                      LocaleKeys.tour_skip.tr(),
+                      LocaleKeys.feature_guides_skip.tr(),
                       style: TextStyle(
                         fontFamily: AppTypography.fontBody,
                         fontFamilyFallback: AppTypography.fontBodyFallbacks,
@@ -553,7 +553,7 @@ class _FeatureGuideCard extends StatelessWidget {
                 children: [
                   if (onBack != null)
                     AppButton(
-                      label: LocaleKeys.tour_back.tr(),
+                      label: LocaleKeys.feature_guides_back.tr(),
                       variant: AppButtonVariant.ghost,
                       size: AppButtonSize.sm,
                       onPressed: onBack,
@@ -561,8 +561,8 @@ class _FeatureGuideCard extends StatelessWidget {
                   const Spacer(),
                   AppButton(
                     label: guide.isLastStep
-                        ? LocaleKeys.tour_done.tr()
-                        : LocaleKeys.tour_next.tr(),
+                        ? LocaleKeys.feature_guides_done.tr()
+                        : LocaleKeys.feature_guides_next.tr(),
                     size: AppButtonSize.sm,
                     onPressed: onNext,
                   ),

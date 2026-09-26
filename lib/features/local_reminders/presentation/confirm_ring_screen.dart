@@ -32,18 +32,18 @@ class _ConfirmRingContent extends StatelessWidget {
   const _ConfirmRingContent();
 
   static String _lastTest(int? days) {
-    if (days == null) return LocaleKeys.reminders_ring_never_tested.tr();
-    if (days == 0) return LocaleKeys.reminders_ring_last_test_today.tr();
-    return LocaleKeys.reminders_ring_last_test.plural(days);
+    if (days == null) return LocaleKeys.local_reminders_ring_never_tested.tr();
+    if (days == 0) return LocaleKeys.local_reminders_ring_last_test_today.tr();
+    return LocaleKeys.local_reminders_ring_last_test.plural(days);
   }
 
   static String _failureText(RingFailure failure) => switch (failure) {
     RingFailure.notCritical =>
-      LocaleKeys.reminders_ring_error_not_critical.tr(),
+      LocaleKeys.local_reminders_ring_error_not_critical.tr(),
     RingFailure.unauthorized =>
-      LocaleKeys.reminders_ring_error_unauthorized.tr(),
-    RingFailure.offline => LocaleKeys.reminders_ring_error_offline.tr(),
-    RingFailure.other => LocaleKeys.reminders_ring_error_other.tr(),
+      LocaleKeys.local_reminders_ring_error_unauthorized.tr(),
+    RingFailure.offline => LocaleKeys.local_reminders_ring_error_offline.tr(),
+    RingFailure.other => LocaleKeys.local_reminders_ring_error_other.tr(),
   };
 
   void _close(BuildContext context) {
@@ -92,10 +92,10 @@ class _ConfirmRingContent extends StatelessWidget {
         return AppScreenScaffold(
           hasTabBar: false,
           topBar: AppTopBar(
-            title: LocaleKeys.reminders_ring_title.tr(),
+            title: LocaleKeys.local_reminders_ring_title.tr(),
             leading: AppIconButton(
               glyph: GlyphType.close,
-              ariaLabel: LocaleKeys.reminders_ring_close_aria.tr(),
+              ariaLabel: LocaleKeys.local_reminders_ring_close_aria.tr(),
               onPressed: () => _close(context),
             ),
           ),
@@ -115,7 +115,7 @@ class _ConfirmRingContent extends StatelessWidget {
                     ],
                     if (state.status == ConfirmRingStatus.sent) ...[
                       Text(
-                        LocaleKeys.reminders_ring_sent.tr(),
+                        LocaleKeys.local_reminders_ring_sent.tr(),
                         textAlign: TextAlign.center,
                         style: AppTypography.small(colors.ink2),
                       ),
@@ -123,10 +123,10 @@ class _ConfirmRingContent extends StatelessWidget {
                     ],
                     AppButton(
                       label: state.isSelectedCritical
-                          ? LocaleKeys.reminders_ring_button.tr(
+                          ? LocaleKeys.local_reminders_ring_button.tr(
                               namedArgs: {'topic': selected},
                             )
-                          : LocaleKeys.reminders_ring_send_test.tr(),
+                          : LocaleKeys.local_reminders_ring_send_test.tr(),
                       variant: AppButtonVariant.crit,
                       isFullWidth: true,
                       isLoading: state.status == ConfirmRingStatus.sending,
@@ -143,11 +143,12 @@ class _ConfirmRingContent extends StatelessWidget {
                 child: isEmpty
                     ? AppEmptyState(
                         title: didFail
-                            ? LocaleKeys.reminders_ring_load_failed_title.tr()
-                            : LocaleKeys.reminders_ring_empty_title.tr(),
+                            ? LocaleKeys.local_reminders_ring_load_failed_title
+                                  .tr()
+                            : LocaleKeys.local_reminders_ring_empty_title.tr(),
                         description: didFail
-                            ? LocaleKeys.reminders_ring_error_offline.tr()
-                            : LocaleKeys.reminders_ring_empty_body.tr(),
+                            ? LocaleKeys.local_reminders_ring_error_offline.tr()
+                            : LocaleKeys.local_reminders_ring_empty_body.tr(),
                         buttonLabel: null,
                         faceState: FaceState.calm,
                         isLive: false,
@@ -158,21 +159,23 @@ class _ConfirmRingContent extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             AppSectionHeader(
-                              LocaleKeys.reminders_ring_critical_header.tr(),
+                              LocaleKeys.local_reminders_ring_critical_header
+                                  .tr(),
                             ),
                             for (final row in state.critical)
                               _row(context, cubit, state, row),
                             if (state.normal.isNotEmpty) ...[
                               const SizedBox(height: 8),
                               AppSectionHeader(
-                                LocaleKeys.reminders_ring_normal_header.tr(),
+                                LocaleKeys.local_reminders_ring_normal_header
+                                    .tr(),
                               ),
                               for (final row in state.normal)
                                 _row(context, cubit, state, row),
                             ],
                             const SizedBox(height: 8),
                             Text(
-                              LocaleKeys.reminders_ring_note.tr(),
+                              LocaleKeys.local_reminders_ring_note.tr(),
                               style: AppTypography.small(
                                 colors.ink3,
                                 fontSize: 12,

@@ -34,14 +34,14 @@ Future<void> showProPlanSheet(
       await showNoticeDetailSheet(
         context: context,
         face: FaceState.watching,
-        title: LocaleKeys.home_pro_ending_title.tr(
+        title: LocaleKeys.notices_pro_ending_title.tr(
           namedArgs: {
             'weekday': DateFormat('EEEE').format(endsAt),
             'date': DateFormat('d MMM').format(endsAt),
           },
         ),
-        body: LocaleKeys.home_pro_ending_body.tr(namedArgs: _freeCaps),
-        actionLabel: LocaleKeys.home_pro_ending_action.tr(),
+        body: LocaleKeys.notices_pro_ending_body.tr(namedArgs: _freeCaps),
+        actionLabel: LocaleKeys.notices_pro_ending_action.tr(),
         onAction: () => openAppPath(context, '/paywall'),
         onDismiss: onDismiss ?? () {},
       );
@@ -51,10 +51,10 @@ Future<void> showProPlanSheet(
       await showNoticeDetailSheet(
         context: context,
         face: FaceState.watching,
-        title: LocaleKeys.home_pro_ended_title.tr(),
-        body: LocaleKeys.home_pro_ended_body.tr(namedArgs: _freeCaps),
-        actionLabel: LocaleKeys.home_pro_ended_action.tr(),
-        dismissLabel: LocaleKeys.home_pro_ended_dismiss.tr(),
+        title: LocaleKeys.notices_pro_ended_title.tr(),
+        body: LocaleKeys.notices_pro_ended_body.tr(namedArgs: _freeCaps),
+        actionLabel: LocaleKeys.notices_pro_ended_action.tr(),
+        dismissLabel: LocaleKeys.notices_pro_ended_dismiss.tr(),
         onAction: () => openAppPath(context, '/paywall'),
         onDismiss: onDismiss ?? () {},
       );
