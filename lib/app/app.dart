@@ -18,6 +18,7 @@ import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/alarm/incident_alarm_controller.dart';
 import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
+import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
@@ -194,6 +195,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Plan once the first frame is up, so launch never waits on it.
       _replan();
+      _checkAppIcon();
     });
     _incomingAudio.start();
     getIt<WidgetSync>().start();
@@ -224,7 +226,12 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_incomingAudio.onResumed());
     unawaited(_retryFailedLaunchCalls());
     _autoDelete();
+    _checkAppIcon();
   }
+
+  /// A Pro icon goes back to the default once Pro has ended, including an
+  /// end that happened while the app was closed.
+  void _checkAppIcon() => unawaited(getIt<AppIconGuard>().check());
 
   /// Device registration, the Live Activity token upload and the incident
   /// reconcile each retry themselves on launch. If one still failed after
