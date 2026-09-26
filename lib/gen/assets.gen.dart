@@ -11,6 +11,37 @@
 
 import 'package:flutter/widgets.dart';
 
+class $AssetsAppIconsGen {
+  const $AssetsAppIconsGen();
+
+  /// File path: assets/app_icons/app_icon.png
+  AssetGenImage get appIcon =>
+      const AssetGenImage('assets/app_icons/app_icon.png');
+
+  /// File path: assets/app_icons/app_icon_pro_crowned.png
+  AssetGenImage get appIconProCrowned =>
+      const AssetGenImage('assets/app_icons/app_icon_pro_crowned.png');
+
+  /// File path: assets/app_icons/app_icon_pro_shades.png
+  AssetGenImage get appIconProShades =>
+      const AssetGenImage('assets/app_icons/app_icon_pro_shades.png');
+
+  /// File path: assets/app_icons/app_icon_pro_shades_crown.png
+  AssetGenImage get appIconProShadesCrown =>
+      const AssetGenImage('assets/app_icons/app_icon_pro_shades_crown.png');
+
+  /// Directory path: assets/app_icons
+  String get path => 'assets/app_icons';
+
+  /// List of all assets
+  List<AssetGenImage> get values => [
+    appIcon,
+    appIconProCrowned,
+    appIconProShades,
+    appIconProShadesCrown,
+  ];
+}
+
 class $AssetsDocsGen {
   const $AssetsDocsGen();
 
@@ -200,6 +231,7 @@ class $AssetsTranslationsGen {
 class Assets {
   const Assets._();
 
+  static const $AssetsAppIconsGen appIcons = $AssetsAppIconsGen();
   static const $AssetsDocsGen docs = $AssetsDocsGen();
   static const $AssetsFontsGen fonts = $AssetsFontsGen();
   static const $AssetsReminderFacesGen reminderFaces =

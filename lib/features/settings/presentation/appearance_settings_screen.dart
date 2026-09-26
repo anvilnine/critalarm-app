@@ -1,9 +1,13 @@
 import 'dart:async';
 
+import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/domain/entities/appearance_settings.dart';
+import 'package:critalarm/features/settings/presentation/app_icon_screen.dart';
+import 'package:critalarm/features/settings/presentation/cubits/app_icon_cubit.dart';
+import 'package:critalarm/features/settings/presentation/cubits/app_icon_state.dart';
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -50,6 +54,7 @@ class AppearanceSettingsScreen extends StatelessWidget {
                     LocaleKeys.settings_appearance_theme_header.tr(),
                   ),
                   const _ThemeControl(),
+                  const _AppIconSection(),
                   const SizedBox(height: 14),
                   AppSectionHeader(
                     LocaleKeys.settings_appearance_motion_header.tr(),
@@ -86,6 +91,52 @@ class _ThemeControl extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+/// The row that opens the App icon picker, with the icon showing now. Takes
+/// no space where the platform cannot change its icon, the web included.
+class _AppIconSection extends StatelessWidget {
+  const _AppIconSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<AppIconCubit>(),
+      child: BlocBuilder<AppIconCubit, AppIconState>(
+        builder: (context, state) {
+          if (state.status != AppIconStatus.ready) {
+            return const SizedBox.shrink();
+          }
+          return Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: AppListRow(
+              name: LocaleKeys.settings_app_icon_row_title.tr(),
+              meta: appIconName(state.current),
+              faceState: null,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppIconPreview(icon: state.current, size: 28),
+                  const SizedBox(width: 10),
+                  AppGlyph(
+                    GlyphType.arrow,
+                    color: context.appColors.ink3,
+                    size: 16,
+                  ),
+                ],
+              ),
+              onTap: () async {
+                final cubit = context.read<AppIconCubit>();
+                await context.push('/settings/appearance/app-icon');
+                // The picker may have changed it.
+                await cubit.load();
+              },
+            ),
+          );
+        },
+      ),
     );
   }
 }
