@@ -34,7 +34,7 @@ class AppTabItem {
 enum AppNavButton { search, compose }
 
 /// Lets the shell wrap one slot of the bar or the rail, such as to mark it for
-/// the tour, without the bar knowing why.
+/// the guide, without the bar knowing why.
 typedef AppNavSlotWrapper<T> = Widget Function(T slot, Widget child);
 
 /// The floating pill bar: three destinations and one primary action, sitting

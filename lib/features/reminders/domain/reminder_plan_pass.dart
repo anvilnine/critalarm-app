@@ -26,7 +26,7 @@ import 'package:flutter/foundation.dart';
 ///    scheduling the same id again is safe.
 /// 5. Record what reached the scheduler so the next pass can settle it.
 ///
-/// While `isPaused` answers true (onboarding or a "How to use the app" guide
+/// While `isPaused` answers true (onboarding or a Feature Guide
 /// is under way) the pass stops before step 1: nothing is settled, planned,
 /// scheduled or cancelled. What was scheduled before stays as it was, and the
 /// next pass after the pause plans as usual.

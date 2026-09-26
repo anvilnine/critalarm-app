@@ -1,9 +1,9 @@
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter/foundation.dart';
 
-/// Every spot on screen the tour can point at. A screen marks the widget with
-/// a TourAnchor carrying one of these.
-enum TourAnchorId {
+/// Every spot on screen the guide can point at. A screen marks the widget with
+/// a FeatureGuideAnchor carrying one of these.
+enum FeatureGuideAnchorId {
   homeStage,
   topicList,
   compose,
@@ -17,16 +17,16 @@ enum TourAnchorId {
   topicDelete,
   historyTab,
   settingsHealth,
-  settingsTour,
+  settingsFeatureGuides,
 }
 
 /// Which screen a step needs on the display before it can point at anything.
-enum TourPlace { home, createTopic, topic, settings }
+enum FeatureGuidePlace { home, createTopic, topic, settings }
 
-/// One short "How to use the app" guide per screen or feature. Each plays by
+/// One short Feature Guide per screen or feature. Each plays by
 /// itself the first time the user reaches that screen, and only covers what
 /// is on it. Settings can still replay every guide back to back.
-enum TourGuide {
+enum FeatureGuide {
   /// The Topics tab: the status face, the list, making and finding things.
   home,
 
@@ -49,33 +49,34 @@ enum TourGuide {
 /// The guide that plays the first time [path] is on screen, or null when the
 /// screen has none. Search is not a route: the shell asks for its guide when
 /// the panel opens.
-TourGuide? tourGuideForPath(String path) {
-  if (path == '/') return TourGuide.home;
-  if (path == '/topics/new') return TourGuide.createTopic;
-  if (path == '/history') return TourGuide.history;
-  if (path == '/settings') return TourGuide.settings;
+FeatureGuide? featureGuideForPath(String path) {
+  if (path == '/') return FeatureGuide.home;
+  if (path == '/topics/new') return FeatureGuide.createTopic;
+  if (path == '/history') return FeatureGuide.history;
+  if (path == '/settings') return FeatureGuide.settings;
   // A topic opened from Topics or from History. Its messages and sounds
   // pages go one level deeper and are not the topic screen.
   final segments = Uri.parse(path).pathSegments;
   final topicAt = segments.isNotEmpty && segments.first == 'history' ? 1 : 0;
   if (segments.length == topicAt + 2 && segments[topicAt] == 'topics') {
-    return TourGuide.topic;
+    return FeatureGuide.topic;
   }
   return null;
 }
 
 /// The route for [place]. [topicName] is the topic the topic steps open: the
 /// user's first one, or the example one when they have none yet.
-String tourPath(TourPlace place, String topicName) => switch (place) {
-  TourPlace.home => '/',
-  TourPlace.createTopic => '/topics/new',
-  TourPlace.topic => '/topics/${Uri.encodeComponent(topicName)}',
-  TourPlace.settings => '/settings',
-};
+String featureGuidePath(FeatureGuidePlace place, String topicName) =>
+    switch (place) {
+      FeatureGuidePlace.home => '/',
+      FeatureGuidePlace.createTopic => '/topics/new',
+      FeatureGuidePlace.topic => '/topics/${Uri.encodeComponent(topicName)}',
+      FeatureGuidePlace.settings => '/settings',
+    };
 
 @immutable
-class TourStep {
-  const TourStep({
+class FeatureGuideStep {
+  const FeatureGuideStep({
     required this.guide,
     required this.place,
     required this.anchor,
@@ -86,10 +87,10 @@ class TourStep {
   });
 
   /// The guide this step belongs to.
-  final TourGuide guide;
+  final FeatureGuide guide;
 
-  final TourPlace place;
-  final TourAnchorId anchor;
+  final FeatureGuidePlace place;
+  final FeatureGuideAnchorId anchor;
   final String titleKey;
   final String bodyKey;
 
@@ -108,121 +109,122 @@ class TourStep {
 /// plays them. Steps on one screen sit together, so the replay moves between
 /// screens as few times as it can. A guide on its own plays its steps in this
 /// same order.
-const List<TourStep> tourSteps = [
-  TourStep(
-    guide: TourGuide.home,
-    place: TourPlace.home,
-    anchor: TourAnchorId.homeStage,
+const List<FeatureGuideStep> featureGuideSteps = [
+  FeatureGuideStep(
+    guide: FeatureGuide.home,
+    place: FeatureGuidePlace.home,
+    anchor: FeatureGuideAnchorId.homeStage,
     titleKey: LocaleKeys.tour_stage_title,
     bodyKey: LocaleKeys.tour_stage_body,
   ),
-  TourStep(
-    guide: TourGuide.home,
-    place: TourPlace.home,
-    anchor: TourAnchorId.topicList,
+  FeatureGuideStep(
+    guide: FeatureGuide.home,
+    place: FeatureGuidePlace.home,
+    anchor: FeatureGuideAnchorId.topicList,
     titleKey: LocaleKeys.tour_topics_title,
     bodyKey: LocaleKeys.tour_topics_body,
     exampleBodyKey: LocaleKeys.tour_topics_body_example,
   ),
-  TourStep(
-    guide: TourGuide.home,
-    place: TourPlace.home,
-    anchor: TourAnchorId.compose,
+  FeatureGuideStep(
+    guide: FeatureGuide.home,
+    place: FeatureGuidePlace.home,
+    anchor: FeatureGuideAnchorId.compose,
     titleKey: LocaleKeys.tour_compose_title,
     bodyKey: LocaleKeys.tour_compose_body,
   ),
-  TourStep(
-    guide: TourGuide.createTopic,
-    place: TourPlace.createTopic,
-    anchor: TourAnchorId.createName,
+  FeatureGuideStep(
+    guide: FeatureGuide.createTopic,
+    place: FeatureGuidePlace.createTopic,
+    anchor: FeatureGuideAnchorId.createName,
     titleKey: LocaleKeys.tour_create_name_title,
     bodyKey: LocaleKeys.tour_create_name_body,
   ),
-  TourStep(
-    guide: TourGuide.createTopic,
-    place: TourPlace.createTopic,
-    anchor: TourAnchorId.createCritical,
+  FeatureGuideStep(
+    guide: FeatureGuide.createTopic,
+    place: FeatureGuidePlace.createTopic,
+    anchor: FeatureGuideAnchorId.createCritical,
     titleKey: LocaleKeys.tour_create_critical_title,
     bodyKey: LocaleKeys.tour_create_critical_body,
   ),
-  TourStep(
-    guide: TourGuide.createTopic,
-    place: TourPlace.createTopic,
-    anchor: TourAnchorId.createButton,
+  FeatureGuideStep(
+    guide: FeatureGuide.createTopic,
+    place: FeatureGuidePlace.createTopic,
+    anchor: FeatureGuideAnchorId.createButton,
     titleKey: LocaleKeys.tour_create_button_title,
     bodyKey: LocaleKeys.tour_create_button_body,
   ),
-  TourStep(
-    guide: TourGuide.home,
-    place: TourPlace.home,
-    anchor: TourAnchorId.search,
+  FeatureGuideStep(
+    guide: FeatureGuide.home,
+    place: FeatureGuidePlace.home,
+    anchor: FeatureGuideAnchorId.search,
     titleKey: LocaleKeys.tour_search_title,
     bodyKey: LocaleKeys.tour_search_body,
   ),
-  TourStep(
-    guide: TourGuide.search,
-    place: TourPlace.home,
-    anchor: TourAnchorId.searchResults,
+  FeatureGuideStep(
+    guide: FeatureGuide.search,
+    place: FeatureGuidePlace.home,
+    anchor: FeatureGuideAnchorId.searchResults,
     titleKey: LocaleKeys.tour_search_settings_title,
     bodyKey: LocaleKeys.tour_search_settings_body,
     searchQuery: 'sound',
   ),
-  TourStep(
-    guide: TourGuide.search,
-    place: TourPlace.home,
-    anchor: TourAnchorId.searchResults,
+  FeatureGuideStep(
+    guide: FeatureGuide.search,
+    place: FeatureGuidePlace.home,
+    anchor: FeatureGuideAnchorId.searchResults,
     titleKey: LocaleKeys.tour_search_docs_title,
     bodyKey: LocaleKeys.tour_search_docs_body,
     searchQuery: 'uptime kuma',
   ),
-  TourStep(
-    guide: TourGuide.topic,
-    place: TourPlace.topic,
-    anchor: TourAnchorId.topicCritical,
+  FeatureGuideStep(
+    guide: FeatureGuide.topic,
+    place: FeatureGuidePlace.topic,
+    anchor: FeatureGuideAnchorId.topicCritical,
     titleKey: LocaleKeys.tour_topic_critical_title,
     bodyKey: LocaleKeys.tour_topic_critical_body,
   ),
-  TourStep(
-    guide: TourGuide.topic,
-    place: TourPlace.topic,
-    anchor: TourAnchorId.topicSound,
+  FeatureGuideStep(
+    guide: FeatureGuide.topic,
+    place: FeatureGuidePlace.topic,
+    anchor: FeatureGuideAnchorId.topicSound,
     titleKey: LocaleKeys.tour_topic_sound_title,
     bodyKey: LocaleKeys.tour_topic_sound_body,
   ),
-  TourStep(
-    guide: TourGuide.topic,
-    place: TourPlace.topic,
-    anchor: TourAnchorId.topicDelete,
+  FeatureGuideStep(
+    guide: FeatureGuide.topic,
+    place: FeatureGuidePlace.topic,
+    anchor: FeatureGuideAnchorId.topicDelete,
     titleKey: LocaleKeys.tour_topic_delete_title,
     bodyKey: LocaleKeys.tour_topic_delete_body,
   ),
-  TourStep(
-    guide: TourGuide.history,
-    place: TourPlace.home,
-    anchor: TourAnchorId.historyTab,
+  FeatureGuideStep(
+    guide: FeatureGuide.history,
+    place: FeatureGuidePlace.home,
+    anchor: FeatureGuideAnchorId.historyTab,
     titleKey: LocaleKeys.tour_history_title,
     bodyKey: LocaleKeys.tour_history_body,
   ),
-  TourStep(
-    guide: TourGuide.settings,
-    place: TourPlace.settings,
-    anchor: TourAnchorId.settingsHealth,
+  FeatureGuideStep(
+    guide: FeatureGuide.settings,
+    place: FeatureGuidePlace.settings,
+    anchor: FeatureGuideAnchorId.settingsHealth,
     titleKey: LocaleKeys.tour_health_title,
     bodyKey: LocaleKeys.tour_health_body,
   ),
-  TourStep(
-    guide: TourGuide.settings,
-    place: TourPlace.settings,
-    anchor: TourAnchorId.settingsTour,
+  FeatureGuideStep(
+    guide: FeatureGuide.settings,
+    place: FeatureGuidePlace.settings,
+    anchor: FeatureGuideAnchorId.settingsFeatureGuides,
     titleKey: LocaleKeys.tour_replay_title,
     bodyKey: LocaleKeys.tour_replay_body,
   ),
 ];
 
 /// The steps of [guide], in order. Null is the full replay: every step.
-List<TourStep> tourStepsFor(TourGuide? guide) => guide == null
-    ? tourSteps
+List<FeatureGuideStep> featureGuideStepsFor(FeatureGuide? guide) =>
+    guide == null
+    ? featureGuideSteps
     : [
-        for (final step in tourSteps)
+        for (final step in featureGuideSteps)
           if (step.guide == guide) step,
       ];

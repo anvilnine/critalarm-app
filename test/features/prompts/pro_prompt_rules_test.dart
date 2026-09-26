@@ -138,19 +138,22 @@ void main() {
       );
     });
 
-    test('never asks before onboarding and the tour are done', () {
-      expect(
-        ProPromptRules.decide(
-          isPaid: false,
-          isSelfHosted: false,
-          dismissCount: 0,
-          lastAskedAt: null,
-          now: today,
-          isSetupDone: false,
-        ),
-        isFalse,
-      );
-    });
+    test(
+      'never asks before onboarding and the first Feature Guide are done',
+      () {
+        expect(
+          ProPromptRules.decide(
+            isPaid: false,
+            isSelfHosted: false,
+            dismissCount: 0,
+            lastAskedAt: null,
+            now: today,
+            isSetupDone: false,
+          ),
+          isFalse,
+        );
+      },
+    );
   });
 
   group('ProPromptRules.shouldAsk', () {
@@ -188,17 +191,19 @@ void main() {
       expect(await rules.shouldAsk(), isTrue);
     });
 
-    test('goes quiet for 30 days after one "Not now", then asks again',
-        () async {
-      await promptRepo.dismissProPrompt();
+    test(
+      'goes quiet for 30 days after one "Not now", then asks again',
+      () async {
+        await promptRepo.dismissProPrompt();
 
-      final rules = buildRules();
-      clock = today.add(const Duration(days: 29));
-      expect(await rules.shouldAsk(), isFalse);
+        final rules = buildRules();
+        clock = today.add(const Duration(days: 29));
+        expect(await rules.shouldAsk(), isFalse);
 
-      clock = today.add(const Duration(days: 31));
-      expect(await rules.shouldAsk(), isTrue);
-    });
+        clock = today.add(const Duration(days: 31));
+        expect(await rules.shouldAsk(), isTrue);
+      },
+    );
 
     test('stays quiet for good after a second "Not now"', () async {
       await promptRepo.dismissProPrompt();
@@ -224,27 +229,31 @@ void main() {
       expect(await buildRules().shouldAsk(), isFalse);
     });
 
-    test('waits 24 hours after the consent sheet or the review popup',
-        () async {
-      promptRepo.consentAskedAt = today.subtract(const Duration(hours: 23));
-      expect(await buildRules().shouldAsk(), isFalse);
+    test(
+      'waits 24 hours after the consent sheet or the review popup',
+      () async {
+        promptRepo.consentAskedAt = today.subtract(const Duration(hours: 23));
+        expect(await buildRules().shouldAsk(), isFalse);
 
-      promptRepo
-        ..consentAskedAt = null
-        ..reviewAskedAt = today.subtract(const Duration(hours: 2));
-      expect(await buildRules().shouldAsk(), isFalse);
+        promptRepo
+          ..consentAskedAt = null
+          ..reviewAskedAt = today.subtract(const Duration(hours: 2));
+        expect(await buildRules().shouldAsk(), isFalse);
 
-      promptRepo.reviewAskedAt = today.subtract(const Duration(hours: 24));
-      expect(await buildRules().shouldAsk(), isTrue);
-    });
+        promptRepo.reviewAskedAt = today.subtract(const Duration(hours: 24));
+        expect(await buildRules().shouldAsk(), isTrue);
+      },
+    );
 
-    test('dismissProPrompt records the time and adds one to the count',
-        () async {
-      await promptRepo.dismissProPrompt();
-      expect(promptRepo.getProPromptDismissCount(), 1);
-      expect(promptRepo.getProPromptDismissedAt(), isNotNull);
-      expect(promptRepo.getProPromptAskedAt(), isNotNull);
-    });
+    test(
+      'dismissProPrompt records the time and adds one to the count',
+      () async {
+        await promptRepo.dismissProPrompt();
+        expect(promptRepo.getProPromptDismissCount(), 1);
+        expect(promptRepo.getProPromptDismissedAt(), isNotNull);
+        expect(promptRepo.getProPromptAskedAt(), isNotNull);
+      },
+    );
   });
 
   group('reminders', () {

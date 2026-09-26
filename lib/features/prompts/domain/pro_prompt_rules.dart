@@ -44,16 +44,16 @@ class ProPromptRules {
   /// as a notification, so the sheet stays away until that is delivered.
   final bool Function()? _offersOn;
 
-  /// `SetupGate.isDone` in the app: onboarding finished and the tour seen.
-  /// Null in tests that do not care, and counts as done.
+  /// `SetupGate.isDone` in the app: onboarding finished and the first
+  /// Feature Guide seen. Null in tests that do not care, and counts as done.
   final Future<bool> Function()? _isSetupDone;
 
   /// Reads what is stored and answers.
   Future<bool> shouldAsk() async {
     final isPaid = (await _readIsPaid()) || _proOverride.isForcingPro;
     final serverMode = await accountRepository.readServerMode();
-    final isSetupDone = await (_isSetupDone?.call() ??
-        Future<bool>.value(true));
+    final isSetupDone =
+        await (_isSetupDone?.call() ?? Future<bool>.value(true));
 
     return decide(
       isSetupDone: isSetupDone,
@@ -84,8 +84,9 @@ class ProPromptRules {
   }
 
   /// The rules themselves, with nothing to read from. Nobody is asked before
-  /// onboarding is finished and the tour has been seen or skipped. Somebody
-  /// who already pays is never asked, and neither is a self hosted server.
+  /// onboarding is finished and the first Feature Guide has been seen or
+  /// skipped. Somebody who already pays is never asked, and neither is a self
+  /// hosted server.
   ///
   /// [lastAskedAt] is when the sheet was last shown, not when it was last
   /// turned down. Walking away from the sheet is an answer too, so the quiet

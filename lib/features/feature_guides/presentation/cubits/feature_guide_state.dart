@@ -1,7 +1,7 @@
-import 'package:critalarm/features/tour/presentation/tour_steps.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
 import 'package:flutter/foundation.dart';
 
-enum TourStatus {
+enum FeatureGuideStatus {
   /// Nothing on screen.
   idle,
 
@@ -14,44 +14,44 @@ enum TourStatus {
 }
 
 @immutable
-class TourState {
-  const TourState({
-    this.status = TourStatus.idle,
+class FeatureGuideState {
+  const FeatureGuideState({
+    this.status = FeatureGuideStatus.idle,
     this.guide,
     this.stepIndex = 0,
     this.topicName = '',
     this.usingExamples = false,
   });
 
-  final TourStatus status;
+  final FeatureGuideStatus status;
 
   /// The guide asked for or playing. Null while idle, and also for the full
   /// replay from Settings, which plays every guide back to back.
-  final TourGuide? guide;
+  final FeatureGuide? guide;
 
   final int stepIndex;
 
   /// The topic the topic steps open.
   final String topicName;
 
-  /// True when the user has no topics yet, so the tour shows example ones
+  /// True when the user has no topics yet, so the guide shows example ones
   /// rather than pointing at an empty list.
   final bool usingExamples;
 
-  bool get isRunning => status == TourStatus.running;
+  bool get isRunning => status == FeatureGuideStatus.running;
 
   /// True from the moment a guide is asked for until it is gone. Sheets,
   /// asks and reminders wait for this to go false.
-  bool get isActive => status != TourStatus.idle;
+  bool get isActive => status != FeatureGuideStatus.idle;
 
   /// True for the full replay, which moves between screens on its own. A
   /// single guide stays on the screen it was asked for on.
   bool get isFullReplay => isActive && guide == null;
 
   /// The steps being played.
-  List<TourStep> get steps => tourStepsFor(guide);
+  List<FeatureGuideStep> get steps => featureGuideStepsFor(guide);
 
-  TourStep get step => steps[stepIndex];
+  FeatureGuideStep get step => steps[stepIndex];
 
   bool get isFirstStep => stepIndex == 0;
   bool get isLastStep => stepIndex == steps.length - 1;
@@ -60,20 +60,20 @@ class TourState {
   /// home guide and the full replay, not while another screen's guide plays
   /// over it.
   bool get showsHomeExamples =>
-      isRunning && (guide == null || guide == TourGuide.home);
+      isRunning && (guide == null || guide == FeatureGuide.home);
 
-  /// True when [name] is the example topic the tour made up, so the topic
+  /// True when [name] is the example topic the guide made up, so the topic
   /// screen draws it from the example rather than asking the server for it.
   bool showsExampleTopic(String name) =>
       isRunning && usingExamples && name == topicName;
 
-  TourState copyWith({
-    TourStatus? status,
+  FeatureGuideState copyWith({
+    FeatureGuideStatus? status,
     int? stepIndex,
     String? topicName,
     bool? usingExamples,
   }) {
-    return TourState(
+    return FeatureGuideState(
       status: status ?? this.status,
       guide: guide,
       stepIndex: stepIndex ?? this.stepIndex,
@@ -85,7 +85,7 @@ class TourState {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is TourState &&
+      other is FeatureGuideState &&
           status == other.status &&
           guide == other.guide &&
           stepIndex == other.stepIndex &&

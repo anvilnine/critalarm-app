@@ -1,40 +1,40 @@
-import 'package:critalarm/features/tour/presentation/tour_steps.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
 import 'package:flutter/widgets.dart';
 
-/// Marks [child] as a spot the tour can point at.
+/// Marks [child] as a spot the guide can point at.
 ///
 /// A GlobalKey would crash here: the tab branches stay alive side by side, so
 /// the same screen can be built twice at once (a topic open under Topics and
-/// another under History). Anchors register instead, and the tour picks the
+/// another under History). Anchors register instead, and the guide picks the
 /// one that is actually on the display.
-class TourAnchor extends StatefulWidget {
-  const TourAnchor({required this.id, required this.child, super.key});
+class FeatureGuideAnchor extends StatefulWidget {
+  const FeatureGuideAnchor({required this.id, required this.child, super.key});
 
-  final TourAnchorId id;
+  final FeatureGuideAnchorId id;
   final Widget child;
 
   @override
-  State<TourAnchor> createState() => _TourAnchorState();
+  State<FeatureGuideAnchor> createState() => _FeatureGuideAnchorState();
 }
 
-class _TourAnchorState extends State<TourAnchor> {
+class _FeatureGuideAnchorState extends State<FeatureGuideAnchor> {
   @override
   void initState() {
     super.initState();
-    TourAnchors.add(widget.id, context);
+    FeatureGuideAnchors.add(widget.id, context);
   }
 
   @override
-  void didUpdateWidget(TourAnchor oldWidget) {
+  void didUpdateWidget(FeatureGuideAnchor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.id == widget.id) return;
-    TourAnchors.remove(oldWidget.id, context);
-    TourAnchors.add(widget.id, context);
+    FeatureGuideAnchors.remove(oldWidget.id, context);
+    FeatureGuideAnchors.add(widget.id, context);
   }
 
   @override
   void dispose() {
-    TourAnchors.remove(widget.id, context);
+    FeatureGuideAnchors.remove(widget.id, context);
     super.dispose();
   }
 
@@ -42,21 +42,21 @@ class _TourAnchorState extends State<TourAnchor> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// Where every mounted [TourAnchor] is.
-abstract final class TourAnchors {
-  static final Map<TourAnchorId, List<BuildContext>> _byId = {};
+/// Where every mounted [FeatureGuideAnchor] is.
+abstract final class FeatureGuideAnchors {
+  static final Map<FeatureGuideAnchorId, List<BuildContext>> _byId = {};
 
-  static void add(TourAnchorId id, BuildContext context) =>
+  static void add(FeatureGuideAnchorId id, BuildContext context) =>
       (_byId[id] ??= []).add(context);
 
-  static void remove(TourAnchorId id, BuildContext context) =>
+  static void remove(FeatureGuideAnchorId id, BuildContext context) =>
       _byId[id]?.remove(context);
 
   /// The anchor for [id] the user can see right now, or null.
   ///
   /// Skipped: anything in a tab that is not showing (its tickers are off), and
   /// anything on a page with another page on top of it.
-  static BuildContext? visible(TourAnchorId id) {
+  static BuildContext? visible(FeatureGuideAnchorId id) {
     for (final context in _byId[id] ?? const <BuildContext>[]) {
       if (!context.mounted) continue;
       if (!TickerMode.valuesOf(context).enabled) continue;

@@ -5,18 +5,18 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_state.dart';
-import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
-import 'package:critalarm/features/tour/presentation/tour_layout.dart';
-import 'package:critalarm/features/tour/presentation/tour_steps.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_state.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_layout.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 
-/// Runs the "How to use the app" guides over the whole app.
+/// Runs the Feature Guides over the whole app.
 ///
 /// Each screen has its own short guide. The first time the user lands on a
 /// screen that has one, this asks for it. A guide stays on its own screen;
@@ -27,20 +27,24 @@ import 'package:go_router/go_router.dart';
 /// moving, and only then draws the spotlight. Until then the screen is dimmed
 /// with no spotlight, so a half-drawn page is never pointed at.
 ///
-/// While the tour is up, every tap on the app is swallowed. Only the card's
+/// While the guide is up, every tap on the app is swallowed. Only the card's
 /// own buttons work, so tapping a spotlit button can never navigate away in
 /// the middle of a step.
-class TourHost extends StatefulWidget {
-  const TourHost({required this.router, required this.child, super.key});
+class FeatureGuideHost extends StatefulWidget {
+  const FeatureGuideHost({
+    required this.router,
+    required this.child,
+    super.key,
+  });
 
   final GoRouter router;
   final Widget child;
 
   @override
-  State<TourHost> createState() => _TourHostState();
+  State<FeatureGuideHost> createState() => _FeatureGuideHostState();
 }
 
-class _TourHostState extends State<TourHost> {
+class _FeatureGuideHostState extends State<FeatureGuideHost> {
   /// How long a step waits for its spot to turn up before it is skipped.
   static const Duration _findTimeout = Duration(seconds: 5);
 
@@ -57,10 +61,10 @@ class _TourHostState extends State<TourHost> {
   /// Room the floating tab bar takes at the bottom of the screen.
   static const double _bottomBarRoom = 110;
 
-  final TourCubit _tour = getIt<TourCubit>();
-  StreamSubscription<TourState>? _sub;
+  final FeatureGuideCubit _guides = getIt<FeatureGuideCubit>();
+  StreamSubscription<FeatureGuideState>? _sub;
 
-  /// Where the spotlight is. Null while the tour is moving between spots.
+  /// Where the spotlight is. Null while the guide is moving between spots.
   Rect? _hole;
 
   /// The last spotlight drawn, so the next one closes into its middle
@@ -70,8 +74,8 @@ class _TourHostState extends State<TourHost> {
   /// Goes up on every step change, so a wait for an old step gives up.
   int _run = 0;
 
-  /// True while the tour is moving to a step's screen. Route changes on the
-  /// way there are the tour's own, not the user leaving.
+  /// True while the guide is moving to a step's screen. Route changes on the
+  /// way there are the guide's own, not the user leaving.
   bool _moving = false;
 
   /// The screen a single guide was asked for on. Leaving it ends the guide.
@@ -80,7 +84,7 @@ class _TourHostState extends State<TourHost> {
   @override
   void initState() {
     super.initState();
-    _sub = _tour.stream.listen(_onTour);
+    _sub = _guides.stream.listen(_onGuide);
     widget.router.routerDelegate.addListener(_onRoute);
     // The first screen never reports a route change, so it is checked once
     // it is up.
@@ -104,13 +108,13 @@ class _TourHostState extends State<TourHost> {
     return delegate.state.uri.path;
   }
 
-  void _onTour(TourState tour) {
-    switch (tour.status) {
-      case TourStatus.requested:
+  void _onGuide(FeatureGuideState guide) {
+    switch (guide.status) {
+      case FeatureGuideStatus.requested:
         unawaited(_begin());
-      case TourStatus.running:
-        unawaited(_showStep(tour.stepIndex));
-      case TourStatus.idle:
+      case FeatureGuideStatus.running:
+        unawaited(_showStep(guide.stepIndex));
+      case FeatureGuideStatus.idle:
         _run++;
         _moving = false;
         if (mounted) setState(() => _hole = null);
@@ -118,15 +122,15 @@ class _TourHostState extends State<TourHost> {
   }
 
   /// An alarm always wins. If anything takes the user to the alarm screen,
-  /// the tour gets out of the way.
+  /// the guide gets out of the way.
   ///
-  /// Any other move the tour did not make itself is the Android back button,
-  /// since every tap is swallowed. That counts as skipping the tour. Android
+  /// Any other move the guide did not make itself is the Android back button,
+  /// since every tap is swallowed. That counts as skipping the guide. Android
   /// 15 does not ask the app about back on a screen with nothing to pop, so
   /// back cannot be turned into "previous step" reliably.
   void _onRoute() {
-    final tour = _tour.state;
-    if (!tour.isActive) {
+    final guide = _guides.state;
+    if (!guide.isActive) {
       _requestForScreen();
       return;
     }
@@ -135,14 +139,14 @@ class _TourHostState extends State<TourHost> {
         path == '/alarm' ||
         path == '/lockscreen' ||
         path.startsWith('/onboarding')) {
-      _tour.stop();
+      _guides.stop();
       return;
     }
-    final expected = tour.isFullReplay
-        ? tourPath(tour.step.place, tour.topicName)
+    final expected = guide.isFullReplay
+        ? featureGuidePath(guide.step.place, guide.topicName)
         : _guidePath;
-    if (tour.isRunning && !_moving && path != expected) {
-      _tour.finish();
+    if (guide.isRunning && !_moving && path != expected) {
+      _guides.finish();
       // Back landed on a screen of its own. Its first visit is now.
       _requestForScreen();
     }
@@ -152,8 +156,8 @@ class _TourHostState extends State<TourHost> {
   /// gets there. Nothing is asked for while an alarm has the screen.
   void _requestForScreen() {
     if (getIt<AlarmFocus>().on) return;
-    final guide = tourGuideForPath(_currentPath);
-    if (guide != null) _tour.requestIfNew(guide);
+    final guide = featureGuideForPath(_currentPath);
+    if (guide != null) _guides.requestIfNew(guide);
   }
 
   Future<void> _begin() async {
@@ -163,26 +167,26 @@ class _TourHostState extends State<TourHost> {
     final list = topics.state.topics;
     // The user may have left in the meantime, with the Android back button.
     // A guide only makes sense on the screen it was asked for on.
-    final guide = _tour.state.guide;
+    final guide = _guides.state.guide;
     if (guide != null && _currentPath != _guidePath) {
-      _tour.stop();
+      _guides.stop();
       _requestForScreen();
       return;
     }
-    _tour.begin(firstTopicName: list.isEmpty ? null : list.first.name);
+    _guides.begin(firstTopicName: list.isEmpty ? null : list.first.name);
   }
 
   Future<void> _showStep(int index) async {
     final run = ++_run;
     setState(() => _hole = null);
 
-    final tour = _tour.state;
-    final step = tour.step;
-    final path = tourPath(step.place, tour.topicName);
+    final guide = _guides.state;
+    final step = guide.step;
+    final path = featureGuidePath(step.place, guide.topicName);
     // A single guide is already on its screen. Only the full replay moves.
-    if (tour.isFullReplay && _currentPath != path) {
+    if (guide.isFullReplay && _currentPath != path) {
       _moving = true;
-      if (step.place == TourPlace.createTopic) {
+      if (step.place == FeatureGuidePlace.createTopic) {
         // Opened over Topics, the way the + button opens it, so back lands
         // on Topics instead of closing the app.
         if (_currentPath != '/') widget.router.go('/');
@@ -196,7 +200,7 @@ class _TourHostState extends State<TourHost> {
     if (run == _run) _moving = false;
     if (run != _run || !mounted) return;
     if (anchor == null || !anchor.mounted) {
-      _tour.skipMissing(index);
+      _guides.skipMissing(index);
       return;
     }
 
@@ -211,7 +215,7 @@ class _TourHostState extends State<TourHost> {
 
   void _place(Rect rect) {
     setState(() {
-      _hole = tourHoleFor(rect, MediaQuery.sizeOf(context));
+      _hole = featureGuideHoleFor(rect, MediaQuery.sizeOf(context));
       _lastHole = _hole;
     });
   }
@@ -219,24 +223,24 @@ class _TourHostState extends State<TourHost> {
   /// Keeps the spotlight on its spot after it is drawn. A screen can still
   /// shift once it has settled, such as a line of text above the spot
   /// loading in late and pushing it down.
-  Future<void> _follow(TourAnchorId id, int run) async {
+  Future<void> _follow(FeatureGuideAnchorId id, int run) async {
     while (true) {
       await Future<void>.delayed(_followEvery);
       if (run != _run || !mounted) return;
-      final anchor = TourAnchors.visible(id);
+      final anchor = FeatureGuideAnchors.visible(id);
       if (anchor == null || !anchor.mounted) continue;
       final rect = _rectOf(anchor);
       if (rect == null) continue;
-      final hole = tourHoleFor(rect, MediaQuery.sizeOf(context));
+      final hole = featureGuideHoleFor(rect, MediaQuery.sizeOf(context));
       if (hole != _hole) _place(rect);
     }
   }
 
   /// The anchor, once its screen has finished its entrance.
-  Future<BuildContext?> _waitForAnchor(TourAnchorId id, int run) async {
+  Future<BuildContext?> _waitForAnchor(FeatureGuideAnchorId id, int run) async {
     final deadline = DateTime.now().add(_findTimeout);
     while (run == _run && DateTime.now().isBefore(deadline)) {
-      final anchor = TourAnchors.visible(id);
+      final anchor = FeatureGuideAnchors.visible(id);
       if (anchor != null && anchor.mounted && _routeArrived(anchor)) {
         return anchor;
       }
@@ -259,7 +263,7 @@ class _TourHostState extends State<TourHost> {
     final rect = _rectOf(anchor);
     final padding = MediaQuery.paddingOf(context);
     if (rect != null &&
-        tourRectOnScreen(
+        featureGuideRectOnScreen(
           rect,
           MediaQuery.sizeOf(context),
           topInset: padding.top,
@@ -276,12 +280,12 @@ class _TourHostState extends State<TourHost> {
   }
 
   /// Where the anchor is once it has held still for a few frames in a row.
-  Future<Rect?> _settledRect(TourAnchorId id, int run) async {
+  Future<Rect?> _settledRect(FeatureGuideAnchorId id, int run) async {
     final deadline = DateTime.now().add(_settleTimeout);
     Rect? last;
     var still = 0;
     while (run == _run) {
-      final anchor = TourAnchors.visible(id);
+      final anchor = FeatureGuideAnchors.visible(id);
       final rect = anchor == null || !anchor.mounted ? null : _rectOf(anchor);
       if (rect != null && rect == last) {
         still++;
@@ -314,23 +318,23 @@ class _TourHostState extends State<TourHost> {
 
   void _next() {
     AppHaptics.selection();
-    if (_tour.state.isLastStep) {
+    if (_guides.state.isLastStep) {
       _done();
     } else {
-      _tour.next();
+      _guides.next();
     }
   }
 
   void _back() {
     AppHaptics.selection();
-    _tour.back();
+    _guides.back();
   }
 
   /// Skip and the last step's button. The full replay hands the user back
   /// to Topics. A single guide leaves them where they are.
   void _done() {
-    final wasFullReplay = _tour.state.isFullReplay;
-    _tour.finish();
+    final wasFullReplay = _guides.state.isFullReplay;
+    _guides.finish();
     if (wasFullReplay) widget.router.go('/');
   }
 
@@ -339,20 +343,20 @@ class _TourHostState extends State<TourHost> {
     return Stack(
       children: [
         widget.child,
-        StreamBuilder<TourState>(
-          stream: _tour.stream,
-          initialData: _tour.state,
+        StreamBuilder<FeatureGuideState>(
+          stream: _guides.stream,
+          initialData: _guides.state,
           builder: (context, snapshot) {
-            final tour = snapshot.data ?? _tour.state;
-            if (!tour.isRunning) return const SizedBox.shrink();
-            return Positioned.fill(child: _overlay(tour));
+            final guide = snapshot.data ?? _guides.state;
+            if (!guide.isRunning) return const SizedBox.shrink();
+            return Positioned.fill(child: _overlay(guide));
           },
         ),
       ],
     );
   }
 
-  Widget _overlay(TourState tour) {
+  Widget _overlay(FeatureGuideState guide) {
     final screen = MediaQuery.sizeOf(context);
     final hole = _hole;
 
@@ -385,7 +389,7 @@ class _TourHostState extends State<TourHost> {
             ),
           ),
         ),
-        if (hole != null) _card(tour, hole, screen),
+        if (hole != null) _card(guide, hole, screen),
         // Always there, on every step, so leaving never depends on a back
         // button. iOS has none.
         Positioned(
@@ -409,17 +413,17 @@ class _TourHostState extends State<TourHost> {
     );
   }
 
-  Widget _card(TourState tour, Rect hole, Size screen) {
+  Widget _card(FeatureGuideState guide, Rect hole, Size screen) {
     final padding = MediaQuery.paddingOf(context);
-    final above = tourCardGoesAbove(hole, screen);
+    final above = featureGuideCardGoesAbove(hole, screen);
     final width = (screen.width - 32).clamp(0.0, 420.0);
     final left = (screen.width - width) / 2;
 
-    final card = _TourCard(
-      key: ValueKey(tour.stepIndex),
-      tour: tour,
+    final card = _FeatureGuideCard(
+      key: ValueKey(guide.stepIndex),
+      guide: guide,
       onNext: _next,
-      onBack: tour.isFirstStep ? null : _back,
+      onBack: guide.isFirstStep ? null : _back,
       onSkip: _done,
     );
 
@@ -427,7 +431,7 @@ class _TourHostState extends State<TourHost> {
         ? Positioned(
             left: left,
             width: width,
-            bottom: (screen.height - hole.top + tourCardGap).clamp(
+            bottom: (screen.height - hole.top + featureGuideCardGap).clamp(
               padding.bottom + 16,
               screen.height,
             ),
@@ -436,7 +440,7 @@ class _TourHostState extends State<TourHost> {
         : Positioned(
             left: left,
             width: width,
-            top: (hole.bottom + tourCardGap).clamp(
+            top: (hole.bottom + featureGuideCardGap).clamp(
               padding.top + 16,
               screen.height,
             ),
@@ -445,16 +449,16 @@ class _TourHostState extends State<TourHost> {
   }
 }
 
-class _TourCard extends StatelessWidget {
-  const _TourCard({
-    required this.tour,
+class _FeatureGuideCard extends StatelessWidget {
+  const _FeatureGuideCard({
+    required this.guide,
     required this.onNext,
     required this.onBack,
     required this.onSkip,
     super.key,
   });
 
-  final TourState tour;
+  final FeatureGuideState guide;
   final VoidCallback onNext;
   final VoidCallback? onBack;
   final VoidCallback onSkip;
@@ -463,7 +467,7 @@ class _TourCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final step = tour.step;
+    final step = guide.step;
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
@@ -495,8 +499,8 @@ class _TourCard extends StatelessWidget {
                   Text(
                     LocaleKeys.tour_progress.tr(
                       namedArgs: {
-                        'step': '${tour.stepIndex + 1}',
-                        'count': '${tour.steps.length}',
+                        'step': '${guide.stepIndex + 1}',
+                        'count': '${guide.steps.length}',
                       },
                     ),
                     style: TextStyle(
@@ -535,7 +539,7 @@ class _TourCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               AppBulletedText(
-                step.bodyKeyFor(usingExamples: tour.usingExamples).tr(),
+                step.bodyKeyFor(usingExamples: guide.usingExamples).tr(),
                 style: TextStyle(
                   fontFamily: AppTypography.fontBody,
                   fontFamilyFallback: AppTypography.fontBodyFallbacks,
@@ -556,7 +560,7 @@ class _TourCard extends StatelessWidget {
                     ),
                   const Spacer(),
                   AppButton(
-                    label: tour.isLastStep
+                    label: guide.isLastStep
                         ? LocaleKeys.tour_done.tr()
                         : LocaleKeys.tour_next.tr(),
                     size: AppButtonSize.sm,

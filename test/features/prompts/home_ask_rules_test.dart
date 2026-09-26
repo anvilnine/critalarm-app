@@ -309,24 +309,27 @@ void main() {
       );
     });
 
-    test('asks nothing before onboarding and the tour are done', () {
-      expect(
-        HomeAskRules.decide(
-          now: now,
-          firstSeenAt: DateTime(2026, 9),
-          consentAskedAt: null,
-          isConsentGiven: false,
-          reviewAskedAt: null,
-          reviewAskCount: 0,
-          lastAcknowledgedAt: null,
-          proAskedAt: null,
-          isRinging: false,
-          isWeb: false,
-          isSetupDone: false,
-        ),
-        HomeAsk.none,
-      );
-    });
+    test(
+      'asks nothing before onboarding and the first Feature Guide are done',
+      () {
+        expect(
+          HomeAskRules.decide(
+            now: now,
+            firstSeenAt: DateTime(2026, 9),
+            consentAskedAt: null,
+            isConsentGiven: false,
+            reviewAskedAt: null,
+            reviewAskCount: 0,
+            lastAcknowledgedAt: null,
+            proAskedAt: null,
+            isRinging: false,
+            isWeb: false,
+            isSetupDone: false,
+          ),
+          HomeAsk.none,
+        );
+      },
+    );
 
     test('next() settles reminder asks before it reads anything', () async {
       final prompts = FakeHomePromptRepository()

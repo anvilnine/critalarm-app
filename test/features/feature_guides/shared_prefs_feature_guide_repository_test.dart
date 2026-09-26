@@ -1,11 +1,15 @@
-import 'package:critalarm/features/tour/data/repositories/shared_prefs_tour_repository.dart';
+import 'package:critalarm/features/feature_guides/data/repositories/shared_prefs_feature_guide_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  Future<SharedPrefsTourRepository> repo(Map<String, Object> values) async {
+  Future<SharedPrefsFeatureGuideRepository> repo(
+    Map<String, Object> values,
+  ) async {
     SharedPreferences.setMockInitialValues(values);
-    return SharedPrefsTourRepository(await SharedPreferences.getInstance());
+    return SharedPrefsFeatureGuideRepository(
+      await SharedPreferences.getInstance(),
+    );
   }
 
   test('a fresh install has seen no guide', () async {
