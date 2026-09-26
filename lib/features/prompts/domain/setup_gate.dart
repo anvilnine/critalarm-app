@@ -1,4 +1,4 @@
-/// Onboarding and the "How to use the app" guides come before every ask: the
+/// Onboarding and the Feature Guides come before every ask: the
 /// Pro sheet, the Reminders sheet, the consent sheet, the store review popup,
 /// and every planned reminder. The demo alarm at the end of onboarding used
 /// to trigger one.
@@ -14,25 +14,27 @@
 class SetupGate {
   SetupGate({
     required Future<bool> Function() isOnboardingDone,
-    required bool Function() hasSeenTour,
-    bool Function()? isTourActive,
+    required bool Function() hasSeenFeatureGuide,
+    bool Function()? isFeatureGuideActive,
   }) : // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
        _isOnboardingDone = isOnboardingDone,
        // Same reason as above.
        // ignore: prefer_initializing_formals
-       _hasSeenTour = hasSeenTour,
-       _isTourActive = isTourActive ?? _never;
+       _hasSeenFeatureGuide = hasSeenFeatureGuide,
+       _isFeatureGuideActive = isFeatureGuideActive ?? _never;
 
   final Future<bool> Function() _isOnboardingDone;
-  final bool Function() _hasSeenTour;
-  final bool Function() _isTourActive;
+  final bool Function() _hasSeenFeatureGuide;
+  final bool Function() _isFeatureGuideActive;
 
   static bool _never() => false;
 
   /// True once onboarding is finished and the first guide was seen or
   /// skipped, and no guide is on screen or about to be.
   Future<bool> isDone() async =>
-      !_isTourActive() && _hasSeenTour() && await _isOnboardingDone();
+      !_isFeatureGuideActive() &&
+      _hasSeenFeatureGuide() &&
+      await _isOnboardingDone();
 }

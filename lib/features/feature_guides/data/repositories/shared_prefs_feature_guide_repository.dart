@@ -1,8 +1,8 @@
-import 'package:critalarm/features/tour/domain/repositories/tour_repository.dart';
+import 'package:critalarm/features/feature_guides/domain/repositories/feature_guide_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class SharedPrefsTourRepository implements TourRepository {
-  const SharedPrefsTourRepository(this._prefs);
+class SharedPrefsFeatureGuideRepository implements FeatureGuideRepository {
+  const SharedPrefsFeatureGuideRepository(this._prefs);
 
   final SharedPreferences _prefs;
 

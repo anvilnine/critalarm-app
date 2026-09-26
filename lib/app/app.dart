@@ -28,6 +28,9 @@ import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_state.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_host.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
@@ -41,9 +44,6 @@ import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/theme_mode_mapper.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_state.dart';
-import 'package:critalarm/features/tour/presentation/tour_host.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -174,7 +174,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     );
   }
 
-  StreamSubscription<TourState>? _tourSub;
+  StreamSubscription<FeatureGuideState>? _guideSub;
 
   @override
   void initState() {
@@ -186,10 +186,10 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     // this. Re-plan from what is left right away.
     appAccountIdentityChanges.addListener(_replan);
     appPlanChanges.addListener(_replan);
-    // Planning waits while a "How to use the app" guide is up, so plan the
+    // Planning waits while a Feature Guide is up, so plan the
     // moment one ends rather than on the next resume.
-    _tourSub = getIt<TourCubit>().stream
-        .where((tour) => !tour.isActive)
+    _guideSub = getIt<FeatureGuideCubit>().stream
+        .where((guide) => !guide.isActive)
         .listen((_) => _replan());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Plan once the first frame is up, so launch never waits on it.
@@ -208,7 +208,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_quickActions.dispose());
     appAccountIdentityChanges.removeListener(_replan);
     appPlanChanges.removeListener(_replan);
-    unawaited(_tourSub?.cancel());
+    unawaited(_guideSub?.cancel());
     unawaited(_incomingAudio.dispose());
     unawaited(getIt<WidgetSync>().dispose());
     super.dispose();
@@ -288,7 +288,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
                 isIphone:
                     getIt.isRegistered<DeviceForm>() &&
                     getIt<DeviceForm>().isIphone,
-                child: TourHost(
+                child: FeatureGuideHost(
                   router: _router,
                   child: AppAmbientShell(
                     router: _router,

@@ -61,8 +61,8 @@ class HomeAskRules {
   /// in the app; null in tests that do not care.
   final Future<void> Function()? _settle;
 
-  /// `SetupGate.isDone` in the app: onboarding finished and the tour seen.
-  /// Null in tests that do not care, and counts as done.
+  /// `SetupGate.isDone` in the app: onboarding finished and the first
+  /// Feature Guide seen. Null in tests that do not care, and counts as done.
   final Future<bool> Function()? _isSetupDone;
 
   /// The newest ack across the shared incident list. An ack made on another
@@ -105,7 +105,8 @@ class HomeAskRules {
   }
 
   /// The rules themselves, with nothing to read from. Nothing is asked
-  /// before onboarding is finished and the tour has been seen or skipped.
+  /// before onboarding is finished and the first Feature Guide has been seen
+  /// or skipped.
   ///
   /// Days are calendar days on the phone's clock, so an alarm acknowledged
   /// at 23:50 makes the review popup due ten minutes later.

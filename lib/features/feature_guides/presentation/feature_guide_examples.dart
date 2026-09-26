@@ -1,20 +1,20 @@
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 
-/// Made-up topics the tour shows to someone who has none yet, so every step
+/// Made-up topics the guide shows to someone who has none yet, so every step
 /// has something real-looking to point at. None of it reaches the server.
-abstract final class TourExamples {
+abstract final class FeatureGuideExamples {
   /// One topic with critical delivery on and one with it off, so the
   /// difference is on screen side by side.
   static List<HomeTopicItem> homeTopics() => [
     HomeTopicItem(
-      name: TourCubit.exampleTopicName,
+      name: FeatureGuideCubit.exampleTopicName,
       meta: LocaleKeys.home_meta_quiet.tr(),
       priority: PriorityLevel.defaultPriority,
       ringsThroughSilent: true,
@@ -27,7 +27,7 @@ abstract final class TourExamples {
   ];
 
   /// A topic in the middle of a page: alarmed face, critical chip. Shown to
-  /// everyone during the tour, next to their own topics, so the list has
+  /// everyone during the guide, next to their own topics, so the list has
   /// something going wrong on it to point at.
   static HomeTopicItem troubleTopic() => HomeTopicItem(
     name: 'payments-api',
@@ -42,7 +42,7 @@ abstract final class TourExamples {
   /// The example topic's own screen.
   static TopicDetailState topicDetail() => TopicDetailState(
     status: TopicDetailStatus.success,
-    topicName: TourCubit.exampleTopicName,
+    topicName: FeatureGuideCubit.exampleTopicName,
     critical: true,
     // Lets the switch draw as usable, the way it will be once the user has
     // a topic of their own.

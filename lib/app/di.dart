@@ -63,6 +63,9 @@ import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
+import 'package:critalarm/features/feature_guides/data/repositories/shared_prefs_feature_guide_repository.dart';
+import 'package:critalarm/features/feature_guides/domain/repositories/feature_guide_repository.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/feedback/data/platform_device_report_repository.dart';
 import 'package:critalarm/features/feedback/domain/repositories/device_report_repository.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
@@ -193,9 +196,6 @@ import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
-import 'package:critalarm/features/tour/data/repositories/shared_prefs_tour_repository.dart';
-import 'package:critalarm/features/tour/domain/repositories/tour_repository.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
 import 'package:critalarm/firebase_options.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -574,8 +574,8 @@ Future<void> configureDependencies({
         copy: ReminderCopy(
           isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
         ),
-        // Nothing is planned during onboarding or a "How to use the app"
-        // guide. The app plans again when the guide ends.
+        // Nothing is planned during onboarding or a Feature
+        // Guide. The app plans again when the guide ends.
         isPaused: () async => !await getIt<SetupGate>().isDone(),
       ),
     )
@@ -592,8 +592,8 @@ Future<void> configureDependencies({
           );
           return done.getOrNull() ?? false;
         },
-        hasSeenTour: () => getIt<TourCubit>().hasSeenFirstGuide,
-        isTourActive: () => getIt<TourCubit>().state.isActive,
+        hasSeenFeatureGuide: () => getIt<FeatureGuideCubit>().hasSeenFirstGuide,
+        isFeatureGuideActive: () => getIt<FeatureGuideCubit>().state.isActive,
       ),
     )
     ..registerLazySingleton<ProPromptRules>(
@@ -861,11 +861,14 @@ Future<void> configureDependencies({
     ..registerLazySingleton<DocsIndexRepository>(
       AssetDocsIndexRepository.new,
     )
-    ..registerLazySingleton<TourRepository>(
-      () => SharedPrefsTourRepository(getIt<SharedPreferences>()),
+    ..registerLazySingleton<FeatureGuideRepository>(
+      () => SharedPrefsFeatureGuideRepository(getIt<SharedPreferences>()),
     )
-    // One for the whole app: the tour walks across screens.
-    ..registerLazySingleton(() => TourCubit(getIt<TourRepository>()))
+    // One for the whole app: the full Feature Guides replay walks across
+    // screens.
+    ..registerLazySingleton(
+      () => FeatureGuideCubit(getIt<FeatureGuideRepository>()),
+    )
     ..registerLazySingleton(
       () => GetRecentSearchesUsecase(getIt<RecentSearchesRepository>()),
     )

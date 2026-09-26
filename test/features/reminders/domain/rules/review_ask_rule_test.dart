@@ -34,9 +34,12 @@ void main() {
     feedbackAskedAt: feedbackAskedAt,
   );
 
-  test('plans nothing before onboarding and the tour are done', () {
-    expect(ReviewAskRule.candidate(inputs(isSetupDone: false)), isNull);
-  });
+  test(
+    'plans nothing before onboarding and the first Feature Guide are done',
+    () {
+      expect(ReviewAskRule.candidate(inputs(isSetupDone: false)), isNull);
+    },
+  );
 
   test('plans 10:00 four days after the last ack', () {
     final c = ReviewAskRule.candidate(inputs())!;

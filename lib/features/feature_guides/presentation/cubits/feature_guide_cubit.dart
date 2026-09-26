@@ -1,37 +1,37 @@
 import 'dart:async';
 
-import 'package:critalarm/features/tour/domain/repositories/tour_repository.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_state.dart';
-import 'package:critalarm/features/tour/presentation/tour_steps.dart';
+import 'package:critalarm/features/feature_guides/domain/repositories/feature_guide_repository.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_state.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Which "How to use the app" guide is showing, and which step of it. One
+/// Which Feature Guide is showing, and which step of it. One
 /// for the whole app, because the full replay walks across screens.
 ///
 /// Each screen has its own short guide that plays the first time the user
 /// gets there. Settings replays all of them in one go.
 ///
 /// This only keeps count. Moving between screens, scrolling and drawing the
-/// spotlight is the TourHost's job.
-class TourCubit extends Cubit<TourState> {
-  TourCubit(this._repository) : super(const TourState());
+/// spotlight is the FeatureGuideHost's job.
+class FeatureGuideCubit extends Cubit<FeatureGuideState> {
+  FeatureGuideCubit(this._repository) : super(const FeatureGuideState());
 
-  final TourRepository _repository;
+  final FeatureGuideRepository _repository;
 
   /// The name the example topic goes by.
   static const exampleTopicName = 'prod-db';
 
-  bool hasSeen(TourGuide guide) => _repository.hasSeenGuide(guide.name);
+  bool hasSeen(FeatureGuide guide) => _repository.hasSeenGuide(guide.name);
 
   /// True once the Topics guide has been seen or skipped. It is the first
   /// one anybody gets, straight after onboarding, so the sheets and
   /// reminders that wait for setup wait for it.
-  bool get hasSeenFirstGuide => hasSeen(TourGuide.home);
+  bool get hasSeenFirstGuide => hasSeen(FeatureGuide.home);
 
   /// Asks for [guide] if this device has not seen it yet. Called as its
   /// screen comes up. Ignored while another guide is going: that screen's
   /// guide plays on the next visit instead.
-  void requestIfNew(TourGuide guide) {
+  void requestIfNew(FeatureGuide guide) {
     if (hasSeen(guide)) return;
     _request(guide);
   }
@@ -39,20 +39,20 @@ class TourCubit extends Cubit<TourState> {
   /// Asks for every guide back to back, seen or not. Settings calls this.
   void request() => _request(null);
 
-  void _request(TourGuide? guide) {
+  void _request(FeatureGuide? guide) {
     if (state.isActive) return;
-    emit(TourState(status: TourStatus.requested, guide: guide));
+    emit(FeatureGuideState(status: FeatureGuideStatus.requested, guide: guide));
   }
 
   /// Starts what was asked for. [firstTopicName] is the user's first topic,
-  /// or null when they have none, in which case the tour shows example
+  /// or null when they have none, in which case the guide shows example
   /// topics.
   void begin({String? firstTopicName}) {
-    if (state.status != TourStatus.requested) return;
+    if (state.status != FeatureGuideStatus.requested) return;
     final usingExamples = firstTopicName == null;
     emit(
-      TourState(
-        status: TourStatus.running,
+      FeatureGuideState(
+        status: FeatureGuideStatus.running,
         guide: state.guide,
         topicName: firstTopicName ?? exampleTopicName,
         usingExamples: usingExamples,
@@ -81,10 +81,10 @@ class TourCubit extends Cubit<TourState> {
     final guide = state.guide;
     unawaited(
       _repository.markGuidesSeen(
-        guide == null ? TourGuide.values.map((g) => g.name) : [guide.name],
+        guide == null ? FeatureGuide.values.map((g) => g.name) : [guide.name],
       ),
     );
-    emit(const TourState());
+    emit(const FeatureGuideState());
   }
 
   /// Something more important took the screen, such as an alarm. The guide
@@ -92,11 +92,11 @@ class TourCubit extends Cubit<TourState> {
   /// opens.
   void stop() {
     if (!state.isActive) return;
-    emit(const TourState());
+    emit(const FeatureGuideState());
   }
 
   /// Skips a step whose spot never turned up. Used when a screen is missing
-  /// a piece, so the tour moves on instead of hanging on an empty spotlight.
+  /// a piece, so the guide moves on instead of hanging on an empty spotlight.
   void skipMissing(int stepIndex) {
     if (!state.isRunning || state.stepIndex != stepIndex) return;
     next();

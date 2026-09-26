@@ -35,7 +35,7 @@ void main() {
       );
     });
 
-    test('nothing before onboarding and the tour are done', () {
+    test('nothing before onboarding and the first Feature Guide are done', () {
       expect(
         decide(
           isTestAck: true,
@@ -168,7 +168,7 @@ void main() {
       );
     });
 
-    test('nothing before onboarding and the tour are done', () {
+    test('nothing before onboarding and the first Feature Guide are done', () {
       expect(
         decide(lastAcknowledgedAt: DateTime(2026, 9), isSetupDone: false),
         HomeReminderAsk.none,

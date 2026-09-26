@@ -11,8 +11,8 @@ enum HomeReminderAsk { none, remindersSheet, proSheet }
 ///   update (1+ critical topic and an ack on record). Once.
 /// - A Pro sheet owed by a night ack, shown on the next daytime open.
 ///
-/// Neither shows before onboarding is finished and the tour has been seen
-/// or skipped (`isSetupDone`).
+/// Neither shows before onboarding is finished and the first Feature Guide
+/// has been seen or skipped (`isSetupDone`).
 abstract final class HomeReminderAskRules {
   static HomeReminderAsk decide({
     required bool isSetupDone,
