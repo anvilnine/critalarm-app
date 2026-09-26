@@ -23,7 +23,7 @@ void main() {
     isSelfHosted: isSelfHosted,
     isSignedIn: isSignedIn,
     topics: list ?? topics,
-    accountPromptDismissedAt: dismissedAt,
+    accountNoticeDismissedAt: dismissedAt,
   );
 
   test('plans 10:00 seven days after the second topic', () {

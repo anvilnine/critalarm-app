@@ -5,7 +5,7 @@ abstract final class ReminderEvents {
   static const tapped = 'reminder_tapped';
   static const switchChanged = 'reminder_switch_changed';
   static const sheetAnswered = 'reminder_sheet_answered';
-  static const proPromptAnswered = 'pro_prompt_answered';
+  static const proAskAnswered = 'pro_prompt_answered';
   static const testRingSent = 'test_ring_sent';
   static const quickActionUsed = 'quick_action_used';
 }
@@ -38,8 +38,8 @@ final class ReminderAnalytics {
         'offers': offers ? 'on' : 'off',
       });
 
-  Future<void> proPromptAnswered({required String answer}) =>
-      _gate.logEvent(ReminderEvents.proPromptAnswered, {'answer': answer});
+  Future<void> proAskAnswered({required String answer}) =>
+      _gate.logEvent(ReminderEvents.proAskAnswered, {'answer': answer});
 
   Future<void> testRingSent({required String result}) =>
       _gate.logEvent(ReminderEvents.testRingSent, {'result': result});

@@ -98,7 +98,7 @@ final class ReminderInputs {
     this.silentTopicNames = const {},
     this.silentDone = const {},
     this.isSignedIn = false,
-    this.accountPromptDismissedAt,
+    this.accountNoticeDismissedAt,
     this.plan,
     this.planNoticesSent = const {},
     this.morningAfterDone = const {},
@@ -140,7 +140,7 @@ final class ReminderInputs {
   /// Last test that answered 409, 401 or never left the phone.
   final DateTime? lastTestFailedAt;
 
-  /// `HomePromptRepository.getFirstSeenAt()`.
+  /// `InAppNoticeRepository.getFirstSeenAt()`.
   final DateTime? installedAt;
 
   /// Topics made on this phone, with when.
@@ -154,7 +154,7 @@ final class ReminderInputs {
   final bool isSignedIn;
 
   /// The home "Back up your topics" card's snooze stamp.
-  final DateTime? accountPromptDismissedAt;
+  final DateTime? accountNoticeDismissedAt;
   final PlanStatus? plan;
 
   /// Plan heads-up keys already delivered (`PlanHeadsUpRule.keyFor`).
@@ -167,12 +167,12 @@ final class ReminderInputs {
   /// Feature Guide seen. No ask is planned before both.
   final bool isSetupDone;
 
-  /// `ProPromptRules.shouldAsk()` at plan time.
+  /// `ProAskRules.shouldAsk()` at plan time.
   final bool proShouldAsk;
   final bool isPaid;
   final int proDismissCount;
 
-  /// `HomePromptRepository.getProPromptLaterAt()`.
+  /// `InAppNoticeRepository.getProAskLaterAt()`.
   final DateTime? proLaterAt;
   final DateTime? consentAskedAt;
   final bool isConsentGiven;

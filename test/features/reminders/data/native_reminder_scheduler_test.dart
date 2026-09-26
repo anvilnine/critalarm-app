@@ -10,7 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../helpers/fake_home_prompt_repository.dart';
+import '../../../helpers/fake_in_app_notice_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -108,7 +108,7 @@ void main() {
       scheduler: NativeReminderScheduler(channel),
       settler: ReminderSettler(
         store: store,
-        prompts: FakeHomePromptRepository(),
+        notices: FakeInAppNoticeRepository(),
       ),
       readInputs: () async => ReminderInputs(
         now: DateTime(2026, 9, 22, 12),

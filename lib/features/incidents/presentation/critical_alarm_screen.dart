@@ -7,13 +7,13 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
+import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
+import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
+import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
-import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
-import 'package:critalarm/features/prompts/domain/setup_gate.dart';
 import 'package:critalarm/features/reminders/domain/after_ack_decider.dart';
 import 'package:critalarm/features/reminders/domain/incident_kinds.dart';
 import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
@@ -67,14 +67,14 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
     final cubit = context.read<CriticalAlarmCubit>();
     await Future<void>.delayed(const Duration(milliseconds: 1500));
     final store = getIt<ReminderStore>();
-    final prompts = getIt<HomePromptRepository>();
+    final notices = getIt<InAppNoticeRepository>();
     final incident = state.incident;
     // A delivered review or feedback reminder counts as an ask before the
     // Pro rules read the ask times.
     await getIt<ReminderSettler>().settleAsks(now: DateTime.now());
-    final proShouldAsk = await getIt<ProPromptRules>().shouldAsk();
+    final proShouldAsk = await getIt<ProAskRules>().shouldAsk();
     final now = DateTime.now();
-    final lastSheet = prompts.getAfterAckSheetShownAt();
+    final lastSheet = notices.getAfterAckSheetShownAt();
     final next = AfterAckDecider.decide(
       isSetupDone: await getIt<SetupGate>().isDone(),
       ackedAt: now,
@@ -89,7 +89,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
     // Stamped before the sheet opens, so the second ack of the same day gets
     // nothing whichever of the two was shown.
     if (next == AfterAck.remindersSheet || next == AfterAck.proSheet) {
-      await prompts.markAfterAckSheetShown();
+      await notices.markAfterAckSheetShown();
     }
     // Only the two sheets need this screen. Planning the morning after and
     // owing the Pro sheet happen even if the user already left it.
@@ -122,7 +122,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
         setState(() {
           _direction = AmbientDirection.push;
         });
-        unawaited(getIt<HomePromptRepository>().markAcknowledged());
+        unawaited(getIt<InAppNoticeRepository>().markAcknowledged());
         unawaited(_afterAck(state));
       },
       builder: (context, state) {

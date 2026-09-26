@@ -7,7 +7,7 @@ import 'package:critalarm/features/reminders/domain/reminder_scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../features/reminders/fake_reminder_scheduler.dart';
-import '../../helpers/fake_home_prompt_repository.dart';
+import '../../helpers/fake_in_app_notice_repository.dart';
 
 class _RecordingGate extends NoopTelemetryGate {
   final events = <(String, Map<String, Object?>?)>[];
@@ -29,7 +29,7 @@ void main() {
   });
 
   test('"Remind me later" has its own answer value', () async {
-    await analytics.proPromptAnswered(answer: ReminderAnalytics.remindLater);
+    await analytics.proAskAnswered(answer: ReminderAnalytics.remindLater);
     expect(gate.events.single.$1, 'pro_prompt_answered');
     expect(gate.events.single.$2, {'answer': 'remind_later'});
   });
@@ -51,7 +51,7 @@ void main() {
   test('a reminder tap is logged with its kind and action', () async {
     final bindings = ReminderBindings(
       scheduler: FakeReminderScheduler(),
-      prompts: FakeHomePromptRepository(),
+      notices: FakeInAppNoticeRepository(),
       focus: AlarmFocus(),
       navigate: (_) {},
       openUrl: (_) async {},

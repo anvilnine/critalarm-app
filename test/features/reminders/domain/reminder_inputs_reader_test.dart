@@ -14,7 +14,7 @@ import 'package:critalarm/features/settings/domain/repositories/privacy_reposito
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../helpers/fake_home_prompt_repository.dart';
+import '../../../helpers/fake_in_app_notice_repository.dart';
 import '../fake_reminder_scheduler.dart';
 
 class _Privacy implements PrivacyRepository {
@@ -26,8 +26,8 @@ class _Privacy implements PrivacyRepository {
   Future<AppResult<PrivacySettings>> getPrivacySettings() async => fail
       ? throw StateError('prefs')
       : const Success(
-        PrivacySettings(analyticsEnabled: true, crashReportingEnabled: true),
-      );
+          PrivacySettings(analyticsEnabled: true, crashReportingEnabled: true),
+        );
 
   @override
   Future<AppResult<Unit>> setAnalyticsEnabled({required bool enabled}) async =>
@@ -57,7 +57,7 @@ void main() {
   late SharedPrefsReminderStore store;
   late QuietHoursStore quietHours;
   late FakeReminderScheduler scheduler;
-  late FakeHomePromptRepository prompts;
+  late FakeInAppNoticeRepository notices;
   late _Plan plan;
   late List<String> polled;
 
@@ -67,7 +67,7 @@ void main() {
     store = SharedPrefsReminderStore(prefs);
     quietHours = QuietHoursStore(prefs);
     scheduler = FakeReminderScheduler()..timeZone = manila;
-    prompts = FakeHomePromptRepository();
+    notices = FakeInAppNoticeRepository();
     plan = _Plan();
     polled = [];
   });
@@ -87,7 +87,7 @@ void main() {
     bool privacyFails = false,
   }) => ReminderInputsReader(
     store: store,
-    prompts: prompts,
+    notices: notices,
     quietHours: quietHours,
     scheduler: scheduler,
     planStatus: plan,
@@ -95,15 +95,15 @@ void main() {
     readTopics: () async {
       topicReads++;
       return topics ??
-        [
-          Topic(
-            name: 'prod-db',
-            critical: true,
-            createdAt: DateTime.utc(2026, 9, 1, 2),
-          ),
-          const Topic(name: 'fresh'),
-          const Topic(name: 'old'),
-        ];
+          [
+            Topic(
+              name: 'prod-db',
+              critical: true,
+              createdAt: DateTime.utc(2026, 9, 1, 2),
+            ),
+            const Topic(name: 'fresh'),
+            const Topic(name: 'old'),
+          ];
     },
     readIncidents: () async => incidents,
     topicHasMessages:
@@ -228,7 +228,7 @@ void main() {
   test(
     'installedAt is always supplied, even with no first-seen stamp',
     () async {
-      prompts.firstSeenAt = null;
+      notices.firstSeenAt = null;
       final inputs = (await reader().read())!;
       expect(inputs.installedAt, isNotNull);
       expect(inputs.installedAt, inputs.now);

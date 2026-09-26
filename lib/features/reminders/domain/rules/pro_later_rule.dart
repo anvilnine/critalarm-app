@@ -1,4 +1,4 @@
-import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
+import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/reminders/domain/reminder_candidate.dart';
 import 'package:critalarm/features/reminders/domain/reminder_dates.dart';
 import 'package:critalarm/features/reminders/domain/reminder_ids.dart';
@@ -15,7 +15,7 @@ abstract final class ProLaterRule {
     final later = inputs.proLaterAt;
     if (later == null) return null;
     if (inputs.isPaid) return null;
-    if (inputs.proDismissCount >= ProPromptRules.maxDismissals) return null;
+    if (inputs.proDismissCount >= ProAskRules.maxDismissals) return null;
 
     final fireAt = ReminderDates.atHourOnOrAfter(
       ReminderDates.later(later.add(after), inputs.now),

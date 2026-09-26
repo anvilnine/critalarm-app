@@ -45,7 +45,7 @@ void main() {
     expect(c.dedupeKey, 'inc_1');
   });
 
-  test('needs ProPromptRules to say yes at plan time', () {
+  test('needs ProAskRules to say yes at plan time', () {
     expect(
       MorningAfterRule.candidate(
         inputs(

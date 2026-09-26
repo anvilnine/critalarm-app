@@ -8,7 +8,7 @@ import 'package:critalarm/features/reminders/presentation/cubits/reminder_lab_cu
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../helpers/fake_home_prompt_repository.dart';
+import '../../../helpers/fake_in_app_notice_repository.dart';
 import '../fake_reminder_scheduler.dart';
 
 class _CountingTrigger implements ReminderPlanTrigger {
@@ -21,7 +21,7 @@ class _CountingTrigger implements ReminderPlanTrigger {
 void main() {
   late SharedPrefsReminderStore store;
   late FakeReminderScheduler scheduler;
-  late FakeHomePromptRepository prompts;
+  late FakeInAppNoticeRepository notices;
   late _CountingTrigger trigger;
   late ReminderLabCubit cubit;
 
@@ -29,13 +29,13 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     store = SharedPrefsReminderStore(await SharedPreferences.getInstance());
     scheduler = FakeReminderScheduler();
-    prompts = FakeHomePromptRepository()
+    notices = FakeInAppNoticeRepository()
       ..proDismissCount = 1
       ..reviewAskCount = 2;
     trigger = _CountingTrigger();
     cubit = ReminderLabCubit(
       store: store,
-      prompts: prompts,
+      notices: notices,
       scheduler: scheduler,
       copy: const ReminderCopy(isIos: true),
       trigger: trigger,
