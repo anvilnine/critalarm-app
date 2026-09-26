@@ -128,6 +128,12 @@ names in code, strings, comments and PRs, and never one for another.
   `app.critalarm/local_reminders`. The Android channel id `reminders_v1`, the
   iOS category ids `reminder_<kind>` and the `reminder_*` prefs keys are
   persisted and keep their names.
+- **Setup order.** Onboarding, including the create-your-first-topic screens
+  after the demo alarm, shows no guide, notice, ask or Local Reminder. The
+  Topics guide is always the first Feature Guide, played the first time the
+  user reaches Topics. Only after it is seen or skipped do other screens'
+  guides, In-App Notices, asks and planned Local Reminders start.
+  `SetupGate` is the one gate; do not add another.
 - **Remote Reminders** (not built): reminders the server would send. The
   "Local" qualifier exists so the two never share a name.
 
