@@ -1,4 +1,4 @@
-package app.critalarm.reminders
+package app.critalarm.localreminders
 
 import android.app.NotificationManager
 import android.content.Context
@@ -8,29 +8,29 @@ import io.flutter.plugin.common.MethodChannel
 import java.util.TimeZone
 
 /** The Android half of Dart's NativeReminderScheduler. */
-class ReminderChannel(
+class LocalReminderChannel(
     private val context: Context,
     private val takeTap: () -> Map<String, Any>?,
 ) {
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "schedule" -> {
-                val spec = (call.arguments as? Map<*, *>)?.let(ReminderSpec::fromArgs)
+                val spec = (call.arguments as? Map<*, *>)?.let(LocalReminderSpec::fromArgs)
                 if (spec == null) {
                     result.error("bad_args", "schedule needs id, kind and a time", null)
                 } else {
-                    result.success(ReminderAlarms.schedule(context, spec))
+                    result.success(LocalReminderAlarms.schedule(context, spec))
                 }
             }
             "cancel" -> {
                 val ids = (call.argument<List<Any>>("ids") ?: emptyList())
                     .mapNotNull { (it as? Number)?.toInt() }
                 // Pending alarms only. Posted reminders stay in the shade.
-                ReminderAlarms.cancelPending(context, ids)
+                LocalReminderAlarms.cancelPending(context, ids)
                 result.success(null)
             }
             "pending" -> result.success(
-                ReminderSpecStore.all(context).map {
+                LocalReminderSpecStore.all(context).map {
                     mapOf(
                         "id" to it.id,
                         "kind" to it.kind,
@@ -67,6 +67,6 @@ class ReminderChannel(
 
     companion object {
         /** Matches NativeReminderScheduler.channelName in Dart. */
-        const val NAME = "app.critalarm/reminders"
+        const val NAME = "app.critalarm/local_reminders"
     }
 }

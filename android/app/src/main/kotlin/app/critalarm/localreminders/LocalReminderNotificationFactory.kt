@@ -1,4 +1,4 @@
-package app.critalarm.reminders
+package app.critalarm.localreminders
 
 import android.app.Notification
 import android.content.Context
@@ -9,11 +9,11 @@ import app.critalarm.R
 import java.io.IOException
 
 /** Builds a reminder notification: Crit's face, the words, the buttons. */
-object ReminderNotificationFactory {
+object LocalReminderNotificationFactory {
     private const val APP_NAME = "Crit Alarm"
     private const val FACE_SIZE_PX = 192
 
-    fun build(context: Context, spec: ReminderSpec): Notification {
+    fun build(context: Context, spec: LocalReminderSpec): Notification {
         // What a locked phone shows: no topic names.
         val publicVersion = Notification.Builder(context, spec.channelId)
             .setSmallIcon(R.drawable.ic_stat_alarm)
@@ -31,7 +31,7 @@ object ReminderNotificationFactory {
             .setPublicVersion(publicVersion)
             .setAutoCancel(true)
             .setContentIntent(
-                ReminderTapIntent.open(context, spec, ReminderTapIntent.OPEN, requestCode(spec.id, 0)),
+                LocalReminderTapIntent.open(context, spec, LocalReminderTapIntent.OPEN, requestCode(spec.id, 0)),
             )
         loadFace(context, spec.faceAsset)?.let { builder.setLargeIcon(it) }
 
@@ -39,9 +39,9 @@ object ReminderNotificationFactory {
             val code = requestCode(spec.id, index + 1)
             // Buttons on a watch do nothing useful here, so none are bridged.
             val pending = if (action.opensApp) {
-                ReminderTapIntent.open(context, spec, action.id, code)
+                LocalReminderTapIntent.open(context, spec, action.id, code)
             } else {
-                ReminderTapIntent.inBackground(context, spec, action.id, code)
+                LocalReminderTapIntent.inBackground(context, spec, action.id, code)
             }
             builder.addAction(
                 Notification.Action.Builder(null as Icon?, action.title, pending)
