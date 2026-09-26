@@ -303,6 +303,10 @@ td .face{--size:32px}
 .band{padding:var(--s-8) 0}
 .band h2{font-size:var(--fs-headline);max-width:16ch}
 .band .sub{color:var(--on-canvas-muted);max-width:56ch;margin-top:var(--s-4);font-size:var(--fs-lead)}
+.app-icons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s-4)}
+.app-icons svg{width:100%;height:auto;display:block}
+.app-icons figure{margin:0;display:flex;flex-direction:column;gap:var(--s-2)}
+@media (max-width:720px){.app-icons{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .curl{display:grid;grid-template-columns:1.4fr .6fr;gap:var(--s-5);margin-top:var(--s-6);align-items:start}
 .receipt{background:var(--cream);color:var(--ink);border-radius:var(--r-xl);padding:var(--s-5)}
 .receipt .top-row{display:flex;gap:12px;align-items:center}
@@ -689,6 +693,101 @@ curl -X POST https://api.critalarm.app/t/prod-db \
             <div><span class="chip chip-default"><i data-glyph="dot"></i>default</span><p>Standard notification with sound. Respects quiet hours.</p><span class="face" data-face="watching"></span></div>
             <div><span class="chip chip-high"><i data-glyph="up"></i>high</span><p>Sound and vibration. Shows on the lock screen even during quiet hours.</p><span class="face" data-face="worried" style="--face-stroke:var(--high)"></span></div>
             <div class="is-crit"><span class="chip chip-crit"><i data-glyph="bell"></i>critical</span><p>Alarm. Rings through silent mode and repeats every 30 seconds until you acknowledge.</p><span class="face" data-face="alarmed"></span></div>
+          </div>
+        </div>
+
+        <div class="band">
+          <h2>App icons</h2>
+          <p class="sub">One icon for everyone, three more for Pro, picked in Settings. Every one is the same drawing: the face peeking in from the left, the white mark on the orange field. Pro only adds a prop, a crown, shades or both, in the flat colours above. The default icon is the brand mark everywhere public.</p>
+          <div class="app-icons" style="margin-top:var(--s-6)">
+            <figure>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Default">
+              <defs>
+              <clipPath id="icon-sq-app_icon">
+              <rect width="1024" height="1024" rx="230" ry="230"/>
+              </clipPath>
+              </defs>
+              <rect id="badge-bg" width="1024" height="1024" rx="230" ry="230" fill="#FF8A1F"/>
+              <g clip-path="url(#icon-sq-app_icon)">
+              <path d="M -20 133 L 250 133 A 304 304 0 0 1 554 437 L 554 639 A 304 304 0 0 1 250 943 L -20 943 Z" fill="#FFC93C"/>
+              <path d="M -20 169 L 250 169 A 268 268 0 0 1 518 437 L 518 639 A 268 268 0 0 1 250 907 L -20 907" fill="none" stroke="#1A140F" stroke-width="72" stroke-linecap="butt"/>
+              <path d="M 178 487 Q 258 543 338 487" fill="none" stroke="#1A140F" stroke-width="68" stroke-linecap="round"/>
+              <path d="M 65 693 C 90 712, 145 712, 235 656" fill="none" stroke="#1A140F" stroke-width="66" stroke-linecap="round"/>
+              </g>
+              <line x1="840" y1="335" x2="695" y2="600" stroke="#FFFFFF" stroke-width="140" stroke-linecap="round"/>
+              <circle cx="660" cy="771" r="73" fill="#FFFFFF"/>
+              </svg>
+              <figcaption><b>Default</b> Free and Pro</figcaption>
+            </figure>
+            <figure>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Crowned">
+              <defs>
+              <clipPath id="icon-sq-app_icon_pro_crowned">
+              <rect width="1024" height="1024" rx="230" ry="230"/>
+              </clipPath>
+              </defs>
+              <rect id="badge-bg" width="1024" height="1024" rx="230" ry="230" fill="#FF8A1F"/>
+              <g clip-path="url(#icon-sq-app_icon_pro_crowned)">
+              <path d="M -20 133 L 250 133 A 304 304 0 0 1 554 437 L 554 639 A 304 304 0 0 1 250 943 L -20 943 Z" fill="#FFC93C"/>
+              <path d="M -20 169 L 250 169 A 268 268 0 0 1 518 437 L 518 639 A 268 268 0 0 1 250 907 L -20 907" fill="none" stroke="#1A140F" stroke-width="72" stroke-linecap="butt"/>
+              <path d="M 178 487 Q 258 543 338 487" fill="none" stroke="#1A140F" stroke-width="68" stroke-linecap="round"/>
+              <path d="M 65 693 C 90 712, 145 712, 235 656" fill="none" stroke="#1A140F" stroke-width="66" stroke-linecap="round"/>
+              </g>
+              <g id="crown" transform="translate(398 182) rotate(27) scale(0.9)">
+              <path d="M -120 0 L -135 -100 L -65 -55 L 0 -120 L 65 -55 L 135 -100 L 120 0 Z" fill="#FFC93C" stroke="#1A140F" stroke-width="33" stroke-linejoin="round"/>
+              <circle cx="0" cy="-58" r="22" fill="#F5473A" stroke="#1A140F" stroke-width="13"/>
+              </g>
+              <line x1="840" y1="335" x2="695" y2="600" stroke="#FFFFFF" stroke-width="140" stroke-linecap="round"/>
+              <circle cx="660" cy="771" r="73" fill="#FFFFFF"/>
+              </svg>
+              <figcaption><b>Crowned</b> Pro</figcaption>
+            </figure>
+            <figure>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Shades">
+              <defs>
+              <clipPath id="icon-sq-app_icon_pro_shades">
+              <rect width="1024" height="1024" rx="230" ry="230"/>
+              </clipPath>
+              </defs>
+              <rect id="badge-bg" width="1024" height="1024" rx="230" ry="230" fill="#FF8A1F"/>
+              <g clip-path="url(#icon-sq-app_icon_pro_shades)">
+              <path d="M -20 133 L 250 133 A 304 304 0 0 1 554 437 L 554 639 A 304 304 0 0 1 250 943 L -20 943 Z" fill="#FFC93C"/>
+              <path d="M -20 169 L 250 169 A 268 268 0 0 1 518 437 L 518 639 A 268 268 0 0 1 250 907 L -20 907" fill="none" stroke="#1A140F" stroke-width="72" stroke-linecap="butt"/>
+              <path d="M -20 452 L 540 452" fill="none" stroke="#1A140F" stroke-width="40"/>
+              <path d="M 140 440 L 400 440 Q 404 590 270 598 Q 150 592 140 440 Z" fill="#1A140F"/>
+              <path d="M 200 540 L 250 470" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"/>
+              <path d="M 50 700 C 110 740, 190 720, 250 640" fill="none" stroke="#1A140F" stroke-width="62" stroke-linecap="round"/>
+              </g>
+              <line x1="840" y1="335" x2="695" y2="600" stroke="#FFFFFF" stroke-width="140" stroke-linecap="round"/>
+              <circle cx="660" cy="771" r="73" fill="#FFFFFF"/>
+              </svg>
+              <figcaption><b>Shades</b> Pro</figcaption>
+            </figure>
+            <figure>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Shades and crown">
+              <defs>
+              <clipPath id="icon-sq-app_icon_pro_shades_crown">
+              <rect width="1024" height="1024" rx="230" ry="230"/>
+              </clipPath>
+              </defs>
+              <rect id="badge-bg" width="1024" height="1024" rx="230" ry="230" fill="#FF8A1F"/>
+              <g clip-path="url(#icon-sq-app_icon_pro_shades_crown)">
+              <path d="M -20 133 L 250 133 A 304 304 0 0 1 554 437 L 554 639 A 304 304 0 0 1 250 943 L -20 943 Z" fill="#FFC93C"/>
+              <path d="M -20 169 L 250 169 A 268 268 0 0 1 518 437 L 518 639 A 268 268 0 0 1 250 907 L -20 907" fill="none" stroke="#1A140F" stroke-width="72" stroke-linecap="butt"/>
+              <path d="M -20 452 L 540 452" fill="none" stroke="#1A140F" stroke-width="40"/>
+              <path d="M 140 440 L 400 440 Q 404 590 270 598 Q 150 592 140 440 Z" fill="#1A140F"/>
+              <path d="M 200 540 L 250 470" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"/>
+              <path d="M 50 700 C 110 740, 190 720, 250 640" fill="none" stroke="#1A140F" stroke-width="62" stroke-linecap="round"/>
+              </g>
+              <g id="crown" transform="translate(398 182) rotate(27) scale(0.9)">
+              <path d="M -120 0 L -135 -100 L -65 -55 L 0 -120 L 65 -55 L 135 -100 L 120 0 Z" fill="#FFC93C" stroke="#1A140F" stroke-width="33" stroke-linejoin="round"/>
+              <circle cx="0" cy="-58" r="22" fill="#F5473A" stroke="#1A140F" stroke-width="13"/>
+              </g>
+              <line x1="840" y1="335" x2="695" y2="600" stroke="#FFFFFF" stroke-width="140" stroke-linecap="round"/>
+              <circle cx="660" cy="771" r="73" fill="#FFFFFF"/>
+              </svg>
+              <figcaption><b>Shades and crown</b> Pro</figcaption>
+            </figure>
           </div>
         </div>
 

@@ -22,6 +22,8 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/app_icon/app_icon_guard.dart';
+import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/device/dev_edge_effect_switch.dart';
 import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/env/env.dart';
@@ -177,6 +179,7 @@ import 'package:critalarm/features/settings/domain/usecases/set_haptics_enabled_
 import 'package:critalarm/features/settings/domain/usecases/set_reduce_motion_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/set_theme_mode_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubit.dart';
+import 'package:critalarm/features/settings/presentation/cubits/app_icon_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/recorder_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
@@ -347,6 +350,7 @@ Future<void> configureDependencies({
     ..registerLazySingleton<PushHost>(PushHost.new)
     ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
     ..registerLazySingleton<WidgetHost>(WidgetHost.new)
+    ..registerLazySingleton<AppIconHost>(AppIconHost.new)
     ..registerLazySingleton<AppBadge>(() => AppBadge(getIt<PushHost>()))
     ..registerLazySingleton<ApiSessionStore>(
       () => SharedPrefsApiSessionStore(getIt<SharedPreferences>()),
@@ -987,6 +991,31 @@ Future<void> configureDependencies({
       ),
     )
     ..registerFactory(
+      () => AppIconCubit(
+        readCurrent: () => getIt<AppIconHost>().current(),
+        apply: (icon) => getIt<AppIconHost>().set(icon),
+        readUnlocked: _proIconsUnlocked,
+      ),
+    )
+    // Puts the default icon back once Pro has ended. Asks the store as well
+    // as the server's tier before it does, because the tier can trail a
+    // purchase by a few seconds and a wrong switch costs the user their icon.
+    ..registerLazySingleton(
+      () => AppIconGuard(
+        readCurrent: () => getIt<AppIconHost>().current(),
+        apply: (icon) => getIt<AppIconHost>().set(icon),
+        readUnlocked: () async {
+          final account = getIt<AccountRepository>();
+          if (await account.readServerMode() != ServerMode.hosted) return true;
+          if (await account.readIsPaid()) return true;
+          if (buildSkipsPaywall) return false;
+          return (await getIt<SubscriptionRepository>().isProActive())
+                  .getOrNull() ??
+              true;
+        },
+      ),
+    )
+    ..registerFactory(
       () => OnboardingWelcomeCubit(
         getIt<GetServerInfoUsecase>(),
       ),
@@ -1223,7 +1252,10 @@ Future<void> configureDependencies({
           }
           await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
         },
-        onPaidChanged: () => getIt<WidgetSync>().rewrite(),
+        onPaidChanged: () {
+          getIt<WidgetSync>().rewrite();
+          unawaited(getIt<AppIconGuard>().check());
+        },
       ),
     )
     ..registerFactoryParam<InAppNoticeCubit, ShellCubit?, void>(
@@ -1276,4 +1308,15 @@ Future<DebugEnvironment> _readAlarmDebugEnvironment() async {
     quietHoursStart: clockText(quietHours.startMinutes),
     quietHoursEnd: clockText(quietHours.endMinutes),
   );
+}
+
+/// True when the Pro app icons are open to this device: it is on Pro, or it
+/// talks to a server with no plans. The same line widgets draw, except that a
+/// device not connected anywhere yet also sees them locked.
+Future<bool> _proIconsUnlocked() async {
+  final account = getIt<AccountRepository>();
+  final mode = await account.readServerMode();
+  if (mode == null) return false;
+  if (mode != ServerMode.hosted) return true;
+  return account.readIsPaid();
 }
