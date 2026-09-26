@@ -86,11 +86,13 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     // The FeatureGuideHost asks for this screen's guide on the first visit.
-    // The asks hold off until no guide is running, and run again once one
-    // ends.
-    _guideSub = _guides.stream
-        .where((guide) => !guide.isActive)
-        .listen((_) => unawaited(_runHomeAsk()));
+    // The notices and the asks hold off until no guide is running, and come
+    // back once one ends.
+    _guideSub = _guides.stream.where((guide) => !guide.isActive).listen((_) {
+      if (!mounted) return;
+      unawaited(context.read<InAppNoticeCubit>().load());
+      unawaited(_runHomeAsk());
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(_runHomeAsk());
