@@ -49,10 +49,11 @@ void main() {
     });
 
     test('a second ask while one is going is ignored', () {
+      repo.seen.add(FeatureGuide.home.name);
       cubit
-        ..requestIfNew(FeatureGuide.home)
-        ..requestIfNew(FeatureGuide.search);
-      expect(cubit.state.guide, FeatureGuide.home);
+        ..requestIfNew(FeatureGuide.history)
+        ..requestIfNew(FeatureGuide.settings);
+      expect(cubit.state.guide, FeatureGuide.history);
     });
 
     test('Settings replays every guide after they were seen', () {

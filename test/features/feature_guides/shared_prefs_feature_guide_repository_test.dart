@@ -1,4 +1,6 @@
 import 'package:critalarm/features/feature_guides/data/repositories/shared_prefs_feature_guide_repository.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,4 +36,16 @@ void main() {
       expect(r.hasSeenGuide('topic'), isTrue);
     },
   );
+
+  // Home reloads its notices and asks the moment a guide ends, with no wait
+  // for the write to finish, so the guide must already read as seen.
+  test('a finished guide reads as seen straight away', () async {
+    final cubit = FeatureGuideCubit(await repo({}));
+    addTearDown(cubit.close);
+    cubit
+      ..requestIfNew(FeatureGuide.home)
+      ..begin()
+      ..finish();
+    expect(cubit.hasSeenFirstGuide, isTrue);
+  });
 }
