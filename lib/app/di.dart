@@ -1235,6 +1235,7 @@ Future<void> configureDependencies({
         noticeRepository: getIt<InAppNoticeRepository>(),
         proEnding: getIt<ProEnding>(),
         identityChanges: appAccountIdentityChanges,
+        isSetupDone: () => getIt<SetupGate>().isDone(),
       ),
     );
 }

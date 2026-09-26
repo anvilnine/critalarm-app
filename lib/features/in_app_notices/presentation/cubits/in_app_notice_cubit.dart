@@ -20,6 +20,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// 4. Pro ends soon (cancelled plan, 5-day snooze)
 /// 5. Account backup prompt (Engagement, 7-day snooze)
 ///
+/// Nothing shows before setup is done (`SetupGate`): onboarding finished,
+/// including the create-your-first-topic screens, and the Topics Feature
+/// Guide seen or skipped. Home loads again when a guide ends.
+///
 /// Pro is not on this list. It is a sheet now, asked for by `ProAskRules`
 /// in `lib/features/in_app_notices/domain/pro_ask_rules.dart` at a moment that
 /// earns the ask, never a card sitting on the home screen.
@@ -32,8 +36,13 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
     required this.noticeRepository,
     this.proEnding,
     AccountIdentityChanges? identityChanges,
+    Future<bool> Function()? isSetupDone,
     this.cooldownDuration = const Duration(seconds: 45),
   }) : _identityChanges = identityChanges ?? appAccountIdentityChanges,
+       // The field is private and the parameter is public, so it cannot be
+       // an initializing formal.
+       // ignore: prefer_initializing_formals
+       _isSetupDone = isSetupDone,
        super(const InAppNoticeState()) {
     _shellSub = shellCubit.stream.listen((health) {
       unawaited(_evaluate(health: health));
@@ -49,6 +58,10 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
   final ProEnding? proEnding;
   final AccountIdentityChanges _identityChanges;
   final Duration cooldownDuration;
+
+  /// `SetupGate.isDone` in the app. Null in tests that do not care, and
+  /// counts as done.
+  final Future<bool> Function()? _isSetupDone;
 
   StreamSubscription<ShellHealth>? _shellSub;
   Timer? _cooldownTimer;
@@ -79,6 +92,21 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
 
   Future<void> _evaluate({ShellHealth? health, bool isResumed = false}) async {
     if (isClosed || state.isDismissing) return;
+
+    // Nothing before setup is done: not during onboarding, and not before
+    // the Topics guide has been seen.
+    final isSetupDone =
+        await (_isSetupDone?.call() ?? Future<bool>.value(true));
+    if (isClosed) return;
+    if (!isSetupDone) {
+      emit(
+        state.copyWith(
+          noticeType: InAppNoticeType.none,
+          missingPermissions: const [],
+        ),
+      );
+      return;
+    }
 
     // Priority 1: Server connection check
     final connResult = await getConnectionUsecase(const NoParams());

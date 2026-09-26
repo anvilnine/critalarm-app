@@ -169,6 +169,7 @@ void main() {
 
   InAppNoticeCubit buildCubit({
     Duration cooldown = const Duration(seconds: 45),
+    Future<bool> Function()? isSetupDone,
   }) {
     return InAppNoticeCubit(
       getConnectionUsecase: getConnection,
@@ -179,6 +180,7 @@ void main() {
       proEnding: proEnding,
       cooldownDuration: cooldown,
       identityChanges: identityChanges,
+      isSetupDone: isSetupDone,
     );
   }
 
@@ -483,6 +485,45 @@ void main() {
     test('no pill due falls through to the sign-in pill', () async {
       await cubit.load();
       expect(cubit.state.noticeType, InAppNoticeType.accountBackup);
+    });
+  });
+
+  group('before setup is done', () {
+    const connected = ServerConnection(
+      serverUrl: 'https://api.critalarm.app',
+      adminToken: 'token123',
+    );
+
+    test('no server shows nothing during onboarding', () async {
+      final cubit = buildCubit(isSetupDone: () async => false);
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.none);
+      await cubit.close();
+    });
+
+    test('no sign-in notice before the Topics guide is seen', () async {
+      getConnection.result = connected.toSuccess();
+      final cubit = buildCubit(isSetupDone: () async => false);
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.none);
+      expect(promptRepo.markResolvedCalls, 0);
+      await cubit.close();
+    });
+
+    test('the sign-in notice shows once setup is done', () async {
+      getConnection.result = connected.toSuccess();
+      var isDone = false;
+      final cubit = buildCubit(isSetupDone: () async => isDone);
+      await cubit.load();
+      expect(cubit.state.noticeType, InAppNoticeType.none);
+
+      isDone = true;
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.accountBackup);
+      await cubit.close();
     });
   });
 }
