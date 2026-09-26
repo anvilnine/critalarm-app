@@ -33,9 +33,9 @@ bool _isAsking = false;
 /// When one is due, waits a moment so home has settled, and gives up if
 /// another screen has been pushed on top in the meantime.
 ///
-/// Nothing shows before onboarding is finished and the first "How to use
-/// the app" guide seen, or while any guide is up (`SetupGate`). Home runs
-/// this again when a guide ends, so what was held back shows after it.
+/// Nothing shows before onboarding is finished and the Topics Feature Guide
+/// seen, or while any guide is up (`SetupGate`). Home runs this again when a
+/// guide ends, so what was held back shows after it.
 Future<void> runHomeAsk(BuildContext context) async {
   if (_isAsking) return;
   // Nothing pops up while an alarm is under way.

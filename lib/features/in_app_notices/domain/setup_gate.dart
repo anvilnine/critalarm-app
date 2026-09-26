@@ -1,13 +1,18 @@
-/// Onboarding and the Feature Guides come before every ask: the
-/// Pro sheet, the Reminders sheet, the consent sheet, the store review popup,
-/// and every planned reminder. The demo alarm at the end of onboarding used
-/// to trigger one.
+/// The one gate for everything that competes for the user's attention after
+/// install. The order is:
 ///
-/// Setup is done once onboarding is finished and the first guide (Topics,
-/// shown straight after onboarding) was seen or skipped. Every other screen
-/// has its own guide the first time it opens; while any guide is up, setup
-/// counts as not done, so nothing shows over it and nothing is planned. The
-/// asks show after it instead.
+/// 1. Onboarding, including the create-your-first-topic screens after the
+///    demo alarm. No Feature Guide, notice, ask or Local Reminder.
+/// 2. The Topics Feature Guide, the first time the user reaches Topics. It is
+///    always the first guide (`FeatureGuideCubit.requestIfNew`).
+/// 3. After it is seen or skipped: every other screen's guide on its first
+///    visit, the In-App Notices, the asks (the Pro sheet, the Local reminders
+///    sheet, the consent sheet, the store review popup) and every planned
+///    Local Reminder.
+///
+/// Setup is done once onboarding is finished and the Topics guide was seen
+/// or skipped. While any guide is up, setup counts as not done, so nothing
+/// shows over it and nothing is planned. What was held back comes after it.
 ///
 /// Reads through the callbacks it is given, so it tests without storage.
 /// Every ask rule takes the answer as `isSetupDone`.
