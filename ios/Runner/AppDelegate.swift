@@ -114,6 +114,13 @@ import AlarmKit
     }
     settingsChannel = settings
 
+    let appIcon = FlutterMethodChannel(
+      name: "app.critalarm/app_icon", binaryMessenger: messenger
+    )
+    appIcon.setMethodCallHandler { call, result in
+      AppDelegate.handleAppIconCall(call, result: result)
+    }
+
     let credentials = FlutterMethodChannel(
       name: "app.critalarm/nse_credentials",
       binaryMessenger: messenger
@@ -1416,6 +1423,47 @@ enum DeviceIdentityKeychain {
 /// Full-screen intent and battery optimisation are Android ideas. They answer
 /// true here so one shared Dart repository can ask about them either way.
 extension AppDelegate {
+  /// Dart's name for each app icon, and the alternate icon set that shows it
+  /// (`ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES`). The default icon is
+  /// the primary `AppIcon`, which UIKit calls nil.
+  static let alternateIcons: [String: String] = [
+    "pro_crowned": "AppIconProCrowned",
+    "pro_shades": "AppIconProShades",
+    "pro_shades_crown": "AppIconProShadesCrown",
+  ]
+
+  /// Dart's side is `lib/core/app_icon/app_icon_host.dart`. iOS shows its own
+  /// "You have changed the icon" alert after every `set`, which is why Dart
+  /// only calls it from a tap in the picker or when Pro has ended.
+  static func handleAppIconCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    switch call.method {
+    case "current":
+      let name = UIApplication.shared.alternateIconName
+      result(alternateIcons.first { $0.value == name }?.key ?? "default")
+    case "set":
+      guard UIApplication.shared.supportsAlternateIcons else {
+        result(FlutterError(code: "unavailable", message: "alternate icons not supported", details: nil))
+        return
+      }
+      let icon = (call.arguments as? [String: Any])?["icon"] as? String
+      guard let icon, icon == "default" || alternateIcons[icon] != nil else {
+        result(FlutterError(code: "bad_args", message: "unknown icon", details: nil))
+        return
+      }
+      UIApplication.shared.setAlternateIconName(alternateIcons[icon]) { error in
+        DispatchQueue.main.async {
+          if let error {
+            result(FlutterError(code: "unavailable", message: error.localizedDescription, details: nil))
+          } else {
+            result(nil)
+          }
+        }
+      }
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
   static func handleSettingsCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "checkNotificationPermission":

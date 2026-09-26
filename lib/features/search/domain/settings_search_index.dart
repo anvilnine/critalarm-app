@@ -153,6 +153,20 @@ abstract final class SettingsSearchIndex {
       ],
     ),
     SettingsDestination(
+      id: 'app-icon',
+      routePath: '/settings/appearance',
+      titleKey: LocaleKeys.settings_app_icon_row_title,
+      parentTitleKey: LocaleKeys.settings_appearance_header,
+      keywords: <String>[
+        'icon',
+        'app icon',
+        'home screen',
+        'crown',
+        'shades',
+        'pro',
+      ],
+    ),
+    SettingsDestination(
       id: 'storage-delete-after',
       routePath: '/settings/alarms',
       titleKey: LocaleKeys.settings_storage_delete_after_title,
