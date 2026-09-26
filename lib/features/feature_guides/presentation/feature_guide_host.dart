@@ -44,7 +44,8 @@ class FeatureGuideHost extends StatefulWidget {
   State<FeatureGuideHost> createState() => _FeatureGuideHostState();
 }
 
-class _FeatureGuideHostState extends State<FeatureGuideHost> {
+class _FeatureGuideHostState extends State<FeatureGuideHost>
+    with WidgetsBindingObserver {
   /// How long a step waits for its spot to turn up before it is skipped.
   static const Duration _findTimeout = Duration(seconds: 5);
 
@@ -63,6 +64,7 @@ class _FeatureGuideHostState extends State<FeatureGuideHost> {
 
   final FeatureGuideCubit _guides = getIt<FeatureGuideCubit>();
   StreamSubscription<FeatureGuideState>? _sub;
+  StreamSubscription<bool>? _alarmSub;
 
   /// Where the spotlight is. Null while the guide is moving between spots.
   Rect? _hole;
@@ -86,6 +88,12 @@ class _FeatureGuideHostState extends State<FeatureGuideHost> {
     super.initState();
     _sub = _guides.stream.listen(_onGuide);
     widget.router.routerDelegate.addListener(_onRoute);
+    WidgetsBinding.instance.addObserver(this);
+    // A guide held back by an alarm is asked for again once the alarm is
+    // over, without waiting for the user to move.
+    _alarmSub = getIt<AlarmFocus>().stream
+        .where((on) => !on)
+        .listen((_) => _requestIfIdle());
     // The first screen never reports a route change, so it is checked once
     // it is up.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -96,8 +104,23 @@ class _FeatureGuideHostState extends State<FeatureGuideHost> {
   @override
   void dispose() {
     unawaited(_sub?.cancel());
+    unawaited(_alarmSub?.cancel());
+    WidgetsBinding.instance.removeObserver(this);
     widget.router.routerDelegate.removeListener(_onRoute);
     super.dispose();
+  }
+
+  /// A ring window can run out on the clock alone, with no route change and
+  /// nothing on the alarm stream. Coming back to the app asks again, so the
+  /// Topics guide, and everything that waits for it, is never stuck.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _requestIfIdle();
+  }
+
+  void _requestIfIdle() {
+    if (!mounted || _guides.state.isActive) return;
+    _requestForScreen();
   }
 
   /// The page on top. The router's own address stays on the page underneath
