@@ -94,19 +94,14 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
     if (isClosed || state.isDismissing) return;
 
     // Nothing before setup is done: not during onboarding, and not before
-    // the Topics guide has been seen.
+    // the Topics guide has been seen. The state is left as it is rather than
+    // set to none: before the Topics guide it is still the first none, and
+    // while a later guide is up Home hides the notice itself. Keeping it
+    // lets the pass after the guide see a cleared blocker and start the
+    // cooldown.
     final isSetupDone =
         await (_isSetupDone?.call() ?? Future<bool>.value(true));
-    if (isClosed) return;
-    if (!isSetupDone) {
-      emit(
-        state.copyWith(
-          noticeType: InAppNoticeType.none,
-          missingPermissions: const [],
-        ),
-      );
-      return;
-    }
+    if (isClosed || !isSetupDone) return;
 
     // Priority 1: Server connection check
     final connResult = await getConnectionUsecase(const NoParams());

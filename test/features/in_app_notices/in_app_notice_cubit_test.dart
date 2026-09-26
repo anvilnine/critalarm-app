@@ -525,5 +525,27 @@ void main() {
       expect(cubit.state.noticeType, InAppNoticeType.accountBackup);
       await cubit.close();
     });
+
+    test('a blocker fixed during a guide still starts the cooldown', () async {
+      var isDone = true;
+      final cubit = buildCubit(isSetupDone: () async => isDone);
+      await cubit.load();
+      expect(cubit.state.noticeType, InAppNoticeType.noServer);
+
+      // A guide starts, and the server gets connected while it is up.
+      isDone = false;
+      getConnection.result = connected.toSuccess();
+      await cubit.load();
+      expect(cubit.state.noticeType, InAppNoticeType.noServer);
+      expect(promptRepo.markResolvedCalls, 0);
+
+      // The guide ends: the blocker counts as resolved, and the sign-in
+      // notice waits out the cooldown instead of following at once.
+      isDone = true;
+      await cubit.load();
+      expect(cubit.state.noticeType, InAppNoticeType.none);
+      expect(promptRepo.markResolvedCalls, 1);
+      await cubit.close();
+    });
   });
 }
