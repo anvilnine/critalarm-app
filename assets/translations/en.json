@@ -65,7 +65,15 @@
     "story_done": "Done",
     "story_db_primary_down": "Database down on db-primary-01",
     "story_queue_backed_up": "Job queue backed up: 4,210 waiting",
-    "story_backup_exited": "nas-backup exited 1"
+    "story_backup_exited": "nas-backup exited 1",
+    "feature_widgets": "Home screen widgets",
+    "feature_alarm": "Rings until you answer",
+    "feature_curl": "One curl to ring",
+    "feature_priority": "Priority levels",
+    "feature_ack": "Tap I'm up to stop",
+    "feature_sounds": "Your own alarm sounds",
+    "feature_history": "Every alarm logged",
+    "feature_search": "Search everything"
   },
   "onboarding_connect": {
     "title": "Connect your server?",
