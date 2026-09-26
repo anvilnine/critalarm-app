@@ -101,17 +101,17 @@ class _LocalRemindersSheetState extends State<LocalRemindersSheet> {
       children: [
         const Center(child: FaceWidget(state: FaceState.watching, size: 88)),
         const SizedBox(height: Spacing.s3),
-        AskSheetTitle(LocaleKeys.reminders_sheet_title.tr()),
+        AskSheetTitle(LocaleKeys.local_reminders_sheet_title.tr()),
         const SizedBox(height: 14),
-        AskSheetBullet(LocaleKeys.reminders_sheet_bullet_test.tr()),
+        AskSheetBullet(LocaleKeys.local_reminders_sheet_bullet_test.tr()),
         const SizedBox(height: 6),
-        AskSheetBullet(LocaleKeys.reminders_sheet_bullet_silent.tr()),
+        AskSheetBullet(LocaleKeys.local_reminders_sheet_bullet_silent.tr()),
         if (!widget.isSelfHosted) ...[
           const SizedBox(height: 6),
-          AskSheetBullet(LocaleKeys.reminders_sheet_bullet_backup.tr()),
+          AskSheetBullet(LocaleKeys.local_reminders_sheet_bullet_backup.tr()),
         ],
         const SizedBox(height: 6),
-        AskSheetBullet(LocaleKeys.reminders_sheet_bullet_asks.tr()),
+        AskSheetBullet(LocaleKeys.local_reminders_sheet_bullet_asks.tr()),
         if (showsOffers) ...[
           const SizedBox(height: 12),
           // One node for screen readers: the label and the box together.
@@ -128,7 +128,7 @@ class _LocalRemindersSheetState extends State<LocalRemindersSheet> {
                   ),
                   Expanded(
                     child: Text(
-                      LocaleKeys.reminders_sheet_offers_checkbox.tr(),
+                      LocaleKeys.local_reminders_sheet_offers_checkbox.tr(),
                       style: AppTypography.small(colors.ink),
                     ),
                   ),
@@ -139,20 +139,20 @@ class _LocalRemindersSheetState extends State<LocalRemindersSheet> {
         ],
         const SizedBox(height: 16),
         AppButton(
-          label: LocaleKeys.reminders_sheet_turn_on.tr(),
+          label: LocaleKeys.local_reminders_sheet_turn_on.tr(),
           isFullWidth: true,
           onPressed: onTurnOn == null ? null : () => onTurnOn(offers: _offers),
         ),
         const SizedBox(height: 8),
         AppButton(
-          label: LocaleKeys.reminders_sheet_no_thanks.tr(),
+          label: LocaleKeys.local_reminders_sheet_no_thanks.tr(),
           variant: AppButtonVariant.ghost,
           isFullWidth: true,
           onPressed: widget.onNoThanks,
         ),
         const SizedBox(height: 12),
         Text(
-          LocaleKeys.reminders_sheet_hint.tr(),
+          LocaleKeys.local_reminders_sheet_hint.tr(),
           textAlign: TextAlign.center,
           style: AppTypography.small(colors.ink3, fontSize: 12),
         ),

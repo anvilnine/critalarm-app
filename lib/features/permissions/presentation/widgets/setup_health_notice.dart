@@ -41,12 +41,12 @@ class _Notice extends StatelessWidget {
     final faceState = isWarningOnly ? FaceState.watching : FaceState.worried;
 
     final title = isWarningOnly
-        ? LocaleKeys.setup_health_banner_warning_title.tr()
-        : LocaleKeys.setup_health_banner_title.tr();
+        ? LocaleKeys.notices_setup_health_warning_title.tr()
+        : LocaleKeys.notices_setup_health_title.tr();
 
     final String detail;
     if (isBatteryOnly) {
-      detail = LocaleKeys.setup_health_banner_warning_battery.tr();
+      detail = LocaleKeys.notices_setup_health_warning_battery.tr();
     } else {
       final relevantList = isWarningOnly
           ? health.warningMissing
@@ -55,10 +55,10 @@ class _Notice extends StatelessWidget {
           ? relevantList
           : health.missing;
       detail = effectiveList.length == 1
-          ? LocaleKeys.setup_health_banner_one.tr(
+          ? LocaleKeys.notices_setup_health_one.tr(
               namedArgs: {'name': effectiveList.first.title},
             )
-          : LocaleKeys.setup_health_banner_many.tr(
+          : LocaleKeys.notices_setup_health_many.tr(
               namedArgs: {'count': '${effectiveList.length}'},
             );
     }
@@ -101,7 +101,7 @@ class _Notice extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             AppButton(
-              label: LocaleKeys.setup_health_banner_button.tr(),
+              label: LocaleKeys.notices_setup_health_button.tr(),
               size: AppButtonSize.sm,
               isFullWidth: true,
               // This banner draws on Home but the fix lives on the

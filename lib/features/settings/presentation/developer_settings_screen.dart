@@ -127,8 +127,8 @@ class DeveloperSettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   AppListRow(
-                    name: LocaleKeys.reminders_lab_row_title.tr(),
-                    meta: LocaleKeys.reminders_lab_row_subtitle.tr(),
+                    name: LocaleKeys.local_reminders_lab_row_title.tr(),
+                    meta: LocaleKeys.local_reminders_lab_row_subtitle.tr(),
                     faceState: null,
                     trailing: AppGlyph(
                       GlyphType.arrow,

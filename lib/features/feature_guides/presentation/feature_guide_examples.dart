@@ -48,12 +48,12 @@ abstract final class FeatureGuideExamples {
     // a topic of their own.
     alarm: AlarmAuthorization.authorized,
     word: LocaleKeys.topic_detail_stage_word_clear.tr(),
-    subText: LocaleKeys.tour_example_topic_sub.tr(),
+    subText: LocaleKeys.feature_guides_example_topic_sub.tr(),
     messages: [
       TopicDetailMessageItem(
-        title: LocaleKeys.tour_example_message_title.tr(),
-        timestamp: LocaleKeys.tour_example_message_time.tr(),
-        body: LocaleKeys.tour_example_message_body.tr(),
+        title: LocaleKeys.feature_guides_example_message_title.tr(),
+        timestamp: LocaleKeys.feature_guides_example_message_time.tr(),
+        body: LocaleKeys.feature_guides_example_message_body.tr(),
         source: 'uptime-kuma',
       ),
     ],

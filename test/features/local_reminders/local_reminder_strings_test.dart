@@ -9,7 +9,7 @@ Map<String, dynamic> _strings() =>
 
 void main() {
   final strings = _strings();
-  final reminders = strings['reminders'] as Map<String, dynamic>;
+  final reminders = strings['local_reminders'] as Map<String, dynamic>;
 
   test('has every key the spec names for ideas 21 and 22', () {
     for (final key in [
@@ -58,13 +58,13 @@ void main() {
   });
 
   test('the Pro sheet has its Remind me later label', () {
-    final home = strings['home'] as Map<String, dynamic>;
-    expect(home['pro_prompt_later'], 'Remind me later');
+    final asks = strings['asks'] as Map<String, dynamic>;
+    expect(asks['pro_later'], 'Remind me later');
   });
 
   test('the rings bullet is gone: every plan repeats', () {
-    final home = strings['home'] as Map<String, dynamic>;
-    expect(home.containsKey('pro_prompt_bullet_rings'), isFalse);
+    final asks = strings['asks'] as Map<String, dynamic>;
+    expect(asks.containsKey('pro_bullet_rings'), isFalse);
   });
 
   test('no string carries a long dash', () {

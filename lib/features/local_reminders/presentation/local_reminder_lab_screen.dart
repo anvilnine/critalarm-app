@@ -38,27 +38,30 @@ class _LocalReminderLabContent extends StatelessWidget {
   static final DateFormat _when = DateFormat('EEE d MMM HH:mm');
 
   static String kindLabel(LocalReminderKind? kind) => switch (kind) {
-    LocalReminderKind.fireDrill => LocaleKeys.reminders_kind_fire_drill.tr(),
+    LocalReminderKind.fireDrill =>
+      LocaleKeys.local_reminders_kind_fire_drill.tr(),
     LocalReminderKind.silentTopic =>
-      LocaleKeys.reminders_kind_silent_topic.tr(),
-    LocalReminderKind.backup => LocaleKeys.reminders_kind_backup.tr(),
+      LocaleKeys.local_reminders_kind_silent_topic.tr(),
+    LocalReminderKind.backup => LocaleKeys.local_reminders_kind_backup.tr(),
     LocalReminderKind.planHeadsUp =>
-      LocaleKeys.reminders_kind_plan_heads_up.tr(),
+      LocaleKeys.local_reminders_kind_plan_heads_up.tr(),
     LocalReminderKind.morningAfter =>
-      LocaleKeys.reminders_kind_morning_after.tr(),
-    LocalReminderKind.proLater => LocaleKeys.reminders_kind_pro_later.tr(),
-    LocalReminderKind.reviewAsk => LocaleKeys.reminders_kind_review_ask.tr(),
+      LocaleKeys.local_reminders_kind_morning_after.tr(),
+    LocalReminderKind.proLater =>
+      LocaleKeys.local_reminders_kind_pro_later.tr(),
+    LocalReminderKind.reviewAsk =>
+      LocaleKeys.local_reminders_kind_review_ask.tr(),
     LocalReminderKind.feedbackAsk =>
-      LocaleKeys.reminders_kind_feedback_ask.tr(),
+      LocaleKeys.local_reminders_kind_feedback_ask.tr(),
     null => '?',
   };
 
   static String _onOff(bool isOn) => isOn
-      ? LocaleKeys.reminders_lab_on.tr()
-      : LocaleKeys.reminders_lab_off.tr();
+      ? LocaleKeys.local_reminders_lab_on.tr()
+      : LocaleKeys.local_reminders_lab_off.tr();
 
   static String _time(DateTime? at) =>
-      at == null ? LocaleKeys.reminders_lab_never.tr() : _when.format(at);
+      at == null ? LocaleKeys.local_reminders_lab_never.tr() : _when.format(at);
 
   Widget _info(BuildContext context, String name, String value) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
@@ -74,7 +77,7 @@ class _LocalReminderLabContent extends StatelessWidget {
 
         return AppScreenScaffold(
           topBar: AppTopBar(
-            title: LocaleKeys.reminders_lab_title.tr(),
+            title: LocaleKeys.local_reminders_lab_title.tr(),
             leading: AppIconButton(
               glyph: GlyphType.back,
               ariaLabel: LocaleKeys.common_back.tr(),
@@ -97,31 +100,31 @@ class _LocalReminderLabContent extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       AppSectionHeader(
-                        LocaleKeys.reminders_lab_now_header.tr(),
+                        LocaleKeys.local_reminders_lab_now_header.tr(),
                       ),
                       _info(
                         context,
-                        LocaleKeys.reminders_switch_reminders_title.tr(),
+                        LocaleKeys.local_reminders_switch_reminders_title.tr(),
                         _onOff(state.switches.reminders),
                       ),
                       _info(
                         context,
-                        LocaleKeys.reminders_switch_offers_title.tr(),
+                        LocaleKeys.local_reminders_switch_offers_title.tr(),
                         _onOff(state.switches.offers),
                       ),
                       _info(
                         context,
-                        LocaleKeys.reminders_lab_system.tr(),
+                        LocaleKeys.local_reminders_lab_system.tr(),
                         state.notificationsAllowed
-                            ? LocaleKeys.reminders_lab_allowed.tr()
-                            : LocaleKeys.reminders_lab_blocked.tr(),
+                            ? LocaleKeys.local_reminders_lab_allowed.tr()
+                            : LocaleKeys.local_reminders_lab_blocked.tr(),
                       ),
                       _info(
                         context,
-                        LocaleKeys.reminders_lab_budget.tr(),
+                        LocaleKeys.local_reminders_lab_budget.tr(),
                         spent == null
-                            ? LocaleKeys.reminders_lab_budget_free.tr()
-                            : LocaleKeys.reminders_lab_budget_used.tr(
+                            ? LocaleKeys.local_reminders_lab_budget_free.tr()
+                            : LocaleKeys.local_reminders_lab_budget_used.tr(
                                 namedArgs: {
                                   'used': _when.format(spent),
                                   'free': _when.format(
@@ -132,8 +135,8 @@ class _LocalReminderLabContent extends StatelessWidget {
                       ),
                       _info(
                         context,
-                        LocaleKeys.reminders_lab_pro.tr(),
-                        LocaleKeys.reminders_lab_pro_value.tr(
+                        LocaleKeys.local_reminders_lab_pro.tr(),
+                        LocaleKeys.local_reminders_lab_pro_value.tr(
                           namedArgs: {
                             'asked': _time(state.proAskedAt),
                             'count': '${state.proDismissCount}',
@@ -142,8 +145,8 @@ class _LocalReminderLabContent extends StatelessWidget {
                       ),
                       _info(
                         context,
-                        LocaleKeys.reminders_lab_review.tr(),
-                        LocaleKeys.reminders_lab_review_value.tr(
+                        LocaleKeys.local_reminders_lab_review.tr(),
+                        LocaleKeys.local_reminders_lab_review_value.tr(
                           namedArgs: {
                             'asked': _time(state.reviewAskedAt),
                             'count': '${state.reviewAskCount}',
@@ -152,24 +155,24 @@ class _LocalReminderLabContent extends StatelessWidget {
                       ),
                       _info(
                         context,
-                        LocaleKeys.reminders_lab_feedback.tr(),
+                        LocaleKeys.local_reminders_lab_feedback.tr(),
                         _time(state.feedbackAskedAt),
                       ),
                       _info(
                         context,
-                        LocaleKeys.reminders_lab_tz.tr(),
+                        LocaleKeys.local_reminders_lab_tz.tr(),
                         state.timeZone,
                       ),
                       const SizedBox(height: 14),
                       AppSectionHeader(
-                        LocaleKeys.reminders_lab_scheduled_header.tr(
+                        LocaleKeys.local_reminders_lab_scheduled_header.tr(
                           namedArgs: {'count': '${state.pending.length}'},
                         ),
                       ),
                       if (state.pending.isEmpty)
                         _info(
                           context,
-                          LocaleKeys.reminders_lab_scheduled_empty.tr(),
+                          LocaleKeys.local_reminders_lab_scheduled_empty.tr(),
                           '',
                         ),
                       for (final reminder in state.pending)
@@ -182,7 +185,7 @@ class _LocalReminderLabContent extends StatelessWidget {
                             meta: _time(reminder.fireAt),
                             faceState: null,
                             trailing: AppButton(
-                              label: LocaleKeys.reminders_lab_cancel.tr(),
+                              label: LocaleKeys.local_reminders_lab_cancel.tr(),
                               size: AppButtonSize.sm,
                               variant: AppButtonVariant.ghost,
                               onPressed: () =>
@@ -192,7 +195,7 @@ class _LocalReminderLabContent extends StatelessWidget {
                         ),
                       const SizedBox(height: 14),
                       AppSectionHeader(
-                        LocaleKeys.reminders_lab_fire_header.tr(),
+                        LocaleKeys.local_reminders_lab_fire_header.tr(),
                       ),
                       for (final kind in LocalReminderKind.values)
                         Padding(
@@ -205,7 +208,8 @@ class _LocalReminderLabContent extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 AppButton(
-                                  label: LocaleKeys.reminders_lab_in_ten.tr(),
+                                  label: LocaleKeys.local_reminders_lab_in_ten
+                                      .tr(),
                                   size: AppButtonSize.sm,
                                   variant: AppButtonVariant.ghost,
                                   onPressed: () => unawaited(
@@ -217,7 +221,8 @@ class _LocalReminderLabContent extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 6),
                                 AppButton(
-                                  label: LocaleKeys.reminders_lab_now.tr(),
+                                  label: LocaleKeys.local_reminders_lab_now
+                                      .tr(),
                                   size: AppButtonSize.sm,
                                   onPressed: () => unawaited(
                                     cubit.fire(kind, delay: Duration.zero),
@@ -229,8 +234,9 @@ class _LocalReminderLabContent extends StatelessWidget {
                         ),
                       const SizedBox(height: 8),
                       AppToggleRow(
-                        title: LocaleKeys.reminders_lab_skip_rules.tr(),
-                        subtitle: LocaleKeys.reminders_lab_skip_rules_subtitle
+                        title: LocaleKeys.local_reminders_lab_skip_rules.tr(),
+                        subtitle: LocaleKeys
+                            .local_reminders_lab_skip_rules_subtitle
                             .tr(),
                         value: state.skipRules,
                         onChanged: (value) =>
@@ -238,7 +244,7 @@ class _LocalReminderLabContent extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       AppListRow(
-                        name: LocaleKeys.reminders_lab_show_sheet.tr(),
+                        name: LocaleKeys.local_reminders_lab_show_sheet.tr(),
                         meta: '',
                         faceState: null,
                         trailing: AppGlyph(
@@ -257,14 +263,14 @@ class _LocalReminderLabContent extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
                       AppButton(
-                        label: LocaleKeys.reminders_lab_reset.tr(),
+                        label: LocaleKeys.local_reminders_lab_reset.tr(),
                         variant: AppButtonVariant.crit,
                         isFullWidth: true,
                         onPressed: () => unawaited(cubit.resetAll()),
                       ),
                       const SizedBox(height: 14),
                       AppSectionHeader(
-                        LocaleKeys.reminders_lab_pool_header.tr(),
+                        LocaleKeys.local_reminders_lab_pool_header.tr(),
                       ),
                       for (final line in cubit.poolPreview())
                         _info(context, line.title, line.body),

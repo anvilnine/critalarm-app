@@ -86,7 +86,7 @@ class _TopicTokensSectionContentState
     final cubit = context.read<TopicTokensCubit>();
     final name = await showAppSheet<String>(
       context: context,
-      title: LocaleKeys.reminders_curl_sheet_title.tr(
+      title: LocaleKeys.local_reminders_curl_sheet_title.tr(
         namedArgs: {'topic': cubit.topicName},
       ),
       content: (sheetContext) => StreamBuilder<TopicTokensState>(
@@ -115,7 +115,7 @@ class _TopicTokensSectionContentState
       serverUrl: connection.serverUrl,
       topic: cubit.topicName,
       token: token,
-      message: LocaleKeys.reminders_curl_sample_message.tr(),
+      message: LocaleKeys.local_reminders_curl_sample_message.tr(),
     );
     await Clipboard.setData(ClipboardData(text: line));
     // The raw token value and its own copy button would otherwise linger in
@@ -124,7 +124,7 @@ class _TopicTokensSectionContentState
     AppHaptics.selection();
     messenger.showSnackBar(
       SnackBar(
-        content: Text(LocaleKeys.reminders_curl_copied.tr()),
+        content: Text(LocaleKeys.local_reminders_curl_copied.tr()),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -615,7 +615,7 @@ class _CurlTokenSheet extends StatefulWidget {
 
 class _CurlTokenSheetState extends State<_CurlTokenSheet> {
   late final TextEditingController _controller = TextEditingController(
-    text: LocaleKeys.reminders_curl_default_name.tr(),
+    text: LocaleKeys.local_reminders_curl_default_name.tr(),
   );
 
   /// Set by the first tap on either button. Both pop the sheet, so a second
@@ -635,12 +635,12 @@ class _CurlTokenSheetState extends State<_CurlTokenSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AppTextField(
-          label: LocaleKeys.reminders_curl_name_label.tr(),
+          label: LocaleKeys.local_reminders_curl_name_label.tr(),
           controller: _controller,
         ),
         const SizedBox(height: 16),
         AppButton(
-          label: LocaleKeys.reminders_curl_make_button.tr(),
+          label: LocaleKeys.local_reminders_curl_make_button.tr(),
           isFullWidth: true,
           isLoading: widget.isWorking,
           onPressed: widget.isWorking
@@ -651,7 +651,7 @@ class _CurlTokenSheetState extends State<_CurlTokenSheet> {
                   final name = _controller.text.trim();
                   widget.onMake(
                     name.isEmpty
-                        ? LocaleKeys.reminders_curl_default_name.tr()
+                        ? LocaleKeys.local_reminders_curl_default_name.tr()
                         : name,
                   );
                 },

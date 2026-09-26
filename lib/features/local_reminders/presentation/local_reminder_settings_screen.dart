@@ -69,7 +69,7 @@ class _LocalReminderSettingsContentState
 
         return AppScreenScaffold(
           topBar: AppTopBar(
-            title: LocaleKeys.reminders_screen_title.tr(),
+            title: LocaleKeys.local_reminders_screen_title.tr(),
             leading: AppIconButton(
               glyph: GlyphType.back,
               ariaLabel: LocaleKeys.common_back.tr(),
@@ -92,8 +92,10 @@ class _LocalReminderSettingsContentState
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       AppToggleRow(
-                        title: LocaleKeys.reminders_switch_reminders_title.tr(),
-                        subtitle: LocaleKeys.reminders_switch_reminders_subtitle
+                        title: LocaleKeys.local_reminders_switch_reminders_title
+                            .tr(),
+                        subtitle: LocaleKeys
+                            .local_reminders_switch_reminders_subtitle
                             .tr(),
                         value: state.switches.reminders,
                         onChanged: (value) =>
@@ -102,8 +104,10 @@ class _LocalReminderSettingsContentState
                       if (state.showsOffers) ...[
                         const SizedBox(height: 8),
                         AppToggleRow(
-                          title: LocaleKeys.reminders_switch_offers_title.tr(),
-                          subtitle: LocaleKeys.reminders_switch_offers_subtitle
+                          title: LocaleKeys.local_reminders_switch_offers_title
+                              .tr(),
+                          subtitle: LocaleKeys
+                              .local_reminders_switch_offers_subtitle
                               .tr(),
                           value: state.switches.offers,
                           onChanged: (value) =>
@@ -112,14 +116,14 @@ class _LocalReminderSettingsContentState
                       ],
                       const SizedBox(height: 14),
                       Text(
-                        LocaleKeys.reminders_rules_note.tr(),
+                        LocaleKeys.local_reminders_rules_note.tr(),
                         style: AppTypography.small(colors.ink3, fontSize: 12),
                       ),
                       if (state.isLoaded && !state.notificationsAllowed) ...[
                         const SizedBox(height: 14),
                         AppListRow(
-                          name: LocaleKeys.reminders_os_off_title.tr(),
-                          meta: LocaleKeys.reminders_os_off_body.tr(),
+                          name: LocaleKeys.local_reminders_os_off_title.tr(),
+                          meta: LocaleKeys.local_reminders_os_off_body.tr(),
                           faceState: FaceState.worried,
                           trailing: AppGlyph(
                             GlyphType.arrow,

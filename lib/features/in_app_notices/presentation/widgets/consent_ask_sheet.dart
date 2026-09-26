@@ -66,7 +66,7 @@ class _ConsentAskSheetState extends State<ConsentAskSheet> {
         ),
         const SizedBox(height: Spacing.s3),
         Text(
-          LocaleKeys.home_consent_prompt_title.tr(),
+          LocaleKeys.asks_consent_title.tr(),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: AppTypography.fontDisplay,
@@ -79,19 +79,19 @@ class _ConsentAskSheetState extends State<ConsentAskSheet> {
         ),
         const SizedBox(height: 16),
         AppToggleRow(
-          title: LocaleKeys.home_consent_prompt_crash.tr(),
+          title: LocaleKeys.asks_consent_crash.tr(),
           value: _crashReports,
           onChanged: (value) => setState(() => _crashReports = value),
         ),
         const SizedBox(height: 8),
         AppToggleRow(
-          title: LocaleKeys.home_consent_prompt_analytics.tr(),
+          title: LocaleKeys.asks_consent_analytics.tr(),
           value: _analytics,
           onChanged: (value) => setState(() => _analytics = value),
         ),
         const SizedBox(height: 16),
         AppButton(
-          label: LocaleKeys.home_consent_prompt_share.tr(),
+          label: LocaleKeys.asks_consent_share.tr(),
           isFullWidth: true,
           onPressed: onShare == null
               ? null

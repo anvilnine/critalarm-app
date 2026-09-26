@@ -17,58 +17,58 @@ final class LocalReminderCopy {
   final bool isIos;
 
   static const List<String> drillTitles = [
-    LocaleKeys.reminders_drill_title_1,
-    LocaleKeys.reminders_drill_title_2,
-    LocaleKeys.reminders_drill_title_3,
-    LocaleKeys.reminders_drill_title_4,
-    LocaleKeys.reminders_drill_title_5,
-    LocaleKeys.reminders_drill_title_6,
-    LocaleKeys.reminders_drill_title_7,
-    LocaleKeys.reminders_drill_title_8,
-    LocaleKeys.reminders_drill_title_9,
-    LocaleKeys.reminders_drill_title_10,
+    LocaleKeys.local_reminders_drill_title_1,
+    LocaleKeys.local_reminders_drill_title_2,
+    LocaleKeys.local_reminders_drill_title_3,
+    LocaleKeys.local_reminders_drill_title_4,
+    LocaleKeys.local_reminders_drill_title_5,
+    LocaleKeys.local_reminders_drill_title_6,
+    LocaleKeys.local_reminders_drill_title_7,
+    LocaleKeys.local_reminders_drill_title_8,
+    LocaleKeys.local_reminders_drill_title_9,
+    LocaleKeys.local_reminders_drill_title_10,
   ];
 
   static const List<String> drillBodies = [
-    LocaleKeys.reminders_drill_body_1,
-    LocaleKeys.reminders_drill_body_2,
-    LocaleKeys.reminders_drill_body_3,
-    LocaleKeys.reminders_drill_body_4,
-    LocaleKeys.reminders_drill_body_5,
-    LocaleKeys.reminders_drill_body_6,
-    LocaleKeys.reminders_drill_body_7,
-    LocaleKeys.reminders_drill_body_8,
-    LocaleKeys.reminders_drill_body_9,
-    LocaleKeys.reminders_drill_body_10,
+    LocaleKeys.local_reminders_drill_body_1,
+    LocaleKeys.local_reminders_drill_body_2,
+    LocaleKeys.local_reminders_drill_body_3,
+    LocaleKeys.local_reminders_drill_body_4,
+    LocaleKeys.local_reminders_drill_body_5,
+    LocaleKeys.local_reminders_drill_body_6,
+    LocaleKeys.local_reminders_drill_body_7,
+    LocaleKeys.local_reminders_drill_body_8,
+    LocaleKeys.local_reminders_drill_body_9,
+    LocaleKeys.local_reminders_drill_body_10,
   ];
 
   /// Drill lines that carry `{days}` and so need the one/other forms.
   static const Set<String> pluralKeys = {
-    LocaleKeys.reminders_drill_title_1,
-    LocaleKeys.reminders_drill_body_2,
-    LocaleKeys.reminders_drill_title_3,
-    LocaleKeys.reminders_drill_title_5,
-    LocaleKeys.reminders_drill_title_8,
+    LocaleKeys.local_reminders_drill_title_1,
+    LocaleKeys.local_reminders_drill_body_2,
+    LocaleKeys.local_reminders_drill_title_3,
+    LocaleKeys.local_reminders_drill_title_5,
+    LocaleKeys.local_reminders_drill_title_8,
   };
 
   static const List<String> reviewTitles = [
-    LocaleKeys.reminders_review_title_1,
-    LocaleKeys.reminders_review_title_2,
+    LocaleKeys.local_reminders_review_title_1,
+    LocaleKeys.local_reminders_review_title_2,
   ];
 
   static const List<String> reviewBodies = [
-    LocaleKeys.reminders_review_body_1,
-    LocaleKeys.reminders_review_body_2,
+    LocaleKeys.local_reminders_review_body_1,
+    LocaleKeys.local_reminders_review_body_2,
   ];
 
   static const List<String> feedbackTitles = [
-    LocaleKeys.reminders_feedback_title_1,
-    LocaleKeys.reminders_feedback_title_2,
+    LocaleKeys.local_reminders_feedback_title_1,
+    LocaleKeys.local_reminders_feedback_title_2,
   ];
 
   static const List<String> feedbackBodies = [
-    LocaleKeys.reminders_feedback_body_1,
-    LocaleKeys.reminders_feedback_body_2,
+    LocaleKeys.local_reminders_feedback_body_1,
+    LocaleKeys.local_reminders_feedback_body_2,
   ];
 
   LocalReminderRequest build(LocalReminderCandidate candidate) {
@@ -76,42 +76,42 @@ final class LocalReminderCopy {
     final (title, body, actions) = switch (candidate.kind) {
       LocalReminderKind.fireDrill => _drill(args),
       LocalReminderKind.silentTopic => (
-        LocaleKeys.reminders_silent_title.tr(
+        LocaleKeys.local_reminders_silent_title.tr(
           namedArgs: {'topic': args[LocalReminderArgs.topic] ?? ''},
         ),
-        LocaleKeys.reminders_silent_body.tr(),
+        LocaleKeys.local_reminders_silent_body.tr(),
         [
           _action(
             LocalReminderActionIds.curl,
-            LocaleKeys.reminders_action_curl,
+            LocaleKeys.local_reminders_action_curl,
           ),
         ],
       ),
       LocalReminderKind.backup => (
-        LocaleKeys.reminders_backup_title.plural(
+        LocaleKeys.local_reminders_backup_title.plural(
           int.tryParse(args[LocalReminderArgs.count] ?? '') ?? 2,
         ),
-        LocaleKeys.reminders_backup_body.tr(),
+        LocaleKeys.local_reminders_backup_body.tr(),
         [
           _action(
             LocalReminderActionIds.signIn,
-            LocaleKeys.reminders_action_sign_in,
+            LocaleKeys.local_reminders_action_sign_in,
           ),
         ],
       ),
       LocalReminderKind.planHeadsUp => _plan(args),
       LocalReminderKind.morningAfter => (
-        LocaleKeys.reminders_morning_title.tr(
+        LocaleKeys.local_reminders_morning_title.tr(
           namedArgs: {'time': args[LocalReminderArgs.time] ?? ''},
         ),
-        LocaleKeys.reminders_morning_body.plural(
+        LocaleKeys.local_reminders_morning_body.plural(
           int.tryParse(args[LocalReminderArgs.seconds] ?? '') ?? 0,
           namedArgs: {'topic': args[LocalReminderArgs.topic] ?? ''},
         ),
         [
           _action(
             LocalReminderActionIds.seePro,
-            LocaleKeys.reminders_action_see_pro,
+            LocaleKeys.local_reminders_action_see_pro,
           ),
           LocalReminderAction(
             id: LocalReminderActionIds.notNow,
@@ -121,12 +121,12 @@ final class LocalReminderCopy {
         ],
       ),
       LocalReminderKind.proLater => (
-        LocaleKeys.reminders_pro_later_title.tr(),
-        LocaleKeys.reminders_pro_later_body.tr(),
+        LocaleKeys.local_reminders_pro_later_title.tr(),
+        LocaleKeys.local_reminders_pro_later_body.tr(),
         [
           _action(
             LocalReminderActionIds.seePro,
-            LocaleKeys.reminders_action_see_pro,
+            LocaleKeys.local_reminders_action_see_pro,
           ),
         ],
       ),
@@ -140,7 +140,7 @@ final class LocalReminderCopy {
       fireAt: candidate.fireAt,
       title: title,
       body: body,
-      hiddenPreview: LocaleKeys.reminders_hidden_preview.tr(),
+      hiddenPreview: LocaleKeys.local_reminders_hidden_preview.tr(),
       channelId: candidate.kind.isOffer
           ? ChannelIds.offers
           : ChannelIds.reminders,
@@ -174,7 +174,12 @@ final class LocalReminderCopy {
     return (
       _drillLine(drillTitles[index], days: days, topic: topic),
       _drillLine(drillBodies[index], days: days, topic: topic),
-      [_action(LocalReminderActionIds.ring, LocaleKeys.reminders_action_ring)],
+      [
+        _action(
+          LocalReminderActionIds.ring,
+          LocaleKeys.local_reminders_action_ring,
+        ),
+      ],
     );
   }
 
@@ -183,29 +188,29 @@ final class LocalReminderCopy {
         .asNameMap()[args[LocalReminderArgs.headsUp]];
     return switch (kind) {
       PlanHeadsUpKind.renew => (
-        LocaleKeys.reminders_plan_renew_title.tr(
+        LocaleKeys.local_reminders_plan_renew_title.tr(
           namedArgs: {
             'date': args[LocalReminderArgs.date] ?? '',
             'price': args[LocalReminderArgs.price] ?? '',
           },
         ),
-        LocaleKeys.reminders_plan_renew_body.tr(),
+        LocaleKeys.local_reminders_plan_renew_body.tr(),
         const <LocalReminderAction>[],
       ),
       PlanHeadsUpKind.ends => (
-        LocaleKeys.reminders_plan_ends_title.tr(
+        LocaleKeys.local_reminders_plan_ends_title.tr(
           namedArgs: {'weekday': args[LocalReminderArgs.weekday] ?? ''},
         ),
-        LocaleKeys.reminders_plan_ends_body.tr(),
+        LocaleKeys.local_reminders_plan_ends_body.tr(),
         const <LocalReminderAction>[],
       ),
       PlanHeadsUpKind.billing || null => (
-        LocaleKeys.reminders_plan_billing_title.tr(),
-        LocaleKeys.reminders_plan_billing_body.tr(),
+        LocaleKeys.local_reminders_plan_billing_title.tr(),
+        LocaleKeys.local_reminders_plan_billing_body.tr(),
         [
           _action(
             LocalReminderActionIds.updatePayment,
-            LocaleKeys.reminders_action_update_payment,
+            LocaleKeys.local_reminders_action_update_payment,
           ),
         ],
       ),
@@ -217,15 +222,15 @@ final class LocalReminderCopy {
   ) {
     final index = _pool(args, reviewTitles.length);
     final store = isIos
-        ? LocaleKeys.reminders_store_app_store.tr()
-        : LocaleKeys.reminders_store_google_play.tr();
+        ? LocaleKeys.local_reminders_store_app_store.tr()
+        : LocaleKeys.local_reminders_store_google_play.tr();
     return (
       reviewTitles[index].tr(),
       reviewBodies[index].tr(namedArgs: {'store': store}),
       [
         _action(
           LocalReminderActionIds.rate,
-          LocaleKeys.reminders_review_action,
+          LocaleKeys.local_reminders_review_action,
         ),
       ],
     );
