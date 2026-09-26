@@ -133,7 +133,10 @@ names in code, strings, comments and PRs, and never one for another.
   Topics guide is always the first Feature Guide, played the first time the
   user reaches Topics. Only after it is seen or skipped do other screens'
   guides, In-App Notices, asks and planned Local Reminders start.
-  `SetupGate` is the one gate; do not add another.
+  `SetupGate` holds back the notices, asks and Local Reminders;
+  `FeatureGuideCubit.requestIfNew` holds back every guide but the Topics
+  one. Do not route guides through `SetupGate`: it waits for the Topics
+  guide, which could then never start.
 - **Remote Reminders** (not built): reminders the server would send. The
   "Local" qualifier exists so the two never share a name.
 
