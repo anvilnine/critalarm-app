@@ -10,7 +10,7 @@ import 'package:critalarm/features/reminders/domain/reminder_scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../features/reminders/fake_reminder_scheduler.dart';
-import '../helpers/fake_home_prompt_repository.dart';
+import '../helpers/fake_in_app_notice_repository.dart';
 
 /// Never finishes logging, like a slow analytics call.
 class _StuckGate extends NoopTelemetryGate {
@@ -21,7 +21,7 @@ class _StuckGate extends NoopTelemetryGate {
 
 void main() {
   late FakeReminderScheduler scheduler;
-  late FakeHomePromptRepository prompts;
+  late FakeInAppNoticeRepository notices;
   late List<String> routes;
   late List<Uri> urls;
   late int reviews;
@@ -30,14 +30,14 @@ void main() {
 
   setUp(() {
     scheduler = FakeReminderScheduler();
-    prompts = FakeHomePromptRepository();
+    notices = FakeInAppNoticeRepository();
     routes = [];
     urls = [];
     reviews = 0;
     forms = [];
     bindings = ReminderBindings(
       scheduler: scheduler,
-      prompts: prompts,
+      notices: notices,
       focus: AlarmFocus(),
       navigate: routes.add,
       openUrl: (url) async => urls.add(url),
@@ -63,7 +63,7 @@ void main() {
     );
     await Future<void>.delayed(Duration.zero);
     expect(routes, ['/paywall?source=reminder_morning_after']);
-    expect(prompts.proAskedAt, isNotNull);
+    expect(notices.proAskedAt, isNotNull);
   });
 
   test('review, feedback and plan taps hand off', () async {
@@ -83,13 +83,13 @@ void main() {
     expect(reviews, 1);
     expect(forms, ['reminder_feedback']);
     expect(urls.single.host, 'play.google.com');
-    expect(prompts.proAskedAt, isNull);
+    expect(notices.proAskedAt, isNull);
   });
 
   test('routes without waiting for analytics', () async {
     final stuck = ReminderBindings(
       scheduler: scheduler,
-      prompts: prompts,
+      notices: notices,
       focus: AlarmFocus(),
       navigate: routes.add,
       openUrl: (url) async => urls.add(url),
@@ -106,7 +106,7 @@ void main() {
   test('a store or browser that throws never escapes', () async {
     final throwing = ReminderBindings(
       scheduler: scheduler,
-      prompts: prompts,
+      notices: notices,
       focus: AlarmFocus(),
       navigate: routes.add,
       openUrl: (_) async => throw StateError('no browser'),
@@ -133,7 +133,7 @@ void main() {
     final focus = AlarmFocus(incidents: ringing.stream);
     final guarded = ReminderBindings(
       scheduler: scheduler,
-      prompts: prompts,
+      notices: notices,
       focus: focus,
       navigate: routes.add,
       openUrl: (url) async => urls.add(url),

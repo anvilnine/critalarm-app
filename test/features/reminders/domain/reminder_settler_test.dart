@@ -1,5 +1,5 @@
-import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
-import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
+import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
+import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/reminders/data/shared_prefs_reminder_store.dart';
 import 'package:critalarm/features/reminders/domain/planned_record.dart';
 import 'package:critalarm/features/reminders/domain/reminder_kind.dart';
@@ -7,19 +7,19 @@ import 'package:critalarm/features/reminders/domain/reminder_settler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../helpers/fake_home_prompt_repository.dart';
+import '../../../helpers/fake_in_app_notice_repository.dart';
 
 void main() {
   late SharedPrefsReminderStore store;
-  late FakeHomePromptRepository prompts;
+  late FakeInAppNoticeRepository notices;
   late ReminderSettler settler;
   final fireAt = DateTime(2026, 9, 24, 10);
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     store = SharedPrefsReminderStore(await SharedPreferences.getInstance());
-    prompts = FakeHomePromptRepository();
-    settler = ReminderSettler(store: store, prompts: prompts);
+    notices = FakeInAppNoticeRepository();
+    settler = ReminderSettler(store: store, notices: notices);
   });
 
   group('settleAsks', () {
@@ -27,22 +27,22 @@ void main() {
       await store.writeReviewFireAt(fireAt);
       await settler.settleAsks(now: fireAt.add(const Duration(minutes: 1)));
       await settler.settleAsks(now: fireAt.add(const Duration(hours: 5)));
-      expect(prompts.reviewAskCount, 1);
-      expect(prompts.reviewAskedAt, fireAt);
+      expect(notices.reviewAskCount, 1);
+      expect(notices.reviewAskedAt, fireAt);
       expect(store.readReviewFireAt(), isNull);
     });
 
     test('leaves a review ask that has not fired yet', () async {
       await store.writeReviewFireAt(fireAt);
       await settler.settleAsks(now: fireAt.subtract(const Duration(hours: 1)));
-      expect(prompts.reviewAskCount, 0);
+      expect(notices.reviewAskCount, 0);
       expect(store.readReviewFireAt(), fireAt);
     });
 
     test('counts a passed feedback ask at its fire time', () async {
       await store.writeFeedbackFireAt(fireAt);
       await settler.settleAsks(now: fireAt.add(const Duration(minutes: 1)));
-      expect(prompts.feedbackAskedAt, fireAt);
+      expect(notices.feedbackAskedAt, fireAt);
       expect(store.readFeedbackFireAt(), isNull);
     });
 
@@ -55,22 +55,22 @@ void main() {
         firstSeenAt: DateTime(2026, 9),
         consentAskedAt: DateTime(2026, 9, 2),
         isConsentGiven: false,
-        reviewAskedAt: prompts.reviewAskedAt,
-        reviewAskCount: prompts.reviewAskCount,
+        reviewAskedAt: notices.reviewAskedAt,
+        reviewAskCount: notices.reviewAskCount,
         lastAcknowledgedAt: DateTime(2026, 9, 20),
         proAskedAt: null,
         isRinging: false,
         isWeb: false,
         isSetupDone: true,
       );
-      bool proAt(DateTime now) => ProPromptRules.decide(
+      bool proAt(DateTime now) => ProAskRules.decide(
         isPaid: false,
         isSelfHosted: false,
         dismissCount: 0,
         lastAskedAt: null,
         now: now,
         isSetupDone: true,
-        otherAskedAt: [prompts.reviewAskedAt],
+        otherAskedAt: [notices.reviewAskedAt],
       );
 
       expect(homeAt(fireAt.add(const Duration(hours: 23))), HomeAsk.none);
@@ -126,7 +126,7 @@ void main() {
     });
 
     test('a delivered backup shares the home card snooze', () async {
-      prompts.now = () => DateTime(2026, 9, 22);
+      notices.now = () => DateTime(2026, 9, 22);
       await store.writePlanned([
         PlannedRecord(
           id: 9300,
@@ -135,11 +135,11 @@ void main() {
         ),
       ]);
       await settler.settleAll(now: DateTime(2026, 9, 22));
-      expect(prompts.accountDismissedAt, DateTime(2026, 9, 22));
+      expect(notices.accountDismissedAt, DateTime(2026, 9, 22));
     });
 
     test('a delivered Pro remind-later clears it', () async {
-      prompts.proLaterAt = DateTime(2026, 8);
+      notices.proLaterAt = DateTime(2026, 8);
       await store.writePlanned([
         PlannedRecord(
           id: 9410,
@@ -148,7 +148,7 @@ void main() {
         ),
       ]);
       await settler.settleAll(now: DateTime(2026, 9, 22));
-      expect(prompts.proLaterAt, isNull);
+      expect(notices.proLaterAt, isNull);
       expect(store.readBudgetSpentAt(), isNull);
     });
 
@@ -157,10 +157,10 @@ void main() {
         'reminder_pending_pro_dismiss': true,
       });
       store = SharedPrefsReminderStore(await SharedPreferences.getInstance());
-      settler = ReminderSettler(store: store, prompts: prompts);
+      settler = ReminderSettler(store: store, notices: notices);
       await settler.settleAll(now: DateTime(2026, 9, 22));
-      expect(prompts.proAskedAt, isNotNull);
-      expect(prompts.proDismissCount, 1);
+      expect(notices.proAskedAt, isNotNull);
+      expect(notices.proDismissCount, 1);
     });
   });
 }

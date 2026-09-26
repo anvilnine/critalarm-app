@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/telemetry/reminder_analytics.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
+import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/reminders/domain/reminder_scheduler.dart';
 import 'package:critalarm/features/reminders/domain/reminder_tap_route.dart';
 import 'package:flutter/foundation.dart';
@@ -16,7 +16,7 @@ import 'package:flutter/foundation.dart';
 class ReminderBindings {
   ReminderBindings({
     required ReminderScheduler scheduler,
-    required HomePromptRepository prompts,
+    required InAppNoticeRepository notices,
     required AlarmFocus focus,
     required void Function(String path) navigate,
     required Future<void> Function(Uri url) openUrl,
@@ -31,7 +31,7 @@ class ReminderBindings {
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
-       _prompts = prompts,
+       _notices = notices,
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
@@ -58,9 +58,9 @@ class ReminderBindings {
        _analytics = analytics;
 
   final ReminderScheduler _scheduler;
-  final HomePromptRepository _prompts;
+  final InAppNoticeRepository _notices;
 
-  /// Whether this account is on Pro. A Pro nudge tapped after buying goes
+  /// Whether this account is on Pro. A Pro reminder tapped after buying goes
   /// home instead of to the paywall. Null counts as free; a failed read
   /// counts as paid.
   final Future<bool> Function()? readIsPaid;
@@ -89,7 +89,7 @@ class ReminderBindings {
       _analytics?.tapped(kind: tap.kind.wireName, action: tap.actionId),
     );
     if (ReminderTapRoute.countsAsProAsk(tap)) {
-      await _prompts.markProPromptAsked();
+      await _notices.markProAsked();
     }
     // A browser, store or form that fails to open is logged, never thrown.
     try {

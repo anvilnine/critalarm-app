@@ -3,7 +3,7 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
+import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/reminders/domain/incident_kinds.dart';
 import 'package:critalarm/features/reminders/domain/plan_status_source.dart';
 import 'package:critalarm/features/reminders/domain/reminder_inputs.dart';
@@ -20,7 +20,7 @@ import 'package:flutter/foundation.dart';
 final class ReminderInputsReader {
   ReminderInputsReader({
     required ReminderStore store,
-    required HomePromptRepository prompts,
+    required InAppNoticeRepository notices,
     required QuietHoursStore quietHours,
     required ReminderScheduler scheduler,
     required PlanStatusSource planStatus,
@@ -45,7 +45,7 @@ final class ReminderInputsReader {
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
-       _prompts = prompts,
+       _notices = notices,
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
@@ -116,7 +116,7 @@ final class ReminderInputsReader {
   static const Duration silentLookBack = Duration(days: 7);
 
   final ReminderStore _store;
-  final HomePromptRepository _prompts;
+  final InAppNoticeRepository _notices;
   final QuietHoursStore _quietHours;
   final ReminderScheduler _scheduler;
   final PlanStatusSource _planStatus;
@@ -163,9 +163,7 @@ final class ReminderInputsReader {
     }
     final isConnected = modeFailed || mode != null;
     final topics = isConnected ? await _readTopics() : const <Topic>[];
-    final incidents = isConnected
-        ? await _readIncidents()
-        : const <Incident>[];
+    final incidents = isConnected ? await _readIncidents() : const <Incident>[];
     if (topics == null || incidents == null) return null;
 
     final now = zone.toWall(_clock());
@@ -236,34 +234,33 @@ final class ReminderInputsReader {
       // Never null: a fire drill checks "never tested since installedAt",
       // and a null here would let it silently skip a topic it has never
       // seen tested. Fall back to home's first-seen stamp, then to now.
-      installedAt: wall(_prompts.getFirstSeenAt()) ?? now,
+      installedAt: wall(_notices.getFirstSeenAt()) ?? now,
       topicsCreatedHere: createdHere,
       silentTopicNames: silentNames,
       silentDone: silentDone,
       // Failing counts as signed in, so no backup nudge.
       isSignedIn: await _safe('sign-in', _readIsSignedIn, fallback: true),
-      accountPromptDismissedAt: wall(_prompts.getAccountPromptDismissedAt()),
+      accountNoticeDismissedAt: wall(_notices.getAccountNoticeDismissedAt()),
       plan: isHosted ? await _planStatus.read(zone) : null,
       planNoticesSent: _store.readPlanNoticesSent(),
       morningAfterDone: _store.readMorningAfterDone(),
       isSetupDone:
-          skipRules ||
-          await (_isSetupDone?.call() ?? Future<bool>.value(true)),
+          skipRules || await (_isSetupDone?.call() ?? Future<bool>.value(true)),
       proShouldAsk: skipRules || await _proShouldAsk(),
       // Failing counts as paid, so no Pro ask.
       isPaid: await _safe('paid state', _readIsPaid, fallback: true),
-      proDismissCount: _prompts.getProPromptDismissCount(),
-      proLaterAt: wall(_prompts.getProPromptLaterAt()),
-      consentAskedAt: wall(_prompts.getConsentAskedAt()),
+      proDismissCount: _notices.getProAskDismissCount(),
+      proLaterAt: wall(_notices.getProAskLaterAt()),
+      consentAskedAt: wall(_notices.getConsentAskedAt()),
       isConsentGiven:
           privacy != null &&
           privacy.analyticsEnabled &&
           privacy.crashReportingEnabled,
-      reviewAskedAt: wall(_prompts.getReviewAskedAt()),
-      reviewAskCount: _prompts.getReviewAskCount(),
-      lastAcknowledgedAt: wall(_prompts.getLastAcknowledgedAt()),
-      proAskedAt: wall(_prompts.getProPromptAskedAt()),
-      feedbackAskedAt: wall(_prompts.getFeedbackAskedAt()),
+      reviewAskedAt: wall(_notices.getReviewAskedAt()),
+      reviewAskCount: _notices.getReviewAskCount(),
+      lastAcknowledgedAt: wall(_notices.getLastAcknowledgedAt()),
+      proAskedAt: wall(_notices.getProAskedAt()),
+      feedbackAskedAt: wall(_notices.getFeedbackAskedAt()),
       appStoreId: _appStoreId,
       feedbackFormUrl: _feedbackFormUrl,
       budgetSpentAt: wall(_store.readBudgetSpentAt()),

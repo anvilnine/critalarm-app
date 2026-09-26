@@ -9,9 +9,9 @@ import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
-import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/pro_prompt_sheet.dart';
+import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
+import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
+import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_ask_sheet.dart';
 import 'package:critalarm/features/reminders/domain/reminder_settler.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
@@ -143,14 +143,14 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
   Future<void> _askAboutPro(BuildContext context) async {
     if (_hasAskedAboutPro) return;
     _hasAskedAboutPro = true;
-    final rules = getIt<ProPromptRules>();
-    final repository = getIt<HomePromptRepository>();
+    final rules = getIt<ProAskRules>();
+    final repository = getIt<InAppNoticeRepository>();
     // A delivered review or feedback reminder counts as an ask before the
     // Pro rules read the ask times.
     await getIt<ReminderSettler>().settleAsks(now: DateTime.now());
     if (!await rules.shouldAsk()) return;
     if (!context.mounted) return;
-    await showProPromptSheet(context: context, repository: repository);
+    await showProAskSheet(context: context, repository: repository);
   }
 
   void _submit() {

@@ -1,4 +1,4 @@
-import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
+import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
 import 'package:critalarm/features/reminders/domain/reminder_time_rules.dart';
 
 /// What home may show for reminders as it opens.

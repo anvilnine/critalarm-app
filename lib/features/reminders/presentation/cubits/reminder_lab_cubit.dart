@@ -1,5 +1,5 @@
 import 'package:critalarm/core/api/api_session.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
+import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/reminders/domain/reminder_copy.dart';
 import 'package:critalarm/features/reminders/domain/reminder_kind.dart';
 import 'package:critalarm/features/reminders/domain/reminder_lab_samples.dart';
@@ -14,7 +14,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 class ReminderLabCubit extends Cubit<ReminderLabState> {
   ReminderLabCubit({
     required ReminderStore store,
-    required HomePromptRepository prompts,
+    required InAppNoticeRepository notices,
     required ReminderScheduler scheduler,
     required ReminderCopy copy,
     required ReminderPlanTrigger trigger,
@@ -27,7 +27,7 @@ class ReminderLabCubit extends Cubit<ReminderLabState> {
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
-       _prompts = prompts,
+       _notices = notices,
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
@@ -48,7 +48,7 @@ class ReminderLabCubit extends Cubit<ReminderLabState> {
        super(const ReminderLabState());
 
   final ReminderStore _store;
-  final HomePromptRepository _prompts;
+  final InAppNoticeRepository _notices;
   final ReminderScheduler _scheduler;
   final ReminderCopy _copy;
   final ReminderPlanTrigger _trigger;
@@ -68,11 +68,11 @@ class ReminderLabCubit extends Cubit<ReminderLabState> {
         isSelfHosted: mode == ServerMode.selfhosted,
         timeZone: zone.name,
         budgetSpentAt: _store.readBudgetSpentAt(),
-        proAskedAt: _prompts.getProPromptAskedAt(),
-        proDismissCount: _prompts.getProPromptDismissCount(),
-        reviewAskedAt: _prompts.getReviewAskedAt(),
-        reviewAskCount: _prompts.getReviewAskCount(),
-        feedbackAskedAt: _prompts.getFeedbackAskedAt(),
+        proAskedAt: _notices.getProAskedAt(),
+        proDismissCount: _notices.getProAskDismissCount(),
+        reviewAskedAt: _notices.getReviewAskedAt(),
+        reviewAskCount: _notices.getReviewAskCount(),
+        feedbackAskedAt: _notices.getFeedbackAskedAt(),
         pending: pending,
         skipRules: _store.readSkipRules(),
       ),

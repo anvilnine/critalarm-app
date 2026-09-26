@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/telemetry/reminder_analytics.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/prompt_sheet_parts.dart';
+import 'package:critalarm/features/in_app_notices/presentation/widgets/ask_sheet_parts.dart';
 import 'package:critalarm/features/reminders/domain/reminder_store.dart';
 import 'package:critalarm/features/reminders/domain/reminders_sheet_choice.dart';
 import 'package:critalarm/features/reminders/domain/self_hosted_matrix.dart';
@@ -101,17 +101,17 @@ class _RemindersSheetState extends State<RemindersSheet> {
       children: [
         const Center(child: FaceWidget(state: FaceState.watching, size: 88)),
         const SizedBox(height: Spacing.s3),
-        PromptSheetTitle(LocaleKeys.reminders_sheet_title.tr()),
+        AskSheetTitle(LocaleKeys.reminders_sheet_title.tr()),
         const SizedBox(height: 14),
-        PromptSheetBullet(LocaleKeys.reminders_sheet_bullet_test.tr()),
+        AskSheetBullet(LocaleKeys.reminders_sheet_bullet_test.tr()),
         const SizedBox(height: 6),
-        PromptSheetBullet(LocaleKeys.reminders_sheet_bullet_silent.tr()),
+        AskSheetBullet(LocaleKeys.reminders_sheet_bullet_silent.tr()),
         if (!widget.isSelfHosted) ...[
           const SizedBox(height: 6),
-          PromptSheetBullet(LocaleKeys.reminders_sheet_bullet_backup.tr()),
+          AskSheetBullet(LocaleKeys.reminders_sheet_bullet_backup.tr()),
         ],
         const SizedBox(height: 6),
-        PromptSheetBullet(LocaleKeys.reminders_sheet_bullet_asks.tr()),
+        AskSheetBullet(LocaleKeys.reminders_sheet_bullet_asks.tr()),
         if (showsOffers) ...[
           const SizedBox(height: 12),
           // One node for screen readers: the label and the box together.

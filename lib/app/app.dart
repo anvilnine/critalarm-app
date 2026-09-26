@@ -33,9 +33,9 @@ import 'package:critalarm/features/feature_guides/presentation/cubits/feature_gu
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_host.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
+import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
 import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
 import 'package:critalarm/features/reminders/domain/reminder_scheduler.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
@@ -84,7 +84,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   /// by [_openPath].
   late final ReminderBindings _reminders = ReminderBindings(
     scheduler: getIt<ReminderScheduler>(),
-    prompts: getIt<HomePromptRepository>(),
+    notices: getIt<InAppNoticeRepository>(),
     readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
     focus: getIt<AlarmFocus>(),
     navigate: _openPath,

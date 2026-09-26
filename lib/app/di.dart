@@ -69,6 +69,13 @@ import 'package:critalarm/features/feature_guides/presentation/cubits/feature_gu
 import 'package:critalarm/features/feedback/data/platform_device_report_repository.dart';
 import 'package:critalarm/features/feedback/domain/repositories/device_report_repository.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
+import 'package:critalarm/features/in_app_notices/data/repositories/shared_prefs_in_app_notice_repository.dart';
+import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
+import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
+import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
+import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
+import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
+import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
@@ -121,13 +128,6 @@ import 'package:critalarm/features/permissions/domain/repositories/device_permis
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
-import 'package:critalarm/features/prompts/data/repositories/shared_prefs_home_prompt_repository.dart';
-import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
-import 'package:critalarm/features/prompts/domain/pro_ending.dart';
-import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
-import 'package:critalarm/features/prompts/domain/setup_gate.dart';
-import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
 import 'package:critalarm/features/reminders/data/native_reminder_scheduler.dart';
 import 'package:critalarm/features/reminders/data/noop_reminder_scheduler.dart';
 import 'package:critalarm/features/reminders/data/revenuecat_plan_status_source.dart';
@@ -513,8 +513,8 @@ Future<void> configureDependencies({
         stopAlarm: getIt<AlarmHost>().stopRinging,
       ),
     )
-    ..registerLazySingleton<HomePromptRepository>(
-      () => SharedPrefsHomePromptRepository(getIt<SharedPreferences>()),
+    ..registerLazySingleton<InAppNoticeRepository>(
+      () => SharedPrefsInAppNoticeRepository(getIt<SharedPreferences>()),
     )
     ..registerLazySingleton<ReminderStore>(
       () => SharedPrefsReminderStore(getIt<SharedPreferences>()),
@@ -522,7 +522,7 @@ Future<void> configureDependencies({
     ..registerLazySingleton(
       () => ReminderSettler(
         store: getIt<ReminderStore>(),
-        prompts: getIt<HomePromptRepository>(),
+        notices: getIt<InAppNoticeRepository>(),
       ),
     )
     // Web has no local notifications, so the dashboard gets the no-op.
@@ -535,7 +535,7 @@ Future<void> configureDependencies({
     ..registerLazySingleton(
       () => ReminderInputsReader(
         store: getIt<ReminderStore>(),
-        prompts: getIt<HomePromptRepository>(),
+        notices: getIt<InAppNoticeRepository>(),
         quietHours: getIt<QuietHoursStore>(),
         scheduler: getIt<ReminderScheduler>(),
         planStatus: getIt<PlanStatusSource>(),
@@ -545,7 +545,7 @@ Future<void> configureDependencies({
         readIncidents: () async => (await getIt<GetIncidentsUsecase>()(
           const GetIncidentsParams(limit: 50),
         )).getOrNull(),
-        // A failed poll counts as "has messages": better to miss a nudge
+        // A failed poll counts as "has messages": better to miss a reminder
         // than to nag about a topic that may be working.
         topicHasMessages: (topic) async =>
             (await getIt<IncidentRepository>().pollMessages(
@@ -559,7 +559,7 @@ Future<void> configureDependencies({
             appProOverride.isForcingPro,
         readIsSignedIn: () async =>
             (await getIt<IdentityRepository>().readIdentity()) != null,
-        proShouldAsk: () => getIt<ProPromptRules>().shouldAsk(),
+        proShouldAsk: () => getIt<ProAskRules>().shouldAsk(),
         isSetupDone: () => getIt<SetupGate>().isDone(),
         isWeb: kIsWeb,
         isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
@@ -596,9 +596,9 @@ Future<void> configureDependencies({
         isFeatureGuideActive: () => getIt<FeatureGuideCubit>().state.isActive,
       ),
     )
-    ..registerLazySingleton<ProPromptRules>(
-      () => ProPromptRules(
-        homePromptRepository: getIt<HomePromptRepository>(),
+    ..registerLazySingleton<ProAskRules>(
+      () => ProAskRules(
+        noticeRepository: getIt<InAppNoticeRepository>(),
         accountRepository: getIt<AccountRepository>(),
         offersOn: () => getIt<ReminderStore>().readSwitches().offers,
         isSetupDone: () => getIt<SetupGate>().isDone(),
@@ -606,7 +606,7 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton<HomeAskRules>(
       () => HomeAskRules(
-        homePromptRepository: getIt<HomePromptRepository>(),
+        noticeRepository: getIt<InAppNoticeRepository>(),
         privacyRepository: getIt<PrivacyRepository>(),
         settle: () => getIt<ReminderSettler>().settleAsks(now: DateTime.now()),
         isSetupDone: () => getIt<SetupGate>().isDone(),
@@ -804,7 +804,7 @@ Future<void> configureDependencies({
       ),
     )
     // "Is an alarm under way on this phone", read off the shared list. Every
-    // guard that keeps sheets, banners and navigation away from an alarm
+    // guard that keeps sheets, notices and navigation away from an alarm
     // asks this one object.
     ..registerLazySingleton(
       () => AlarmFocus(
@@ -1134,7 +1134,7 @@ Future<void> configureDependencies({
     ..registerFactory(
       () => ReminderLabCubit(
         store: getIt<ReminderStore>(),
-        prompts: getIt<HomePromptRepository>(),
+        notices: getIt<InAppNoticeRepository>(),
         scheduler: getIt<ReminderScheduler>(),
         copy: ReminderCopy(
           isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
@@ -1207,7 +1207,7 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton(
       () => ProEnding(
-        prompts: getIt<HomePromptRepository>(),
+        notices: getIt<InAppNoticeRepository>(),
         plan: getIt<PlanStatusSource>(),
         readIdentity: () => getIt<DeviceIdentityStore>().readOrCreate(),
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
@@ -1220,13 +1220,13 @@ Future<void> configureDependencies({
         onPaidChanged: () => getIt<WidgetSync>().rewrite(),
       ),
     )
-    ..registerFactoryParam<HomePromptCubit, ShellCubit?, void>(
-      (shellCubit, _) => HomePromptCubit(
+    ..registerFactoryParam<InAppNoticeCubit, ShellCubit?, void>(
+      (shellCubit, _) => InAppNoticeCubit(
         getConnectionUsecase: getIt<GetConnectionUsecase>(),
         shellCubit: shellCubit ?? getIt<ShellCubit>(),
         identityRepository: getIt<IdentityRepository>(),
         accountRepository: getIt<AccountRepository>(),
-        homePromptRepository: getIt<HomePromptRepository>(),
+        noticeRepository: getIt<InAppNoticeRepository>(),
         proEnding: getIt<ProEnding>(),
         identityChanges: appAccountIdentityChanges,
       ),

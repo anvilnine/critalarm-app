@@ -13,7 +13,7 @@ import 'package:critalarm/features/reminders/domain/reminder_switches.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../helpers/fake_home_prompt_repository.dart';
+import '../../../helpers/fake_in_app_notice_repository.dart';
 import '../fake_reminder_scheduler.dart';
 
 /// Counts every schedule call and can fail some of them.
@@ -57,7 +57,7 @@ Matcher sameMomentAs(DateTime expected) => predicate<DateTime?>(
 void main() {
   late _FlakyStore store;
   late _TestScheduler scheduler;
-  late FakeHomePromptRepository prompts;
+  late FakeInAppNoticeRepository notices;
   final clock = DateTime.utc(2026, 9, 22, 12);
 
   // A drill for prod-db on Saturday 26 September at 10:00 (UTC wall-clock).
@@ -76,7 +76,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     store = _FlakyStore(await SharedPreferences.getInstance());
     scheduler = _TestScheduler();
-    prompts = FakeHomePromptRepository();
+    notices = FakeInAppNoticeRepository();
   });
 
   ReminderPlanPass pass(
@@ -86,7 +86,7 @@ void main() {
   }) => ReminderPlanPass(
     store: store,
     scheduler: scheduler,
-    settler: ReminderSettler(store: store, prompts: prompts),
+    settler: ReminderSettler(store: store, notices: notices),
     readInputs: readInputs,
     copy: const ReminderCopy(isIos: true),
     isPaused: isPaused,

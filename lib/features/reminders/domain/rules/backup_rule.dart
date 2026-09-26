@@ -27,7 +27,7 @@ abstract final class BackupRule {
     if (made.length < minTopics) return null;
 
     var due = made[minTopics - 1].add(afterSecondTopic);
-    final dismissed = inputs.accountPromptDismissedAt;
+    final dismissed = inputs.accountNoticeDismissedAt;
     if (dismissed != null) {
       due = ReminderDates.later(due, dismissed.add(snooze));
     }

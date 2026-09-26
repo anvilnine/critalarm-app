@@ -13,14 +13,14 @@ import 'package:critalarm/features/feature_guides/presentation/cubits/feature_gu
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_examples.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
+import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
+import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
+import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_state.dart';
+import 'package:critalarm/features/in_app_notices/presentation/home_asks.dart';
+import 'package:critalarm/features/in_app_notices/presentation/widgets/in_app_notice_slot.dart';
+import 'package:critalarm/features/in_app_notices/presentation/widgets/notice_detail_sheet.dart';
+import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_plan_sheet.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/pro_status_badge.dart';
-import 'package:critalarm/features/prompts/domain/pro_ending.dart';
-import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
-import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
-import 'package:critalarm/features/prompts/presentation/home_asks.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/home_prompt_slot.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/pro_plan_sheet.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/prompt_detail_sheet.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
@@ -49,7 +49,7 @@ class HomeScreen extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) {
-            final cubit = getIt<HomePromptCubit>(
+            final cubit = getIt<InAppNoticeCubit>(
               param1: context.read<ShellCubit>(),
             );
             unawaited(cubit.load());
@@ -122,7 +122,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      unawaited(context.read<HomePromptCubit>().onAppResumed());
+      unawaited(context.read<InAppNoticeCubit>().onAppResumed());
       unawaited(_runHomeAsk());
     }
   }
@@ -133,7 +133,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   void didPopNext() {
     if (!mounted) return;
     unawaited(context.read<HomeCubit>().refresh());
-    unawaited(context.read<HomePromptCubit>().refresh());
+    unawaited(context.read<InAppNoticeCubit>().refresh());
   }
 
   /// While anything is ringing, the app is the alarm. The list is no use to
@@ -220,9 +220,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           BlocBuilder<FeatureGuideCubit, FeatureGuideState>(
             bloc: _guides,
             builder: (context, guide) =>
-                BlocBuilder<HomePromptCubit, HomePromptState>(
-                  builder: (context, prompt) =>
-                      _build(context, size, state, guide, prompt),
+                BlocBuilder<InAppNoticeCubit, InAppNoticeState>(
+                  builder: (context, notice) =>
+                      _build(context, size, state, guide, notice),
                 ),
           ),
     );
@@ -233,7 +233,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     AppSize size,
     HomeState real,
     FeatureGuideState guide,
-    HomePromptState prompt,
+    InAppNoticeState notice,
   ) {
     // While the guide runs, the list gets an example topic that is ringing,
     // so the user sees what trouble looks like before it happens. Someone
@@ -320,9 +320,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       severity: state.severity,
       child: AppScreenScaffold(
         onFaceRefresh: () async {
-          final promptCubit = context.read<HomePromptCubit>();
+          final noticeCubit = context.read<InAppNoticeCubit>();
           final homeCubit = context.read<HomeCubit>();
-          await promptCubit.refresh();
+          await noticeCubit.refresh();
           return homeCubit.refresh();
         },
         // Search is not up here any more. It lives next to the compose
@@ -336,9 +336,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           ),
         ),
         // The one pill floating above the tab bar: Pro ending first, then the
-        // sign-in reminder.
+        // sign-in notice.
         // Nothing but the guide while one is up: the pill comes back after.
-        bottomBar: guide.isActive ? null : _nudgeBar(context, prompt),
+        bottomBar: guide.isActive ? null : _noticeBar(context, notice),
         detail: state.topicItems.isEmpty
             ? null
             : (selected == null
@@ -354,12 +354,12 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                     )),
         slivers: [
           // Single slot orchestrating blocker errors, health warnings,
-          // and dismissible growth prompts above the stage.
+          // and dismissible growth notices above the stage.
           // Hidden while a guide is up, so no card slides in under it.
           SliverToBoxAdapter(
             child: guide.isActive
                 ? const SizedBox.shrink()
-                : const HomePromptSlot(),
+                : const InAppNoticeSlot(),
           ),
           // A failed load has something to say too, and it says it up here
           // rather than leaving the face out and the screen silent.
@@ -510,13 +510,13 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   }
 
   /// The one pill floating above the tab bar: Pro ending first, then the
-  /// sign-in reminder.
-  Widget? _nudgeBar(BuildContext context, HomePromptState prompt) {
-    final cubit = context.read<HomePromptCubit>();
-    switch (prompt.promptType) {
-      case HomePromptType.proEnding:
-        final endsAt = prompt.proEndsAt!;
-        return AppPinnedNudgeBar(
+  /// sign-in notice.
+  Widget? _noticeBar(BuildContext context, InAppNoticeState notice) {
+    final cubit = context.read<InAppNoticeCubit>();
+    switch (notice.noticeType) {
+      case InAppNoticeType.proEnding:
+        final endsAt = notice.proEndsAt!;
+        return AppPinnedNoticeBar(
           face: FaceState.watching,
           title: LocaleKeys.home_pro_ending_pill.tr(
             namedArgs: {'weekday': DateFormat('EEEE').format(endsAt)},
@@ -531,13 +531,13 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           ),
           onDismiss: () => unawaited(cubit.dismissCurrent()),
         );
-      case HomePromptType.accountBackup:
-        return AppPinnedNudgeBar(
+      case InAppNoticeType.accountBackup:
+        return AppPinnedNoticeBar(
           face: FaceState.watching,
           title: LocaleKeys.home_account_prompt_title.tr(),
           linkLabel: LocaleKeys.home_prompt_why.tr(),
           onTap: () => unawaited(
-            showPromptDetailSheet(
+            showNoticeDetailSheet(
               context: context,
               face: FaceState.watching,
               title: LocaleKeys.home_account_prompt_title.tr(),
@@ -549,9 +549,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           ),
           onDismiss: () => unawaited(cubit.dismissCurrent()),
         );
-      case HomePromptType.none:
-      case HomePromptType.noServer:
-      case HomePromptType.criticalHealth:
+      case InAppNoticeType.none:
+      case InAppNoticeType.noServer:
+      case InAppNoticeType.criticalHealth:
         return null;
     }
   }

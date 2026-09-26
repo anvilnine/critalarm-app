@@ -1,4 +1,4 @@
-import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
+import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
 import 'package:critalarm/features/reminders/domain/reminder_args.dart';
 import 'package:critalarm/features/reminders/domain/reminder_candidate.dart';
 import 'package:critalarm/features/reminders/domain/reminder_dates.dart';

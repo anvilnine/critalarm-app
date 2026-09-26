@@ -1,9 +1,9 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
-import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/pro_prompt_sheet.dart';
+import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
+import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
+import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_ask_sheet.dart';
 import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
 import 'package:critalarm/features/reminders/domain/reminder_store.dart';
 import 'package:critalarm/features/reminders/presentation/widgets/reminders_sheet.dart';
@@ -30,11 +30,11 @@ Future<void> askRemindersSheet(BuildContext context) async {
 /// once more right before showing, because the user may have bought Pro
 /// since the moment that decided to ask. Shows nothing if [context] is gone.
 Future<void> askProSheet(BuildContext context) async {
-  if (!await getIt<ProPromptRules>().shouldAsk()) return;
+  if (!await getIt<ProAskRules>().shouldAsk()) return;
   if (!context.mounted) return;
-  await showProPromptSheet(
+  await showProAskSheet(
     context: context,
-    repository: getIt<HomePromptRepository>(),
+    repository: getIt<InAppNoticeRepository>(),
   );
 }
 

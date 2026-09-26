@@ -1,4 +1,4 @@
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
+import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/reminders/domain/planned_record.dart';
 import 'package:critalarm/features/reminders/domain/reminder_kind.dart';
 import 'package:critalarm/features/reminders/domain/reminder_store.dart';
@@ -10,7 +10,7 @@ import 'package:critalarm/features/reminders/domain/reminder_store.dart';
 final class ReminderSettler {
   ReminderSettler({
     required ReminderStore store,
-    required HomePromptRepository prompts,
+    required InAppNoticeRepository notices,
   }) : // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
@@ -18,10 +18,10 @@ final class ReminderSettler {
        // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
-       _prompts = prompts;
+       _notices = notices;
 
   final ReminderStore _store;
-  final HomePromptRepository _prompts;
+  final InAppNoticeRepository _notices;
 
   /// Ideas 21 and 22. Runs at the start of every plan pass and at the start
   /// of `HomeAskRules.next()`, so a delivered review ask counts as one of
@@ -29,12 +29,12 @@ final class ReminderSettler {
   Future<void> settleAsks({required DateTime now}) async {
     final review = _store.readReviewFireAt();
     if (review != null && !review.isAfter(now)) {
-      await _prompts.markReviewAsked(at: review);
+      await _notices.markReviewAsked(at: review);
       await _store.writeReviewFireAt(null);
     }
     final feedback = _store.readFeedbackFireAt();
     if (feedback != null && !feedback.isAfter(now)) {
-      await _prompts.markFeedbackAsked(at: feedback);
+      await _notices.markFeedbackAsked(at: feedback);
       await _store.writeFeedbackFireAt(null);
     }
   }
@@ -44,8 +44,8 @@ final class ReminderSettler {
     await settleAsks(now: now);
 
     if (await _store.takePendingProDismiss()) {
-      await _prompts.markProPromptAsked();
-      await _prompts.dismissProPrompt();
+      await _notices.markProAsked();
+      await _notices.dismissProAsk();
     }
 
     final left = <PlannedRecord>[];
@@ -74,13 +74,13 @@ final class ReminderSettler {
       case ReminderKind.silentTopic:
         if (key != null) await _store.addSilentDone(key);
       case ReminderKind.backup:
-        await _prompts.dismissAccountPrompt();
+        await _notices.dismissAccountNotice();
       case ReminderKind.planHeadsUp:
         if (key != null) await _store.addPlanNoticeSent(key);
       case ReminderKind.morningAfter:
         if (key != null) await _store.addMorningAfterDone(key);
       case ReminderKind.proLater:
-        await _prompts.clearProPromptLater();
+        await _notices.clearProAskLater();
       case ReminderKind.reviewAsk:
       case ReminderKind.feedbackAsk:
         // Counted through their own keys in settleAsks.

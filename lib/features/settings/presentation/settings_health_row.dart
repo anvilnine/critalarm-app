@@ -35,7 +35,7 @@ class SettingsHealthRow {
           ? FaceState.watching
           : FaceState.worried,
       issueCount: missing.length,
-      // Same wording as the banner on Home, so the two never disagree.
+      // Same wording as the notice on Home, so the two never disagree.
       subtitle: missing.length == 1
           ? LocaleKeys.setup_health_banner_one.tr(
               namedArgs: {'name': missing.first.title},
