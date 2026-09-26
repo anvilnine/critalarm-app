@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <clipPath id="squircle">
+      <rect width="1024" height="1024" rx="230" ry="230"/>
+    </clipPath>
+  </defs>
+  <rect id="badge-bg" width="1024" height="1024" rx="230" ry="230" fill="#FF8A1F"/>
+  <g clip-path="url(#squircle)">
+    <path d="M -20 133 L 250 133 A 304 304 0 0 1 554 437 L 554 639 A 304 304 0 0 1 250 943 L -20 943 Z" fill="#FFC93C"/>
+    <path d="M -20 169 L 250 169 A 268 268 0 0 1 518 437 L 518 639 A 268 268 0 0 1 250 907 L -20 907" fill="none" stroke="#1A140F" stroke-width="72" stroke-linecap="butt"/>
+    <path d="M 178 487 Q 258 543 338 487" fill="none" stroke="#1A140F" stroke-width="68" stroke-linecap="round"/>
+    <path d="M 65 693 C 90 712, 145 712, 235 656" fill="none" stroke="#1A140F" stroke-width="66" stroke-linecap="round"/>
+  </g>
+  <line x1="840" y1="335" x2="695" y2="600" stroke="#FFFFFF" stroke-width="140" stroke-linecap="round"/>
+  <circle cx="660" cy="771" r="73" fill="#FFFFFF"/>
+</svg>
