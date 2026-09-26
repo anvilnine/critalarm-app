@@ -1,4 +1,4 @@
-import 'package:critalarm/features/reminders/domain/reminder_inputs.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_inputs.dart';
 
 /// When the "Pro ends" pill shows, for a plan that was cancelled but has not
 /// ended yet. Pure, so it tests without a clock or a store.

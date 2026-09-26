@@ -1,5 +1,5 @@
 import 'package:critalarm/features/in_app_notices/domain/pro_ending_rule.dart';
-import 'package:critalarm/features/reminders/domain/reminder_inputs.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_inputs.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

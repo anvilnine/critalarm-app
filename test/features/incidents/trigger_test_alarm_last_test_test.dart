@@ -2,23 +2,25 @@ import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
-import 'package:critalarm/features/reminders/data/shared_prefs_reminder_store.dart';
+import 'package:critalarm/features/local_reminders/data/shared_prefs_local_reminder_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  late SharedPrefsReminderStore store;
+  late SharedPrefsLocalReminderStore store;
   late TriggerTestAlarmUsecase usecase;
   late List<String> tested;
   final at = DateTime(2026, 9, 22, 14);
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    store = SharedPrefsReminderStore(await SharedPreferences.getInstance());
+    store = SharedPrefsLocalReminderStore(
+      await SharedPreferences.getInstance(),
+    );
     tested = [];
     usecase = TriggerTestAlarmUsecase(
       InMemoryIncidentRepository(MockApiClient(MockServer()..seedCalm())),
-      reminderStore: store,
+      localReminderStore: store,
       now: () => at,
       onTested: (topic) {
         // The stamp is already written when the hook runs.
@@ -49,7 +51,7 @@ void main() {
   test('a throwing onTested never fails the test ring', () async {
     final throwing = TriggerTestAlarmUsecase(
       InMemoryIncidentRepository(MockApiClient(MockServer()..seedCalm())),
-      reminderStore: store,
+      localReminderStore: store,
       now: () => at,
       onTested: (_) => throw StateError('boom'),
     );

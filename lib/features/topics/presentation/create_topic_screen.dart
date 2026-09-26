@@ -12,7 +12,7 @@ import 'package:critalarm/features/feature_guides/presentation/feature_guide_ste
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_ask_sheet.dart';
-import 'package:critalarm/features/reminders/domain/reminder_settler.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_settler.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/topic_name_formatter.dart';
@@ -147,7 +147,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     final repository = getIt<InAppNoticeRepository>();
     // A delivered review or feedback reminder counts as an ask before the
     // Pro rules read the ask times.
-    await getIt<ReminderSettler>().settleAsks(now: DateTime.now());
+    await getIt<LocalReminderSettler>().settleAsks(now: DateTime.now());
     if (!await rules.shouldAsk()) return;
     if (!context.mounted) return;
     await showProAskSheet(context: context, repository: repository);

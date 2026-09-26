@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
-import 'package:critalarm/core/telemetry/reminder_analytics.dart';
+import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/ask_sheet_parts.dart';
@@ -24,8 +24,8 @@ Future<void> showProAskSheet({
   required BuildContext context,
   required InAppNoticeRepository repository,
 }) {
-  final analytics = getIt.isRegistered<ReminderAnalytics>()
-      ? getIt<ReminderAnalytics>()
+  final analytics = getIt.isRegistered<LocalReminderAnalytics>()
+      ? getIt<LocalReminderAnalytics>()
       : null;
   unawaited(repository.markProAsked());
   return showAppSheet<void>(
@@ -34,21 +34,21 @@ Future<void> showProAskSheet({
       onSeePlans: () {
         Navigator.of(sheetContext).pop();
         unawaited(
-          analytics?.proAskAnswered(answer: ReminderAnalytics.seePlans),
+          analytics?.proAskAnswered(answer: LocalReminderAnalytics.seePlans),
         );
         openAppPath(context, '/paywall');
       },
       onRemindLater: () {
         Navigator.of(sheetContext).pop();
         unawaited(
-          analytics?.proAskAnswered(answer: ReminderAnalytics.remindLater),
+          analytics?.proAskAnswered(answer: LocalReminderAnalytics.remindLater),
         );
         unawaited(repository.remindProAskLater());
       },
       onNotNow: () {
         Navigator.of(sheetContext).pop();
         unawaited(
-          analytics?.proAskAnswered(answer: ReminderAnalytics.notNow),
+          analytics?.proAskAnswered(answer: LocalReminderAnalytics.notNow),
         );
         unawaited(repository.dismissProAsk());
       },

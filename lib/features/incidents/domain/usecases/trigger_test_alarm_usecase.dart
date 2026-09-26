@@ -1,7 +1,7 @@
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
-import 'package:critalarm/features/reminders/domain/reminder_store.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_store.dart';
 import 'package:flutter/foundation.dart';
 
 /// Usecase to trigger a test alarm on a critical topic.
@@ -13,17 +13,17 @@ import 'package:flutter/foundation.dart';
 class TriggerTestAlarmUsecase implements UseCase<String, String> {
   TriggerTestAlarmUsecase(
     this._repository, {
-    ReminderStore? reminderStore,
+    LocalReminderStore? localReminderStore,
     DateTime Function()? now,
     this.onTested,
   }) : // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
-       _reminderStore = reminderStore,
+       _localReminderStore = localReminderStore,
        _now = now ?? DateTime.now;
 
   final IncidentRepository _repository;
-  final ReminderStore? _reminderStore;
+  final LocalReminderStore? _localReminderStore;
   final DateTime Function() _now;
 
   /// Told about a topic whose test ring the server accepted.
@@ -33,7 +33,7 @@ class TriggerTestAlarmUsecase implements UseCase<String, String> {
   Future<AppResult<String>> call(String topic) async {
     final result = await _repository.triggerTest(topic: topic);
     if (result.isSuccess()) {
-      await _reminderStore?.markTested(topic, _now());
+      await _localReminderStore?.markTested(topic, _now());
       // A failing hook must not turn a rung test into a thrown error.
       try {
         onTested?.call(topic);
