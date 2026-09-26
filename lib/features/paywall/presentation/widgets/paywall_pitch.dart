@@ -28,7 +28,7 @@ class PaywallPitch extends StatelessWidget {
   }
 }
 
-/// Three bullets and the self-hosting note.
+/// Four bullets and the self-hosting note.
 class _StraightPitch extends StatelessWidget {
   const _StraightPitch();
 
@@ -51,6 +51,10 @@ class _StraightPitch extends StatelessWidget {
         AppFeatureBullet(
           text: LocaleKeys.paywall_feature_history.tr(),
           glyph: GlyphType.repeat,
+        ),
+        const SizedBox(height: 12),
+        AppFeatureBullet(
+          text: LocaleKeys.paywall_feature_app_icons.tr(),
         ),
         const SizedBox(height: 18),
         AppNote(text: LocaleKeys.paywall_self_hosted_note.tr()),
