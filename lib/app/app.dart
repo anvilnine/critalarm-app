@@ -3,9 +3,9 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/incoming_audio_bindings.dart';
+import 'package:critalarm/app/local_reminder_bindings.dart';
 import 'package:critalarm/app/push_bindings.dart';
 import 'package:critalarm/app/quick_action_bindings.dart';
-import 'package:critalarm/app/reminder_bindings.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
@@ -23,7 +23,7 @@ import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
-import 'package:critalarm/core/telemetry/reminder_analytics.dart';
+import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design_system/theme.dart';
@@ -35,9 +35,9 @@ import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
-import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
-import 'package:critalarm/features/reminders/domain/reminder_scheduler.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/domain/entities/appearance_settings.dart';
 import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_usecase.dart';
@@ -82,8 +82,8 @@ class _CritAlarmAppState extends State<CritAlarmApp>
 
   /// Reminder taps. They route through the same router as everything else,
   /// by [_openPath].
-  late final ReminderBindings _reminders = ReminderBindings(
-    scheduler: getIt<ReminderScheduler>(),
+  late final LocalReminderBindings _reminders = LocalReminderBindings(
+    scheduler: getIt<LocalReminderScheduler>(),
     notices: getIt<InAppNoticeRepository>(),
     readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
     focus: getIt<AlarmFocus>(),
@@ -95,13 +95,13 @@ class _CritAlarmAppState extends State<CritAlarmApp>
       appStoreId: FeedbackLinks.appStoreId,
     ),
     openFeedbackForm: _openFeedbackForm,
-    analytics: getIt<ReminderAnalytics>(),
+    analytics: getIt<LocalReminderAnalytics>(),
   );
 
   late final QuickActionBindings _quickActions = QuickActionBindings(
     topics: getIt<TopicsCubit>(),
     navigate: _openPath,
-    analytics: getIt<ReminderAnalytics>(),
+    analytics: getIt<LocalReminderAnalytics>(),
   );
 
   /// The rule `openAppPath` follows, without a shell context: a path on
@@ -244,7 +244,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
 
   /// Every open and resume re-plans: time zone, switches, topics and
   /// incidents may all have changed while the app was away.
-  void _replan() => unawaited(getIt<ReminderPlanTrigger>().run());
+  void _replan() => unawaited(getIt<LocalReminderPlanTrigger>().run());
 
   @override
   Widget build(BuildContext context) {

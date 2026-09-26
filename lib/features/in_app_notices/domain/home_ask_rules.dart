@@ -57,8 +57,9 @@ class HomeAskRules {
   final DateTime Function() _now;
 
   /// Books review and feedback reminders whose fire time passed, so a
-  /// delivered one counts before this decides. `ReminderSettler.settleAsks`
-  /// in the app; null in tests that do not care.
+  /// delivered one counts before this decides.
+  /// `LocalReminderSettler.settleAsks` in the app; null in tests that do not
+  /// care.
   final Future<void> Function()? _settle;
 
   /// `SetupGate.isDone` in the app: onboarding finished and the first

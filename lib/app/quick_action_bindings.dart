@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:critalarm/app/state/topics_cubit.dart';
-import 'package:critalarm/core/telemetry/reminder_analytics.dart';
-import 'package:critalarm/features/reminders/domain/quick_action_items.dart';
+import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
+import 'package:critalarm/features/local_reminders/domain/quick_action_items.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:quick_actions/quick_actions.dart';
@@ -15,7 +15,7 @@ class QuickActionBindings {
     required void Function(String path) navigate,
     QuickActions quickActions = const QuickActions(),
     bool isWeb = kIsWeb,
-    ReminderAnalytics? analytics,
+    LocalReminderAnalytics? analytics,
   }) : // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
        // ignore: prefer_initializing_formals
@@ -41,7 +41,7 @@ class QuickActionBindings {
   final void Function(String path) _navigate;
   final QuickActions _quickActions;
   final bool _isWeb;
-  final ReminderAnalytics? _analytics;
+  final LocalReminderAnalytics? _analytics;
 
   StreamSubscription<TopicsState>? _subscription;
   bool? _hasCriticalTopic;

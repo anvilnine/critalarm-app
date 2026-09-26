@@ -23,7 +23,7 @@ abstract final class FeedbackLinks {
   static const String settingsSource = 'settings';
 
   /// `source` for the feedback reminder (idea 22).
-  static const String reminderSource = 'reminder_feedback';
+  static const String localReminderSource = 'reminder_feedback';
 
   /// A `mailto:` link with [subject] and room to type above the device
   /// info.

@@ -135,7 +135,8 @@ class DeveloperSettingsScreen extends StatelessWidget {
                       color: context.appColors.ink3,
                       size: 16,
                     ),
-                    onTap: () => context.push('/settings/developer/reminders'),
+                    onTap: () =>
+                        context.push('/settings/developer/local-reminders'),
                   ),
                   const SizedBox(height: 8),
                   AppListRow(

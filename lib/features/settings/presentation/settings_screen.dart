@@ -282,7 +282,7 @@ class _SettingsScreenContent extends StatelessWidget {
                           title: LocaleKeys.reminders_settings_row_title.tr(),
                           subtitle: LocaleKeys.reminders_settings_row_subtitle
                               .tr(),
-                          path: '/settings/reminders',
+                          path: '/settings/local-reminders',
                         ),
                       ],
                       const SizedBox(height: 14),

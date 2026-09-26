@@ -13,13 +13,13 @@ import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/features/local_reminders/domain/after_ack_decider.dart';
+import 'package:critalarm/features/local_reminders/domain/incident_kinds.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_settler.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_store.dart';
+import 'package:critalarm/features/local_reminders/presentation/widgets/local_reminder_ask_sheets.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
-import 'package:critalarm/features/reminders/domain/after_ack_decider.dart';
-import 'package:critalarm/features/reminders/domain/incident_kinds.dart';
-import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
-import 'package:critalarm/features/reminders/domain/reminder_settler.dart';
-import 'package:critalarm/features/reminders/domain/reminder_store.dart';
-import 'package:critalarm/features/reminders/presentation/widgets/reminder_ask_sheets.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -66,12 +66,12 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
     // 1.5 seconds, and a sheet must not open over it.
     final cubit = context.read<CriticalAlarmCubit>();
     await Future<void>.delayed(const Duration(milliseconds: 1500));
-    final store = getIt<ReminderStore>();
+    final store = getIt<LocalReminderStore>();
     final notices = getIt<InAppNoticeRepository>();
     final incident = state.incident;
     // A delivered review or feedback reminder counts as an ask before the
     // Pro rules read the ask times.
-    await getIt<ReminderSettler>().settleAsks(now: DateTime.now());
+    await getIt<LocalReminderSettler>().settleAsks(now: DateTime.now());
     final proShouldAsk = await getIt<ProAskRules>().shouldAsk();
     final now = DateTime.now();
     final lastSheet = notices.getAfterAckSheetShownAt();
@@ -79,7 +79,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
       isSetupDone: await getIt<SetupGate>().isDone(),
       ackedAt: now,
       isTestAck: incident == null || IncidentKinds.isTest(incident),
-      isRemindersSheetShown: store.readSheetShown(),
+      isLocalRemindersSheetShown: store.readSheetShown(),
       isWeb: kIsWeb,
       offersOn: store.readSwitches().offers,
       proShouldAsk: proShouldAsk,
@@ -88,20 +88,20 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
     );
     // Stamped before the sheet opens, so the second ack of the same day gets
     // nothing whichever of the two was shown.
-    if (next == AfterAck.remindersSheet || next == AfterAck.proSheet) {
+    if (next == AfterAck.localRemindersSheet || next == AfterAck.proSheet) {
       await notices.markAfterAckSheetShown();
     }
     // Only the two sheets need this screen. Planning the morning after and
     // owing the Pro sheet happen even if the user already left it.
     switch (next) {
-      case AfterAck.remindersSheet:
+      case AfterAck.localRemindersSheet:
         if (!mounted) return;
-        await askRemindersSheet(context);
+        await askLocalRemindersSheet(context);
       case AfterAck.proSheet:
         if (!mounted) return;
         await askProSheet(context);
       case AfterAck.planMorningAfter:
-        unawaited(getIt<ReminderPlanTrigger>().run());
+        unawaited(getIt<LocalReminderPlanTrigger>().run());
       case AfterAck.proSheetLater:
         await store.writeProSheetOwed(owed: true);
       case AfterAck.nothing:

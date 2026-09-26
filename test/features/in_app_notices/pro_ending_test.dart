@@ -1,9 +1,9 @@
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
-import 'package:critalarm/features/reminders/domain/device_time_zone.dart';
-import 'package:critalarm/features/reminders/domain/plan_status_source.dart';
-import 'package:critalarm/features/reminders/domain/reminder_inputs.dart';
+import 'package:critalarm/features/local_reminders/domain/device_time_zone.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_inputs.dart';
+import 'package:critalarm/features/local_reminders/domain/plan_status_source.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/fake_in_app_notice_repository.dart';
