@@ -6,15 +6,15 @@ import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_examples.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/message_share_text.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
 import 'package:critalarm/features/topics/presentation/widgets/topic_tokens_section.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
-import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
-import 'package:critalarm/features/tour/presentation/tour_examples.dart';
-import 'package:critalarm/features/tour/presentation/tour_steps.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -56,14 +56,16 @@ class TopicDetailScreen extends StatelessWidget {
         ),
       );
     }
-    // The tour's made-up topic is not on the server, so it is drawn from the
+    // The guide's made-up topic is not on the server, so it is drawn from the
     // example instead of being asked for.
-    final isExample = getIt<TourCubit>().state.showsExampleTopic(topicName);
+    final isExample = getIt<FeatureGuideCubit>().state.showsExampleTopic(
+      topicName,
+    );
     return BlocProvider(
       create: (_) {
         final cubit = getIt<TopicDetailCubit>();
         if (isExample) {
-          cubit.showExample(TourExamples.topicDetail());
+          cubit.showExample(FeatureGuideExamples.topicDetail());
         } else {
           unawaited(cubit.load(topicName));
         }
@@ -87,7 +89,7 @@ class _TopicDetailScreenContent extends StatelessWidget {
 
   final bool isPane;
 
-  /// The tour's example topic. It has no tokens on the server to list.
+  /// The guide's example topic. It has no tokens on the server to list.
   final bool isExample;
 
   /// Opens the "Get curl line" token sheet as soon as the tokens load.
@@ -466,8 +468,8 @@ class _TopicDetailScreenContent extends StatelessWidget {
                         AppSectionHeader(
                           LocaleKeys.topic_detail_settings_header.tr(),
                         ),
-                        TourAnchor(
-                          id: TourAnchorId.topicCritical,
+                        FeatureGuideAnchor(
+                          id: FeatureGuideAnchorId.topicCritical,
                           child: AppToggleRow(
                             title: LocaleKeys.topic_detail_critical_toggle_title
                                 .tr(),
@@ -513,15 +515,15 @@ class _TopicDetailScreenContent extends StatelessWidget {
                             onChanged: state.canEditCritical
                                 ? (val) async {
                                     AppHaptics.selection();
-                                    final cubit =
-                                        context.read<TopicDetailCubit>();
+                                    final cubit = context
+                                        .read<TopicDetailCubit>();
                                     if (!val &&
                                         await cubit.turningOffIsOneWay()) {
                                       if (!context.mounted) return;
                                       final confirmed =
                                           await _confirmTurnOffCritical(
-                                        context,
-                                      );
+                                            context,
+                                          );
                                       if (confirmed != true) return;
                                     }
                                     await cubit.toggleCriticalDelivery(
@@ -534,8 +536,8 @@ class _TopicDetailScreenContent extends StatelessWidget {
                         const SizedBox(height: 8),
                         // Per-topic sound. Stored on the device only, so it
                         // is not part of the topic the server knows about.
-                        TourAnchor(
-                          id: TourAnchorId.topicSound,
+                        FeatureGuideAnchor(
+                          id: FeatureGuideAnchorId.topicSound,
                           child: AppListRow(
                             name: LocaleKeys.topic_detail_sound_row_title.tr(),
                             meta: LocaleKeys.topic_detail_sound_row_default
@@ -553,8 +555,8 @@ class _TopicDetailScreenContent extends StatelessWidget {
                         const AppSectionDivider(),
                         // Last on the sheet, so nothing is reached past to
                         // get to it.
-                        TourAnchor(
-                          id: TourAnchorId.topicDelete,
+                        FeatureGuideAnchor(
+                          id: FeatureGuideAnchorId.topicDelete,
                           child: AppButton(
                             label: LocaleKeys.topic_detail_delete_button.tr(),
                             variant: AppButtonVariant.dangerText,

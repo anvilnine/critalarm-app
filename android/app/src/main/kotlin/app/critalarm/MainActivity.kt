@@ -17,8 +17,8 @@ import app.critalarm.alarm.AlarmChannel
 import app.critalarm.appicon.AppIconChannel
 import app.critalarm.notifications.LiveUpdate
 import app.critalarm.notifications.NotificationChannels
-import app.critalarm.reminders.ReminderChannel
-import app.critalarm.reminders.ReminderTapIntent
+import app.critalarm.localreminders.LocalReminderChannel
+import app.critalarm.localreminders.LocalReminderTapIntent
 import app.critalarm.sound.IncomingAudioHolder
 import app.critalarm.sound.SoundChannel
 import app.critalarm.widgets.WidgetChannel
@@ -80,12 +80,12 @@ class MainActivity : FlutterFragmentActivity() {
         val appIcon = AppIconChannel(applicationContext)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AppIconChannel.NAME)
             .setMethodCallHandler(appIcon::handle)
-        val reminders = ReminderChannel(applicationContext) {
+        val reminders = LocalReminderChannel(applicationContext) {
             val tap = pendingReminderTap
             pendingReminderTap = null
             tap
         }
-        reminderChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ReminderChannel.NAME)
+        reminderChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LocalReminderChannel.NAME)
             .also { it.setMethodCallHandler(reminders::handle) }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SETTINGS_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
@@ -286,7 +286,7 @@ class MainActivity : FlutterFragmentActivity() {
      * `getInitialRoute` never sees it. iOS hands a warm tap over the same way.
      */
     override fun onNewIntent(intent: Intent) {
-        val reminderTap = ReminderTapIntent.read(this, intent)
+        val reminderTap = LocalReminderTapIntent.read(this, intent)
         val tap = readTap(intent)
         readIncomingAudio(intent)
         setIntent(intent)
@@ -309,7 +309,7 @@ class MainActivity : FlutterFragmentActivity() {
         // First launch is where the six channels come from. Creating one that
         // already exists changes nothing, so this is safe to run every time.
         NotificationChannels.ensureCreated(this)
-        pendingReminderTap = ReminderTapIntent.read(this, intent)
+        pendingReminderTap = LocalReminderTapIntent.read(this, intent)
         val alarmLaunch = intent.getStringExtra(EXTRA_ALARM_INCIDENT_ID) != null
         if (alarmLaunch && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)

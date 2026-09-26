@@ -6,8 +6,8 @@ import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
 
 /// The two faces of a dialog card: a light [AppDialogSkin.surface] for
-/// prompts, and the dark [AppDialogSkin.panel] that the tour spotlight card
-/// already uses.
+/// prompts, and the dark [AppDialogSkin.panel] that the Feature Guide
+/// spotlight card already uses.
 enum AppDialogSkin { surface, panel }
 
 /// One button in a dialog, paired with the value it returns.

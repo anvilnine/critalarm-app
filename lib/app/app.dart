@@ -3,9 +3,9 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/incoming_audio_bindings.dart';
+import 'package:critalarm/app/local_reminder_bindings.dart';
 import 'package:critalarm/app/push_bindings.dart';
 import 'package:critalarm/app/quick_action_bindings.dart';
-import 'package:critalarm/app/reminder_bindings.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
@@ -24,27 +24,27 @@ import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
-import 'package:critalarm/core/telemetry/reminder_analytics.dart';
+import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_state.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_host.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
+import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
-import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
-import 'package:critalarm/features/reminders/domain/reminder_scheduler.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/domain/entities/appearance_settings.dart';
 import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/theme_mode_mapper.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_state.dart';
-import 'package:critalarm/features/tour/presentation/tour_host.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -83,9 +83,9 @@ class _CritAlarmAppState extends State<CritAlarmApp>
 
   /// Reminder taps. They route through the same router as everything else,
   /// by [_openPath].
-  late final ReminderBindings _reminders = ReminderBindings(
-    scheduler: getIt<ReminderScheduler>(),
-    prompts: getIt<HomePromptRepository>(),
+  late final LocalReminderBindings _reminders = LocalReminderBindings(
+    scheduler: getIt<LocalReminderScheduler>(),
+    notices: getIt<InAppNoticeRepository>(),
     readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
     focus: getIt<AlarmFocus>(),
     navigate: _openPath,
@@ -96,13 +96,13 @@ class _CritAlarmAppState extends State<CritAlarmApp>
       appStoreId: FeedbackLinks.appStoreId,
     ),
     openFeedbackForm: _openFeedbackForm,
-    analytics: getIt<ReminderAnalytics>(),
+    analytics: getIt<LocalReminderAnalytics>(),
   );
 
   late final QuickActionBindings _quickActions = QuickActionBindings(
     topics: getIt<TopicsCubit>(),
     navigate: _openPath,
-    analytics: getIt<ReminderAnalytics>(),
+    analytics: getIt<LocalReminderAnalytics>(),
   );
 
   /// The rule `openAppPath` follows, without a shell context: a path on
@@ -175,7 +175,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     );
   }
 
-  StreamSubscription<TourState>? _tourSub;
+  StreamSubscription<FeatureGuideState>? _guideSub;
 
   @override
   void initState() {
@@ -187,10 +187,10 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     // this. Re-plan from what is left right away.
     appAccountIdentityChanges.addListener(_replan);
     appPlanChanges.addListener(_replan);
-    // Planning waits while a "How to use the app" guide is up, so plan the
+    // Planning waits while a Feature Guide is up, so plan the
     // moment one ends rather than on the next resume.
-    _tourSub = getIt<TourCubit>().stream
-        .where((tour) => !tour.isActive)
+    _guideSub = getIt<FeatureGuideCubit>().stream
+        .where((guide) => !guide.isActive)
         .listen((_) => _replan());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Plan once the first frame is up, so launch never waits on it.
@@ -210,7 +210,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_quickActions.dispose());
     appAccountIdentityChanges.removeListener(_replan);
     appPlanChanges.removeListener(_replan);
-    unawaited(_tourSub?.cancel());
+    unawaited(_guideSub?.cancel());
     unawaited(_incomingAudio.dispose());
     unawaited(getIt<WidgetSync>().dispose());
     super.dispose();
@@ -251,7 +251,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
 
   /// Every open and resume re-plans: time zone, switches, topics and
   /// incidents may all have changed while the app was away.
-  void _replan() => unawaited(getIt<ReminderPlanTrigger>().run());
+  void _replan() => unawaited(getIt<LocalReminderPlanTrigger>().run());
 
   @override
   Widget build(BuildContext context) {
@@ -295,7 +295,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
                 isIphone:
                     getIt.isRegistered<DeviceForm>() &&
                     getIt<DeviceForm>().isIphone,
-                child: TourHost(
+                child: FeatureGuideHost(
                   router: _router,
                   child: AppAmbientShell(
                     router: _router,

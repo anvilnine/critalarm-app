@@ -6,13 +6,13 @@ import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
 import 'package:critalarm/features/feedback/presentation/help_section.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
 import 'package:critalarm/features/settings/presentation/settings_health_row.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
-import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
-import 'package:critalarm/features/tour/presentation/tour_steps.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -218,8 +218,8 @@ class _SettingsScreenContent extends StatelessWidget {
                       BlocBuilder<ShellCubit, ShellHealth>(
                         builder: (context, health) {
                           final row = SettingsHealthRow.from(health);
-                          return TourAnchor(
-                            id: TourAnchorId.settingsHealth,
+                          return FeatureGuideAnchor(
+                            id: FeatureGuideAnchorId.settingsHealth,
                             child: AppListRow(
                               name: LocaleKeys.settings_health_row_title.tr(),
                               meta: row.subtitle,
@@ -279,10 +279,12 @@ class _SettingsScreenContent extends StatelessWidget {
                         const SizedBox(height: 8),
                         _buildNavRow(
                           context,
-                          title: LocaleKeys.reminders_settings_row_title.tr(),
-                          subtitle: LocaleKeys.reminders_settings_row_subtitle
+                          title: LocaleKeys.local_reminders_settings_row_title
                               .tr(),
-                          path: '/settings/reminders',
+                          subtitle: LocaleKeys
+                              .local_reminders_settings_row_subtitle
+                              .tr(),
+                          path: '/settings/local-reminders',
                         ),
                       ],
                       const SizedBox(height: 14),
@@ -294,21 +296,24 @@ class _SettingsScreenContent extends StatelessWidget {
                       AppSectionHeader(
                         LocaleKeys.settings_setup_header.tr(),
                       ),
-                      TourAnchor(
-                        id: TourAnchorId.settingsTour,
+                      FeatureGuideAnchor(
+                        id: FeatureGuideAnchorId.settingsFeatureGuides,
                         child: AppListRow(
-                          name: LocaleKeys.settings_tour_row_title.tr(),
-                          meta: LocaleKeys.settings_tour_row_subtitle.tr(),
+                          name: LocaleKeys.settings_feature_guides_row_title
+                              .tr(),
+                          meta: LocaleKeys.settings_feature_guides_row_subtitle
+                              .tr(),
                           faceState: null,
                           trailing: AppGlyph(
                             GlyphType.arrow,
                             color: colors.ink3,
                             size: 16,
                           ),
-                          onTap: () => getIt<TourCubit>().request(),
+                          onTap: () => getIt<FeatureGuideCubit>().request(),
                         ),
                       ),
-                      // Debug builds only: a release user gets the tour above.
+                      // Debug builds only: a release user gets the Feature
+                      // Guides above.
                       if (kDebugMode) ...[
                         const SizedBox(height: 8),
                         AppListRow(
