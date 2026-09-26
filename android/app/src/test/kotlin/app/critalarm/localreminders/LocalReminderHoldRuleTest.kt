@@ -1,16 +1,16 @@
-package app.critalarm.reminders
+package app.critalarm.localreminders
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class ReminderHoldRuleTest {
+class LocalReminderHoldRuleTest {
 
     @Test
     fun `a reminder waits while the service is playing an alarm`() {
         assertTrue(
-            ReminderHoldRule.holdsReminder(alarmRinging = true, activeIncidentIds = emptyList()),
+            LocalReminderHoldRule.holdsReminder(alarmRinging = true, activeIncidentIds = emptyList()),
         )
     }
 
@@ -18,7 +18,7 @@ class ReminderHoldRuleTest {
     fun `a reminder waits in the quiet gap before the next ring`() {
         // Stop leaves the incident active, so a re-arm is still coming.
         assertTrue(
-            ReminderHoldRule.holdsReminder(
+            LocalReminderHoldRule.holdsReminder(
                 alarmRinging = false,
                 activeIncidentIds = listOf("inc_1"),
             ),
@@ -28,7 +28,7 @@ class ReminderHoldRuleTest {
     @Test
     fun `a reminder goes out when nothing is under way`() {
         assertFalse(
-            ReminderHoldRule.holdsReminder(alarmRinging = false, activeIncidentIds = emptyList()),
+            LocalReminderHoldRule.holdsReminder(alarmRinging = false, activeIncidentIds = emptyList()),
         )
     }
 
@@ -36,7 +36,7 @@ class ReminderHoldRuleTest {
     fun `nothing held is posted while an incident is still open`() {
         assertEquals(
             emptyList<Int>(),
-            ReminderHoldRule.released(
+            LocalReminderHoldRule.released(
                 heldIds = listOf(7, 3),
                 alarmRinging = false,
                 activeIncidentIds = listOf("inc_1"),
@@ -50,7 +50,7 @@ class ReminderHoldRuleTest {
         // Ringing: it waits.
         assertEquals(
             emptyList<Int>(),
-            ReminderHoldRule.released(
+            LocalReminderHoldRule.released(
                 heldIds = held,
                 alarmRinging = true,
                 activeIncidentIds = listOf("inc_1"),
@@ -61,7 +61,7 @@ class ReminderHoldRuleTest {
         // reminder goes out without an ack ever arriving.
         assertEquals(
             listOf(4),
-            ReminderHoldRule.released(
+            LocalReminderHoldRule.released(
                 heldIds = held,
                 alarmRinging = false,
                 activeIncidentIds = emptyList(),
@@ -73,7 +73,7 @@ class ReminderHoldRuleTest {
     fun `every held reminder is posted after the last ack`() {
         assertEquals(
             listOf(3, 7),
-            ReminderHoldRule.released(
+            LocalReminderHoldRule.released(
                 heldIds = listOf(7, 3),
                 alarmRinging = false,
                 activeIncidentIds = emptyList(),

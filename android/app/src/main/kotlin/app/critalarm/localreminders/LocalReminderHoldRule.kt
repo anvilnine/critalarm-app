@@ -1,4 +1,4 @@
-package app.critalarm.reminders
+package app.critalarm.localreminders
 
 /**
  * Whether a reminder may go out right now.
@@ -12,7 +12,7 @@ package app.critalarm.reminders
  * and the `active:` flags in `IncidentDeliveryStore` (an incident is open on
  * this phone, so a re-arm can still bring the ring back).
  */
-object ReminderHoldRule {
+object LocalReminderHoldRule {
 
     /** True while a reminder has to wait. */
     fun holdsReminder(alarmRinging: Boolean, activeIncidentIds: Collection<String>): Boolean =

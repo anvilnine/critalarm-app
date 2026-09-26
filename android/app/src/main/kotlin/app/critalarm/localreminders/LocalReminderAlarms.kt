@@ -1,4 +1,4 @@
-package app.critalarm.reminders
+package app.critalarm.localreminders
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -11,15 +11,15 @@ import android.util.Log
  * (`setAndAllowWhileIdle`): a reminder landing a few minutes late is fine,
  * and it needs no exact-alarm permission.
  */
-object ReminderAlarms {
-    private const val TAG = "CritAlarmReminders"
+object LocalReminderAlarms {
+    private const val TAG = "CritAlarmLocalReminders"
     const val EXTRA_ID = "reminder_id"
 
     /** A reminder more than this far past due is dropped, not fired late. */
     private const val GRACE_MS = 60_000L
 
-    fun schedule(context: Context, spec: ReminderSpec): Boolean {
-        ReminderSpecStore.put(context, spec)
+    fun schedule(context: Context, spec: LocalReminderSpec): Boolean {
+        LocalReminderSpecStore.put(context, spec)
         return arm(context, spec)
     }
 
@@ -27,22 +27,22 @@ object ReminderAlarms {
         val manager = context.getSystemService(AlarmManager::class.java) ?: return
         ids.forEach {
             manager.cancel(pendingIntent(context, it))
-            ReminderSpecStore.remove(context, it)
+            LocalReminderSpecStore.remove(context, it)
         }
     }
 
     /** After a reboot, an app update or a clock or zone change. */
     fun rearmAll(context: Context) {
-        ReminderSpecStore.all(context).forEach { arm(context, it) }
+        LocalReminderSpecStore.all(context).forEach { arm(context, it) }
     }
 
-    private fun arm(context: Context, spec: ReminderSpec): Boolean {
+    private fun arm(context: Context, spec: LocalReminderSpec): Boolean {
         val manager = context.getSystemService(AlarmManager::class.java) ?: return false
         val at = spec.triggerAtMillis()
         if (at < System.currentTimeMillis() - GRACE_MS) {
             // Missed while the phone was off. The next plan pass decides
             // again rather than firing it at a time the rules never allowed.
-            ReminderSpecStore.remove(context, spec.id)
+            LocalReminderSpecStore.remove(context, spec.id)
             return false
         }
         return try {
@@ -59,7 +59,7 @@ object ReminderAlarms {
         PendingIntent.getBroadcast(
             context,
             id,
-            Intent(context, ReminderReceiver::class.java).putExtra(EXTRA_ID, id),
+            Intent(context, LocalReminderReceiver::class.java).putExtra(EXTRA_ID, id),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 }

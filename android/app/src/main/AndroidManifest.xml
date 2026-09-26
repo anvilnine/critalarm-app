@@ -131,18 +131,18 @@
         <receiver
             android:name=".alarm.ScheduledAlarmReceiver"
             android:exported="false" />
-        <!-- Local reminders. AlarmManager fires ReminderReceiver; the boot
+        <!-- Local reminders. AlarmManager fires LocalReminderReceiver; the boot
              receiver re-arms them after a reboot, an update, or a clock or
              time zone change; the action receiver handles "Not now" without
              opening the app. -->
         <receiver
-            android:name=".reminders.ReminderReceiver"
+            android:name=".localreminders.LocalReminderReceiver"
             android:exported="false" />
         <receiver
-            android:name=".reminders.ReminderActionReceiver"
+            android:name=".localreminders.LocalReminderActionReceiver"
             android:exported="false" />
         <receiver
-            android:name=".reminders.ReminderBootReceiver"
+            android:name=".localreminders.LocalReminderBootReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>

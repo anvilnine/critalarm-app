@@ -1,4 +1,4 @@
-package app.critalarm.reminders
+package app.critalarm.localreminders
 
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
@@ -10,9 +10,9 @@ import android.content.Intent
  * now" on the morning after: it leaves a flag in the preferences file the
  * Flutter side reads, and the next plan pass turns it into a dismissal.
  */
-class ReminderActionReceiver : BroadcastReceiver() {
+class LocalReminderActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val id = intent.getIntExtra(ReminderAlarms.EXTRA_ID, -1)
+        val id = intent.getIntExtra(LocalReminderAlarms.EXTRA_ID, -1)
         if (intent.getStringExtra(EXTRA_ACTION) == NOT_NOW) {
             context.getSharedPreferences(FLUTTER_PREFS, Context.MODE_PRIVATE)
                 .edit()

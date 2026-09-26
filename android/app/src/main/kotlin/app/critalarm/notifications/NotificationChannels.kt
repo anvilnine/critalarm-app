@@ -112,7 +112,7 @@ object NotificationChannels {
         // public version that hides the topic name.
         val reminders = NotificationChannel(
             REMINDERS_CHANNEL_ID,
-            "Reminders",
+            "Local reminders",
             NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             description = "Test checks, silent topics, backups and plan notices"

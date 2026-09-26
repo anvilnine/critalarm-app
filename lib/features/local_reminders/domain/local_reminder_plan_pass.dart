@@ -257,5 +257,5 @@ final class LocalReminderPlanPass implements LocalReminderPlanTrigger {
     );
   }
 
-  void _log(String message) => debugPrint('CritAlarmReminders: $message');
+  void _log(String message) => debugPrint('CritAlarmLocalReminders: $message');
 }

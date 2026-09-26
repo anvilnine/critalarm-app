@@ -283,6 +283,6 @@ final class LocalReminderInputsReader {
   }
 
   void _log(String what, Object error) => debugPrint(
-    'CritAlarmReminders: reading $what failed: ${error.runtimeType}',
+    'CritAlarmLocalReminders: reading $what failed: ${error.runtimeType}',
   );
 }

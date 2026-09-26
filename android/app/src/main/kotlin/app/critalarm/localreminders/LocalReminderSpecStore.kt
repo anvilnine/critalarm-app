@@ -1,4 +1,4 @@
-package app.critalarm.reminders
+package app.critalarm.localreminders
 
 import android.content.Context
 import org.json.JSONObject
@@ -8,25 +8,25 @@ import org.json.JSONObject
  * re-armed after a reboot. AlarmManager itself forgets everything on a
  * reboot and has no way to list what it holds.
  */
-object ReminderSpecStore {
+object LocalReminderSpecStore {
     private const val FILE = "critalarm_reminders"
     private const val HELD = "held_ids"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
-    fun put(context: Context, spec: ReminderSpec) {
+    fun put(context: Context, spec: LocalReminderSpec) {
         prefs(context).edit().putString(spec.id.toString(), spec.toJson().toString()).apply()
     }
 
-    fun get(context: Context, id: Int): ReminderSpec? =
+    fun get(context: Context, id: Int): LocalReminderSpec? =
         prefs(context).getString(id.toString(), null)?.let(::parse)
 
     fun remove(context: Context, id: Int) {
         prefs(context).edit().remove(id.toString()).apply()
     }
 
-    fun all(context: Context): List<ReminderSpec> =
+    fun all(context: Context): List<LocalReminderSpec> =
         prefs(context).all.values.mapNotNull { (it as? String)?.let(::parse) }
 
     /**
@@ -48,6 +48,6 @@ object ReminderSpecStore {
     private fun heldRaw(context: Context): Set<String> =
         prefs(context).getStringSet(HELD, emptySet()) ?: emptySet()
 
-    private fun parse(raw: String): ReminderSpec? =
-        runCatching { ReminderSpec.fromJson(JSONObject(raw)) }.getOrNull()
+    private fun parse(raw: String): LocalReminderSpec? =
+        runCatching { LocalReminderSpec.fromJson(JSONObject(raw)) }.getOrNull()
 }

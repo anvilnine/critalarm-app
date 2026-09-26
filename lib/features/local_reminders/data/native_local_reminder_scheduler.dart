@@ -18,7 +18,7 @@ final class NativeLocalReminderScheduler implements LocalReminderScheduler {
     _channel.setMethodCallHandler(_handle);
   }
 
-  static const channelName = 'app.critalarm/reminders';
+  static const channelName = 'app.critalarm/local_reminders';
 
   final MethodChannel _channel;
   final _taps = StreamController<LocalReminderTap>.broadcast();

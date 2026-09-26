@@ -9,7 +9,7 @@ import app.critalarm.notifications.AlarmNotificationFactory
 import app.critalarm.notifications.IncidentCards
 import app.critalarm.notifications.IncidentPhoneState
 import app.critalarm.notifications.MessageNotificationFactory
-import app.critalarm.reminders.ReminderReceiver
+import app.critalarm.localreminders.LocalReminderReceiver
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import io.flutter.plugin.common.MethodCall
@@ -212,7 +212,7 @@ class AlarmChannel(private val context: Context) {
         if (handOverToStatusCard) {
             deliveries.markLocallyAcknowledged(incidentId, ackedAtMillis)
             // Anything that waited while the alarm was up can go out now.
-            ReminderReceiver.releaseHeld(context)
+            LocalReminderReceiver.releaseHeld(context)
             // Without this the user keeps a promoted RINGING card on an
             // incident the app has already acked, and never sees an AWAKE one.
             NativeConnectionStore(context).canonicalServer()?.let { server ->
@@ -229,7 +229,7 @@ class AlarmChannel(private val context: Context) {
             }
         } else {
             deliveries.markClosed(incidentId)
-            ReminderReceiver.releaseHeld(context)
+            LocalReminderReceiver.releaseHeld(context)
             IncidentCards.clear(context, incidentId, "closed")
         }
         stopped

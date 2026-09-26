@@ -114,7 +114,7 @@ class LocalReminderBindings {
       }
     } on Object catch (error) {
       debugPrint(
-        'CritAlarmReminders: opening ${tap.kind.wireName} failed: '
+        'CritAlarmLocalReminders: opening ${tap.kind.wireName} failed: '
         '${error.runtimeType}',
       );
     }

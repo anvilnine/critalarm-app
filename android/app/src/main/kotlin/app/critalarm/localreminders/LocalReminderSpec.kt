@@ -1,4 +1,4 @@
-package app.critalarm.reminders
+package app.critalarm.localreminders
 
 import org.json.JSONArray
 import org.json.JSONObject
@@ -6,7 +6,7 @@ import java.util.Calendar
 import java.util.TimeZone
 
 /** One button on a reminder. */
-data class ReminderActionSpec(val id: String, val title: String, val opensApp: Boolean)
+data class LocalReminderActionSpec(val id: String, val title: String, val opensApp: Boolean)
 
 /**
  * One reminder as Dart's NativeReminderScheduler sends it.
@@ -15,7 +15,7 @@ data class ReminderActionSpec(val id: String, val title: String, val opensApp: B
  * the phone is in when the alarm is set, and again whenever it is re-armed
  * after a reboot or a zone change, so it keeps its clock time.
  */
-data class ReminderSpec(
+data class LocalReminderSpec(
     val id: Int,
     val kind: String,
     val channelId: String,
@@ -29,7 +29,7 @@ data class ReminderSpec(
     val body: String,
     val hiddenPreview: String,
     val faceAsset: String,
-    val actions: List<ReminderActionSpec>,
+    val actions: List<LocalReminderActionSpec>,
     val payload: Map<String, String>,
 ) {
     fun triggerAtMillis(zone: TimeZone = TimeZone.getDefault()): Long =
@@ -69,10 +69,10 @@ data class ReminderSpec(
     }
 
     companion object {
-        fun fromJson(json: JSONObject): ReminderSpec {
+        fun fromJson(json: JSONObject): LocalReminderSpec {
             val actions = json.optJSONArray("actions") ?: JSONArray()
             val payload = json.optJSONObject("payload") ?: JSONObject()
-            return ReminderSpec(
+            return LocalReminderSpec(
                 id = json.getInt("id"),
                 kind = json.getString("kind"),
                 channelId = json.getString("channel"),
@@ -88,7 +88,7 @@ data class ReminderSpec(
                 faceAsset = json.optString("face_asset"),
                 actions = (0 until actions.length()).map { index ->
                     val item = actions.getJSONObject(index)
-                    ReminderActionSpec(
+                    LocalReminderActionSpec(
                         id = item.getString("id"),
                         title = item.optString("title"),
                         opensApp = item.optBoolean("opens_app", true),
@@ -99,13 +99,13 @@ data class ReminderSpec(
         }
 
         /** Null when a field the scheduler needs is missing. */
-        fun fromArgs(args: Map<*, *>): ReminderSpec? {
+        fun fromArgs(args: Map<*, *>): LocalReminderSpec? {
             fun int(key: String): Int? = (args[key] as? Number)?.toInt()
             fun text(key: String): String = args[key] as? String ?: ""
             val actions = (args["actions"] as? List<*>).orEmpty().mapNotNull { raw ->
                 val item = raw as? Map<*, *> ?: return@mapNotNull null
                 val id = item["id"] as? String ?: return@mapNotNull null
-                ReminderActionSpec(
+                LocalReminderActionSpec(
                     id = id,
                     title = item["title"] as? String ?: "",
                     opensApp = item["opens_app"] as? Boolean ?: true,
@@ -114,7 +114,7 @@ data class ReminderSpec(
             val payload = (args["payload"] as? Map<*, *>).orEmpty().entries
                 .filter { it.key != null && it.value != null }
                 .associate { "${it.key}" to "${it.value}" }
-            return ReminderSpec(
+            return LocalReminderSpec(
                 id = int("id") ?: return null,
                 kind = args["kind"] as? String ?: return null,
                 channelId = args["channel"] as? String ?: return null,

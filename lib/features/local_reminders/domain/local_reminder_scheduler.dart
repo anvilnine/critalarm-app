@@ -124,7 +124,7 @@ final class LocalReminderScheduleRefused implements Exception {
   const LocalReminderScheduleRefused();
 }
 
-/// The native reminder scheduler (`app.critalarm/reminders`).
+/// The native reminder scheduler (`app.critalarm/local_reminders`).
 abstract interface class LocalReminderScheduler {
   /// Throws, for example [LocalReminderScheduleRefused], when the platform did
   /// not arm it.

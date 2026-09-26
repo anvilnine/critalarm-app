@@ -1,4 +1,4 @@
-package app.critalarm.reminders
+package app.critalarm.localreminders
 
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
@@ -9,14 +9,14 @@ import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.storage.IncidentDeliveryStore
 
 /** Posts a reminder when its alarm goes off, unless an alarm is under way. */
-class ReminderReceiver : BroadcastReceiver() {
+class LocalReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val id = intent.getIntExtra(ReminderAlarms.EXTRA_ID, -1)
-        if (ReminderSpecStore.get(context, id) == null) return
+        val id = intent.getIntExtra(LocalReminderAlarms.EXTRA_ID, -1)
+        if (LocalReminderSpecStore.get(context, id) == null) return
         if (holds(context)) {
             // The spec stays on disk, so [releaseHeld] can post it once the
             // last incident is acknowledged.
-            ReminderSpecStore.hold(context, id)
+            LocalReminderSpecStore.hold(context, id)
             Log.i(TAG, "reminder_held_alarm_focus id=$id")
             return
         }
@@ -24,34 +24,34 @@ class ReminderReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        private const val TAG = "CritAlarmReminders"
+        private const val TAG = "CritAlarmLocalReminders"
 
         /** Posts every reminder that waited. Called from each ack path. */
         fun releaseHeld(context: Context) {
-            val ids = ReminderHoldRule.released(
-                heldIds = ReminderSpecStore.heldIds(context),
+            val ids = LocalReminderHoldRule.released(
+                heldIds = LocalReminderSpecStore.heldIds(context),
                 alarmRinging = AlarmForegroundService.isRinging,
                 activeIncidentIds = IncidentDeliveryStore(context).activeIncidentIds(),
             )
             for (id in ids) {
-                ReminderSpecStore.releaseHold(context, id)
+                LocalReminderSpecStore.releaseHold(context, id)
                 Log.i(TAG, "reminder_released_alarm_focus id=$id")
                 post(context, id)
             }
         }
 
-        private fun holds(context: Context) = ReminderHoldRule.holdsReminder(
+        private fun holds(context: Context) = LocalReminderHoldRule.holdsReminder(
             alarmRinging = AlarmForegroundService.isRinging,
             activeIncidentIds = IncidentDeliveryStore(context).activeIncidentIds(),
         )
 
         private fun post(context: Context, id: Int) {
-            val spec = ReminderSpecStore.get(context, id) ?: return
-            ReminderSpecStore.remove(context, id)
+            val spec = LocalReminderSpecStore.get(context, id) ?: return
+            LocalReminderSpecStore.remove(context, id)
             val manager = context.getSystemService(NotificationManager::class.java) ?: return
             if (!manager.areNotificationsEnabled()) return
             try {
-                manager.notify(id, ReminderNotificationFactory.build(context, spec))
+                manager.notify(id, LocalReminderNotificationFactory.build(context, spec))
             } catch (e: SecurityException) {
                 Log.w(TAG, "reminder_post_refused id=$id")
             }
