@@ -1,6 +1,7 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
+import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
@@ -27,6 +28,7 @@ import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_debug_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
+import 'package:critalarm/features/settings/presentation/app_icon_screen.dart';
 import 'package:critalarm/features/settings/presentation/appearance_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubit.dart';
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
@@ -76,6 +78,7 @@ abstract final class AppRoute {
   static const deleteAccount = 'deleteAccount';
   static const privacySettings = 'privacySettings';
   static const appearanceSettings = 'appearanceSettings';
+  static const appIcon = 'appIcon';
   static const reminderSettings = 'reminderSettings';
   static const about = 'about';
   static const developerSettings = 'developerSettings';
@@ -370,6 +373,23 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     key: state.pageKey,
                     child: const AppearanceSettingsScreen(),
                   ),
+                  routes: [
+                    // Only where the platform can change its icon. The web
+                    // cannot, so Appearance has no row for it there and a
+                    // typed URL lands back on Appearance.
+                    GoRoute(
+                      path: 'app-icon',
+                      name: AppRoute.appIcon,
+                      redirect: (context, state) async =>
+                          await getIt<AppIconHost>().canChangeAppIcon()
+                          ? null
+                          : '/settings/appearance',
+                      pageBuilder: (context, state) => AmbientPage(
+                        key: state.pageKey,
+                        child: const AppIconScreen(),
+                      ),
+                    ),
+                  ],
                 ),
                 GoRoute(
                   path: 'privacy',
