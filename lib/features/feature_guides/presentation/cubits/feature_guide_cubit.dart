@@ -31,8 +31,14 @@ class FeatureGuideCubit extends Cubit<FeatureGuideState> {
   /// Asks for [guide] if this device has not seen it yet. Called as its
   /// screen comes up. Ignored while another guide is going: that screen's
   /// guide plays on the next visit instead.
+  ///
+  /// The Topics guide always comes first. Until it has been seen or skipped
+  /// every other screen stays quiet, so the create-your-first-topic screens
+  /// at the end of onboarding never start one. Those screens play their
+  /// guide on the next visit instead.
   void requestIfNew(FeatureGuide guide) {
     if (hasSeen(guide)) return;
+    if (guide != FeatureGuide.home && !hasSeenFirstGuide) return;
     _request(guide);
   }
 

@@ -28,6 +28,7 @@ void main() {
 
   group('starting', () {
     test("a screen's first visit asks for that screen's guide", () {
+      repo.seen.add(FeatureGuide.home.name);
       cubit.requestIfNew(FeatureGuide.settings);
       expect(cubit.state.status, FeatureGuideStatus.requested);
       expect(cubit.state.guide, FeatureGuide.settings);
@@ -97,6 +98,7 @@ void main() {
     });
 
     test('a guide keeps its name once it starts', () {
+      repo.seen.add(FeatureGuide.home.name);
       cubit
         ..requestIfNew(FeatureGuide.topic)
         ..begin(firstTopicName: 'api');
@@ -105,8 +107,50 @@ void main() {
     });
   });
 
+  group('the Topics guide comes first', () {
+    test('a fresh install asks for the Topics guide', () {
+      cubit.requestIfNew(FeatureGuide.home);
+      expect(cubit.state.guide, FeatureGuide.home);
+      expect(cubit.state.status, FeatureGuideStatus.requested);
+    });
+
+    test('creating the first topic in onboarding starts no guide', () {
+      cubit.requestIfNew(FeatureGuide.createTopic);
+      expect(cubit.state.status, FeatureGuideStatus.idle);
+    });
+
+    test('no other screen starts one before it', () {
+      for (final guide in FeatureGuide.values) {
+        if (guide == FeatureGuide.home) continue;
+        cubit.requestIfNew(guide);
+        expect(cubit.state.status, FeatureGuideStatus.idle, reason: guide.name);
+      }
+    });
+
+    test('once it is done, the next screen plays its own', () async {
+      cubit
+        ..requestIfNew(FeatureGuide.home)
+        ..begin(firstTopicName: 'api')
+        ..finish();
+      await Future<void>.delayed(Duration.zero);
+      cubit.requestIfNew(FeatureGuide.createTopic);
+      expect(cubit.state.guide, FeatureGuide.createTopic);
+    });
+
+    test('a skipped Topics guide counts as done', () async {
+      cubit
+        ..requestIfNew(FeatureGuide.home)
+        ..begin()
+        ..finish();
+      await Future<void>.delayed(Duration.zero);
+      cubit.requestIfNew(FeatureGuide.search);
+      expect(cubit.state.guide, FeatureGuide.search);
+    });
+  });
+
   group('a single guide', () {
     setUp(() {
+      repo.seen.add(FeatureGuide.home.name);
       cubit
         ..requestIfNew(FeatureGuide.createTopic)
         ..begin(firstTopicName: 'api');
@@ -124,12 +168,18 @@ void main() {
         cubit.next();
       }
       expect(cubit.state.status, FeatureGuideStatus.idle);
-      expect(repo.seen, {FeatureGuide.createTopic.name});
+      expect(repo.seen, {
+        FeatureGuide.home.name,
+        FeatureGuide.createTopic.name,
+      });
     });
 
     test('skipping marks only it seen', () {
       cubit.finish();
-      expect(repo.seen, {FeatureGuide.createTopic.name});
+      expect(repo.seen, {
+        FeatureGuide.home.name,
+        FeatureGuide.createTopic.name,
+      });
     });
 
     test('does not put the examples on the Topics list', () {
