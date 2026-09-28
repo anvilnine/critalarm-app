@@ -12,6 +12,9 @@ import 'package:critalarm/features/account/presentation/delete_account_screen.da
 import 'package:critalarm/features/history/presentation/history_screen.dart';
 import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
 import 'package:critalarm/features/incidents/presentation/lock_screen.dart';
+import 'package:critalarm/features/local_reminders/presentation/confirm_ring_screen.dart';
+import 'package:critalarm/features/local_reminders/presentation/local_reminder_lab_screen.dart';
+import 'package:critalarm/features/local_reminders/presentation/local_reminder_settings_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_connect_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
@@ -21,9 +24,6 @@ import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.da
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/pro_welcome_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
-import 'package:critalarm/features/reminders/presentation/confirm_ring_screen.dart';
-import 'package:critalarm/features/reminders/presentation/reminder_lab_screen.dart';
-import 'package:critalarm/features/reminders/presentation/reminder_settings_screen.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_debug_screen.dart';
@@ -79,14 +79,14 @@ abstract final class AppRoute {
   static const privacySettings = 'privacySettings';
   static const appearanceSettings = 'appearanceSettings';
   static const appIcon = 'appIcon';
-  static const reminderSettings = 'reminderSettings';
+  static const localReminderSettings = 'localReminderSettings';
   static const about = 'about';
   static const developerSettings = 'developerSettings';
   static const alarmDebug = 'alarmDebug';
   static const dialogSheetGallery = 'dialogSheetGallery';
   static const faceGallery = 'faceGallery';
   static const ringingFaces = 'ringingFaces';
-  static const reminderLab = 'reminderLab';
+  static const localReminderLab = 'localReminderLab';
   static const paywall = 'paywall';
   static const proWelcome = 'proWelcome';
   static const alarm = 'alarm';
@@ -400,11 +400,11 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   ),
                 ),
                 GoRoute(
-                  path: 'reminders',
-                  name: AppRoute.reminderSettings,
+                  path: 'local-reminders',
+                  name: AppRoute.localReminderSettings,
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
-                    child: const ReminderSettingsScreen(),
+                    child: const LocalReminderSettingsScreen(),
                   ),
                 ),
                 GoRoute(
@@ -451,11 +451,11 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                       ),
                     ),
                     GoRoute(
-                      path: 'reminders',
-                      name: AppRoute.reminderLab,
+                      path: 'local-reminders',
+                      name: AppRoute.localReminderLab,
                       pageBuilder: (context, state) => AmbientPage(
                         key: state.pageKey,
-                        child: const ReminderLabScreen(),
+                        child: const LocalReminderLabScreen(),
                       ),
                     ),
                     GoRoute(

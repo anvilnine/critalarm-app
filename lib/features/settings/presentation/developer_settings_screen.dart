@@ -127,15 +127,16 @@ class DeveloperSettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   AppListRow(
-                    name: LocaleKeys.reminders_lab_row_title.tr(),
-                    meta: LocaleKeys.reminders_lab_row_subtitle.tr(),
+                    name: LocaleKeys.local_reminders_lab_row_title.tr(),
+                    meta: LocaleKeys.local_reminders_lab_row_subtitle.tr(),
                     faceState: null,
                     trailing: AppGlyph(
                       GlyphType.arrow,
                       color: context.appColors.ink3,
                       size: 16,
                     ),
-                    onTap: () => context.push('/settings/developer/reminders'),
+                    onTap: () =>
+                        context.push('/settings/developer/local-reminders'),
                   ),
                   const SizedBox(height: 8),
                   AppListRow(

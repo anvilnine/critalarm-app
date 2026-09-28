@@ -17,7 +17,7 @@ import AlarmKit
   private var alarmChannel: FlutterMethodChannel?
   private var soundChannel: FlutterMethodChannel?
   private var settingsChannel: FlutterMethodChannel?
-  private let reminders = ReminderNotifications()
+  private let localReminders = LocalReminderNotifications()
   private var alarmUpdatesTask: Task<Void, Never>?
 
   /// Held until Dart asks for it, which can be after APNs has already
@@ -59,7 +59,7 @@ import AlarmKit
     let started = super.application(application, didFinishLaunchingWithOptions: launchOptions)
 
     startAlarmAndActivityStreams()
-    reminders.registerCategories = { [weak self] in self?.registerNotificationCategories() }
+    localReminders.registerCategories = { [weak self] in self?.registerNotificationCategories() }
     registerNotificationCategories()
     // The engine owns the delegate by default. Take it back so the ACK action
     // and the in-app banner land here.
@@ -168,7 +168,7 @@ import AlarmKit
       }
     }
 
-    reminders.attach(messenger: messenger)
+    localReminders.attach(messenger: messenger)
   }
 
   // MARK: - APNs registration
@@ -216,7 +216,7 @@ import AlarmKit
       options: [.customDismissAction]
     )
     var categories: Set<UNNotificationCategory> = [incident]
-    categories.formUnion(ReminderNotifications.storedCategories())
+    categories.formUnion(LocalReminderNotifications.storedCategories())
     UNUserNotificationCenter.current().setNotificationCategories(categories)
   }
 
@@ -229,8 +229,8 @@ import AlarmKit
   ) {
     // A reminder is not a push: nothing on the server changed, so Dart is
     // not told to reload.
-    let isReminder = ReminderNotifications.isReminder(notification.request)
-    if !isReminder {
+    let isLocalReminder = LocalReminderNotifications.isLocalReminder(notification.request)
+    if !isLocalReminder {
       NSLog("CritAlarm: push_presented_foreground title=%@", notification.request.content.title)
       // Nobody is going to tap this: the app is already open. Tell Dart so the
       // screen the user is on reloads. Nothing about the notification is passed
@@ -245,7 +245,7 @@ import AlarmKit
     // sound. The open list only says whether one is under way; it never
     // decides for an alarm push, whose incident can be new to this phone.
     let options = ForegroundPresentation.options(
-      isReminder: isReminder,
+      isReminder: isLocalReminder,
       incidentId: notification.request.content.userInfo["incident_id"] as? String,
       focusOn: !OpenIncidentStore.focusedIds().isEmpty,
       ackedIds: AckedIncidentStore.all()
@@ -264,8 +264,8 @@ import AlarmKit
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
-    if ReminderNotifications.isReminder(response.notification.request) {
-      reminders.handle(response)
+    if LocalReminderNotifications.isLocalReminder(response.notification.request) {
+      localReminders.handle(response)
       completionHandler()
       return
     }
@@ -1542,15 +1542,15 @@ extension AppDelegate {
 
 // MARK: - Local reminders
 
-/// The native half of Dart's `NativeReminderScheduler`, on the
-/// `app.critalarm/reminders` channel.
+/// The native half of Dart's `NativeLocalReminderScheduler`, on the
+/// `app.critalarm/local_reminders` channel.
 ///
 /// Reminders are local notifications the app plans for itself. They never
 /// look or sound like an alarm: interruption level `.active` and the default
 /// sound, nothing louder. Every request id starts with `reminder_`, which is
 /// how the delegate methods tell one from an incident.
-final class ReminderNotifications {
-  static let channelName = "app.critalarm/reminders"
+final class LocalReminderNotifications {
+  static let channelName = "app.critalarm/local_reminders"
   static let identifierPrefix = "reminder_"
   static let categoriesKey = "critalarm.reminder_categories"
 
@@ -1573,7 +1573,7 @@ final class ReminderNotifications {
   private var dartIsListening = false
   private var tapSequence = 0
 
-  static func isReminder(_ request: UNNotificationRequest) -> Bool {
+  static func isLocalReminder(_ request: UNNotificationRequest) -> Bool {
     request.identifier.hasPrefix(identifierPrefix)
   }
 
@@ -1605,7 +1605,7 @@ final class ReminderNotifications {
 
     case "pending":
       center.getPendingNotificationRequests { requests in
-        let list = requests.filter(Self.isReminder).compactMap(Self.describe)
+        let list = requests.filter(Self.isLocalReminder).compactMap(Self.describe)
         DispatchQueue.main.async { result(list) }
       }
 

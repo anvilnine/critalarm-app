@@ -3,7 +3,7 @@ package app.critalarm.alarm
 import android.content.Context
 import android.util.Log
 import app.critalarm.push.IncidentPushKind
-import app.critalarm.reminders.ReminderReceiver
+import app.critalarm.localreminders.LocalReminderReceiver
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.NativeConnectionStore
 import app.critalarm.storage.TopicTimerStore
@@ -91,7 +91,7 @@ object IncidentRearm {
      */
     private fun endRingWindow(context: Context, incidentId: String) {
         IncidentDeliveryStore(context).deactivate(incidentId)
-        ReminderReceiver.releaseHeld(context)
+        LocalReminderReceiver.releaseHeld(context)
         Log.i(TAG, "ring_window_over incident_id=$incidentId")
     }
 

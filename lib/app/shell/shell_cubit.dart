@@ -49,7 +49,7 @@ class ShellHealth {
 /// What is missing before Crit Alarm can actually ring.
 ///
 /// The floating bar shows a dot on Settings while this is not empty, and the
-/// topics screen puts a banner above the list naming what to turn on.
+/// topics screen puts a notice above the list naming what to turn on.
 class ShellCubit extends Cubit<ShellHealth> {
   ShellCubit(this._getPermissions) : super(const ShellHealth());
 
