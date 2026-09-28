@@ -52,8 +52,8 @@ import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
+import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
-import 'package:critalarm/core/telemetry/reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/core/version/app_version.dart';
@@ -65,9 +65,19 @@ import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
 import 'package:critalarm/features/account/presentation/cubits/account_cubit.dart';
+import 'package:critalarm/features/feature_guides/data/repositories/shared_prefs_feature_guide_repository.dart';
+import 'package:critalarm/features/feature_guides/domain/repositories/feature_guide_repository.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/feedback/data/platform_device_report_repository.dart';
 import 'package:critalarm/features/feedback/domain/repositories/device_report_repository.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
+import 'package:critalarm/features/in_app_notices/data/repositories/shared_prefs_in_app_notice_repository.dart';
+import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
+import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
+import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
+import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
+import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
+import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
@@ -77,6 +87,22 @@ import 'package:critalarm/features/incidents/domain/usecases/get_incidents_useca
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/lock_screen_cubit.dart';
+import 'package:critalarm/features/local_reminders/data/native_local_reminder_scheduler.dart';
+import 'package:critalarm/features/local_reminders/data/noop_local_reminder_scheduler.dart';
+import 'package:critalarm/features/local_reminders/data/revenuecat_plan_status_source.dart';
+import 'package:critalarm/features/local_reminders/data/shared_prefs_local_reminder_store.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_copy.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_inputs_reader.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_pass.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_server_support.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_settler.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_store.dart';
+import 'package:critalarm/features/local_reminders/domain/plan_status_source.dart';
+import 'package:critalarm/features/local_reminders/presentation/cubits/confirm_ring_cubit.dart';
+import 'package:critalarm/features/local_reminders/presentation/cubits/local_reminder_lab_cubit.dart';
+import 'package:critalarm/features/local_reminders/presentation/cubits/local_reminder_settings_cubit.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/keychain_mirror_connection_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/platform_notification_permission_repository.dart';
@@ -120,29 +146,6 @@ import 'package:critalarm/features/permissions/domain/repositories/device_permis
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
-import 'package:critalarm/features/prompts/data/repositories/shared_prefs_home_prompt_repository.dart';
-import 'package:critalarm/features/prompts/domain/home_ask_rules.dart';
-import 'package:critalarm/features/prompts/domain/pro_ending.dart';
-import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
-import 'package:critalarm/features/prompts/domain/setup_gate.dart';
-import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
-import 'package:critalarm/features/reminders/data/native_reminder_scheduler.dart';
-import 'package:critalarm/features/reminders/data/noop_reminder_scheduler.dart';
-import 'package:critalarm/features/reminders/data/revenuecat_plan_status_source.dart';
-import 'package:critalarm/features/reminders/data/shared_prefs_reminder_store.dart';
-import 'package:critalarm/features/reminders/domain/plan_status_source.dart';
-import 'package:critalarm/features/reminders/domain/reminder_copy.dart';
-import 'package:critalarm/features/reminders/domain/reminder_inputs_reader.dart';
-import 'package:critalarm/features/reminders/domain/reminder_plan_pass.dart';
-import 'package:critalarm/features/reminders/domain/reminder_plan_trigger.dart';
-import 'package:critalarm/features/reminders/domain/reminder_scheduler.dart';
-import 'package:critalarm/features/reminders/domain/reminder_server_support.dart';
-import 'package:critalarm/features/reminders/domain/reminder_settler.dart';
-import 'package:critalarm/features/reminders/domain/reminder_store.dart';
-import 'package:critalarm/features/reminders/presentation/cubits/confirm_ring_cubit.dart';
-import 'package:critalarm/features/reminders/presentation/cubits/reminder_lab_cubit.dart';
-import 'package:critalarm/features/reminders/presentation/cubits/reminder_settings_cubit.dart';
 import 'package:critalarm/features/search/data/repositories/asset_docs_index_repository.dart';
 import 'package:critalarm/features/search/data/repositories/shared_prefs_recent_searches_repository.dart';
 import 'package:critalarm/features/search/domain/repositories/docs_index_repository.dart';
@@ -196,9 +199,6 @@ import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
-import 'package:critalarm/features/tour/data/repositories/shared_prefs_tour_repository.dart';
-import 'package:critalarm/features/tour/domain/repositories/tour_repository.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
 import 'package:critalarm/firebase_options.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -517,31 +517,33 @@ Future<void> configureDependencies({
         stopAlarm: getIt<AlarmHost>().stopRinging,
       ),
     )
-    ..registerLazySingleton<HomePromptRepository>(
-      () => SharedPrefsHomePromptRepository(getIt<SharedPreferences>()),
+    ..registerLazySingleton<InAppNoticeRepository>(
+      () => SharedPrefsInAppNoticeRepository(getIt<SharedPreferences>()),
     )
-    ..registerLazySingleton<ReminderStore>(
-      () => SharedPrefsReminderStore(getIt<SharedPreferences>()),
+    ..registerLazySingleton<LocalReminderStore>(
+      () => SharedPrefsLocalReminderStore(getIt<SharedPreferences>()),
     )
     ..registerLazySingleton(
-      () => ReminderSettler(
-        store: getIt<ReminderStore>(),
-        prompts: getIt<HomePromptRepository>(),
+      () => LocalReminderSettler(
+        store: getIt<LocalReminderStore>(),
+        notices: getIt<InAppNoticeRepository>(),
       ),
     )
     // Web has no local notifications, so the dashboard gets the no-op.
-    ..registerLazySingleton<ReminderScheduler>(
-      () => kIsWeb ? const NoopReminderScheduler() : NativeReminderScheduler(),
+    ..registerLazySingleton<LocalReminderScheduler>(
+      () => kIsWeb
+          ? const NoopLocalReminderScheduler()
+          : NativeLocalReminderScheduler(),
     )
     ..registerLazySingleton<PlanStatusSource>(
       () => RevenueCatPlanStatusSource(getIt<SubscriptionRepository>()),
     )
     ..registerLazySingleton(
-      () => ReminderInputsReader(
-        store: getIt<ReminderStore>(),
-        prompts: getIt<HomePromptRepository>(),
+      () => LocalReminderInputsReader(
+        store: getIt<LocalReminderStore>(),
+        notices: getIt<InAppNoticeRepository>(),
         quietHours: getIt<QuietHoursStore>(),
-        scheduler: getIt<ReminderScheduler>(),
+        scheduler: getIt<LocalReminderScheduler>(),
         planStatus: getIt<PlanStatusSource>(),
         privacy: getIt<PrivacyRepository>(),
         readTopics: () async =>
@@ -549,7 +551,7 @@ Future<void> configureDependencies({
         readIncidents: () async => (await getIt<GetIncidentsUsecase>()(
           const GetIncidentsParams(limit: 50),
         )).getOrNull(),
-        // A failed poll counts as "has messages": better to miss a nudge
+        // A failed poll counts as "has messages": better to miss a reminder
         // than to nag about a topic that may be working.
         topicHasMessages: (topic) async =>
             (await getIt<IncidentRepository>().pollMessages(
@@ -563,30 +565,31 @@ Future<void> configureDependencies({
             appProOverride.isForcingPro,
         readIsSignedIn: () async =>
             (await getIt<IdentityRepository>().readIdentity()) != null,
-        proShouldAsk: () => getIt<ProPromptRules>().shouldAsk(),
+        proShouldAsk: () => getIt<ProAskRules>().shouldAsk(),
         isSetupDone: () => getIt<SetupGate>().isDone(),
         isWeb: kIsWeb,
         isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
       ),
     )
     ..registerLazySingleton(
-      () => ReminderPlanPass(
-        store: getIt<ReminderStore>(),
-        scheduler: getIt<ReminderScheduler>(),
-        settler: getIt<ReminderSettler>(),
-        readInputs: () => getIt<ReminderInputsReader>().read(),
-        copy: ReminderCopy(
+      () => LocalReminderPlanPass(
+        store: getIt<LocalReminderStore>(),
+        scheduler: getIt<LocalReminderScheduler>(),
+        settler: getIt<LocalReminderSettler>(),
+        readInputs: () => getIt<LocalReminderInputsReader>().read(),
+        copy: LocalReminderCopy(
           isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
         ),
-        // Nothing is planned during onboarding or a "How to use the app"
-        // guide. The app plans again when the guide ends.
+        // Nothing is planned during onboarding or a Feature
+        // Guide. The app plans again when the guide ends.
         isPaused: () async => !await getIt<SetupGate>().isDone(),
       ),
     )
     // Web plans nothing.
-    ..registerLazySingleton<ReminderPlanTrigger>(
-      () =>
-          kIsWeb ? const NoopReminderPlanTrigger() : getIt<ReminderPlanPass>(),
+    ..registerLazySingleton<LocalReminderPlanTrigger>(
+      () => kIsWeb
+          ? const NoopLocalReminderPlanTrigger()
+          : getIt<LocalReminderPlanPass>(),
     )
     ..registerLazySingleton<SetupGate>(
       () => SetupGate(
@@ -596,23 +599,24 @@ Future<void> configureDependencies({
           );
           return done.getOrNull() ?? false;
         },
-        hasSeenTour: () => getIt<TourCubit>().hasSeenFirstGuide,
-        isTourActive: () => getIt<TourCubit>().state.isActive,
+        hasSeenFeatureGuide: () => getIt<FeatureGuideCubit>().hasSeenFirstGuide,
+        isFeatureGuideActive: () => getIt<FeatureGuideCubit>().state.isActive,
       ),
     )
-    ..registerLazySingleton<ProPromptRules>(
-      () => ProPromptRules(
-        homePromptRepository: getIt<HomePromptRepository>(),
+    ..registerLazySingleton<ProAskRules>(
+      () => ProAskRules(
+        noticeRepository: getIt<InAppNoticeRepository>(),
         accountRepository: getIt<AccountRepository>(),
-        offersOn: () => getIt<ReminderStore>().readSwitches().offers,
+        offersOn: () => getIt<LocalReminderStore>().readSwitches().offers,
         isSetupDone: () => getIt<SetupGate>().isDone(),
       ),
     )
     ..registerLazySingleton<HomeAskRules>(
       () => HomeAskRules(
-        homePromptRepository: getIt<HomePromptRepository>(),
+        noticeRepository: getIt<InAppNoticeRepository>(),
         privacyRepository: getIt<PrivacyRepository>(),
-        settle: () => getIt<ReminderSettler>().settleAsks(now: DateTime.now()),
+        settle: () =>
+            getIt<LocalReminderSettler>().settleAsks(now: DateTime.now()),
         isSetupDone: () => getIt<SetupGate>().isDone(),
         // An ack made on another device counts too, and only the shared list
         // carries it. The review popup skips the whole day of one.
@@ -661,7 +665,9 @@ Future<void> configureDependencies({
       ),
     )
     ..registerLazySingleton(() => PushAnalytics(getIt<TelemetryGate>()))
-    ..registerLazySingleton(() => ReminderAnalytics(getIt<TelemetryGate>()))
+    ..registerLazySingleton(
+      () => LocalReminderAnalytics(getIt<TelemetryGate>()),
+    )
     ..registerLazySingleton(
       () => PushEventDrain(getIt<SharedPreferences>(), getIt<TelemetryGate>()),
     )
@@ -779,10 +785,10 @@ Future<void> configureDependencies({
     ..registerLazySingleton(
       () => TriggerTestAlarmUsecase(
         getIt<IncidentRepository>(),
-        reminderStore: getIt<ReminderStore>(),
+        localReminderStore: getIt<LocalReminderStore>(),
         // Fire and forget: a slow or failed re-plan never blocks or fails
         // the test ring.
-        onTested: (_) => unawaited(getIt<ReminderPlanTrigger>().run()),
+        onTested: (_) => unawaited(getIt<LocalReminderPlanTrigger>().run()),
       ),
     )
     ..registerLazySingleton(
@@ -808,7 +814,7 @@ Future<void> configureDependencies({
       ),
     )
     // "Is an alarm under way on this phone", read off the shared list. Every
-    // guard that keeps sheets, banners and navigation away from an alarm
+    // guard that keeps sheets, notices and navigation away from an alarm
     // asks this one object.
     ..registerLazySingleton(
       () => AlarmFocus(
@@ -865,11 +871,14 @@ Future<void> configureDependencies({
     ..registerLazySingleton<DocsIndexRepository>(
       AssetDocsIndexRepository.new,
     )
-    ..registerLazySingleton<TourRepository>(
-      () => SharedPrefsTourRepository(getIt<SharedPreferences>()),
+    ..registerLazySingleton<FeatureGuideRepository>(
+      () => SharedPrefsFeatureGuideRepository(getIt<SharedPreferences>()),
     )
-    // One for the whole app: the tour walks across screens.
-    ..registerLazySingleton(() => TourCubit(getIt<TourRepository>()))
+    // One for the whole app: the full Feature Guides replay walks across
+    // screens.
+    ..registerLazySingleton(
+      () => FeatureGuideCubit(getIt<FeatureGuideRepository>()),
+    )
     ..registerLazySingleton(
       () => GetRecentSearchesUsecase(getIt<RecentSearchesRepository>()),
     )
@@ -892,11 +901,11 @@ Future<void> configureDependencies({
         // the plan pass is fire and forget, so a slow or failed re-plan
         // never blocks or fails topic creation.
         onCreated: (topic) async {
-          await getIt<ReminderStore>().recordTopicCreatedHere(
+          await getIt<LocalReminderStore>().recordTopicCreatedHere(
             topic.name,
             DateTime.now(),
           );
-          unawaited(getIt<ReminderPlanTrigger>().run());
+          unawaited(getIt<LocalReminderPlanTrigger>().run());
         },
       ),
     )
@@ -1131,17 +1140,17 @@ Future<void> configureDependencies({
         // Fire and forget: a slow or failed re-plan never blocks or fails
         // saving or dropping the server connection.
         onConnectionChanged: () async =>
-            unawaited(getIt<ReminderPlanTrigger>().run()),
+            unawaited(getIt<LocalReminderPlanTrigger>().run()),
       ),
     )
     ..registerFactory(
-      () => ReminderSettingsCubit(
-        store: getIt<ReminderStore>(),
-        scheduler: getIt<ReminderScheduler>(),
+      () => LocalReminderSettingsCubit(
+        store: getIt<LocalReminderStore>(),
+        scheduler: getIt<LocalReminderScheduler>(),
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
         readIsPaid: () => getIt<AccountRepository>().readIsPaid(),
-        trigger: getIt<ReminderPlanTrigger>(),
-        analytics: getIt<ReminderAnalytics>(),
+        trigger: getIt<LocalReminderPlanTrigger>(),
+        analytics: getIt<LocalReminderAnalytics>(),
       ),
     )
     ..registerFactory(
@@ -1152,20 +1161,20 @@ Future<void> configureDependencies({
           const GetIncidentsParams(limit: 50),
         )).getOrNull(),
         triggerTest: getIt<TriggerTestAlarmUsecase>().call,
-        store: getIt<ReminderStore>(),
-        canTestNormalTopics: ReminderServerSupport.testsNormalTopics,
-        analytics: getIt<ReminderAnalytics>(),
+        store: getIt<LocalReminderStore>(),
+        canTestNormalTopics: LocalReminderServerSupport.testsNormalTopics,
+        analytics: getIt<LocalReminderAnalytics>(),
       ),
     )
     ..registerFactory(
-      () => ReminderLabCubit(
-        store: getIt<ReminderStore>(),
-        prompts: getIt<HomePromptRepository>(),
-        scheduler: getIt<ReminderScheduler>(),
-        copy: ReminderCopy(
+      () => LocalReminderLabCubit(
+        store: getIt<LocalReminderStore>(),
+        notices: getIt<InAppNoticeRepository>(),
+        scheduler: getIt<LocalReminderScheduler>(),
+        copy: LocalReminderCopy(
           isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
         ),
-        trigger: getIt<ReminderPlanTrigger>(),
+        trigger: getIt<LocalReminderPlanTrigger>(),
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
       ),
     )
@@ -1233,7 +1242,7 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton(
       () => ProEnding(
-        prompts: getIt<HomePromptRepository>(),
+        notices: getIt<InAppNoticeRepository>(),
         plan: getIt<PlanStatusSource>(),
         readIdentity: () => getIt<DeviceIdentityStore>().readOrCreate(),
         readServerMode: () => getIt<AccountRepository>().readServerMode(),
@@ -1249,15 +1258,16 @@ Future<void> configureDependencies({
         },
       ),
     )
-    ..registerFactoryParam<HomePromptCubit, ShellCubit?, void>(
-      (shellCubit, _) => HomePromptCubit(
+    ..registerFactoryParam<InAppNoticeCubit, ShellCubit?, void>(
+      (shellCubit, _) => InAppNoticeCubit(
         getConnectionUsecase: getIt<GetConnectionUsecase>(),
         shellCubit: shellCubit ?? getIt<ShellCubit>(),
         identityRepository: getIt<IdentityRepository>(),
         accountRepository: getIt<AccountRepository>(),
-        homePromptRepository: getIt<HomePromptRepository>(),
+        noticeRepository: getIt<InAppNoticeRepository>(),
         proEnding: getIt<ProEnding>(),
         identityChanges: appAccountIdentityChanges,
+        isSetupDone: () => getIt<SetupGate>().isDone(),
       ),
     );
 }

@@ -130,7 +130,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     await _rebuildIfChanged();
   }
 
-  /// Draws [example] and nothing else: no server, no updates. The tour uses
+  /// Draws [example] and nothing else: no server, no updates. The guide uses
   /// it for a topic that only exists to be shown.
   void showExample(TopicDetailState example) => emit(example);
 
