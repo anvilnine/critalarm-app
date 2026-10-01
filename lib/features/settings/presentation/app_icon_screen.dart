@@ -250,9 +250,7 @@ class _AppIconViewState extends State<_AppIconView>
                             ),
                             const SizedBox(height: 8),
                           ],
-                          AppNote(
-                            text: LocaleKeys.settings_app_icon_pro_note.tr(),
-                          ),
+                          if (!state.unlocked) _proFeatureRow(context),
                         ],
                       ),
                     ),
@@ -263,6 +261,36 @@ class _AppIconViewState extends State<_AppIconView>
           ],
         );
       },
+    );
+  }
+
+  /// Free only: says the icons are Pro and goes to the paywall.
+  Widget _proFeatureRow(BuildContext context) {
+    final colors = context.appColors;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            LocaleKeys.settings_app_icon_pro_feature.tr(),
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontFamilyFallback: AppTypography.fontBodyFallbacks,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: colors.ink,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        AppButton(
+          label: LocaleKeys.settings_app_icon_go_pro.tr(),
+          size: AppButtonSize.sm,
+          onPressed: () {
+            AppHaptics.capture();
+            unawaited(context.push('/paywall?source=$appIconPaywallSource'));
+          },
+        ),
+      ],
     );
   }
 
