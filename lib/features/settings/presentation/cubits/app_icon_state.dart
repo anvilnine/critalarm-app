@@ -20,6 +20,7 @@ class AppIconState {
     this.unlocked = false,
     this.saving,
     this.failed = false,
+    this.welcome = false,
   });
 
   final AppIconStatus status;
@@ -36,6 +37,10 @@ class AppIconState {
   /// True when the last switch was refused. Cleared by the next one.
   final bool failed;
 
+  /// True for the first time a Pro device opens the screen, until the screen
+  /// has played the welcome and calls `welcomePlayed`.
+  final bool welcome;
+
   bool isLocked(AppIcon icon) => AppIconRule.isLocked(icon, unlocked: unlocked);
 
   AppIconState copyWith({
@@ -44,11 +49,13 @@ class AppIconState {
     bool? unlocked,
     AppIcon? Function()? saving,
     bool? failed,
+    bool? welcome,
   }) => AppIconState(
     status: status ?? this.status,
     current: current ?? this.current,
     unlocked: unlocked ?? this.unlocked,
     saving: saving != null ? saving() : this.saving,
     failed: failed ?? this.failed,
+    welcome: welcome ?? this.welcome,
   );
 }
