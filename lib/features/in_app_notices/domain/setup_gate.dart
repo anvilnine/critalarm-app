@@ -4,18 +4,21 @@
 /// 1. Onboarding, including the create-your-first-topic screens after the
 ///    demo alarm. No Feature Guide, notice, ask or Local Reminder. No
 ///    onboarding route has a guide.
-/// 2. The Topics Feature Guide, the first time the user reaches Topics.
-/// 3. After it is seen or skipped: every other screen's guide on its first
-///    visit, the In-App Notices, the asks (the Pro plan sheet, the Pro sheet,
-///    the Local reminders sheet, the consent sheet, the store review popup)
-///    and every planned Local Reminder.
+/// 2. The Feature Guide offer, the first time the user reaches Topics.
+///    Taking it plays the Topics guide.
+/// 3. After the offer is answered and its guide is seen or skipped: every
+///    other screen's guide on its first visit, the In-App Notices, the asks
+///    (the Pro plan sheet, the Pro sheet, the Local reminders sheet, the
+///    consent sheet, the store review popup) and every planned Local
+///    Reminder.
 ///
 /// Guides do not go through this gate: it needs the Topics guide seen, so
 /// the Topics guide could never start. `FeatureGuideCubit.requestIfNew`
 /// holds every other guide back until the Topics one instead.
 ///
 /// Setup is done once onboarding is finished and the Topics guide was seen
-/// or skipped. While any guide is up, setup counts as not done: no ask
+/// or skipped (declining the offer counts as skipping). While the offer or
+/// any guide is up, setup counts as not done: no ask
 /// opens, nothing is planned, and Home hides its notice. What was held back
 /// comes after it.
 ///

@@ -130,9 +130,11 @@ names in code, strings, comments and PRs, and never one for another.
   persisted and keep their names.
 - **Setup order.** Onboarding, including the create-your-first-topic screens
   after the demo alarm, shows no guide, notice, ask or Local Reminder. The
-  Topics guide is always the first Feature Guide, played the first time the
-  user reaches Topics. Only after it is seen or skipped do other screens'
-  guides, In-App Notices, asks and planned Local Reminders start.
+  Topics guide is always the first Feature Guide. The first time the user
+  reaches Topics, a sheet offers it (`FeatureGuideStatus.offering`); taking
+  it plays the Topics guide, declining it marks every guide seen. Only after
+  that is answered do other screens' guides, In-App Notices, asks and
+  planned Local Reminders start.
   `SetupGate` holds back the notices, asks and Local Reminders;
   `FeatureGuideCubit.requestIfNew` holds back every guide but the Topics
   one. Do not route guides through `SetupGate`: it waits for the Topics

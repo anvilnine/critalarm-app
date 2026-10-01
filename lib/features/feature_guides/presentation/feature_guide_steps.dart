@@ -1,3 +1,4 @@
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter/foundation.dart';
 
@@ -23,9 +24,10 @@ enum FeatureGuideAnchorId {
 /// Which screen a step needs on the display before it can point at anything.
 enum FeatureGuidePlace { home, createTopic, topic, settings }
 
-/// One short Feature Guide per screen or feature. Each plays by
-/// itself the first time the user reaches that screen, and only covers what
-/// is on it. Settings can still replay every guide back to back.
+/// One short Feature Guide per screen or feature. Once the user has answered
+/// the offer on Topics, each plays by itself the first time they reach that
+/// screen, and only covers what is on it. Settings can start any one of them,
+/// or all of them back to back.
 enum FeatureGuide {
   /// The Topics tab: the status face, the list, making and finding things.
   home,
@@ -83,6 +85,7 @@ class FeatureGuideStep {
     required this.titleKey,
     required this.bodyKey,
     this.exampleBodyKey,
+    this.timeSensitiveBodyKey,
     this.searchQuery,
   });
 
@@ -97,12 +100,25 @@ class FeatureGuideStep {
   /// Said instead of [bodyKey] while the example topics are on screen.
   final String? exampleBodyKey;
 
+  /// Said instead of [bodyKey] on an iPhone that cannot ring through silent
+  /// mode, so the guide never promises it a ring it cannot give. See
+  /// [RingClaim].
+  final String? timeSensitiveBodyKey;
+
   /// Typed into search for this step, so the results are on screen while the
   /// step talks about them. Null keeps search closed.
   final String? searchQuery;
 
-  String bodyKeyFor({required bool usingExamples}) =>
-      usingExamples ? exampleBodyKey ?? bodyKey : bodyKey;
+  String bodyKeyFor({
+    required bool usingExamples,
+    RingClaim ringClaim = RingClaim.alarm,
+  }) {
+    if (usingExamples && exampleBodyKey != null) return exampleBodyKey!;
+    if (ringClaim == RingClaim.timeSensitive && timeSensitiveBodyKey != null) {
+      return timeSensitiveBodyKey!;
+    }
+    return bodyKey;
+  }
 }
 
 /// Every step of every guide, in the order the full replay from Settings
@@ -182,6 +198,8 @@ const List<FeatureGuideStep> featureGuideSteps = [
     anchor: FeatureGuideAnchorId.topicCritical,
     titleKey: LocaleKeys.feature_guides_topic_critical_title,
     bodyKey: LocaleKeys.feature_guides_topic_critical_body,
+    timeSensitiveBodyKey:
+        LocaleKeys.feature_guides_topic_critical_body_time_sensitive,
   ),
   FeatureGuideStep(
     guide: FeatureGuide.topic,

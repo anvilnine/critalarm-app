@@ -1,9 +1,7 @@
 import 'dart:ui';
 
-import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_layout.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
-import 'package:critalarm/features/feature_guides/presentation/widgets/feature_guide_picker_sheet.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -107,55 +105,6 @@ void main() {
       );
       expect(step.bodyKeyFor(usingExamples: true), step.exampleBodyKey);
       expect(step.bodyKeyFor(usingExamples: false), step.bodyKey);
-    });
-  });
-
-  group('ring claim', () {
-    test('a step that promises a ring has wording for an old iPhone', () {
-      final step = featureGuideSteps.firstWhere(
-        (s) => s.timeSensitiveBodyKey != null,
-      );
-      expect(
-        step.bodyKeyFor(usingExamples: false),
-        step.bodyKey,
-      );
-      expect(
-        step.bodyKeyFor(
-          usingExamples: false,
-          ringClaim: RingClaim.timeSensitive,
-        ),
-        step.timeSensitiveBodyKey,
-      );
-    });
-
-    test('a step with no alternative wording keeps its body', () {
-      final step = featureGuideSteps.firstWhere(
-        (s) => s.timeSensitiveBodyKey == null,
-      );
-      expect(
-        step.bodyKeyFor(
-          usingExamples: false,
-          ringClaim: RingClaim.timeSensitive,
-        ),
-        step.bodyKey,
-      );
-    });
-  });
-
-  group('picker keys', () {
-    test('every guide has its own label and description', () {
-      final labels = FeatureGuide.values.map(featureGuideLabelKey).toSet();
-      final descriptions = FeatureGuide.values
-          .map(featureGuideDescriptionKey)
-          .toSet();
-      expect(labels, hasLength(FeatureGuide.values.length));
-      expect(descriptions, hasLength(FeatureGuide.values.length));
-    });
-
-    test('every guide has at least one step to count', () {
-      for (final guide in FeatureGuide.values) {
-        expect(featureGuideStepsFor(guide), isNotEmpty, reason: '$guide');
-      }
     });
   });
 

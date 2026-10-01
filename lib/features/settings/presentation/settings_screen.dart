@@ -6,9 +6,9 @@ import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
-import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
+import 'package:critalarm/features/feature_guides/presentation/widgets/feature_guide_picker_sheet.dart';
 import 'package:critalarm/features/feedback/presentation/help_section.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
@@ -309,7 +309,8 @@ class _SettingsScreenContent extends StatelessWidget {
                             color: colors.ink3,
                             size: 16,
                           ),
-                          onTap: () => getIt<FeatureGuideCubit>().request(),
+                          onTap: () =>
+                              unawaited(showFeatureGuidePickerSheet(context)),
                         ),
                       ),
                       // Debug builds only: a release user gets the Feature
