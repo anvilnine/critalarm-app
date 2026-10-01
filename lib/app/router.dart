@@ -111,6 +111,11 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       name: AppRoute.createTopic,
       pageBuilder: (context, state) => AmbientPage(
         key: state.pageKey,
+        // Opaque, because it opens straight over the tab shell, which does
+        // not fade out under an ambient page. Transparent, the Topics list
+        // stayed on screen behind the form. The ambient backdrop sits outside
+        // the navigator, so it still shows.
+        opaque: true,
         child: const CreateTopicScreen(),
       ),
     ),
