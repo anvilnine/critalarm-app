@@ -76,7 +76,7 @@ class _OnboardingShellState extends State<OnboardingShell> {
   void initState() {
     super.initState();
     _controller = OnboardingAmbientController(
-      initialStep: _stepForLocation(widget.state.uri.path),
+      initialStep: onboardingStepForPath(widget.state.uri.path),
     );
     _controller.addListener(_handleControllerUpdate);
   }
@@ -85,7 +85,7 @@ class _OnboardingShellState extends State<OnboardingShell> {
   void didUpdateWidget(covariant OnboardingShell oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.state.uri.path != oldWidget.state.uri.path) {
-      final routeStep = _stepForLocation(widget.state.uri.path);
+      final routeStep = onboardingStepForPath(widget.state.uri.path);
       _controller.setStep(routeStep);
     }
   }
@@ -100,16 +100,6 @@ class _OnboardingShellState extends State<OnboardingShell> {
 
   void _handleControllerUpdate() {
     if (mounted) setState(() {});
-  }
-
-  OnboardingAmbientStep _stepForLocation(String path) {
-    if (path.startsWith('/onboarding/connect')) {
-      return OnboardingAmbientStep.connect;
-    }
-    if (path.startsWith('/onboarding/denied')) {
-      return OnboardingAmbientStep.denied;
-    }
-    return OnboardingAmbientStep.notifications;
   }
 
   @override
