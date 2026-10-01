@@ -1,3 +1,4 @@
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter/foundation.dart';
 
@@ -83,6 +84,7 @@ class TourStep {
     required this.titleKey,
     required this.bodyKey,
     this.exampleBodyKey,
+    this.timeSensitiveBodyKey,
     this.searchQuery,
   });
 
@@ -97,12 +99,25 @@ class TourStep {
   /// Said instead of [bodyKey] while the example topics are on screen.
   final String? exampleBodyKey;
 
+  /// Said instead of [bodyKey] on an iPhone that cannot ring through silent
+  /// mode, so the tour never promises it a ring it cannot give. See
+  /// [RingClaim].
+  final String? timeSensitiveBodyKey;
+
   /// Typed into search for this step, so the results are on screen while the
   /// step talks about them. Null keeps search closed.
   final String? searchQuery;
 
-  String bodyKeyFor({required bool usingExamples}) =>
-      usingExamples ? exampleBodyKey ?? bodyKey : bodyKey;
+  String bodyKeyFor({
+    required bool usingExamples,
+    RingClaim ringClaim = RingClaim.alarm,
+  }) {
+    if (usingExamples && exampleBodyKey != null) return exampleBodyKey!;
+    if (ringClaim == RingClaim.timeSensitive && timeSensitiveBodyKey != null) {
+      return timeSensitiveBodyKey!;
+    }
+    return bodyKey;
+  }
 }
 
 /// Every step of every guide, in the order the full replay from Settings
@@ -182,6 +197,7 @@ const List<TourStep> tourSteps = [
     anchor: TourAnchorId.topicCritical,
     titleKey: LocaleKeys.tour_topic_critical_title,
     bodyKey: LocaleKeys.tour_topic_critical_body,
+    timeSensitiveBodyKey: LocaleKeys.tour_topic_critical_body_time_sensitive,
   ),
   TourStep(
     guide: TourGuide.topic,
