@@ -48,7 +48,8 @@ class AppAmbientShell extends StatefulWidget {
     if (path == '/alarm' || path.startsWith('/incidents/')) {
       return AmbientAppProfiles.criticalAlarmRinging(colors);
     }
-    if (path.startsWith('/settings/')) {
+    // A full-screen Settings page off the root navigator.
+    if (path.startsWith('/settings/') || path == '/app-icon') {
       return AmbientAppProfiles.settingsDetail(colors);
     }
     return AmbientAppProfiles.topics(colors);

@@ -44,6 +44,7 @@ void main() {
         '/sounds',
         '/sounds?topic=ops',
         '/topics/new',
+        '/app-icon',
         '/incidents/inc_1',
         '/paywall',
         '/alarm',
@@ -143,6 +144,10 @@ void main() {
       expect(opensWithGo('/ring', from: '/settings'), isFalse);
       expect(opensWithGo('/paywall?source=x', from: '/'), isFalse);
       expect(opensWithGo('/topics/new', from: '/settings'), isFalse);
+      expect(
+        opensWithGo('/app-icon', from: '/settings/appearance'),
+        isFalse,
+      );
     });
   });
 }
