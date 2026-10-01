@@ -47,6 +47,23 @@ rx 66 with a 10 unit stroke, eyes r 11, mouth and brows as stroked paths. Calm, 
 alarmed, acknowledged. The head fills with `--canvas`, so a severity retint moves through the
 face for free. It reads at 24px in the badge, 40px in list rows and 264px on the alarm screen.
 
+## App icons
+
+Four icons, one drawing. The default is the badge: the face peeking in from the left on the
+orange field, the white mark on the right. Pro users can pick one of three others in Settings,
+Appearance: Crowned, Shades, and Shades and crown. They change nothing else about the drawing.
+
+- A Pro icon only adds a prop. Same face position, same field, same mark, same flat colours, no
+  gradients, no words.
+- The crown sits on the rounded top-right of the head, not the flat top, so it survives the round
+  mask some Android launchers apply. Keep anything new inside the circle inscribed in the square.
+- The default icon is the brand mark: favicons, store listings, the site header, OG images. The
+  Pro icons appear only in the app and where the site describes Pro.
+- When Pro ends, the app puts the default icon back, so a crown or shades always means an active
+  plan.
+- The masters are `assets/icon/src/*.svg` in the app repo and `src/assets/critalarm-icon*.svg` on
+  the site. `tool/export_app_icons.sh` renders every size.
+
 ## With more time
 
 - Draw the face in a real vector tool and test it against a grid of eye and mouth offsets; the

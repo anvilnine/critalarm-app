@@ -70,6 +70,7 @@ flutter:
     - assets/sounds/
     - assets/docs/
     - assets/reminder_faces/
+    - assets/app_icons/
     - assets/fonts/Anton-OFL.txt
     - assets/fonts/Archivo-OFL.txt
     - assets/fonts/IBMPlexMono-OFL.txt

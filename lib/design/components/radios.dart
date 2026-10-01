@@ -54,6 +54,7 @@ class AppRadioRow extends StatelessWidget {
     this.note,
     this.leading,
     this.waveform,
+    this.badge,
     this.onTap,
     super.key,
   });
@@ -70,6 +71,10 @@ class AppRadioRow extends StatelessWidget {
   /// A waveform under the title, for sound rows. With one, the meta line
   /// moves up next to the title so the row stays two lines tall.
   final Widget? waveform;
+
+  /// A small widget after the title, such as the Pro pill on an option only
+  /// Pro can pick. Ignored on a row with a [waveform].
+  final Widget? badge;
   final bool selected;
   final VoidCallback? onTap;
 
@@ -153,7 +158,15 @@ class AppRadioRow extends StatelessWidget {
                           width: double.infinity,
                           child: waveform,
                         ),
-                      ] else
+                      ] else if (badge != null)
+                        Row(
+                          children: [
+                            Flexible(child: titleText),
+                            const SizedBox(width: 8),
+                            badge!,
+                          ],
+                        )
+                      else
                         titleText,
                       if (meta != null && waveform == null) ...[
                         const SizedBox(height: 2),

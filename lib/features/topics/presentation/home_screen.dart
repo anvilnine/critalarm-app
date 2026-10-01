@@ -8,22 +8,22 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_state.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_examples.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
+import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
+import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
+import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_state.dart';
+import 'package:critalarm/features/in_app_notices/presentation/home_asks.dart';
+import 'package:critalarm/features/in_app_notices/presentation/widgets/in_app_notice_slot.dart';
+import 'package:critalarm/features/in_app_notices/presentation/widgets/notice_detail_sheet.dart';
+import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_plan_sheet.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/pro_status_badge.dart';
-import 'package:critalarm/features/prompts/domain/pro_ending.dart';
-import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_cubit.dart';
-import 'package:critalarm/features/prompts/presentation/cubits/home_prompt_state.dart';
-import 'package:critalarm/features/prompts/presentation/home_asks.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/home_prompt_slot.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/pro_plan_sheet.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/prompt_detail_sheet.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_state.dart';
-import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
-import 'package:critalarm/features/tour/presentation/tour_examples.dart';
-import 'package:critalarm/features/tour/presentation/tour_steps.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -49,7 +49,7 @@ class HomeScreen extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) {
-            final cubit = getIt<HomePromptCubit>(
+            final cubit = getIt<InAppNoticeCubit>(
               param1: context.read<ShellCubit>(),
             );
             unawaited(cubit.load());
@@ -78,18 +78,21 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   /// a new incident still takes over.
   String? _handedOver;
 
-  final TourCubit _tour = getIt<TourCubit>();
-  StreamSubscription<TourState>? _tourSub;
+  final FeatureGuideCubit _guides = getIt<FeatureGuideCubit>();
+  StreamSubscription<FeatureGuideState>? _guideSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // The TourHost asks for this screen's guide on the first visit. The asks
-    // hold off until no guide is running, and run again once one ends.
-    _tourSub = _tour.stream
-        .where((tour) => !tour.isActive)
-        .listen((_) => unawaited(_runHomeAsk()));
+    // The FeatureGuideHost asks for this screen's guide on the first visit.
+    // The notices and the asks hold off until no guide is running, and come
+    // back once one ends.
+    _guideSub = _guides.stream.where((guide) => !guide.isActive).listen((_) {
+      if (!mounted) return;
+      unawaited(context.read<InAppNoticeCubit>().load());
+      unawaited(_runHomeAsk());
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(_runHomeAsk());
@@ -99,7 +102,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   /// The Pro, Reminders and consent sheets and the review popup, when one is
   /// due. Never while a guide is up or about to be: they wait for it to end.
   Future<void> _runHomeAsk() async {
-    if (!mounted || _tour.state.isActive) return;
+    if (!mounted || _guides.state.isActive) return;
     await runHomeAsk(context);
   }
 
@@ -113,7 +116,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    unawaited(_tourSub?.cancel());
+    unawaited(_guideSub?.cancel());
     appRouteObserver.unsubscribe(this);
     super.dispose();
   }
@@ -121,7 +124,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      unawaited(context.read<HomePromptCubit>().onAppResumed());
+      unawaited(context.read<InAppNoticeCubit>().onAppResumed());
       unawaited(_runHomeAsk());
     }
   }
@@ -132,7 +135,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   void didPopNext() {
     if (!mounted) return;
     unawaited(context.read<HomeCubit>().refresh());
-    unawaited(context.read<HomePromptCubit>().refresh());
+    unawaited(context.read<InAppNoticeCubit>().refresh());
   }
 
   /// While anything is ringing, the app is the alarm. The list is no use to
@@ -215,14 +218,15 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
 
     return BlocConsumer<HomeCubit, HomeState>(
       listener: (context, state) => _handOverIfRinging(state),
-      builder: (context, state) => BlocBuilder<TourCubit, TourState>(
-        bloc: _tour,
-        builder: (context, tour) =>
-            BlocBuilder<HomePromptCubit, HomePromptState>(
-              builder: (context, prompt) =>
-                  _build(context, size, state, tour, prompt),
-            ),
-      ),
+      builder: (context, state) =>
+          BlocBuilder<FeatureGuideCubit, FeatureGuideState>(
+            bloc: _guides,
+            builder: (context, guide) =>
+                BlocBuilder<InAppNoticeCubit, InAppNoticeState>(
+                  builder: (context, notice) =>
+                      _build(context, size, state, guide, notice),
+                ),
+          ),
     );
   }
 
@@ -230,29 +234,32 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     BuildContext context,
     AppSize size,
     HomeState real,
-    TourState tour,
-    HomePromptState prompt,
+    FeatureGuideState guide,
+    InAppNoticeState notice,
   ) {
-    // While the tour runs, the list gets an example topic that is ringing,
+    // While the guide runs, the list gets an example topic that is ringing,
     // so the user sees what trouble looks like before it happens. Someone
-    // with no topics yet also gets two calm ones. They all go when the tour
+    // with no topics yet also gets two calm ones. They all go when the guide
     // does.
     final showExamples =
-        tour.showsHomeExamples && real.status == HomeStatus.success;
+        guide.showsHomeExamples && real.status == HomeStatus.success;
     final state = !showExamples
         ? real
         : real.isEmpty
         ? real.copyWith(
             topicItems: [
-              TourExamples.troubleTopic(),
-              ...TourExamples.homeTopics(),
+              FeatureGuideExamples.troubleTopic(),
+              ...FeatureGuideExamples.homeTopics(),
             ],
             faceState: FaceState.calm,
             word: LocaleKeys.home_stage_word_clear.tr(),
-            subText: LocaleKeys.tour_example_topic_sub.tr(),
+            subText: LocaleKeys.feature_guides_example_topic_sub.tr(),
           )
         : real.copyWith(
-            topicItems: [TourExamples.troubleTopic(), ...real.topicItems],
+            topicItems: [
+              FeatureGuideExamples.troubleTopic(),
+              ...real.topicItems,
+            ],
           );
     // A deleted topic leaves the pane pointing at a name the list no
     // longer has, so the selection is read back off the list every build
@@ -269,7 +276,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         _swipe(
           home,
           topic,
-          // Tour rows are examples, not topics, so there is nothing to pin.
+          // Guide rows are examples, not topics, so there is nothing to pin.
           // Old rows from an unreachable server are look-only.
           enabled: !showExamples && !state.isStale,
           child: AppListRow(
@@ -315,9 +322,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       severity: state.severity,
       child: AppScreenScaffold(
         onFaceRefresh: () async {
-          final promptCubit = context.read<HomePromptCubit>();
+          final noticeCubit = context.read<InAppNoticeCubit>();
           final homeCubit = context.read<HomeCubit>();
-          await promptCubit.refresh();
+          await noticeCubit.refresh();
           return homeCubit.refresh();
         },
         // Search is not up here any more. It lives next to the compose
@@ -331,9 +338,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           ),
         ),
         // The one pill floating above the tab bar: Pro ending first, then the
-        // sign-in reminder.
+        // sign-in notice.
         // Nothing but the guide while one is up: the pill comes back after.
-        bottomBar: tour.isActive ? null : _nudgeBar(context, prompt),
+        bottomBar: guide.isActive ? null : _noticeBar(context, notice),
         detail: state.topicItems.isEmpty
             ? null
             : (selected == null
@@ -349,12 +356,12 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                     )),
         slivers: [
           // Single slot orchestrating blocker errors, health warnings,
-          // and dismissible growth prompts above the stage.
+          // and dismissible growth notices above the stage.
           // Hidden while a guide is up, so no card slides in under it.
           SliverToBoxAdapter(
-            child: tour.isActive
+            child: guide.isActive
                 ? const SizedBox.shrink()
-                : const HomePromptSlot(),
+                : const InAppNoticeSlot(),
           ),
           // A failed load has something to say too, and it says it up here
           // rather than leaving the face out and the screen silent.
@@ -363,8 +370,8 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
               child: Column(
                 children: [
                   const SizedBox(height: Spacing.s3),
-                  TourAnchor(
-                    id: TourAnchorId.homeStage,
+                  FeatureGuideAnchor(
+                    id: FeatureGuideAnchorId.homeStage,
                     child: AppStage(
                       faceState: state.faceState,
                       word: state.word,
@@ -393,8 +400,8 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                   12,
                   16,
                 ),
-                child: TourAnchor(
-                  id: TourAnchorId.topicList,
+                child: FeatureGuideAnchor(
+                  id: FeatureGuideAnchorId.topicList,
                   child: AppSheet(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -505,18 +512,18 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   }
 
   /// The one pill floating above the tab bar: Pro ending first, then the
-  /// sign-in reminder.
-  Widget? _nudgeBar(BuildContext context, HomePromptState prompt) {
-    final cubit = context.read<HomePromptCubit>();
-    switch (prompt.promptType) {
-      case HomePromptType.proEnding:
-        final endsAt = prompt.proEndsAt!;
-        return AppPinnedNudgeBar(
+  /// sign-in notice.
+  Widget? _noticeBar(BuildContext context, InAppNoticeState notice) {
+    final cubit = context.read<InAppNoticeCubit>();
+    switch (notice.noticeType) {
+      case InAppNoticeType.proEnding:
+        final endsAt = notice.proEndsAt!;
+        return AppPinnedNoticeBar(
           face: FaceState.watching,
-          title: LocaleKeys.home_pro_ending_pill.tr(
+          title: LocaleKeys.notices_pro_ending_pill.tr(
             namedArgs: {'weekday': DateFormat('EEEE').format(endsAt)},
           ),
-          linkLabel: LocaleKeys.home_prompt_why.tr(),
+          linkLabel: LocaleKeys.notices_why.tr(),
           onTap: () => unawaited(
             showProPlanSheet(
               context,
@@ -526,27 +533,27 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           ),
           onDismiss: () => unawaited(cubit.dismissCurrent()),
         );
-      case HomePromptType.accountBackup:
-        return AppPinnedNudgeBar(
+      case InAppNoticeType.accountBackup:
+        return AppPinnedNoticeBar(
           face: FaceState.watching,
-          title: LocaleKeys.home_account_prompt_title.tr(),
-          linkLabel: LocaleKeys.home_prompt_why.tr(),
+          title: LocaleKeys.notices_account_backup_title.tr(),
+          linkLabel: LocaleKeys.notices_why.tr(),
           onTap: () => unawaited(
-            showPromptDetailSheet(
+            showNoticeDetailSheet(
               context: context,
               face: FaceState.watching,
-              title: LocaleKeys.home_account_prompt_title.tr(),
-              body: LocaleKeys.home_account_prompt_body.tr(),
-              actionLabel: LocaleKeys.home_account_prompt_button.tr(),
+              title: LocaleKeys.notices_account_backup_title.tr(),
+              body: LocaleKeys.notices_account_backup_body.tr(),
+              actionLabel: LocaleKeys.notices_account_backup_button.tr(),
               onAction: () => openAppPath(context, '/settings/account'),
               onDismiss: () => unawaited(cubit.dismissCurrent()),
             ),
           ),
           onDismiss: () => unawaited(cubit.dismissCurrent()),
         );
-      case HomePromptType.none:
-      case HomePromptType.noServer:
-      case HomePromptType.criticalHealth:
+      case InAppNoticeType.none:
+      case InAppNoticeType.noServer:
+      case InAppNoticeType.criticalHealth:
         return null;
     }
   }

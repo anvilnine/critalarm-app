@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 /// Dims the screen and, when [hole] is set, cuts a rounded window out of the
 /// scrim with an optional [ring] around its edge.
 ///
-/// Shared by the tour spotlight (which animates [hole] between targets) and,
-/// without a hole, as the modal barrier behind dialogs and sheets.
+/// Shared by the Feature Guide spotlight (which animates [hole] between
+/// targets) and, without a hole, as the modal barrier behind dialogs and
+/// sheets.
 class AppScrim extends StatelessWidget {
   const AppScrim({
     this.hole,

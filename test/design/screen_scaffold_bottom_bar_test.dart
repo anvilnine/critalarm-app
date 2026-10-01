@@ -90,8 +90,8 @@ void main() {
     const tallBar = SizedBox(height: 100, width: 200);
     await pumpScaffold(tester, hasTabBar: true, bottomBar: tallBar);
 
-    // Home puts the backup nudge above the floating tab bar rather than
-    // behind it, so the content has to clear both. Before the nudge existed
+    // Home puts the backup notice above the floating tab bar rather than
+    // behind it, so the content has to clear both. Before the notice existed
     // nothing had a tab bar and a pinned bar at once, and the room was the
     // taller of the two.
     expect(
