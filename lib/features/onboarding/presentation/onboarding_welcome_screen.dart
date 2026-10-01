@@ -274,6 +274,7 @@ class _IntroLayout extends StatelessWidget {
     this.top,
     this.badge,
     this.wordsKey,
+    this.staged = true,
   });
 
   final Widget hero;
@@ -292,10 +293,19 @@ class _IntroLayout extends StatelessWidget {
   /// A new key plays the words in again.
   final Key? wordsKey;
 
+  /// True on the first screen, where the words wait for the animation. False
+  /// on a screen reached from another one: the title, text and button are
+  /// already on the page while it slides in, like the permissions and
+  /// connect screens, so the whole screen moves instead of an empty one
+  /// arriving with its words popping in after the slide has finished.
+  final bool staged;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     const step = Duration(milliseconds: 180);
+    Widget reveal(Duration delay, Widget child) =>
+        staged ? _Reveal(delay: delay, child: child) : child;
 
     // Same frame as the permissions and connect screens, so the button sits
     // in the same place on every onboarding step.
@@ -307,9 +317,9 @@ class _IntroLayout extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       bottomBar: KeyedSubtree(
         key: wordsKey,
-        child: _Reveal(
-          delay: textDelay + step * 2,
-          child: AppButton(
+        child: reveal(
+          textDelay + step * 2,
+          AppButton(
             label: button,
             size: AppButtonSize.lg,
             isFullWidth: true,
@@ -361,9 +371,9 @@ class _IntroLayout extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _Reveal(
-                          delay: textDelay,
-                          child: Text(
+                        reveal(
+                          textDelay,
+                          Text(
                             title,
                             style: AppTypography.display(
                               colors.onCanvas,
@@ -373,18 +383,18 @@ class _IntroLayout extends StatelessWidget {
                         ),
                         if (badge != null) ...[
                           const SizedBox(height: Spacing.s3),
-                          _Reveal(
-                            delay: textDelay + step,
-                            child: Align(
+                          reveal(
+                            textDelay + step,
+                            Align(
                               alignment: Alignment.centerLeft,
                               child: badge,
                             ),
                           ),
                         ],
                         const SizedBox(height: Spacing.s2),
-                        _Reveal(
-                          delay: textDelay + step,
-                          child: Text(
+                        reveal(
+                          textDelay + step,
+                          Text(
                             subtitle,
                             style: AppTypography.lead(
                               colors.onCanvasMuted,

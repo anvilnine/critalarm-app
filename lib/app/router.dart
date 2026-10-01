@@ -111,6 +111,11 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       name: AppRoute.createTopic,
       pageBuilder: (context, state) => AmbientPage(
         key: state.pageKey,
+        // Opaque, because it opens straight over the tab shell, which does
+        // not fade out under an ambient page. Transparent, the Topics list
+        // stayed on screen behind the form. The ambient backdrop sits outside
+        // the navigator, so it still shows.
+        opaque: true,
         child: const CreateTopicScreen(),
       ),
     ),
@@ -170,6 +175,27 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         key: state.pageKey,
         opaque: true,
         child: const SoundRecorderScreen(),
+      ),
+    ),
+    // The icon picker covers the display like creating a topic, so the tab
+    // bar goes away. It sits on the root navigator at the top level, not under
+    // `/settings/appearance`, for the reason given above `/sounds`. Only where
+    // the platform can change its icon: the web cannot, so Appearance has no
+    // row for it there and a typed URL lands back on Appearance.
+    GoRoute(
+      path: '/app-icon',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.appIcon,
+      redirect: (context, state) async =>
+          await getIt<AppIconHost>().canChangeAppIcon()
+          ? null
+          : '/settings/appearance',
+      pageBuilder: (context, state) => AmbientPage(
+        key: state.pageKey,
+        // Over the shell, like /topics/new: opaque, or the Settings tab
+        // shows through the transparent scaffold.
+        opaque: true,
+        child: const AppIconScreen(),
       ),
     ),
     // The three root destinations live inside the shell, so the floating tab
@@ -373,23 +399,6 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     key: state.pageKey,
                     child: const AppearanceSettingsScreen(),
                   ),
-                  routes: [
-                    // Only where the platform can change its icon. The web
-                    // cannot, so Appearance has no row for it there and a
-                    // typed URL lands back on Appearance.
-                    GoRoute(
-                      path: 'app-icon',
-                      name: AppRoute.appIcon,
-                      redirect: (context, state) async =>
-                          await getIt<AppIconHost>().canChangeAppIcon()
-                          ? null
-                          : '/settings/appearance',
-                      pageBuilder: (context, state) => AmbientPage(
-                        key: state.pageKey,
-                        child: const AppIconScreen(),
-                      ),
-                    ),
-                  ],
                 ),
                 GoRoute(
                   path: 'privacy',

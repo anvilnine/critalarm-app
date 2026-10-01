@@ -21,6 +21,7 @@ class AppEmptyState extends StatelessWidget {
     this.isLive = true,
     this.showFace = true,
     this.followsRefresh = false,
+    this.radius = Radii.xl,
     super.key,
   });
 
@@ -40,6 +41,11 @@ class AppEmptyState extends StatelessWidget {
   /// under a stage stays still while the stage face does it.
   final bool followsRefresh;
 
+  /// Corner radius of the dashed border. Pass a smaller one where the card sits
+  /// inset inside another rounded card, so the two sets of corners stay
+  /// concentric (inner = outer minus the inset between them).
+  final double radius;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -50,7 +56,7 @@ class AppEmptyState extends StatelessWidget {
         strokeWidth: 2,
         dashLength: 8,
         gapLength: 6,
-        radius: Radii.xl,
+        radius: radius,
       ),
       child: Container(
         width: double.infinity,

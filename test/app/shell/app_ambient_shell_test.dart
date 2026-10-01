@@ -32,6 +32,10 @@ void main() {
       expect(at('/sounds/record'), AmbientAppProfiles.soundEditor(colors));
     });
 
+    test('the app icon picker keeps the Settings detail backdrop', () {
+      expect(at('/app-icon'), AmbientAppProfiles.settingsDetail(colors));
+    });
+
     test('alarm and incident paths default to criticalAlarmRinging', () {
       final ringing = AmbientAppProfiles.criticalAlarmRinging(colors);
       expect(at('/alarm'), ringing);
