@@ -40,4 +40,57 @@ void main() {
       }
     });
   });
+
+  group('onboardingStepForPath', () {
+    test('gives every first-run screen its own step', () {
+      expect(
+        onboardingStepForPath('/onboarding/welcome'),
+        OnboardingAmbientStep.welcome,
+      );
+      expect(
+        onboardingStepForPath('/onboarding/how-it-rings'),
+        OnboardingAmbientStep.howItRings,
+      );
+      expect(
+        onboardingStepForPath('/onboarding'),
+        OnboardingAmbientStep.notifications,
+      );
+      expect(
+        onboardingStepForPath('/onboarding/permissions'),
+        OnboardingAmbientStep.notifications,
+      );
+      expect(
+        onboardingStepForPath('/onboarding/widgets'),
+        OnboardingAmbientStep.widgets,
+      );
+      expect(
+        onboardingStepForPath('/onboarding/connect'),
+        OnboardingAmbientStep.connect,
+      );
+      expect(
+        onboardingStepForPath('/onboarding/denied'),
+        OnboardingAmbientStep.denied,
+      );
+    });
+
+    test('screens in sequence never share a profile, so the canvas moves', () {
+      for (final colors in const [AppColors.light, AppColors.dark]) {
+        final catalog = OnboardingAmbientProfiles.forColors(colors);
+        const flow = [
+          '/onboarding/welcome',
+          '/onboarding/how-it-rings',
+          '/onboarding/permissions',
+          '/onboarding/widgets',
+          '/onboarding/connect',
+        ];
+        for (var i = 0; i < flow.length - 1; i++) {
+          expect(
+            catalog[onboardingStepForPath(flow[i])],
+            isNot(catalog[onboardingStepForPath(flow[i + 1])]),
+            reason: '${flow[i]} to ${flow[i + 1]}',
+          );
+        }
+      }
+    });
+  });
 }

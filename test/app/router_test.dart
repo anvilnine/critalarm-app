@@ -50,6 +50,36 @@ void main() {
     });
   });
 
+  group('the app icon route', () {
+    test('is top level and draws on the root navigator', () {
+      final routes = buildRouter().configuration.routes;
+
+      final picker = routes
+          .whereType<GoRoute>()
+          .where((r) => r.name == AppRoute.appIcon)
+          .toList();
+
+      expect(picker, hasLength(1));
+      expect(picker.single.path, '/app-icon');
+      expect(picker.single.parentNavigatorKey, isNotNull);
+      expect(picker.single.redirect, isNotNull);
+    });
+
+    test('is not nested under settings, which would switch the tab', () {
+      final settings = buildRouter().configuration.routes
+          .expand(_flatten)
+          .whereType<GoRoute>()
+          .firstWhere((r) => r.name == AppRoute.settings);
+
+      final names = settings.routes
+          .expand(_flatten)
+          .whereType<GoRoute>()
+          .map((r) => r.name);
+
+      expect(names, isNot(contains(AppRoute.appIcon)));
+    });
+  });
+
   group('ambient transitions across application routes', () {
     test('all visual routes define pageBuilder and not legacy builder', () {
       final routes = buildRouter().configuration.routes

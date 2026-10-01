@@ -32,6 +32,7 @@ export 'skeleton.dart';
 export 'stage.dart';
 export 'swipe_actions.dart';
 export 'switches.dart';
+export 'tilt_showcase.dart';
 export 'toasts.dart';
 export 'top_bar.dart';
 export 'transport_button.dart';
