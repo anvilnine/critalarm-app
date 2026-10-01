@@ -177,6 +177,24 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         child: const SoundRecorderScreen(),
       ),
     ),
+    // The icon picker covers the display like creating a topic, so the tab
+    // bar goes away. It sits on the root navigator at the top level, not under
+    // `/settings/appearance`, for the reason given above `/sounds`. Only where
+    // the platform can change its icon: the web cannot, so Appearance has no
+    // row for it there and a typed URL lands back on Appearance.
+    GoRoute(
+      path: '/app-icon',
+      parentNavigatorKey: _rootKey,
+      name: AppRoute.appIcon,
+      redirect: (context, state) async =>
+          await getIt<AppIconHost>().canChangeAppIcon()
+          ? null
+          : '/settings/appearance',
+      pageBuilder: (context, state) => AmbientPage(
+        key: state.pageKey,
+        child: const AppIconScreen(),
+      ),
+    ),
     // The three root destinations live inside the shell, so the floating tab
     // bar stays on screen and each tab keeps its own back stack. Anything that
     // must cover the whole display is routed outside it.
@@ -378,23 +396,6 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     key: state.pageKey,
                     child: const AppearanceSettingsScreen(),
                   ),
-                  routes: [
-                    // Only where the platform can change its icon. The web
-                    // cannot, so Appearance has no row for it there and a
-                    // typed URL lands back on Appearance.
-                    GoRoute(
-                      path: 'app-icon',
-                      name: AppRoute.appIcon,
-                      redirect: (context, state) async =>
-                          await getIt<AppIconHost>().canChangeAppIcon()
-                          ? null
-                          : '/settings/appearance',
-                      pageBuilder: (context, state) => AmbientPage(
-                        key: state.pageKey,
-                        child: const AppIconScreen(),
-                      ),
-                    ),
-                  ],
                 ),
                 GoRoute(
                   path: 'privacy',

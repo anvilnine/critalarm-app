@@ -129,7 +129,7 @@ class _AppIconSection extends StatelessWidget {
               ),
               onTap: () async {
                 final cubit = context.read<AppIconCubit>();
-                await context.push('/settings/appearance/app-icon');
+                await context.push('/app-icon');
                 // The picker may have changed it.
                 await cubit.load();
               },
