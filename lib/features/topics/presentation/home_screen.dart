@@ -485,11 +485,16 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                             description: '',
                             buttonLabel: null,
                             followsRefresh: true,
+                            radius: Radii.md,
                           ),
                         ] else if (state.isEmpty) ...[
                           AppEmptyState(
                             onButtonPressed: () => context.push('/topics/new'),
                             followsRefresh: true,
+                            // The sheet is Radii.xl (32) with 16 of padding, so
+                            // the dashed card inside is Radii.md (18) to sit
+                            // concentric rather than 32 on 32.
+                            radius: Radii.md,
                           ),
                         ] else ...[
                           // Opening one row's buttons closes any other.
