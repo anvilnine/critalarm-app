@@ -110,9 +110,10 @@ void main() {
     });
   });
 
-  test('showcaseTileSize is 190 on a phone and shrinks on narrow screens', () {
-    expect(showcaseTileSize(390), 190);
-    expect(showcaseTileSize(280), 140);
+  test('showcaseTileSize grows with the phone, caps at 240, floors at 120', () {
+    expect(showcaseTileSize(390), closeTo(226.2, 0.001));
+    expect(showcaseTileSize(500), 240);
+    expect(showcaseTileSize(280), closeTo(162.4, 0.001));
     expect(showcaseTileSize(100), 120);
   });
 }

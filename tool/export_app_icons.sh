@@ -99,7 +99,7 @@ XML
   fi
 
   mkdir -p assets/app_icons
-  rsvg-convert -w 192 -h 192 -b "$BACKGROUND" "$TMP/square.svg" \
+  rsvg-convert -w 768 -h 768 -b "$BACKGROUND" "$TMP/square.svg" \
     -o "assets/app_icons/$svg.png"
 done <<LIST
 app_icon - -
