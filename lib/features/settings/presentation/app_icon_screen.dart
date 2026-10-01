@@ -181,17 +181,51 @@ class _AppIconViewState extends State<_AppIconView>
               onPressed: _leave,
             ),
           ),
+          // The action sits pinned above the tab bar, so the icons get the
+          // rest of the screen and stay its centre.
+          bottomBar: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (state.failed) ...[
+                AppNote(text: LocaleKeys.settings_app_icon_failed.tr()),
+                const SizedBox(height: Spacing.s3),
+              ],
+              if (locked) ...[
+                Text(
+                  LocaleKeys.settings_app_icon_pro_feature.tr(),
+                  textAlign: TextAlign.center,
+                  style: AppTypography.small(colors.onCanvas),
+                ),
+                const SizedBox(height: Spacing.s2),
+              ],
+              AppButton(
+                label: switch (action) {
+                  IconAction.use =>
+                    LocaleKeys.settings_app_icon_action_use.tr(),
+                  IconAction.inUse =>
+                    LocaleKeys.settings_app_icon_action_in_use.tr(),
+                  IconAction.unlock => LocaleKeys.settings_app_icon_go_pro.tr(),
+                },
+                isFullWidth: true,
+                isLoading: state.saving != null,
+                onPressed: action == IconAction.inUse
+                    ? null
+                    : () => unawaited(_onAction(state)),
+              ),
+            ],
+          ),
           slivers: [
-            SliverToBoxAdapter(
+            SliverFillRemaining(
+              hasScrollBody: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, Spacing.s5, 0, 16),
+                padding: const EdgeInsets.only(bottom: Spacing.s6),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     _Headline(visible: _headline, colors: colors),
-                    LayoutBuilder(
-                      builder: (context, box) => _carousel(state, box.maxWidth),
-                    ),
+                    // Screen width, not a LayoutBuilder: the fill-remaining
+                    // sliver measures its child's intrinsic height first.
+                    _carousel(state, MediaQuery.sizeOf(context).width),
                     const SizedBox(height: Spacing.s3),
                     _Dots(
                       count: AppIcon.values.length,
@@ -213,44 +247,10 @@ class _AppIconViewState extends State<_AppIconView>
                             ),
                           ),
                           const SizedBox(height: Spacing.s2),
+                          // The button already says In use, so only a locked
+                          // icon gets a mark here.
                           if (locked)
-                            ProBadge(label: LocaleKeys.paywall_pro_badge.tr())
-                          else if (action == IconAction.inUse)
-                            _InUseTag(colors: colors),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: Spacing.s5),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: AppButton(
-                        label: switch (action) {
-                          IconAction.use =>
-                            LocaleKeys.settings_app_icon_action_use.tr(),
-                          IconAction.inUse =>
-                            LocaleKeys.settings_app_icon_action_in_use.tr(),
-                          IconAction.unlock =>
-                            LocaleKeys.settings_app_icon_action_unlock.tr(),
-                        },
-                        isFullWidth: true,
-                        isLoading: state.saving != null,
-                        onPressed: action == IconAction.inUse
-                            ? null
-                            : () => unawaited(_onAction(state)),
-                      ),
-                    ),
-                    const SizedBox(height: Spacing.s4),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Column(
-                        children: [
-                          if (state.failed) ...[
-                            AppNote(
-                              text: LocaleKeys.settings_app_icon_failed.tr(),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                          if (!state.unlocked) _proFeatureRow(context),
+                            ProBadge(label: LocaleKeys.paywall_pro_badge.tr()),
                         ],
                       ),
                     ),
@@ -261,36 +261,6 @@ class _AppIconViewState extends State<_AppIconView>
           ],
         );
       },
-    );
-  }
-
-  /// Free only: says the icons are Pro and goes to the paywall.
-  Widget _proFeatureRow(BuildContext context) {
-    final colors = context.appColors;
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            LocaleKeys.settings_app_icon_pro_feature.tr(),
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              fontFamilyFallback: AppTypography.fontBodyFallbacks,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: colors.ink,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        AppButton(
-          label: LocaleKeys.settings_app_icon_go_pro.tr(),
-          size: AppButtonSize.sm,
-          onPressed: () {
-            AppHaptics.capture();
-            unawaited(context.push('/paywall?source=$appIconPaywallSource'));
-          },
-        ),
-      ],
     );
   }
 
@@ -448,9 +418,9 @@ class _IconPage extends StatelessWidget {
 
   // Slightly desaturated, so a locked icon looks held back, not greyed out.
   static const _tease = ColorFilter.matrix(<double>[
-    0.6, 0.3, 0.1, 0, 0, //
-    0.2, 0.7, 0.1, 0, 0, //
-    0.2, 0.3, 0.5, 0, 0, //
+    0.8, 0.15, 0.05, 0, 0, //
+    0.1, 0.85, 0.05, 0, 0, //
+    0.1, 0.15, 0.75, 0, 0, //
     0, 0, 0, 1, 0,
   ]);
 
@@ -502,27 +472,6 @@ class _IconPage extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _InUseTag extends StatelessWidget {
-  const _InUseTag({required this.colors});
-
-  final AppColors colors;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppGlyph(GlyphType.check, color: colors.onCanvasMuted),
-        const SizedBox(width: 6),
-        Text(
-          LocaleKeys.settings_app_icon_in_use_tag.tr(),
-          style: AppTypography.small(colors.onCanvasMuted),
-        ),
-      ],
     );
   }
 }
@@ -616,6 +565,7 @@ class AppIconPreview extends StatelessWidget {
         child: _image.image(
           width: size,
           height: size,
+          fit: BoxFit.cover,
           excludeFromSemantics: true,
         ),
       ),

@@ -38,4 +38,4 @@ IconAction iconAction(
 /// The tile size for a carousel [available] logical px wide: 190 on a phone,
 /// smaller where the viewport is narrow.
 double showcaseTileSize(double available) =>
-    math.min(190, math.max(120, available * 0.5));
+    math.min(240, math.max(120, available * 0.58));
