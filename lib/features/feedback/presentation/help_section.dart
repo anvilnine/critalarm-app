@@ -45,6 +45,7 @@ class HelpSection extends StatelessWidget {
         context,
         LocaleKeys.settings_help_report_row.tr(),
         () => _openReportMail(context),
+        subtitle: LocaleKeys.settings_help_report_sub.tr(),
       ),
       if (_canRate)
         _row(
@@ -53,6 +54,9 @@ class HelpSection extends StatelessWidget {
           () => InAppReview.instance.openStoreListing(
             appStoreId: FeedbackLinks.appStoreId,
           ),
+          subtitle: defaultTargetPlatform == TargetPlatform.android
+              ? LocaleKeys.settings_help_rate_sub_android.tr()
+              : LocaleKeys.settings_help_rate_sub_ios.tr(),
         ),
     ];
 
@@ -72,11 +76,12 @@ class HelpSection extends StatelessWidget {
   Widget _row(
     BuildContext context,
     String name,
-    Future<void> Function() onTap,
-  ) {
+    Future<void> Function() onTap, {
+    String subtitle = '',
+  }) {
     return AppListRow(
       name: name,
-      meta: '',
+      meta: subtitle,
       faceState: null,
       trailing: AppGlyph(
         GlyphType.arrow,

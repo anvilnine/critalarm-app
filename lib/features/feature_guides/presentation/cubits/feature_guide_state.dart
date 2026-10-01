@@ -11,6 +11,10 @@ enum FeatureGuideStatus {
 
   /// A guide is on screen.
   running,
+
+  /// Home is asking whether the user wants to be shown around. Nothing is
+  /// highlighted yet. Counts as active, so setup asks keep waiting.
+  offering,
 }
 
 @immutable
@@ -21,12 +25,14 @@ class FeatureGuideState {
     this.stepIndex = 0,
     this.topicName = '',
     this.usingExamples = false,
+    this.fromMenu = false,
   });
 
   final FeatureGuideStatus status;
 
   /// The guide asked for or playing. Null while idle, and also for the full
-  /// replay from Settings, which plays every guide back to back.
+  /// replay from Settings, which plays every guide back to back. Home while
+  /// the offer is up.
   final FeatureGuide? guide;
 
   final int stepIndex;
@@ -38,6 +44,10 @@ class FeatureGuideState {
   /// rather than pointing at an empty list.
   final bool usingExamples;
 
+  /// True when the user picked this guide from the Settings list. It starts
+  /// from Settings, moves to its own screen, and ends back on Settings.
+  final bool fromMenu;
+
   bool get isRunning => status == FeatureGuideStatus.running;
 
   /// True from the moment a guide is asked for until it is gone. Sheets,
@@ -47,6 +57,11 @@ class FeatureGuideState {
   /// True for the full replay, which moves between screens on its own. A
   /// single guide stays on the screen it was asked for on.
   bool get isFullReplay => isActive && guide == null;
+
+  /// True when the guide opens each step's screen itself: the full replay and
+  /// any guide picked from the Settings list. A first-visit guide stays on
+  /// the screen it came up on.
+  bool get moves => isActive && (guide == null || fromMenu);
 
   /// The steps being played.
   List<FeatureGuideStep> get steps => featureGuideStepsFor(guide);
@@ -79,6 +94,7 @@ class FeatureGuideState {
       stepIndex: stepIndex ?? this.stepIndex,
       topicName: topicName ?? this.topicName,
       usingExamples: usingExamples ?? this.usingExamples,
+      fromMenu: fromMenu,
     );
   }
 
@@ -90,9 +106,10 @@ class FeatureGuideState {
           guide == other.guide &&
           stepIndex == other.stepIndex &&
           topicName == other.topicName &&
-          usingExamples == other.usingExamples;
+          usingExamples == other.usingExamples &&
+          fromMenu == other.fromMenu;
 
   @override
   int get hashCode =>
-      Object.hash(status, guide, stepIndex, topicName, usingExamples);
+      Object.hash(status, guide, stepIndex, topicName, usingExamples, fromMenu);
 }

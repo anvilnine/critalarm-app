@@ -63,7 +63,7 @@ void main() {
       expect(cubit.state.isFullReplay, isTrue);
     });
 
-    test('the first guide is the Topics one', () {
+    test('the offer counts as answered once the Topics guide is seen', () {
       expect(cubit.hasSeenFirstGuide, isFalse);
       repo.seen.add(FeatureGuide.home.name);
       expect(cubit.hasSeenFirstGuide, isTrue);
@@ -109,10 +109,10 @@ void main() {
   });
 
   group('the Topics guide comes first', () {
-    test('a fresh install asks for the Topics guide', () {
+    test('a fresh install offers the Topics guide', () {
       cubit.requestIfNew(FeatureGuide.home);
       expect(cubit.state.guide, FeatureGuide.home);
-      expect(cubit.state.status, FeatureGuideStatus.requested);
+      expect(cubit.state.status, FeatureGuideStatus.offering);
     });
 
     test('creating the first topic in onboarding starts no guide', () {
@@ -131,6 +131,7 @@ void main() {
     test('once it is done, the next screen plays its own', () async {
       cubit
         ..requestIfNew(FeatureGuide.home)
+        ..acceptOffer()
         ..begin(firstTopicName: 'api')
         ..finish();
       await Future<void>.delayed(Duration.zero);
@@ -141,6 +142,7 @@ void main() {
     test('a skipped Topics guide counts as done', () async {
       cubit
         ..requestIfNew(FeatureGuide.home)
+        ..acceptOffer()
         ..begin()
         ..finish();
       await Future<void>.delayed(Duration.zero);
@@ -246,8 +248,133 @@ void main() {
   test('an alarm during a requested guide drops it unseen', () {
     cubit
       ..requestIfNew(FeatureGuide.home)
+      ..acceptOffer()
       ..stop();
     expect(cubit.state.isActive, isFalse);
     expect(repo.seen, isEmpty);
+  });
+
+  group('the offer', () {
+    test('Topics raises it while the Topics guide is unseen', () {
+      cubit.requestIfNew(FeatureGuide.home);
+      expect(cubit.state.status, FeatureGuideStatus.offering);
+      expect(cubit.state.guide, FeatureGuide.home);
+      expect(cubit.state.isActive, isTrue);
+      expect(cubit.state.isRunning, isFalse);
+    });
+
+    test('other screens wait until it is answered', () {
+      cubit.requestIfNew(FeatureGuide.settings);
+      expect(cubit.state.status, FeatureGuideStatus.idle);
+      cubit.requestIfNew(FeatureGuide.search);
+      expect(cubit.state.status, FeatureGuideStatus.idle);
+    });
+
+    test('a second Topics visit while it is up changes nothing', () {
+      cubit.requestIfNew(FeatureGuide.home);
+      final first = cubit.state;
+      cubit
+        ..requestIfNew(FeatureGuide.home)
+        ..requestIfNew(FeatureGuide.history);
+      expect(cubit.state, first);
+    });
+
+    test('accepting plays the short Topics guide, not the full replay', () {
+      cubit
+        ..requestIfNew(FeatureGuide.home)
+        ..acceptOffer();
+      expect(cubit.state.status, FeatureGuideStatus.requested);
+      expect(cubit.state.guide, FeatureGuide.home);
+      expect(cubit.state.isFullReplay, isFalse);
+      expect(cubit.state.moves, isFalse);
+      cubit.begin();
+      expect(cubit.state.isRunning, isTrue);
+      expect(cubit.state.steps, featureGuideStepsFor(FeatureGuide.home));
+    });
+
+    test('finishing the accepted guide marks only Topics seen', () {
+      cubit
+        ..requestIfNew(FeatureGuide.home)
+        ..acceptOffer()
+        ..begin()
+        ..finish();
+      expect(repo.seen, {FeatureGuide.home.name});
+      cubit.requestIfNew(FeatureGuide.settings);
+      expect(cubit.state.guide, FeatureGuide.settings);
+    });
+
+    test('declining marks every guide seen and goes idle', () {
+      cubit
+        ..requestIfNew(FeatureGuide.home)
+        ..declineOffer();
+      expect(cubit.state.status, FeatureGuideStatus.idle);
+      expect(repo.seen, FeatureGuide.values.map((g) => g.name).toSet());
+      expect(cubit.hasSeenFirstGuide, isTrue);
+      cubit
+        ..requestIfNew(FeatureGuide.home)
+        ..requestIfNew(FeatureGuide.history);
+      expect(cubit.state.status, FeatureGuideStatus.idle);
+    });
+
+    test('an alarm drops it without marking anything seen', () {
+      cubit
+        ..requestIfNew(FeatureGuide.home)
+        ..stop();
+      expect(cubit.state.status, FeatureGuideStatus.idle);
+      expect(repo.seen, isEmpty);
+      cubit.requestIfNew(FeatureGuide.home);
+      expect(cubit.state.status, FeatureGuideStatus.offering);
+    });
+
+    test('accept and decline do nothing unless it is up', () {
+      cubit
+        ..acceptOffer()
+        ..declineOffer();
+      expect(cubit.state.status, FeatureGuideStatus.idle);
+      expect(repo.seen, isEmpty);
+    });
+  });
+
+  group('picked from Settings', () {
+    test('the full replay does not use fromMenu and moves', () {
+      cubit.requestGuide(null);
+      expect(cubit.state.isFullReplay, isTrue);
+      expect(cubit.state.fromMenu, isFalse);
+      expect(cubit.state.moves, isTrue);
+    });
+
+    test('a single guide is flagged fromMenu and moves', () {
+      cubit.requestGuide(FeatureGuide.topic);
+      expect(cubit.state.status, FeatureGuideStatus.requested);
+      expect(cubit.state.guide, FeatureGuide.topic);
+      expect(cubit.state.fromMenu, isTrue);
+      expect(cubit.state.isFullReplay, isFalse);
+      expect(cubit.state.moves, isTrue);
+      cubit.begin(firstTopicName: 'api');
+      expect(cubit.state.fromMenu, isTrue);
+      cubit.next();
+      expect(cubit.state.fromMenu, isTrue);
+    });
+
+    test('it plays even before the offer was answered', () {
+      cubit.requestGuide(FeatureGuide.history);
+      expect(cubit.state.status, FeatureGuideStatus.requested);
+    });
+
+    test('finishing one marks only that guide seen', () {
+      cubit
+        ..requestGuide(FeatureGuide.search)
+        ..begin()
+        ..finish();
+      expect(cubit.state.status, FeatureGuideStatus.idle);
+      expect(cubit.state.fromMenu, isFalse);
+      expect(repo.seen, {FeatureGuide.search.name});
+    });
+
+    test('first-visit guides do not move', () {
+      repo.seen.add(FeatureGuide.home.name);
+      cubit.requestIfNew(FeatureGuide.history);
+      expect(cubit.state.moves, isFalse);
+    });
   });
 }

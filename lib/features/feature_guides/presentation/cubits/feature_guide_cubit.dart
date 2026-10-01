@@ -8,8 +8,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// Which Feature Guide is showing, and which step of it. One
 /// for the whole app, because the full replay walks across screens.
 ///
-/// Each screen has its own short guide that plays the first time the user
-/// gets there. Settings replays all of them in one go.
+/// Topics first offers the guides. Until the user answers, no guide plays.
+/// After that each screen has its own short guide that plays the first time
+/// the user gets there. Settings can start the full replay or any single
+/// guide.
 ///
 /// This only keeps count. Moving between screens, scrolling and drawing the
 /// spotlight is the FeatureGuideHost's job.
@@ -23,31 +25,77 @@ class FeatureGuideCubit extends Cubit<FeatureGuideState> {
 
   bool hasSeen(FeatureGuide guide) => _repository.hasSeenGuide(guide.name);
 
-  /// True once the Topics guide has been seen or skipped. It is the first
-  /// one anybody gets, straight after onboarding, so the sheets and
-  /// reminders that wait for setup wait for it.
+  /// True once the offer on Topics was answered, by taking it, declining it,
+  /// or finishing the Topics guide. The sheets and reminders that wait for
+  /// setup wait for it.
   bool get hasSeenFirstGuide => hasSeen(FeatureGuide.home);
 
-  /// Asks for [guide] if this device has not seen it yet. Called as its
-  /// screen comes up. Ignored while another guide is going: that screen's
-  /// guide plays on the next visit instead.
+  /// Called as a screen comes up. While the offer is unanswered, Topics
+  /// raises it and every other screen waits. After that, asks for [guide] if
+  /// this device has not seen it yet. Ignored while something else is going:
+  /// that screen's guide plays on the next visit instead.
   ///
-  /// The Topics guide always comes first. Until it has been seen or skipped
-  /// every other screen stays quiet, so the create-your-first-topic screens
-  /// at the end of onboarding never start one. Those screens play their
-  /// guide on the next visit instead.
+  /// The Topics guide always comes first. Until the offer is answered every
+  /// other screen stays quiet, so the create-your-first-topic screens at the
+  /// end of onboarding never start one. Those screens play their guide on
+  /// the next visit instead.
   void requestIfNew(FeatureGuide guide) {
+    if (state.isActive) return;
+    if (!hasSeenFirstGuide) {
+      if (guide == FeatureGuide.home) {
+        emit(
+          const FeatureGuideState(
+            status: FeatureGuideStatus.offering,
+            guide: FeatureGuide.home,
+          ),
+        );
+      }
+      return;
+    }
     if (hasSeen(guide)) return;
-    if (guide != FeatureGuide.home && !hasSeenFirstGuide) return;
     _request(guide);
   }
 
-  /// Asks for every guide back to back, seen or not. Settings calls this.
-  void request() => _request(null);
+  /// The user said yes to the offer. Plays the short Topics guide, not the
+  /// full replay. Does nothing unless the offer is up.
+  void acceptOffer() {
+    if (state.status != FeatureGuideStatus.offering) return;
+    emit(
+      const FeatureGuideState(
+        status: FeatureGuideStatus.requested,
+        guide: FeatureGuide.home,
+      ),
+    );
+  }
 
-  void _request(FeatureGuide? guide) {
+  /// The user said no to the offer, or dismissed it. Every guide counts as
+  /// seen, so none plays on its own again. Settings still has them all.
+  void declineOffer() {
+    if (state.status != FeatureGuideStatus.offering) return;
+    unawaited(
+      _repository.markGuidesSeen(FeatureGuide.values.map((g) => g.name)),
+    );
+    emit(const FeatureGuideState());
+  }
+
+  /// Asks for what the Settings list picked, seen or not: [guide], or the
+  /// full replay when it is null. A single guide moves to its own screen and
+  /// ends back on Settings.
+  void requestGuide(FeatureGuide? guide) =>
+      _request(guide, fromMenu: guide != null);
+
+  /// Asks for the full replay, seen or not.
+  void request() => requestGuide(null);
+
+  void _request(FeatureGuide? guide, {bool fromMenu = false}) {
     if (state.isActive) return;
-    emit(FeatureGuideState(status: FeatureGuideStatus.requested, guide: guide));
+    emit(
+      FeatureGuideState(
+        status: FeatureGuideStatus.requested,
+        guide: guide,
+        fromMenu: fromMenu,
+      ),
+    );
   }
 
   /// Starts what was asked for. [firstTopicName] is the user's first topic,
@@ -62,6 +110,7 @@ class FeatureGuideCubit extends Cubit<FeatureGuideState> {
         guide: state.guide,
         topicName: firstTopicName ?? exampleTopicName,
         usingExamples: usingExamples,
+        fromMenu: state.fromMenu,
       ),
     );
   }
@@ -94,8 +143,8 @@ class FeatureGuideCubit extends Cubit<FeatureGuideState> {
   }
 
   /// Something more important took the screen, such as an alarm. The guide
-  /// goes without being marked seen, so it comes back next time its screen
-  /// opens.
+  /// or the offer goes without being marked seen, so it comes back next time
+  /// its screen opens.
   void stop() {
     if (!state.isActive) return;
     emit(const FeatureGuideState());
