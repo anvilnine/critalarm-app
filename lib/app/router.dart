@@ -192,6 +192,9 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           : '/settings/appearance',
       pageBuilder: (context, state) => AmbientPage(
         key: state.pageKey,
+        // Over the shell, like /topics/new: opaque, or the Settings tab
+        // shows through the transparent scaffold.
+        opaque: true,
         child: const AppIconScreen(),
       ),
     ),
