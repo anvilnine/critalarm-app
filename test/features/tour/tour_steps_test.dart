@@ -1,7 +1,9 @@
 import 'dart:ui';
 
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/features/tour/presentation/tour_layout.dart';
 import 'package:critalarm/features/tour/presentation/tour_steps.dart';
+import 'package:critalarm/features/tour/presentation/widgets/tour_picker_sheet.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -98,6 +100,51 @@ void main() {
       final step = tourSteps.firstWhere((s) => s.exampleBodyKey != null);
       expect(step.bodyKeyFor(usingExamples: true), step.exampleBodyKey);
       expect(step.bodyKeyFor(usingExamples: false), step.bodyKey);
+    });
+  });
+
+  group('ring claim', () {
+    test('a step that promises a ring has wording for an old iPhone', () {
+      final step = tourSteps.firstWhere((s) => s.timeSensitiveBodyKey != null);
+      expect(
+        step.bodyKeyFor(usingExamples: false),
+        step.bodyKey,
+      );
+      expect(
+        step.bodyKeyFor(
+          usingExamples: false,
+          ringClaim: RingClaim.timeSensitive,
+        ),
+        step.timeSensitiveBodyKey,
+      );
+    });
+
+    test('a step with no alternative wording keeps its body', () {
+      final step = tourSteps.firstWhere((s) => s.timeSensitiveBodyKey == null);
+      expect(
+        step.bodyKeyFor(
+          usingExamples: false,
+          ringClaim: RingClaim.timeSensitive,
+        ),
+        step.bodyKey,
+      );
+    });
+  });
+
+  group('picker keys', () {
+    test('every guide has its own label and description', () {
+      final labels = TourGuide.values.map(tourGuideLabelKey).toSet();
+      final descriptions = TourGuide.values
+          .map(tourGuideDescriptionKey)
+          .toSet();
+      expect(labels, hasLength(TourGuide.values.length));
+      expect(descriptions, hasLength(TourGuide.values.length));
+    });
+
+    test('every guide has at least one step to count', () {
+      for (final guide in TourGuide.values) {
+        expect(tourStepsFor(guide), isNotEmpty, reason: '$guide');
+      }
     });
   });
 

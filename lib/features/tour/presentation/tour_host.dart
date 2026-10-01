@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
+import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
@@ -92,16 +94,28 @@ class _TourHostState extends State<TourHost> {
   /// host (an alarm took the screen), so it does not count as declining.
   int _offerTicket = 0;
 
+  /// What this phone can ring through, so a step never promises more. Read
+  /// once; the alarm answer is the same for the whole run.
+  RingClaim _ringClaim = RingClaim.alarm;
+
   @override
   void initState() {
     super.initState();
     _sub = _tour.stream.listen(_onTour);
+    unawaited(_readRingClaim());
     widget.router.routerDelegate.addListener(_onRoute);
     // The first screen never reports a route change, so it is checked once
     // it is up.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _requestForScreen();
     });
+  }
+
+  Future<void> _readRingClaim() async {
+    // The host answers "unsupported" when it cannot be reached, which
+    // RingClaim reads as the quiet wording on an iPhone.
+    final alarm = await getIt<AlarmHost>().authorizationStatus();
+    if (mounted) setState(() => _ringClaim = RingClaim.forPhone(alarm));
   }
 
   @override
@@ -506,6 +520,7 @@ class _TourHostState extends State<TourHost> {
     final card = _TourCard(
       key: ValueKey(tour.stepIndex),
       tour: tour,
+      ringClaim: _ringClaim,
       onNext: _next,
       onBack: tour.isFirstStep ? null : _back,
       onSkip: _done,
@@ -536,6 +551,7 @@ class _TourHostState extends State<TourHost> {
 class _TourCard extends StatelessWidget {
   const _TourCard({
     required this.tour,
+    required this.ringClaim,
     required this.onNext,
     required this.onBack,
     required this.onSkip,
@@ -543,6 +559,7 @@ class _TourCard extends StatelessWidget {
   });
 
   final TourState tour;
+  final RingClaim ringClaim;
   final VoidCallback onNext;
   final VoidCallback? onBack;
   final VoidCallback onSkip;
@@ -623,7 +640,12 @@ class _TourCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               AppBulletedText(
-                step.bodyKeyFor(usingExamples: tour.usingExamples).tr(),
+                step
+                    .bodyKeyFor(
+                      usingExamples: tour.usingExamples,
+                      ringClaim: ringClaim,
+                    )
+                    .tr(),
                 style: TextStyle(
                   fontFamily: AppTypography.fontBody,
                   fontFamilyFallback: AppTypography.fontBodyFallbacks,
