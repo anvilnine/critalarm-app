@@ -173,6 +173,8 @@ class _AppIconViewState extends State<_AppIconView>
         );
         final locked = state.isLocked(icon);
         return AppScreenScaffold(
+          // Full screen, on the root navigator: no tab bar to leave room for.
+          hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.settings_app_icon_title.tr(),
             leading: AppIconButton(
