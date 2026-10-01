@@ -3,11 +3,11 @@
 /// and every planned reminder. The demo alarm at the end of onboarding used
 /// to trigger one.
 ///
-/// Setup is done once onboarding is finished and the first guide (Topics,
-/// shown straight after onboarding) was seen or skipped. Every other screen
-/// has its own guide the first time it opens; while any guide is up, setup
-/// counts as not done, so nothing shows over it and nothing is planned. The
-/// asks show after it instead.
+/// Setup is done once onboarding is finished and the tour offer on Topics
+/// was answered (taken, declined, or its guide finished). Every other screen
+/// has its own guide the first time it opens; while the offer or any guide is
+/// up, setup counts as not done, so nothing shows over it and nothing is
+/// planned. The asks show after it instead.
 ///
 /// Reads through the callbacks it is given, so it tests without storage.
 /// Every ask rule takes the answer as `isSetupDone`.

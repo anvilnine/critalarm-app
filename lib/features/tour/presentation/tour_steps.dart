@@ -23,9 +23,10 @@ enum TourAnchorId {
 /// Which screen a step needs on the display before it can point at anything.
 enum TourPlace { home, createTopic, topic, settings }
 
-/// One short "How to use the app" guide per screen or feature. Each plays by
-/// itself the first time the user reaches that screen, and only covers what
-/// is on it. Settings can still replay every guide back to back.
+/// One short "How to use the app" guide per screen or feature. Once the
+/// user has answered the tour offer on Topics, each plays by itself the first
+/// time they reach that screen, and only covers what is on it. Settings can
+/// start any one of them, or all of them back to back.
 enum TourGuide {
   /// The Topics tab: the status face, the list, making and finding things.
   home,

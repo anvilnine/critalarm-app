@@ -28,6 +28,7 @@ void main() {
 
   group('starting', () {
     test("a screen's first visit asks for that screen's guide", () {
+      repo.seen.add(TourGuide.home.name);
       cubit.requestIfNew(TourGuide.settings);
       expect(cubit.state.status, TourStatus.requested);
       expect(cubit.state.guide, TourGuide.settings);
@@ -48,10 +49,11 @@ void main() {
     });
 
     test('a second ask while one is going is ignored', () {
+      repo.seen.add(TourGuide.home.name);
       cubit
-        ..requestIfNew(TourGuide.home)
+        ..requestIfNew(TourGuide.history)
         ..requestIfNew(TourGuide.search);
-      expect(cubit.state.guide, TourGuide.home);
+      expect(cubit.state.guide, TourGuide.history);
     });
 
     test('Settings replays every guide after they were seen', () {
@@ -61,7 +63,7 @@ void main() {
       expect(cubit.state.isFullReplay, isTrue);
     });
 
-    test('the first guide is the Topics one', () {
+    test('the offer counts as answered once the Topics guide is seen', () {
       expect(cubit.hasSeenFirstGuide, isFalse);
       repo.seen.add(TourGuide.home.name);
       expect(cubit.hasSeenFirstGuide, isTrue);
@@ -94,6 +96,7 @@ void main() {
     });
 
     test('a guide keeps its name once it starts', () {
+      repo.seen.add(TourGuide.home.name);
       cubit
         ..requestIfNew(TourGuide.topic)
         ..begin(firstTopicName: 'api');
@@ -104,6 +107,7 @@ void main() {
 
   group('a single guide', () {
     setUp(() {
+      repo.seen.add(TourGuide.home.name);
       cubit
         ..requestIfNew(TourGuide.createTopic)
         ..begin(firstTopicName: 'api');
@@ -121,12 +125,12 @@ void main() {
         cubit.next();
       }
       expect(cubit.state.status, TourStatus.idle);
-      expect(repo.seen, {TourGuide.createTopic.name});
+      expect(repo.seen, {TourGuide.home.name, TourGuide.createTopic.name});
     });
 
     test('skipping marks only it seen', () {
       cubit.finish();
-      expect(repo.seen, {TourGuide.createTopic.name});
+      expect(repo.seen, {TourGuide.home.name, TourGuide.createTopic.name});
     });
 
     test('does not put the examples on the Topics list', () {
@@ -192,8 +196,133 @@ void main() {
   test('an alarm during a requested guide drops it unseen', () {
     cubit
       ..requestIfNew(TourGuide.home)
+      ..acceptOffer()
       ..stop();
     expect(cubit.state.isActive, isFalse);
     expect(repo.seen, isEmpty);
+  });
+
+  group('the offer', () {
+    test('Topics raises it while the Topics guide is unseen', () {
+      cubit.requestIfNew(TourGuide.home);
+      expect(cubit.state.status, TourStatus.offering);
+      expect(cubit.state.guide, TourGuide.home);
+      expect(cubit.state.isActive, isTrue);
+      expect(cubit.state.isRunning, isFalse);
+    });
+
+    test('other screens wait until it is answered', () {
+      cubit.requestIfNew(TourGuide.settings);
+      expect(cubit.state.status, TourStatus.idle);
+      cubit.requestIfNew(TourGuide.search);
+      expect(cubit.state.status, TourStatus.idle);
+    });
+
+    test('a second Topics visit while it is up changes nothing', () {
+      cubit.requestIfNew(TourGuide.home);
+      final first = cubit.state;
+      cubit
+        ..requestIfNew(TourGuide.home)
+        ..requestIfNew(TourGuide.history);
+      expect(cubit.state, first);
+    });
+
+    test('accepting plays the short Topics guide, not the full tour', () {
+      cubit
+        ..requestIfNew(TourGuide.home)
+        ..acceptOffer();
+      expect(cubit.state.status, TourStatus.requested);
+      expect(cubit.state.guide, TourGuide.home);
+      expect(cubit.state.isFullReplay, isFalse);
+      expect(cubit.state.moves, isFalse);
+      cubit.begin();
+      expect(cubit.state.isRunning, isTrue);
+      expect(cubit.state.steps, tourStepsFor(TourGuide.home));
+    });
+
+    test('finishing the accepted guide marks only Topics seen', () {
+      cubit
+        ..requestIfNew(TourGuide.home)
+        ..acceptOffer()
+        ..begin()
+        ..finish();
+      expect(repo.seen, {TourGuide.home.name});
+      cubit.requestIfNew(TourGuide.settings);
+      expect(cubit.state.guide, TourGuide.settings);
+    });
+
+    test('declining marks every guide seen and goes idle', () {
+      cubit
+        ..requestIfNew(TourGuide.home)
+        ..declineOffer();
+      expect(cubit.state.status, TourStatus.idle);
+      expect(repo.seen, TourGuide.values.map((g) => g.name).toSet());
+      expect(cubit.hasSeenFirstGuide, isTrue);
+      cubit
+        ..requestIfNew(TourGuide.home)
+        ..requestIfNew(TourGuide.history);
+      expect(cubit.state.status, TourStatus.idle);
+    });
+
+    test('an alarm drops it without marking anything seen', () {
+      cubit
+        ..requestIfNew(TourGuide.home)
+        ..stop();
+      expect(cubit.state.status, TourStatus.idle);
+      expect(repo.seen, isEmpty);
+      cubit.requestIfNew(TourGuide.home);
+      expect(cubit.state.status, TourStatus.offering);
+    });
+
+    test('accept and decline do nothing unless it is up', () {
+      cubit
+        ..acceptOffer()
+        ..declineOffer();
+      expect(cubit.state.status, TourStatus.idle);
+      expect(repo.seen, isEmpty);
+    });
+  });
+
+  group('picked from Settings', () {
+    test('the full tour does not use fromMenu and moves', () {
+      cubit.requestGuide(null);
+      expect(cubit.state.isFullReplay, isTrue);
+      expect(cubit.state.fromMenu, isFalse);
+      expect(cubit.state.moves, isTrue);
+    });
+
+    test('a single guide is flagged fromMenu and moves', () {
+      cubit.requestGuide(TourGuide.topic);
+      expect(cubit.state.status, TourStatus.requested);
+      expect(cubit.state.guide, TourGuide.topic);
+      expect(cubit.state.fromMenu, isTrue);
+      expect(cubit.state.isFullReplay, isFalse);
+      expect(cubit.state.moves, isTrue);
+      cubit.begin(firstTopicName: 'api');
+      expect(cubit.state.fromMenu, isTrue);
+      cubit.next();
+      expect(cubit.state.fromMenu, isTrue);
+    });
+
+    test('it plays even before the offer was answered', () {
+      cubit.requestGuide(TourGuide.history);
+      expect(cubit.state.status, TourStatus.requested);
+    });
+
+    test('finishing one marks only that guide seen', () {
+      cubit
+        ..requestGuide(TourGuide.search)
+        ..begin()
+        ..finish();
+      expect(cubit.state.status, TourStatus.idle);
+      expect(cubit.state.fromMenu, isFalse);
+      expect(repo.seen, {TourGuide.search.name});
+    });
+
+    test('first-visit guides do not move', () {
+      repo.seen.add(TourGuide.home.name);
+      cubit.requestIfNew(TourGuide.history);
+      expect(cubit.state.moves, isFalse);
+    });
   });
 }

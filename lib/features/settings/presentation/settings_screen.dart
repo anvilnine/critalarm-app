@@ -10,9 +10,9 @@ import 'package:critalarm/features/feedback/presentation/help_section.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
 import 'package:critalarm/features/settings/presentation/settings_health_row.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
 import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
 import 'package:critalarm/features/tour/presentation/tour_steps.dart';
+import 'package:critalarm/features/tour/presentation/widgets/tour_picker_sheet.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -305,7 +305,7 @@ class _SettingsScreenContent extends StatelessWidget {
                             color: colors.ink3,
                             size: 16,
                           ),
-                          onTap: () => getIt<TourCubit>().request(),
+                          onTap: () => unawaited(showTourPickerSheet(context)),
                         ),
                       ),
                       // Debug builds only: a release user gets the tour above.
