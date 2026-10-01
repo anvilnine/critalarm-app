@@ -16,6 +16,18 @@ import 'package:go_router/go_router.dart';
 /// Screen reachable from settings displaying device permissions:
 /// Notifications, Full-screen intent, and Battery optimization exemption.
 /// Automatically refreshes permissions on app resume.
+/// Crit's face on the permissions stage. Dizzy means "something is off";
+/// alarmed is kept for a ringing alarm, so a missing permission never uses it.
+@visibleForTesting
+FaceState permissionsStageFace({
+  required bool allGranted,
+  required bool fullScreenOff,
+}) {
+  if (allGranted) return FaceState.calm;
+  if (fullScreenOff) return FaceState.worried;
+  return FaceState.dizzy;
+}
+
 class DevicePermissionsScreen extends StatelessWidget {
   const DevicePermissionsScreen({super.key});
 
@@ -118,11 +130,10 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
         final fullScreenOff =
             fullScreenItem != null && !fullScreenItem.status.isGranted;
 
-        final stageFace = state.allGranted
-            ? FaceState.calm
-            : fullScreenOff
-            ? FaceState.worried
-            : FaceState.alarmed;
+        final stageFace = permissionsStageFace(
+          allGranted: state.allGranted,
+          fullScreenOff: fullScreenOff,
+        );
         final stageSub = fullScreenOff
             ? LocaleKeys.device_permissions_stage_sub_full_screen_off.tr()
             : state.allGranted
