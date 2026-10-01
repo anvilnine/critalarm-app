@@ -209,6 +209,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 final GetIt getIt = GetIt.instance;
 
+/// Set once a Pro device has seen the App icon welcome. Never cleared.
+const _appIconWelcomedKey = 'app_icon.welcomed';
+
 /// Composition root. Registration order is: platform singletons, then
 /// repositories, then usecases, then cubits. Keep it in that order as features
 /// land so a missing dependency is obvious from where the call sits.
@@ -995,6 +998,11 @@ Future<void> configureDependencies({
         readCurrent: () => getIt<AppIconHost>().current(),
         apply: (icon) => getIt<AppIconHost>().set(icon),
         readUnlocked: _proIconsUnlocked,
+        readWelcomed: () async =>
+            getIt<SharedPreferences>().getBool(_appIconWelcomedKey) ?? false,
+        markWelcomed: () async {
+          await getIt<SharedPreferences>().setBool(_appIconWelcomedKey, true);
+        },
       ),
     )
     // Puts the default icon back once Pro has ended. Asks the store as well
