@@ -10,6 +10,7 @@ import 'package:critalarm/features/tour/presentation/cubits/tour_state.dart';
 import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
 import 'package:critalarm/features/tour/presentation/tour_layout.dart';
 import 'package:critalarm/features/tour/presentation/tour_steps.dart';
+import 'package:critalarm/features/tour/presentation/widgets/tour_offer_sheet.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -18,9 +19,11 @@ import 'package:go_router/go_router.dart';
 
 /// Runs the "How to use the app" guides over the whole app.
 ///
-/// Each screen has its own short guide. The first time the user lands on a
-/// screen that has one, this asks for it. A guide stays on its own screen;
-/// only the full replay from Settings moves between screens.
+/// Topics first offers a tour in a sheet. Once that is answered, each screen
+/// has its own short guide, which this asks for the first time the user lands
+/// there. A first-visit guide stays on its own screen. The full tour and any
+/// guide picked from Settings move between screens, and end back on Topics
+/// or Settings.
 ///
 /// For each step it opens the right screen, waits until that screen has
 /// finished arriving, scrolls the spot into view, waits for it to stop
@@ -77,6 +80,18 @@ class _TourHostState extends State<TourHost> {
   /// The screen a single guide was asked for on. Leaving it ends the guide.
   String _guidePath = '';
 
+  /// True while the offer sheet is up.
+  bool _offerOpen = false;
+
+  /// The offer sheet's own route, so closing it never touches another route.
+  Route<dynamic>? _offerRoute;
+  BuildContext? _offerContext;
+
+  /// Goes up each time an offer sheet opens or the host closes one. An offer
+  /// whose number has moved on by the time it resolves was closed by the
+  /// host (an alarm took the screen), so it does not count as declining.
+  int _offerTicket = 0;
+
   @override
   void initState() {
     super.initState();
@@ -106,11 +121,15 @@ class _TourHostState extends State<TourHost> {
 
   void _onTour(TourState tour) {
     switch (tour.status) {
+      case TourStatus.offering:
+        unawaited(_offer());
       case TourStatus.requested:
+        _closeOffer();
         unawaited(_begin());
       case TourStatus.running:
         unawaited(_showStep(tour.stepIndex));
       case TourStatus.idle:
+        _closeOffer();
         _run++;
         _moving = false;
         if (mounted) setState(() => _hole = null);
@@ -138,7 +157,7 @@ class _TourHostState extends State<TourHost> {
       _tour.stop();
       return;
     }
-    final expected = tour.isFullReplay
+    final expected = tour.moves
         ? tourPath(tour.step.place, tour.topicName)
         : _guidePath;
     if (tour.isRunning && !_moving && path != expected) {
@@ -156,6 +175,67 @@ class _TourHostState extends State<TourHost> {
     if (guide != null) _tour.requestIfNew(guide);
   }
 
+  /// Shows the tour offer over the app and acts on the answer. Dismissing it
+  /// counts as "not now".
+  Future<void> _offer() async {
+    if (_offerOpen) return;
+    if (getIt<AlarmFocus>().on) {
+      _tour.stop();
+      return;
+    }
+    // The host sits above the router's Navigator, so the sheet needs a
+    // context from underneath it.
+    final context = widget
+        .router
+        .routerDelegate
+        .navigatorKey
+        .currentState
+        ?.overlay
+        ?.context;
+    if (context == null || !context.mounted) {
+      _tour.stop();
+      return;
+    }
+    _offerOpen = true;
+    final ticket = ++_offerTicket;
+    final answer = await showTourOfferSheet(
+      context,
+      onShown: (sheetContext) {
+        _offerContext = sheetContext;
+        _offerRoute = ModalRoute.of(sheetContext);
+      },
+    );
+    if (ticket != _offerTicket) return;
+    _offerOpen = false;
+    _offerRoute = null;
+    _offerContext = null;
+    if (answer == TourOfferAnswer.accept) {
+      _tour.acceptOffer();
+    } else {
+      _tour.declineOffer();
+    }
+  }
+
+  /// Takes the offer sheet down when the tour state moved on without it.
+  void _closeOffer() {
+    if (!_offerOpen) return;
+    _offerTicket++;
+    final route = _offerRoute;
+    final sheetContext = _offerContext;
+    _offerOpen = false;
+    _offerRoute = null;
+    _offerContext = null;
+    if (route == null || sheetContext == null || !sheetContext.mounted) return;
+    // Close this sheet and nothing else. Popping would take whatever is on
+    // top, which may be a screen an alarm opened over it. Removing the route
+    // still completes the sheet's future (with null), and does not animate.
+    if (route.isCurrent) {
+      Navigator.of(sheetContext).pop();
+    } else if (route.isActive) {
+      Navigator.of(sheetContext).removeRoute(route);
+    }
+  }
+
   Future<void> _begin() async {
     _guidePath = _currentPath;
     final topics = getIt<TopicsCubit>();
@@ -164,7 +244,7 @@ class _TourHostState extends State<TourHost> {
     // The user may have left in the meantime, with the Android back button.
     // A guide only makes sense on the screen it was asked for on.
     final guide = _tour.state.guide;
-    if (guide != null && _currentPath != _guidePath) {
+    if (guide != null && !_tour.state.fromMenu && _currentPath != _guidePath) {
       _tour.stop();
       _requestForScreen();
       return;
@@ -179,8 +259,9 @@ class _TourHostState extends State<TourHost> {
     final tour = _tour.state;
     final step = tour.step;
     final path = tourPath(step.place, tour.topicName);
-    // A single guide is already on its screen. Only the full replay moves.
-    if (tour.isFullReplay && _currentPath != path) {
+    // A first-visit guide is already on its screen. The full tour and guides
+    // picked from Settings move.
+    if (tour.moves && _currentPath != path) {
       _moving = true;
       if (step.place == TourPlace.createTopic) {
         // Opened over Topics, the way the + button opens it, so back lands
@@ -326,12 +407,19 @@ class _TourHostState extends State<TourHost> {
     _tour.back();
   }
 
-  /// Skip and the last step's button. The full replay hands the user back
-  /// to Topics. A single guide leaves them where they are.
+  /// Skip and the last step's button. The full tour hands the user back to
+  /// Topics, and a guide picked from Settings hands them back to Settings. A
+  /// first-visit guide leaves them where they are.
   void _done() {
-    final wasFullReplay = _tour.state.isFullReplay;
+    final tour = _tour.state;
+    final wasFullReplay = tour.isFullReplay;
+    final wasFromMenu = tour.isActive && tour.fromMenu;
     _tour.finish();
-    if (wasFullReplay) widget.router.go('/');
+    if (wasFullReplay) {
+      widget.router.go('/');
+    } else if (wasFromMenu) {
+      widget.router.go('/settings');
+    }
   }
 
   @override
