@@ -8,7 +8,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:critalarm/design/faces/faces.dart';
-import 'package:critalarm/features/reminders/domain/reminder_kind.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_kind.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -22,7 +22,7 @@ const Color _ink = Color(0xFF1A140F);
 void main() {
   test('render the reminder faces', () async {
     Directory('assets/reminder_faces').createSync(recursive: true);
-    for (final face in ReminderFace.values) {
+    for (final face in LocalReminderFace.values) {
       final state = FaceState.values.byName(face.name);
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, _size, _size));

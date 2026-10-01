@@ -96,7 +96,7 @@ void main() {
         'https://forms.zonily.cloud/form/abc123',
         report,
         isRelease: true,
-        source: FeedbackLinks.reminderSource,
+        source: FeedbackLinks.localReminderSource,
       )!;
       expect(uri.queryParameters['source'], 'reminder_feedback');
     });

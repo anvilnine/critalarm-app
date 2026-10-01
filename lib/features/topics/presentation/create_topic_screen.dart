@@ -6,17 +6,17 @@ import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
-import 'package:critalarm/features/prompts/domain/pro_prompt_rules.dart';
-import 'package:critalarm/features/prompts/domain/repositories/home_prompt_repository.dart';
-import 'package:critalarm/features/prompts/presentation/widgets/pro_prompt_sheet.dart';
-import 'package:critalarm/features/reminders/domain/reminder_settler.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
+import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
+import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
+import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_ask_sheet.dart';
+import 'package:critalarm/features/local_reminders/domain/local_reminder_settler.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/topic_name_formatter.dart';
 import 'package:critalarm/features/topics/presentation/widgets/token_actions.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
-import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
-import 'package:critalarm/features/tour/presentation/tour_steps.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -93,7 +93,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     // instead of making the user tap it first. Not during a guide, or when
     // this screen's own guide is about to start: it points at the field, and
     // the keyboard would cover the card.
-    if (!getIt<TourCubit>().state.isActive) _focusNameField();
+    if (!getIt<FeatureGuideCubit>().state.isActive) _focusNameField();
   }
 
   @override
@@ -143,14 +143,14 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
   Future<void> _askAboutPro(BuildContext context) async {
     if (_hasAskedAboutPro) return;
     _hasAskedAboutPro = true;
-    final rules = getIt<ProPromptRules>();
-    final repository = getIt<HomePromptRepository>();
+    final rules = getIt<ProAskRules>();
+    final repository = getIt<InAppNoticeRepository>();
     // A delivered review or feedback reminder counts as an ask before the
     // Pro rules read the ask times.
-    await getIt<ReminderSettler>().settleAsks(now: DateTime.now());
+    await getIt<LocalReminderSettler>().settleAsks(now: DateTime.now());
     if (!await rules.shouldAsk()) return;
     if (!context.mounted) return;
-    await showProPromptSheet(context: context, repository: repository);
+    await showProAskSheet(context: context, repository: repository);
   }
 
   void _submit() {
@@ -327,8 +327,8 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        TourAnchor(
-          id: TourAnchorId.createName,
+        FeatureGuideAnchor(
+          id: FeatureGuideAnchorId.createName,
           child: AppTextField(
             label: LocaleKeys.create_topic_name_label.tr(),
             controller: _nameController,
@@ -358,8 +358,8 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
           ),
         ),
         const SizedBox(height: 14),
-        TourAnchor(
-          id: TourAnchorId.createCritical,
+        FeatureGuideAnchor(
+          id: FeatureGuideAnchorId.createCritical,
           child: AppToggleRow(
             title: LocaleKeys.create_topic_critical_toggle_title.tr(),
             // An iPhone older than iOS 26 has no AlarmKit, so it must not be
@@ -618,8 +618,8 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                     AppToast(message: message),
                     const SizedBox(height: Spacing.s2),
                   ],
-                  TourAnchor(
-                    id: TourAnchorId.createButton,
+                  FeatureGuideAnchor(
+                    id: FeatureGuideAnchorId.createButton,
                     child: AppButton(
                       label: switch ((isSuccess, isTokenStep)) {
                         (true, _) => 'Done',

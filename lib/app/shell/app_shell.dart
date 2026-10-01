@@ -14,15 +14,15 @@ import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
+import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_state.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
+import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
 import 'package:critalarm/features/search/domain/entities/search_result.dart';
 import 'package:critalarm/features/search/domain/entities/search_scope.dart';
 import 'package:critalarm/features/search/presentation/cubits/search_cubit.dart';
 import 'package:critalarm/features/search/presentation/cubits/search_state.dart';
 import 'package:critalarm/features/search/presentation/widgets/search_panel.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_cubit.dart';
-import 'package:critalarm/features/tour/presentation/cubits/tour_state.dart';
-import 'package:critalarm/features/tour/presentation/tour_anchor.dart';
-import 'package:critalarm/features/tour/presentation/tour_steps.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -103,14 +103,14 @@ class _AppShellContentState extends State<_AppShellContent>
 
   bool _isSearching = false;
 
-  /// The tour opened search to show it off, so the tour closes it again.
-  bool _tourOpenedSearch = false;
+  /// The guide opened search to show it off, so the guide closes it again.
+  bool _guideOpenedSearch = false;
 
-  /// The tour typed into a search the user opened, so the tour clears what
+  /// The guide typed into a search the user opened, so the guide clears what
   /// it typed and leaves search open.
-  bool _tourTypedSearch = false;
+  bool _guideTypedSearch = false;
 
-  StreamSubscription<TourState>? _tourSub;
+  StreamSubscription<FeatureGuideState>? _guideSub;
 
   @override
   void initState() {
@@ -122,12 +122,12 @@ class _AppShellContentState extends State<_AppShellContent>
     );
     // A stream, not a BlocListener, for the same reason search is a field:
     // a widget above the branch navigators would reparent their GlobalKeys.
-    _tourSub = getIt<TourCubit>().stream.listen(_followTour);
+    _guideSub = getIt<FeatureGuideCubit>().stream.listen(_followGuide);
   }
 
   @override
   void dispose() {
-    unawaited(_tourSub?.cancel());
+    unawaited(_guideSub?.cancel());
     _controller.dispose();
     _focusNode.dispose();
     _reveal.dispose();
@@ -154,28 +154,28 @@ class _AppShellContentState extends State<_AppShellContent>
     });
   }
 
-  /// A tour step that talks about search types its example in, so real
+  /// A guide step that talks about search types its example in, so real
   /// results are on screen while the step explains them. No keyboard: it
   /// would cover the results the step is pointing at.
-  void _followTour(TourState tour) {
+  void _followGuide(FeatureGuideState guide) {
     if (!mounted) return;
-    final query = tour.isRunning ? tour.step.searchQuery : null;
+    final query = guide.isRunning ? guide.step.searchQuery : null;
     if (query == null) {
-      if (_tourOpenedSearch) {
-        _tourOpenedSearch = false;
-        _tourTypedSearch = false;
+      if (_guideOpenedSearch) {
+        _guideOpenedSearch = false;
+        _guideTypedSearch = false;
         _closeSearch();
-      } else if (_tourTypedSearch) {
-        _tourTypedSearch = false;
+      } else if (_guideTypedSearch) {
+        _guideTypedSearch = false;
         _controller.clear();
         _search.clearQuery();
       }
       return;
     }
     if (_isSearching) {
-      if (!_tourOpenedSearch) _tourTypedSearch = true;
+      if (!_guideOpenedSearch) _guideTypedSearch = true;
     } else {
-      _tourOpenedSearch = true;
+      _guideOpenedSearch = true;
       _openSearch(focus: false);
     }
     _focusNode.unfocus();
@@ -188,7 +188,7 @@ class _AppShellContentState extends State<_AppShellContent>
   /// The search button. The first time, search gets its own short guide.
   void _openSearchFromBar() {
     _openSearch();
-    getIt<TourCubit>().requestIfNew(TourGuide.search);
+    getIt<FeatureGuideCubit>().requestIfNew(FeatureGuide.search);
   }
 
   void _closeSearch() {
@@ -383,8 +383,8 @@ class _AppShellContentState extends State<_AppShellContent>
             child: AppNavRail(
               currentIndex: widget.navigationShell.currentIndex,
               items: items,
-              wrapTab: _tourTab,
-              wrapButton: _tourButton,
+              wrapTab: _guideTab,
+              wrapButton: _guideButton,
               onSelect: _goBranch,
               composeLabel: LocaleKeys.nav_new_topic.tr(),
               onCompose: () => context.pushNamed(AppRoute.createTopic),
@@ -441,8 +441,8 @@ class _AppShellContentState extends State<_AppShellContent>
         child: Center(
           child: SizedBox(
             width: width,
-            child: TourAnchor(
-              id: TourAnchorId.searchResults,
+            child: FeatureGuideAnchor(
+              id: FeatureGuideAnchorId.searchResults,
               child: SearchPanel(
                 state: state,
                 maxHeight: maxHeight < 0 ? 0 : maxHeight,
@@ -459,19 +459,20 @@ class _AppShellContentState extends State<_AppShellContent>
     );
   }
 
-  /// Marks the History tab for the tour. The other two tabs are not pointed
-  /// at: the tour is already standing on them.
-  static Widget _tourTab(int index, Widget child) => index == 1
-      ? TourAnchor(id: TourAnchorId.historyTab, child: child)
+  /// Marks the History tab for the guide. The other two tabs are not pointed
+  /// at: the guide is already standing on them.
+  static Widget _guideTab(int index, Widget child) => index == 1
+      ? FeatureGuideAnchor(id: FeatureGuideAnchorId.historyTab, child: child)
       : child;
 
-  static Widget _tourButton(AppNavButton button, Widget child) => TourAnchor(
-    id: switch (button) {
-      AppNavButton.search => TourAnchorId.search,
-      AppNavButton.compose => TourAnchorId.compose,
-    },
-    child: child,
-  );
+  static Widget _guideButton(AppNavButton button, Widget child) =>
+      FeatureGuideAnchor(
+        id: switch (button) {
+          AppNavButton.search => FeatureGuideAnchorId.search,
+          AppNavButton.compose => FeatureGuideAnchorId.compose,
+        },
+        child: child,
+      );
 
   Widget _bar(List<AppTabItem> items, AppSize size, double width) {
     final bar = AppFloatingTabBar(
@@ -489,8 +490,8 @@ class _AppShellContentState extends State<_AppShellContent>
       searchPlaceholder: _placeholder,
       onSearchChanged: _search.updateQuery,
       onSearchClose: _closeSearch,
-      wrapTab: _tourTab,
-      wrapButton: _tourButton,
+      wrapTab: _guideTab,
+      wrapButton: _guideButton,
     );
 
     // While searching the pill stretches to the full content width. The rest
