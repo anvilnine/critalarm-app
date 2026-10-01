@@ -173,4 +173,57 @@ void main() {
     expect(applied, [AppIcon.crowned]);
     await cubit.close();
   });
+
+  group('welcome', () {
+    late bool welcomed;
+    late int marked;
+
+    AppIconCubit withWelcome() => AppIconCubit(
+      readCurrent: () async => current,
+      apply: (icon) async => true,
+      readUnlocked: () async => unlocked,
+      readWelcomed: () async => welcomed,
+      markWelcomed: () async {
+        welcomed = true;
+        marked++;
+      },
+      planChanges: plan,
+    );
+
+    setUp(() {
+      welcomed = false;
+      marked = 0;
+    });
+
+    test('plays once for Pro, then not again', () async {
+      unlocked = true;
+      final cubit = withWelcome();
+      await pumpEventQueue();
+      expect(cubit.state.welcome, isTrue);
+      expect(marked, 1);
+
+      cubit.welcomePlayed();
+      expect(cubit.state.welcome, isFalse);
+
+      await cubit.load();
+      expect(cubit.state.welcome, isFalse);
+      expect(marked, 1);
+      await cubit.close();
+    });
+
+    test('does not play for a free device, or once seen', () async {
+      final free = withWelcome();
+      await free.load();
+      expect(free.state.welcome, isFalse);
+      expect(marked, 0);
+      await free.close();
+
+      unlocked = true;
+      welcomed = true;
+      final seen = withWelcome();
+      await seen.load();
+      expect(seen.state.welcome, isFalse);
+      await seen.close();
+    });
+  });
 }

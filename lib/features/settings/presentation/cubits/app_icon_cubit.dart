@@ -31,8 +31,12 @@ class AppIconCubit extends Cubit<AppIconState> {
     required this._readCurrent,
     required this._apply,
     required this._readUnlocked,
+    Future<bool> Function()? readWelcomed,
+    Future<void> Function()? markWelcomed,
     PlanChanges? planChanges,
-  }) : _planChanges = planChanges ?? appPlanChanges,
+  }) : _readWelcomed = readWelcomed ?? _alreadyWelcomed,
+       _markWelcomed = markWelcomed ?? _noop,
+       _planChanges = planChanges ?? appPlanChanges,
        super(const AppIconState()) {
     _planChanges.addListener(_onPlanChanged);
     unawaited(load());
@@ -41,7 +45,15 @@ class AppIconCubit extends Cubit<AppIconState> {
   final Future<AppIcon?> Function() _readCurrent;
   final Future<bool> Function(AppIcon icon) _apply;
   final Future<bool> Function() _readUnlocked;
+  final Future<bool> Function() _readWelcomed;
+  final Future<void> Function() _markWelcomed;
   final PlanChanges _planChanges;
+  bool _welcomeAsked = false;
+
+  // Without a store the welcome never plays, so a test or a build that does
+  // not wire one sees the plain screen.
+  static Future<bool> _alreadyWelcomed() async => true;
+  static Future<void> _noop() async {}
 
   void _onPlanChanged() => unawaited(load());
 
@@ -55,13 +67,26 @@ class AppIconCubit extends Cubit<AppIconState> {
     }
     final unlocked = await _safeUnlocked();
     if (isClosed) return;
+    // Asked once per cubit: the constructor's load and a plan change can
+    // overlap, and each must not claim the welcome.
+    final ask = unlocked && !_welcomeAsked;
+    if (ask) _welcomeAsked = true;
+    final welcome = ask && !await _safeWelcomed();
+    if (isClosed) return;
     emit(
       state.copyWith(
         status: AppIconStatus.ready,
         current: current,
         unlocked: unlocked,
+        welcome: welcome || state.welcome,
       ),
     );
+    if (welcome) await _markWelcomed();
+  }
+
+  /// The screen played the welcome. It does not play again.
+  void welcomePlayed() {
+    if (state.welcome) emit(state.copyWith(welcome: false));
   }
 
   /// Switches to [icon], or says why it did not.
@@ -93,6 +118,15 @@ class AppIconCubit extends Cubit<AppIconState> {
     } on Object catch (error) {
       if (kDebugMode) debugPrint('CritAlarm: app_icon_unlocked $error');
       return false;
+    }
+  }
+
+  Future<bool> _safeWelcomed() async {
+    try {
+      return await _readWelcomed();
+    } on Object catch (error) {
+      if (kDebugMode) debugPrint('CritAlarm: app_icon_welcomed $error');
+      return true;
     }
   }
 
