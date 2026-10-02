@@ -167,7 +167,10 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         final summaryLabel = LocaleKeys
             .onboarding_permissions_preview_allow_summary
             .tr();
-        final previewHint = LocaleKeys.onboarding_permissions_preview_hint.tr();
+        // Android step 2 opens a settings page with a switch, not a dialog.
+        final previewHint = isStep2 && !isApple
+            ? LocaleKeys.onboarding_permissions_preview_hint_android.tr()
+            : LocaleKeys.onboarding_permissions_preview_hint.tr();
 
         return AppScreenScaffold(
           // On its own the screen sits over Health, not over the onboarding
