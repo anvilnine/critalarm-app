@@ -26,6 +26,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The onboarding screens before Permissions slide in with their text and buttons.
 - The onboarding test alarm's acknowledged screen drops its explanatory text and detail sheet and ends on confetti.
 - The test alarm's It works screen has a black-ink face, a short line and the ring time, and ripples with faces behind the confetti.
+- Redo onboarding in Settings shows in developer-flag builds (SKIP\_PAYWALL or PAYWALL\_LAB), not only debug builds.
 
 ### Fixed
 - The PRO badge uses `inkFixed`, so it stays ink on yellow in dark.
