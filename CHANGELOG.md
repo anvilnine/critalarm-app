@@ -23,3 +23,4 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Create topic no longer shows the Topics list behind it.
 - On iPhones that cannot ring through silent mode, the guides and the test alarm no longer say they can.
 - Tapping the test alarm during setup no longer shows a Page Not Found screen.
+- Connecting to a server no longer shows a false offline notice when your connection is working.
