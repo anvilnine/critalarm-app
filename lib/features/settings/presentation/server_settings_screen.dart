@@ -222,14 +222,17 @@ class _ServerSettingsView extends StatelessWidget {
                 ),
                 const Spacer(),
                 if (state.serverMode != null)
-                  Text(
-                    serverModeLabelKey(state.serverMode!).tr(),
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontBody,
-                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: colors.ink3,
+                  Flexible(
+                    child: Text(
+                      serverModeLabelKey(state.serverMode!).tr(),
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTypography.fontBody,
+                        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: colors.ink3,
+                      ),
                     ),
                   ),
               ],
@@ -255,7 +258,7 @@ class _ServerSettingsView extends StatelessWidget {
                   child: AppButton(
                     label: LocaleKeys.settings_server_edit_button.tr(),
                     size: AppButtonSize.sm,
-                    variant: AppButtonVariant.paper,
+                    variant: AppButtonVariant.ink,
                     onPressed: () {
                       AppHaptics.capture();
                       _showEditServerSheet(context, cubit, state);
@@ -268,11 +271,24 @@ class _ServerSettingsView extends StatelessWidget {
                     label: LocaleKeys.settings_server_disconnect_button.tr(),
                     size: AppButtonSize.sm,
                     variant: AppButtonVariant.ghost,
+                    // Quieter than Edit: the same outline, in a softer ink.
+                    foregroundColor: colors.ink2,
                     isLoading: state.isDisconnecting,
                     onPressed: () => _confirmDisconnect(context, cubit),
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              LocaleKeys.settings_server_disconnect_hint.tr(),
+              style: TextStyle(
+                fontFamily: AppTypography.fontBody,
+                fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                fontSize: 12,
+                color: colors.ink3,
+                height: 1.3,
+              ),
             ),
           ],
         ),
@@ -355,9 +371,21 @@ class _ServerSettingsView extends StatelessWidget {
             ),
           ),
           slivers: [
+            // One line of context under the title, as Health has, so the page
+            // is not a lone card on an empty screen.
+            SliverToBoxAdapter(
+              child: AppStage.horizontal(
+                faceState: state.isConnected
+                    ? FaceState.calm
+                    : FaceState.watching,
+                sub: state.isConnected
+                    ? LocaleKeys.settings_server_stage_connected.tr()
+                    : LocaleKeys.settings_server_stage_disconnected.tr(),
+              ),
+            ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, Spacing.s2, 12, 16),
+                padding: const EdgeInsets.fromLTRB(12, Spacing.s3, 12, 16),
                 child: AppSheet(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

@@ -105,12 +105,17 @@ class AppFeatureBullet extends StatelessWidget {
     required this.text,
     this.glyph = GlyphType.check,
     this.glyphColor,
+    this.badgeColor,
     super.key,
   });
 
   final String text;
   final GlyphType glyph;
   final Color? glyphColor;
+
+  /// The circle behind the glyph. Defaults to the cobalt tint, the app's
+  /// "good, done" signal. A list of things being lost passes a neutral one.
+  final Color? badgeColor;
 
   @override
   Widget build(BuildContext context) {
@@ -124,7 +129,7 @@ class AppFeatureBullet extends StatelessWidget {
           height: 24,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: colors.cobaltTint,
+            color: badgeColor ?? colors.cobaltTint,
           ),
           alignment: Alignment.center,
           child: AppGlyph(
