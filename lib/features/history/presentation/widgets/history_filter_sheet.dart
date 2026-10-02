@@ -1,6 +1,8 @@
+import 'dart:async';
+
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/design/components/buttons.dart';
-import 'package:critalarm/design/components/segmented_control.dart';
+import 'package:critalarm/design/components/pro_badge.dart';
 import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -11,13 +13,15 @@ import 'package:critalarm/features/history/domain/entities/history_filter.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 /// Asks which past alarms to show. Returns the chosen filter, or null when the
 /// sheet is dismissed without applying.
 Future<HistoryFilter?> showHistoryFilterSheet(
   BuildContext context,
-  HistoryFilter current,
-) {
+  HistoryFilter current, {
+  required int shownDays,
+}) {
   return showModalBottomSheet<HistoryFilter>(
     context: context,
     // The sheet has to sit above the floating tab bar, which the shell draws
@@ -25,14 +29,18 @@ Future<HistoryFilter?> showHistoryFilterSheet(
     useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (sheetContext) => _HistoryFilterSheet(initial: current),
+    builder: (sheetContext) =>
+        _HistoryFilterSheet(initial: current, shownDays: shownDays),
   );
 }
 
 class _HistoryFilterSheet extends StatefulWidget {
-  const _HistoryFilterSheet({required this.initial});
+  const _HistoryFilterSheet({required this.initial, required this.shownDays});
 
   final HistoryFilter initial;
+
+  /// How many days the plan shows. Longer windows are drawn locked.
+  final int shownDays;
 
   @override
   State<_HistoryFilterSheet> createState() => _HistoryFilterSheetState();
@@ -57,7 +65,7 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
             children: <Widget>[
               Text(
                 LocaleKeys.history_filter_title.tr(),
-                style: AppTypography.monoBold(colors.ink, fontSize: 18),
+                style: AppTypography.title(colors.ink, fontSize: 24),
               ),
               const SizedBox(height: Spacing.s4),
 
@@ -90,11 +98,26 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
                 padding: EdgeInsets.zero,
               ),
               const SizedBox(height: Spacing.s2),
-              AppSegmentedControl<Duration>(
-                items: HistoryWindows.all,
-                selectedItem: _draft.window,
-                labelBuilder: _windowLabel,
-                onChanged: (value) => _set(_draft.withWindow(value)),
+              Wrap(
+                spacing: Spacing.s2,
+                runSpacing: Spacing.s2,
+                children: <Widget>[
+                  for (final window in HistoryWindows.all)
+                    _FilterChip(
+                      label: _windowLabel(window),
+                      isSelected:
+                          HistoryWindows.effective(
+                            _draft.window,
+                            widget.shownDays,
+                          ) ==
+                          window,
+                      isLocked: HistoryWindows.isLocked(
+                        window,
+                        widget.shownDays,
+                      ),
+                      onTap: () => _pickWindow(window),
+                    ),
+                ],
               ),
               const SizedBox(height: Spacing.s5),
 
@@ -128,6 +151,23 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
     );
   }
 
+  void _pickWindow(Duration window) {
+    if (!HistoryWindows.isLocked(window, widget.shownDays)) {
+      // Picking what the plan already defaults to stores the default, so the
+      // filter does not read as active on Free.
+      final isDefault =
+          window ==
+          HistoryWindows.effective(HistoryWindows.full, widget.shownDays);
+      _set(_draft.withWindow(isDefault ? HistoryWindows.full : window));
+      return;
+    }
+    // A longer window than the plan keeps. Close the sheet and offer Pro.
+    AppHaptics.selection();
+    final router = GoRouter.of(context);
+    Navigator.of(context).pop();
+    unawaited(router.push('/paywall?source=history'));
+  }
+
   void _set(HistoryFilter next) {
     AppHaptics.selection();
     setState(() => _draft = next);
@@ -147,7 +187,10 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
     if (window == HistoryWindows.week) {
       return LocaleKeys.history_filter_window_7.tr();
     }
-    return LocaleKeys.history_filter_window_30.tr();
+    if (window == HistoryWindows.month) {
+      return LocaleKeys.history_filter_window_30.tr();
+    }
+    return LocaleKeys.history_filter_window_90.tr();
   }
 }
 
@@ -158,10 +201,15 @@ class _FilterChip extends StatelessWidget {
     required this.label,
     required this.isSelected,
     required this.onTap,
+    this.isLocked = false,
   });
 
   final String label;
   final bool isSelected;
+
+  /// The plan does not keep this window. Shows a PRO tag and opens the
+  /// paywall instead of selecting.
+  final bool isLocked;
   final VoidCallback onTap;
 
   @override
@@ -171,7 +219,12 @@ class _FilterChip extends StatelessWidget {
     return Semantics(
       button: true,
       selected: isSelected,
-      label: label,
+      label: isLocked
+          ? LocaleKeys.history_filter_window_locked_aria_label.tr(
+              namedArgs: {'window': label},
+            )
+          : label,
+      excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
         borderRadius: Radii.fullAll,
@@ -184,15 +237,26 @@ class _FilterChip extends StatelessWidget {
             color: isSelected ? colors.ink : Colors.transparent,
             borderRadius: Radii.fullAll,
             border: Border.all(
-              color: isSelected ? colors.ink : colors.panelLine,
+              color: isSelected
+                  ? colors.ink
+                  : colors.ink.withValues(alpha: 0.22),
               width: 1.5,
             ),
           ),
-          child: Text(
-            label,
-            style: AppTypography.small(
-              isSelected ? colors.canvas : colors.ink3,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                label,
+                style: AppTypography.small(
+                  isSelected ? colors.canvas : colors.ink3,
+                ),
+              ),
+              if (isLocked) ...<Widget>[
+                const SizedBox(width: Spacing.s2),
+                ProBadge(label: LocaleKeys.paywall_pro_badge.tr()),
+              ],
+            ],
           ),
         ),
       ),
