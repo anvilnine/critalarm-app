@@ -5,6 +5,7 @@ import 'package:critalarm/core/constants/legal_links.dart';
 import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/domain/entities/plan_saving.dart';
 import 'package:critalarm/features/paywall/domain/entities/store_account_label.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
@@ -89,7 +90,6 @@ class _PaywallScreenContent extends StatelessWidget {
               ),
               slivers: [
                 AppSliverTopBar(
-                  title: LocaleKeys.paywall_title.tr(),
                   leading: AppIconButton(
                     glyph: GlyphType.back,
                     ariaLabel: LocaleKeys.paywall_back_aria_label.tr(),
@@ -107,12 +107,11 @@ class _PaywallScreenContent extends StatelessWidget {
                     children: [
                       const SizedBox(height: Spacing.s2),
                       AppStage(
-                        faceState: state.isPro
-                            ? FaceState.calm
-                            : FaceState.acked,
+                        // Plain yellow. The cobalt ring means acknowledged.
+                        faceState: FaceState.calm,
                         faceSize: 140,
                         word: LocaleKeys.paywall_stage_word.tr(),
-                        wordFontSize: 36,
+                        wordFontSize: 32,
                         sub: _stageSub(state),
                         padding: const EdgeInsets.fromLTRB(
                           24,
@@ -188,11 +187,12 @@ class _PaywallScreenContent extends StatelessWidget {
                               _TierCard(
                                 title: SubscriptionTier.yearly.displayName,
                                 duration: SubscriptionTier.yearly.durationName,
-                                badge: LocaleKeys.paywall_badge_best_value.tr(),
+                                badge: _saveBadge(state),
                                 price: _getPriceString(
                                   state,
                                   SubscriptionTier.yearly,
                                 ),
+                                perMonth: _perMonthString(state),
                                 isSelected:
                                     state.selectedTier ==
                                     SubscriptionTier.yearly,
@@ -293,6 +293,31 @@ class _PaywallScreenContent extends StatelessWidget {
       }
     }
     return null;
+  }
+
+  /// The yearly plan's price spread over twelve months, as the store words
+  /// it. Null until the offering has loaded, so no figure is made up.
+  static String? _perMonthString(PaywallState state) {
+    final perMonth =
+        state.offerings?.current?.annual?.storeProduct.pricePerMonthString;
+    if (perMonth == null || perMonth.isEmpty) return null;
+    return LocaleKeys.paywall_price_per_month.tr(
+      namedArgs: {'price': perMonth},
+    );
+  }
+
+  /// "Save 33%" on the yearly card, only when both store prices are in and
+  /// yearly is really cheaper. Null means no badge.
+  static String? _saveBadge(PaywallState state) {
+    final offering = state.offerings?.current;
+    final percent = yearlySavingPercent(
+      monthlyPrice: offering?.monthly?.storeProduct.price,
+      yearlyPrice: offering?.annual?.storeProduct.price,
+    );
+    if (percent == null) return null;
+    return LocaleKeys.paywall_badge_save.tr(
+      namedArgs: {'percent': '$percent'},
+    );
   }
 
   /// The line under the word on the stage. Only the one job layout needs one;
@@ -408,6 +433,7 @@ class _TierCard extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     this.badge,
+    this.perMonth,
   });
 
   final String title;
@@ -419,6 +445,9 @@ class _TierCard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final String? badge;
+
+  /// The price spread over a month, for the yearly plan. Null when unknown.
+  final String? perMonth;
 
   @override
   Widget build(BuildContext context) {
@@ -500,6 +529,15 @@ class _TierCard extends StatelessWidget {
                         fontSize: 12,
                       ),
                     ),
+                    if (perMonth case final perMonth?)
+                      Text(
+                        perMonth,
+                        style: TextStyle(
+                          color: colors.ink2,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                   ],
                 ),
               ),
