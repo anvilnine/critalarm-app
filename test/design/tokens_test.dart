@@ -24,6 +24,32 @@ void main() {
       expect(colors.high, const Color(0xFFFF8A1F));
     });
 
+    test('dark insets and controls stay legible against their surface', () {
+      const colors = AppColors.dark;
+      double ratio(Color a, Color b) {
+        final hi = a.computeLuminance() > b.computeLuminance() ? a : b;
+        final lo = identical(hi, a) ? b : a;
+        return (hi.computeLuminance() + 0.05) / (lo.computeLuminance() + 0.05);
+      }
+
+      expect(ratio(colors.cream, colors.surface), greaterThanOrEqualTo(1.15));
+      expect(
+        ratio(colors.segmentSelected, colors.cream),
+        greaterThanOrEqualTo(1.15),
+      );
+      expect(colors.switchOff, const Color(0xFF4A3F37));
+      expect(colors.switchThumbOff, const Color(0xFFCDBFAE));
+      expect(
+        ratio(colors.switchThumbOff, colors.surface),
+        greaterThanOrEqualTo(3),
+      );
+      expect(colors.tabBar, const Color(0xFF2E2520));
+      expect(
+        ratio(colors.tabBar, colors.canvas),
+        greaterThan(ratio(colors.panel, colors.canvas)),
+      );
+    });
+
     test('dark colors match design system tokens', () {
       const colors = AppColors.dark;
       expect(colors.canvas, const Color(0xFF171310));

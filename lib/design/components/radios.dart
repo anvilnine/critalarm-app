@@ -22,9 +22,11 @@ class AppRadio extends StatelessWidget {
       height: 22,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: selected ? colors.highlight : colors.canvas,
+        color: selected ? colors.highlight : Colors.white,
         border: Border.all(
-          color: selected ? colors.highlight : colors.hairline,
+          color: selected
+              ? colors.highlight
+              : colors.inkFixed.withValues(alpha: 0.35),
           width: 2,
         ),
       ),
@@ -35,7 +37,7 @@ class AppRadio extends StatelessWidget {
                 height: 8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: colors.surface,
+                  color: colors.onHighlight,
                 ),
               ),
             )

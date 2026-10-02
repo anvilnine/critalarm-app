@@ -73,6 +73,11 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.codeString,
     required this.panelLine,
     required this.panelHover,
+    required this.segmentSelected,
+    required this.switchOff,
+    required this.switchThumbOff,
+    required this.tabBar,
+    required this.tabBarLine,
     // Lines & Focus
     required this.hairline,
     required this.focus,
@@ -166,6 +171,13 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color panelLine;
   final Color panelHover;
 
+  // Controls
+  final Color segmentSelected;
+  final Color switchOff;
+  final Color switchThumbOff;
+  final Color tabBar;
+  final Color tabBarLine;
+
   // Lines & Focus
   final Color hairline;
   final Color focus;
@@ -253,6 +265,11 @@ class AppColors extends ThemeExtension<AppColors> {
     codeString: Color(0xFF9CC4FF),
     panelLine: Color(0x38FFFFFF), // rgba(255,255,255,.22)
     panelHover: Color(0x1AFFFFFF), // rgba(255,255,255,.10)
+    segmentSelected: Color(0xFFFFFFFF),
+    switchOff: Color(0x241A140F),
+    switchThumbOff: Color(0xFFFFFFFF),
+    tabBar: Color(0xFF1A140F),
+    tabBarLine: Color(0x38FFFFFF),
     // Lines & Focus
     hairline: Color(0x241A140F), // rgba(26,20,15,.14)
     focus: Color(0xFF2A3BD8),
@@ -289,7 +306,9 @@ class AppColors extends ThemeExtension<AppColors> {
     yellow: Color(0xFFFFC93C),
     // Surfaces
     surface: Color(0xFF241D18),
-    cream: Color(0xFF241D18),
+    // One inset step above surface (1.15:1), so rows and tracks read
+    // against cards.
+    cream: Color(0xFF312823),
     ash: Color(0xFF2E2620),
     panel: Color(0xFF0E0B09),
     onPanel: Color(0xFFF7F1EA),
@@ -340,6 +359,11 @@ class AppColors extends ThemeExtension<AppColors> {
     codeString: Color(0xFF9CC4FF),
     panelLine: Color(0x38FFFFFF),
     panelHover: Color(0x1AFFFFFF),
+    segmentSelected: Color(0xFF463A31),
+    switchOff: Color(0xFF4A3F37),
+    switchThumbOff: Color(0xFFCDBFAE),
+    tabBar: Color(0xFF2E2520),
+    tabBarLine: Color(0x1AFFFFFF),
     // Lines & Focus
     hairline: Color(0x24FFFFFF), // rgba(255,255,255,.14)
     focus: Color(0xFF7C8AFF),
@@ -454,6 +478,11 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? codeString,
     Color? panelLine,
     Color? panelHover,
+    Color? segmentSelected,
+    Color? switchOff,
+    Color? switchThumbOff,
+    Color? tabBar,
+    Color? tabBarLine,
     Color? hairline,
     Color? focus,
     Color? focusGap,
@@ -529,6 +558,11 @@ class AppColors extends ThemeExtension<AppColors> {
       codeString: codeString ?? this.codeString,
       panelLine: panelLine ?? this.panelLine,
       panelHover: panelHover ?? this.panelHover,
+      segmentSelected: segmentSelected ?? this.segmentSelected,
+      switchOff: switchOff ?? this.switchOff,
+      switchThumbOff: switchThumbOff ?? this.switchThumbOff,
+      tabBar: tabBar ?? this.tabBar,
+      tabBarLine: tabBarLine ?? this.tabBarLine,
       hairline: hairline ?? this.hairline,
       focus: focus ?? this.focus,
       focusGap: focusGap ?? this.focusGap,
@@ -613,6 +647,11 @@ class AppColors extends ThemeExtension<AppColors> {
       codeString: Color.lerp(codeString, other.codeString, t)!,
       panelLine: Color.lerp(panelLine, other.panelLine, t)!,
       panelHover: Color.lerp(panelHover, other.panelHover, t)!,
+      segmentSelected: Color.lerp(segmentSelected, other.segmentSelected, t)!,
+      switchOff: Color.lerp(switchOff, other.switchOff, t)!,
+      switchThumbOff: Color.lerp(switchThumbOff, other.switchThumbOff, t)!,
+      tabBar: Color.lerp(tabBar, other.tabBar, t)!,
+      tabBarLine: Color.lerp(tabBarLine, other.tabBarLine, t)!,
       hairline: Color.lerp(hairline, other.hairline, t)!,
       focus: Color.lerp(focus, other.focus, t)!,
       focusGap: Color.lerp(focusGap, other.focusGap, t)!,
