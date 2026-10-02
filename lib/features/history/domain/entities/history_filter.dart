@@ -20,6 +20,18 @@ abstract final class HistoryWindows {
   /// Whether a tier that shows [shownDays] days cannot pick [window].
   static bool isLocked(Duration window, int shownDays) =>
       window.inDays > shownDays;
+
+  /// The window to show as picked. A stored window the plan does not keep
+  /// (the 90 day default on Free, or a stale 30 day pick) resolves to the
+  /// widest window the plan does keep. The stored value is left alone, so an
+  /// upgrade widens it on its own.
+  static Duration effective(Duration window, int shownDays) {
+    if (!isLocked(window, shownDays)) return window;
+    return all.lastWhere(
+      (w) => !isLocked(w, shownDays),
+      orElse: () => day,
+    );
+  }
 }
 
 /// What the History list is narrowed down to.
