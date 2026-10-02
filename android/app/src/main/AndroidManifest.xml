@@ -64,7 +64,12 @@
                  and nothing outside the app sends one. Left on, Flutter's own
                  deep link handling reads that URI whenever the extras are gone,
                  already taken or replayed from recents, and go_router answers
-                 "no routes for location: critalarm://incidents/inc_demo". -->
+                 "no routes for location: critalarm://incidents/inc_demo".
+                 The launcher starts MainActivity through an activity-alias,
+                 and Flutter looks this flag up on the alias, where it is not
+                 set. So the flag here only covers a start that names
+                 MainActivity itself; MainActivity.shouldHandleDeeplinking
+                 returns false whichever entry started it. -->
             <meta-data
               android:name="flutter_deeplinking_enabled"
               android:value="false"
