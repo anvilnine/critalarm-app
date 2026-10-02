@@ -29,6 +29,8 @@ class NotificationPermissionsState {
     this.liveActivityStarted = false,
     this.alarmSupported = true,
     this.isChecking = false,
+    this.fullScreenStep = false,
+    this.fullScreenGranted = false,
   });
 
   final NotificationPermissionStep step;
@@ -51,6 +53,13 @@ class NotificationPermissionsState {
   /// below 26. The step still shows, saying plainly what the phone can do,
   /// rather than promising a ring the platform will never deliver.
   final bool alarmSupported;
+
+  /// True on an Android phone where step 2 asks for the full-screen alarm
+  /// permission. There is no AlarmKit there, so [alarmSupported] stays false.
+  final bool fullScreenStep;
+
+  /// Whether Android lets the app take over the screen for a page.
+  final bool fullScreenGranted;
 
   /// Re-reading the system state after the user came back from Settings.
   final bool isChecking;
@@ -75,6 +84,8 @@ class NotificationPermissionsState {
     bool? liveActivityStarted,
     bool? alarmSupported,
     bool? isChecking,
+    bool? fullScreenStep,
+    bool? fullScreenGranted,
     bool clearError = false,
   }) {
     return NotificationPermissionsState(
@@ -89,6 +100,8 @@ class NotificationPermissionsState {
       liveActivityStarted: liveActivityStarted ?? this.liveActivityStarted,
       alarmSupported: alarmSupported ?? this.alarmSupported,
       isChecking: isChecking ?? this.isChecking,
+      fullScreenStep: fullScreenStep ?? this.fullScreenStep,
+      fullScreenGranted: fullScreenGranted ?? this.fullScreenGranted,
     );
   }
 
@@ -106,7 +119,9 @@ class NotificationPermissionsState {
           alarm == other.alarm &&
           liveActivityStarted == other.liveActivityStarted &&
           alarmSupported == other.alarmSupported &&
-          isChecking == other.isChecking;
+          isChecking == other.isChecking &&
+          fullScreenStep == other.fullScreenStep &&
+          fullScreenGranted == other.fullScreenGranted;
 
   @override
   int get hashCode => Object.hash(
@@ -120,5 +135,7 @@ class NotificationPermissionsState {
     liveActivityStarted,
     alarmSupported,
     isChecking,
+    fullScreenStep,
+    fullScreenGranted,
   );
 }

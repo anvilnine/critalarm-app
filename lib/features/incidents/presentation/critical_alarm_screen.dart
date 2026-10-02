@@ -579,8 +579,8 @@ class AcknowledgedScreen extends StatelessWidget {
     final incident = state.incident;
     final isDemo = incident?.id == 'inc_demo' || state.topic == 'demo-topic';
     // The same test alarm is reachable from Settings long after
-    // onboarding. There is no first topic to create by then, so it ends
-    // on one Finish rather than repeating the onboarding exits.
+    // onboarding. Onboarding is already complete then, so the exits skip
+    // finishing it again and the second button reads Finish.
     final isRetest = isDemo && state.isOnboardingDone;
     final startedAt = incident?.openedAt;
     final ackedAt = incident?.ackedAt;
@@ -605,28 +605,22 @@ class AcknowledgedScreen extends StatelessWidget {
 
     final bottomBar = Column(
       mainAxisSize: MainAxisSize.min,
-      children: isRetest
+      children: isDemo
           ? [
-              AppButton(
-                label: LocaleKeys.onboarding_connect_celebration_finish.tr(),
-                variant: AppButtonVariant.paper,
-                isFullWidth: true,
-                onPressed: () {
-                  AppHaptics.capture();
-                  context.go('/');
-                },
-              ),
-            ]
-          : isDemo
-          ? [
+              // The first topic is the next step on every path, so it is the
+              // one filled button. Cream, because cobalt on the navy
+              // acknowledged canvas would disappear.
               AppButton(
                 label: LocaleKeys.onboarding_connect_create_first_topic_button
                     .tr(),
-                variant: AppButtonVariant.paper,
+                variant: AppButtonVariant.cream,
+                size: AppButtonSize.lg,
                 isFullWidth: true,
                 onPressed: () async {
                   AppHaptics.capture();
-                  await getIt<CompleteOnboardingUsecase>()(const NoParams());
+                  if (!isRetest) {
+                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
+                  }
                   if (context.mounted) {
                     context.go('/topics/new');
                   }
@@ -634,17 +628,23 @@ class AcknowledgedScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               AppButton(
-                label: LocaleKeys.onboarding_connect_skip_to_dashboard.tr(),
+                label: isRetest
+                    ? LocaleKeys.onboarding_connect_celebration_finish.tr()
+                    : LocaleKeys.onboarding_connect_skip_to_dashboard.tr(),
                 variant: AppButtonVariant.ghost,
                 isFullWidth: true,
                 onPressed: () async {
                   AppHaptics.capture();
-                  await getIt<CompleteOnboardingUsecase>()(const NoParams());
+                  if (!isRetest) {
+                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
+                  }
                   if (context.mounted) {
                     context.go('/');
                   }
                 },
               ),
+              // 12px from the scaffold makes 24 above the home indicator.
+              const SizedBox(height: 12),
             ]
           : isClosed
           ? [
@@ -723,6 +723,14 @@ class AcknowledgedScreen extends StatelessWidget {
                         _topic(TextAlign.left),
                         const SizedBox(height: Spacing.s2),
                         _sub(TextAlign.left, ackedSub),
+                        if (isDemo) ...[
+                          const SizedBox(height: Spacing.s2),
+                          _sub(
+                            TextAlign.left,
+                            LocaleKeys.onboarding_connect_celebration_phone_note
+                                .tr(),
+                          ),
+                        ],
                         const SizedBox(height: Spacing.s4),
                         _detailSheet(startedLabel, ackedLabel),
                       ],
@@ -759,6 +767,13 @@ class AcknowledgedScreen extends StatelessWidget {
                 _topic(TextAlign.center),
                 const SizedBox(height: Spacing.s2),
                 _sub(TextAlign.center, ackedSub),
+                if (isDemo) ...[
+                  const SizedBox(height: Spacing.s3),
+                  _sub(
+                    TextAlign.center,
+                    LocaleKeys.onboarding_connect_celebration_phone_note.tr(),
+                  ),
+                ],
                 // Onboarding ends on "create your first topic", and the word
                 // topic has not been explained anywhere before that button.
                 if (isDemo && !isRetest) ...[

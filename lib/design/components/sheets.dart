@@ -152,6 +152,63 @@ class AppFeatureBullet extends StatelessWidget {
   }
 }
 
+/// A numbered step: the number sits in a disc, the text beside it.
+///
+/// The disc is cobalt at 18% with the number in the light cobalt on a dark
+/// card, so the number stays readable where a navy glyph used to sink.
+class AppStepBullet extends StatelessWidget {
+  const AppStepBullet({required this.number, required this.text, super.key});
+
+  final int number;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final onDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = onDark ? colors.cobaltOnDark : colors.highlight;
+
+    return Row(
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: colors.highlight.withValues(alpha: 0.18),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            '$number',
+            style: TextStyle(
+              fontFamily: AppTypography.fontMono,
+              fontFamilyFallback: AppTypography.fontMonoFallbacks,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: accent,
+              height: 1,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontFamilyFallback: AppTypography.fontBodyFallbacks,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: colors.ink,
+              height: 1.3,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Note / callout container matching index.html .note and self-host mention.
 class AppNote extends StatelessWidget {
   const AppNote({

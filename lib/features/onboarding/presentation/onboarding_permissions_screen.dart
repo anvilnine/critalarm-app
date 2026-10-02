@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
@@ -151,9 +152,12 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
       builder: (context, state) {
         final cubit = context.read<NotificationPermissionsCubit>();
         final isStep2 = state.activeSubstep == 1;
-        // Step 2 asks for an alarm permission that only iOS 26 has. Elsewhere
-        // the screen says what the phone can do instead of promising a ring.
-        final alarmless = isStep2 && !state.alarmSupported;
+        // Only an iPhone below iOS 26 has no alarm to ask for. It gets an
+        // explainer instead of a ring promise. Android asks for the
+        // full-screen alarm permission, so RingClaim says which words apply.
+        final claim = RingClaim.forPhone(state.alarm);
+        final alarmless = isStep2 && claim == RingClaim.timeSensitive;
+        final android = !isApple;
         final requestStep = isStep2
             ? cubit.requestCriticalAlerts
             : cubit.requestNotifications;
@@ -163,7 +167,10 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         final summaryLabel = LocaleKeys
             .onboarding_permissions_preview_allow_summary
             .tr();
-        final previewHint = LocaleKeys.onboarding_permissions_preview_hint.tr();
+        // Android step 2 opens a settings page with a switch, not a dialog.
+        final previewHint = isStep2 && !isApple
+            ? LocaleKeys.onboarding_permissions_preview_hint_android.tr()
+            : LocaleKeys.onboarding_permissions_preview_hint.tr();
 
         return AppScreenScaffold(
           // On its own the screen sits over Health, not over the onboarding
@@ -207,7 +214,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                   ]
                 : [
                     AppButton(
-                      label: _primaryLabel(isStep2, alarmless),
+                      label: _primaryLabel(isStep2, alarmless, android),
                       size: AppButtonSize.lg,
                       isFullWidth: true,
                       isLoading: state.isRequesting,
@@ -266,9 +273,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                           Center(
                             child: AppBadge(
                               text: isStep2
-                                  ? LocaleKeys
-                                        .onboarding_permissions_badge_step2
-                                        .tr()
+                                  ? _step2Badge(alarmless)
                                   : LocaleKeys.onboarding_permissions_badge
                                         .tr(),
                               faceState: isStep2
@@ -279,7 +284,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                           const SizedBox(height: Spacing.s4),
 
                           Text(
-                            _title(isStep2, alarmless),
+                            _title(isStep2, alarmless, android),
                             style: AppTypography.display(
                               colors.onCanvas,
                               fontSize: 32,
@@ -287,7 +292,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                           ),
                           const SizedBox(height: Spacing.s2),
                           Text(
-                            _subtitle(isStep2, alarmless),
+                            _subtitle(isStep2, alarmless, android),
                             style: AppTypography.lead(
                               colors.onCanvasMuted,
                               fontSize: 15,
@@ -346,27 +351,42 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     }
   }
 
-  String _title(bool isStep2, bool alarmless) {
+  /// The chip over step 2 follows [RingClaim]: an iPhone below iOS 26 must
+  /// not be told it rings through silent mode.
+  String _step2Badge(bool alarmless) => alarmless
+      ? LocaleKeys.onboarding_permissions_badge_step2_time_sensitive.tr()
+      : LocaleKeys.onboarding_permissions_badge_step2.tr();
+
+  String _title(bool isStep2, bool alarmless, bool android) {
     if (alarmless) {
       return LocaleKeys.onboarding_permissions_step2_unsupported_title.tr();
+    }
+    if (isStep2 && android) {
+      return LocaleKeys.onboarding_permissions_step2_title_android.tr();
     }
     return isStep2
         ? LocaleKeys.onboarding_permissions_step2_title.tr()
         : LocaleKeys.onboarding_permissions_step1_title.tr();
   }
 
-  String _subtitle(bool isStep2, bool alarmless) {
+  String _subtitle(bool isStep2, bool alarmless, bool android) {
     if (alarmless) {
       return LocaleKeys.onboarding_permissions_step2_unsupported_subtitle.tr();
+    }
+    if (isStep2 && android) {
+      return LocaleKeys.onboarding_permissions_step2_subtitle_android.tr();
     }
     return isStep2
         ? LocaleKeys.onboarding_permissions_step2_subtitle.tr()
         : LocaleKeys.onboarding_permissions_step1_subtitle.tr();
   }
 
-  String _primaryLabel(bool isStep2, bool alarmless) {
+  String _primaryLabel(bool isStep2, bool alarmless, bool android) {
     if (alarmless) {
       return LocaleKeys.onboarding_permissions_step2_unsupported_button.tr();
+    }
+    if (isStep2 && android) {
+      return LocaleKeys.onboarding_permissions_step2_button_android.tr();
     }
     return isStep2
         ? LocaleKeys.onboarding_permissions_step2_button.tr()
