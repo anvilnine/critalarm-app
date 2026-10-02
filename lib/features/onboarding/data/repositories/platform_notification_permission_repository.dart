@@ -88,16 +88,14 @@ class PlatformNotificationPermissionRepository
             AndroidFlutterLocalNotificationsPlugin
           >();
       if (android != null) {
+        // Notifications only. The full-screen alarm permission is its own
+        // step 2 in onboarding, so it is asked there with its own words.
         final notifsGranted =
             await android.requestNotificationsPermission() ?? false;
-        final fsiGranted =
-            await android.requestFullScreenIntentPermission() ?? false;
-
-        if (notifsGranted && fsiGranted) {
-          return NotificationPermissionStatus.granted.toSuccess();
-        } else {
-          return NotificationPermissionStatus.denied.toSuccess();
-        }
+        return (notifsGranted
+                ? NotificationPermissionStatus.granted
+                : NotificationPermissionStatus.denied)
+            .toSuccess();
       }
 
       final ios = _plugin
