@@ -17,6 +17,8 @@ void main() {
     bool isSignedIn = false,
     List<LocalReminderTopic>? list,
     DateTime? dismissedAt,
+    DateTime? firstTopicAt,
+    bool noFirstTopic = false,
   }) => LocalReminderInputs(
     now: now ?? DateTime(2026, 9, 12),
     isHosted: isHosted,
@@ -24,6 +26,7 @@ void main() {
     isSignedIn: isSignedIn,
     topics: list ?? topics,
     accountNoticeDismissedAt: dismissedAt,
+    firstTopicOwnedAt: noFirstTopic ? null : firstTopicAt ?? DateTime(2026, 9),
   );
 
   test('plans 10:00 seven days after the second topic', () {
@@ -52,5 +55,21 @@ void main() {
   test('a due day that passed moves to the next 10:00', () {
     final c = BackupRule.candidate(inputs(now: DateTime(2026, 9, 20, 12)))!;
     expect(c.fireAt, DateTime(2026, 9, 21, 10));
+  });
+
+  test('waits a day after the first topic was stamped', () {
+    final c = BackupRule.candidate(
+      inputs(
+        now: DateTime(2026, 9, 12),
+        firstTopicAt: DateTime(2026, 9, 16, 12),
+      ),
+    )!;
+    // Seven days after the second topic is 17 Sep 00:00, but a day after
+    // the stamp is 17 Sep 12:00, so the next 10:00 is 18 Sep.
+    expect(c.fireAt, DateTime(2026, 9, 18, 10));
+  });
+
+  test('plans nothing until the first topic has been seen', () {
+    expect(BackupRule.candidate(inputs(noFirstTopic: true)), isNull);
   });
 }

@@ -18,6 +18,14 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in
 
 ### Changed
 
+- Create topic: the Next and Create buttons now sit under the form and scroll
+  with it, so they no longer cover the Critical delivery card while you type.
+  Terms and Privacy sit under the button on step 2. The name placeholders
+  start with "e.g." and are lighter.
+- "Back up your topics" waits until you own a topic and a day has passed since
+  your first one. The backup reminder waits the same day.
+- Home shows a one-time battery optimization notice on Android, once you have
+  a critical topic. Dismiss it and the setting stays on the Health page.
 - Each Feature Guide reads correctly when played on its own. On iPhones that
   cannot ring through silent mode, the critical delivery step no longer says
   they can.

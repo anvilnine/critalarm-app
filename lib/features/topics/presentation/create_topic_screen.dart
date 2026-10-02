@@ -611,47 +611,6 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                   },
                 ),
               ),
-              bottomBar: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_toast case final message?) ...[
-                    AppToast(message: message),
-                    const SizedBox(height: Spacing.s2),
-                  ],
-                  FeatureGuideAnchor(
-                    id: FeatureGuideAnchorId.createButton,
-                    child: AppButton(
-                      label: switch ((isSuccess, isTokenStep)) {
-                        (true, _) => 'Done',
-                        (false, true) =>
-                          LocaleKeys.create_topic_create_button.tr(),
-                        (false, false) =>
-                          LocaleKeys.create_topic_next_button.tr(),
-                      },
-                      isFullWidth: true,
-                      isLoading: isSubmitting,
-                      onPressed: isNameTaken
-                          ? null
-                          : () {
-                              AppHaptics.capture();
-                              if (isSuccess) {
-                                final name = state.createdTopic!.name;
-                                if (context.canPop()) {
-                                  context.pop();
-                                  unawaited(context.push('/topics/$name'));
-                                } else {
-                                  context.go('/topics/$name');
-                                }
-                              } else if (isTokenStep) {
-                                _submit();
-                              } else {
-                                _next();
-                              }
-                            },
-                    ),
-                  ),
-                ],
-              ),
               slivers: [
                 SliverToBoxAdapter(
                   child: AppStage(
@@ -813,23 +772,75 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        _LegalLink(
-                          label: LocaleKeys.create_topic_terms_link.tr(),
-                          url: termsUrl,
-                        ),
-                        const SizedBox(width: 16),
-                        _LegalLink(
-                          label: LocaleKeys.create_topic_privacy_link.tr(),
-                          url: privacyUrl,
+                        if (_toast case final message?) ...[
+                          AppToast(message: message),
+                          const SizedBox(height: Spacing.s2),
+                        ],
+                        FeatureGuideAnchor(
+                          id: FeatureGuideAnchorId.createButton,
+                          child: AppButton(
+                            label: switch ((isSuccess, isTokenStep)) {
+                              (true, _) =>
+                                LocaleKeys.create_topic_done_button.tr(),
+                              (false, true) =>
+                                LocaleKeys.create_topic_create_button.tr(),
+                              (false, false) =>
+                                LocaleKeys.create_topic_next_button.tr(),
+                            },
+                            isFullWidth: true,
+                            isLoading: isSubmitting,
+                            onPressed: isNameTaken
+                                ? null
+                                : () {
+                                    AppHaptics.capture();
+                                    if (isSuccess) {
+                                      final name = state.createdTopic!.name;
+                                      if (context.canPop()) {
+                                        context.pop();
+                                        unawaited(
+                                          context.push('/topics/$name'),
+                                        );
+                                      } else {
+                                        context.go('/topics/$name');
+                                      }
+                                    } else if (isTokenStep) {
+                                      _submit();
+                                    } else {
+                                      _next();
+                                    }
+                                  },
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
+                // Terms and Privacy sit under the button on step 2, where the
+                // topic gets created. Step 1 has nothing to agree to yet.
+                if (isTokenStep && !isSuccess)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _LegalLink(
+                            label: LocaleKeys.create_topic_terms_link.tr(),
+                            url: termsUrl,
+                          ),
+                          const SizedBox(width: 16),
+                          _LegalLink(
+                            label: LocaleKeys.create_topic_privacy_link.tr(),
+                            url: privacyUrl,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

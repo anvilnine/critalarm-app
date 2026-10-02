@@ -30,6 +30,7 @@ class InAppNoticeSlot extends StatelessWidget {
             // The backup notice is not a card up here any more. It is a line
             // pinned above the tab bar, so it never pushes a topic off the
             // screen. Pro is not in this slot at all: it asks as a sheet.
+            case InAppNoticeType.batteryOptimization:
             case InAppNoticeType.proEnding:
             case InAppNoticeType.accountBackup:
             case InAppNoticeType.none:

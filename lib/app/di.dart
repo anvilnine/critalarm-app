@@ -908,6 +908,9 @@ Future<void> configureDependencies({
             topic.name,
             DateTime.now(),
           );
+          // Starts the one-day wait before the backup notice. A no-op after
+          // the first topic.
+          await getIt<InAppNoticeRepository>().markFirstTopicOwned();
           unawaited(getIt<LocalReminderPlanTrigger>().run());
         },
       ),
@@ -1273,6 +1276,8 @@ Future<void> configureDependencies({
         identityRepository: getIt<IdentityRepository>(),
         accountRepository: getIt<AccountRepository>(),
         noticeRepository: getIt<InAppNoticeRepository>(),
+        readTopics: () async =>
+            (await getIt<GetTopicsUsecase>()(const NoParams())).getOrNull(),
         proEnding: getIt<ProEnding>(),
         identityChanges: appAccountIdentityChanges,
         isSetupDone: () => getIt<SetupGate>().isDone(),

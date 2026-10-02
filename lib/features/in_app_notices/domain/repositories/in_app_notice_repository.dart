@@ -21,6 +21,19 @@ abstract class InAppNoticeRepository {
   /// Records a "Not now": stores the time and adds one to the count.
   Future<void> dismissProAsk();
 
+  /// When the user first owned a topic on this install. Stamped once, the
+  /// first time the topic list is seen with at least one topic. The "Back up
+  /// your topics" notice and reminder wait a day from here.
+  DateTime? getFirstTopicOwnedAt();
+
+  /// Stamps the first time a topic exists. Does nothing after that.
+  Future<void> markFirstTopicOwned();
+
+  /// When the battery optimisation notice was closed on Home. It shows
+  /// once, so any value here keeps it off Home for good.
+  DateTime? getBatteryNoticeDismissedAt();
+  Future<void> dismissBatteryNotice();
+
   DateTime? getLastNoticeResolvedOrDismissedAt();
   Future<void> markNoticeResolvedOrDismissed();
 
