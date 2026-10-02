@@ -15,6 +15,13 @@ String formatRingDuration(Duration duration) {
   return '$minutes min ${seconds.toString().padLeft(2, '0')} s';
 }
 
+/// "0:04", or "6:02" past a minute. A clock reading for a chip.
+String formatRingClock(Duration duration) {
+  final minutes = duration.inMinutes;
+  final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+  return '$minutes:$seconds';
+}
+
 /// "Rang 6 min 02 s. Acknowledged."
 String historyMetaText(HistoryEntry entry) {
   final duration = formatRingDuration(entry.ringDuration ?? Duration.zero);

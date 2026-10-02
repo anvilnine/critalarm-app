@@ -3,6 +3,7 @@ library;
 
 export 'face_painter.dart';
 export 'face_rig.dart';
+export 'face_ripple.dart';
 export 'face_shape.dart';
 export 'face_state.dart';
 export 'face_widget.dart';
