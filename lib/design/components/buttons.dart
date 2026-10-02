@@ -32,7 +32,15 @@ enum AppButtonVariant {
 
   /// Critical red fill with white text. Destructive primary action.
   destructive,
+
+  /// Cream fill (#F3EBDD) with ink text in both themes. The primary action on
+  /// the acknowledged canvas, where cobalt would vanish into navy.
+  cream,
 }
+
+const _cream = Color(0xFFF3EBDD);
+const _creamHover = Color(0xFFE9DFCB);
+const _creamInk = Color(0xFF1A140F);
 
 /// Button sizes defined by the Crit Alarm Design System.
 enum AppButtonSize {
@@ -130,6 +138,10 @@ class _AppButtonState extends State<AppButton> {
         bg = _isHovered ? colors.critAlt : colors.crit;
         fg = colors.onError;
         shadows = AppShadows.lightSm;
+      case AppButtonVariant.cream:
+        bg = _isHovered ? _creamHover : _cream;
+        fg = _creamInk;
+        shadows = AppShadows.lightSm;
     }
 
     // An off button keeps flat colours of its own. It used to be wrapped in an
@@ -151,6 +163,7 @@ class _AppButtonState extends State<AppButton> {
           border = BorderSide(color: fg, width: 2);
         case AppButtonVariant.dangerText:
           fg = colors.ink3;
+        case AppButtonVariant.cream:
         case AppButtonVariant.destructive:
           bg = colors.ash;
           fg = colors.ink2;
