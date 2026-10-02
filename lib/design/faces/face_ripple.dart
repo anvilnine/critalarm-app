@@ -97,27 +97,19 @@ FaceState pickRippleFace(
 }
 
 /// The grid for a box: the head size and how many rows and columns fit.
-/// By default four columns and up to five rows, sized by the tighter of
-/// width and height. With [fillWidth] the heads are sized by the height and
-/// as many columns as fit are used, so a short box gets a wide grid.
+/// Always four columns and up to five rows, sized by the tighter of width
+/// and height.
 @visibleForTesting
 ({double size, int rows, int cols}) rippleGrid(
   double width,
   double height, {
-  bool fillWidth = false,
   double gap = 12,
 }) {
-  var cols = 4;
-  double size;
-  if (fillWidth) {
-    size = (height - gap * 4) / 5;
-    if (size > 0) {
-      cols = ((width + gap) / (size + gap)).floor().clamp(3, 8);
-      size = math.min(size, (width - gap * (cols - 1)) / cols);
-    }
-  } else {
-    size = math.min((width - gap * (cols - 1)) / cols, (height - gap * 4) / 5);
-  }
+  const cols = 4;
+  final size = math.min(
+    (width - gap * (cols - 1)) / cols,
+    (height - gap * 4) / 5,
+  );
   final rows = size <= 0
       ? 0
       : ((height + gap) / (size + gap)).floor().clamp(1, 5);
@@ -136,7 +128,6 @@ class FaceRipple extends StatefulWidget {
     this.faces,
     this.restFace = FaceState.calm,
     this.randomFaces = false,
-    this.fillWidth = false,
     super.key,
   });
 
@@ -149,9 +140,6 @@ class FaceRipple extends StatefulWidget {
   /// Pick a face per cell and wave at random (a fixed shuffle, so a frame is
   /// repeatable) instead of running through [faces] in order.
   final bool randomFaces;
-
-  /// Use as many columns as the box has room for. See [rippleGrid].
-  final bool fillWidth;
 
   @override
   State<FaceRipple> createState() => _FaceRippleState();
@@ -196,7 +184,6 @@ class _FaceRippleState extends State<FaceRipple>
         final (:size, :rows, :cols) = rippleGrid(
           box.maxWidth,
           box.maxHeight,
-          fillWidth: widget.fillWidth,
         );
         if (rows == 0) return const SizedBox.shrink();
         return Center(

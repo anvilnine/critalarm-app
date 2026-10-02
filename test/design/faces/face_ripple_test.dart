@@ -92,15 +92,7 @@ void main() {
       expect(g.rows, 5);
     });
 
-    test('fillWidth takes more columns from a short box', () {
-      final g = rippleGrid(312, 280, fillWidth: true);
-      expect(g.rows, 5);
-      expect(g.cols, greaterThan(4));
-      expect(g.cols * g.size + (g.cols - 1) * 12, lessThanOrEqualTo(312.001));
-    });
-
     test('a box with no room yields no rows', () {
-      expect(rippleGrid(300, 20, fillWidth: true).rows, 0);
       expect(rippleGrid(300, 20).rows, 0);
     });
   });
