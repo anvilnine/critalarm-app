@@ -1,8 +1,9 @@
+import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design_system/tokens/spacing.dart';
 import 'package:flutter/material.dart';
 
 /// A titled content section on a mat panel (themed Card: elevated mat fill,
-/// seam border, display-type title).
+/// seam border, [AppSectionHeader] title).
 class SectionCard extends StatelessWidget {
   const SectionCard({
     required this.title,
@@ -28,10 +29,8 @@ class SectionCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title.toUpperCase(),
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                  // The one list header the app uses, not a style of its own.
+                  child: AppSectionHeader(title, padding: EdgeInsets.zero),
                 ),
                 ?trailing,
               ],

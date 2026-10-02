@@ -49,7 +49,6 @@ class AboutScreen extends StatelessWidget {
                   AppKeyValueRow(
                     label: LocaleKeys.settings_about_license_label.tr(),
                     value: LocaleKeys.settings_about_license_value.tr(),
-                    isMono: false,
                   ),
                   const SizedBox(height: 8),
                   _AboutLinkRow(
@@ -85,6 +84,13 @@ class AboutScreen extends StatelessWidget {
     );
   }
 }
+
+/// A link as shown on the About screen: without the scheme, so the part that
+/// tells two links apart is not what gets cut off. The row still opens the
+/// full URL.
+@visibleForTesting
+String aboutDisplayUrl(String url) =>
+    url.replaceFirst(RegExp('^https?://'), '');
 
 class _AboutLinkRow extends StatelessWidget {
   const _AboutLinkRow({
@@ -164,15 +170,13 @@ class _AboutLinkRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      url,
+                      aboutDisplayUrl(url),
                       style: TextStyle(
                         fontFamily: AppTypography.fontMono,
                         fontFamilyFallback: AppTypography.fontMonoFallbacks,
                         fontSize: 12,
                         color: colors.ink3,
                       ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
                     ),
                   ],
                 ),

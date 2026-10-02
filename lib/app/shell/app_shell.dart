@@ -450,6 +450,7 @@ class _AppShellContentState extends State<_AppShellContent>
                 bottomInset: bottomInset,
                 onTapResult: (result) => unawaited(_openResult(result)),
                 onTapRecent: _fillFromRecent,
+                onTapExample: _fillFromRecent,
                 onClearRecent: () => unawaited(_search.clearRecent()),
               ),
             ),
