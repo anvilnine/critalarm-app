@@ -1,3 +1,4 @@
+import 'package:critalarm/design/components/radios.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
@@ -48,6 +49,22 @@ void main() {
         ratio(colors.tabBar, colors.canvas),
         greaterThan(ratio(colors.panel, colors.canvas)),
       );
+    });
+
+    test('unselected radio ring is 3:1 against the card in both themes', () {
+      for (final colors in const [AppColors.light, AppColors.dark]) {
+        final ring = Color.alphaBlend(
+          colors.ink.withValues(alpha: radioRingAlpha),
+          colors.surface,
+        );
+        final hi = ring.computeLuminance() > colors.surface.computeLuminance()
+            ? ring
+            : colors.surface;
+        final lo = identical(hi, ring) ? colors.surface : ring;
+        final ratio =
+            (hi.computeLuminance() + 0.05) / (lo.computeLuminance() + 0.05);
+        expect(ratio, greaterThanOrEqualTo(3));
+      }
     });
 
     test('dark colors match design system tokens', () {

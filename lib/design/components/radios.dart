@@ -6,6 +6,10 @@ import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/design_system/motion.dart';
 import 'package:flutter/material.dart';
 
+/// Alpha of the unselected ring. 0.35 gives about 2:1 on a white card, so it
+/// is 0.55 to keep the ring at 3:1 or better against the card in both themes.
+const double radioRingAlpha = 0.55;
+
 /// The dot half of a pick-one row. 22x22, seam ring, accent fill when picked.
 class AppRadio extends StatelessWidget {
   const AppRadio({required this.selected, super.key});
@@ -22,11 +26,11 @@ class AppRadio extends StatelessWidget {
       height: 22,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: selected ? colors.highlight : Colors.white,
+        color: selected ? colors.highlight : colors.surface,
         border: Border.all(
           color: selected
               ? colors.highlight
-              : colors.inkFixed.withValues(alpha: 0.35),
+              : colors.ink.withValues(alpha: radioRingAlpha),
           width: 2,
         ),
       ),
