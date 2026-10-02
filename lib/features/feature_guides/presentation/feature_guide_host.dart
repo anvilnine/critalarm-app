@@ -516,26 +516,9 @@ class _FeatureGuideHostState extends State<FeatureGuideHost>
             ),
           ),
         ),
+        // The card's own Skip guide is the one way out, on every step, so
+        // leaving never depends on a back button. iOS has none.
         if (hole != null) _card(guide, hole, screen),
-        // Always there, on every step, so leaving never depends on a back
-        // button. iOS has none.
-        Positioned(
-          top: MediaQuery.paddingOf(context).top + 8,
-          right: 12,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: context.appColors.panel,
-              shape: BoxShape.circle,
-              border: Border.all(color: context.appColors.panelLine),
-            ),
-            child: AppIconButton(
-              glyph: GlyphType.close,
-              ariaLabel: LocaleKeys.feature_guides_skip.tr(),
-              color: context.appColors.onPanel,
-              onPressed: _done,
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -596,7 +579,6 @@ class _FeatureGuideCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final step = guide.step;
 
     return TweenAnimationBuilder<double>(
@@ -618,7 +600,6 @@ class _FeatureGuideCard extends StatelessWidget {
             color: colors.panel,
             borderRadius: Radii.lgAll,
             border: Border.all(color: colors.panelLine),
-            boxShadow: AppShadows.shadowLg(isDark: isDark),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

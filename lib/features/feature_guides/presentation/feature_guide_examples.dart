@@ -1,11 +1,20 @@
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+
+/// The status stage while an example is ringing.
+typedef TroubleStage = ({
+  FaceState faceState,
+  String word,
+  String subText,
+  SeverityMode severity,
+});
 
 /// Made-up topics the guide shows to someone who has none yet, so every step
 /// has something real-looking to point at. None of it reaches the server.
@@ -37,6 +46,17 @@ abstract final class FeatureGuideExamples {
     isCrit: true,
     isLive: true,
     ringsThroughSilent: true,
+  );
+
+  /// What the status stage shows while [troubleTopic] is in the list: the
+  /// same trouble, so the face and the row never disagree.
+  static TroubleStage troubleStage() => (
+    faceState: FaceState.alarmed,
+    word: LocaleKeys.home_stage_word_critical.tr(),
+    subText: LocaleKeys.home_stage_sub_critical.tr(
+      namedArgs: {'topic': troubleTopic().name},
+    ),
+    severity: SeverityMode.crit,
   );
 
   /// The example topic's own screen.

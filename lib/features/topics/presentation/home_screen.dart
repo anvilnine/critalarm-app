@@ -243,6 +243,12 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     // does.
     final showExamples =
         guide.showsHomeExamples && real.status == HomeStatus.success;
+    // The stage says what the list says: the example is ringing, so the face
+    // is alarmed too. It has no ringing incident, so it hands nothing to the
+    // takeover screen.
+    final exampleStage = showExamples
+        ? FeatureGuideExamples.troubleStage()
+        : null;
     final state = !showExamples
         ? real
         : real.isEmpty
@@ -251,15 +257,20 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
               FeatureGuideExamples.troubleTopic(),
               ...FeatureGuideExamples.homeTopics(),
             ],
-            faceState: FaceState.calm,
-            word: LocaleKeys.home_stage_word_clear.tr(),
-            subText: LocaleKeys.feature_guides_example_topic_sub.tr(),
+            faceState: exampleStage!.faceState,
+            word: exampleStage.word,
+            subText: exampleStage.subText,
+            severity: exampleStage.severity,
           )
         : real.copyWith(
             topicItems: [
               FeatureGuideExamples.troubleTopic(),
               ...real.topicItems,
             ],
+            faceState: exampleStage!.faceState,
+            word: exampleStage.word,
+            subText: exampleStage.subText,
+            severity: exampleStage.severity,
           );
     // A deleted topic leaves the pane pointing at a name the list no
     // longer has, so the selection is read back off the list every build
