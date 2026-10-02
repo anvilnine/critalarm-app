@@ -598,8 +598,8 @@ class AcknowledgedScreen extends StatelessWidget {
             : _formatRingDuration(ringDuration),
       },
     );
-    // The demo celebrates: a ripple of happy faces, the title, one line and
-    // a chip with the ring time, with confetti on top.
+    // The demo welcomes: a ripple of happy faces, the title and one line,
+    // with confetti on top.
     final faceState = state.faceState;
 
     final size = AppSize.of(context);
@@ -623,18 +623,8 @@ class AcknowledgedScreen extends StatelessWidget {
                   },
                 )
               else ...[
-                // Frames the one button below it.
-                Padding(
-                  padding: const EdgeInsets.only(bottom: Spacing.s3),
-                  child: Text(
-                    LocaleKeys.onboarding_connect_celebration_next.tr(),
-                    textAlign: TextAlign.center,
-                    style: _bodyStyle(14, FontWeight.w500, colors.onCanvas),
-                  ),
-                ),
-                // The first topic is the next step, so it is the one button.
-                // Cream, because cobalt on the navy acknowledged canvas would
-                // disappear.
+                // The first topic is the next step. Cream, because cobalt on
+                // the navy acknowledged canvas would disappear.
                 AppButton(
                   label: LocaleKeys.onboarding_connect_create_first_topic_button
                       .tr(),
@@ -646,6 +636,21 @@ class AcknowledgedScreen extends StatelessWidget {
                     await getIt<CompleteOnboardingUsecase>()(const NoParams());
                     if (context.mounted) {
                       context.go('/topics/new');
+                    }
+                  },
+                ),
+                const SizedBox(height: Spacing.s3),
+                // Ghost reads on the navy canvas and ranks below Create.
+                AppButton(
+                  label: LocaleKeys.onboarding_connect_celebration_finish.tr(),
+                  variant: AppButtonVariant.ghost,
+                  size: AppButtonSize.lg,
+                  isFullWidth: true,
+                  onPressed: () async {
+                    AppHaptics.capture();
+                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
+                    if (context.mounted) {
+                      context.go('/');
                     }
                   },
                 ),
@@ -703,7 +708,7 @@ class AcknowledgedScreen extends StatelessWidget {
     );
 
     if (isDemo) {
-      return _demoBody(context, isWide, bottomBar, ringDuration);
+      return _demoBody(context, isWide, bottomBar);
     }
 
     if (isWide) {
@@ -782,14 +787,13 @@ class AcknowledgedScreen extends StatelessWidget {
   }
 
   /// The test alarm's acknowledged screen: a ripple of happy faces as the
-  /// picture, then the title, a line, the ring time chip and the way on,
+  /// picture, then the welcome title, a line and the way on,
   /// with confetti over all of it. The ripple takes whatever height the text
   /// and button leave, so nothing scrolls off a small phone.
   Widget _demoBody(
     BuildContext context,
     bool isWide,
     Widget bottomBar,
-    Duration? ringDuration,
   ) {
     const ripple = ExcludeSemantics(
       child: IgnorePointer(
@@ -797,7 +801,6 @@ class AcknowledgedScreen extends StatelessWidget {
           faces: happyRippleFaces,
           restFace: FaceState.content,
           randomFaces: true,
-          fillWidth: true,
         ),
       ),
     );
@@ -810,14 +813,10 @@ class AcknowledgedScreen extends StatelessWidget {
           _title(align, true),
           const SizedBox(height: Spacing.s3),
           Text(
-            LocaleKeys.onboarding_connect_celebration_body.tr(),
+            LocaleKeys.onboarding_connect_welcome_body.tr(),
             textAlign: align,
             style: _bodyStyle(18, FontWeight.w500, colors.onCanvas),
           ),
-          if (ringDuration != null) ...[
-            const SizedBox(height: Spacing.s4),
-            _ringTimeChip(ringDuration),
-          ],
         ],
       ),
     );
@@ -882,30 +881,6 @@ class AcknowledgedScreen extends StatelessWidget {
     );
   }
 
-  /// "Rang for 0:04", a small pill rather than a sentence.
-  Widget _ringTimeChip(Duration duration) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: colors.onCanvas.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colors.onCanvas.withValues(alpha: 0.28)),
-      ),
-      child: Text(
-        LocaleKeys.onboarding_connect_celebration_rang_for.tr(
-          namedArgs: {'duration': formatRingClock(duration)},
-        ),
-        style: TextStyle(
-          fontFamily: AppTypography.fontMono,
-          fontFamilyFallback: AppTypography.fontMonoFallbacks,
-          fontWeight: FontWeight.w700,
-          fontSize: 13,
-          color: colors.onCanvas,
-        ),
-      ),
-    );
-  }
-
   static TextStyle _bodyStyle(double size, FontWeight weight, Color color) =>
       TextStyle(
         fontFamily: AppTypography.fontBody,
@@ -919,7 +894,7 @@ class AcknowledgedScreen extends StatelessWidget {
   Widget _title(TextAlign align, bool isDemo) {
     return Text(
       isDemo
-          ? LocaleKeys.onboarding_connect_celebration_title.tr()
+          ? LocaleKeys.onboarding_connect_welcome_title.tr()
           : LocaleKeys.critical_alarm_acked_title.tr(),
       textAlign: align,
       style: AppTypography.display(colors.onCanvas),
