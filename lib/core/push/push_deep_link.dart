@@ -32,6 +32,28 @@ abstract final class PushDeepLink {
     return id == null ? null : incidentLocation(id);
   }
 
+  /// The scheme the Android tap intents carry on their data URI. It only keeps
+  /// two PendingIntents apart; nothing outside the app sends one.
+  static const appScheme = 'critalarm';
+
+  /// Maps a `critalarm://` location that reached the router to a real route,
+  /// or null when [location] is not one. `critalarm://incidents/<id>` opens
+  /// that incident, `critalarm://topics/<name>` that topic, and any other
+  /// `critalarm://` location (a reminder tap, say) opens Home. Never a Page
+  /// Not Found.
+  static String? fromAppUri(Uri location) {
+    if (location.scheme != appScheme) return null;
+    final segments = [
+      for (final s in location.pathSegments)
+        if (s.isNotEmpty) s,
+    ];
+    if (segments.length == 1) {
+      if (location.host == 'incidents') return incidentLocation(segments[0]);
+      if (location.host == 'topics') return topicLocation(segments[0]);
+    }
+    return homeLocation;
+  }
+
   /// Route for the extras attached to a tapped notification.
   static String? fromNotificationData(Map<String, String> data) {
     final incidentId = data[incidentIdKey];
