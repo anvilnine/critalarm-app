@@ -99,6 +99,7 @@ final class LocalReminderInputs {
     this.silentDone = const {},
     this.isSignedIn = false,
     this.accountNoticeDismissedAt,
+    this.firstTopicOwnedAt,
     this.plan,
     this.planHeadsUpsSent = const {},
     this.morningAfterDone = const {},
@@ -155,6 +156,10 @@ final class LocalReminderInputs {
 
   /// The home "Back up your topics" card's snooze stamp.
   final DateTime? accountNoticeDismissedAt;
+
+  /// `InAppNoticeRepository.getFirstTopicOwnedAt()`. The backup reminder
+  /// waits a day from here, like the home notice.
+  final DateTime? firstTopicOwnedAt;
   final PlanStatus? plan;
 
   /// Plan heads-up keys already delivered (`PlanHeadsUpRule.keyFor`).

@@ -11,6 +11,9 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_kind.da
 abstract final class BackupRule {
   static const Duration afterSecondTopic = Duration(days: 7);
   static const Duration snooze = Duration(days: 7);
+
+  /// Same wait as the home notice: a day after the first topic.
+  static const Duration afterFirstTopic = Duration(hours: 24);
   static const int fireHour = 10;
   static const int minTopics = 2;
 
@@ -20,6 +23,10 @@ abstract final class BackupRule {
     }
     if (inputs.topics.length < minTopics) return null;
 
+    // No stamp yet means the first topic has not been seen: wait.
+    final firstTopicAt = inputs.firstTopicOwnedAt;
+    if (firstTopicAt == null) return null;
+
     final made = [
       for (final topic in inputs.topics)
         if (topic.createdAt != null) topic.createdAt!,
@@ -27,6 +34,7 @@ abstract final class BackupRule {
     if (made.length < minTopics) return null;
 
     var due = made[minTopics - 1].add(afterSecondTopic);
+    due = LocalReminderDates.later(due, firstTopicAt.add(afterFirstTopic));
     final dismissed = inputs.accountNoticeDismissedAt;
     if (dismissed != null) {
       due = LocalReminderDates.later(due, dismissed.add(snooze));

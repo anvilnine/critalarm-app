@@ -44,6 +44,18 @@ void main() {
     );
   }
 
+  /// The button scrolls with the form now, so a short test screen has to
+  /// scroll it into view before a tap.
+  Future<void> tapButton(WidgetTester tester, String label) async {
+    final button = find.text(label);
+    await tester.scrollUntilVisible(
+      button,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(button);
+  }
+
   /// pumpAndSettle never returns on this screen: the ambient canvas behind
   /// the card animates forever. Pump past the route push and the step swap
   /// instead.
@@ -57,8 +69,8 @@ void main() {
     (widget) => widget is TextField && widget.decoration?.hintText == hint,
   );
 
-  final nameField = fieldWithHint('prod-db');
-  final tokenNameField = fieldWithHint('CI server');
+  final nameField = fieldWithHint('e.g. prod-db');
+  final tokenNameField = fieldWithHint('e.g. CI server');
 
   Future<void> openScreen(WidgetTester tester) async {
     await tester.pumpWidget(buildTestApp());
@@ -79,7 +91,7 @@ void main() {
         await settle(tester);
         expect(tester.widget<AppSwitch>(find.byType(AppSwitch)).value, isTrue);
 
-        await tester.tap(find.text('Next'));
+        await tapButton(tester, 'Next');
         await settle(tester);
         await tester.enterText(tokenNameField, 'CI box');
         await settle(tester);
@@ -97,7 +109,7 @@ void main() {
         expect(tester.widget<AppSwitch>(find.byType(AppSwitch)).value, isTrue);
 
         // The token name survived the trip as well.
-        await tester.tap(find.text('Next'));
+        await tapButton(tester, 'Next');
         await settle(tester);
         expect(
           tester.widget<TextField>(tokenNameField).controller?.text,
@@ -126,9 +138,9 @@ void main() {
 
       await tester.enterText(nameField, 'release-bot');
       await settle(tester);
-      await tester.tap(find.text('Next'));
+      await tapButton(tester, 'Next');
       await settle(tester);
-      await tester.tap(find.text('Create topic'));
+      await tapButton(tester, 'Create topic');
       await settle(tester);
       expect(find.text('Endpoint and token'), findsOneWidget);
 
@@ -147,7 +159,7 @@ void main() {
 
       await tester.enterText(nameField, 'release-bot');
       await settle(tester);
-      await tester.tap(find.text('Next'));
+      await tapButton(tester, 'Next');
       await settle(tester);
 
       expect(find.text('Token for'), findsOneWidget);
@@ -163,7 +175,7 @@ void main() {
 
       await tester.enterText(nameField, longName);
       await settle(tester);
-      await tester.tap(find.text('Next'));
+      await tapButton(tester, 'Next');
       await settle(tester);
 
       final name = tester.widget<Text>(find.text(longName));
@@ -179,7 +191,7 @@ void main() {
 
       await tester.enterText(nameField, 'release-bot');
       await settle(tester);
-      await tester.tap(find.text('Next'));
+      await tapButton(tester, 'Next');
       await settle(tester);
 
       // Off is the default, so the recap says nothing about it.
@@ -189,7 +201,7 @@ void main() {
       await settle(tester);
       await tester.tap(find.byType(AppSwitch));
       await settle(tester);
-      await tester.tap(find.text('Next'));
+      await tapButton(tester, 'Next');
       await settle(tester);
 
       expect(find.text('Critical delivery on'), findsOneWidget);

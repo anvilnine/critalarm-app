@@ -527,8 +527,8 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     );
   }
 
-  /// The one pill floating above the tab bar: Pro ending first, then the
-  /// sign-in notice.
+  /// The one pill floating above the tab bar: battery first, then Pro ending,
+  /// then the sign-in notice.
   Widget? _noticeBar(BuildContext context, InAppNoticeState notice) {
     final cubit = context.read<InAppNoticeCubit>();
     switch (notice.noticeType) {
@@ -544,6 +544,27 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             showProPlanSheet(
               context,
               ProEndingView(sheet: ProPlanSheet.ending, endsAt: endsAt),
+              onDismiss: () => unawaited(cubit.dismissCurrent()),
+            ),
+          ),
+          onDismiss: () => unawaited(cubit.dismissCurrent()),
+        );
+      case InAppNoticeType.batteryOptimization:
+        return AppPinnedNoticeBar(
+          face: FaceState.watching,
+          title: LocaleKeys.notices_battery_title.tr(),
+          linkLabel: LocaleKeys.notices_why.tr(),
+          onTap: () => unawaited(
+            showNoticeDetailSheet(
+              context: context,
+              face: FaceState.watching,
+              title: LocaleKeys.notices_battery_title.tr(),
+              body: LocaleKeys.notices_battery_body.tr(),
+              actionLabel: LocaleKeys.notices_battery_button.tr(),
+              onAction: () {
+                unawaited(cubit.dismissCurrent());
+                openAppPath(context, '/settings/permissions');
+              },
               onDismiss: () => unawaited(cubit.dismissCurrent()),
             ),
           ),
