@@ -24,6 +24,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The Feature Guide card has no close X and no large shadow; "Skip guide" is the one exit.
 - The in-app paywall has one heading, Yearly and Monthly plan titles, and no cobalt ring on the face.
 - The onboarding screens before Permissions slide in with their text and buttons.
+- The onboarding test alarm's acknowledged screen drops its explanatory text and detail sheet and ends on confetti.
 
 ### Fixed
 - The PRO badge uses `inkFixed`, so it stays ink on yellow in dark.
