@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -175,6 +176,19 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
   }
 
+  /// What this phone can promise for a ring, so the demo message never says
+  /// "through silent mode" on an iPhone that cannot do it.
+  Future<RingClaim> _ringClaim() async {
+    try {
+      final authorization = await _alarm?.authorizationStatus();
+      return authorization == null
+          ? RingClaim.alarm
+          : RingClaim.forPhone(authorization);
+    } on Object catch (_) {
+      return RingClaim.alarm;
+    }
+  }
+
   Future<void> load({String? incidentId}) async {
     _stopRingTicker();
     emit(const CriticalAlarmState(status: CriticalAlarmStatus.loading));
@@ -185,6 +199,8 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       if (isClosed) return;
       emit(state.copyWith(isOnboardingDone: done?.getOrNull() ?? false));
       final now = DateTime.now();
+      final claim = await _ringClaim();
+      if (isClosed) return;
       _applyIncident(
         Incident(
           id: 'inc_demo',
@@ -194,10 +210,10 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
             Message(
               id: 'msg_demo',
               topic: 'demo-topic',
-              title: 'Crit Alarm Test',
-              message:
-                  'This is a test alarm to verify your device rings '
-                  'through silent mode.',
+              title: LocaleKeys.critical_alarm_demo_title.tr(),
+              message: claim == RingClaim.timeSensitive
+                  ? LocaleKeys.critical_alarm_demo_body_time_sensitive.tr()
+                  : LocaleKeys.critical_alarm_demo_body.tr(),
               priority: 5,
               time: now.millisecondsSinceEpoch ~/ 1000,
             ),

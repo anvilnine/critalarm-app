@@ -1,4 +1,5 @@
 import 'package:critalarm/app/state/incidents_cubit.dart';
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/result/result.dart';
@@ -15,8 +16,13 @@ import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+
+import '../../core/alarm/fake_alarm_host.dart';
 
 class _MockOnboardingProgressRepository extends Mock
     implements OnboardingProgressRepository {}
@@ -59,7 +65,10 @@ void main() {
   });
 
   group('the demo alarm and onboarding', () {
-    CriticalAlarmCubit demoCubit({required bool completed}) {
+    CriticalAlarmCubit demoCubit({
+      required bool completed,
+      AlarmHost? alarm,
+    }) {
       final repo = _MockOnboardingProgressRepository();
       when(repo.isCompleted).thenAnswer((_) async => completed.toSuccess());
       return CriticalAlarmCubit(
@@ -68,7 +77,7 @@ void main() {
         acknowledgeIncidentUsecase,
         closeIncidentUsecase,
         null,
-        null,
+        alarm,
         const Duration(seconds: 1),
         null,
         GetOnboardingCompletedUsecase(repo),
@@ -103,6 +112,32 @@ void main() {
 
       expect(demo.state.status, CriticalAlarmStatus.acknowledged);
       expect(demo.state.isOnboardingDone, isTrue);
+    });
+
+    test('the demo message promises silent mode only where it can', () async {
+      final fake = FakeAlarmHost();
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+      // iOS below 26: no AlarmKit.
+      fake.answers['authorizationStatus'] = 'unsupported';
+      final oldPhone = demoCubit(completed: false, alarm: fake.host);
+      addTearDown(oldPhone.close);
+      await oldPhone.load(incidentId: 'inc_demo');
+      expect(
+        oldPhone.state.incident?.messages.first.message,
+        LocaleKeys.critical_alarm_demo_body_time_sensitive.tr(),
+      );
+
+      // iOS 26 and later.
+      fake.answers['authorizationStatus'] = 'authorized';
+      final newPhone = demoCubit(completed: false, alarm: fake.host);
+      addTearDown(newPhone.close);
+      await newPhone.load(incidentId: 'inc_demo');
+      expect(
+        newPhone.state.incident?.messages.first.message,
+        LocaleKeys.critical_alarm_demo_body.tr(),
+      );
     });
 
     test('a real incident never carries the flag', () async {

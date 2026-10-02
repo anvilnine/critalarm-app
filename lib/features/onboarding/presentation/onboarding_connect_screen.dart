@@ -685,23 +685,23 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                   LocaleKeys.onboarding_connect_hook_steps_header.tr(),
                 ),
                 const SizedBox(height: 8),
-                AppFeatureBullet(
+                AppStepBullet(
+                  number: 1,
                   text:
                       RingClaim.forPhone(state.alarm) == RingClaim.timeSensitive
                       ? LocaleKeys.onboarding_connect_hook_step1_time_sensitive
                             .tr()
                       : LocaleKeys.onboarding_connect_hook_step1.tr(),
-                  glyph: GlyphType.bell,
                 ),
                 const SizedBox(height: 12),
-                AppFeatureBullet(
+                AppStepBullet(
+                  number: 2,
                   text: LocaleKeys.onboarding_connect_hook_step2.tr(),
-                  glyph: GlyphType.arrow,
                 ),
                 const SizedBox(height: 12),
-                AppFeatureBullet(
+                AppStepBullet(
+                  number: 3,
                   text: LocaleKeys.onboarding_connect_hook_step3.tr(),
-                  glyph: GlyphType.clock,
                 ),
               ],
             ),
@@ -743,6 +743,8 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           isFullWidth: true,
           onPressed: cubit.navigateToHome,
         ),
+        // 12px from the scaffold makes 24 above the home indicator.
+        const SizedBox(height: 12),
       ],
     );
   }
