@@ -24,8 +24,9 @@ enum SubscriptionTier {
   static const String yearlyId = r'$rc_annual';
   static const String monthlyId = r'$rc_monthly';
 
-  /// Display title for the plan. Carries the product name as well as the
-  /// duration, which App Store review guideline 3.1.2 asks for.
+  /// Display title for the plan: the duration alone. The product name is the
+  /// heading of the screen, and the duration line under the title says when
+  /// it renews, which App Store review guideline 3.1.2 asks for.
   String get displayName {
     switch (this) {
       case SubscriptionTier.yearly:
