@@ -1,6 +1,7 @@
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
+import 'package:critalarm/features/history/domain/history_window.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -154,6 +155,40 @@ void main() {
 
       expect(a, b);
       expect(a.hashCode, b.hashCode);
+    });
+  });
+
+  group('window chips follow the plan', () {
+    test('Free keeps 7 days, so 30 and 90 are locked', () {
+      final locked = [
+        for (final w in HistoryWindows.all)
+          if (HistoryWindows.isLocked(w, 7)) w,
+      ];
+      expect(locked, <Duration>[HistoryWindows.month, HistoryWindows.quarter]);
+    });
+
+    test('Pro keeps 90 days, so nothing is locked', () {
+      expect(
+        HistoryWindows.all.any((w) => HistoryWindows.isLocked(w, 90)),
+        isFalse,
+      );
+    });
+
+    test('shownDays is 90 for paid and self-hosted, the cap for Free', () {
+      expect(HistoryWindow.shownDays(isPaid: true, historyDays: 7), 90);
+      expect(
+        HistoryWindow.shownDays(
+          isPaid: false,
+          historyDays: 7,
+          isSelfHosted: true,
+        ),
+        90,
+      );
+      expect(HistoryWindow.shownDays(isPaid: false, historyDays: 7), 7);
+    });
+
+    test('the default filter opens on the widest window', () {
+      expect(HistoryFilter.none.window, HistoryWindows.quarter);
     });
   });
 }

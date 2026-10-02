@@ -358,12 +358,12 @@
     "filter_aria_label": "Filter history",
     "filter_active_aria_label": "Filter history. A filter is on.",
     "summary": {
-      "one": "1 alarm in 30 days. Longest ring {longest}.",
-      "other": "{} alarms in 30 days. Longest ring {longest}."
+      "one": "1 alarm in {days} days. Longest ring {longest}.",
+      "other": "{} alarms in {days} days. Longest ring {longest}."
     },
-    "summary_empty": "No alarms in the last 30 days.",
     "empty_title": "Nothing has rung yet",
     "empty_body": "Alarms you acknowledge show up here with how long they rang.",
+    "empty_body_free": "Alarms you acknowledge show up here with how long they rang. Free keeps {days} days.",
     "day_today": "Today, {date}",
     "meta_acknowledged": "Rang {duration}. Acknowledged.",
     "meta_resolved": "Rang {duration}. Resolved when the check passed.",
@@ -384,6 +384,8 @@
     "filter_window_header": "Window",
     "filter_window_7": "7 days",
     "filter_window_30": "30 days",
+    "filter_window_90": "90 days",
+    "filter_window_locked_aria_label": "{window}, needs Pro",
     "filter_reset": "Reset",
     "filter_apply": "Apply",
     "filter_badge": {

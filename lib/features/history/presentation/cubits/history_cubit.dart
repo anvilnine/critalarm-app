@@ -114,6 +114,17 @@ class HistoryCubit extends Cubit<HistoryState> {
     if (session != null) {
       isSelfHosted = session.mode == ServerMode.selfhosted;
     }
+    if (!isClosed) {
+      emit(
+        state.copyWith(
+          shownDays: HistoryWindow.shownDays(
+            isPaid: _isPaid,
+            historyDays: _caps.historyDays ?? 7,
+            isSelfHosted: isSelfHosted,
+          ),
+        ),
+      );
+    }
     return true;
   }
 
@@ -285,7 +296,8 @@ class HistoryCubit extends Cubit<HistoryState> {
   /// is still newest first and ready for [groupByDay].
   ///
   /// The filter can only narrow what the tier already allowed through, so a
-  /// 30 day window on a free plan still shows 7 days.
+  /// 30 day window on a free plan still shows 7 days. The sheet locks those
+  /// chips, so this only guards a filter that was set before a plan lapsed.
   static List<HistoryEntry> filterEntries(
     List<HistoryEntry> entries,
     HistoryFilter filter,
