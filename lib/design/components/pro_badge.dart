@@ -17,18 +17,18 @@ class ProBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.yellow,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colors.ink, width: 1.5),
+        border: Border.all(color: colors.inkFixed, width: 1.5),
       ),
       child: Text(
         label.toUpperCase(),
         style: TextStyle(
-          fontFamily: AppTypography.fontMono,
-          fontFamilyFallback: AppTypography.fontMonoFallbacks,
+          fontFamily: AppTypography.fontBody,
+          fontFamilyFallback: AppTypography.fontBodyFallbacks,
           fontSize: 11,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           letterSpacing: 0.8,
           height: 1.2,
-          color: colors.ink,
+          color: colors.inkFixed,
         ),
       ),
     );

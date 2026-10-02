@@ -30,7 +30,7 @@ class AppSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
 
-    final bg = value ? colors.highlight : colors.hairline;
+    final bg = value ? colors.highlight : colors.switchOff;
     final knobOffset = value ? 20.0 : 0.0;
 
     final duration = context.motion(AppDurations.quick);
@@ -67,7 +67,7 @@ class AppSwitch extends StatelessWidget {
                     height: 22,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: colors.surface,
+                      color: value ? colors.onHighlight : colors.switchThumbOff,
                       boxShadow: AppShadows.lightSm,
                     ),
                   ),
