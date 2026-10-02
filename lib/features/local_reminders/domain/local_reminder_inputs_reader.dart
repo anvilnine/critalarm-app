@@ -166,6 +166,10 @@ final class LocalReminderInputsReader {
     final incidents = isConnected ? await _readIncidents() : const <Incident>[];
     if (topics == null || incidents == null) return null;
 
+    // The home backup notice stamps this too. Whichever sees a topic first
+    // starts the one-day wait, once.
+    if (topics.isNotEmpty) await _notices.markFirstTopicOwned();
+
     final now = zone.toWall(_clock());
     // An unknown mode counts as self-hosted: no offers and no backup nudge.
     final isSelfHosted = modeFailed || mode == ServerMode.selfhosted;
@@ -241,6 +245,7 @@ final class LocalReminderInputsReader {
       // Failing counts as signed in, so no backup nudge.
       isSignedIn: await _safe('sign-in', _readIsSignedIn, fallback: true),
       accountNoticeDismissedAt: wall(_notices.getAccountNoticeDismissedAt()),
+      firstTopicOwnedAt: wall(_notices.getFirstTopicOwnedAt()),
       plan: isHosted ? await _planStatus.read(zone) : null,
       planHeadsUpsSent: _store.readPlanHeadsUpsSent(),
       morningAfterDone: _store.readMorningAfterDone(),

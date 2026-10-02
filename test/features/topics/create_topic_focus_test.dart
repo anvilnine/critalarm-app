@@ -39,8 +39,20 @@ void main() {
     (widget) => widget is TextField && widget.decoration?.hintText == hint,
   );
 
-  final nameField = fieldWithHint('prod-db');
-  final tokenNameField = fieldWithHint('CI server');
+  final nameField = fieldWithHint('e.g. prod-db');
+  final tokenNameField = fieldWithHint('e.g. CI server');
+
+  /// The button scrolls with the form now, so a short test screen has to
+  /// scroll it into view before a tap.
+  Future<void> tapButton(WidgetTester tester, String label) async {
+    final button = find.text(label);
+    await tester.scrollUntilVisible(
+      button,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(button);
+  }
 
   /// pumpAndSettle never returns on this screen: the ambient canvas behind
   /// the card animates forever. Pump past the step swap instead.
@@ -72,7 +84,7 @@ void main() {
         await tester.enterText(nameField, 'release-bot');
         await settle(tester);
 
-        await tester.tap(find.text('Next'));
+        await tapButton(tester, 'Next');
         await settle(tester);
 
         expect(tokenNameField, findsOneWidget);
@@ -89,7 +101,7 @@ void main() {
 
         await tester.enterText(nameField, 'release-bot');
         await settle(tester);
-        await tester.tap(find.text('Next'));
+        await tapButton(tester, 'Next');
         await settle(tester);
 
         await tester.tap(find.bySemanticsLabel('Back'));
@@ -117,7 +129,7 @@ void main() {
         await settle(tester);
         expect(hasFocus(tester, nameField), isFalse);
 
-        await tester.tap(find.text('Next'));
+        await tapButton(tester, 'Next');
         await settle(tester);
 
         expect(find.text('Give the topic a name.'), findsOneWidget);
@@ -157,14 +169,14 @@ void main() {
 
       await tester.enterText(nameField, 'release-bot');
       await settle(tester);
-      await tester.tap(find.text('Next'));
+      await tapButton(tester, 'Next');
       await settle(tester);
       expect(hasFocus(tester, tokenNameField), isTrue);
 
       // Held on to because a successful create takes the field off the step.
       final tokenFocus = tester.widget<TextField>(tokenNameField).focusNode!;
 
-      await tester.tap(find.text('Create topic'));
+      await tapButton(tester, 'Create topic');
       await tester.pump();
 
       expect(tokenFocus.hasFocus, isFalse);

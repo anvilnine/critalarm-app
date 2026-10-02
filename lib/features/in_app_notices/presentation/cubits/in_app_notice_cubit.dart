@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
@@ -16,9 +17,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// hierarchy, anti-fatigue cooldowns, and 7-day snoozing rules:
 /// 1. No server connected (Crit blocker error)
 /// 2. Critical health issues (Crit blocker error)
-/// 3. Battery optimization off (Warning)
+/// 3. Battery optimization off (Warning, Android, shown once, only after a
+///    critical topic exists)
 /// 4. Pro ends soon (cancelled plan, 5-day snooze)
-/// 5. Account backup prompt (Engagement, 7-day snooze)
+/// 5. Account backup prompt (Engagement, 7-day snooze, only once the user
+///    owns a topic and a day has passed since the first one)
 ///
 /// Nothing shows before setup is done (`SetupGate`): onboarding finished,
 /// including the create-your-first-topic screens, and the Topics Feature
@@ -34,11 +37,18 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
     required this.identityRepository,
     required this.accountRepository,
     required this.noticeRepository,
+    required Future<List<Topic>?> Function() readTopics,
     this.proEnding,
     AccountIdentityChanges? identityChanges,
     Future<bool> Function()? isSetupDone,
+    DateTime Function()? clock,
     this.cooldownDuration = const Duration(seconds: 45),
-  }) : _identityChanges = identityChanges ?? appAccountIdentityChanges,
+  }) : // The fields are private and the parameters are public, so they
+       // cannot be initializing formals.
+       // ignore: prefer_initializing_formals
+       _readTopics = readTopics,
+       _clock = clock ?? DateTime.now,
+       _identityChanges = identityChanges ?? appAccountIdentityChanges,
        // The field is private and the parameter is public, so it cannot be
        // an initializing formal.
        // ignore: prefer_initializing_formals
@@ -58,6 +68,13 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
   final ProEnding? proEnding;
   final AccountIdentityChanges _identityChanges;
   final Duration cooldownDuration;
+
+  /// The topics on the connected server, or null when the read failed.
+  final Future<List<Topic>?> Function() _readTopics;
+  final DateTime Function() _clock;
+
+  /// How long the backup notice waits after the user's first topic.
+  static const Duration backupWait = Duration(hours: 24);
 
   /// `SetupGate.isDone` in the app. Null in tests that do not care, and
   /// counts as done.
@@ -131,11 +148,6 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
       return;
     }
 
-    // Battery optimisation never shows a notice here. It is a warning, not a
-    // blocker, and the home screen asking about it on every launch reads as
-    // nagging. It stays on the Settings health row, where the user goes to
-    // look.
-
     // Operational errors are clear. Check anti-daisy-chaining:
     final wasOperationalIssue =
         state.noticeType == InAppNoticeType.noServer ||
@@ -175,6 +187,33 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
       }
     }
 
+    // The topic list feeds the battery and backup notices. A failed read
+    // (null) counts as unknown, so neither shows and nothing is stamped.
+    final topics = await _readTopics();
+    if (isClosed) return;
+    final ownsTopic = topics != null && topics.isNotEmpty;
+    // Persisted, set once: the backup notice waits a day from here. An
+    // install that already has topics gets the stamp on its first pass.
+    if (ownsTopic) await noticeRepository.markFirstTopicOwned();
+
+    // Priority 3: battery optimisation. Android only, because only Android
+    // lists the row in the health state. It is a warning, so it waits for a
+    // critical topic: before that nothing is waiting on a page. It shows once;
+    // after a dismiss it lives on the Health page alone.
+    final batteryOff = currentHealth.warningMissing.isNotEmpty;
+    final hasCriticalTopic = topics?.any((t) => t.critical) ?? false;
+    if (batteryOff &&
+        hasCriticalTopic &&
+        noticeRepository.getBatteryNoticeDismissedAt() == null) {
+      emit(
+        state.copyWith(
+          noticeType: InAppNoticeType.batteryOptimization,
+          missingPermissions: currentHealth.warningMissing,
+        ),
+      );
+      return;
+    }
+
     // Priority 4: a cancelled Pro plan that has not ended yet.
     final ending = await proEnding?.read();
     if (isClosed) return;
@@ -192,14 +231,17 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
     // Priority 5: Account Backup Notice
     final serverMode = await accountRepository.readServerMode();
     final canHaveAccounts = serverMode != ServerMode.selfhosted;
-    if (canHaveAccounts) {
+    final firstTopicAt = noticeRepository.getFirstTopicOwnedAt();
+    final waitedLongEnough =
+        firstTopicAt != null && _clock().difference(firstTopicAt) >= backupWait;
+    if (canHaveAccounts && ownsTopic && waitedLongEnough) {
       final identity = await identityRepository.readIdentity();
       if (identity == null) {
         final accountDismissedAt = noticeRepository
             .getAccountNoticeDismissedAt();
         final isAccountSnoozed =
             accountDismissedAt != null &&
-            DateTime.now().difference(accountDismissedAt).inDays < 7;
+            _clock().difference(accountDismissedAt).inDays < 7;
         if (!isAccountSnoozed) {
           emit(
             state.copyWith(
@@ -237,6 +279,8 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
 
     if (current == InAppNoticeType.accountBackup) {
       await noticeRepository.dismissAccountNotice();
+    } else if (current == InAppNoticeType.batteryOptimization) {
+      await noticeRepository.dismissBatteryNotice();
     } else if (current == InAppNoticeType.proEnding) {
       final endsAt = state.proEndsAt;
       if (endsAt != null) await proEnding?.dismissPill(endsAt);

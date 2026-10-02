@@ -132,6 +132,7 @@ class _AppTextFieldState extends State<AppTextField> {
     final bg = widget.enabled ? colors.surface : colors.ash;
     final textColor = widget.enabled ? colors.ink : colors.ink3;
 
+    final hintColor = colors.ink3.withValues(alpha: 0.6);
     final inputTextStyle = widget.isMono
         ? AppTypography.mono(textColor, fontSize: 15)
         : AppTypography.body(textColor, fontSize: 15);
@@ -207,9 +208,11 @@ class _AppTextFieldState extends State<AppTextField> {
                 contentPadding: EdgeInsets.zero,
                 border: InputBorder.none,
                 hintText: widget.placeholder,
+                // Lighter than the helper text, so an empty field never reads
+                // as one somebody already filled in.
                 hintStyle: (widget.isMono
-                    ? AppTypography.mono(colors.ink3, fontSize: 15)
-                    : AppTypography.body(colors.ink3, fontSize: 15)),
+                    ? AppTypography.mono(hintColor, fontSize: 15)
+                    : AppTypography.body(hintColor, fontSize: 15)),
               ),
             ),
           ),
