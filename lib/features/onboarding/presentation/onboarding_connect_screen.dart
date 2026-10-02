@@ -92,13 +92,23 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     unawaited(_checkConnectivity());
   }
 
+  Timer? _connectivityRetryTimer;
+
   Future<void> _checkConnectivity() async {
+    _connectivityRetryTimer?.cancel();
     final online = await hasInternet();
-    if (mounted) setState(() => _online = online);
+    if (!mounted) return;
+    setState(() => _online = online);
+    if (!online) {
+      _connectivityRetryTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) unawaited(_checkConnectivity());
+      });
+    }
   }
 
   @override
   void dispose() {
+    _connectivityRetryTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _urlController.dispose();
     _tokenController.dispose();
@@ -551,12 +561,15 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AppButton(
-            label: LocaleKeys.onboarding_connect_self_host_toggle.tr(),
-            variant: AppButtonVariant.ghost,
-            size: AppButtonSize.sm,
-            isFullWidth: true,
-            onPressed: cubit.toggleSelfHosting,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.s5),
+            child: AppButton(
+              label: LocaleKeys.onboarding_connect_self_host_toggle.tr(),
+              variant: AppButtonVariant.ghost,
+              size: AppButtonSize.sm,
+              isFullWidth: true,
+              onPressed: cubit.toggleSelfHosting,
+            ),
           ),
           const SizedBox(height: Spacing.s1),
           skipButton,

@@ -29,3 +29,4 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The PRO badge uses `inkFixed`, so it stays ink on yellow in dark.
 - Unselected radios use the card surface and a theme ink ring instead of a canvas-filled dot.
 - MainActivity.shouldHandleDeeplinking returns false: the manifest flag is looked up on the launcher activity-alias, so a launcher start left deep linking on. The router also maps any critalarm:// location to the incident, topic or Home route (PushDeepLink.fromAppUri).
+- Align self-host toggle button padding with cloud card using Spacing.s5.
