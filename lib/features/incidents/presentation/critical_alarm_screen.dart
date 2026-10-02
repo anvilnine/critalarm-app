@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:confetti/confetti.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -589,15 +591,16 @@ class AcknowledgedScreen extends StatelessWidget {
         : null;
     final startedLabel = startedAt != null ? _formatClock(startedAt) : '';
     final ackedLabel = ackedAt != null ? _formatClock(ackedAt) : '';
-    final ackedSub = isDemo
-        ? LocaleKeys.onboarding_connect_celebration_subtitle.tr()
-        : LocaleKeys.critical_alarm_acked_sub.tr(
-            namedArgs: {
-              'duration': ringDuration == null
-                  ? ''
-                  : _formatRingDuration(ringDuration),
-            },
-          );
+    final ackedSub = LocaleKeys.critical_alarm_acked_sub.tr(
+      namedArgs: {
+        'duration': ringDuration == null
+            ? ''
+            : _formatRingDuration(ringDuration),
+      },
+    );
+    // The demo shows, it does not explain: face, title, two buttons and
+    // confetti. The test alarm just rang, so there is nothing to tell.
+    final faceState = isDemo ? FaceState.laughing : state.faceState;
 
     final size = AppSize.of(context);
     final isWide = size.isExpanded || size.isShort;
@@ -695,6 +698,8 @@ class AcknowledgedScreen extends StatelessWidget {
             ],
     );
 
+    if (isDemo) return _demoBody(isWide, faceState, bottomBar);
+
     if (isWide) {
       return AppScreenScaffold(
         hasTabBar: false,
@@ -704,11 +709,9 @@ class AcknowledgedScreen extends StatelessWidget {
             child: Row(
               children: [
                 Hero(
-                  tag: isDemo
-                      ? 'onboarding-face'
-                      : 'alarm-face-${state.incident?.id}',
+                  tag: 'alarm-face-${state.incident?.id}',
                   flightShuttleBuilder: faceFlightShuttleBuilder,
-                  child: FaceWidget(state: state.faceState, size: 260),
+                  child: FaceWidget(state: faceState, size: 260),
                 ),
                 const SizedBox(width: 40),
                 Expanded(
@@ -718,19 +721,11 @@ class AcknowledgedScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _title(TextAlign.left, isDemo),
+                        _title(TextAlign.left, false),
                         const SizedBox(height: Spacing.s2),
                         _topic(TextAlign.left),
                         const SizedBox(height: Spacing.s2),
                         _sub(TextAlign.left, ackedSub),
-                        if (isDemo) ...[
-                          const SizedBox(height: Spacing.s2),
-                          _sub(
-                            TextAlign.left,
-                            LocaleKeys.onboarding_connect_celebration_phone_note
-                                .tr(),
-                          ),
-                        ],
                         const SizedBox(height: Spacing.s4),
                         _detailSheet(startedLabel, ackedLabel),
                       ],
@@ -755,34 +750,16 @@ class AcknowledgedScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Hero(
-                  tag: isDemo
-                      ? 'onboarding-face'
-                      : 'alarm-face-${state.incident?.id}',
+                  tag: 'alarm-face-${state.incident?.id}',
                   flightShuttleBuilder: faceFlightShuttleBuilder,
-                  child: FaceWidget(state: state.faceState, size: 224),
+                  child: FaceWidget(state: faceState, size: 224),
                 ),
                 const SizedBox(height: Spacing.s4),
-                _title(TextAlign.center, isDemo),
+                _title(TextAlign.center, false),
                 const SizedBox(height: Spacing.s2),
                 _topic(TextAlign.center),
                 const SizedBox(height: Spacing.s2),
                 _sub(TextAlign.center, ackedSub),
-                if (isDemo) ...[
-                  const SizedBox(height: Spacing.s3),
-                  _sub(
-                    TextAlign.center,
-                    LocaleKeys.onboarding_connect_celebration_phone_note.tr(),
-                  ),
-                ],
-                // Onboarding ends on "create your first topic", and the word
-                // topic has not been explained anywhere before that button.
-                if (isDemo && !isRetest) ...[
-                  const SizedBox(height: Spacing.s3),
-                  _sub(
-                    TextAlign.center,
-                    LocaleKeys.onboarding_connect_celebration_topics_hint.tr(),
-                  ),
-                ],
               ],
             ),
           ),
@@ -795,6 +772,57 @@ class AcknowledgedScreen extends StatelessWidget {
         ),
       ],
       bottomBar: bottomBar,
+    );
+  }
+
+  /// The test alarm's acknowledged screen: face, title, buttons, confetti.
+  Widget _demoBody(bool isWide, FaceState faceState, Widget bottomBar) {
+    Widget face(double size) => Hero(
+      tag: 'onboarding-face',
+      flightShuttleBuilder: faceFlightShuttleBuilder,
+      child: FaceWidget(state: faceState, size: size),
+    );
+    final scaffold = isWide
+        ? AppScreenScaffold(
+            hasTabBar: false,
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Row(
+                  children: [
+                    face(260),
+                    const SizedBox(width: 40),
+                    Expanded(child: _title(TextAlign.left, true)),
+                  ],
+                ),
+              ),
+            ],
+            bottomBar: bottomBar,
+          )
+        : AppScreenScaffold(
+            hasTabBar: false,
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, Spacing.s6, 16, 0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      face(224),
+                      const SizedBox(height: Spacing.s4),
+                      _title(TextAlign.center, true),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            bottomBar: bottomBar,
+          );
+    return Stack(
+      children: [
+        scaffold,
+        Positioned.fill(child: _AckConfetti(colors: colors)),
+      ],
     );
   }
 
@@ -956,6 +984,81 @@ class _OtherAlarmRow extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Two confetti bursts that fire once when the demo's acknowledged screen
+/// appears. Under reduce motion nothing is thrown. Brand colours only, no
+/// crit red.
+class _AckConfetti extends StatefulWidget {
+  const _AckConfetti({required this.colors});
+
+  final AppColors colors;
+
+  @override
+  State<_AckConfetti> createState() => _AckConfettiState();
+}
+
+class _AckConfettiState extends State<_AckConfetti> {
+  final _left = ConfettiController(duration: const Duration(seconds: 2));
+  final _right = ConfettiController(duration: const Duration(seconds: 2));
+  bool _started = false;
+
+  // Started here rather than in initState because it reads MediaQuery.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (context.reduceMotion) return;
+    AppHaptics.success();
+    _left.play();
+    _right.play();
+  }
+
+  @override
+  void dispose() {
+    _left.dispose();
+    _right.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.colors;
+    final palette = [c.yellow, c.cobalt, c.surface, c.highlight];
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          Align(
+            alignment: const Alignment(-1, 0.35),
+            child: ConfettiWidget(
+              confettiController: _left,
+              blastDirection: -math.pi / 3,
+              emissionFrequency: 0.08,
+              numberOfParticles: 14,
+              maxBlastForce: 45,
+              minBlastForce: 20,
+              gravity: 0.25,
+              colors: palette,
+            ),
+          ),
+          Align(
+            alignment: const Alignment(1, 0.35),
+            child: ConfettiWidget(
+              confettiController: _right,
+              blastDirection: -2 * math.pi / 3,
+              emissionFrequency: 0.08,
+              numberOfParticles: 14,
+              maxBlastForce: 45,
+              minBlastForce: 20,
+              gravity: 0.25,
+              colors: palette,
+            ),
+          ),
+        ],
       ),
     );
   }
