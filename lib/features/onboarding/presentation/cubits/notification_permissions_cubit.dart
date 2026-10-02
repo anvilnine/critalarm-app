@@ -7,6 +7,10 @@ import 'package:critalarm/features/onboarding/domain/usecases/check_notification
 import 'package:critalarm/features/onboarding/domain/usecases/open_notification_settings_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/request_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
+import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
+import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
+import 'package:critalarm/features/permissions/domain/repositories/device_permissions_repository.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing the Screen 1 Permissions step (Option B: 2-step stepper).
@@ -16,10 +20,13 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     this._openSettings, {
     this.alarm,
     this.checkPermission,
+    this.devicePermissions,
+    TargetPlatform? platform,
     this.replayForDemo = false,
     this.standalone = false,
     NotificationPermissionStep initialStep = NotificationPermissionStep.initial,
-  }) : super(NotificationPermissionsState(step: initialStep));
+  }) : _platform = platform ?? defaultTargetPlatform,
+       super(NotificationPermissionsState(step: initialStep));
 
   final RequestNotificationPermissionUsecase _requestPermission;
   final OpenNotificationSettingsUsecase _openSettings;
@@ -29,6 +36,31 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
 
   /// Null in tests that do not exercise the skip-what-is-granted path.
   final CheckNotificationPermissionUsecase? checkPermission;
+
+  /// Reads and opens the Android full-screen alarm permission. The same
+  /// repository Health uses, so there is one channel for it. Null in tests
+  /// and off Android.
+  final DevicePermissionsRepository? devicePermissions;
+
+  final TargetPlatform _platform;
+
+  /// Android with a way to ask: step 2 is the full-screen alarm permission.
+  bool get _androidFullScreen =>
+      !kIsWeb &&
+      _platform == TargetPlatform.android &&
+      devicePermissions != null;
+
+  Future<bool> _readFullScreenGranted() async {
+    final repo = devicePermissions;
+    if (repo == null) return false;
+    final result = await repo.checkPermission(
+      DevicePermissionType.fullScreenIntent,
+    );
+    return result.fold(
+      (status) => status == DevicePermissionStatus.granted,
+      (_) => false,
+    );
+  }
 
   /// True when the developer menu opened onboarding to look at it. Then every
   /// step is shown even where the permission is already granted, because the
@@ -43,8 +75,12 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   /// Whether step 2 still has a prompt behind it. In onboarding it always
   /// shows, even as an explanation. On its own it needs AlarmKit to be able
   /// to ask, which it does only once.
-  bool _hasAlarmStep(AlarmAuthorization authorization) =>
-      !standalone || authorization == AlarmAuthorization.notDetermined;
+  bool _hasAlarmStep(AlarmAuthorization authorization, {bool? fullScreen}) {
+    if (_androidFullScreen) {
+      return !standalone || !(fullScreen ?? state.fullScreenGranted);
+    }
+    return !standalone || authorization == AlarmAuthorization.notDetermined;
+  }
 
   /// The incident id the onboarding card uses. Not a real incident: it exists
   /// so the Allow prompt for Live Activities happens here rather than the
@@ -86,9 +122,15 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     // one step on those phones, not two.
     final alarmSupported =
         alarmHost != null && authorization != AlarmAuthorization.unsupported;
-    final alarmGranted = authorization == AlarmAuthorization.authorized;
+    final androidStep = _androidFullScreen;
+    final fullScreenGranted = androidStep && await _readFullScreenGranted();
+    final alarmGranted = androidStep
+        ? fullScreenGranted
+        : authorization == AlarmAuthorization.authorized;
 
-    final hasStep2 = alarmSupported && _hasAlarmStep(authorization);
+    final hasStep2 =
+        (alarmSupported || androidStep) &&
+        _hasAlarmStep(authorization, fullScreen: fullScreenGranted);
 
     if (isClosed) return;
 
@@ -98,6 +140,8 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
           isChecking: false,
           alarm: authorization,
           alarmSupported: alarmSupported,
+          fullScreenStep: androidStep,
+          fullScreenGranted: fullScreenGranted,
           notificationsGranted: notificationsGranted,
         ),
       );
@@ -114,8 +158,11 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
         isChecking: false,
         alarm: authorization,
         alarmSupported: alarmSupported,
+        fullScreenStep: androidStep,
+        fullScreenGranted: fullScreenGranted,
         notificationsGranted: notificationsGranted,
-        criticalAlertsGranted: alarmGranted || !alarmSupported,
+        criticalAlertsGranted:
+            alarmGranted || (!alarmSupported && !androidStep),
         // A granted step is not worth a screen. Land on the first one that
         // still needs an answer, but never send the user back a step they
         // already answered or skipped.
@@ -210,6 +257,15 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   /// prompts twice, so refusing to move on would strand them for good.
   Future<void> requestCriticalAlerts() async {
     final alarmHost = alarm;
+    if (_androidFullScreen) {
+      // Android has no prompt. The permission lives on a settings page, so
+      // open it and wait here. Coming back re-reads it through [refresh], and
+      // "Not now" is still on screen for a user who says no.
+      await devicePermissions!.openPermissionSettings(
+        DevicePermissionType.fullScreenIntent,
+      );
+      return;
+    }
     if (alarmHost == null) {
       emit(
         state.copyWith(

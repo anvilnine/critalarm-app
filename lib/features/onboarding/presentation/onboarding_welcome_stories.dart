@@ -1810,6 +1810,10 @@ class _WidgetsHeroState extends _ClockState<_WidgetsHero> {
     final prodQuiet = t > 7.2;
     final open = prodQuiet ? 3 : 4;
     final countUp = (_window(t, 0.6, 0.8) * open).round();
+    // The list shows three rows. Whatever the header counts beyond them is
+    // the "+N more", so the two numbers always agree.
+    const visibleRows = 3;
+    final hidden = math.max(0, open - visibleRows);
 
     Widget tile(FaceState state, Color fill, double size) => FaceWidget(
       state: state,
@@ -2033,17 +2037,26 @@ class _WidgetsHeroState extends _ClockState<_WidgetsHero> {
                 ),
               ),
               const Spacer(),
-              Text(
-                LocaleKeys.onboarding_welcome_story_more.tr(
-                  namedArgs: {'count': '2'},
+              if (hidden > 0)
+                Text(
+                  LocaleKeys.onboarding_welcome_story_more.tr(
+                    namedArgs: {'count': '$hidden'},
+                  ),
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                style: const TextStyle(
-                  color: _muted,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
             ],
+          ),
+          // Newest first, like the real list.
+          row(
+            'backups',
+            LocaleKeys.onboarding_welcome_story_backup_exited.tr(),
+            '9:45:07',
+            tile(FaceState.acked, colors.cobalt, 30),
+            awakeBadge(),
           ),
           row(
             'prod',
@@ -2066,13 +2079,6 @@ class _WidgetsHeroState extends _ClockState<_WidgetsHero> {
             '8:41:37',
             tile(FaceState.alarmed, colors.crit, 30),
             ringingBadge(),
-          ),
-          row(
-            'backups',
-            LocaleKeys.onboarding_welcome_story_backup_exited.tr(),
-            '9:45:07',
-            tile(FaceState.acked, colors.cobalt, 30),
-            awakeBadge(),
           ),
         ],
       ),
