@@ -1,17 +1,25 @@
+import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
 
-/// The small label over each group of results.
+/// The label over each group of results: the app's [AppSectionHeader], with an
+/// optional link on the right that Recent uses for its clear button.
 class SearchSectionLabel extends StatelessWidget {
   const SearchSectionLabel(this.title, {this.action, this.onAction, super.key});
 
   static const double height = 30;
 
-  final String title;
+  /// Lines up with the text inside a row, which sits 14 in from the row edge.
+  static const EdgeInsets _inset = EdgeInsets.fromLTRB(
+    Spacing.s4 + Spacing.s1,
+    Spacing.s2,
+    Spacing.s4,
+    Spacing.s1,
+  );
 
-  /// An optional link on the right, used by Recent for its clear button.
+  final String title;
   final String? action;
   final VoidCallback? onAction;
 
@@ -23,46 +31,30 @@ class SearchSectionLabel extends StatelessWidget {
     return ConstrainedBox(
       // A minimum, so the row grows with Dynamic Type instead of clipping.
       constraints: const BoxConstraints(minHeight: height),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(Spacing.s4, 0, Spacing.s4, 0),
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                title.toUpperCase(),
-                style: TextStyle(
-                  fontFamily: AppTypography.fontDisplay,
-                  fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10,
-                  letterSpacing: 0.8,
-                  color: colors.ink3,
+      child: Row(
+        children: <Widget>[
+          Expanded(child: AppSectionHeader(title, padding: _inset)),
+          if (label != null)
+            InkWell(
+              onTap: onAction,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.s2,
+                  vertical: Spacing.s1,
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontBody,
+                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: colors.highlight,
+                  ),
                 ),
               ),
             ),
-            if (label != null)
-              InkWell(
-                onTap: onAction,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.s2,
-                    vertical: Spacing.s1,
-                  ),
-                  child: Text(
-                    label.toUpperCase(),
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontDisplay,
-                      fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 10,
-                      letterSpacing: 0.8,
-                      color: colors.highlight,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }

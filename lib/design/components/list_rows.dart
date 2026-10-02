@@ -255,7 +255,9 @@ class _AppListRowState extends State<AppListRow> {
                                 fontSize: 12,
                                 color: metaColor,
                               ),
-                              maxLines: 1,
+                              // Two lines, so the last word of a sentence
+                              // subtitle survives at default text size.
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],

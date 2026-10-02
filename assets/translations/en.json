@@ -113,7 +113,7 @@
     "create_first_topic_button": "Create your first topic",
     "skip_to_dashboard": "Not now, take me to my topics",
     "celebration_topics_hint": "A topic is one thing you want paged about, like your database or your build.",
-    "hook_steps_header": "DO THIS, THEN TAP BELOW",
+    "hook_steps_header": "Do this, then tap below",
     "cloud_badge": "EASIEST",
     "admin_token_helper": "Your server prints this when it starts. It begins with ad_.",
     "skip_for_now": "Set this up later",
@@ -931,8 +931,8 @@
     "open_aria_label": "Search",
     "clear_aria_label": "Clear search",
     "close_aria_label": "Close search",
-    "placeholder_default": "Search Crit Alarm",
-    "placeholder_topics": "Search topics, alarms, settings, docs",
+    "placeholder_default": "Search everything",
+    "placeholder_topics": "Search topics, alarms, docs",
     "placeholder_history": "Search past alarms, or type a date",
     "placeholder_settings": "Search settings and docs",
     "recent_header": "Recent",
@@ -946,7 +946,10 @@
     "hint_title": "Search Crit Alarm",
     "hint_body": "Topics, past alarms, settings, and the documentation. Type a date like Sep 14 to find that day's alarms.",
     "no_matches_title": "Nothing matched “{query}”",
-    "no_matches_body": "Try a topic name, a date like Sep 14, or a setting such as sound."
+    "no_matches_body": "Try a topic name, a date like Sep 14, or one of these.",
+    "example_one": "prod",
+    "example_two": "sound",
+    "example_three": "docker"
   },
   "account": {
     "plan_unavailable": "Plan unavailable",

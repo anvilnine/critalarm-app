@@ -2,9 +2,10 @@ import 'package:critalarm/design/components/glyphs.dart';
 import 'package:critalarm/design/components/list_rows.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
-import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/features/search/domain/entities/search_result.dart';
+import 'package:critalarm/features/search/domain/search_layout.dart';
 import 'package:critalarm/features/search/presentation/cubits/search_state.dart';
+import 'package:critalarm/features/search/presentation/widgets/search_no_matches.dart';
 import 'package:critalarm/features/search/presentation/widgets/search_recent_row.dart';
 import 'package:critalarm/features/search/presentation/widgets/search_section_label.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -14,7 +15,8 @@ import 'package:flutter/material.dart';
 /// The results, sitting directly above the search bar.
 ///
 /// No card behind them: the rows sit straight on the blurred screen, grow
-/// upward from the bar as matches come in, and stop at [maxHeight], the full
+/// upward from the bar as matches come in, with the best match nearest the
+/// bar, and stop at [maxHeight], the full
 /// height of the display. The list itself runs edge to edge: [bottomInset]
 /// keeps the last row clear of the bar and [topInset] the first row clear of
 /// the status bar, and past that the rows scroll under both instead of being
@@ -27,6 +29,7 @@ class SearchPanel extends StatelessWidget {
     required this.onTapResult,
     required this.onTapRecent,
     required this.onClearRecent,
+    required this.onTapExample,
     this.topInset = 0,
     this.bottomInset = 0,
     super.key,
@@ -44,6 +47,9 @@ class SearchPanel extends StatelessWidget {
   final ValueChanged<SearchResult> onTapResult;
   final ValueChanged<String> onTapRecent;
   final VoidCallback onClearRecent;
+
+  /// Called with one of the example queries on the no-results card.
+  final ValueChanged<String> onTapExample;
 
   /// Room left above the first row once the list is long enough to reach the
   /// top, so it starts below the status bar and scrolls up under it.
@@ -87,30 +93,37 @@ class SearchPanel extends StatelessWidget {
       if (state.recent.isEmpty) return const <Widget>[];
 
       return <Widget>[
+        for (final query in state.recent)
+          SearchRecentRow(query: query, onTap: () => onTapRecent(query)),
         SearchSectionLabel(
           LocaleKeys.search_recent_header.tr(),
           action: LocaleKeys.search_recent_clear.tr(),
           onAction: onClearRecent,
         ),
-        for (final query in state.recent)
-          SearchRecentRow(query: query, onTap: () => onTapRecent(query)),
       ];
     }
 
     if (state.hasNoMatches) {
-      return <Widget>[_NoMatches(query: state.query.trim())];
+      return <Widget>[
+        SearchNoMatches(
+          query: state.query.trim(),
+          onTapExample: onTapExample,
+        ),
+      ];
     }
 
-    final children = <Widget>[];
-    state.sections.forEach((kind, results) {
-      children.add(SearchSectionLabel(_sectionTitle(kind)));
-      for (final result in results) {
-        children
-          ..add(_row(context, result))
-          ..add(const SizedBox(height: _rowGap));
-      }
-    });
-    return children;
+    return <Widget>[
+      for (final entry in nearestFirstEntries(state.sections))
+        switch (entry) {
+          SearchHeaderEntry(:final kind) => SearchSectionLabel(
+            _sectionTitle(kind),
+          ),
+          SearchRowEntry(:final result) => Padding(
+            padding: const EdgeInsets.only(bottom: _rowGap),
+            child: _row(context, result),
+          ),
+        },
+    ];
   }
 
   /// Draws a result with the row its own screen uses.
@@ -158,37 +171,4 @@ class SearchPanel extends StatelessWidget {
     SearchResultKind.settings => LocaleKeys.search_section_settings.tr(),
     SearchResultKind.docs => LocaleKeys.search_section_docs.tr(),
   };
-}
-
-class _NoMatches extends StatelessWidget {
-  const _NoMatches({required this.query});
-
-  final String query;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        Spacing.s4,
-        Spacing.s3,
-        Spacing.s4,
-        Spacing.s3,
-      ),
-      child: Text(
-        LocaleKeys.search_no_matches_title.tr(
-          namedArgs: <String, String>{'query': query},
-        ),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontFamily: AppTypography.fontBody,
-          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-          fontSize: 14,
-          color: colors.ink3,
-        ),
-      ),
-    );
-  }
 }
