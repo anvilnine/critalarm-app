@@ -366,11 +366,12 @@ class _SoundRowState extends State<_SoundRow>
               unawaited(cubit.togglePreview(sound));
             },
           ),
-          waveform: WaveformBars(
-            peaks: sound.peaks ?? const [],
-            progress: progress,
-            loading: state.isLoadingPeaks,
-          ),
+          // Only a waveform read from the sound itself. While it loads, or
+          // when it cannot be read, the row shows the length and nothing
+          // that looks like a waveform but is not one.
+          waveform: sound.peaks == null || sound.peaks!.isEmpty
+              ? null
+              : WaveformBars(peaks: sound.peaks!, progress: progress),
           onTap: () {
             AppHaptics.selection();
             unawaited(cubit.select(sound.id));

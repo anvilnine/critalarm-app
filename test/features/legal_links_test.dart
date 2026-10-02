@@ -37,9 +37,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Privacy'), findsAtLeast(1));
-      expect(find.text('https://critalarm.app/privacy'), findsOneWidget);
+      expect(find.text('critalarm.app/privacy'), findsOneWidget);
       expect(find.text('Terms'), findsOneWidget);
-      expect(find.text('https://critalarm.app/terms'), findsOneWidget);
+      expect(find.text('critalarm.app/terms'), findsOneWidget);
     });
 
     // The paywall used to be checked here too. RevenueCat draws it now, so
