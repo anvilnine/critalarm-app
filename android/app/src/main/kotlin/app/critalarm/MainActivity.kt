@@ -305,6 +305,19 @@ class MainActivity : FlutterFragmentActivity() {
         pushChannel?.invokeMethod("onNotificationTap", tap)
     }
 
+    /**
+     * Never let Flutter turn an intent's data URI into a route.
+     *
+     * The default reads `flutter_deeplinking_enabled` off the activity's
+     * manifest entry, looked up by `getComponentName()`. That is the component
+     * the intent named, and the launcher starts us through an activity-alias,
+     * so the lookup finds the alias, which has no such meta-data, and the
+     * answer falls back to true. The tap intents' `critalarm://` URI then went
+     * to go_router as a location. Answering here does not depend on which
+     * entry started us.
+     */
+    override fun shouldHandleDeeplinking(): Boolean = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // First launch is where the six channels come from. Creating one that
         // already exists changes nothing, so this is safe to run every time.

@@ -76,4 +76,38 @@ void main() {
       '/paywall',
     );
   });
+
+  group('fromAppUri', () {
+    String? map(String u) => PushDeepLink.fromAppUri(Uri.parse(u));
+
+    test('the demo incident tap URI opens the incident route', () {
+      expect(map('critalarm://incidents/inc_demo'), '/incidents/inc_demo');
+    });
+
+    test('an incident id is escaped', () {
+      expect(
+        map('critalarm://incidents/inc%20a%2Fb'),
+        '/incidents/inc%20a%2Fb',
+      );
+    });
+
+    test('a topic URI opens that topic', () {
+      expect(map('critalarm://topics/deploys'), '/topics/deploys');
+    });
+
+    test('a reminder URI opens Home', () {
+      expect(map('critalarm://reminders/fire_drill/open'), '/');
+    });
+
+    test('a bare or unknown critalarm URI opens Home', () {
+      expect(map('critalarm://incidents'), '/');
+      expect(map('critalarm://other/x'), '/');
+    });
+
+    test('a normal location is left alone', () {
+      expect(map('/incidents/inc_1'), isNull);
+      expect(map('/'), isNull);
+      expect(map('https://example.com/incidents/x'), isNull);
+    });
+  });
 }
