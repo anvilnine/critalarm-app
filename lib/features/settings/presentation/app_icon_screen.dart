@@ -200,20 +200,26 @@ class _AppIconViewState extends State<_AppIconView>
                 ),
                 const SizedBox(height: Spacing.s2),
               ],
-              AppButton(
-                label: switch (action) {
-                  IconAction.use =>
-                    LocaleKeys.settings_app_icon_action_use.tr(),
-                  IconAction.inUse =>
-                    LocaleKeys.settings_app_icon_action_in_use.tr(),
-                  IconAction.unlock => LocaleKeys.settings_app_icon_go_pro.tr(),
-                },
-                isFullWidth: true,
-                isLoading: state.saving != null,
-                onPressed: action == IconAction.inUse
-                    ? null
-                    : () => unawaited(_onAction(state)),
-              ),
+              // The icon in use is a status, not a disabled button, which read
+              // as a dead primary. Same height as the button, so the slot
+              // never shifts as the carousel moves.
+              if (action == IconAction.inUse)
+                _InUseStatus(
+                  label: LocaleKeys.settings_app_icon_action_in_use.tr(),
+                )
+              else
+                AppButton(
+                  label: switch (action) {
+                    IconAction.use =>
+                      LocaleKeys.settings_app_icon_action_use.tr(),
+                    IconAction.unlock =>
+                      LocaleKeys.settings_app_icon_go_pro.tr(),
+                    IconAction.inUse => '',
+                  },
+                  isFullWidth: true,
+                  isLoading: state.saving != null,
+                  onPressed: () => unawaited(_onAction(state)),
+                ),
             ],
           ),
           slivers: [
@@ -473,6 +479,60 @@ class _IconPage extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// "This is your icon": an ink-outlined pill with a filled check. Not
+/// tappable, and the height of a medium [AppButton] (48).
+class _InUseStatus extends StatelessWidget {
+  const _InUseStatus({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 48),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        borderRadius: Radii.fullAll,
+        border: Border.all(color: colors.ink, width: 2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.ink,
+            ),
+            alignment: Alignment.center,
+            child: AppGlyph(
+              GlyphType.check,
+              size: 13,
+              color: colors.canvas,
+              strokeWidth: 2.4,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: AppTypography.fontDisplay,
+              fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              letterSpacing: -0.16,
+              color: colors.ink,
+              height: 1,
+            ),
+          ),
+        ],
       ),
     );
   }
