@@ -28,3 +28,4 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 ### Fixed
 - The PRO badge uses `inkFixed`, so it stays ink on yellow in dark.
 - Unselected radios use the card surface and a theme ink ring instead of a canvas-filled dot.
+- Align self-host toggle button padding with cloud card using Spacing.s5.
