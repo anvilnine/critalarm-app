@@ -3,6 +3,7 @@ import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
@@ -102,6 +103,10 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
   navigatorKey: _rootKey,
   observers: [appRouteObserver],
   initialLocation: initialLocation,
+  // A critalarm:// data URI on a tap intent must never become a location the
+  // router cannot match. Android stops Flutter passing it on (see
+  // MainActivity.shouldHandleDeeplinking); this catches one that still does.
+  redirect: (context, state) => PushDeepLink.fromAppUri(state.uri),
   routes: [
     // Creating a topic covers the display, so it is routed off the root
     // navigator and the tab bar goes with it.
