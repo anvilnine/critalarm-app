@@ -8,35 +8,36 @@ void main() {
     test(
       'all profiles have exactly 3 valid shapes in light and dark themes',
       () {
-      for (final colors in const [AppColors.light, AppColors.dark]) {
-        final profiles = [
-          AmbientAppProfiles.criticalAlarmRinging(colors),
-          AmbientAppProfiles.criticalAlarmAcknowledged(colors),
-          AmbientAppProfiles.createTopic(colors),
-          AmbientAppProfiles.topics(colors),
-          AmbientAppProfiles.history(colors),
-          AmbientAppProfiles.settings(colors),
-          AmbientAppProfiles.topicDetail(colors),
-          AmbientAppProfiles.historyDetail(colors),
-          AmbientAppProfiles.settingsDetail(colors),
-          AmbientAppProfiles.soundList(colors),
-          AmbientAppProfiles.soundEditor(colors),
-        ];
+        for (final colors in const [AppColors.light, AppColors.dark]) {
+          final profiles = [
+            AmbientAppProfiles.criticalAlarmRinging(colors),
+            AmbientAppProfiles.criticalAlarmAcknowledged(colors),
+            AmbientAppProfiles.createTopic(colors),
+            AmbientAppProfiles.topics(colors),
+            AmbientAppProfiles.history(colors),
+            AmbientAppProfiles.settings(colors),
+            AmbientAppProfiles.topicDetail(colors),
+            AmbientAppProfiles.historyDetail(colors),
+            AmbientAppProfiles.settingsDetail(colors),
+            AmbientAppProfiles.soundList(colors),
+            AmbientAppProfiles.soundEditor(colors),
+          ];
 
-        for (final profile in profiles) {
-          expect(profile.shapes.length, 3);
-          expect(profile.surfaceOpacity, inInclusiveRange(0.0, 1.0));
+          for (final profile in profiles) {
+            expect(profile.shapes.length, 3);
+            expect(profile.surfaceOpacity, inInclusiveRange(0.0, 1.0));
 
-          for (final shape in profile.shapes) {
-            expect(shape.opacity, inInclusiveRange(0.0, 1.0));
-            expect(shape.scale, inInclusiveRange(0.0, 1.0));
-            expect(shape.depth, inInclusiveRange(0.0, 1.0));
-            expect(shape.anchor.x, inInclusiveRange(-1.0, 1.0));
-            expect(shape.anchor.y, inInclusiveRange(-1.0, 1.0));
+            for (final shape in profile.shapes) {
+              expect(shape.opacity, inInclusiveRange(0.0, 1.0));
+              expect(shape.scale, inInclusiveRange(0.0, 1.0));
+              expect(shape.depth, inInclusiveRange(0.0, 1.0));
+              expect(shape.anchor.x, inInclusiveRange(-1.0, 1.0));
+              expect(shape.anchor.y, inInclusiveRange(-1.0, 1.0));
+            }
           }
         }
-      }
-    });
+      },
+    );
 
     test('forTabIndex returns matching root profiles', () {
       const colors = AppColors.light;
@@ -59,6 +60,34 @@ void main() {
         expect(AmbientAppProfiles.topics(colors).canvas, colors.canvas);
         expect(AmbientAppProfiles.history(colors).canvas, colors.canvas);
         expect(AmbientAppProfiles.settings(colors).canvas, colors.canvas);
+      }
+    });
+
+    test('calm profiles use only orange and pale tints, no cobalt or red', () {
+      for (final colors in const [AppColors.light, AppColors.dark]) {
+        final calm = [
+          AmbientAppProfiles.createTopic(colors),
+          AmbientAppProfiles.topics(colors),
+          AmbientAppProfiles.history(colors),
+          AmbientAppProfiles.settings(colors),
+          AmbientAppProfiles.settingsDetail(colors),
+        ];
+        for (final profile in calm) {
+          for (final shape in profile.shapes) {
+            expect(
+              shape.color,
+              anyOf(const Color(0xFFFFB21F), const Color(0xFFFFE08A)),
+            );
+          }
+        }
+      }
+    });
+
+    test('calm shapes are half as strong on the dark canvas', () {
+      final light = AmbientAppProfiles.topics(AppColors.light).shapes;
+      final dark = AmbientAppProfiles.topics(AppColors.dark).shapes;
+      for (var i = 0; i < light.length; i++) {
+        expect(dark[i].opacity, closeTo(light[i].opacity / 2, 1e-9));
       }
     });
 

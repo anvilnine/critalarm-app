@@ -6,6 +6,18 @@ import 'package:flutter/material.dart';
 /// Central catalog of canonical ambient profiles across the Crit Alarm
 /// application, ensuring consistent shape layering, depth, and smooth lerping.
 abstract final class AmbientAppProfiles {
+  /// The two tints calm screens use, so the canvas never gets cobalt or red.
+  /// Red belongs to the critical profiles only.
+  static const Color _calmOrange = Color(0xFFFFB21F);
+  static const Color _calmPale = Color(0xFFFFE08A);
+
+  /// Alpha for a calm shape. Dark canvases get half of it, because the same
+  /// tints read much louder on near-black.
+  static double _calmOpacity(AppColors colors, double lightOpacity) {
+    final isDark = colors.canvas.computeLuminance() < 0.5;
+    return isDark ? lightOpacity / 2 : lightOpacity;
+  }
+
   /// Profile for the ringing Critical Alarm takeover screen.
   static AmbientProfile criticalAlarmRinging(AppColors colors) {
     return AmbientProfile(
@@ -88,8 +100,8 @@ abstract final class AmbientAppProfiles {
       surfaceOpacity: 0.82,
       shapes: List<AmbientShape>.unmodifiable([
         AmbientShape(
-          color: colors.cobalt,
-          opacity: 0.22,
+          color: _calmOrange,
+          opacity: _calmOpacity(colors, 0.6),
           anchor: isTokenStep
               ? const Alignment(0.42, -0.90)
               : const Alignment(0.80, -0.70),
@@ -98,8 +110,8 @@ abstract final class AmbientAppProfiles {
           depth: 0.25,
         ),
         AmbientShape(
-          color: colors.high,
-          opacity: 0.18,
+          color: _calmPale,
+          opacity: _calmOpacity(colors, 0.5),
           anchor: isTokenStep
               ? const Alignment(-0.92, -0.12)
               : const Alignment(-0.75, 0.20),
@@ -108,8 +120,8 @@ abstract final class AmbientAppProfiles {
           depth: 0.55,
         ),
         AmbientShape(
-          color: colors.crit,
-          opacity: 0.14,
+          color: _calmOrange,
+          opacity: _calmOpacity(colors, 0.5),
           anchor: isTokenStep
               ? const Alignment(0.40, 0.68)
               : const Alignment(0.10, 0.85),
@@ -126,7 +138,12 @@ abstract final class AmbientAppProfiles {
     return _triShapeProfile(
       canvas: colors.canvas,
       surfaceOpacity: 0.74,
-      colors: [colors.cobalt, colors.high, colors.crit],
+      colors: const [_calmOrange, _calmPale, _calmOrange],
+      opacities: [
+        _calmOpacity(colors, 0.6),
+        _calmOpacity(colors, 0.5),
+        _calmOpacity(colors, 0.5),
+      ],
       anchors: const [
         Alignment(-0.9, -0.8),
         Alignment(0.8, -0.1),
@@ -140,7 +157,12 @@ abstract final class AmbientAppProfiles {
     return _triShapeProfile(
       canvas: colors.canvas,
       surfaceOpacity: 0.76,
-      colors: [colors.cobalt, colors.high, colors.crit],
+      colors: const [_calmOrange, _calmPale, _calmOrange],
+      opacities: [
+        _calmOpacity(colors, 0.6),
+        _calmOpacity(colors, 0.5),
+        _calmOpacity(colors, 0.5),
+      ],
       anchors: const [
         Alignment(-0.8, 0.5),
         Alignment(0.5, -0.7),
@@ -154,7 +176,12 @@ abstract final class AmbientAppProfiles {
     return _triShapeProfile(
       canvas: colors.canvas,
       surfaceOpacity: 0.78,
-      colors: [colors.cobalt, colors.high, colors.crit],
+      colors: const [_calmOrange, _calmPale, _calmOrange],
+      opacities: [
+        _calmOpacity(colors, 0.6),
+        _calmOpacity(colors, 0.5),
+        _calmOpacity(colors, 0.5),
+      ],
       anchors: const [
         Alignment(0.8, -0.8),
         Alignment(-0.9, 0.1),
@@ -208,6 +235,7 @@ abstract final class AmbientAppProfiles {
     required Color canvas,
     required double surfaceOpacity,
     required List<Color> colors,
+    required List<double> opacities,
     required List<Alignment> anchors,
   }) {
     return AmbientProfile(
@@ -217,7 +245,7 @@ abstract final class AmbientAppProfiles {
         for (var index = 0; index < colors.length; index++)
           AmbientShape(
             color: colors[index],
-            opacity: const [0.24, 0.18, 0.14][index],
+            opacity: opacities[index],
             anchor: anchors[index],
             scale: const [0.44, 0.35, 0.29][index],
             turns: const [0.06, -0.1, 0.18][index],

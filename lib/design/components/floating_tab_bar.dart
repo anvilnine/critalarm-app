@@ -114,9 +114,9 @@ class AppFloatingTabBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: colors.panel,
+        color: colors.tabBar,
         borderRadius: Radii.fullAll,
-        border: Border.all(color: colors.panelLine),
+        border: Border.all(color: colors.tabBarLine),
         boxShadow: AppShadows.shadowLg(isDark: isDark),
       ),
       // The bar floats over whichever screen is showing, so it carries its own

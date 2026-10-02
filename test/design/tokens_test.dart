@@ -1,3 +1,4 @@
+import 'package:critalarm/design/components/radios.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
@@ -22,6 +23,48 @@ void main() {
       expect(colors.ink, const Color(0xFF1A140F));
       expect(colors.crit, const Color(0xFFF5473A));
       expect(colors.high, const Color(0xFFFF8A1F));
+    });
+
+    test('dark insets and controls stay legible against their surface', () {
+      const colors = AppColors.dark;
+      double ratio(Color a, Color b) {
+        final hi = a.computeLuminance() > b.computeLuminance() ? a : b;
+        final lo = identical(hi, a) ? b : a;
+        return (hi.computeLuminance() + 0.05) / (lo.computeLuminance() + 0.05);
+      }
+
+      expect(ratio(colors.cream, colors.surface), greaterThanOrEqualTo(1.15));
+      expect(
+        ratio(colors.segmentSelected, colors.cream),
+        greaterThanOrEqualTo(1.15),
+      );
+      expect(colors.switchOff, const Color(0xFF4A3F37));
+      expect(colors.switchThumbOff, const Color(0xFFCDBFAE));
+      expect(
+        ratio(colors.switchThumbOff, colors.surface),
+        greaterThanOrEqualTo(3),
+      );
+      expect(colors.tabBar, const Color(0xFF2E2520));
+      expect(
+        ratio(colors.tabBar, colors.canvas),
+        greaterThan(ratio(colors.panel, colors.canvas)),
+      );
+    });
+
+    test('unselected radio ring is 3:1 against the card in both themes', () {
+      for (final colors in const [AppColors.light, AppColors.dark]) {
+        final ring = Color.alphaBlend(
+          colors.ink.withValues(alpha: radioRingAlpha),
+          colors.surface,
+        );
+        final hi = ring.computeLuminance() > colors.surface.computeLuminance()
+            ? ring
+            : colors.surface;
+        final lo = identical(hi, ring) ? colors.surface : ring;
+        final ratio =
+            (hi.computeLuminance() + 0.05) / (lo.computeLuminance() + 0.05);
+        expect(ratio, greaterThanOrEqualTo(3));
+      }
     });
 
     test('dark colors match design system tokens', () {
