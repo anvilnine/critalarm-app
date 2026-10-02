@@ -187,6 +187,31 @@ void main() {
       expect(HistoryWindow.shownDays(isPaid: false, historyDays: 7), 7);
     });
 
+    test('effective window: Free default resolves to 7 days', () {
+      expect(
+        HistoryWindows.effective(HistoryFilter.none.window, 7),
+        HistoryWindows.week,
+      );
+    });
+
+    test('effective window: Pro default stays 90 days', () {
+      expect(
+        HistoryWindows.effective(HistoryFilter.none.window, 90),
+        HistoryWindows.quarter,
+      );
+    });
+
+    test('effective window: Free with a stale 30 day filter gets 7 days', () {
+      expect(
+        HistoryWindows.effective(HistoryWindows.month, 7),
+        HistoryWindows.week,
+      );
+      expect(
+        HistoryWindows.effective(HistoryWindows.day, 7),
+        HistoryWindows.day,
+      );
+    });
+
     test('the default filter opens on the widest window', () {
       expect(HistoryFilter.none.window, HistoryWindows.quarter);
     });

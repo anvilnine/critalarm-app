@@ -105,7 +105,12 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
                   for (final window in HistoryWindows.all)
                     _FilterChip(
                       label: _windowLabel(window),
-                      isSelected: _draft.window == window,
+                      isSelected:
+                          HistoryWindows.effective(
+                            _draft.window,
+                            widget.shownDays,
+                          ) ==
+                          window,
                       isLocked: HistoryWindows.isLocked(
                         window,
                         widget.shownDays,
@@ -148,7 +153,12 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
 
   void _pickWindow(Duration window) {
     if (!HistoryWindows.isLocked(window, widget.shownDays)) {
-      _set(_draft.withWindow(window));
+      // Picking what the plan already defaults to stores the default, so the
+      // filter does not read as active on Free.
+      final isDefault =
+          window ==
+          HistoryWindows.effective(HistoryWindows.full, widget.shownDays);
+      _set(_draft.withWindow(isDefault ? HistoryWindows.full : window));
       return;
     }
     // A longer window than the plan keeps. Close the sheet and offer Pro.
