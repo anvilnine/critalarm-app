@@ -28,6 +28,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The test alarm's It works screen has a black-ink face, a short line and the ring time, and ripples with faces behind the confetti.
 - Redo onboarding in Settings shows in developer-flag builds (SKIP\_PAYWALL or PAYWALL\_LAB), not only debug builds.
 - The test alarm's It works screen shows a ripple of happy faces as its picture instead of one big face.
+- The test alarm's finish screen now reads Welcome to Crit Alarm! with a four-column face ripple and two buttons, Create your first topic and Finish.
 
 ### Fixed
 - The PRO badge uses `inkFixed`, so it stays ink on yellow in dark.
