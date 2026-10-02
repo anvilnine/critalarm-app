@@ -598,8 +598,8 @@ class AcknowledgedScreen extends StatelessWidget {
             : _formatRingDuration(ringDuration),
       },
     );
-    // The demo shows, it does not explain: face, title, two buttons and
-    // confetti. The test alarm just rang, so there is nothing to tell.
+    // The demo celebrates: a black-ink face, the title, one line and a chip
+    // with the ring time, over a ripple of faces and confetti.
     final faceState = isDemo ? FaceState.laughing : state.faceState;
 
     final size = AppSize.of(context);
@@ -610,42 +610,46 @@ class AcknowledgedScreen extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: isDemo
           ? [
-              // The first topic is the next step on every path, so it is the
-              // one filled button. Cream, because cobalt on the navy
-              // acknowledged canvas would disappear.
-              AppButton(
-                label: LocaleKeys.onboarding_connect_create_first_topic_button
-                    .tr(),
-                variant: AppButtonVariant.cream,
-                size: AppButtonSize.lg,
-                isFullWidth: true,
-                onPressed: () async {
-                  AppHaptics.capture();
-                  if (!isRetest) {
-                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
-                  }
-                  if (context.mounted) {
-                    context.go('/topics/new');
-                  }
-                },
-              ),
-              const SizedBox(height: 8),
-              AppButton(
-                label: isRetest
-                    ? LocaleKeys.onboarding_connect_celebration_finish.tr()
-                    : LocaleKeys.onboarding_connect_skip_to_dashboard.tr(),
-                variant: AppButtonVariant.ghost,
-                isFullWidth: true,
-                onPressed: () async {
-                  AppHaptics.capture();
-                  if (!isRetest) {
-                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
-                  }
-                  if (context.mounted) {
+              if (isRetest)
+                // Onboarding is done, so the only thing left is the way out.
+                AppButton(
+                  label: LocaleKeys.onboarding_connect_celebration_finish.tr(),
+                  variant: AppButtonVariant.cream,
+                  size: AppButtonSize.lg,
+                  isFullWidth: true,
+                  onPressed: () {
+                    AppHaptics.capture();
                     context.go('/');
-                  }
-                },
-              ),
+                  },
+                )
+              else ...[
+                // Frames the one button below it.
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Spacing.s3),
+                  child: Text(
+                    LocaleKeys.onboarding_connect_celebration_next.tr(),
+                    textAlign: TextAlign.center,
+                    style: _bodyStyle(14, FontWeight.w500, colors.onCanvas),
+                  ),
+                ),
+                // The first topic is the next step, so it is the one button.
+                // Cream, because cobalt on the navy acknowledged canvas would
+                // disappear.
+                AppButton(
+                  label: LocaleKeys.onboarding_connect_create_first_topic_button
+                      .tr(),
+                  variant: AppButtonVariant.cream,
+                  size: AppButtonSize.lg,
+                  isFullWidth: true,
+                  onPressed: () async {
+                    AppHaptics.capture();
+                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
+                    if (context.mounted) {
+                      context.go('/topics/new');
+                    }
+                  },
+                ),
+              ],
               // 12px from the scaffold makes 24 above the home indicator.
               const SizedBox(height: 12),
             ]
@@ -698,7 +702,9 @@ class AcknowledgedScreen extends StatelessWidget {
             ],
     );
 
-    if (isDemo) return _demoBody(isWide, faceState, bottomBar);
+    if (isDemo) {
+      return _demoBody(isWide, faceState, bottomBar, ringDuration);
+    }
 
     if (isWide) {
       return AppScreenScaffold(
@@ -775,12 +781,43 @@ class AcknowledgedScreen extends StatelessWidget {
     );
   }
 
-  /// The test alarm's acknowledged screen: face, title, buttons, confetti.
-  Widget _demoBody(bool isWide, FaceState faceState, Widget bottomBar) {
+  /// The test alarm's acknowledged screen: a black-ink face, the title, a
+  /// line and the ring time chip, over a ripple of faces and confetti.
+  Widget _demoBody(
+    bool isWide,
+    FaceState faceState,
+    Widget bottomBar,
+    Duration? ringDuration,
+  ) {
     Widget face(double size) => Hero(
       tag: 'onboarding-face',
       flightShuttleBuilder: faceFlightShuttleBuilder,
-      child: FaceWidget(state: faceState, size: size),
+      child: FaceWidget(
+        state: faceState,
+        size: size,
+        overrideStrokeColor: colors.inkFixed,
+        overrideInkColor: colors.inkFixed,
+      ),
+    );
+    Widget copy(TextAlign align, CrossAxisAlignment cross) => ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 320),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: cross,
+        children: [
+          _title(align, true),
+          const SizedBox(height: Spacing.s3),
+          Text(
+            LocaleKeys.onboarding_connect_celebration_body.tr(),
+            textAlign: align,
+            style: _bodyStyle(18, FontWeight.w500, colors.onCanvas),
+          ),
+          if (ringDuration != null) ...[
+            const SizedBox(height: Spacing.s4),
+            _ringTimeChip(ringDuration),
+          ],
+        ],
+      ),
     );
     final scaffold = isWide
         ? AppScreenScaffold(
@@ -792,7 +829,12 @@ class AcknowledgedScreen extends StatelessWidget {
                   children: [
                     face(260),
                     const SizedBox(width: 40),
-                    Expanded(child: _title(TextAlign.left, true)),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: copy(TextAlign.left, CrossAxisAlignment.start),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -804,13 +846,13 @@ class AcknowledgedScreen extends StatelessWidget {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, Spacing.s6, 16, 0),
+                  padding: const EdgeInsets.fromLTRB(24, Spacing.s7, 24, 0),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       face(224),
-                      const SizedBox(height: Spacing.s4),
-                      _title(TextAlign.center, true),
+                      const SizedBox(height: Spacing.s6),
+                      copy(TextAlign.center, CrossAxisAlignment.center),
                     ],
                   ),
                 ),
@@ -820,11 +862,70 @@ class AcknowledgedScreen extends StatelessWidget {
           );
     return Stack(
       children: [
+        // Every face in every colour, flipping in waves. Dimmed and faded
+        // towards the bottom so the black-ink face, the title and the button
+        // stay the focus. Still under reduce motion.
+        Positioned.fill(
+          child: ExcludeSemantics(
+            child: IgnorePointer(
+              child: ShaderMask(
+                blendMode: BlendMode.dstIn,
+                shaderCallback: (rect) => const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.white, Colors.transparent],
+                  stops: [0.2, 0.9],
+                ).createShader(rect),
+                child: const Opacity(
+                  opacity: 0.22,
+                  child: Padding(
+                    padding: EdgeInsets.all(Spacing.s4),
+                    child: FaceRipple(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
         scaffold,
         Positioned.fill(child: _AckConfetti(colors: colors)),
       ],
     );
   }
+
+  /// "Rang for 0:04", a small pill rather than a sentence.
+  Widget _ringTimeChip(Duration duration) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: colors.onCanvas.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colors.onCanvas.withValues(alpha: 0.28)),
+      ),
+      child: Text(
+        LocaleKeys.onboarding_connect_celebration_rang_for.tr(
+          namedArgs: {'duration': formatRingClock(duration)},
+        ),
+        style: TextStyle(
+          fontFamily: AppTypography.fontMono,
+          fontFamilyFallback: AppTypography.fontMonoFallbacks,
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
+          color: colors.onCanvas,
+        ),
+      ),
+    );
+  }
+
+  static TextStyle _bodyStyle(double size, FontWeight weight, Color color) =>
+      TextStyle(
+        fontFamily: AppTypography.fontBody,
+        fontFamilyFallback: AppTypography.fontBodyFallbacks,
+        fontWeight: weight,
+        fontSize: size,
+        height: 1.4,
+        color: color,
+      );
 
   Widget _title(TextAlign align, bool isDemo) {
     return Text(
