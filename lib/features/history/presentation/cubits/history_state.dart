@@ -1,5 +1,6 @@
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
+import 'package:critalarm/features/history/domain/history_window.dart';
 import 'package:flutter/foundation.dart';
 
 enum HistoryStatus { initial, loading, success, failure }
@@ -12,6 +13,7 @@ class HistoryState {
     this.days = const <HistoryDay>[],
     this.filter = HistoryFilter.none,
     this.olderCount = 0,
+    this.shownDays = HistoryWindow.paidDays,
     this.hasMore = false,
     this.isLoadingMore = false,
     this.errorMessage,
@@ -31,6 +33,10 @@ class HistoryState {
   /// How many alarms the phone holds behind the tier's window (api.md §4.2).
   /// Zero on every tier that sees everything. The free footer counts these.
   final int olderCount;
+
+  /// How many days back this plan shows: 7 on Free, 90 on Pro. Drives the
+  /// summary line and which window chips are locked.
+  final int shownDays;
 
   /// There is another page on disk. The list asks for it near the end.
   final bool hasMore;
@@ -73,6 +79,7 @@ class HistoryState {
     List<HistoryDay>? days,
     HistoryFilter? filter,
     int? olderCount,
+    int? shownDays,
     bool? hasMore,
     bool? isLoadingMore,
     String? errorMessage,
@@ -84,6 +91,7 @@ class HistoryState {
       days: days ?? this.days,
       filter: filter ?? this.filter,
       olderCount: olderCount ?? this.olderCount,
+      shownDays: shownDays ?? this.shownDays,
       hasMore: hasMore ?? this.hasMore,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),

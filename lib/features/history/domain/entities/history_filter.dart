@@ -8,10 +8,18 @@ import 'package:flutter/foundation.dart';
 abstract final class HistoryWindows {
   static const Duration day = Duration(days: 1);
   static const Duration week = Duration(days: 7);
-  static const Duration full = Duration(days: 30);
+  static const Duration month = Duration(days: 30);
+  static const Duration quarter = Duration(days: 90);
+
+  /// The widest window, which is what Pro keeps and what the filter opens on.
+  static const Duration full = quarter;
 
   /// Shortest first, which is also the order the chips are drawn in.
-  static const List<Duration> all = <Duration>[day, week, full];
+  static const List<Duration> all = <Duration>[day, week, month, quarter];
+
+  /// Whether a tier that shows [shownDays] days cannot pick [window].
+  static bool isLocked(Duration window, int shownDays) =>
+      window.inDays > shownDays;
 }
 
 /// What the History list is narrowed down to.

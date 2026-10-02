@@ -9,6 +9,7 @@ import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/features/history/domain/entities/history_entry.dart';
 import 'package:critalarm/features/history/domain/entities/history_filter.dart';
+import 'package:critalarm/features/history/domain/history_window.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
@@ -54,14 +55,18 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
       builder: (context, state) {
         final longest = state.longestRing;
         final summary = state.filter.isActive
-            // The unfiltered line reads "in 30 days", which a filter makes
-            // untrue. Say what the filter is doing instead of lying.
+            // The unfiltered line names the plan's window, which a filter
+            // makes untrue. Say what the filter is doing instead of lying.
             ? LocaleKeys.history_filter_badge.plural(state.filter.activeCount)
             : longest == null
-            ? LocaleKeys.history_summary_empty.tr()
+            // An empty list says its piece once, in the big empty state.
+            ? ''
             : LocaleKeys.history_summary.plural(
                 state.alarmCount,
-                namedArgs: {'longest': formatRingDuration(longest)},
+                namedArgs: {
+                  'longest': formatRingDuration(longest),
+                  'days': '${state.shownDays}',
+                },
               );
 
         return NotificationListener<ScrollNotification>(
@@ -174,7 +179,11 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                   sliver: SliverToBoxAdapter(
                     child: AppEmptyState(
                       title: LocaleKeys.history_empty_title.tr(),
-                      description: LocaleKeys.history_empty_body.tr(),
+                      description: state.shownDays < HistoryWindow.paidDays
+                          ? LocaleKeys.history_empty_body_free.tr(
+                              namedArgs: {'days': '${state.shownDays}'},
+                            )
+                          : LocaleKeys.history_empty_body.tr(),
                       buttonLabel: null,
                       faceState: FaceState.calm,
                       isLive: false,
@@ -272,7 +281,7 @@ class _OlderAlarmsFooter extends StatelessWidget {
 /// refresh runs the line beside it says what is going on.
 ///
 /// When the refresh ends, the result and the summary come in together as one
-/// line ("Up to date. No alarms in the last 30 days."), then the result
+/// line ("Up to date. 3 alarms in 7 days."), then the result
 /// leaves and the summary slides into place.
 class _HistoryStage extends StatefulWidget {
   const _HistoryStage({required this.summary});
@@ -334,6 +343,14 @@ class _HistoryStageState extends State<_HistoryStage> {
 
   @override
   Widget build(BuildContext context) {
+    // An empty list has no summary. Leave the stage out until a refresh has
+    // something to report, so the empty state is the only face.
+    if (widget.summary.isEmpty &&
+        _result == null &&
+        _phase != RefreshFacePhase.working) {
+      return const SizedBox.shrink();
+    }
+
     if (_refresh == null) {
       return AppStage.horizontal(
         faceState: FaceState.acked,
@@ -346,7 +363,7 @@ class _HistoryStageState extends State<_HistoryStage> {
         ? LocaleKeys.history_refresh_checking.tr()
         : _result == null
         ? widget.summary
-        : '$_result ${widget.summary}';
+        : '$_result ${widget.summary}'.trim();
 
     return AppStage.horizontal(
       faceState: FaceState.acked,
@@ -367,7 +384,11 @@ class _FilterButton extends StatelessWidget {
 
   Future<void> _open(BuildContext context) async {
     final cubit = context.read<HistoryCubit>();
-    final chosen = await showHistoryFilterSheet(context, filter);
+    final chosen = await showHistoryFilterSheet(
+      context,
+      filter,
+      shownDays: cubit.state.shownDays,
+    );
     if (chosen != null) cubit.applyFilter(chosen);
   }
 
