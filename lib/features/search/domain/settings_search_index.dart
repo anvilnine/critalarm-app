@@ -61,13 +61,6 @@ abstract final class SettingsSearchIndex {
       ],
     ),
     SettingsDestination(
-      id: 'alarms',
-      routePath: '/settings/alarms',
-      titleKey: LocaleKeys.settings_alarms_row_title,
-      parentTitleKey: LocaleKeys.nav_settings,
-      keywords: <String>['alarm', 'ring', 'sound', 'volume'],
-    ),
-    SettingsDestination(
       id: 'server',
       routePath: '/settings/server',
       titleKey: LocaleKeys.settings_server_row_title,
@@ -109,7 +102,7 @@ abstract final class SettingsSearchIndex {
       id: 'alarm_sound',
       routePath: '/sounds',
       titleKey: LocaleKeys.settings_alarm_sound_row_title,
-      parentTitleKey: LocaleKeys.settings_alarms_header,
+      parentTitleKey: LocaleKeys.nav_settings,
       keywords: <String>[
         'sound',
         'ringtone',
@@ -118,6 +111,9 @@ abstract final class SettingsSearchIndex {
         'noise',
         'record',
         'voice memo',
+        'alarm',
+        'ring',
+        'volume',
       ],
     ),
     // 'quiet_hours', 'critical_rings' and 'escalation_call' are out while

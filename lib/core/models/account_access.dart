@@ -47,9 +47,20 @@ class AccountAccess {
   int criticalCount(Iterable<Topic> topics) =>
       topics.where((topic) => topic.critical).length;
 
+  /// The "N critical topics used" line.
+  ///
+  /// A paid device never reads the Free limit. [isPaid] can be true while the
+  /// registered caps still say free: the store confirmed a purchase and the
+  /// webhook has not landed yet, or the developer Force Pro switch is on. In
+  /// that window the line says the purchase is being confirmed, or shows the
+  /// Pro wording, rather than "0 of 2".
   String criticalUsage(Iterable<Topic> topics) {
-    if (!isKnown) return LocaleKeys.account_plan_limits_unavailable.tr();
+    if (isProPending) return LocaleKeys.account_plan_confirming.tr();
     final count = criticalCount(topics);
+    if (isPaid && (!isKnown || caps!.criticalTopics != null)) {
+      return LocaleKeys.account_critical_usage_unlimited.plural(count);
+    }
+    if (!isKnown) return LocaleKeys.account_plan_limits_unavailable.tr();
     final limit = caps!.criticalTopics;
     return limit == null
         ? LocaleKeys.account_critical_usage_unlimited.plural(count)

@@ -1,5 +1,6 @@
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -35,16 +36,29 @@ class SettingsHealthRow {
           ? FaceState.watching
           : FaceState.worried,
       issueCount: missing.length,
-      // Same wording as the notice on Home, so the two never disagree.
+      // One missing permission says what goes wrong, not that a name "is
+      // off": "Battery is off." read as though the battery were. The count
+      // for several matches the notice on Home.
       subtitle: missing.length == 1
-          ? LocaleKeys.notices_setup_health_one.tr(
-              namedArgs: {'name': missing.first.title},
-            )
+          ? _consequence(missing.first.type)
           : LocaleKeys.notices_setup_health_many.tr(
               namedArgs: {'count': '${missing.length}'},
             ),
     );
   }
+
+  static String _consequence(DevicePermissionType type) => switch (type) {
+    DevicePermissionType.notifications =>
+      LocaleKeys.settings_health_issue_notifications.tr(),
+    DevicePermissionType.fullScreenIntent =>
+      LocaleKeys.settings_health_issue_full_screen_intent.tr(),
+    DevicePermissionType.batteryOptimization =>
+      LocaleKeys.settings_health_issue_battery_optimization.tr(),
+    DevicePermissionType.timeSensitive =>
+      LocaleKeys.settings_health_issue_time_sensitive.tr(),
+    DevicePermissionType.alarms =>
+      LocaleKeys.settings_health_issue_alarms.tr(),
+  };
 
   final bool isHealthy;
   final FaceState faceState;

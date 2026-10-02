@@ -12,8 +12,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// How an alarm rings, the default sound and quiet hours, and how long old
-/// alarms stay on the phone.
+/// How long old alarms stay on the phone.
+///
+/// The Storage page. The default sound is a row on Settings itself, so this
+/// page only exists where there is a Storage section to show, and Settings
+/// hides its row otherwise.
 class AlarmSettingsScreen extends StatelessWidget {
   const AlarmSettingsScreen({super.key});
 
@@ -37,11 +40,9 @@ class _AlarmSettingsView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) {
-        final colors = context.appColors;
-
         return AppScreenScaffold(
           topBar: AppTopBar(
-            title: LocaleKeys.settings_alarms_header.tr(),
+            title: LocaleKeys.settings_storage_header.tr(),
             leading: AppIconButton(
               glyph: GlyphType.back,
               ariaLabel: LocaleKeys.common_back.tr(),
@@ -63,17 +64,6 @@ class _AlarmSettingsView extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      AppListRow(
-                        name: LocaleKeys.settings_alarm_sound_row_title.tr(),
-                        meta: LocaleKeys.settings_alarm_sound_row_subtitle.tr(),
-                        faceState: null,
-                        trailing: AppGlyph(
-                          GlyphType.arrow,
-                          color: colors.ink3,
-                          size: 16,
-                        ),
-                        onTap: () => context.push('/settings/alarms/sounds'),
-                      ),
                       // The quiet hours rows are off this screen for now:
                       // the toggle, the start and end window, and the
                       // critical-rings-through switch. `QuietHours`,
@@ -87,13 +77,8 @@ class _AlarmSettingsView extends StatelessWidget {
                       // and ignores it. Putting it back needs a contract
                       // change first. Its state, cubit method and strings all
                       // stay where they are.
-                      if (state.hasStorageSection) ...[
-                        const SizedBox(height: 14),
-                        AppSectionHeader(
-                          LocaleKeys.settings_storage_header.tr(),
-                        ),
+                      if (state.hasStorageSection)
                         _StorageSection(state: state),
-                      ],
                     ],
                   ),
                 ),
