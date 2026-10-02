@@ -3,6 +3,7 @@ import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
@@ -157,8 +158,17 @@ void main() {
   late AccountIdentityChanges identityChanges;
   late _FakeProEnding proEnding;
 
+  // The fake clock. The cubit reads it and the fake repository stamps with it.
+  var clockNow = DateTime(2026, 10, 2, 9);
+  List<Topic>? topics;
+
   setUp(() {
-    promptRepo = FakeInAppNoticeRepository();
+    clockNow = DateTime(2026, 10, 2, 9);
+    // One plain topic, owned for two days: the backup notice is due.
+    topics = [const Topic(name: 'prod-db')];
+    promptRepo = FakeInAppNoticeRepository()
+      ..now = (() => clockNow)
+      ..firstTopicOwnedAt = clockNow.subtract(const Duration(days: 2));
     getConnection = FakeGetConnectionUsecase();
     shellCubit = FakeShellCubit();
     identityChanges = AccountIdentityChanges();
@@ -177,6 +187,8 @@ void main() {
       identityRepository: identityRepo,
       accountRepository: accountRepo,
       noticeRepository: promptRepo,
+      readTopics: () async => topics,
+      clock: () => clockNow,
       proEnding: proEnding,
       cooldownDuration: cooldown,
       identityChanges: identityChanges,
@@ -223,34 +235,6 @@ void main() {
         await cubit.close();
       },
     );
-
-    test('Battery on its own never takes the home slot', () async {
-      getConnection.result = const ServerConnection(
-        serverUrl: 'https://api.critalarm.app',
-        adminToken: 'token123',
-      ).toSuccess();
-
-      shellCubit.setHealth(
-        const ShellHealth(
-          missing: [
-            DevicePermissionItem(
-              type: DevicePermissionType.batteryOptimization,
-              status: DevicePermissionStatus.denied,
-              title: 'Battery optimization',
-              description: 'May delay alerts',
-              canFix: true,
-            ),
-          ],
-        ),
-      );
-
-      final cubit = buildCubit();
-      await cubit.load();
-
-      expect(cubit.state.noticeType, InAppNoticeType.accountBackup);
-      expect(cubit.state.missingPermissions, isEmpty);
-      await cubit.close();
-    });
 
     test('Cadence: operational issue resolution triggers cooldown', () async {
       getConnection.result = const ServerConnection(
@@ -546,6 +530,236 @@ void main() {
       expect(cubit.state.noticeType, InAppNoticeType.none);
       expect(promptRepo.markResolvedCalls, 1);
       await cubit.close();
+    });
+  });
+
+  group('account backup waits for a topic and a day', () {
+    setUp(() {
+      getConnection.result = const ServerConnection(
+        serverUrl: 'https://api.critalarm.app',
+        adminToken: 'token123',
+      ).toSuccess();
+      shellCubit.setHealth(const ShellHealth());
+      promptRepo.firstTopicOwnedAt = null;
+    });
+
+    test('no topics means no backup notice and no stamp', () async {
+      topics = [];
+      final cubit = buildCubit();
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.none);
+      expect(promptRepo.firstTopicOwnedAt, isNull);
+      await cubit.close();
+    });
+
+    test('a topic read that failed shows nothing', () async {
+      topics = null;
+      final cubit = buildCubit();
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.none);
+      expect(promptRepo.firstTopicOwnedAt, isNull);
+      await cubit.close();
+    });
+
+    test('a topic created now shows nothing, and is stamped', () async {
+      final cubit = buildCubit();
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.none);
+      expect(promptRepo.firstTopicOwnedAt, clockNow);
+      await cubit.close();
+    });
+
+    test('23 hours later still nothing', () async {
+      final cubit = buildCubit();
+      await cubit.load();
+
+      clockNow = clockNow.add(const Duration(hours: 23));
+      await cubit.onAppResumed();
+
+      expect(cubit.state.noticeType, InAppNoticeType.none);
+      await cubit.close();
+    });
+
+    test('25 hours later the notice shows', () async {
+      final cubit = buildCubit();
+      await cubit.load();
+
+      clockNow = clockNow.add(const Duration(hours: 25));
+      await cubit.onAppResumed();
+
+      expect(cubit.state.noticeType, InAppNoticeType.accountBackup);
+      await cubit.close();
+    });
+
+    test('the stamp is set once, not moved by later passes', () async {
+      final cubit = buildCubit();
+      await cubit.load();
+      final first = promptRepo.firstTopicOwnedAt;
+
+      clockNow = clockNow.add(const Duration(hours: 30));
+      await cubit.onAppResumed();
+
+      expect(promptRepo.firstTopicOwnedAt, first);
+      await cubit.close();
+    });
+
+    test('Pro ending wins over the backup notice', () async {
+      promptRepo.firstTopicOwnedAt = clockNow.subtract(const Duration(days: 3));
+      proEnding.view = ProEndingView(
+        showPill: true,
+        endsAt: DateTime(2026, 10, 20),
+      );
+      final cubit = buildCubit();
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.proEnding);
+      await cubit.close();
+    });
+
+    test('critical health wins over the backup notice', () async {
+      promptRepo.firstTopicOwnedAt = clockNow.subtract(const Duration(days: 3));
+      shellCubit.setHealth(
+        const ShellHealth(
+          missing: [
+            DevicePermissionItem(
+              type: DevicePermissionType.notifications,
+              status: DevicePermissionStatus.denied,
+              title: 'Notifications',
+              description: 'No page reaches you',
+              canFix: true,
+            ),
+          ],
+        ),
+      );
+      final cubit = buildCubit();
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.criticalHealth);
+      await cubit.close();
+    });
+  });
+
+  group('battery optimisation notice', () {
+    const batteryOff = ShellHealth(
+      missing: [
+        DevicePermissionItem(
+          type: DevicePermissionType.batteryOptimization,
+          status: DevicePermissionStatus.denied,
+          title: 'Battery optimization',
+          description: 'May delay alerts',
+          canFix: true,
+        ),
+      ],
+    );
+
+    setUp(() {
+      getConnection.result = const ServerConnection(
+        serverUrl: 'https://api.critalarm.app',
+        adminToken: 'token123',
+      ).toSuccess();
+      shellCubit.setHealth(batteryOff);
+      topics = [const Topic(name: 'prod-db', critical: true)];
+    });
+
+    test('shows with a critical topic and battery optimisation on', () async {
+      final cubit = buildCubit();
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.batteryOptimization);
+      await cubit.close();
+    });
+
+    test('absent with no critical topic', () async {
+      topics = [const Topic(name: 'prod-db')];
+      final cubit = buildCubit();
+      await cubit.load();
+
+      expect(
+        cubit.state.noticeType,
+        isNot(InAppNoticeType.batteryOptimization),
+      );
+      await cubit.close();
+    });
+
+    test('absent with no topics at all', () async {
+      topics = [];
+      final cubit = buildCubit();
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.none);
+      await cubit.close();
+    });
+
+    test('absent when battery optimisation is already off', () async {
+      shellCubit.setHealth(const ShellHealth());
+      final cubit = buildCubit();
+      await cubit.load();
+
+      expect(
+        cubit.state.noticeType,
+        isNot(InAppNoticeType.batteryOptimization),
+      );
+      await cubit.close();
+    });
+
+    test('beats Pro ending and the backup notice', () async {
+      proEnding.view = ProEndingView(
+        showPill: true,
+        endsAt: DateTime(2026, 10, 20),
+      );
+      final cubit = buildCubit();
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.batteryOptimization);
+      await cubit.close();
+    });
+
+    test('critical health beats it', () async {
+      shellCubit.setHealth(
+        const ShellHealth(
+          missing: [
+            DevicePermissionItem(
+              type: DevicePermissionType.notifications,
+              status: DevicePermissionStatus.denied,
+              title: 'Notifications',
+              description: 'No page reaches you',
+              canFix: true,
+            ),
+          ],
+        ),
+      );
+      final cubit = buildCubit();
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.criticalHealth);
+      await cubit.close();
+    });
+
+    test('shows once: after a dismiss it never returns on Home', () async {
+      final cubit = buildCubit(cooldown: const Duration(milliseconds: 20));
+      await cubit.load();
+      expect(cubit.state.noticeType, InAppNoticeType.batteryOptimization);
+
+      await cubit.dismissCurrent();
+      expect(promptRepo.batteryDismissedAt, isNotNull);
+      expect(cubit.state.noticeType, InAppNoticeType.none);
+
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      await cubit.onAppResumed();
+      expect(
+        cubit.state.noticeType,
+        isNot(InAppNoticeType.batteryOptimization),
+      );
+      await cubit.close();
+
+      // A fresh cubit (a new app launch) agrees.
+      final next = buildCubit();
+      await next.load();
+      expect(next.state.noticeType, isNot(InAppNoticeType.batteryOptimization));
+      await next.close();
     });
   });
 }

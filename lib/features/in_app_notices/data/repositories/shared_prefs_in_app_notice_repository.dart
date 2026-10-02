@@ -7,6 +7,8 @@ class SharedPrefsInAppNoticeRepository implements InAppNoticeRepository {
   final SharedPreferences _prefs;
 
   static const _accountDismissedKey = 'home_prompt_account_dismissed_at';
+  static const _firstTopicKey = 'home_prompt_first_topic_at';
+  static const _batteryDismissedKey = 'home_prompt_battery_dismissed_at';
   static const _proAskedKey = 'home_prompt_pro_asked_at';
   static const _proDismissedKey = 'home_prompt_pro_dismissed_at';
   static const _proDismissCountKey = 'home_prompt_pro_dismiss_count';
@@ -85,6 +87,24 @@ class SharedPrefsInAppNoticeRepository implements InAppNoticeRepository {
       _lastResolvedKey,
       DateTime.now().millisecondsSinceEpoch,
     );
+  }
+
+  @override
+  DateTime? getFirstTopicOwnedAt() => _readTime(_firstTopicKey);
+
+  @override
+  Future<void> markFirstTopicOwned() async {
+    if (_prefs.containsKey(_firstTopicKey)) return;
+    await _stampNow(_firstTopicKey);
+  }
+
+  @override
+  DateTime? getBatteryNoticeDismissedAt() => _readTime(_batteryDismissedKey);
+
+  @override
+  Future<void> dismissBatteryNotice() async {
+    await _stampNow(_batteryDismissedKey);
+    await markNoticeResolvedOrDismissed();
   }
 
   @override

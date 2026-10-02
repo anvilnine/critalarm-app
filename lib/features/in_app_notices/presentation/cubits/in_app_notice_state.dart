@@ -5,6 +5,7 @@ enum InAppNoticeType {
   none,
   noServer,
   criticalHealth,
+  batteryOptimization,
   proEnding,
   accountBackup,
 }
