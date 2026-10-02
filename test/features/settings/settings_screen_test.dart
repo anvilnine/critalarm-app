@@ -346,15 +346,15 @@ void main() {
         expect(find.text('License'), findsOneWidget);
         expect(find.text('GPL-3.0'), findsOneWidget);
         expect(find.text('Documentation'), findsOneWidget);
-        expect(find.text('https://critalarm.app/docs/'), findsOneWidget);
+        expect(find.text('critalarm.app/docs/'), findsOneWidget);
         expect(find.text('GitHub'), findsOneWidget);
         expect(
-          find.text('https://github.com/anvilnine/critalarm-app'),
+          find.text('github.com/anvilnine/critalarm-app'),
           findsOneWidget,
         );
         expect(find.text('Issue Tracker'), findsOneWidget);
         expect(
-          find.text('https://github.com/anvilnine/critalarm-app/issues'),
+          find.text('github.com/anvilnine/critalarm-app/issues'),
           findsOneWidget,
         );
 
