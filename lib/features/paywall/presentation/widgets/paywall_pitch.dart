@@ -40,21 +40,22 @@ class _StraightPitch extends StatelessWidget {
       children: [
         AppFeatureBullet(
           text: LocaleKeys.paywall_feature_unlimited_topics.tr(),
-          glyph: GlyphType.bell,
+          glyph: GlyphType.list,
         ),
         const SizedBox(height: 12),
         AppFeatureBullet(
           text: LocaleKeys.paywall_feature_push_limit.tr(),
-          glyph: GlyphType.arrow,
+          glyph: GlyphType.bell,
         ),
         const SizedBox(height: 12),
         AppFeatureBullet(
           text: LocaleKeys.paywall_feature_history.tr(),
-          glyph: GlyphType.repeat,
+          glyph: GlyphType.clock,
         ),
         const SizedBox(height: 12),
         AppFeatureBullet(
           text: LocaleKeys.paywall_feature_app_icons.tr(),
+          glyph: GlyphType.gear,
         ),
         const SizedBox(height: 18),
         AppNote(text: LocaleKeys.paywall_self_hosted_note.tr()),
@@ -194,12 +195,12 @@ class _OneJobPitch extends StatelessWidget {
       children: [
         AppFeatureBullet(
           text: LocaleKeys.paywall_feature_unlimited_topics.tr(),
-          glyph: GlyphType.bell,
+          glyph: GlyphType.list,
         ),
         const SizedBox(height: 12),
         AppFeatureBullet(
           text: LocaleKeys.paywall_feature_push_limit.tr(),
-          glyph: GlyphType.arrow,
+          glyph: GlyphType.bell,
         ),
       ],
     );
