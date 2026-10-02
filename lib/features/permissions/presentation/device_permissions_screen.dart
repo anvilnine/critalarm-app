@@ -245,7 +245,7 @@ class _PermissionRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Not allowed',
+                    LocaleKeys.device_permissions_state_off.tr(),
                     style: TextStyle(
                       fontFamily: AppTypography.fontBody,
                       fontFamilyFallback: AppTypography.fontBodyFallbacks,
@@ -258,7 +258,11 @@ class _PermissionRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             AppButton(
-              label: LocaleKeys.device_permissions_turn_on_button.tr(),
+              // Battery is allowed, not turned on: the system asks to let the
+              // app run in the background.
+              label: item.type == DevicePermissionType.batteryOptimization
+                  ? LocaleKeys.device_permissions_allow_button.tr()
+                  : LocaleKeys.device_permissions_turn_on_button.tr(),
               size: AppButtonSize.sm,
               onPressed: onTurnOn,
             ),

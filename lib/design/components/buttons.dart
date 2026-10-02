@@ -128,7 +128,9 @@ class _AppButtonState extends State<AppButton> {
         fg = colors.crit;
       case AppButtonVariant.destructive:
         bg = _isHovered ? colors.critAlt : colors.crit;
-        fg = colors.onError;
+        // Ink on the critical red, not white: red is reserved for critical,
+        // and the destructive button is the one other place it appears.
+        fg = colors.inkFixed;
         shadows = AppShadows.lightSm;
     }
 

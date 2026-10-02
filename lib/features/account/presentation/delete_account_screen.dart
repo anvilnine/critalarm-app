@@ -143,12 +143,24 @@ class _DeleteAccountViewState extends State<DeleteAccountView> {
           AppSectionHeader(LocaleKeys.account_delete_what_goes_title.tr()),
           AppFeatureBullet(
             text: LocaleKeys.account_delete_what_goes_topics.tr(),
+            // A loss, not a success: a neutral cross, not the blue check.
+            glyph: GlyphType.close,
+            glyphColor: colors.ink,
+            badgeColor: colors.ash,
           ),
           AppFeatureBullet(
             text: LocaleKeys.account_delete_what_goes_history.tr(),
+            // A loss, not a success: a neutral cross, not the blue check.
+            glyph: GlyphType.close,
+            glyphColor: colors.ink,
+            badgeColor: colors.ash,
           ),
           AppFeatureBullet(
             text: LocaleKeys.account_delete_what_goes_devices.tr(),
+            // A loss, not a success: a neutral cross, not the blue check.
+            glyph: GlyphType.close,
+            glyphColor: colors.ink,
+            badgeColor: colors.ash,
           ),
           const SizedBox(height: 12),
           AppNote(text: LocaleKeys.account_delete_webhooks.tr()),
@@ -275,7 +287,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
           ),
           AppButton(
             label: LocaleKeys.account_delete_dialog_confirm.tr(),
-            variant: AppButtonVariant.crit,
+            variant: AppButtonVariant.destructive,
             size: AppButtonSize.sm,
             onPressed: _matches ? () => Navigator.of(context).pop(true) : null,
           ),

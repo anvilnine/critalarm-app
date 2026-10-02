@@ -53,7 +53,7 @@ void main() {
 
         expect(find.text('Settings'), findsOneWidget);
         expect(find.text('Health'), findsOneWidget);
-        expect(find.text('Alarms'), findsOneWidget);
+        expect(find.text('Default sound'), findsOneWidget);
         expect(find.text('Server'), findsOneWidget);
         expect(find.text('Privacy'), findsOneWidget);
         expect(find.text('About'), findsOneWidget);

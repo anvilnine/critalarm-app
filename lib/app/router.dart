@@ -325,6 +325,10 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   child: SettingsScreen(forceDisconnected: isDisconnected),
                 );
               },
+              // Every sub-page sits on the root navigator, above the floating
+              // tab bar, so its + and search buttons are gone. Opaque, for the
+              // reason given on `/app-icon`. Create-topic and search do not
+              // belong on a page like Delete account.
               routes: [
                 GoRoute(
                   path: 'disconnected',
@@ -338,35 +342,31 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                 ),
                 GoRoute(
                   path: 'permissions',
+                  parentNavigatorKey: _rootKey,
                   name: AppRoute.devicePermissions,
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
+                    opaque: true,
                     child: const DevicePermissionsScreen(),
                   ),
                 ),
                 GoRoute(
                   path: 'alarms',
+                  parentNavigatorKey: _rootKey,
                   name: AppRoute.alarmSettings,
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
+                    opaque: true,
                     child: const AlarmSettingsScreen(),
                   ),
-                  routes: [
-                    GoRoute(
-                      path: 'sounds',
-                      name: 'alarmSounds',
-                      pageBuilder: (context, state) => AmbientPage(
-                        key: state.pageKey,
-                        child: const SoundPickerScreen(),
-                      ),
-                    ),
-                  ],
                 ),
                 GoRoute(
                   path: 'server',
+                  parentNavigatorKey: _rootKey,
                   name: AppRoute.serverSettings,
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
+                    opaque: true,
                     child: const ServerSettingsScreen(),
                   ),
                 ),
@@ -374,9 +374,11 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                 // leads here, because that server has no accounts.
                 GoRoute(
                   path: 'account',
+                  parentNavigatorKey: _rootKey,
                   name: AppRoute.account,
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
+                    opaque: true,
                     child: const AccountScreen(),
                   ),
                   routes: [
@@ -384,9 +386,11 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     // to read before erasing an account.
                     GoRoute(
                       path: 'delete',
+                      parentNavigatorKey: _rootKey,
                       name: AppRoute.deleteAccount,
                       pageBuilder: (context, state) => AmbientPage(
                         key: state.pageKey,
+                        opaque: true,
                         child: const DeleteAccountScreen(),
                       ),
                     ),
@@ -394,33 +398,41 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                 ),
                 GoRoute(
                   path: 'appearance',
+                  parentNavigatorKey: _rootKey,
                   name: AppRoute.appearanceSettings,
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
+                    opaque: true,
                     child: const AppearanceSettingsScreen(),
                   ),
                 ),
                 GoRoute(
                   path: 'privacy',
+                  parentNavigatorKey: _rootKey,
                   name: AppRoute.privacySettings,
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
+                    opaque: true,
                     child: const PrivacySettingsScreen(),
                   ),
                 ),
                 GoRoute(
                   path: 'local-reminders',
+                  parentNavigatorKey: _rootKey,
                   name: AppRoute.localReminderSettings,
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
+                    opaque: true,
                     child: const LocalReminderSettingsScreen(),
                   ),
                 ),
                 GoRoute(
                   path: 'about',
+                  parentNavigatorKey: _rootKey,
                   name: AppRoute.about,
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
+                    opaque: true,
                     child: const AboutScreen(),
                   ),
                 ),
@@ -429,49 +441,61 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                 // row that leads here.
                 GoRoute(
                   path: 'developer',
+                  parentNavigatorKey: _rootKey,
                   name: AppRoute.developerSettings,
                   pageBuilder: (context, state) => AmbientPage(
                     key: state.pageKey,
+                    opaque: true,
                     child: const DeveloperSettingsScreen(),
                   ),
                   routes: [
                     GoRoute(
                       path: 'dialog-sheet',
+                      parentNavigatorKey: _rootKey,
                       name: AppRoute.dialogSheetGallery,
                       pageBuilder: (context, state) => AmbientPage(
                         key: state.pageKey,
+                        opaque: true,
                         child: const DialogSheetGalleryScreen(),
                       ),
                     ),
                     GoRoute(
                       path: 'faces',
+                      parentNavigatorKey: _rootKey,
                       name: AppRoute.faceGallery,
                       pageBuilder: (context, state) => AmbientPage(
                         key: state.pageKey,
+                        opaque: true,
                         child: const FaceGalleryScreen(),
                       ),
                     ),
                     GoRoute(
                       path: 'ringing-faces',
+                      parentNavigatorKey: _rootKey,
                       name: AppRoute.ringingFaces,
                       pageBuilder: (context, state) => AmbientPage(
                         key: state.pageKey,
+                        opaque: true,
                         child: const RingingFacesScreen(),
                       ),
                     ),
                     GoRoute(
                       path: 'local-reminders',
+                      parentNavigatorKey: _rootKey,
                       name: AppRoute.localReminderLab,
                       pageBuilder: (context, state) => AmbientPage(
                         key: state.pageKey,
+                        opaque: true,
                         child: const LocalReminderLabScreen(),
                       ),
                     ),
                     GoRoute(
                       path: 'alarm',
+                      parentNavigatorKey: _rootKey,
                       name: AppRoute.alarmDebug,
                       pageBuilder: (context, state) => AmbientPage(
                         key: state.pageKey,
+                        opaque: true,
                         child: BlocProvider(
                           create: (_) => getIt<AlarmDebugCubit>(),
                           child: const AlarmDebugScreen(),

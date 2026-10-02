@@ -113,8 +113,9 @@ void main() {
 
         // Granted reads as a chip. The two that are off each offer a way in.
         expect(find.text('allowed'), findsOneWidget);
-        expect(find.text('Turn on'), findsNWidgets(2));
-        expect(find.text('Not allowed'), findsNWidgets(2));
+        expect(find.text('Turn on'), findsOneWidget);
+        expect(find.text('Allow'), findsOneWidget);
+        expect(find.text('Off'), findsNWidgets(2));
       },
     );
 
@@ -139,9 +140,9 @@ void main() {
         await tester.pumpAndSettle();
 
         final turnOnButtons = find.text('Turn on');
-        expect(turnOnButtons, findsNWidgets(2));
+        expect(turnOnButtons, findsOneWidget);
 
-        await tester.tap(turnOnButtons.first);
+        await tester.tap(turnOnButtons);
         await tester.pumpAndSettle();
 
         verify(
@@ -156,7 +157,7 @@ void main() {
         await tester.pumpWidget(buildTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Turn on').last);
+        await tester.tap(find.text('Allow'));
         await tester.pumpAndSettle();
 
         expect(
@@ -182,7 +183,7 @@ void main() {
         await tester.pumpWidget(buildTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Turn on').last);
+        await tester.tap(find.text('Allow'));
         await tester.pumpAndSettle();
 
         await tester.tap(find.text('Not now'));
