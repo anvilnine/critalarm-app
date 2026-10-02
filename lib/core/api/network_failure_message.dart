@@ -5,6 +5,7 @@ import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:http/http.dart' as http;
 
 /// Turns a transport-level exception into one plain line.
 ///
@@ -67,20 +68,124 @@ String failureMessage(Failure failure) => apiErrorMessage(
   cap: CapReached.fromFailure(failure)?.name,
 );
 
-/// True when the device has no route out at all.
+/// Default unauthenticated endpoint used to check connectivity for Crit Alarm
+/// Cloud.
+final Uri defaultConnectivityCheckUri = Uri.parse(
+  'https://api.critalarm.app/v1/info',
+);
+
+/// Default timeout for the connectivity check probe.
+const defaultConnectivityTimeout = Duration(seconds: 4);
+
+/// Pure decision function evaluating whether a probe result indicates internet
+/// reachability.
 ///
-/// Onboarding uses it to say so up front instead of letting the user tap
-/// Connect and read a failure. It never blocks: the user can still carry on.
-Future<bool> hasInternet() async {
-  // A widget test has no network and no business waiting three seconds for a
-  // DNS lookup to time out, which also leaves a pending timer behind.
-  if (Platform.environment.containsKey('FLUTTER_TEST')) return true;
-  try {
-    final result = await InternetAddress.lookup(
-      'one.one.one.one',
-    ).timeout(const Duration(seconds: 3));
-    return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
-  } on Object {
+/// An unknown result (such as a timeout, SSL handshake anomaly, or server
+/// error) is treated as online (`true`), not offline, so that transient issues
+/// or unusual network configurations (private DNS, captive checks, high
+/// latency) do not show a false offline notice. Only definitive offline errors
+/// (such as network unreachable, network down, no route to host, or failed
+/// host lookup) return `false`.
+bool isOnlineFromProbe({
+  int? statusCode,
+  Object? error,
+}) {
+  if (statusCode != null) {
+    // Any HTTP response means the device reached a remote server or proxy.
+    return true;
+  }
+  if (error == null) {
+    return true;
+  }
+  if (error is TimeoutException) {
+    // Timeout could be high cellular latency or slow server response.
+    // Treat unknown as online.
+    return true;
+  }
+  if (error is HandshakeException ||
+      error is TlsException ||
+      error is CertificateException) {
+    // TLS negotiation was attempted with a remote host or captive portal.
+    // Treat unknown as online.
+    return true;
+  }
+  // Check for definitive offline errors in SocketException or wrapped
+  // ClientException.
+  if (isDefinitiveOfflineError(error)) {
     return false;
+  }
+  // Any other unknown error is treated as online.
+  return true;
+}
+
+/// Returns true only if [error] is a definitive indicator of no network route.
+bool isDefinitiveOfflineError(Object error) {
+  if (error is SocketException) {
+    final osError = error.osError;
+    if (osError != null) {
+      final code = osError.errorCode;
+      // Linux/Android: ENETDOWN (100), ENETUNREACH (101), EHOSTUNREACH (113)
+      // macOS/iOS: ENETDOWN (50), ENETUNREACH (51), EHOSTUNREACH (65)
+      // Windows: 10050, 10051, 10065
+      if (code == 100 ||
+          code == 101 ||
+          code == 113 ||
+          code == 50 ||
+          code == 51 ||
+          code == 65 ||
+          code == 10050 ||
+          code == 10051 ||
+          code == 10065) {
+        return true;
+      }
+    }
+  }
+
+  final text = error.toString();
+  if (text.contains('Network is unreachable') ||
+      text.contains('Network is down') ||
+      text.contains('No route to host') ||
+      text.contains('Failed host lookup')) {
+    return true;
+  }
+
+  return false;
+}
+
+/// True when the device appears online and can reach the network.
+///
+/// Answers "can we reach the server we are about to use" by probing
+/// [uri] (defaulting to [defaultConnectivityCheckUri], the unauthenticated
+/// health check at `https://api.critalarm.app/v1/info`).
+///
+/// An unknown result (such as a timeout, SSL issue, or server error) is
+/// treated as online, not offline, so that unusual network configurations do
+/// not show a false offline notice.
+Future<bool> hasInternet({
+  Uri? uri,
+  http.Client? client,
+  Duration timeout = defaultConnectivityTimeout,
+}) async {
+  // Widget tests have no network and no business waiting for HTTP requests
+  // to time out, which also leaves pending timers behind.
+  if (Platform.environment.containsKey('FLUTTER_TEST') && client == null) {
+    return true;
+  }
+
+  final targetUri = uri ?? defaultConnectivityCheckUri;
+  final httpClient = client ?? http.Client();
+  final shouldClose = client == null;
+
+  try {
+    final response = await httpClient
+        .get(targetUri, headers: const {'accept': 'application/json'})
+        .timeout(timeout);
+    return isOnlineFromProbe(statusCode: response.statusCode);
+  } on Object catch (e) {
+    return isOnlineFromProbe(error: e);
+  } finally {
+    if (shouldClose) {
+      httpClient.close();
+    }
   }
 }
