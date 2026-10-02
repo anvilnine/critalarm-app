@@ -25,6 +25,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The in-app paywall has one heading, Yearly and Monthly plan titles, and no cobalt ring on the face.
 - The onboarding screens before Permissions slide in with their text and buttons.
 - The onboarding test alarm's acknowledged screen drops its explanatory text and detail sheet and ends on confetti.
+- The test alarm's It works screen has a black-ink face, a short line and the ring time, and ripples with faces behind the confetti.
 
 ### Fixed
 - The PRO badge uses `inkFixed`, so it stays ink on yellow in dark.
