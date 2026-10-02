@@ -1,4 +1,4 @@
-.PHONY: gen regen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios worktree-new worktree-list worktree-clean release-ios release-ios-dry release-android release-android-dry
+.PHONY: gen regen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -125,6 +125,21 @@ release-both:
 	wait $$ios; ios_status=$$?; \
 	wait $$android; android_status=$$?; \
 	[ $$ios_status -eq 0 ] && [ $$android_status -eq 0 ]
+
+# --- Changelogs -------------------------------------------------------------
+# cider writes both files. Rules: AGENTS.md, Changelogs.
+
+# make log TYPE=fixed MSG="Android onboarding no longer says your phone needs iOS 26."
+log:
+	@sh tool/changelog.sh log "$(TYPE)" "$(MSG)"
+
+# make devlog TYPE=changed MSG="AppKeyValueRow stacks label and value when they do not fit."
+devlog:
+	@sh tool/changelog.sh devlog "$(TYPE)" "$(MSG)"
+
+# Move Unreleased under pubspec's version in both files. Run after the version bump.
+changelog-release:
+	@sh tool/changelog.sh release
 
 # --- Worktrees ---------------------------------------------------------------
 # One folder per branch under worktrees/. See worktrees/README.md for the flow.

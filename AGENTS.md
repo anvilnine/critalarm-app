@@ -32,6 +32,7 @@ Commitments made to Apple that no task may break: critical delivery defaults OFF
 - `npm test` / `flutter test` / `npm run build` passes.
 - PR description has: what was built, how to verify it by hand, screenshots for UI, suggested follow-ups.
 - Nothing outside the task's file scope was changed. If you had to, say why.
+- Changelog entries added with cider where the change calls for one (see Changelogs below, in the critalarm-app section).
 
 ## Running under /goal
 - Your task file ends with a `/goal` line. That line is your stopping condition. Nothing else is.
@@ -149,6 +150,27 @@ names in code, strings, comments and PRs, and never one for another.
 - A screen that exists on one platform only is its own route gated by a capability, never a widget hidden behind a boolean: the message composer is web only, the permissions screen is mobile only.
 - Shared widgets take no platform-specific dependencies.
 - Layout breakpoints come from the design system, never from the platform.
+
+**Changelogs.** Two files, both written with cider, never by hand. The
+how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
+
+- `CHANGELOG.md` is for users. Add a line only for a change a user would
+  notice and care about: a new feature, a change in what the app does, a fixed
+  bug they could have hit. It feeds the store "What's new" text.
+- Leave small UX polish out of `CHANGELOG.md`: spacing, colours, wording
+  tweaks, a moved button, a nicer empty state. Those go in
+  `dev-notes/CHANGELOG.md`, with refactors, new tokens and components, prefs
+  keys, build flags, tooling and test changes.
+- Add entries with `make log TYPE=<added|changed|fixed|removed|deprecated|security> MSG="..."`
+  or `make devlog TYPE=... MSG="..."`. One line per entry, no hard wraps,
+  plain words, no em dashes. Write user entries from the user's side ("History
+  keeps 90 days on Pro"), not the code's.
+- Add the entry in the same branch as the change. When branches merge, keep
+  both sides' lines.
+- This repo is public. Neither file names prices, keys, task numbers or
+  planning documents.
+- At release, after the version bump, `make changelog-release` moves
+  Unreleased under the new version in both files.
 
 **Where the docs are.**
 
