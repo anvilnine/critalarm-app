@@ -48,12 +48,110 @@ Widget _face(FaceShape shape, double size, {Color? fill}) => FaceWidget(
   overrideInkColor: fill == null ? null : faceCrowdInk,
 );
 
-/// A grid of every face in every colour, flipping over in waves. The
-/// welcome screen's "Ripple" hero and the backdrop of the test alarm's
-/// acknowledged screen. It fills the box it is given. With animations
-/// switched off it sits still on a settled frame.
+/// Every face there is, bar the blink, which is a moment rather than a
+/// face. What the welcome screen's ripple picks from.
+final List<FaceState> allRippleFaces = List.unmodifiable([
+  for (final f in FaceState.values)
+    if (f != FaceState.blink) f,
+]);
+
+/// The faces for a celebration: nothing alarmed, angry, worried or sad.
+/// `content` is left out because the festive ripple rests on it.
+const List<FaceState> happyRippleFaces = [
+  FaceState.laughing,
+  FaceState.happy,
+  FaceState.success,
+  FaceState.surprised,
+  FaceState.curious,
+];
+
+/// Which of [pool] a cell shows for [wave]. Without [random] the faces run
+/// in order, so two waves show every face there is (the welcome screen).
+/// With it each cell and wave gets its own pick, never the same face twice
+/// in a row on one cell.
+@visibleForTesting
+FaceState pickRippleFace(
+  List<FaceState> pool, {
+  required int wave,
+  required int cell,
+  required int cellCount,
+  bool random = false,
+}) {
+  final w = math.max(wave, 0);
+  if (!random) return pool[(w * cellCount + cell) % pool.length];
+  int index(int wv) {
+    // Two rounds of MINSTD. Small enough to stay exact on the web.
+    var h = (wv * 7919 + cell * 104729 + 12345) % 2147483647;
+    h = (h * 48271) % 2147483647;
+    h = (h * 48271) % 2147483647;
+    return h % pool.length;
+  }
+
+  // Walk the waves so a nudged pick is what the next wave compares with.
+  var shown = index(0);
+  for (var k = 1; k <= w; k++) {
+    final next = index(k);
+    shown = next == shown && pool.length > 1 ? (next + 1) % pool.length : next;
+  }
+  return pool[shown];
+}
+
+/// The grid for a box: the head size and how many rows and columns fit.
+/// By default four columns and up to five rows, sized by the tighter of
+/// width and height. With [fillWidth] the heads are sized by the height and
+/// as many columns as fit are used, so a short box gets a wide grid.
+@visibleForTesting
+({double size, int rows, int cols}) rippleGrid(
+  double width,
+  double height, {
+  bool fillWidth = false,
+  double gap = 12,
+}) {
+  var cols = 4;
+  double size;
+  if (fillWidth) {
+    size = (height - gap * 4) / 5;
+    if (size > 0) {
+      cols = ((width + gap) / (size + gap)).floor().clamp(3, 8);
+      size = math.min(size, (width - gap * (cols - 1)) / cols);
+    }
+  } else {
+    size = math.min((width - gap * (cols - 1)) / cols, (height - gap * 4) / 5);
+  }
+  final rows = size <= 0
+      ? 0
+      : ((height + gap) / (size + gap)).floor().clamp(1, 5);
+  return (size: size, rows: rows, cols: cols);
+}
+
+/// A grid of faces in every colour, flipping over in waves. The welcome
+/// screen's "Ripple" hero (every face) and the picture on the test alarm's
+/// acknowledged screen (happy faces only). It fills the box it is given.
+/// With animations switched off it sits still on a settled frame.
+///
+/// The defaults are the welcome screen's: every face, calm between waves,
+/// four columns, faces in a fixed order.
 class FaceRipple extends StatefulWidget {
-  const FaceRipple({super.key});
+  const FaceRipple({
+    this.faces,
+    this.restFace = FaceState.calm,
+    this.randomFaces = false,
+    this.fillWidth = false,
+    super.key,
+  });
+
+  /// What the waves pick from. Null means [allRippleFaces].
+  final List<FaceState>? faces;
+
+  /// The face each head settles back to between waves.
+  final FaceState restFace;
+
+  /// Pick a face per cell and wave at random (a fixed shuffle, so a frame is
+  /// repeatable) instead of running through [faces] in order.
+  final bool randomFaces;
+
+  /// Use as many columns as the box has room for. See [rippleGrid].
+  final bool fillWidth;
 
   @override
   State<FaceRipple> createState() => _FaceRippleState();
@@ -86,13 +184,6 @@ class _FaceRippleState extends State<FaceRipple>
     super.dispose();
   }
 
-  /// Every face there is, bar the blink, which is a moment rather than a
-  /// face.
-  static final List<FaceState> _all = [
-    for (final f in FaceState.values)
-      if (f != FaceState.blink) f,
-  ];
-
   static const double _firstWave = 1.2;
   static const double _period = 3.2;
 
@@ -101,13 +192,13 @@ class _FaceRippleState extends State<FaceRipple>
     final t = this.t;
     return LayoutBuilder(
       builder: (context, box) {
-        const cols = 4;
         const gap = 12.0;
-        final size = math.min(
-          (box.maxWidth - gap * (cols - 1)) / cols,
-          (box.maxHeight - gap * 4) / 5,
+        final (:size, :rows, :cols) = rippleGrid(
+          box.maxWidth,
+          box.maxHeight,
+          fillWidth: widget.fillWidth,
         );
-        final rows = ((box.maxHeight + gap) / (size + gap)).floor().clamp(1, 5);
+        if (rows == 0) return const SizedBox.shrink();
         return Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -173,8 +264,14 @@ class _FaceRippleState extends State<FaceRipple>
     final fillBefore =
         faceCrowdFills[(cell + math.max<int>(wave, 0)) % faceCrowdFills.length];
     final fillAfter = faceCrowdFills[(cell + wave + 1) % faceCrowdFills.length];
-    final reaction =
-        _all[(math.max<int>(wave, 0) * rows * cols + cell) % _all.length];
+    final reaction = pickRippleFace(
+      widget.faces ?? allRippleFaces,
+      wave: wave,
+      cell: cell,
+      cellCount: rows * cols,
+      random: widget.randomFaces,
+    );
+    final rest = widget.restFace;
 
     FaceShape face;
     var flip = 0.0;
@@ -183,17 +280,17 @@ class _FaceRippleState extends State<FaceRipple>
         ? faceCrowdFills[cell % faceCrowdFills.length]
         : fillAfter;
     if (wave < 0 || local > 1.7) {
-      face = _withBlink(_shape(FaceState.calm), t, offset: cell * 0.37);
+      face = _withBlink(_shape(rest), t, offset: cell * 0.37);
     } else if (local < 0.4) {
       flip = local / 0.4;
       final halfway = flip >= 0.5;
       if (!halfway) fill = fillBefore;
-      face = halfway ? _shape(reaction) : _shape(FaceState.calm);
+      face = halfway ? _shape(reaction) : _shape(rest);
       bump = math.sin(flip * math.pi) * 0.18;
     } else if (local < 1.3) {
       face = _shape(reaction);
     } else {
-      face = _blend(reaction, FaceState.calm, (local - 1.3) / 0.4);
+      face = _blend(reaction, rest, (local - 1.3) / 0.4);
     }
 
     // Flip on the axis the wave is travelling along, so it reads as a
