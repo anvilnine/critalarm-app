@@ -86,7 +86,7 @@ class DialogSheetGalleryScreen extends StatelessWidget {
         AppDialogAction(
           label: 'Delete',
           value: true,
-          variant: AppButtonVariant.crit,
+          variant: AppButtonVariant.destructive,
         ),
       ],
     );

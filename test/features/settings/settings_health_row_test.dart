@@ -40,7 +40,22 @@ void main() {
       expect(row.isHealthy, isFalse);
       expect(row.faceState, FaceState.worried);
       expect(row.issueCount, 1);
-      expect(row.subtitle, 'Full screen is off.');
+      expect(row.subtitle, 'A critical page will not wake the screen');
+    });
+
+    test('a missing battery exemption says what it costs', () {
+      final row = SettingsHealthRow.from(
+        ShellHealth(
+          missing: [
+            _missing(
+              DevicePermissionType.batteryOptimization,
+              'Run in the background',
+            ),
+          ],
+        ),
+      );
+
+      expect(row.subtitle, 'Battery saver can delay pages');
     });
 
     test('more than one missing permission is counted, not guessed', () {

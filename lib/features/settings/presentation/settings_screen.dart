@@ -10,6 +10,7 @@ import 'package:critalarm/features/feature_guides/presentation/feature_guide_anc
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
 import 'package:critalarm/features/feature_guides/presentation/widgets/feature_guide_picker_sheet.dart';
 import 'package:critalarm/features/feedback/presentation/help_section.dart';
+import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
 import 'package:critalarm/features/settings/presentation/settings_health_row.dart';
@@ -62,11 +63,14 @@ class _SettingsScreenContent extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AppGlyph(
-            GlyphType.up,
-            size: 12,
-            color: colors.inkFixed,
-            strokeWidth: 2.4,
+          // A dot, not a caret: an up arrow reads as a sort control.
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.inkFixed,
+            ),
           ),
           const SizedBox(width: 6),
           Text(
@@ -145,10 +149,6 @@ class _SettingsScreenContent extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (isPro) ...[
-                      const SizedBox(width: 8),
-                      ProBadge(label: LocaleKeys.paywall_pro_badge.tr()),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 2),
@@ -172,6 +172,20 @@ class _SettingsScreenContent extends StatelessWidget {
               onPressed: () {
                 AppHaptics.capture();
                 unawaited(context.push('/paywall'));
+              },
+            ),
+          ] else if (!buildSkipsPaywall) ...[
+            // The store's own subscription page, through the RevenueCat
+            // customer centre. A build that skips the paywall never
+            // configures RevenueCat, and has no subscription to manage.
+            const SizedBox(width: 8),
+            AppButton(
+              label: LocaleKeys.settings_plan_manage_button.tr(),
+              size: AppButtonSize.sm,
+              variant: AppButtonVariant.paper,
+              onPressed: () {
+                AppHaptics.capture();
+                unawaited(getIt<PaywallCubit>().presentCustomerCenter());
               },
             ),
           ],
@@ -243,10 +257,24 @@ class _SettingsScreenContent extends StatelessWidget {
                       const SizedBox(height: 8),
                       _buildNavRow(
                         context,
-                        title: LocaleKeys.settings_alarms_row_title.tr(),
-                        subtitle: LocaleKeys.settings_alarms_row_subtitle.tr(),
-                        path: '/settings/alarms',
+                        title: LocaleKeys.settings_alarm_sound_row_title.tr(),
+                        subtitle: LocaleKeys.settings_alarm_sound_row_subtitle
+                            .tr(),
+                        path: '/sounds',
                       ),
+                      // Storage is the only thing left of the old Alarms
+                      // page, and it only shows on a paid tier or a
+                      // self-hosted server.
+                      if (state.hasStorageSection) ...[
+                        const SizedBox(height: 8),
+                        _buildNavRow(
+                          context,
+                          title: LocaleKeys.settings_storage_row_title.tr(),
+                          subtitle: LocaleKeys.settings_storage_row_subtitle
+                              .tr(),
+                          path: '/settings/alarms',
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       _buildNavRow(
                         context,

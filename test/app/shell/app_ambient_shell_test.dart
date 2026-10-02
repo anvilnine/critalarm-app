@@ -11,14 +11,13 @@ void main() {
       AppAmbientShell.profileForPath(path, colors);
 
   group('AppAmbientShell.profileForPath', () {
-    test('the sound list moves the backdrop on from Alarms', () {
-      expect(at('/settings/alarms/sounds'), isNot(at('/settings/alarms')));
+    test('the sound list moves the backdrop on from Storage', () {
+      expect(at('/sounds'), isNot(at('/settings/alarms')));
     });
 
     test('every way into the sound list shows the same backdrop', () {
       final list = AmbientAppProfiles.soundList(colors);
       expect(at('/sounds'), list);
-      expect(at('/settings/alarms/sounds'), list);
       expect(at('/topics/prod/sounds'), list);
     });
 
