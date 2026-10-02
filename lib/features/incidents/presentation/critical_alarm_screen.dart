@@ -598,9 +598,9 @@ class AcknowledgedScreen extends StatelessWidget {
             : _formatRingDuration(ringDuration),
       },
     );
-    // The demo celebrates: a black-ink face, the title, one line and a chip
-    // with the ring time, over a ripple of faces and confetti.
-    final faceState = isDemo ? FaceState.laughing : state.faceState;
+    // The demo celebrates: a ripple of happy faces, the title, one line and
+    // a chip with the ring time, with confetti on top.
+    final faceState = state.faceState;
 
     final size = AppSize.of(context);
     final isWide = size.isExpanded || size.isShort;
@@ -703,7 +703,7 @@ class AcknowledgedScreen extends StatelessWidget {
     );
 
     if (isDemo) {
-      return _demoBody(isWide, faceState, bottomBar, ringDuration);
+      return _demoBody(context, isWide, bottomBar, ringDuration);
     }
 
     if (isWide) {
@@ -781,22 +781,24 @@ class AcknowledgedScreen extends StatelessWidget {
     );
   }
 
-  /// The test alarm's acknowledged screen: a black-ink face, the title, a
-  /// line and the ring time chip, over a ripple of faces and confetti.
+  /// The test alarm's acknowledged screen: a ripple of happy faces as the
+  /// picture, then the title, a line, the ring time chip and the way on,
+  /// with confetti over all of it. The ripple takes whatever height the text
+  /// and button leave, so nothing scrolls off a small phone.
   Widget _demoBody(
+    BuildContext context,
     bool isWide,
-    FaceState faceState,
     Widget bottomBar,
     Duration? ringDuration,
   ) {
-    Widget face(double size) => Hero(
-      tag: 'onboarding-face',
-      flightShuttleBuilder: faceFlightShuttleBuilder,
-      child: FaceWidget(
-        state: faceState,
-        size: size,
-        overrideStrokeColor: colors.inkFixed,
-        overrideInkColor: colors.inkFixed,
+    const ripple = ExcludeSemantics(
+      child: IgnorePointer(
+        child: FaceRipple(
+          faces: happyRippleFaces,
+          restFace: FaceState.content,
+          randomFaces: true,
+          fillWidth: true,
+        ),
       ),
     );
     Widget copy(TextAlign align, CrossAxisAlignment cross) => ConstrainedBox(
@@ -819,74 +821,61 @@ class AcknowledgedScreen extends StatelessWidget {
         ],
       ),
     );
-    final scaffold = isWide
-        ? AppScreenScaffold(
-            hasTabBar: false,
-            slivers: [
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Row(
-                  children: [
-                    face(260),
-                    const SizedBox(width: 40),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: copy(TextAlign.left, CrossAxisAlignment.start),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            bottomBar: bottomBar,
-          )
-        : AppScreenScaffold(
-            hasTabBar: false,
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, Spacing.s7, 24, 0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+    final bottomGap = MediaQuery.paddingOf(context).bottom + 24;
+    final scaffold = AppScreenScaffold(
+      hasTabBar: false,
+      // The column below is sized to the screen, so the list has no room to
+      // scroll and no reason to bounce.
+      physics: const NeverScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          child: isWide
+              ? Padding(
+                  padding: EdgeInsets.fromLTRB(24, 16, 24, bottomGap),
+                  child: Row(
                     children: [
-                      face(224),
-                      const SizedBox(height: Spacing.s6),
+                      const Expanded(child: ripple),
+                      const SizedBox(width: 40),
+                      Expanded(
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 320),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  copy(
+                                    TextAlign.left,
+                                    CrossAxisAlignment.start,
+                                  ),
+                                  const SizedBox(height: Spacing.s5),
+                                  bottomBar,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Padding(
+                  padding: EdgeInsets.fromLTRB(24, Spacing.s4, 24, bottomGap),
+                  child: Column(
+                    children: [
+                      const Expanded(child: ripple),
+                      const SizedBox(height: Spacing.s5),
                       copy(TextAlign.center, CrossAxisAlignment.center),
+                      const SizedBox(height: Spacing.s5),
+                      bottomBar,
                     ],
                   ),
                 ),
-              ),
-            ],
-            bottomBar: bottomBar,
-          );
+        ),
+      ],
+    );
     return Stack(
       children: [
-        // Every face in every colour, flipping in waves. Dimmed and faded
-        // towards the bottom so the black-ink face, the title and the button
-        // stay the focus. Still under reduce motion.
-        Positioned.fill(
-          child: ExcludeSemantics(
-            child: IgnorePointer(
-              child: ShaderMask(
-                blendMode: BlendMode.dstIn,
-                shaderCallback: (rect) => const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.white, Colors.transparent],
-                  stops: [0.2, 0.9],
-                ).createShader(rect),
-                child: const Opacity(
-                  opacity: 0.22,
-                  child: Padding(
-                    padding: EdgeInsets.all(Spacing.s4),
-                    child: FaceRipple(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
         scaffold,
         Positioned.fill(child: _AckConfetti(colors: colors)),
       ],
