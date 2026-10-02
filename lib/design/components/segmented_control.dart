@@ -79,7 +79,7 @@ class _SegmentItem extends StatelessWidget {
             curve: AppCurves.easeOut,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
             decoration: BoxDecoration(
-              color: isSelected ? colors.surface : Colors.transparent,
+              color: isSelected ? colors.segmentSelected : Colors.transparent,
               borderRadius: Radii.fullAll,
               boxShadow: isSelected ? AppShadows.lightSm : null,
             ),
