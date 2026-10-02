@@ -29,6 +29,21 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in
 - Each Feature Guide reads correctly when played on its own. On iPhones that
   cannot ring through silent mode, the critical delivery step no longer says
   they can.
+- Android onboarding asks for the full-screen alarm permission in step 2 and
+  no longer tells Android phones they need iOS 26. The test-alarm screen leads
+  to creating your first topic and says the test rang from your phone.
+- Dark theme: nested cards, the theme switcher, switches, radios, the PRO
+  badge and the tab bar stand out from the card behind them again. Calm
+  screens use only warm yellow and orange background shapes.
+- History offers only the windows your plan keeps. Free shows 24 hours and 7
+  days, with 30 and 90 days marked Pro. The empty state shows one face.
+- Settings: Default sound is a direct row, sub-pages hide the tab bar, the
+  Health row says what a missing permission breaks, the current app icon shows
+  as a status, and Pro shows Manage and no longer shows the Free limit.
+- Row subtitles and About links wrap instead of cutting off. Search shows a
+  face and example searches when nothing matches.
+- The Feature Guide card has one way out, and the in-app Pro screen has one
+  heading, Yearly and Monthly plans, and a saving badge when prices are known.
 - The onboarding screens before Permissions slide in with their text and
   buttons, the way the later onboarding screens do.
 
