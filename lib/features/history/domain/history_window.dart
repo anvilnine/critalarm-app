@@ -8,6 +8,16 @@
 /// This is a query filter, never a delete. Buying Pro unhides the old rows
 /// with no download. A plan lapsing hides them again and removes nothing.
 abstract final class HistoryWindow {
+  /// How many days back the plan shows, for the summary line and the filter
+  /// chips. Pro keeps 90. Self-hosted has no tier, so it gets the same.
+  static const int paidDays = 90;
+
+  static int shownDays({
+    required bool isPaid,
+    required int historyDays,
+    bool isSelfHosted = false,
+  }) => (isSelfHosted || isPaid) ? paidDays : historyDays;
+
   /// The oldest `opened_at` allowed on screen.
   ///
   /// A null lower bound means "show everything on the phone". That is a paid
