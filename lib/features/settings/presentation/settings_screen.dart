@@ -341,9 +341,12 @@ class _SettingsScreenContent extends StatelessWidget {
                               unawaited(showFeatureGuidePickerSheet(context)),
                         ),
                       ),
-                      // Debug builds only: a release user gets the Feature
-                      // Guides above.
-                      if (kDebugMode) ...[
+                      // Debug and developer-flag builds only (the same flags
+                      // that show Developer options). A store user gets the
+                      // Feature Guides above.
+                      if (kDebugMode ||
+                          buildSkipsPaywall ||
+                          buildHasPaywallLab) ...[
                         const SizedBox(height: 8),
                         AppListRow(
                           name: LocaleKeys.settings_redo_onboarding_title.tr(),
