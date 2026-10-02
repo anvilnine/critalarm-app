@@ -551,12 +551,15 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AppButton(
-            label: LocaleKeys.onboarding_connect_self_host_toggle.tr(),
-            variant: AppButtonVariant.ghost,
-            size: AppButtonSize.sm,
-            isFullWidth: true,
-            onPressed: cubit.toggleSelfHosting,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.s5),
+            child: AppButton(
+              label: LocaleKeys.onboarding_connect_self_host_toggle.tr(),
+              variant: AppButtonVariant.ghost,
+              size: AppButtonSize.sm,
+              isFullWidth: true,
+              onPressed: cubit.toggleSelfHosting,
+            ),
           ),
           const SizedBox(height: Spacing.s1),
           skipButton,
