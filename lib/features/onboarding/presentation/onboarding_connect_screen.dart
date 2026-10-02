@@ -92,13 +92,23 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     unawaited(_checkConnectivity());
   }
 
+  Timer? _connectivityRetryTimer;
+
   Future<void> _checkConnectivity() async {
+    _connectivityRetryTimer?.cancel();
     final online = await hasInternet();
-    if (mounted) setState(() => _online = online);
+    if (!mounted) return;
+    setState(() => _online = online);
+    if (!online) {
+      _connectivityRetryTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) unawaited(_checkConnectivity());
+      });
+    }
   }
 
   @override
   void dispose() {
+    _connectivityRetryTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _urlController.dispose();
     _tokenController.dispose();
