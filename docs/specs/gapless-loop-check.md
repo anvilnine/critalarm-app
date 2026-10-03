@@ -73,9 +73,9 @@ git checkout assets/sounds/classic_siren.ogg
 In the app, pick Classic Siren as the default sound. Do not use `make run-quiet`: a quiet build
 plays the sound once and stops after 5 seconds, which never reaches a wrap.
 
-### Putting Z's installed build back
+### Putting your installed build back
 
-Use a spare Android phone if there is one. If the check runs on Z's Galaxy A25:
+Use a spare Android phone if there is one. If the check runs on your daily phone:
 
 1. Before installing, write down the installed version:
    `adb shell dumpsys package app.critalarm | grep versionName`, and keep the apk it came from.
