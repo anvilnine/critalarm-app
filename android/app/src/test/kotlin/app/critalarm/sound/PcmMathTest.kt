@@ -92,4 +92,21 @@ class PcmMathTest {
         assertEquals(500_000, PcmMath.grownCapacity(131_072, 500_000, 1_000_000))
         assertEquals(100, PcmMath.grownCapacity(100, 50, 1_000_000))
     }
+
+    @Test
+    fun aDecodeThatKeepsProducingIsNotStalled() {
+        // 4 s in, output 100 ms ago: over the old 2.5 s total, still fine.
+        assertNull(PcmMath.decodeGiveUp(4_000, 0, 3_900, 2_500, 10_000))
+    }
+
+    @Test
+    fun noOutputFor2500MsIsAStall() {
+        assertEquals("stalled", PcmMath.decodeGiveUp(2_501, 0, 0, 2_500, 10_000))
+        assertNull(PcmMath.decodeGiveUp(2_500, 0, 0, 2_500, 10_000))
+    }
+
+    @Test
+    fun tenSecondsInAllIsTooSlow() {
+        assertEquals("too_slow", PcmMath.decodeGiveUp(10_001, 0, 10_000, 2_500, 10_000))
+    }
 }
