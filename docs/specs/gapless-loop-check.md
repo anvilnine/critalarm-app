@@ -12,8 +12,12 @@ them. Do the check with the test tone below, never with a bundled sound.
 - **Android.** `AlarmPlayer` decodes the sound once to 16-bit PCM (`PcmDecoder`) and loops it
   through a streaming `AudioTrack` on `USAGE_ALARM` (`PcmLoopPlayer`). A writer thread feeds the
   same buffer over and over, so the audio server never sees a break. `PcmLoopTest` proves the
-  writer hands out every frame once per pass with nothing in between. If decoding fails, the log
-  shows `alarm_loop_fallback` and MediaPlayer plays the sound the old way, with a gap.
+  writer hands out every frame once per pass with nothing in between. When the track fails after
+  a good decode, the log shows `alarm_track_retry` and one new track is built from the same PCM.
+  If decoding fails, or the second track fails too, the log shows `alarm_loop_fallback` and
+  MediaPlayer plays the sound the old way, with a gap. A MediaPlayer that cannot open the sound
+  tries the bundled default, and one that fails while playing runs that chain once more after
+  500 ms (`alarm_media_player_retry`). `alarm_silent` means every step failed.
 - **iOS.** AlarmKit rings the compiled-in `ios/Runner/Sounds/alarm.caf`. Whether AlarmKit
   repeats a sound with no gap is not documented anywhere. Step 4 records it.
 - **iOS caf files.** `GaplessCaf` writes every bundled and imported sound at its own sample rate
