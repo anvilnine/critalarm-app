@@ -76,6 +76,7 @@
 		5387ED3388595C04D2B93590 /* p5.apns in Resources */ = {isa = PBXBuildFile; fileRef = C3F562DA2F44EAB6B928F6EB /* p5.apns */; };
 		6CFAE537A5AD36D290371A7B /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
 		6E372DAD65DA145D7B0F7BF5 /* IncidentAlarmScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1152E565D4F08BE1BD9C5C4 /* IncidentAlarmScheduler.swift */; };
+		A53A00000000000000000002 /* GaplessCaf.swift in Sources */ = {isa = PBXBuildFile; fileRef = A53A00000000000000000001 /* GaplessCaf.swift */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
@@ -231,6 +232,7 @@
 		56422C7C20CDE71116711FD1 /* alarm.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = alarm.caf; sourceTree = "<group>"; };
 		593DA1142F90062F7FE99B54 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
+		A53A00000000000000000001 /* GaplessCaf.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GaplessCaf.swift; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
@@ -490,6 +492,7 @@
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
+				A53A00000000000000000001 /* GaplessCaf.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */,
 				31FF5AB17D8F6EADAC2E31EA /* Sounds */,
@@ -909,6 +912,7 @@
 				A24A00000000000000000021 /* AlarmScheduleRule.swift in Sources */,
 				A24A00000000000000000031 /* NativeAckSender.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
+				A53A00000000000000000002 /* GaplessCaf.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				CF2A62EB3F4FB523CF9334A7 /* AckQueueStore.swift in Sources */,

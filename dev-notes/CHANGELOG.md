@@ -10,6 +10,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - `yearlySavingPercent` in `lib/features/paywall/domain/entities/plan_saving.dart`, with tests.
 - `HistoryWindow.shownDays` and `HistoryWindows.isLocked`; the history filter default window is 90 days, shown as the widest window the plan allows.
 - `make log`, `make devlog` and `make changelog-release` wrap cider for both changelogs.
+- tool/caf\_length\_check.sh checks caf length against ffmpeg on a Mac; docs/specs/gapless-loop-check.md says how to check the alarm loop on a phone.
 
 ### Changed
 - Onboarding step 1 on Android asks for notifications only; the full-screen intent is its own step 2 through `DevicePermissionsRepository`.
@@ -29,6 +30,10 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Redo onboarding in Settings shows in developer-flag builds (SKIP\_PAYWALL or PAYWALL\_LAB), not only debug builds.
 - The test alarm's It works screen shows a ripple of happy faces as its picture instead of one big face.
 - The test alarm's finish screen now reads Welcome to Crit Alarm! with a four-column face ripple and two buttons, Create your first topic and Finish.
+- The Android alarm decodes its sound once to PCM (PcmDecoder) and loops it through a streaming AudioTrack (PcmLoopPlayer). MediaPlayer is the fallback when decoding fails, logged as alarm\_loop\_fallback.
+- iOS convertToCAF writes LPCM caf at the source sample rate through GaplessCaf and cuts MP3 encoder delay and padding, so every caf is the exact decoded length.
+- The Android alarm falls back to MediaPlayer whenever the loop writer dies, and MediaPlayer tries the bundled default before giving up; logged as alarm\_loop\_fallback, alarm\_media\_player\_failed and alarm\_silent.
+- AlarmPlayer runs on the main thread only; a failed AudioTrack is rebuilt once from the decoded PCM (alarm\_track\_retry) before MediaPlayer, and a MediaPlayer that errors while playing retries the chain once after 500 ms (alarm\_media\_player\_retry).
 
 ### Fixed
 - The PRO badge uses `inkFixed`, so it stays ink on yellow in dark.

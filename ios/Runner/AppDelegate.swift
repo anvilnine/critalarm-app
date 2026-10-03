@@ -815,10 +815,28 @@ enum SoundLibrary {
     return allDone
   }
 
-  /// Decodes anything AVFoundation can read and writes 16-bit mono PCM at
-  /// 44.1 kHz in a caf. With a [range], only that part is written, with a
-  /// 50 ms fade at each end so the cut does not click.
+  /// Decodes anything AVFoundation can read and writes 16-bit mono PCM in a
+  /// caf, at the source's own sample rate. With a [range], only that part is
+  /// written, with a 50 ms fade at each end so the cut does not click.
+  ///
+  /// `GaplessCaf` does the work, so the caf is exactly as long as the
+  /// decoded source: no MP3 encoder delay or padding, no AAC priming. A file
+  /// `AVAudioFile` cannot read goes through AVAssetReader instead, which
+  /// keeps whatever priming and padding the source carries.
   static func convertToCAF(source: URL, destination: URL, range: CMTimeRange? = nil) -> Bool {
+    if GaplessCaf.convert(
+      source: source, destination: destination,
+      start: range.map { CMTimeGetSeconds($0.start) },
+      end: range.map { CMTimeGetSeconds($0.end) }
+    ) {
+      return true
+    }
+    NSLog("CritAlarmSound: convert_fallback reader=asset_reader path=%@", source.lastPathComponent)
+    return convertWithAssetReader(source: source, destination: destination, range: range)
+  }
+
+  /// The older conversion, for a file only AVAssetReader can open.
+  private static func convertWithAssetReader(source: URL, destination: URL, range: CMTimeRange?) -> Bool {
     // Exact timing, so a cut in a VBR mp3 lands where the user put it.
     let asset = AVURLAsset(url: source, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
     guard let track = asset.tracks(withMediaType: .audio).first,
@@ -827,17 +845,18 @@ enum SoundLibrary {
     else { return false }
     if let range { reader.timeRange = range }
 
-    // The reader hands over mono 44.1 kHz Int16, the same as what is written,
-    // so the fade can work on the samples directly.
-    let pcm: [String: Any] = [
-      AVFormatIDKey: kAudioFormatLinearPCM,
-      AVSampleRateKey: 44100,
-      AVNumberOfChannelsKey: 1,
-      AVLinearPCMBitDepthKey: 16,
-      AVLinearPCMIsFloatKey: false,
-      AVLinearPCMIsBigEndianKey: false,
-      AVLinearPCMIsNonInterleaved: false,
-    ]
+    // The source's own rate, so nothing is resampled.
+    let sourceRate: Double = {
+      guard let first = track.formatDescriptions.first else { return 44100 }
+      // AVFoundation hands format descriptions over as Any; this is a CF type.
+      let description = first as! CMFormatDescription
+      let rate = CMAudioFormatDescriptionGetStreamBasicDescription(description)?.pointee.mSampleRate ?? 0
+      return rate > 0 ? rate : 44100
+    }()
+
+    // The reader hands over mono Int16 at that rate, the same as what is
+    // written, so the fade can work on the samples directly.
+    let pcm = GaplessCaf.settings(sampleRate: sourceRate)
     let output = AVAssetReaderTrackOutput(track: track, outputSettings: pcm)
     let input = AVAssetWriterInput(mediaType: .audio, outputSettings: pcm)
     input.expectsMediaDataInRealTime = false
