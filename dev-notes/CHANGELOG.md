@@ -32,6 +32,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The test alarm's finish screen now reads Welcome to Crit Alarm! with a four-column face ripple and two buttons, Create your first topic and Finish.
 - The Android alarm decodes its sound once to PCM (PcmDecoder) and loops it through a streaming AudioTrack (PcmLoopPlayer). MediaPlayer is the fallback when decoding fails, logged as alarm\_loop\_fallback.
 - iOS convertToCAF writes LPCM caf at the source sample rate through GaplessCaf and cuts MP3 encoder delay and padding, so every caf is the exact decoded length.
+- The Android alarm falls back to MediaPlayer whenever the loop writer dies, and MediaPlayer tries the bundled default before giving up; logged as alarm\_loop\_fallback, alarm\_media\_player\_failed and alarm\_silent.
 
 ### Fixed
 - The PRO badge uses `inkFixed`, so it stays ink on yellow in dark.
