@@ -148,6 +148,130 @@ class $AssetsSoundsGen {
   /// File path: assets/sounds/classic_siren.ogg
   String get classicSirenOgg => 'assets/sounds/classic_siren.ogg';
 
+  /// File path: assets/sounds/emergency_alarm_bell.m4a
+  String get emergencyAlarmBellM4a => 'assets/sounds/emergency_alarm_bell.m4a';
+
+  /// File path: assets/sounds/emergency_alarm_bell.ogg
+  String get emergencyAlarmBellOgg => 'assets/sounds/emergency_alarm_bell.ogg';
+
+  /// File path: assets/sounds/emergency_endless_siren.m4a
+  String get emergencyEndlessSirenM4a =>
+      'assets/sounds/emergency_endless_siren.m4a';
+
+  /// File path: assets/sounds/emergency_endless_siren.ogg
+  String get emergencyEndlessSirenOgg =>
+      'assets/sounds/emergency_endless_siren.ogg';
+
+  /// File path: assets/sounds/emergency_hilo_siren.m4a
+  String get emergencyHiloSirenM4a => 'assets/sounds/emergency_hilo_siren.m4a';
+
+  /// File path: assets/sounds/emergency_hilo_siren.ogg
+  String get emergencyHiloSirenOgg => 'assets/sounds/emergency_hilo_siren.ogg';
+
+  /// File path: assets/sounds/emergency_klaxon.m4a
+  String get emergencyKlaxonM4a => 'assets/sounds/emergency_klaxon.m4a';
+
+  /// File path: assets/sounds/emergency_klaxon.ogg
+  String get emergencyKlaxonOgg => 'assets/sounds/emergency_klaxon.ogg';
+
+  /// File path: assets/sounds/emergency_proximity.m4a
+  String get emergencyProximityM4a => 'assets/sounds/emergency_proximity.m4a';
+
+  /// File path: assets/sounds/emergency_proximity.ogg
+  String get emergencyProximityOgg => 'assets/sounds/emergency_proximity.ogg';
+
+  /// File path: assets/sounds/emergency_rapid_beeper.m4a
+  String get emergencyRapidBeeperM4a =>
+      'assets/sounds/emergency_rapid_beeper.m4a';
+
+  /// File path: assets/sounds/emergency_rapid_beeper.ogg
+  String get emergencyRapidBeeperOgg =>
+      'assets/sounds/emergency_rapid_beeper.ogg';
+
+  /// File path: assets/sounds/emergency_red_alert.m4a
+  String get emergencyRedAlertM4a => 'assets/sounds/emergency_red_alert.m4a';
+
+  /// File path: assets/sounds/emergency_red_alert.ogg
+  String get emergencyRedAlertOgg => 'assets/sounds/emergency_red_alert.ogg';
+
+  /// File path: assets/sounds/emergency_sos_beeper.m4a
+  String get emergencySosBeeperM4a => 'assets/sounds/emergency_sos_beeper.m4a';
+
+  /// File path: assets/sounds/emergency_sos_beeper.ogg
+  String get emergencySosBeeperOgg => 'assets/sounds/emergency_sos_beeper.ogg';
+
+  /// File path: assets/sounds/emergency_sos_horn.m4a
+  String get emergencySosHornM4a => 'assets/sounds/emergency_sos_horn.m4a';
+
+  /// File path: assets/sounds/emergency_sos_horn.ogg
+  String get emergencySosHornOgg => 'assets/sounds/emergency_sos_horn.ogg';
+
+  /// File path: assets/sounds/emergency_speeding_beeper.m4a
+  String get emergencySpeedingBeeperM4a =>
+      'assets/sounds/emergency_speeding_beeper.m4a';
+
+  /// File path: assets/sounds/emergency_speeding_beeper.ogg
+  String get emergencySpeedingBeeperOgg =>
+      'assets/sounds/emergency_speeding_beeper.ogg';
+
+  /// File path: assets/sounds/emergency_tone_ladder.m4a
+  String get emergencyToneLadderM4a =>
+      'assets/sounds/emergency_tone_ladder.m4a';
+
+  /// File path: assets/sounds/emergency_tone_ladder.ogg
+  String get emergencyToneLadderOgg =>
+      'assets/sounds/emergency_tone_ladder.ogg';
+
+  /// File path: assets/sounds/emergency_wail_siren.m4a
+  String get emergencyWailSirenM4a => 'assets/sounds/emergency_wail_siren.m4a';
+
+  /// File path: assets/sounds/emergency_wail_siren.ogg
+  String get emergencyWailSirenOgg => 'assets/sounds/emergency_wail_siren.ogg';
+
+  /// File path: assets/sounds/emergency_windup_siren.m4a
+  String get emergencyWindupSirenM4a =>
+      'assets/sounds/emergency_windup_siren.m4a';
+
+  /// File path: assets/sounds/emergency_windup_siren.ogg
+  String get emergencyWindupSirenOgg =>
+      'assets/sounds/emergency_windup_siren.ogg';
+
+  /// File path: assets/sounds/emergency_yelp_siren.m4a
+  String get emergencyYelpSirenM4a => 'assets/sounds/emergency_yelp_siren.m4a';
+
+  /// File path: assets/sounds/emergency_yelp_siren.ogg
+  String get emergencyYelpSirenOgg => 'assets/sounds/emergency_yelp_siren.ogg';
+
+  /// File path: assets/sounds/loop_ascend.m4a
+  String get loopAscendM4a => 'assets/sounds/loop_ascend.m4a';
+
+  /// File path: assets/sounds/loop_ascend.ogg
+  String get loopAscendOgg => 'assets/sounds/loop_ascend.ogg';
+
+  /// File path: assets/sounds/loop_chiprun.m4a
+  String get loopChiprunM4a => 'assets/sounds/loop_chiprun.m4a';
+
+  /// File path: assets/sounds/loop_chiprun.ogg
+  String get loopChiprunOgg => 'assets/sounds/loop_chiprun.ogg';
+
+  /// File path: assets/sounds/loop_dread.m4a
+  String get loopDreadM4a => 'assets/sounds/loop_dread.m4a';
+
+  /// File path: assets/sounds/loop_dread.ogg
+  String get loopDreadOgg => 'assets/sounds/loop_dread.ogg';
+
+  /// File path: assets/sounds/loop_glockslide.m4a
+  String get loopGlockslideM4a => 'assets/sounds/loop_glockslide.m4a';
+
+  /// File path: assets/sounds/loop_glockslide.ogg
+  String get loopGlockslideOgg => 'assets/sounds/loop_glockslide.ogg';
+
+  /// File path: assets/sounds/loop_royalroad.m4a
+  String get loopRoyalroadM4a => 'assets/sounds/loop_royalroad.m4a';
+
+  /// File path: assets/sounds/loop_royalroad.ogg
+  String get loopRoyalroadOgg => 'assets/sounds/loop_royalroad.ogg';
+
   /// File path: assets/sounds/marimba_escalator.mp3
   String get marimbaEscalatorMp3 => 'assets/sounds/marimba_escalator.mp3';
 
@@ -198,6 +322,44 @@ class $AssetsSoundsGen {
     licenses,
     classicSirenMp3,
     classicSirenOgg,
+    emergencyAlarmBellM4a,
+    emergencyAlarmBellOgg,
+    emergencyEndlessSirenM4a,
+    emergencyEndlessSirenOgg,
+    emergencyHiloSirenM4a,
+    emergencyHiloSirenOgg,
+    emergencyKlaxonM4a,
+    emergencyKlaxonOgg,
+    emergencyProximityM4a,
+    emergencyProximityOgg,
+    emergencyRapidBeeperM4a,
+    emergencyRapidBeeperOgg,
+    emergencyRedAlertM4a,
+    emergencyRedAlertOgg,
+    emergencySosBeeperM4a,
+    emergencySosBeeperOgg,
+    emergencySosHornM4a,
+    emergencySosHornOgg,
+    emergencySpeedingBeeperM4a,
+    emergencySpeedingBeeperOgg,
+    emergencyToneLadderM4a,
+    emergencyToneLadderOgg,
+    emergencyWailSirenM4a,
+    emergencyWailSirenOgg,
+    emergencyWindupSirenM4a,
+    emergencyWindupSirenOgg,
+    emergencyYelpSirenM4a,
+    emergencyYelpSirenOgg,
+    loopAscendM4a,
+    loopAscendOgg,
+    loopChiprunM4a,
+    loopChiprunOgg,
+    loopDreadM4a,
+    loopDreadOgg,
+    loopGlockslideM4a,
+    loopGlockslideOgg,
+    loopRoyalroadM4a,
+    loopRoyalroadOgg,
     marimbaEscalatorMp3,
     marimbaEscalatorOgg,
     pagerBeepMp3,

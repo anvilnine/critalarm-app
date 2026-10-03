@@ -32,6 +32,7 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
   late List<String> calls;
+  late List<MethodCall> previewCalls;
   late int probedMs;
   const peaks = [0.25, 1.0];
 
@@ -59,6 +60,7 @@ void main() {
 
   setUp(() async {
     calls = [];
+    previewCalls = [];
     probedMs = 4000;
     holdUserPeaks = null;
     holdBundledPeaks = null;
@@ -66,6 +68,7 @@ void main() {
     userPeaksAsked = Completer<void>();
     messenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call.method);
+      if (call.method == 'startPreview') previewCalls.add(call);
       if (call.method == 'readPeaks') {
         final args = call.arguments as Map<Object?, Object?>;
         if (args['is_asset'] != true) {
@@ -120,6 +123,50 @@ void main() {
     expect(repository.assignments.soundIdFor('prod'), 'pager_beep');
     expect(publishCount(), 1);
   });
+
+  test('the picker lists all 27 built-in sounds in catalogue order', () {
+    expect(
+      [for (final s in cubit.state.bundled) s.id],
+      BundledSounds.ids,
+    );
+    expect(cubit.state.bundled, hasLength(27));
+  });
+
+  test('a loop previews from its bundled asset', () async {
+    final loop = cubit.state.bundled.singleWhere((s) => s.id == 'loop_dread');
+    expect(loop.seamlessLoop, isTrue);
+    await cubit.togglePreview(loop);
+    expect(cubit.state.previewingSoundId, 'loop_dread');
+    final args = previewCalls.single.arguments as Map<Object?, Object?>;
+    expect(args['path'], 'assets/sounds/loop_dread.m4a');
+    expect(args['is_asset'], isTrue);
+  });
+
+  test('an emergency sound previews from its bundled asset', () async {
+    final horn = cubit.state.bundled.singleWhere(
+      (s) => s.id == 'emergency_sos_horn',
+    );
+    await cubit.togglePreview(horn);
+    expect(cubit.state.previewingSoundId, 'emergency_sos_horn');
+    final args = previewCalls.single.arguments as Map<Object?, Object?>;
+    expect(args['path'], 'assets/sounds/emergency_sos_horn.m4a');
+    expect(args['is_asset'], isTrue);
+  });
+
+  test('an emergency sound picked for a topic is stored by its id', () async {
+    await cubit.load(topicName: 'prod');
+    await cubit.select('emergency_sos_horn');
+    expect(repository.assignments.soundIdFor('prod'), 'emergency_sos_horn');
+    expect(cubit.state.selectedSoundId, 'emergency_sos_horn');
+  });
+
+  test(
+    'an emergency sound picked as the default is stored by its id',
+    () async {
+      await cubit.select('emergency_alarm_bell');
+      expect(repository.assignments.defaultSoundId, 'emergency_alarm_bell');
+    },
+  );
 
   test('deleting a sound publishes after the fallback has moved', () async {
     repository.sounds.add(userSound);

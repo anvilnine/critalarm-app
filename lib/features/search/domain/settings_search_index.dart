@@ -114,6 +114,13 @@ abstract final class SettingsSearchIndex {
         'alarm',
         'ring',
         'volume',
+        // The built-in emergency sounds.
+        'emergency',
+        'klaxon',
+        'sos',
+        'beeper',
+        'horn',
+        'bell',
       ],
     ),
     // 'quiet_hours', 'critical_rings' and 'escalation_call' are out while

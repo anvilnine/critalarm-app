@@ -894,7 +894,26 @@
       "pager_beep": "Pager beep",
       "submarine_dive_horn": "Submarine dive horn",
       "rising_synth_sweep": "Rising synth sweep",
-      "plain_loud_beep": "Plain loud beep"
+      "plain_loud_beep": "Plain loud beep",
+      "emergency_hilo_siren": "Hi-lo siren",
+      "emergency_wail_siren": "Wail siren",
+      "emergency_yelp_siren": "Yelp siren",
+      "emergency_windup_siren": "Wind-up siren",
+      "emergency_klaxon": "Klaxon",
+      "emergency_sos_beeper": "SOS beeper",
+      "emergency_sos_horn": "SOS ship horn",
+      "emergency_rapid_beeper": "Rapid beeper",
+      "emergency_red_alert": "Red alert",
+      "emergency_endless_siren": "Endless siren",
+      "emergency_speeding_beeper": "Speeding beeper",
+      "emergency_proximity": "Proximity warning",
+      "emergency_alarm_bell": "Alarm bell",
+      "emergency_tone_ladder": "Tone ladder",
+      "loop_ascend": "Endless climb",
+      "loop_dread": "Falling dread",
+      "loop_chiprun": "Chip run",
+      "loop_glockslide": "Glock slide",
+      "loop_royalroad": "Royal road"
     }
   },
   "sound_picker": {

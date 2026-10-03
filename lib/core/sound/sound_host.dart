@@ -26,7 +26,7 @@ class SoundCapabilities {
   /// false. `docs/specs/remote-alarm-ios-spike.md` has the measurement.
   final bool userSoundsRingAlarm;
 
-  /// False when even the bundled eight cannot reach the alarm API, which is
+  /// False when even the bundled sounds cannot reach the alarm API, which is
   /// the same question for the same reason.
   final bool bundledSoundsRingAlarm;
 
@@ -122,7 +122,7 @@ final class SoundHost {
   Future<PickedSoundFile?> takeIncomingAudio() async =>
       pickedSoundFileFrom(await _invoke<Object?>('takeIncomingAudio'));
 
-  /// Copies the eight bundled sounds where the OS alarm and notification APIs
+  /// Copies the bundled sounds where the OS alarm and notification APIs
   /// can find them by name. Safe to call on every launch.
   Future<bool> prepareBundledSounds(List<AlarmSound> sounds) async =>
       await _invoke<bool>('prepareBundledSounds', {

@@ -792,7 +792,7 @@ enum SoundLibrary {
     return URL(fileURLWithPath: path)
   }
 
-  /// Copies the eight bundled sounds into `Library/Sounds` as caf.
+  /// Copies the bundled sounds into `Library/Sounds` as caf.
   ///
   /// Cheap to call on every launch: a file already there is left alone.
   @discardableResult

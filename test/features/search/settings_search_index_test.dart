@@ -17,6 +17,16 @@ void main() {
       expect(sound.keywords, containsAll(['record', 'voice memo']));
     });
 
+    test('the sound list answers to the emergency sound words', () {
+      final sound = SettingsSearchIndex.all.singleWhere(
+        (d) => d.id == 'alarm_sound',
+      );
+      expect(
+        sound.keywords,
+        containsAll(['emergency', 'klaxon', 'sos', 'beeper', 'horn', 'bell']),
+      );
+    });
+
     test('every destination points somewhere inside the app', () {
       for (final destination in SettingsSearchIndex.all) {
         expect(

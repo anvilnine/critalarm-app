@@ -48,8 +48,8 @@ Future<void> main() async {
   pushHost.queuedAcks.listen((_) => unawaited(getIt<AckQueue>().flush()));
 
   // iOS reads alarm and notification sounds by name out of the app bundle or
-  // Library/Sounds, and Flutter assets are in neither. This copies the eight
-  // bundled sounds somewhere the OS can find them. Android does nothing here.
+  // Library/Sounds, and Flutter assets are in neither. This copies every
+  // bundled sound somewhere the OS can find them. Android does nothing here.
   unawaited(
     getIt<SoundHost>().prepareBundledSounds(
       BundledSounds.catalogue(platform: defaultTargetPlatform),
