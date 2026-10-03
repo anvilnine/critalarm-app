@@ -30,7 +30,15 @@ class AlarmPlayer(private val context: Context) {
      * decode fails, MediaPlayer plays it the old way.
      */
     fun start(topic: String? = null) {
-        if (loopPlayer != null || player?.isPlaying == true) return
+        if (loopPlayer?.isAlive == true || player?.isPlaying == true) return
+        // Whatever is left is dead: a writer that failed, a single pass that
+        // played out, or a MediaPlayer that stopped. Clear it and ring again.
+        loopPlayer?.stop()
+        loopPlayer = null
+        player?.let { runCatching { it.release() } }
+        player = null
+        stopTimer?.removeCallbacksAndMessages(null)
+        stopTimer = null
         val soundId = AlarmSoundStore.soundIdFor(context, topic)
         val source = AlarmSoundStore.resolve(context, soundId)
         Log.i(
@@ -44,7 +52,11 @@ class AlarmPlayer(private val context: Context) {
         if (quiet) {
             Log.i("CritAlarmAlarm", "alarm_quiet_build ring_seconds=${QuietAlarm.RING_SECONDS}")
         } else {
-            previousVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+            // A re-ring keeps the volume saved by the first ring, not the
+            // maximum this player set.
+            if (previousVolume == null) {
+                previousVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+            }
             audioManager.setStreamVolume(
                 AudioManager.STREAM_ALARM,
                 audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM),
@@ -55,16 +67,24 @@ class AlarmPlayer(private val context: Context) {
         // stops it.
         val loop = !quiet
         lateinit var started: PcmLoopPlayer
-        started = PcmLoopPlayer(loop) {
-            main.post {
-                // Still the current ring: nobody pressed stop while it decoded.
-                if (loopPlayer === started) {
-                    loopPlayer = null
-                    Log.w("CritAlarmAlarm", "alarm_loop_fallback player=media_player sound_id=$soundId")
-                    startMediaPlayer(source, loop)
+        started = PcmLoopPlayer(
+            loop = loop,
+            onFailed = {
+                main.post {
+                    // Still the current ring: nobody pressed stop meanwhile.
+                    if (loopPlayer === started) {
+                        loopPlayer = null
+                        Log.w("CritAlarmAlarm", "alarm_loop_fallback player=media_player sound_id=$soundId")
+                        startMediaPlayer(source, loop)
+                    }
                 }
-            }
-        }
+            },
+            onPassDone = {
+                // A quiet ring played its one pass. Clear it so the next
+                // ring, such as a handover to the incident below, plays.
+                main.post { if (loopPlayer === started) loopPlayer = null }
+            },
+        )
         loopPlayer = started
         started.start { PcmDecoder.decode(context, source) }
         if (quiet) {
@@ -74,23 +94,44 @@ class AlarmPlayer(private val context: Context) {
         }
     }
 
-    /** The old path: MediaPlayer, whose loop has a gap at every wrap. */
+    /**
+     * The old path: MediaPlayer, whose loop has a gap at every wrap. If the
+     * sound will not open, the bundled default is tried before giving up.
+     */
     private fun startMediaPlayer(source: AlarmSoundSource, loop: Boolean) {
-        player = MediaPlayer().apply {
-            setAudioAttributes(
+        var next: AlarmSoundSource? = source
+        while (next != null) {
+            if (tryMediaPlayer(next, loop)) return
+            val failed = next
+            next = AlarmFallback.next(failed, AlarmSoundStore.assetPathFor(AlarmSoundStore.FALLBACK_ID))
+            Log.w("CritAlarmAlarm", "alarm_media_player_failed source=$failed next=${next ?: "-"}")
+        }
+        Log.e("CritAlarmAlarm", "alarm_silent reason=no_player_could_open_a_sound")
+    }
+
+    private fun tryMediaPlayer(source: AlarmSoundSource, loop: Boolean): Boolean {
+        val candidate = MediaPlayer()
+        return try {
+            candidate.setAudioAttributes(
                 AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build(),
             )
             when (source) {
-                is AlarmSoundSource.Imported -> setDataSource(source.path)
+                is AlarmSoundSource.Imported -> candidate.setDataSource(source.path)
                 is AlarmSoundSource.Asset ->
                     AlarmSoundStore.openAsset(context, source.assetPath).use {
-                        setDataSource(it.fileDescriptor, it.startOffset, it.length)
+                        candidate.setDataSource(it.fileDescriptor, it.startOffset, it.length)
                     }
             }
-            isLooping = loop
-            prepare()
-            start()
+            candidate.isLooping = loop
+            candidate.prepare()
+            candidate.start()
+            player = candidate
+            true
+        } catch (error: Exception) {
+            Log.w("CritAlarmAlarm", "alarm_media_player_error source=$source error=$error")
+            runCatching { candidate.release() }
+            false
         }
     }
 

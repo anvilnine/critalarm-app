@@ -15,22 +15,34 @@ import app.critalarm.sound.DecodedPcm
  * the whole sound in shared memory, and how much a device allows there varies.
  * A 60 s imported clip at 48 kHz stereo is 11 MB. The streaming track keeps a
  * buffer of a fraction of a second, and the writer thread feeds it the same
- * PCM over and over, chunk by chunk, through [PcmLoop].
+ * PCM over and over through [PcmWriter].
  *
  * Decoding happens on the same thread, before the track exists, so the caller
- * never blocks. [onFailed] runs on that thread when decoding or the track
- * fails; the caller falls back to MediaPlayer.
+ * never blocks. Every way the sound can end while it is still wanted reaches
+ * the caller on that thread: [onFailed] when decoding, building, starting or
+ * writing to the track fails, so the caller can fall back to MediaPlayer, and
+ * [onPassDone] when a non-looping ring has played out.
  */
 class PcmLoopPlayer(
     private val loop: Boolean,
     private val onFailed: () -> Unit,
+    private val onPassDone: () -> Unit = {},
 ) {
     private val lock = Any()
 
     @Volatile
     private var running = true
+
+    @Volatile
+    private var ended = false
     private var track: AudioTrack? = null
-    private var writerDone = false
+
+    /**
+     * True from [start] until [stop] is called or the writer has ended, by
+     * failing or by finishing its one pass. A player that is not alive will
+     * never make a sound again.
+     */
+    val isAlive: Boolean get() = running && !ended
 
     fun start(decode: () -> DecodedPcm?) {
         Thread({ run(decode) }, "CritAlarmLoop").start()
@@ -44,65 +56,76 @@ class PcmLoopPlayer(
                 runCatching { it.pause() }
                 runCatching { it.flush() }
             }
-            if (writerDone) releaseTrack()
         }
     }
 
     private fun run(decode: () -> DecodedPcm?) {
-        Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
-        try {
-            val pcm = runCatching(decode).getOrNull()
-            if (!running) return
-            if (pcm == null) {
-                onFailed()
-                return
-            }
-            val built = runCatching { build(pcm) }.getOrElse {
-                Log.w(TAG, "alarm_track_failed error=$it")
-                null
-            }
-            if (built == null) {
-                onFailed()
-                return
-            }
-            synchronized(lock) {
-                if (!running) {
-                    built.release()
-                    return
-                }
-                track = built
-                built.play()
-            }
-            Log.i(TAG, "alarm_loop_started frames=${pcm.frames} rate=${pcm.sampleRate} channels=${pcm.channels} loop=$loop")
-            write(built, pcm)
-        } catch (error: Exception) {
+        runCatching { Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO) }
+        val end = try {
+            play(decode)
+        } catch (error: Throwable) {
             Log.w(TAG, "alarm_loop_failed error=$error")
+            LoopEnd.FAILED
         } finally {
+            // The writer is the only one that releases the track, so a write
+            // in flight never touches a released one.
             synchronized(lock) {
-                writerDone = true
-                if (!running) releaseTrack()
+                track?.let { runCatching { it.release() } }
+                track = null
             }
+            ended = true
+        }
+        if (!running) return
+        when (end) {
+            LoopEnd.FAILED -> onFailed()
+            LoopEnd.PASS_DONE -> onPassDone()
+            LoopEnd.STOPPED -> Unit
         }
     }
 
-    /** Feeds the track until [stop], or until one pass is written when not looping. */
-    private fun write(track: AudioTrack, pcm: DecodedPcm) {
-        val cursor = PcmLoop(pcm.frames, loop)
-        val channels = pcm.channels
-        while (running) {
-            val chunk = cursor.next(CHUNK_FRAMES) ?: break
-            val end = (chunk.start + chunk.count) * channels
-            var at = chunk.start * channels
-            while (at < end && running) {
-                val written = track.write(pcm.samples, at, end - at, AudioTrack.WRITE_BLOCKING)
-                if (written < 0) {
-                    Log.w(TAG, "alarm_track_write_failed code=$written")
-                    return
-                }
-                // Zero only comes back from a paused or stopped track.
-                if (written == 0) return
-                at += written
-            }
+    private fun play(decode: () -> DecodedPcm?): LoopEnd {
+        val pcm = decode()
+        if (!running) return LoopEnd.STOPPED
+        if (pcm == null) return LoopEnd.FAILED
+        val built = try {
+            build(pcm)
+        } catch (error: Exception) {
+            Log.w(TAG, "alarm_track_failed error=$error")
+            return LoopEnd.FAILED
+        }
+        synchronized(lock) {
+            track = built
+            if (!running) return LoopEnd.STOPPED
+            built.play()
+        }
+        Log.i(TAG, "alarm_loop_started frames=${pcm.frames} rate=${pcm.sampleRate} channels=${pcm.channels} loop=$loop")
+        val end = PcmWriter.feed(
+            samples = pcm.samples,
+            frames = pcm.frames,
+            channels = pcm.channels,
+            loop = loop,
+            sink = { samples, offset, size -> built.write(samples, offset, size, AudioTrack.WRITE_BLOCKING) },
+            running = { running },
+            onError = { Log.w(TAG, "alarm_track_write_failed $it") },
+        )
+        if (end == LoopEnd.PASS_DONE) drain(built, pcm)
+        return if (running) end else LoopEnd.STOPPED
+    }
+
+    /**
+     * Lets the last of a single pass play out. `stop()` on a streaming track
+     * plays what is buffered and then stops, so this waits for the play head
+     * to reach the end, or for [stop], before the track is released.
+     */
+    private fun drain(track: AudioTrack, pcm: DecodedPcm) {
+        synchronized(lock) { if (running) runCatching { track.stop() } }
+        val limit = System.currentTimeMillis() + pcm.frames * 1000L / pcm.sampleRate + 1000L
+        while (running && System.currentTimeMillis() < limit) {
+            val head = runCatching { track.playbackHeadPosition }.getOrDefault(pcm.frames)
+            // Some devices reset the head to 0 once the drain completes; the
+            // time limit covers them.
+            if (head >= pcm.frames) return
+            Thread.sleep(50)
         }
     }
 
@@ -134,14 +157,7 @@ class PcmLoopPlayer(
             }
     }
 
-    /** Call with [lock] held. */
-    private fun releaseTrack() {
-        track?.let { runCatching { it.release() } }
-        track = null
-    }
-
     private companion object {
         const val TAG = "CritAlarmAlarm"
-        const val CHUNK_FRAMES = 4096
     }
 }

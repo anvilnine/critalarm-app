@@ -44,3 +44,76 @@ class PcmLoop(private val frames: Int, private val loop: Boolean) {
         return chunk
     }
 }
+
+/** How a writer stopped feeding the track. */
+enum class LoopEnd {
+    /** [PcmLoopPlayer.stop] was called. Nothing more to do. */
+    STOPPED,
+
+    /** The one pass of a non-looping ring is written in full. */
+    PASS_DONE,
+
+    /** The track refused a write or threw while still wanted. The owner must fall back. */
+    FAILED,
+}
+
+/** Where a writer puts PCM: an AudioTrack on a phone, a fake in tests. */
+fun interface PcmSink {
+    /** Shorts accepted, 0 when the track is paused or stopped, negative on an error. */
+    fun write(samples: ShortArray, offset: Int, size: Int): Int
+}
+
+/**
+ * Feeds [samples] ([frames] frames of [channels] channels) to [sink], wrapping
+ * with [PcmLoop], until [running] turns false, the single pass ends, or the
+ * sink fails.
+ *
+ * Every way out while [running] is still true, other than a finished single
+ * pass, is [LoopEnd.FAILED]: a negative code such as `ERROR_DEAD_OBJECT` after
+ * an audio server restart, a 0 from a track nobody paused, or a throw. The
+ * caller turns that into the MediaPlayer fallback, so the alarm never goes
+ * quiet on its own. Pure, so every exit is tested on the JVM.
+ */
+object PcmWriter {
+    const val CHUNK_FRAMES = 4096
+
+    fun feed(
+        samples: ShortArray,
+        frames: Int,
+        channels: Int,
+        loop: Boolean,
+        sink: PcmSink,
+        running: () -> Boolean,
+        chunkFrames: Int = CHUNK_FRAMES,
+        onError: (String) -> Unit = {},
+    ): LoopEnd {
+        val cursor = PcmLoop(frames, loop)
+        while (running()) {
+            val chunk = cursor.next(chunkFrames) ?: return LoopEnd.PASS_DONE
+            val end = (chunk.start + chunk.count) * channels
+            var at = chunk.start * channels
+            while (at < end) {
+                val written = try {
+                    sink.write(samples, at, end - at)
+                } catch (error: Exception) {
+                    if (!running()) return LoopEnd.STOPPED
+                    onError("threw $error")
+                    return LoopEnd.FAILED
+                }
+                afterWrite(written, running())?.let { outcome ->
+                    if (outcome == LoopEnd.FAILED) onError("code=$written")
+                    return outcome
+                }
+                at += written
+            }
+        }
+        return LoopEnd.STOPPED
+    }
+
+    /** What one write result means. Null: keep writing. */
+    fun afterWrite(written: Int, running: Boolean): LoopEnd? = when {
+        !running -> LoopEnd.STOPPED
+        written <= 0 -> LoopEnd.FAILED
+        else -> null
+    }
+}
