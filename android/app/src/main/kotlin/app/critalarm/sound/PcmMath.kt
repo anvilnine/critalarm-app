@@ -97,4 +97,17 @@ object PcmMath {
         val doubled = if (current > max / 2) max else current * 2
         return minOf(max, maxOf(needed, doubled, 1 shl 16))
     }
+
+    /**
+     * Why a decode should be given up on at [nowMs], or null to go on:
+     * `stalled` when no output has come for [noOutputMs] since
+     * [lastOutputAtMs], `too_slow` when the whole decode has run [totalMs]
+     * since [startedAtMs] even though output keeps coming.
+     */
+    fun decodeGiveUp(nowMs: Long, startedAtMs: Long, lastOutputAtMs: Long, noOutputMs: Long, totalMs: Long): String? =
+        when {
+            nowMs - lastOutputAtMs > noOutputMs -> "stalled"
+            nowMs - startedAtMs > totalMs -> "too_slow"
+            else -> null
+        }
 }

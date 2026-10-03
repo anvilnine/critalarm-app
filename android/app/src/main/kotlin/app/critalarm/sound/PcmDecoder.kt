@@ -36,15 +36,18 @@ object PcmDecoder {
     private const val TIMEOUT_US = 10_000L
 
     /**
-     * A decode that takes longer than this is given up on, so a stalled
-     * decoder costs at most this much silence before MediaPlayer takes over.
+     * No-progress cap: a decoder that hands back no output for this long has
+     * stalled and is given up on, so a stall costs at most this much silence
+     * before MediaPlayer takes over. The clock restarts with every output.
+     */
+    private const val MAX_NO_OUTPUT_MS = 2_500L
+
+    /**
+     * Total cap, generous so a slow phone still finishes a long import.
      * Software decoders run the bundled 16 s sounds many times faster than
      * real time; the log line `alarm_decoded ... decode_ms=` shows the cost.
      */
-    private const val MAX_DECODE_MS = 2_500L
-
-    /** About 1.25 s of the decoder handing back nothing at all. */
-    private const val MAX_EMPTY_DEQUEUES = 125
+    private const val MAX_DECODE_MS = 10_000L
 
     /**
      * The most samples ever held in memory, buffer slack included: 90 s of
@@ -95,13 +98,16 @@ object PcmDecoder {
             var inputDone = false
             var outputDone = false
             val startedAt = System.currentTimeMillis()
-            var emptyDequeues = 0
+            var lastOutputAt = startedAt
 
             while (!outputDone) {
-                if (System.currentTimeMillis() - startedAt > MAX_DECODE_MS ||
-                    emptyDequeues > MAX_EMPTY_DEQUEUES
-                ) {
-                    Log.w(TAG, "alarm_decode_failed reason=stalled source=$source")
+                val now = System.currentTimeMillis()
+                PcmMath.decodeGiveUp(now, startedAt, lastOutputAt, MAX_NO_OUTPUT_MS, MAX_DECODE_MS)?.let { reason ->
+                    Log.w(
+                        TAG,
+                        "alarm_decode_failed reason=$reason no_output_ms=${now - lastOutputAt} " +
+                            "decode_ms=${now - startedAt} source=$source",
+                    )
                     return null
                 }
                 if (!inputDone) {
@@ -119,7 +125,9 @@ object PcmDecoder {
                     }
                 }
                 val outIndex = decoder.dequeueOutputBuffer(info, TIMEOUT_US)
-                if (outIndex == MediaCodec.INFO_TRY_AGAIN_LATER) emptyDequeues += 1 else emptyDequeues = 0
+                if (outIndex >= 0 || outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    lastOutputAt = System.currentTimeMillis()
+                }
                 when {
                     outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                         // The real rate and layout come from here, not the extractor.
