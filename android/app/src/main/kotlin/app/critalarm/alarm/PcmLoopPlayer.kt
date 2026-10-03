@@ -18,10 +18,11 @@ import app.critalarm.sound.DecodedPcm
  * PCM over and over through [PcmWriter].
  *
  * Decoding happens on the same thread, before the track exists, so the caller
- * never blocks. Every way the sound can end while it is still wanted reaches
- * the caller on that thread: [onFailed] when decoding, building, starting or
- * writing to the track fails, so the caller can fall back to MediaPlayer, and
- * [onPassDone] when a non-looping ring has played out.
+ * never blocks. When the track fails after a good decode, one new track is
+ * built from the same PCM before giving up. Every way the sound can end while
+ * it is still wanted reaches the caller on that thread: [onFailed] when
+ * decoding, or both tracks, fail, so the caller can fall back to MediaPlayer,
+ * and [onPassDone] when a non-looping ring has played out.
  */
 class PcmLoopPlayer(
     private val loop: Boolean,
@@ -61,38 +62,43 @@ class PcmLoopPlayer(
 
     private fun run(decode: () -> DecodedPcm?) {
         runCatching { Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO) }
-        val end = try {
-            play(decode)
-        } catch (error: Throwable) {
-            Log.w(TAG, "alarm_loop_failed error=$error")
-            LoopEnd.FAILED
-        } finally {
+        LoopRun.finish(
+            body = { play(decode) },
             // The writer is the only one that releases the track, so a write
             // in flight never touches a released one.
-            synchronized(lock) {
-                track?.let { runCatching { it.release() } }
-                track = null
-            }
-            ended = true
-        }
-        if (!running) return
-        when (end) {
-            LoopEnd.FAILED -> onFailed()
-            LoopEnd.PASS_DONE -> onPassDone()
-            LoopEnd.STOPPED -> Unit
-        }
+            release = {
+                releaseTrack()
+                ended = true
+            },
+            running = { running },
+            onFailed = onFailed,
+            onPassDone = onPassDone,
+            onError = { Log.w(TAG, "alarm_loop_failed error=$it") },
+        )
     }
 
     private fun play(decode: () -> DecodedPcm?): LoopEnd {
         val pcm = decode()
         if (!running) return LoopEnd.STOPPED
         if (pcm == null) return LoopEnd.FAILED
-        val built = try {
-            build(pcm)
-        } catch (error: Exception) {
-            Log.w(TAG, "alarm_track_failed error=$error")
-            return LoopEnd.FAILED
-        }
+        // The PCM is good, so a failure from here on is the track's. Build
+        // one more from the same PCM before giving up: after an audio server
+        // restart the old track is dead but a new one plays.
+        return LoopRun.withRetries(
+            retries = TRACK_RETRIES,
+            running = { running },
+            attempt = { playOnce(pcm) },
+            onRetry = { number ->
+                Log.w(TAG, "alarm_track_retry attempt=$number")
+                releaseTrack()
+                Thread.sleep(RETRY_DELAY_MS)
+            },
+            onError = { Log.w(TAG, "alarm_track_failed error=$it") },
+        )
+    }
+
+    private fun playOnce(pcm: DecodedPcm): LoopEnd {
+        val built = build(pcm)
         synchronized(lock) {
             track = built
             if (!running) return LoopEnd.STOPPED
@@ -110,6 +116,13 @@ class PcmLoopPlayer(
         )
         if (end == LoopEnd.PASS_DONE) drain(built, pcm)
         return if (running) end else LoopEnd.STOPPED
+    }
+
+    private fun releaseTrack() {
+        synchronized(lock) {
+            track?.let { runCatching { it.release() } }
+            track = null
+        }
     }
 
     /**
@@ -159,5 +172,11 @@ class PcmLoopPlayer(
 
     private companion object {
         const val TAG = "CritAlarmAlarm"
+
+        /** Fresh tracks built from the same PCM after the first one fails. */
+        const val TRACK_RETRIES = 1
+
+        /** Time for a restarting audio server to come back before the rebuild. */
+        const val RETRY_DELAY_MS = 250L
     }
 }

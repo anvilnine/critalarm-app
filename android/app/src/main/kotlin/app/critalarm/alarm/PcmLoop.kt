@@ -117,3 +117,70 @@ object PcmWriter {
         else -> null
     }
 }
+
+/**
+ * How [PcmLoopPlayer]'s writer thread ends, kept apart from AudioTrack so
+ * every path is tested on the JVM.
+ */
+object LoopRun {
+    /**
+     * Runs [body], then always [release]s, then tells the owner how it ended:
+     * [onFailed] for a failure, [onPassDone] for a finished single pass, and
+     * nothing at all once [running] is false, because a stopped ring has no
+     * one left to tell. A throw from [body] is a failure.
+     */
+    fun finish(
+        body: () -> LoopEnd,
+        release: () -> Unit,
+        running: () -> Boolean,
+        onFailed: () -> Unit,
+        onPassDone: () -> Unit,
+        onError: (Throwable) -> Unit = {},
+    ): LoopEnd {
+        val end = try {
+            body()
+        } catch (error: Throwable) {
+            onError(error)
+            LoopEnd.FAILED
+        } finally {
+            release()
+        }
+        if (!running()) return LoopEnd.STOPPED
+        when (end) {
+            LoopEnd.FAILED -> onFailed()
+            LoopEnd.PASS_DONE -> onPassDone()
+            LoopEnd.STOPPED -> Unit
+        }
+        return end
+    }
+
+    /**
+     * Calls [attempt] with 0, and after a failure while still [running],
+     * again with 1 up to [retries], so a track killed by an audio server
+     * restart is rebuilt from the PCM already in memory before the owner
+     * falls back. [onRetry] runs between attempts. A throw from [attempt]
+     * counts as a failure.
+     */
+    fun withRetries(
+        retries: Int,
+        running: () -> Boolean,
+        attempt: (Int) -> LoopEnd,
+        onRetry: (Int) -> Unit = {},
+        onError: (Throwable) -> Unit = {},
+    ): LoopEnd {
+        var number = 0
+        while (true) {
+            val end = try {
+                attempt(number)
+            } catch (error: Exception) {
+                onError(error)
+                LoopEnd.FAILED
+            }
+            if (end != LoopEnd.FAILED || !running() || number >= retries) {
+                return if (running()) end else LoopEnd.STOPPED
+            }
+            number += 1
+            onRetry(number)
+        }
+    }
+}
