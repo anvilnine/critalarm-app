@@ -20,14 +20,10 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<!-- Managed Background Assets: the same app group as the app, packs hosted
-	     by Apple. Both the app and this extension carry these three keys. -->
+	<!-- Managed Background Assets: the same app group as the app. Only the app
+	     carries BAHasManagedAssetPacks and BAUsesAppleHosting (ITMS-91152). -->
 	<key>BAAppGroupID</key>
 	<string>group.app.critalarm</string>
-	<key>BAHasManagedAssetPacks</key>
-	<true/>
-	<key>BAUsesAppleHosting</key>
-	<true/>
 	<key>EXAppExtensionAttributes</key>
 	<dict>
 		<key>EXExtensionPointIdentifier</key>
