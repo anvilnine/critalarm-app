@@ -45,8 +45,23 @@ enum SharedSounds {
         defaults.set(perTopicFiles, forKey: perTopicFilesKey)
     }
 
+    /// The file name a sound id is stored under in `Library/Sounds`.
+    static func fileNameFor(soundID: String) -> String { "\(soundID).caf" }
+
+    /// Every sound from a downloaded sound pack has an id, and so a file
+    /// name, starting with this.
+    static let packSoundPrefix = "pack_"
+
+    /// What a pack sound whose file has gone rings instead: the bundled
+    /// default, which the app copies into the group on every launch.
+    static let packFallbackFile = "classic_siren.caf"
+
     /// The file name to play for [topic], or nil when nothing was published
-    /// or the file is not on disk. Nil means leave the payload's sound alone.
+    /// or no file is on disk. Nil means leave the payload's sound alone.
+    ///
+    /// The topic's own choice comes first, then the default, the same order
+    /// as the Android alarm and the picker. When the choices that are left
+    /// include a pack sound whose file is gone, [packFallbackFile] plays.
     static func fileName(
         forTopic topic: String?,
         defaults: UserDefaults?,
@@ -54,9 +69,15 @@ enum SharedSounds {
     ) -> String? {
         guard let defaults else { return nil }
         let perTopic = defaults.dictionary(forKey: perTopicFilesKey) as? [String: String] ?? [:]
-        let picked = topic.flatMap { perTopic[$0] } ?? defaults.string(forKey: defaultFileKey)
-        guard let name = picked, !name.isEmpty, fileExists(name) else { return nil }
-        return name
+        let picks = [
+            topic.flatMap { perTopic[$0] },
+            defaults.string(forKey: defaultFileKey),
+        ].compactMap { $0 }.filter { !$0.isEmpty }
+        if let found = picks.first(where: fileExists) { return found }
+        if picks.contains(where: { $0.hasPrefix(packSoundPrefix) }), fileExists(packFallbackFile) {
+            return packFallbackFile
+        }
+        return nil
     }
 
     /// True when [name] is in the group's `Library/Sounds`.

@@ -177,3 +177,32 @@ The `.ogg` files are Ogg containers holding Opus, not Vorbis. Homebrew's ffmpeg
 ships without `libvorbis`, and ffmpeg's own Vorbis encoder smears short beeps.
 Android has decoded Ogg/Opus since API 21 and this app's floor is API 28, so
 nothing is lost.
+
+## Downloadable sound packs
+
+Extra sounds ship outside the app, as packs the App Store and Google Play host
+and the app downloads when the user asks. They are not in this folder and do
+not add to the app's size.
+
+The first pack, `sound_pack_library`, holds 23 recordings by other people,
+each released as CC0 or public domain. None of them needs credit; every one
+gets it anyway. The full list (title, author, source page and licence for each
+sound) ships inside the pack and sits in the repo twice:
+
+- `android/sound_pack_library/src/main/assets/LICENSES.md` (Play pack)
+- `ios/SoundPacks/sound_pack_library/LICENSES.md` (Apple pack)
+
+The Acknowledgements screen in Settings shows the same credits.
+
+`tools/sounds/library_pack.mjs` prepares them from the original downloads,
+which are not committed:
+
+```
+node tools/sounds/library_pack.mjs /path/to/originals
+```
+
+It runs each one through the chain `emergency.mjs` uses (trim, repeat to 10 to
+30 s, high-pass, presence, leveller, parallel compression, soft clip, limiter,
+the same `ENCODING` block) and writes both packs' files, both credits files
+and `lib/core/sound/library_pack_sounds.dart`. The script header lists the
+three sounds that need settings of their own and why.

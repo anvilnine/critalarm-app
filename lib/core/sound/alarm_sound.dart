@@ -10,6 +10,10 @@ enum AlarmSoundSource {
 
   /// The user picked an audio file off their own device.
   user,
+
+  /// Downloaded from the store as part of a sound pack, then copied into the
+  /// app's own sound folder. Rings the way a user sound does.
+  pack,
 }
 
 /// A `Duration` is milliseconds on disk and a `Duration` in Dart.
@@ -37,7 +41,7 @@ abstract class AlarmSound with _$AlarmSound {
     required AlarmSoundSource source,
 
     /// Bundled: the asset key, for example `assets/sounds/pager_beep.mp3`.
-    /// User: an absolute path inside the app's own sound folder.
+    /// User and pack: an absolute path inside the app's own sound folder.
     required String path,
     @DurationMsConverter() required Duration duration,
 

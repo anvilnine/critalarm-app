@@ -1,6 +1,18 @@
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
+import 'package:critalarm/core/sound/sound_pack.dart';
 import 'package:flutter/foundation.dart';
+
+/// One row in "Sound packs": the pack and where it is.
+@immutable
+class SoundPackEntry {
+  const SoundPackEntry(this.pack, this.status);
+
+  final SoundPack pack;
+  final SoundPackStatus status;
+
+  SoundPackEntry withStatus(SoundPackStatus next) => SoundPackEntry(pack, next);
+}
 
 /// What the sound picker is showing.
 class SoundPickerState {
@@ -8,6 +20,8 @@ class SoundPickerState {
     this.isLoading = true,
     this.bundled = const [],
     this.userSounds = const [],
+    this.packs = const [],
+    this.packSounds = const [],
     this.selectedSoundId = '',
     this.defaultSoundId = '',
     this.topicName,
@@ -24,6 +38,15 @@ class SoundPickerState {
   final bool isLoadingPeaks;
   final List<AlarmSound> bundled;
   final List<AlarmSound> userSounds;
+
+  /// The packs the store offers, empty where there are none (the web).
+  final List<SoundPackEntry> packs;
+
+  /// Sounds from downloaded packs, listed under their pack.
+  final List<AlarmSound> packSounds;
+
+  /// Every sound the screen can show, for looking one up by id.
+  List<AlarmSound> get allSounds => [...bundled, ...packSounds, ...userSounds];
 
   /// The sound this screen is choosing: the topic's, or the global default.
   final String selectedSoundId;
@@ -50,6 +73,8 @@ class SoundPickerState {
     bool? isLoading,
     List<AlarmSound>? bundled,
     List<AlarmSound>? userSounds,
+    List<SoundPackEntry>? packs,
+    List<AlarmSound>? packSounds,
     String? selectedSoundId,
     String? defaultSoundId,
     String? topicName,
@@ -65,6 +90,8 @@ class SoundPickerState {
     isLoading: isLoading ?? this.isLoading,
     bundled: bundled ?? this.bundled,
     userSounds: userSounds ?? this.userSounds,
+    packs: packs ?? this.packs,
+    packSounds: packSounds ?? this.packSounds,
     selectedSoundId: selectedSoundId ?? this.selectedSoundId,
     defaultSoundId: defaultSoundId ?? this.defaultSoundId,
     topicName: topicName ?? this.topicName,

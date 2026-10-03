@@ -71,6 +71,14 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Managed Background Assets: Apple-hosted sound packs, downloaded by the
+	     CritAlarmDownloader extension into the shared app group. -->
+	<key>BAAppGroupID</key>
+	<string>group.app.critalarm</string>
+	<key>BAHasManagedAssetPacks</key>
+	<true/>
+	<key>BAUsesAppleHosting</key>
+	<true/>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>CritAlarmKeychainGroup</key>

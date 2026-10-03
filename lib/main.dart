@@ -10,6 +10,7 @@ import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
+import 'package:critalarm/core/sound/sound_pack.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
@@ -36,9 +37,22 @@ void _registerFontLicenses() {
   });
 }
 
+/// Credits every sound in the downloadable packs in Settings >
+/// Acknowledgements, whether or not this phone has downloaded them.
+void _registerSoundPackCredits() {
+  LicenseRegistry.addLicense(() async* {
+    for (final pack in SoundPacks.all) {
+      yield LicenseEntryWithLineBreaks([
+        'Sound pack: ${pack.englishName}',
+      ], pack.creditsText);
+    }
+  });
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   _registerFontLicenses();
+  _registerSoundPackCredits();
   await EasyLocalization.ensureInitialized();
   await configureDependencies();
   // The iOS ACK action runs with no engine and writes straight to the queue

@@ -42,6 +42,8 @@ import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
+import 'package:critalarm/core/sound/sound_pack_host.dart';
+import 'package:critalarm/core/sound/sound_pack_repository.dart';
 import 'package:critalarm/core/sound/sound_peaks_cache.dart';
 import 'package:critalarm/core/sound/sound_recorder.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
@@ -433,6 +435,10 @@ Future<void> configureDependencies({
       () => SharedPrefsAlarmSoundRepository(getIt<SharedPreferences>()),
     )
     ..registerLazySingleton<SoundHost>(SoundHost.new)
+    ..registerLazySingleton<SoundPackHost>(SoundPackHost.new)
+    ..registerLazySingleton<SoundPackRepository>(
+      () => SoundPackRepository(getIt<SoundPackHost>()),
+    )
     ..registerLazySingleton<SoundPeaksCache>(
       () => SoundPeaksCache(getIt<SoundHost>()),
     )
@@ -1215,6 +1221,7 @@ Future<void> configureDependencies({
         getIt<SoundFilePicker>(),
         getIt<SoundPeaksCache>(),
         nameOf: (id) => 'sound_library.names.$id'.tr(),
+        packs: getIt<SoundPackRepository>(),
       ),
     )
     ..registerFactory(

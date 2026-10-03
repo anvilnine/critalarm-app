@@ -62,13 +62,16 @@ class SharedPrefsAlarmSoundRepository implements AlarmSoundRepository {
     if (written.isError()) return written;
     // The fallback rule. Anything still pointing at the deleted sound moves,
     // so nothing is left holding an id that no longer resolves.
-    return _write(
-      _readAssignments().withSoundDeleted(
-        soundId,
-        fallbackSoundId: BundledSounds.fallbackId,
-      ),
-    );
+    return fallBackFrom(soundId);
   }
+
+  @override
+  Future<AppResult<Unit>> fallBackFrom(String soundId) => _write(
+    _readAssignments().withSoundDeleted(
+      soundId,
+      fallbackSoundId: BundledSounds.fallbackId,
+    ),
+  );
 
   SoundAssignments _readAssignments() {
     final stored = _prefs.getString(defaultKey);

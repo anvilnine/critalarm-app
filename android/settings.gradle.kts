@@ -20,6 +20,8 @@ pluginManagement {
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "9.0.1" apply false
+    // Play Asset Delivery packs. Same Android Gradle Plugin, so the same version.
+    id("com.android.asset-pack") version "9.0.1" apply false
     // START: FlutterFire Configuration
     id("com.google.gms.google-services") version("4.4.4") apply false
     id("com.google.firebase.crashlytics") version("3.0.7") apply false
@@ -28,3 +30,6 @@ plugins {
 }
 
 include(":app")
+// On-demand Play Asset Delivery pack of the library sounds. tools/sounds/library_pack.mjs
+// writes its files.
+include(":sound_pack_library")

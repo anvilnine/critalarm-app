@@ -59,4 +59,13 @@ class MemoryAlarmSoundRepository implements AlarmSoundRepository {
     );
     return unit.toSuccess();
   }
+
+  @override
+  Future<AppResult<Unit>> fallBackFrom(String soundId) async {
+    assignments = assignments.withSoundDeleted(
+      soundId,
+      fallbackSoundId: BundledSounds.fallbackId,
+    );
+    return unit.toSuccess();
+  }
 }

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
+import 'package:critalarm/core/sound/sound_pack.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -267,7 +268,11 @@ void main() {
       final names =
           (json['sound_library'] as Map<String, dynamic>)['names']
               as Map<String, dynamic>;
-      expect(names, BundledSounds.englishNames);
+      expect(names, {
+        ...BundledSounds.englishNames,
+        for (final pack in SoundPacks.all)
+          for (final sound in pack.sounds) sound.id: sound.englishName,
+      });
     });
 
     test('LICENSES.md lists every sound', () {
