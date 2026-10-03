@@ -1,7 +1,6 @@
 package app.critalarm.sound
 
 import android.content.Context
-import android.media.AudioFormat
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -35,11 +34,21 @@ class DecodedPcm(
 object PcmDecoder {
     private const val TAG = "CritAlarmAlarm"
     private const val TIMEOUT_US = 10_000L
-    private const val MAX_DECODE_MS = 10_000L
-    private const val MAX_EMPTY_DEQUEUES = 500
 
     /**
-     * The most samples held in memory: 90 s of 48 kHz stereo, about 17 MB.
+     * A decode that takes longer than this is given up on, so a stalled
+     * decoder costs at most this much silence before MediaPlayer takes over.
+     * Software decoders run the bundled 16 s sounds many times faster than
+     * real time; the log line `alarm_decoded ... decode_ms=` shows the cost.
+     */
+    private const val MAX_DECODE_MS = 2_500L
+
+    /** About 1.25 s of the decoder handing back nothing at all. */
+    private const val MAX_EMPTY_DEQUEUES = 125
+
+    /**
+     * The most samples ever held in memory, buffer slack included: 90 s of
+     * 48 kHz stereo, about 17 MB.
      * Clips are capped at 60 s, so only an odd uncut import gets near it.
      */
     private const val MAX_SAMPLES = 48_000 * 2 * 90
@@ -74,7 +83,10 @@ object PcmDecoder {
 
             var sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
             var channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-            var isFloat = false
+            // A raw WAV track can carry its PCM encoding on the extractor's
+            // format already; a decoder states its own on its output format.
+            var encoding = PcmMath.encodingOf(format)
+            var formatSeen = false
             var out = ShortArray(0)
             var outChannels = 0
             var frames = 0
@@ -114,10 +126,23 @@ object PcmDecoder {
                         val decoded = decoder.outputFormat
                         sampleRate = decoded.getInteger(MediaFormat.KEY_SAMPLE_RATE)
                         channels = decoded.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-                        isFloat = decoded.containsKey(MediaFormat.KEY_PCM_ENCODING) &&
-                            decoded.getInteger(MediaFormat.KEY_PCM_ENCODING) == AudioFormat.ENCODING_PCM_FLOAT
+                        encoding = PcmMath.encodingOf(decoded) ?: encoding
+                        formatSeen = true
                     }
                     outIndex >= 0 -> {
+                        if (!formatSeen) {
+                            // Some decoders never announce a format change.
+                            // Their format is final by the first buffer.
+                            val decoded = decoder.getOutputFormat(outIndex)
+                            sampleRate = decoded.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                            channels = decoded.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                            encoding = PcmMath.encodingOf(decoded) ?: encoding
+                            formatSeen = true
+                        }
+                        val bytesPerSample = PcmMath.bytesPerSample(encoding) ?: run {
+                            Log.w(TAG, "alarm_decode_failed reason=pcm_encoding encoding=$encoding source=$source")
+                            return null
+                        }
                         if (info.size > 0 && channels > 0) {
                             if (frames > 0 && outChannels != PcmMath.outputChannels(channels)) {
                                 Log.w(TAG, "alarm_decode_failed reason=channels_changed source=$source")
@@ -127,7 +152,7 @@ object PcmDecoder {
                             val buffer = decoder.getOutputBuffer(outIndex)!!
                             buffer.order(ByteOrder.nativeOrder())
                             buffer.position(info.offset)
-                            val bytesPerSample = if (isFloat) 4 else 2
+                            val isFloat = bytesPerSample == 4
                             val sampleCount = info.size / bytesPerSample
                             val frameCount = sampleCount / channels
                             if (scratch.size < sampleCount) scratch = ShortArray(sampleCount)
@@ -138,11 +163,13 @@ object PcmDecoder {
                                 buffer.asShortBuffer().get(scratch, 0, sampleCount)
                             }
                             val needed = (frames + frameCount) * outChannels
-                            if (needed > MAX_SAMPLES) {
-                                Log.w(TAG, "alarm_decode_failed reason=too_long source=$source")
-                                return null
+                            if (needed > out.size) {
+                                val capacity = PcmMath.grownCapacity(out.size, needed, MAX_SAMPLES) ?: run {
+                                    Log.w(TAG, "alarm_decode_failed reason=too_long source=$source")
+                                    return null
+                                }
+                                out = out.copyOf(capacity)
                             }
-                            if (needed > out.size) out = out.copyOf(maxOf(needed, out.size * 2, 1 shl 16))
                             PcmMath.mixInto(scratch, frameCount, channels, out, frames * outChannels)
                             frames += frameCount
                         }
@@ -167,11 +194,16 @@ object PcmDecoder {
             Log.i(
                 TAG,
                 "alarm_decoded mime=$mime rate=$sampleRate channels=$outChannels " +
-                    "frames=$kept trimmed=${frames - kept} source=$source",
+                    "frames=$kept trimmed=${frames - kept} " +
+                    "decode_ms=${System.currentTimeMillis() - startedAt} source=$source",
             )
             DecodedPcm(out, kept, outChannels, sampleRate)
         } catch (error: Exception) {
             Log.w(TAG, "alarm_decode_failed source=$source error=$error")
+            null
+        } catch (error: OutOfMemoryError) {
+            // The buffer is dropped with this frame, so MediaPlayer has room.
+            Log.w(TAG, "alarm_decode_failed reason=out_of_memory source=$source")
             null
         } finally {
             runCatching { codec?.stop() }
