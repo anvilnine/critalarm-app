@@ -1,7 +1,7 @@
 # Changelog
 User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec.yaml`. Entries are added with cider (`make log`), one line each. Rules: `AGENTS.md`, Changelogs. Changes only developers notice go in `dev-notes/CHANGELOG.md`.
 
-## Unreleased
+## 1.0.0+12 - 2026-10-03
 ### Added
 - Android onboarding asks for the full-screen alarm permission, so pages can ring over the lock screen from the first run.
 - A sheet offers the Topics guide the first time Topics opens after onboarding. "Not now" turns off every Feature Guide and says where to find them again.
