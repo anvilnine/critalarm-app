@@ -366,6 +366,28 @@ final class SharedSoundsTests: XCTestCase {
         XCTAssertNil(SharedSounds.fileName(forTopic: "prod", defaults: defaults) { _ in false })
     }
 
+    func testAMissingPackSoundPlaysTheClassicSiren() {
+        SharedSounds.publish(defaultFile: "classic_siren.caf", perTopicFiles: ["prod": "pack_library_boxing_bell.caf"], to: defaults)
+        let name = SharedSounds.fileName(forTopic: "prod", defaults: defaults) { $0 == "classic_siren.caf" }
+        XCTAssertEqual(name, "classic_siren.caf")
+    }
+
+    func testATopicWhosePackSoundIsGonePlaysTheDefault() {
+        SharedSounds.publish(defaultFile: "pager_beep.caf", perTopicFiles: ["prod": "pack_library_boxing_bell.caf"], to: defaults)
+        let name = SharedSounds.fileName(forTopic: "prod", defaults: defaults) { $0 != "pack_library_boxing_bell.caf" }
+        XCTAssertEqual(name, "pager_beep.caf")
+    }
+
+    func testAPackSoundOnDiskPlaysItself() {
+        SharedSounds.publish(defaultFile: "pack_library_boxing_bell.caf", perTopicFiles: [:], to: defaults)
+        XCTAssertEqual(SharedSounds.fileName(forTopic: nil, defaults: defaults) { _ in true }, "pack_library_boxing_bell.caf")
+    }
+
+    func testAMissingPackSoundWithNoFallbackLeavesThePayloadSound() {
+        SharedSounds.publish(defaultFile: "pack_library_boxing_bell.caf", perTopicFiles: [:], to: defaults)
+        XCTAssertNil(SharedSounds.fileName(forTopic: nil, defaults: defaults) { _ in false })
+    }
+
     func testNoDefaultClearsAnOldOne() {
         SharedSounds.publish(defaultFile: "classic_siren.caf", perTopicFiles: [:], to: defaults)
         SharedSounds.publish(defaultFile: nil, perTopicFiles: [:], to: defaults)

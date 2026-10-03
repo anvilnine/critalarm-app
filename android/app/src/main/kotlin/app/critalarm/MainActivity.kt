@@ -21,6 +21,7 @@ import app.critalarm.localreminders.LocalReminderChannel
 import app.critalarm.localreminders.LocalReminderTapIntent
 import app.critalarm.sound.IncomingAudioHolder
 import app.critalarm.sound.SoundChannel
+import app.critalarm.sound.SoundPackChannel
 import app.critalarm.widgets.WidgetChannel
 import io.flutter.plugin.common.MethodChannel
 
@@ -31,6 +32,7 @@ class MainActivity : FlutterFragmentActivity() {
     private val SETTINGS_CHANNEL = "app.critalarm/settings"
     private var soundChannel: SoundChannel? = null
     private var soundMethods: MethodChannel? = null
+    private var soundPacks: SoundPackChannel? = null
 
     /**
      * A tap the activity has read off an intent but Dart has not taken yet.
@@ -71,6 +73,10 @@ class MainActivity : FlutterFragmentActivity() {
         soundChannel = sounds
         this.soundMethods = soundMethods
         soundMethods.setMethodCallHandler(sounds::handle)
+        val packMethods = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SoundPackChannel.NAME)
+        val packs = SoundPackChannel(applicationContext, packMethods) { this }
+        soundPacks = packs
+        packMethods.setMethodCallHandler(packs::handle)
         val alarms = AlarmChannel(applicationContext)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AlarmChannel.NAME)
             .setMethodCallHandler(alarms::handle)
@@ -271,6 +277,8 @@ class MainActivity : FlutterFragmentActivity() {
         pushChannel = null
         reminderChannel = null
         soundMethods = null
+        soundPacks?.dispose()
+        soundPacks = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 

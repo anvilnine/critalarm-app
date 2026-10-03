@@ -38,36 +38,81 @@ object AlarmSoundStore {
     private const val TAG = "CritAlarmSound"
 
     /**
-     * Which sound rings.
+     * The sound to ring for [topic], and its id.
      *
      * [topic] is null for an incident push, because api.md §5.2 carries no
-     * topic on one. That falls through to the default, which is what the
+     * topic on one. That goes straight to the default, which is what the
      * picker calls "rings for every topic that has not picked its own".
+     *
+     * The topic's own choice comes first, then the default. A choice whose
+     * file is gone (an imported or pack sound) is skipped, the same way the
+     * picker moves a topic back to the default when its sound goes, and only
+     * when both are gone does the bundled classic siren ring. A file that is
+     * there but will not decode falls back later, in AlarmPlayer, through
+     * [app.critalarm.alarm.AlarmFallback].
      */
-    fun soundIdFor(context: Context, topic: String?): String {
+    fun resolveForTopic(context: Context, topic: String?): Pair<String, AlarmSoundSource> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val fallback = prefs.getString(DEFAULT_KEY, null)?.takeIf(String::isNotEmpty)
-            ?: FALLBACK_ID
-        if (topic.isNullOrEmpty()) return fallback
-        val raw = prefs.getString(PER_TOPIC_KEY, null) ?: return fallback
+        val defaultId = prefs.getString(DEFAULT_KEY, null)?.takeIf(String::isNotEmpty) ?: FALLBACK_ID
+        val topicId = topicSoundId(prefs.getString(PER_TOPIC_KEY, null), topic)
+        val picked = resolveChain(soundsDir(context), listOfNotNull(topicId, defaultId)) {
+            importedPath(context, it)
+        }
+        if (picked.first != (topicId ?: defaultId)) {
+            Log.w(TAG, "sound_missing sound_id=${topicId ?: defaultId} falling_back_to=${picked.first}")
+        }
+        return picked
+    }
+
+    /** The topic's own sound id from the per-topic JSON, or null. */
+    private fun topicSoundId(raw: String?, topic: String?): String? {
+        if (topic.isNullOrEmpty() || raw == null) return null
         return runCatching { JSONObject(raw).optString(topic, "") }
-            .getOrNull()?.takeIf(String::isNotEmpty) ?: fallback
+            .getOrNull()?.takeIf(String::isNotEmpty)
     }
 
     /**
-     * Turns a sound id into something MediaPlayer can open.
-     *
-     * An imported sound whose file has gone missing falls back to the bundled
-     * default, so the alarm always rings with something.
+     * The first of [soundIds] whose file is there, then the classic siren.
+     * Pure, so the JVM tests can run it.
      */
-    fun resolve(context: Context, soundId: String): AlarmSoundSource {
-        if (soundId.startsWith("user_")) {
-            val path = importedPath(context, soundId)
-            if (path != null && File(path).exists()) return AlarmSoundSource.Imported(path)
-            Log.w(TAG, "sound_missing sound_id=$soundId falling_back_to=$FALLBACK_ID")
-            return AlarmSoundSource.Asset(assetPathFor(FALLBACK_ID))
+    fun resolveChain(
+        soundsDir: File,
+        soundIds: List<String>,
+        importedPath: (String) -> String?,
+    ): Pair<String, AlarmSoundSource> {
+        for (id in soundIds.distinct()) {
+            val resolved = resolveIn(soundsDir, id, importedPath)
+            if (!resolved.fellBack) return id to resolved.source
         }
-        return AlarmSoundSource.Asset(assetPathFor(soundId))
+        return FALLBACK_ID to AlarmSoundSource.Asset(assetPathFor(FALLBACK_ID))
+    }
+
+    /** What [resolveIn] picked, and whether that was the fallback. */
+    data class Resolved(val source: AlarmSoundSource, val fellBack: Boolean)
+
+    /**
+     * One id to a source: no Android, no log, so the JVM tests can run it.
+     * [importedPath] looks a user sound's path up by id.
+     */
+    fun resolveIn(soundsDir: File, soundId: String, importedPath: (String) -> String?): Resolved {
+        val fallback = Resolved(AlarmSoundSource.Asset(assetPathFor(FALLBACK_ID)), fellBack = true)
+        if (soundId.startsWith("user_")) {
+            val path = importedPath(soundId)
+            if (path != null && File(path).exists()) {
+                return Resolved(AlarmSoundSource.Imported(path), fellBack = false)
+            }
+            return fallback
+        }
+        if (SoundPackRules.isPackSound(soundId)) {
+            // A pack sound rings from its copy in the sounds folder, never from
+            // the pack, which Play may move or drop.
+            if (SoundPackRules.isSafeName(soundId) && SoundPackRules.isInstalled(soundsDir, soundId)) {
+                val path = SoundPackRules.installedFile(soundsDir, soundId).path
+                return Resolved(AlarmSoundSource.Imported(path), fellBack = false)
+            }
+            return fallback
+        }
+        return Resolved(AlarmSoundSource.Asset(assetPathFor(soundId)), fellBack = false)
     }
 
     // Android plays the .ogg of every bundled sound. The rule lives in

@@ -31,4 +31,9 @@ abstract interface class AlarmSoundRepository {
   /// Removes the sound and re-points anything still using it. A topic falls
   /// back to the default; the default falls back to the first bundled sound.
   Future<AppResult<Unit>> deleteUserSound(String soundId);
+
+  /// Re-points anything using [soundId] the way [deleteUserSound] does,
+  /// without touching the user sound list. For a pack sound whose file is
+  /// no longer on the device.
+  Future<AppResult<Unit>> fallBackFrom(String soundId);
 }

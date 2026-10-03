@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
+import 'package:critalarm/core/sound/sound_pack.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design_system/widgets/section_card.dart';
@@ -85,7 +86,7 @@ class _SoundPickerView extends StatelessWidget {
   }
 
   static AlarmSound? selectedSound(SoundPickerState state) {
-    for (final sound in [...state.bundled, ...state.userSounds]) {
+    for (final sound in state.allSounds) {
       if (sound.id == state.selectedSoundId) return sound;
     }
     return null;
@@ -156,6 +157,35 @@ class _SoundPickerView extends StatelessWidget {
                               ],
                             ),
                           ),
+                          if (state.packs.isNotEmpty) ...[
+                            const SizedBox(height: Spacing.s3),
+                            SectionCard(
+                              title: LocaleKeys.sound_picker_packs_header.tr(),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (final entry in state.packs) ...[
+                                    _PackRow(entry: entry),
+                                    // A pack lists its sounds once they
+                                    // are on the device.
+                                    if (entry.status.state ==
+                                        SoundPackState.downloaded)
+                                      for (final sound in state.packSounds)
+                                        if (entry.pack.contains(sound.id))
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 8,
+                                            ),
+                                            child: _SoundRow(
+                                              sound: sound,
+                                              state: state,
+                                            ),
+                                          ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
                           if (state.userSounds.isNotEmpty ||
                               state.capabilities.canImportSounds) ...[
                             const SizedBox(height: Spacing.s3),
@@ -332,11 +362,14 @@ class _SoundRowState extends State<_SoundRow>
     final state = widget.state;
     final isPreviewing = _previewing(widget);
     final isUserSound = sound.source == AlarmSoundSource.user;
+    // A pack sound is a file in the app's sound folder, as a user sound is,
+    // so it rings the same way.
+    final isLocalFile = isUserSound || sound.source == AlarmSoundSource.pack;
     final tooLong =
         isUserSound &&
         SoundImportLimits.tooLongToRing(state.platform, sound.duration);
     final notificationsOnly =
-        isUserSound && !state.capabilities.userSoundsRingAlarm;
+        isLocalFile && !state.capabilities.userSoundsRingAlarm;
 
     return AnimatedBuilder(
       animation: _progress,
@@ -378,6 +411,116 @@ class _SoundRowState extends State<_SoundRow>
           },
         );
       },
+    );
+  }
+}
+
+/// One pack: its name, how many sounds it holds, where it is, and the
+/// download action while there is something to download.
+class _PackRow extends StatelessWidget {
+  const _PackRow({required this.entry});
+
+  final SoundPackEntry entry;
+
+  static String packName(SoundPack pack) => pack.id == SoundPacks.library.id
+      ? LocaleKeys.sound_picker_pack_names_sound_pack_library.tr()
+      : pack.englishName;
+
+  static String? statusLine(SoundPackStatus status) => switch (status.state) {
+    SoundPackState.downloading =>
+      status.progress == null
+          ? LocaleKeys.sound_picker_pack_downloading.tr()
+          : LocaleKeys.sound_picker_pack_downloading_percent.tr(
+              namedArgs: {'percent': '${(status.progress! * 100).round()}'},
+            ),
+    SoundPackState.waitingForWifi =>
+      LocaleKeys.sound_picker_pack_waiting_for_wifi.tr(),
+    SoundPackState.downloaded => LocaleKeys.sound_picker_pack_downloaded.tr(),
+    SoundPackState.failed => LocaleKeys.sound_picker_pack_failed.tr(),
+    SoundPackState.unavailable => LocaleKeys.sound_picker_pack_unavailable.tr(),
+    SoundPackState.needsNewerOs =>
+      LocaleKeys.sound_picker_pack_needs_newer_os.tr(),
+    SoundPackState.notDownloaded ||
+    SoundPackState.needsConfirmation ||
+    SoundPackState.unsupported => null,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final cubit = context.read<SoundPickerCubit>();
+    final status = entry.status;
+    final name = packName(entry.pack);
+    final line = statusLine(status);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontBody,
+                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: colors.ink,
+                  ),
+                ),
+                Text(
+                  LocaleKeys.sound_picker_pack_sound_count.tr(
+                    namedArgs: {'count': '${entry.pack.sounds.length}'},
+                  ),
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontMono,
+                    fontFamilyFallback: AppTypography.fontMonoFallbacks,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: colors.ink3,
+                  ),
+                ),
+                if (line != null)
+                  Text(
+                    line,
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontBody,
+                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                      fontSize: 13,
+                      color: colors.ink2,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (status.state.canDownload)
+            Semantics(
+              label: LocaleKeys.sound_picker_pack_download_aria_label.tr(
+                namedArgs: {'name': name},
+              ),
+              child: AppButton(
+                label: LocaleKeys.sound_picker_pack_download.tr(),
+                variant: AppButtonVariant.ghost,
+                size: AppButtonSize.sm,
+                onPressed: () {
+                  AppHaptics.selection();
+                  unawaited(cubit.downloadPack(entry.pack.id));
+                },
+              ),
+            )
+          else if (status.state.isBusy)
+            SizedBox.square(
+              dimension: 24,
+              child: CircularProgressIndicator(
+                value: status.progress,
+                strokeWidth: 3,
+                semanticsLabel: line,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

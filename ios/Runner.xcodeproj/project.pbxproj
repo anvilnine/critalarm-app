@@ -147,6 +147,11 @@
 		A31000000000000000000116 /* TopicWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000106 /* TopicWidget.swift */; };
 		A31000000000000000000117 /* OpenCountWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000107 /* OpenCountWidget.swift */; };
 		A31000000000000000000118 /* WidgetDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000108 /* WidgetDisplayTests.swift */; };
+		A54A00000000000000000002 /* SoundPackBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54A00000000000000000001 /* SoundPackBridge.swift */; };
+		A54A00000000000000000004 /* SoundPackBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54A00000000000000000003 /* SoundPackBridgeTests.swift */; };
+		A54A00000000000000000005 /* SoundPackBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54A00000000000000000001 /* SoundPackBridge.swift */; };
+		A54A00000000000000000014 /* DownloaderExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54A00000000000000000011 /* DownloaderExtension.swift */; };
+		A54A00000000000000000015 /* CritAlarmDownloader.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = A54A00000000000000000010 /* CritAlarmDownloader.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -171,6 +176,13 @@
 			remoteGlobalIDString = D86D592251E086420ADFCB9C;
 			remoteInfo = CritAlarmActivity;
 		};
+		A54A0000000000000000001C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A54A0000000000000000001B;
+			remoteInfo = CritAlarmDownloader;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -194,6 +206,17 @@
 				2BD028D86FA247C95D50E172 /* CritAlarmActivity.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A54A00000000000000000017 /* Embed ExtensionKit Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(EXTENSIONS_FOLDER_PATH)";
+			dstSubfolderSpec = 16;
+			files = (
+				A54A00000000000000000015 /* CritAlarmDownloader.appex in Embed ExtensionKit Extensions */,
+			);
+			name = "Embed ExtensionKit Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -293,6 +316,12 @@
 		A31000000000000000000106 /* TopicWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TopicWidget.swift; sourceTree = "<group>"; };
 		A31000000000000000000107 /* OpenCountWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenCountWidget.swift; sourceTree = "<group>"; };
 		A31000000000000000000108 /* WidgetDisplayTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetDisplayTests.swift; sourceTree = "<group>"; };
+		A54A00000000000000000001 /* SoundPackBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoundPackBridge.swift; sourceTree = "<group>"; };
+		A54A00000000000000000003 /* SoundPackBridgeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoundPackBridgeTests.swift; sourceTree = "<group>"; };
+		A54A00000000000000000010 /* CritAlarmDownloader.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = CritAlarmDownloader.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A54A00000000000000000011 /* DownloaderExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DownloaderExtension.swift; sourceTree = "<group>"; };
+		A54A00000000000000000012 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A54A00000000000000000013 /* CritAlarmDownloader.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = CritAlarmDownloader.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -326,6 +355,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				FCC5FE50E2B32C65DAE754E8 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A54A00000000000000000019 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -376,6 +412,7 @@
 				A24A00000000000000000006 /* NativeAckSenderTests.swift */,
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
 				78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */,
+				A54A00000000000000000003 /* SoundPackBridgeTests.swift */,
 				1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */,
 				A13F0C1E4B7D25A9E0114002 /* QuietHoursTests.swift */,
 				A13F0C1E4B7D25A9E0116005 /* IncidentContentCacheTests.swift */,
@@ -466,6 +503,7 @@
 				A2AC5B24027214B8FCBD0F33 /* CritAlarmNSE */,
 				D766E60CE6801CFC5001ED33 /* PushFixtures */,
 				4B90B0C6490AC04095D98CE2 /* CritAlarmActivity */,
+				A54A00000000000000000016 /* CritAlarmDownloader */,
 			);
 			sourceTree = "<group>";
 		};
@@ -476,6 +514,7 @@
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 				B48FF43F18021E4A198D5CC1 /* CritAlarmNSE.appex */,
 				95753DAD60ADE7A8BC9ABFC6 /* CritAlarmActivity.appex */,
+				A54A00000000000000000010 /* CritAlarmDownloader.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -493,6 +532,7 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				A53A00000000000000000001 /* GaplessCaf.swift */,
+				A54A00000000000000000001 /* SoundPackBridge.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */,
 				31FF5AB17D8F6EADAC2E31EA /* Sounds */,
@@ -553,6 +593,16 @@
 			path = Widgets;
 			sourceTree = "<group>";
 		};
+		A54A00000000000000000016 /* CritAlarmDownloader */ = {
+			isa = PBXGroup;
+			children = (
+				A54A00000000000000000011 /* DownloaderExtension.swift */,
+				A54A00000000000000000012 /* Info.plist */,
+				A54A00000000000000000013 /* CritAlarmDownloader.entitlements */,
+			);
+			path = CritAlarmDownloader;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -602,6 +652,7 @@
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				B0672B11E2BE0E9A0EFF8B6B /* Embed Foundation Extensions */,
+				A54A00000000000000000017 /* Embed ExtensionKit Extensions */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				88B6C9EF2F37794465B78B94 /* FlutterFire: "flutterfire upload-crashlytics-symbols" */,
@@ -611,6 +662,7 @@
 			dependencies = (
 				2D7C50090C08C0F32E2DDCE5 /* PBXTargetDependency */,
 				4BF7889A263BCA5B3DA9CD0D /* PBXTargetDependency */,
+				A54A0000000000000000001D /* PBXTargetDependency */,
 			);
 			name = Runner;
 			packageProductDependencies = (
@@ -637,6 +689,23 @@
 			productReference = 95753DAD60ADE7A8BC9ABFC6 /* CritAlarmActivity.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		A54A0000000000000000001B /* CritAlarmDownloader */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A54A00000000000000000021 /* Build configuration list for PBXNativeTarget "CritAlarmDownloader" */;
+			buildPhases = (
+				A54A00000000000000000018 /* Sources */,
+				A54A00000000000000000019 /* Frameworks */,
+				A54A0000000000000000001A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CritAlarmDownloader;
+			productName = CritAlarmDownloader;
+			productReference = A54A00000000000000000010 /* CritAlarmDownloader.appex */;
+			productType = "com.apple.product-type.extensionkit-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -647,6 +716,15 @@
 				LastUpgradeCheck = 1510;
 				ORGANIZATIONNAME = "";
 				TargetAttributes = {
+					A54A0000000000000000001B = {
+						CreatedOnToolsVersion = 26.4;
+						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
+					};
 					05734ECE5496AD88F886B6DE = {
 						CreatedOnToolsVersion = 15.1;
 						ProvisioningStyle = Automatic;
@@ -703,6 +781,7 @@
 				331C8080294A63A400263BE5 /* RunnerTests */,
 				05734ECE5496AD88F886B6DE /* CritAlarmNSE */,
 				D86D592251E086420ADFCB9C /* CritAlarmActivity */,
+				A54A0000000000000000001B /* CritAlarmDownloader */,
 			);
 		};
 /* End PBXProject section */
@@ -741,6 +820,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B2CEF310B550A3689B8C25F3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A54A0000000000000000001A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -873,6 +959,8 @@
 				A24A00000000000000000043 /* NativeAckSenderTests.swift in Sources */,
 				331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */,
 				9DF7AE06CF79C15046128835 /* NotificationServiceTests.swift in Sources */,
+				A54A00000000000000000004 /* SoundPackBridgeTests.swift in Sources */,
+				A54A00000000000000000005 /* SoundPackBridge.swift in Sources */,
 				D183068650726122FB4BED45 /* PushDeliveryTests.swift in Sources */,
 				A14C1D0EB7F3524C8A9D0011 /* DeviceIdentityKeychainTests.swift in Sources */,
 				05BDDBA0157A3EE529FEC613 /* NotificationService.swift in Sources */,
@@ -913,6 +1001,7 @@
 				A24A00000000000000000031 /* NativeAckSender.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				A53A00000000000000000002 /* GaplessCaf.swift in Sources */,
+				A54A00000000000000000002 /* SoundPackBridge.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				CF2A62EB3F4FB523CF9334A7 /* AckQueueStore.swift in Sources */,
@@ -996,6 +1085,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A54A00000000000000000018 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A54A00000000000000000014 /* DownloaderExtension.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1015,6 +1112,12 @@
 			name = CritAlarmActivity;
 			target = D86D592251E086420ADFCB9C /* CritAlarmActivity */;
 			targetProxy = BCA8FC9E0A77CEA2C77BF6F2 /* PBXContainerItemProxy */;
+		};
+		A54A0000000000000000001D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = CritAlarmDownloader;
+			target = A54A0000000000000000001B /* CritAlarmDownloader */;
+			targetProxy = A54A0000000000000000001C /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1480,6 +1583,75 @@
 			};
 			name = Profile;
 		};
+		A54A0000000000000000001E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Flutter/Extension.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = CritAlarmDownloader/CritAlarmDownloader.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = N358LNAWS2;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CritAlarmDownloader/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.CritAlarmDownloader;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A54A0000000000000000001F /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Flutter/Extension.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = CritAlarmDownloader/CritAlarmDownloader.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = N358LNAWS2;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CritAlarmDownloader/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.CritAlarmDownloader;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A54A00000000000000000020 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Flutter/Extension.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = CritAlarmDownloader/CritAlarmDownloader.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = N358LNAWS2;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CritAlarmDownloader/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.CritAlarmDownloader;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Profile;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1529,6 +1701,16 @@
 				97C147061CF9000F007C117D /* Debug */,
 				97C147071CF9000F007C117D /* Release */,
 				249021D4217E4FDB00AE95B9 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A54A00000000000000000021 /* Build configuration list for PBXNativeTarget "CritAlarmDownloader" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A54A0000000000000000001F /* Release */,
+				A54A0000000000000000001E /* Debug */,
+				A54A00000000000000000020 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

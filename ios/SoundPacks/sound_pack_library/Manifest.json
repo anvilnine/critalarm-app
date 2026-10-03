@@ -1,0 +1,17 @@
+{
+	"assetPackID": "sound_pack_library",
+	"downloadPolicy": {
+		"onDemand": {}
+	},
+	"fileSelectors": [
+		{
+			"directory": "sounds"
+		},
+		{
+			"file": "LICENSES.md"
+		}
+	],
+	"platforms": [
+		"iOS"
+	]
+}

@@ -55,8 +55,7 @@ class AlarmPlayer(private val context: Context) {
         releasePlayers()
         ringNumber += 1
         mediaRetried = false
-        val soundId = AlarmSoundStore.soundIdFor(context, topic)
-        val source = AlarmSoundStore.resolve(context, soundId)
+        val (soundId, source) = AlarmSoundStore.resolveForTopic(context, topic)
         Log.i(
             TAG,
             "alarm_sound sound_id=$soundId source=$source topic=${topic ?: "-"}",

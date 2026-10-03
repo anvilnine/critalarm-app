@@ -16,6 +16,7 @@ import AlarmKit
   private var pushChannel: FlutterMethodChannel?
   private var alarmChannel: FlutterMethodChannel?
   private var soundChannel: FlutterMethodChannel?
+  private var soundPackChannel: FlutterMethodChannel?
   private var settingsChannel: FlutterMethodChannel?
   private let localReminders = LocalReminderNotifications()
   private var alarmUpdatesTask: Task<Void, Never>?
@@ -51,7 +52,12 @@ import AlarmKit
     // Sounds live in the app group now, so the notification extension can
     // play the one the user picked. Both calls are cheap and safe every launch.
     SoundLibrary.migrateToGroupContainer()
-    SoundLibrary.publishToExtension()
+    // Publishes the choices now, on the main thread, with no caf conversion.
+    // Then one more pass on the sound queue converts any pack sound in use
+    // that has no caf (a failed conversion, a lost file), so the topic and
+    // the ring agree without waiting for the picker to open.
+    SoundLibrary.publishToExtension(convertPackSounds: false)
+    SoundLibrary.workQueue.async { SoundLibrary.publishToExtension(convertPackSounds: true) }
     // Shared sound files nobody opened last time. Queued before any scene
     // connects, so it runs before a cold-start share is copied.
     IncomingAudioInbox.startFresh()
@@ -92,6 +98,7 @@ import AlarmKit
     pushChannel = push
 
     soundChannel = attachSoundChannel(messenger: messenger)
+    soundPackChannel = attachSoundPackChannel(messenger: messenger)
 
     let alarm = FlutterMethodChannel(name: "app.critalarm/alarm", binaryMessenger: messenger)
     alarm.setMethodCallHandler { [weak self] call, result in
@@ -1041,7 +1048,7 @@ enum SoundLibrary {
   }
 
   /// The file name the alarm and notification APIs are handed.
-  static func fileName(forSoundId id: String) -> String { "\(id).caf" }
+  static func fileName(forSoundId id: String) -> String { SharedSounds.fileNameFor(soundID: id) }
 
   /// The file name for [id], or nil when the id is empty or the file on disk
   /// runs 30 seconds or more. A missing file is still published; the
@@ -1069,9 +1076,33 @@ enum SoundLibrary {
   /// choice, or a sound too long for iOS to play, publishes nothing, so the
   /// push keeps its own `alarm.caf`.
   @discardableResult
-  static func publishToExtension() -> Bool {
+  static func publishToExtension(convertPackSounds: Bool = true) -> Bool {
     guard let shared = SharedSounds.groupDefaults else { return false }
     let defaults = UserDefaults.standard
+    // Pack sounds ring from a caf made only while a choice uses them.
+    let storedDefault = defaults.string(forKey: "flutter.alarm_sound_default")
+    let storedPerTopic = defaults.string(forKey: "flutter.alarm_sound_per_topic")
+    var inUse = Set<String>()
+    if let id = storedDefault { inUse.insert(id) }
+    if let raw = storedPerTopic,
+       let data = raw.data(using: .utf8),
+       let map = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
+      inUse.formUnion(map.values)
+    }
+    var published = false
+    SoundPackBridge.live.sync(
+      inUse: inUse,
+      // With neither key readable, nothing may be deleted.
+      choicesReadable: storedDefault != nil || storedPerTopic != nil,
+      convertMissing: convertPackSounds
+    ) {
+      published = publishChoices(defaults: defaults, to: shared)
+    }
+    return published
+  }
+
+  /// Writes the ringable file names into the group for the extension.
+  private static func publishChoices(defaults: UserDefaults, to shared: UserDefaults) -> Bool {
     let defaultFile = defaults.string(forKey: "flutter.alarm_sound_default")
       .flatMap(ringableFileName(forSoundId:))
     var perTopic: [String: String] = [:]
@@ -1330,6 +1361,77 @@ extension AppDelegate {
     }
     return channel
   }
+}
+
+extension AppDelegate {
+  /// Wires `app.critalarm/sound_packs`, the store-hosted sound packs. The
+  /// calls and answers match Android's `SoundPackChannel`.
+  func attachSoundPackChannel(messenger: FlutterBinaryMessenger) -> FlutterMethodChannel {
+    let channel = FlutterMethodChannel(name: "app.critalarm/sound_packs", binaryMessenger: messenger)
+    let bridge = SoundPackBridge.live
+    channel.setMethodCallHandler { [weak channel] call, result in
+      let args = call.arguments as? [String: Any] ?? [:]
+      let pack = args["pack"] as? String ?? ""
+      let ids = args["ids"] as? [String] ?? []
+      switch call.method {
+      case "packState":
+        Task {
+          let state = await bridge.packState(pack)
+          await MainActor.run { result(state.dictionary) }
+        }
+      case "download":
+        // Answers once the pack is on the device or the download failed.
+        // Progress goes out as `packStateChanged` meanwhile, and stops once
+        // the answer is sent, so a late update cannot undo it.
+        let answered = AnsweredFlag()
+        Task {
+          let state = await bridge.download(pack) { fraction in
+            DispatchQueue.main.async {
+              guard !answered.value else { return }
+              var update = SoundPackWire.downloading(fraction).dictionary
+              update["pack"] = pack
+              channel?.invokeMethod("packStateChanged", arguments: update)
+            }
+          }
+          await MainActor.run {
+            answered.value = true
+            result(state.dictionary)
+          }
+        }
+      case "packPath":
+        result(bridge.packPath(pack, anySoundID: ids.first))
+      case "installPack":
+        SoundLibrary.inBackground(result) { bridge.install(pack, soundIDs: ids) }
+      case "installedPackSounds":
+        SoundLibrary.inBackground(result) { bridge.installed(pack, ids) }
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+    return channel
+  }
+}
+
+/// Set on the main thread once a download call has answered.
+final class AnsweredFlag {
+  var value = false
+}
+
+extension SoundPackBridge {
+  /// The real one: Apple's `AssetPackManager` on iOS 26 and later, no store
+  /// below that, and the same sounds folder and caf conversion imported
+  /// sounds use.
+  static let live: SoundPackBridge = {
+    var store: SoundPackStore?
+    #if canImport(BackgroundAssets) && os(iOS)
+    if #available(iOS 26.0, *) { store = AppleSoundPackStore() }
+    #endif
+    return SoundPackBridge(
+      store: store,
+      soundsDirectory: { SoundLibrary.soundsDirectory },
+      convert: { SoundLibrary.convertToCAF(source: $0, destination: $1) }
+    )
+  }()
 }
 
 /// What the spike found out about where AlarmKit will read a sound from.

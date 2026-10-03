@@ -53,4 +53,20 @@ void main() {
       before,
     );
   });
+
+  test('a missing pack sound falls back to classic_siren and keeps the user '
+      'sounds', () async {
+    await repository.setDefaultSoundId('pack_library_boxing_bell');
+    await repository.setTopicSoundId('prod', 'pack_library_boxing_bell');
+    await repository.setTopicSoundId('db', 'pager_beep');
+
+    final result = await repository.fallBackFrom('pack_library_boxing_bell');
+    expect(result.isSuccess(), isTrue);
+
+    final assignments = (await repository.getAssignments()).getOrThrow();
+    expect(assignments.defaultSoundId, 'classic_siren');
+    expect(assignments.soundIdFor('prod'), 'classic_siren');
+    expect(assignments.soundIdFor('db'), 'pager_beep');
+    expect((await repository.getUserSounds()).getOrThrow(), hasLength(3));
+  });
 }

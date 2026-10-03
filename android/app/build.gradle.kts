@@ -55,6 +55,10 @@ android {
         }
     }
 
+    // Sound packs the Play Store hosts and the app downloads on request. Only an
+    // app bundle carries them; a sideloaded apk reports the pack as unavailable.
+    assetPacks += listOf(":sound_pack_library")
+
     buildTypes {
         release {
             signingConfig = if (keystorePropertiesFile.exists()) {
@@ -81,6 +85,8 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
     implementation("com.google.firebase:firebase-messaging")
     implementation("androidx.core:core-ktx:1.17.0")
+    // AssetPackManager, for the on-demand sound packs.
+    implementation("com.google.android.play:asset-delivery:2.3.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.google.code.gson:gson:2.13.2")

@@ -11,6 +11,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Pro users can manage their subscription from the plan card in Settings.
 - 14 new built-in alarm sounds: sirens, a klaxon, SOS in Morse on a beeper and on a ship horn, beepers, a red alert and an alarm bell.
 - 5 new built-in alarm sounds: musical loops whose pitch or beat seems to climb, fall or speed up forever.
+- Sound packs: download 23 more alarm sounds (clocks, bells, buzzers, klaxons) from the App Store or Google Play when you want them. On iPhone this needs iOS 26 or later.
 
 ### Changed
 - "Back up your topics" waits until you own a topic and a day has passed since your first one. The backup reminder waits the same day.

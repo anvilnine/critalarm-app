@@ -13,6 +13,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - tool/caf\_length\_check.sh checks caf length against ffmpeg on a Mac; docs/specs/gapless-loop-check.md says how to check the alarm loop on a phone.
 - `tools/sounds/emergency.mjs` rebuilds the 14 `emergency_*` sounds into `assets/sounds/` as mono AAC `.m4a` (iOS) and mono Opus `.ogg` (Android), with byte-identical output and a decoded clip check. `BundledSounds.extensionFor` now takes the sound id, because the iOS extension differs per sound. Settings search finds the sound list by emergency, klaxon, sos, beeper, horn and bell.
 - `tools/sounds/loops.mjs` rebuilds the five `loop_*` sounds into `assets/sounds/` as mono AAC `.m4a` (afconvert on macOS) and mono Opus `.ogg`, each exactly 1,382,400 samples at 48 kHz on both platforms, with a decoded length, clip and join check. `AlarmSound.seamlessLoop` (default false) and `BundledSounds.seamlessLoops` mark them for a gapless player.
+- Sound packs: an on-demand Play Asset Delivery pack (sound\_pack\_library) and an Apple-hosted Background Assets pack with a downloader extension, bridged on the app.critalarm/sound\_packs channel. Pack sounds are copied into the app's sound folder and ring like imported ones; a missing pack sound falls back to classic\_siren.
+- tools/sounds/library\_pack.mjs prepares the library pack sounds with the emergency.mjs mastering chain and writes both packs, their credits and lib/core/sound/library\_pack\_sounds.dart.
 
 ### Changed
 - Onboarding step 1 on Android asks for notifications only; the full-screen intent is its own step 2 through `DevicePermissionsRepository`.
