@@ -126,13 +126,16 @@ Play Store on a tester's phone, and the download comes from Play.
 
 ## iOS
 
-The app and the `CritAlarmDownloader` extension both carry:
+Info.plist keys:
 
-| Key | Value |
-|---|---|
-| `BAAppGroupID` | `group.app.critalarm` |
-| `BAHasManagedAssetPacks` | `true` |
-| `BAUsesAppleHosting` | `true` |
+| Key | Value | App | `CritAlarmDownloader` |
+|---|---|---|---|
+| `BAAppGroupID` | `group.app.critalarm` | yes | yes |
+| `BAHasManagedAssetPacks` | `true` | yes | no |
+| `BAUsesAppleHosting` | `true` | yes | no |
+
+Keep the last two out of the extension. App Store Connect flags them there as
+ITMS-91152 and ignores them.
 
 The extension is Apple's default `StoreDownloaderExtension`, shares the app
 group and targets iOS 26.
