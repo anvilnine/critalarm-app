@@ -170,7 +170,8 @@ does not. One run, one ear, no ambiguity.
 ## Why the bundled sounds are converted to caf
 
 `UNNotificationSound` reads Linear PCM, MA4, µLaw and aLaw inside aiff, wav or
-caf. It does not read mp3. The eight bundled sounds ship as mp3 (the format
-`docs/specs/remote-alarm.md` calls for on iOS), so `SoundLibrary.prepare` in
+caf. It does not read mp3 or m4a. The first eight bundled sounds ship as mp3
+(the format `docs/specs/remote-alarm.md` calls for on iOS) and the emergency
+sounds as AAC in m4a, so `SoundLibrary.prepare` in
 `AppDelegate.swift` decodes each one to 16-bit PCM in a caf and writes it to
 `Library/Sounds` on launch. The same conversion runs on an imported file.

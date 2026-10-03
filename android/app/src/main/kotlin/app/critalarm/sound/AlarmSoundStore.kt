@@ -70,6 +70,8 @@ object AlarmSoundStore {
         return AlarmSoundSource.Asset(assetPathFor(soundId))
     }
 
+    // Android plays the .ogg of every bundled sound. The rule lives in
+    // BundledSounds.extensionFor (lib/core/sound/bundled_sounds.dart); keep the two in step.
     fun assetPathFor(soundId: String) = "assets/sounds/$soundId.ogg"
 
     private fun importedPath(context: Context, soundId: String): String? {

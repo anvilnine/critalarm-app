@@ -11,6 +11,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - `HistoryWindow.shownDays` and `HistoryWindows.isLocked`; the history filter default window is 90 days, shown as the widest window the plan allows.
 - `make log`, `make devlog` and `make changelog-release` wrap cider for both changelogs.
 - tool/caf\_length\_check.sh checks caf length against ffmpeg on a Mac; docs/specs/gapless-loop-check.md says how to check the alarm loop on a phone.
+- `tools/sounds/emergency.mjs` rebuilds the 14 `emergency_*` sounds into `assets/sounds/` as mono AAC `.m4a` (iOS) and mono Opus `.ogg` (Android), with byte-identical output and a decoded clip check. `BundledSounds.extensionFor` now takes the sound id, because the iOS extension differs per sound. Settings search finds the sound list by emergency, klaxon, sos, beeper, horn and bell.
+- `tools/sounds/loops.mjs` rebuilds the five `loop_*` sounds into `assets/sounds/` as mono AAC `.m4a` (afconvert on macOS) and mono Opus `.ogg`, each exactly 1,382,400 samples at 48 kHz on both platforms, with a decoded length, clip and join check. `AlarmSound.seamlessLoop` (default false) and `BundledSounds.seamlessLoops` mark them for a gapless player.
 
 ### Changed
 - Onboarding step 1 on Android asks for notifications only; the full-screen intent is its own step 2 through `DevicePermissionsRepository`.
@@ -34,6 +36,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - iOS convertToCAF writes LPCM caf at the source sample rate through GaplessCaf and cuts MP3 encoder delay and padding, so every caf is the exact decoded length.
 - The Android alarm falls back to MediaPlayer whenever the loop writer dies, and MediaPlayer tries the bundled default before giving up; logged as alarm\_loop\_fallback, alarm\_media\_player\_failed and alarm\_silent.
 - AlarmPlayer runs on the main thread only; a failed AudioTrack is rebuilt once from the decoded PCM (alarm\_track\_retry) before MediaPlayer, and a MediaPlayer that errors while playing retries the chain once after 500 ms (alarm\_media\_player\_retry).
+- tools/sounds generators master every bundled sound to at least -9 LUFS on the decoded mono file and fail any decoded file over -1.0 dBTP true peak. Sounds already that loud get gain only; quieter ones get a presence lift, parallel compression, a 4x soft clip with a DC-blocking high-pass, and a 4x limiter. Emergency sounds and loops encode Opus at 48k (12 kHz cutoff for emergency, 16 kHz for loops). generate.py rebuilds byte-identically. AlarmSound.seamlessLoop is derived from the id, never stored.
 
 ### Fixed
 - The PRO badge uses `inkFixed`, so it stays ink on yellow in dark.

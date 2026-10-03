@@ -9,12 +9,15 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The App icon screen is a full-screen showcase. Pro icons show a lock and a Go Pro button for Free users.
 - Home shows a one-time notice on Android when battery optimization could delay pages, once you have a critical topic.
 - Pro users can manage their subscription from the plan card in Settings.
+- 14 new built-in alarm sounds: sirens, a klaxon, SOS in Morse on a beeper and on a ship horn, beepers, a red alert and an alarm bell.
+- 5 new built-in alarm sounds: musical loops whose pitch or beat seems to climb, fall or speed up forever.
 
 ### Changed
 - "Back up your topics" waits until you own a topic and a day has passed since your first one. The backup reminder waits the same day.
 - History offers only the windows your plan keeps: Free shows 24 hours and 7 days, Pro goes back 90 days.
 - Default sound is a direct row in Settings, and Settings pages no longer show the tab bar.
 - The dark theme keeps cards, switches and the tab bar visible against the background.
+- The built-in alarm sounds are louder, and none has a quiet stretch you could sleep through.
 
 ### Fixed
 - Android onboarding no longer says your phone needs iOS 26.
