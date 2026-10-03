@@ -1,5 +1,7 @@
 package app.critalarm.sound
 
+import android.media.AudioFormat
+import android.media.MediaFormat
 import kotlin.math.roundToInt
 
 /**
@@ -66,5 +68,33 @@ object PcmMath {
             out[outOffset + frame] = (sum / inChannels).toShort()
         }
         return frameCount
+    }
+
+    /** The PCM encoding a format states, or null when it states none. */
+    fun encodingOf(format: MediaFormat): Int? =
+        if (format.containsKey(MediaFormat.KEY_PCM_ENCODING)) format.getInteger(MediaFormat.KEY_PCM_ENCODING) else null
+
+    /**
+     * Bytes per sample for a decoder's [encoding], or null for one the alarm
+     * does not read. No stated encoding means 16-bit, the MediaCodec default.
+     * 8-bit, 24-bit packed and 32-bit integer output are refused rather than
+     * read as 16-bit, which would play noise at the wrong length.
+     */
+    fun bytesPerSample(encoding: Int?): Int? = when (encoding) {
+        null, AudioFormat.ENCODING_PCM_16BIT -> 2
+        AudioFormat.ENCODING_PCM_FLOAT -> 4
+        else -> null
+    }
+
+    /**
+     * The new size of a sample buffer of [current] shorts that must hold
+     * [needed], never past [max]. Doubles to keep copies rare, starting at
+     * 64 K. Null when [needed] is over [max]: the sound is too long to hold.
+     */
+    fun grownCapacity(current: Int, needed: Int, max: Int): Int? {
+        if (needed > max) return null
+        if (needed <= current) return current
+        val doubled = if (current > max / 2) max else current * 2
+        return minOf(max, maxOf(needed, doubled, 1 shl 16))
     }
 }

@@ -1,7 +1,9 @@
 package app.critalarm.sound
 
 import org.junit.Assert.assertArrayEquals
+import android.media.AudioFormat
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class PcmMathTest {
@@ -62,5 +64,32 @@ class PcmMathTest {
         val out = ShortArray(2)
         assertEquals(2, PcmMath.mixInto(sixChannels, 2, 6, out, 0))
         assertArrayEquals(shortArrayOf(3, 12), out)
+    }
+
+    @Test
+    fun onlySixteenBitAndFloatAreRead() {
+        assertEquals(2, PcmMath.bytesPerSample(null))
+        assertEquals(2, PcmMath.bytesPerSample(AudioFormat.ENCODING_PCM_16BIT))
+        assertEquals(4, PcmMath.bytesPerSample(AudioFormat.ENCODING_PCM_FLOAT))
+        assertNull(PcmMath.bytesPerSample(AudioFormat.ENCODING_PCM_8BIT))
+        assertNull(PcmMath.bytesPerSample(AudioFormat.ENCODING_PCM_24BIT_PACKED))
+        assertNull(PcmMath.bytesPerSample(AudioFormat.ENCODING_PCM_32BIT))
+    }
+
+    @Test
+    fun theBufferNeverGrowsPastTheCap() {
+        val max = 48_000 * 2 * 90
+        // The old growth doubled 8.4M to 16.7M shorts, past the cap.
+        assertEquals(max, PcmMath.grownCapacity(8_388_608, 8_388_609, max))
+        assertNull(PcmMath.grownCapacity(max, max + 1, max))
+        assertEquals(max, PcmMath.grownCapacity(5_000_000, max, max))
+    }
+
+    @Test
+    fun theBufferStartsAt64kAndDoubles() {
+        assertEquals(65_536, PcmMath.grownCapacity(0, 1_920, 1_000_000))
+        assertEquals(131_072, PcmMath.grownCapacity(65_536, 66_000, 1_000_000))
+        assertEquals(500_000, PcmMath.grownCapacity(131_072, 500_000, 1_000_000))
+        assertEquals(100, PcmMath.grownCapacity(100, 50, 1_000_000))
     }
 }
