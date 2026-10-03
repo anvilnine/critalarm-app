@@ -27,6 +27,10 @@ ffmpeg -v error -i "$work/siren44.wav" -c:a aac -b:a 128k "$work/siren44_ffmpeg.
 ffmpeg -v error -i "$work/siren48.wav" -c:a libmp3lame -b:a 192k "$work/siren48_lame.mp3"
 ffmpeg -v error -i "$work/sine750.wav" -c:a libmp3lame -b:a 192k "$work/sine750_lame.mp3"
 afconvert -f AIFF -d BEI16 "$work/siren44.wav" "$work/siren44.aiff"
+# An mp3 with cover art that pushes the first frame past 256 KB.
+ffmpeg -v error -f lavfi -i "color=s=700x700" -vf "noise=alls=100:allf=t" -frames:v 1 "$work/cover.png"
+ffmpeg -v error -i assets/sounds/classic_siren.mp3 -i "$work/cover.png" -map 0 -map 1 -c copy \
+  -id3v2_version 3 -metadata:s:v comment="Cover (front)" "$work/siren44_cover_lame.mp3"
 
 set --
 for source in assets/sounds/*.mp3 "$work"/*.m4a "$work"/*_lame.mp3 "$work/siren48.wav" "$work/siren44.aiff"; do

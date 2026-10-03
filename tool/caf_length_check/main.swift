@@ -68,6 +68,10 @@ check(GaplessTrim.fadeGain(index: 0, count: 100, fadeFrames: 10) == 0
 /// Largest sample difference allowed against ffmpeg, full scale 1.
 let maxAllowedError: Float = 0.01
 
+check(Mp3Gapless.id3v2Length(of: Data([0x49, 0x44, 0x33, 3, 0, 0, 0x00, 0x12, 0x7F, 0x7F])) == 10 + 311_295,
+      "id3: syncsafe size read from the header")
+check(Mp3Gapless.id3v2Length(of: Data([0xFF, 0xFB, 0x90, 0xC4])) == 0, "id3: no tag is length 0")
+
 let args = Array(CommandLine.arguments.dropFirst())
 let outDir = URL(fileURLWithPath: args[0])
 var pairs = args.dropFirst()
