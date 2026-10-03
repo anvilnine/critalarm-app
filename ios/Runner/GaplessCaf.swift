@@ -14,19 +14,29 @@ struct Mp3Gapless: Equatable {
   /// The counts from the first audio frame of [data], or nil when there is
   /// no Xing/Info frame with a LAME extension.
   static func read(from data: Data) -> Mp3Gapless? {
-    let bytes = [UInt8](data.prefix(256 * 1024))
+    // An ID3v2 tag comes first, and cover art can make it megabytes long,
+    // so the first frame is looked for in the 256 KB after the tag.
+    let tag = id3v2Length(of: data)
+    guard tag < data.count else { return nil }
+    let start = data.startIndex + tag
+    let bytes = [UInt8](data[start..<min(data.endIndex, start + 256 * 1024)])
     var at = 0
-    // An ID3v2 tag comes first: a 10-byte header and a syncsafe size.
-    if bytes.count >= 10, bytes[0] == 0x49, bytes[1] == 0x44, bytes[2] == 0x33 {
-      let size = (Int(bytes[6]) << 21) | (Int(bytes[7]) << 14) | (Int(bytes[8]) << 7) | Int(bytes[9])
-      let footer = bytes[5] & 0x10 != 0 ? 10 : 0
-      at = 10 + size + footer
-    }
     while at + 4 <= bytes.count {
       if let info = frameAt(at, in: bytes) { return info.gapless }
       at += 1
     }
     return nil
+  }
+
+  /// Bytes taken by an ID3v2 tag at the start of [data]: a 10-byte header,
+  /// a syncsafe size and an optional 10-byte footer. Zero when there is none.
+  static func id3v2Length(of data: Data) -> Int {
+    let head = [UInt8](data.prefix(10))
+    guard head.count == 10, head[0] == 0x49, head[1] == 0x44, head[2] == 0x33 else { return 0 }
+    let size = (Int(head[6] & 0x7F) << 21) | (Int(head[7] & 0x7F) << 14)
+      | (Int(head[8] & 0x7F) << 7) | Int(head[9] & 0x7F)
+    let footer = head[5] & 0x10 != 0 ? 10 : 0
+    return 10 + size + footer
   }
 
   private struct Header {

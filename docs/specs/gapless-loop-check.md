@@ -28,7 +28,7 @@ them. Do the check with the test tone below, never with a bundled sound.
 Every line must say `PASS` and the last line `ALL PASS`. Each line compares one caf against
 ffmpeg's decode of the same source: frame count, sample rate, and the largest sample difference
 at the same index. The bundled mp3s, mp3s from libmp3lame, m4a from `afconvert` and from
-ffmpeg, wav and aiff are all covered.
+ffmpeg, wav, aiff and an mp3 whose cover art pushes the first frame past 256 KB are all covered.
 
 ## 2. Make the test tone
 
