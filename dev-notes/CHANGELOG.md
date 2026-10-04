@@ -7,18 +7,25 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Prefs keys `onboarding_flow_id`, `onboarding_flow_steps` and `onboarding_flow_completed` hold the pinned setup flow and the steps finished in it. All three are cleared when setup completes.
 - Routes `/onboarding/first-topic`, `/onboarding/real-ring` and `/onboarding/test`. `CreateTopicScreen` takes an optional `onDone` callback that replaces its three exits, and `OnboardingConnectScreen` takes a `part` (connect or test).
 - `AppHighlightCard` (tones `crit` and `calm`), `AppAnimatedTick` and `AppWaitingFace` in `lib/design/components/`, shown in the gallery. The no-server notice card draws its surface with `AppHighlightCard`.
+- Android battery step in setup, shown only on makers listed in backgroundKillerMakers. DeviceMakerReader reads the maker, and a debug run takes --dart-define=DEVICE\_MAKER=<name> to fake it.
+- PermissionStepDots counts the steps a phone draws. OnboardingAmbientStep.battery is the canvas for the battery step.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
 - Locale values and the search keyword for the paid plan say Hosted. Keys, class names, routes and analytics event names keep their pro\_ names. The create-topic limit hint is now the key create\_topic.limit\_review\_plan\_hint.
 - `AppEmptyState` has no English defaults: `title` and `description` are required and `buttonLabel` is null unless passed. The Home empty card reads its words from `home.empty_body` and `home.empty_button`.
 - A pinned setup flow goes through the validator each time it is read: unknown ids are dropped, and a rejected or empty list is replaced by the bundled default with the completed steps kept. `finishOnboardingStep` does not navigate when the router moved while it was waiting. `CriticalAlarmState.hasOwnedTopic` decides whether the demo celebration offers the first topic.
+- The permissions screen walks a step list built per platform by permissionSetupStepsFor. ReadPermissionSetupUsecase reads every step's status before one is drawn, and the flow engine's permissions check uses the same read.
+- Permission copy keys split by platform: onboarding\_permissions.ios.{notifications,alarms,time\_sensitive}.\* and onboarding\_permissions.android.{notifications,full\_screen,battery}.*. The mixed step1\_*, step2\_*, preview\_* and badge\* keys are gone. New keys: checking, step\_progress.
+- PermissionDialogPreview is split into IosPermissionDialogPreview, AndroidPermissionDialogPreview and AndroidSettingsSwitchPreview inside a shared PermissionPreviewFrame. The full-screen step now draws a settings switch.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
+- The denied permissions screen stays on screen through a status read. It used to turn into the stepper as soon as the first read finished.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
+- NotificationPermissionsState.activeSubstep, totalSteps, alarmSupported, fullScreenStep, fullScreenGranted, notificationsGranted and criticalAlertsGranted, replaced by steps, current and granted. The cubit's requestNotifications, requestCriticalAlerts and requestPermissions are one allowCurrentStep.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added
