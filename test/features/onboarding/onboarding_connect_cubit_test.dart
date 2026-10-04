@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
@@ -6,6 +8,8 @@ import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
+import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
+import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
@@ -32,6 +36,8 @@ class MockTriggerTestAlarmUsecase extends Mock
 class MockEstablishSession extends Mock implements EstablishApiSessionUsecase {}
 
 class MockGetConnectionUsecase extends Mock implements GetConnectionUsecase {}
+
+class MockBackgroundConnect extends Mock implements BackgroundConnect {}
 
 void main() {
   late MockEstablishSession mockEstablishSession;
@@ -639,6 +645,412 @@ void main() {
       await pumpEventQueue();
 
       expect(prefs.getKeys(), isEmpty);
+      await cubit.close();
+    });
+  });
+
+  group('Continue with Crit Alarm Cloud', () {
+    late MockBackgroundConnect background;
+
+    setUp(() {
+      background = MockBackgroundConnect();
+      when(() => background.start(any())).thenAnswer((_) async {});
+      when(() => background.cancel()).thenAnswer((_) async {});
+      when(() => background.state).thenReturn(const BackgroundConnectState());
+    });
+
+    OnboardingConnectCubit build({Future<bool> Function()? isOnline}) =>
+        OnboardingConnectCubit(
+          mockGetServerInfo,
+          mockSaveConnection,
+          mockTriggerTestAlarm,
+          establishSession: mockEstablishSession,
+          backgroundConnect: background,
+          isOnline: isOnline,
+        );
+
+    test('hands the Cloud address to the background connect and does not '
+        'connect itself', () async {
+      final cubit = build();
+
+      await cubit.connectToCloud();
+
+      verify(() => background.start('https://api.critalarm.app')).called(1);
+      verifyNever(() => mockGetServerInfo(any()));
+      verifyNever(() => mockEstablishSession(any(), any()));
+      verifyNever(() => mockSaveConnection(any()));
+      // The step is not held on "connecting": the screen moves on.
+      expect(cubit.state.status, OnboardingConnectStatus.idle);
+      // The form keeps what the user typed, if anything.
+      expect(cubit.state.serverUrl, isEmpty);
+      await cubit.close();
+    });
+
+    test(
+      'works the same with no network: the intent is all it needs',
+      () async {
+        when(() => mockGetServerInfo(any())).thenAnswer(
+          (_) async => const Failure.unexpected(message: 'offline').toFailure(),
+        );
+        final cubit = build(isOnline: () async => false);
+
+        await cubit.connectToCloud();
+
+        verify(() => background.start('https://api.critalarm.app')).called(1);
+        expect(cubit.state.errorMessage, isNull);
+        await cubit.close();
+      },
+    );
+
+    test('a connect by hand cancels the Cloud connect still pending', () async {
+      when(() => mockSaveConnection(any())).thenAnswer(
+        (_) async => unit.toSuccess(),
+      );
+      final cubit = build()
+        ..toggleSelfHosting()
+        ..serverUrlChanged('https://alerts.mybox.local')
+        ..adminTokenChanged('ad_secret');
+
+      await cubit.connect();
+
+      verify(() => background.cancel()).called(1);
+      verifyNever(() => background.start(any()));
+      await cubit.close();
+    });
+
+    test('opened on its own it waits, says what is happening, and is done '
+        'when the connect lands', () async {
+      final changes = StreamController<BackgroundConnectState>.broadcast();
+      addTearDown(changes.close);
+      when(() => background.stream).thenAnswer((_) => changes.stream);
+      when(() => background.state).thenReturn(
+        const BackgroundConnectState(
+          status: BackgroundConnectStatus.connecting,
+        ),
+      );
+      final cubit = build();
+
+      await cubit.connectToCloud(waitForResult: true);
+      expect(cubit.state.status, OnboardingConnectStatus.connecting);
+      final connecting = cubit.state.cloudWaitLine;
+      expect(connecting, isNotNull);
+
+      changes.add(
+        const BackgroundConnectState(
+          status: BackgroundConnectStatus.waitingForNetwork,
+        ),
+      );
+      await pumpEventQueue();
+      expect(cubit.state.status, OnboardingConnectStatus.connecting);
+      expect(cubit.state.cloudWaitLine, isNot(connecting));
+
+      changes.add(
+        const BackgroundConnectState(
+          status: BackgroundConnectStatus.connected,
+          serverUrl: 'https://api.critalarm.app',
+        ),
+      );
+      await pumpEventQueue();
+      expect(cubit.state.isConnected, isTrue);
+      expect(cubit.state.cloudWaitLine, isNull);
+      // No confirmation: the Cloud needs none, so the screen closes.
+      expect(cubit.state.confirmation, isNull);
+      await cubit.close();
+    });
+
+    test('opened on its own, a connect that gives up says why and lets the '
+        'user try again', () async {
+      final changes = StreamController<BackgroundConnectState>.broadcast();
+      addTearDown(changes.close);
+      when(() => background.stream).thenAnswer((_) => changes.stream);
+      when(() => background.state).thenReturn(
+        const BackgroundConnectState(
+          status: BackgroundConnectStatus.connecting,
+        ),
+      );
+      final cubit = build();
+      await cubit.connectToCloud(waitForResult: true);
+
+      changes.add(
+        const BackgroundConnectState(
+          status: BackgroundConnectStatus.failed,
+          failure: BackgroundConnectFailure.refused,
+        ),
+      );
+      await pumpEventQueue();
+
+      expect(cubit.state.status, OnboardingConnectStatus.failure);
+      expect(cubit.state.errorMessage, isNotNull);
+      expect(cubit.state.cloudWaitLine, isNull);
+      await cubit.close();
+    });
+
+    test('opened after a background failure, it says why', () async {
+      when(() => background.state).thenReturn(
+        const BackgroundConnectState(
+          status: BackgroundConnectStatus.failed,
+          failure: BackgroundConnectFailure.refused,
+        ),
+      );
+      final cubit = build();
+
+      await cubit.loadConnection();
+
+      expect(cubit.state.errorMessage, isNotNull);
+      await cubit.close();
+    });
+  });
+
+  group('Cloud probe and privacy line', () {
+    OnboardingConnectCubit build({Future<bool> Function()? isOnline}) =>
+        OnboardingConnectCubit(
+          mockGetServerInfo,
+          mockSaveConnection,
+          mockTriggerTestAlarm,
+          establishSession: mockEstablishSession,
+          isOnline: isOnline ?? () async => true,
+        );
+
+    test('no line and no offline card before the answer', () async {
+      final cubit = build();
+      expect(cubit.state.cloudPrivacyLine, isNull);
+      expect(cubit.state.cloudOnline, isNull);
+      await cubit.close();
+    });
+
+    test('the answer gives the line and says the phone is online', () async {
+      when(() => mockGetServerInfo(any())).thenAnswer(
+        (_) async => const ServerInfo(
+          version: '0.9.0',
+          baseUrl: 'https://api.critalarm.app',
+          relayUrl: 'https://relay.critalarm.app',
+          mode: ServerModes.hosted,
+          statedRelayContent: 'none',
+        ).toSuccess(),
+      );
+      final cubit = build();
+
+      await cubit.probeCloud();
+
+      expect(cubit.state.cloudOnline, isTrue);
+      expect(cubit.state.cloudPrivacyLine, ConnectPrivacyLine.cloudNone);
+      verify(
+        () => mockGetServerInfo(Uri.parse('https://api.critalarm.app')),
+      ).called(1);
+      await cubit.close();
+    });
+
+    test('relay_content full gives the line that says so', () async {
+      when(() => mockGetServerInfo(any())).thenAnswer(
+        (_) async => const ServerInfo(
+          version: '0.9.0',
+          baseUrl: 'https://api.critalarm.app',
+          relayUrl: 'https://relay.critalarm.app',
+          mode: ServerModes.hosted,
+          relayContent: 'full',
+          statedRelayContent: 'full',
+        ).toSuccess(),
+      );
+      final cubit = build();
+
+      await cubit.probeCloud();
+
+      expect(cubit.state.cloudPrivacyLine, ConnectPrivacyLine.cloudFull);
+      await cubit.close();
+    });
+
+    test('offline: the card shows and there is no line', () async {
+      when(() => mockGetServerInfo(any())).thenAnswer(
+        (_) async => const Failure.unexpected(message: 'offline').toFailure(),
+      );
+      final cubit = build(isOnline: () async => false);
+
+      await cubit.probeCloud();
+
+      expect(cubit.state.cloudOnline, isFalse);
+      expect(cubit.state.cloudPrivacyLine, isNull);
+      await cubit.close();
+    });
+
+    test('server down but network up: no card and still no line', () async {
+      when(() => mockGetServerInfo(any())).thenAnswer(
+        (_) async => const Failure.api(statusCode: 503).toFailure(),
+      );
+      final cubit = build(isOnline: () async => true);
+
+      await cubit.probeCloud();
+
+      expect(cubit.state.cloudOnline, isTrue);
+      expect(cubit.state.cloudPrivacyLine, isNull);
+      await cubit.close();
+    });
+
+    test('a line shown earlier goes away when the next answer fails', () async {
+      when(() => mockGetServerInfo(any())).thenAnswer(
+        (_) async => const ServerInfo(
+          version: '0.9.0',
+          baseUrl: 'https://api.critalarm.app',
+          relayUrl: 'https://relay.critalarm.app',
+          mode: ServerModes.hosted,
+          statedRelayContent: 'none',
+        ).toSuccess(),
+      );
+      final cubit = build(isOnline: () async => false);
+      await cubit.probeCloud();
+      expect(cubit.state.cloudPrivacyLine, isNotNull);
+
+      when(() => mockGetServerInfo(any())).thenAnswer(
+        (_) async => const Failure.unexpected(message: 'offline').toFailure(),
+      );
+      await cubit.probeCloud();
+
+      expect(cubit.state.cloudPrivacyLine, isNull);
+      expect(cubit.state.cloudOnline, isFalse);
+      await cubit.close();
+    });
+  });
+
+  group('own server stays in the foreground', () {
+    setUp(() {
+      when(() => mockSaveConnection(any())).thenAnswer(
+        (_) async => unit.toSuccess(),
+      );
+    });
+
+    OnboardingConnectCubit build() => OnboardingConnectCubit(
+      mockGetServerInfo,
+      mockSaveConnection,
+      mockTriggerTestAlarm,
+      establishSession: mockEstablishSession,
+    );
+
+    test('no confirmation and no line before the server answers', () async {
+      final cubit = build()
+        ..toggleSelfHosting()
+        ..serverUrlChanged('https://alerts.mybox.local:8443');
+
+      expect(cubit.state.confirmation, isNull);
+      expect(cubit.typedHost, 'alerts.mybox.local:8443');
+      await cubit.close();
+    });
+
+    test(
+      'success holds on a confirmation with the host and its line',
+      () async {
+        when(() => mockGetServerInfo(any())).thenAnswer(
+          (_) async => const ServerInfo(
+            version: '0.4.0',
+            baseUrl: 'https://alerts.mybox.local:8443',
+            relayUrl: 'https://relay.critalarm.app',
+            statedRelayContent: 'none',
+          ).toSuccess(),
+        );
+        final cubit = build()
+          ..toggleSelfHosting()
+          ..serverUrlChanged('https://alerts.mybox.local:8443')
+          ..adminTokenChanged('ad_secret');
+
+        await cubit.connect();
+
+        expect(cubit.state.isConnected, isTrue);
+        expect(
+          cubit.state.confirmation,
+          const ConnectConfirmation(
+            host: 'alerts.mybox.local:8443',
+            privacyLine: ConnectPrivacyLine.ownNone,
+          ),
+        );
+        await cubit.close();
+      },
+    );
+
+    test(
+      'a server that sends the text through the relay gets that line',
+      () async {
+        when(() => mockGetServerInfo(any())).thenAnswer(
+          (_) async => const ServerInfo(
+            version: '0.4.0',
+            baseUrl: 'https://alerts.mybox.local',
+            relayUrl: 'https://relay.critalarm.app',
+            relayContent: 'full',
+            statedRelayContent: 'full',
+          ).toSuccess(),
+        );
+        final cubit = build()
+          ..toggleSelfHosting()
+          ..serverUrlChanged('https://alerts.mybox.local')
+          ..adminTokenChanged('ad_secret');
+
+        await cubit.connect();
+
+        expect(cubit.state.confirmation?.host, 'alerts.mybox.local');
+        expect(
+          cubit.state.confirmation?.privacyLine,
+          ConnectPrivacyLine.ownFull,
+        );
+        await cubit.close();
+      },
+    );
+
+    test('an unknown relay_content confirms the host with no line', () async {
+      when(() => mockGetServerInfo(any())).thenAnswer(
+        (_) async => const ServerInfo(
+          version: '0.4.0',
+          baseUrl: 'https://alerts.mybox.local',
+          relayUrl: 'https://relay.critalarm.app',
+          relayContent: 'partial',
+          statedRelayContent: 'partial',
+        ).toSuccess(),
+      );
+      final cubit = build()
+        ..toggleSelfHosting()
+        ..serverUrlChanged('https://alerts.mybox.local')
+        ..adminTokenChanged('ad_secret');
+
+      await cubit.connect();
+
+      expect(cubit.state.confirmation?.host, 'alerts.mybox.local');
+      expect(cubit.state.confirmation?.privacyLine, isNull);
+      await cubit.close();
+    });
+
+    test(
+      'a server that sends no relay_content confirms with no line',
+      () async {
+        when(() => mockGetServerInfo(any())).thenAnswer(
+          (_) async => const ServerInfo(
+            version: '0.4.0',
+            baseUrl: 'https://alerts.mybox.local',
+            relayUrl: 'https://relay.critalarm.app',
+          ).toSuccess(),
+        );
+        final cubit = build()
+          ..toggleSelfHosting()
+          ..serverUrlChanged('https://alerts.mybox.local')
+          ..adminTokenChanged('ad_secret');
+
+        await cubit.connect();
+
+        expect(cubit.state.confirmation?.host, 'alerts.mybox.local');
+        expect(cubit.state.confirmation?.privacyLine, isNull);
+        await cubit.close();
+      },
+    );
+
+    test('a failed connect shows no confirmation', () async {
+      when(() => mockGetServerInfo(any())).thenAnswer(
+        (_) async => const Failure.unexpected(message: 'offline').toFailure(),
+      );
+      final cubit = build()
+        ..toggleSelfHosting()
+        ..serverUrlChanged('https://alerts.mybox.local')
+        ..adminTokenChanged('ad_secret');
+
+      await cubit.connect();
+
+      expect(cubit.state.status, OnboardingConnectStatus.failure);
+      expect(cubit.state.confirmation, isNull);
+      expect(cubit.state.errorMessage, isNotNull);
       await cubit.close();
     });
   });

@@ -6,6 +6,8 @@ import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
+import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
 import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rules.dart';
@@ -16,6 +18,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_us
 import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
+import 'package:critalarm/features/onboarding/presentation/model/background_connect_copy.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -36,8 +39,11 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     this.alarmHost,
     this.readDraft,
     this.saveDraft,
+    this.backgroundConnect,
+    Future<bool> Function()? isOnline,
     bool initialConnected = false,
-  }) : super(
+  }) : _isOnline = isOnline ?? hasInternet,
+       super(
          OnboardingConnectState(
            status: initialConnected
                ? OnboardingConnectStatus.connected
@@ -52,6 +58,17 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   /// Null in tests that do not care about surviving a force-quit.
   final ReadOnboardingDraftUsecase? readDraft;
   final SaveOnboardingDraftUsecase? saveDraft;
+
+  /// Runs the Crit Alarm Cloud connect behind the user. Null in tests that
+  /// only exercise the form, where Cloud connects in the foreground.
+  final BackgroundConnect? backgroundConnect;
+
+  /// Asked only when the Cloud did not answer, to tell "no network" from a
+  /// server that is slow or down.
+  final Future<bool> Function() _isOnline;
+
+  /// Where Crit Alarm Cloud lives.
+  static const cloudUrl = 'https://api.critalarm.app';
 
   /// False on a replay, which writes no draft.
   bool _savesDraft = true;
@@ -95,6 +112,12 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
           isSelfHosting: draft.isSelfHosting,
         ),
       );
+    }
+
+    // Sent back here by a connect that gave up behind the user: say why.
+    final background = backgroundConnect?.state;
+    if (background != null && background.isFailed && !isClosed) {
+      emit(state.copyWith(errorMessage: backgroundConnectLine(background)));
     }
 
     final result = await getConnection?.call(const NoParams());
@@ -255,11 +278,94 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   static bool isSemverCompatible(String version) =>
       ServerInfoValidation.isSemverCompatible(version);
 
-  Future<void> connectToCloud() async {
-    serverUrlChanged('https://api.critalarm.app');
-    await connect();
+  /// Asks Crit Alarm Cloud for its `/v1/info`. One request answers two
+  /// questions: whether the phone is online, and which privacy line is true.
+  Future<void> probeCloud() async {
+    final result = await _getServerInfo(Uri.parse(cloudUrl));
+    if (isClosed) return;
+    final info = result.getOrNull();
+    if (info != null) {
+      final line = connectPrivacyLine(
+        mode: info.mode,
+        relayContent: info.statedRelayContent,
+      );
+      emit(
+        state.copyWith(
+          cloudOnline: true,
+          cloudPrivacyLine: line,
+          clearCloudPrivacyLine: line == null,
+        ),
+      );
+      return;
+    }
+    // No answer, so no line. Whether that is the network or the server is a
+    // separate question.
+    final online = await _isOnline();
+    if (isClosed) return;
+    emit(state.copyWith(cloudOnline: online, clearCloudPrivacyLine: true));
   }
 
+  /// Continue with Crit Alarm Cloud. Hands the connect to
+  /// [backgroundConnect] and answers as soon as the intent is on disk, so
+  /// the screen can move on at once, online or not.
+  ///
+  /// [waitForResult] is for the screen opened on its own after setup, from
+  /// Home or Server settings. There is no next step to move on to, so the
+  /// screen stays up, says what the connect is doing, and closes when it
+  /// lands. Leaving early is fine: the connect carries on.
+  Future<void> connectToCloud({bool waitForResult = false}) async {
+    final background = backgroundConnect;
+    if (background == null) {
+      serverUrlChanged(cloudUrl);
+      await connect();
+      return;
+    }
+    emit(state.copyWith(clearErrorMessage: true));
+    await background.start(cloudUrl);
+    if (!waitForResult || isClosed) return;
+    _showCloudConnect(background.state);
+    await _cloudConnectChanges?.cancel();
+    _cloudConnectChanges = background.stream.listen(_showCloudConnect);
+  }
+
+  StreamSubscription<BackgroundConnectState>? _cloudConnectChanges;
+
+  void _showCloudConnect(BackgroundConnectState connect) {
+    if (isClosed) return;
+    if (connect.isPending) {
+      emit(
+        state.copyWith(
+          status: OnboardingConnectStatus.connecting,
+          cloudWaitLine: backgroundConnectLine(connect),
+          clearErrorMessage: true,
+        ),
+      );
+    } else if (connect.isConnected) {
+      emit(
+        state.copyWith(
+          serverUrl: connect.serverUrl,
+          status: OnboardingConnectStatus.connected,
+          clearCloudWaitLine: true,
+          clearErrorMessage: true,
+        ),
+      );
+    } else {
+      emit(
+        state.copyWith(
+          status: connect.isFailed
+              ? OnboardingConnectStatus.failure
+              : OnboardingConnectStatus.idle,
+          errorMessage: connect.isFailed
+              ? backgroundConnectLine(connect)
+              : null,
+          clearCloudWaitLine: true,
+        ),
+      );
+    }
+  }
+
+  /// Connects to the server in the form, in the foreground: the user typed
+  /// an address and wants to know it worked.
   Future<void> connect() async {
     final trimmedUrl = state.serverUrl.trim();
     if (trimmedUrl.isEmpty) {
@@ -289,8 +395,14 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         clearServerUrlError: true,
         clearAdminTokenError: true,
         clearErrorMessage: true,
+        clearConfirmation: true,
       ),
     );
+    // The user picked a server by hand, so a Cloud connect still waiting
+    // behind them is no longer wanted.
+    await _cloudConnectChanges?.cancel();
+    _cloudConnectChanges = null;
+    await backgroundConnect?.cancel();
 
     final result = await _getServerInfo(Uri.parse(trimmedUrl));
     await result.fold(
@@ -339,6 +451,16 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
                   serverUrl: info.baseUrl,
                   status: OnboardingConnectStatus.connected,
                   clearErrorMessage: true,
+                  // Typed by hand: show that it worked before moving on.
+                  confirmation: state.isSelfHosting
+                      ? ConnectConfirmation(
+                          host: _hostOf(info.baseUrl),
+                          privacyLine: connectPrivacyLine(
+                            mode: info.mode,
+                            relayContent: info.statedRelayContent,
+                          ),
+                        )
+                      : null,
                 ),
               );
             },
@@ -370,6 +492,18 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
       },
     );
   }
+
+  /// The part of a server address a person recognises: the host, with the
+  /// port when it is not the usual one.
+  static String _hostOf(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.host.isEmpty) return url;
+    return uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
+  }
+
+  /// The host of the address in the form, for the line shown while it is
+  /// being checked.
+  String get typedHost => _hostOf(state.serverUrl.trim());
 
   Future<void> loadTestTopic() async {
     final result = await getTopics?.call(const NoParams());
@@ -570,6 +704,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         testAlarmStatus: TestAlarmStatus.idle,
         isCountingDown: false,
         clearErrorMessage: true,
+        clearConfirmation: true,
       ),
     );
   }
@@ -591,6 +726,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
 
   @override
   Future<void> close() {
+    unawaited(_cloudConnectChanges?.cancel());
     _countdownTimer?.cancel();
     return super.close();
   }

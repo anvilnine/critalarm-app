@@ -1,9 +1,27 @@
-import 'package:critalarm/design/ambient/ambient.dart';
-import 'package:critalarm/design/motion.dart';
-import 'package:critalarm/design/tokens/colors.dart';
+import 'dart:async';
+
+import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/usecase/usecase.dart';
+import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/presentation/flow/connect_gate.dart';
+import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
+import 'package:critalarm/features/onboarding/presentation/model/background_connect_copy.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+/// The connect that runs behind the user, when the app has one registered.
+/// A test that mounts the shell alone has none, and the shell then shows
+/// every step as it is.
+BackgroundConnect? _appBackgroundConnect() =>
+    getIt.isRegistered<BackgroundConnect>() ? getIt<BackgroundConnect>() : null;
 
 /// Controller coordinating ambient canvas step changes and direction within
 /// the onboarding flow.
@@ -60,11 +78,15 @@ class OnboardingShell extends StatefulWidget {
   const OnboardingShell({
     required this.state,
     required this.child,
+    this.backgroundConnect,
     super.key,
   });
 
   final GoRouterState state;
   final Widget child;
+
+  /// The connect running behind the user. Null takes the app's own.
+  final BackgroundConnect? backgroundConnect;
 
   @override
   State<OnboardingShell> createState() => _OnboardingShellState();
@@ -72,6 +94,16 @@ class OnboardingShell extends StatefulWidget {
 
 class _OnboardingShellState extends State<OnboardingShell> {
   late final OnboardingAmbientController _controller;
+  late final BackgroundConnect? _connect;
+  StreamSubscription<BackgroundConnectState>? _connectChanges;
+
+  /// How long the "connected" line stays up after a connect lands.
+  static const _landedLineFor = Duration(seconds: 4);
+
+  /// True for a few seconds after a connect lands while setup is on screen,
+  /// so the result is reported on whichever step the user is on.
+  bool _justLanded = false;
+  Timer? _landedTimer;
 
   @override
   void initState() {
@@ -80,6 +112,44 @@ class _OnboardingShellState extends State<OnboardingShell> {
       initialStep: onboardingStepForPath(widget.state.uri.path),
     );
     _controller.addListener(_handleControllerUpdate);
+    _connect = widget.backgroundConnect ?? _appBackgroundConnect();
+    _connectChanges = _connect?.stream.listen(_handleConnectChange);
+  }
+
+  void _handleConnectChange(BackgroundConnectState next) {
+    if (!mounted) return;
+    _landedTimer?.cancel();
+    setState(() => _justLanded = next.isConnected);
+    if (next.isConnected) {
+      _landedTimer = Timer(_landedLineFor, () {
+        if (mounted) setState(() => _justLanded = false);
+      });
+    }
+  }
+
+  /// The one line shown over a step that carries on while the connect runs:
+  /// that it is on its way, or that it has just landed. Null for nothing.
+  String? _quietLine() {
+    final connect = _connect;
+    if (connect == null) return null;
+    final uri = widget.state.uri;
+    if (_justLanded) {
+      // The step that was waiting on the server has just appeared, and the
+      // connect step shows its own result.
+      final entry = OnboardingStepRegistry.entryForPath(uri.path);
+      if (entry == null || entry.id == OnboardingStepId.connect) return null;
+      return backgroundConnectShortLine(connect.state);
+    }
+    final gate = connectGateFor(
+      state: connect.state,
+      path: uri.path,
+      isReplay: isOnboardingReplayUri(uri),
+      // Only the quiet line is read here, and it does not depend on this.
+      hasConnection: true,
+    );
+    return gate == ConnectGate.quiet
+        ? backgroundConnectShortLine(connect.state)
+        : null;
   }
 
   @override
@@ -95,6 +165,8 @@ class _OnboardingShellState extends State<OnboardingShell> {
 
   @override
   void dispose() {
+    _landedTimer?.cancel();
+    unawaited(_connectChanges?.cancel());
     _controller
       ..removeListener(_handleControllerUpdate)
       ..dispose();
@@ -109,6 +181,7 @@ class _OnboardingShellState extends State<OnboardingShell> {
   Widget build(BuildContext context) {
     final profiles = OnboardingAmbientProfiles.forColors(context.appColors);
     final currentProfile = profiles[_controller.step]!;
+    final quietLine = _quietLine();
 
     return Stack(
       children: [
@@ -131,7 +204,312 @@ class _OnboardingShellState extends State<OnboardingShell> {
             ),
           ),
         ),
+        // In the empty corner beside the app title: over no title and no
+        // button. It takes no taps.
+        Positioned(
+          top: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: _ConnectQuietLine(
+              message: quietLine,
+              isLanded: _justLanded,
+            ),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+/// A word or three about the connect running behind the user, with the face
+/// watching beside it. Fades in and out; holds still under reduce motion.
+class _ConnectQuietLine extends StatelessWidget {
+  const _ConnectQuietLine({required this.message, required this.isLanded});
+
+  final String? message;
+  final bool isLanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final line = message;
+    return AnimatedSwitcher(
+      duration: context.motion(AppDurations.base),
+      switchInCurve: AppCurves.easeOut,
+      switchOutCurve: AppCurves.easeOut,
+      child: line == null
+          ? const SizedBox.shrink(key: ValueKey('connect-quiet-none'))
+          : SafeArea(
+              key: ValueKey('connect-quiet-$line'),
+              bottom: false,
+              left: false,
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  top: Spacing.s3,
+                  right: Spacing.s4,
+                ),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(6, 5, 12, 5),
+                    decoration: BoxDecoration(
+                      color: colors.surface.withValues(alpha: 0.88),
+                      borderRadius: BorderRadius.circular(Radii.pill),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FaceWidget(
+                          state: isLanded
+                              ? FaceState.success
+                              : FaceState.watching,
+                          size: 22,
+                          isLive: true,
+                        ),
+                        const SizedBox(width: Spacing.s2),
+                        Text(
+                          line,
+                          // The shell sits above every route, so there is
+                          // no text style to inherit here.
+                          style: AppTypography.small(
+                            colors.ink,
+                          ).copyWith(decoration: TextDecoration.none),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+/// Wraps one setup step. While a connect is still running behind the user
+/// and the step needs the server, the waiting face and one line stand in for
+/// the step. When the connect gave up, the reason and a way back to the
+/// connect step do.
+///
+/// The step itself is not built until it may show, so a screen that talks to
+/// the server never starts without one.
+class OnboardingStepGate extends StatefulWidget {
+  const OnboardingStepGate({
+    required this.builder,
+    this.backgroundConnect,
+    this.readHasConnection,
+    super.key,
+  });
+
+  final WidgetBuilder builder;
+
+  /// The connect running behind the user. Null takes the app's own.
+  final BackgroundConnect? backgroundConnect;
+
+  /// Whether a server connection is saved. Null takes the app's own read.
+  final Future<bool> Function()? readHasConnection;
+
+  @override
+  State<OnboardingStepGate> createState() => _OnboardingStepGateState();
+}
+
+class _OnboardingStepGateState extends State<OnboardingStepGate> {
+  late final BackgroundConnect? _connect;
+  StreamSubscription<BackgroundConnectState>? _changes;
+
+  /// Null until the first read answers. It is one prefs read.
+  bool? _hasConnection;
+
+  @override
+  void initState() {
+    super.initState();
+    _connect = widget.backgroundConnect ?? _appBackgroundConnect();
+    if (_connect == null) return;
+    _changes = _connect.stream.listen((_) => unawaited(_refresh()));
+    unawaited(_refresh());
+  }
+
+  Future<void> _refresh() async {
+    final read =
+        widget.readHasConnection ??
+        () async =>
+            (await getIt<GetConnectionUsecase>()(
+              const NoParams(),
+            )).getOrNull() !=
+            null;
+    final has = await read();
+    if (mounted) setState(() => _hasConnection = has);
+  }
+
+  @override
+  void dispose() {
+    unawaited(_changes?.cancel());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final connect = _connect;
+    if (connect == null) return widget.builder(context);
+    final uri = GoRouterState.of(context).uri;
+    final state = connect.state;
+    final hasConnection = _hasConnection;
+    final entry = OnboardingStepRegistry.entryForPath(uri.path);
+    final needsServer =
+        entry != null && entry.requires.contains(OnboardingStepId.connect);
+    final Widget child;
+    if (hasConnection == null && needsServer && !isOnboardingReplayUri(uri)) {
+      // A step that talks to the server is not built before the read says
+      // there is one. One frame or two of the canvas alone.
+      child = const SizedBox.expand(key: ValueKey('connect-gate-reading'));
+    } else {
+      final gate = connectGateFor(
+        state: state,
+        path: uri.path,
+        isReplay: isOnboardingReplayUri(uri),
+        hasConnection: hasConnection ?? false,
+      );
+      child = switch (gate) {
+        ConnectGate.none || ConnectGate.quiet => KeyedSubtree(
+          key: const ValueKey('connect-gate-step'),
+          child: widget.builder(context),
+        ),
+        ConnectGate.waiting => _ConnectGateScreen(
+          key: const ValueKey('connect-gate-waiting'),
+          message: backgroundConnectLine(state) ?? '',
+          isFailure: false,
+          connect: connect,
+        ),
+        ConnectGate.failed => _ConnectGateScreen(
+          key: const ValueKey('connect-gate-failed'),
+          // With no failure to name, the step is simply missing its server.
+          message:
+              backgroundConnectLine(state) ??
+              LocaleKeys.onboarding_connect_background_no_server.tr(),
+          isFailure: true,
+          connect: connect,
+        ),
+      };
+    }
+    return AnimatedSwitcher(
+      duration: context.motion(AppDurations.base),
+      switchInCurve: AppCurves.easeOut,
+      switchOutCurve: AppCurves.easeOut,
+      child: child,
+    );
+  }
+}
+
+/// What stands in for a step: the face, one line, and the ways on.
+class _ConnectGateScreen extends StatelessWidget {
+  const _ConnectGateScreen({
+    required this.message,
+    required this.isFailure,
+    required this.connect,
+    super.key,
+  });
+
+  final String message;
+  final bool isFailure;
+  final BackgroundConnect connect;
+
+  /// Leaves setup for Home. A connect still pending carries on from there.
+  Future<void> _setUpLater(BuildContext context) async {
+    final router = GoRouter.of(context);
+    // The user has seen the failure and is leaving it behind. A connect
+    // still pending is untouched and carries on.
+    connect.dismissFailure();
+    if (router.canPop()) {
+      // Opened on its own after setup: back to whatever opened it.
+      router.pop();
+      return;
+    }
+    await getIt<CompleteOnboardingUsecase>()(const NoParams());
+    router.go('/');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        minimum: const EdgeInsets.only(bottom: Spacing.s3),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Spacing.s5),
+          child: Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child: SingleChildScrollView(
+                    child: isFailure
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Hero(
+                                tag: 'onboarding-face',
+                                flightShuttleBuilder: faceFlightShuttleBuilder,
+                                child: FaceWidget(
+                                  state: FaceState.worried,
+                                  size: 96,
+                                  isLive: true,
+                                ),
+                              ),
+                              const SizedBox(height: Spacing.s3),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 380,
+                                ),
+                                child: Semantics(
+                                  liveRegion: true,
+                                  child: Text(
+                                    message,
+                                    textAlign: TextAlign.center,
+                                    style: AppTypography.body(colors.onCanvas),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : AppWaitingFace(
+                            message: message,
+                            heroTag: 'onboarding-face',
+                          ),
+                  ),
+                ),
+              ),
+              if (isFailure) ...[
+                AppButton(
+                  label: LocaleKeys.onboarding_connect_background_failed_button
+                      .tr(),
+                  size: AppButtonSize.lg,
+                  isFullWidth: true,
+                  onPressed: () =>
+                      context.go(OnboardingEntryPoint.connectServer),
+                ),
+                const SizedBox(height: Spacing.s3),
+              ],
+              TextButton(
+                onPressed: () => unawaited(_setUpLater(context)),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 36),
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  LocaleKeys.onboarding_connect_skip_for_now.tr(),
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontBody,
+                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: colors.onCanvas,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
