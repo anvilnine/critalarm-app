@@ -10,6 +10,8 @@ import 'package:critalarm/features/onboarding/presentation/cubits/notification_p
 import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/permissions/domain/repositories/device_permissions_repository.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -290,7 +292,7 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
       incidentId: onboardingIncidentId,
       topic: 'setup',
       server: '',
-      title: 'Crit Alarm is ready',
+      title: LocaleKeys.onboarding_connect_ready_activity_title.tr(),
       state: 'acked',
     );
     if (isClosed) return;

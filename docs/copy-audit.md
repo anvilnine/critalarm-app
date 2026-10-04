@@ -113,7 +113,7 @@ Only rows with a class other than `ok` are listed. Everything not listed stays e
 | `paywall.feature_bypass_silent` | Bypasses silent mode and Do Not Disturb | `unsafe-claim` | Rings until you acknowledge |
 | `paywall.feature_escalate_call` | Escalates to phone call after 5 minutes | `filler` | Calls you after 5 min |
 | `paywall.self_hosted_note` | Running on your own infrastructure? Self-hosted server includes all critical alerts 100% free. | `marketing` | Self-hosting? Every critical alert is free. |
-| `paywall.active_title` | Crit Alarm Pro is Active | `case` | Crit Alarm Pro is active |
+| `paywall.active_title` | Crit Alarm Pro is Active | `case` | Crit Alarm Hosted is active |
 | `paywall.active_subtitle` | Thank you for supporting Crit Alarm! | `marketing` | Thanks for paying for this. |
 | `paywall.manage_subscription_button` | Manage Subscription | `case` | Manage subscription |
 | `paywall.select_plan_header` | Select Plan | `case` | Pick a plan |
@@ -121,8 +121,10 @@ Only rows with a class other than `ok` are listed. Everything not listed stays e
 | `paywall.restore_purchases_button` | Restore Purchases | `case` | Restore purchases |
 | `paywall.error_subscription_failed` | Subscription operation failed. Please try again. | `jargon`, `filler` | That did not go through. Try again. |
 | `paywall.feedback_no_active_restored` | No active Pro subscriptions found to restore | `filler` | Nothing to restore on this account. |
-| `paywall.feedback_restored` | Crit Alarm Pro restored successfully | `filler` | Crit Alarm Pro restored. |
+| `paywall.feedback_restored` | Crit Alarm Pro restored successfully | `filler` | Crit Alarm Hosted restored. |
 | `paywall.feedback_purchases_restored` | Purchases restored successfully | `filler` | Purchases restored. |
+
+The paid plan is called Hosted now. The rows above that quote the plan name in the rewrite column follow the current `en.json`, and the older wording in the first column is kept as the audit found it.
 
 ---
 

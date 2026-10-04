@@ -6,6 +6,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - `AppHighlightCard` (tones `crit` and `calm`), `AppAnimatedTick` and `AppWaitingFace` in `lib/design/components/`, shown in the gallery. The no-server notice card draws its surface with `AppHighlightCard`.
 
 ### Changed
+- Locale values and the search keyword for the paid plan say Hosted. Keys, class names, routes and analytics event names keep their pro\_ names. The create-topic limit hint is now the key create\_topic.limit\_review\_plan\_hint.
 - `AppEmptyState` has no English defaults: `title` and `description` are required and `buttonLabel` is null unless passed. The Home empty card reads its words from `home.empty_body` and `home.empty_button`.
 
 ## 1.0.0+12 - 2026-10-03

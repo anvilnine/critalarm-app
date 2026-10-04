@@ -1,7 +1,3 @@
-// The limit card below still passes `buttonLabel: null`, which is now the
-// default. Drop the argument and this line the next time that card is edited.
-// ignore_for_file: avoid_redundant_argument_values
-
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
@@ -636,9 +632,9 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                           if (state.capReached != null)
                             AppEmptyState(
                               title: state.capReached!.message,
-                              description:
-                                  'Review your plan to increase this limit.',
-                              buttonLabel: null,
+                              description: LocaleKeys
+                                  .create_topic_limit_review_plan_hint
+                                  .tr(),
                               showFace: false,
                             ),
                           if (!isSuccess) ...[

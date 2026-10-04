@@ -72,7 +72,10 @@ void main() {
         planChanges: plan,
       );
       expect(pending.isProPending, isTrue);
-      expect(pending.criticalUsage(_topics), 'Pro, confirming your purchase');
+      expect(
+        pending.criticalUsage(_topics),
+        'Hosted, confirming your purchase',
+      );
     });
 
     test('Pro with caps that still say Free shows the unlimited line', () {
