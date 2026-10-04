@@ -22,6 +22,65 @@ void main() {
     });
   });
 
+  group('rest faces', () {
+    test('with no list every head rests on the one face', () {
+      for (var cell = 0; cell < 20; cell++) {
+        expect(
+          rippleRestFace(cell: cell, restFace: FaceState.content),
+          FaceState.content,
+        );
+        expect(
+          rippleRestFace(
+            cell: cell,
+            restFace: FaceState.content,
+            restFaces: const [],
+          ),
+          FaceState.content,
+        );
+      }
+    });
+
+    test('a list gives each head its own face, the same every frame', () {
+      for (var cell = 0; cell < 20; cell++) {
+        final face = rippleRestFace(
+          cell: cell,
+          restFace: FaceState.content,
+          restFaces: celebrationRestFaces,
+        );
+        expect(face, celebrationRestFaces[cell % 8]);
+        expect(
+          rippleRestFace(
+            cell: cell,
+            restFace: FaceState.content,
+            restFaces: celebrationRestFaces,
+          ),
+          face,
+        );
+      }
+    });
+
+    test('both walls are mixed and hold no unhappy face', () {
+      const banned = {
+        FaceState.alarmed,
+        FaceState.shocked,
+        FaceState.worried,
+        FaceState.sad,
+        FaceState.dizzy,
+        FaceState.determined,
+        FaceState.confused,
+        FaceState.concerned,
+        FaceState.skeptical,
+        FaceState.blink,
+      };
+      for (final wall in [celebrationRestFaces, quietRestFaces]) {
+        expect(wall.where(banned.contains), isEmpty);
+        expect(wall.toSet().length, wall.length);
+        expect(wall.length, greaterThan(1));
+      }
+      expect(quietRestFaces.length, lessThan(celebrationRestFaces.length));
+    });
+  });
+
   group('pickRippleFace', () {
     test('in order by default, as the welcome screen runs it', () {
       for (var wave = -1; wave < 4; wave++) {
