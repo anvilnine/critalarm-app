@@ -12,6 +12,75 @@ import 'package:flutter/material.dart';
 AppHighlightTone firstTopicCardTone({required bool isCritical}) =>
     isCritical ? AppHighlightTone.crit : AppHighlightTone.calm;
 
+/// The locale keys the first-topic card shows, picked from what is true now.
+///
+/// Off, the card asks the user to turn it on and says what leaving it off
+/// costs. On, it states what the topic does. A subtitle that would only repeat
+/// the title is left out, so every line adds something.
+class FirstTopicCardCopy {
+  const FirstTopicCardCopy({
+    required this.titleKey,
+    required this.subtitleKey,
+    required this.offLineKey,
+    required this.planLineKey,
+  });
+
+  final String titleKey;
+
+  /// Null when the title already says it.
+  final String? subtitleKey;
+
+  /// Only while the switch is off.
+  final String? offLineKey;
+
+  /// Null off the free plan. Takes `used` and `limit`.
+  final String? planLineKey;
+}
+
+/// The words for the card, by [claim], the switch and whether the free plan
+/// line applies. The one place that chooses them.
+FirstTopicCardCopy firstTopicCardCopy({
+  required RingClaim claim,
+  required bool isCritical,
+  required bool hasPlanLine,
+}) {
+  final planKey = !hasPlanLine
+      ? null
+      : isCritical
+      ? LocaleKeys.create_topic_first_topic_critical_free_plan_line_on
+      : LocaleKeys.create_topic_first_topic_critical_free_plan_line_off;
+  return switch ((claim, isCritical)) {
+    (RingClaim.alarm, false) => FirstTopicCardCopy(
+      titleKey: LocaleKeys.create_topic_first_topic_critical_title,
+      subtitleKey: LocaleKeys.create_topic_critical_toggle_subtitle,
+      offLineKey: LocaleKeys.create_topic_first_topic_critical_off_line,
+      planLineKey: planKey,
+    ),
+    (RingClaim.alarm, true) => FirstTopicCardCopy(
+      titleKey: LocaleKeys.create_topic_first_topic_critical_title_on,
+      subtitleKey: LocaleKeys.create_topic_first_topic_critical_subtitle_on,
+      offLineKey: null,
+      planLineKey: planKey,
+    ),
+    (RingClaim.timeSensitive, false) => FirstTopicCardCopy(
+      titleKey:
+          LocaleKeys.create_topic_first_topic_critical_title_time_sensitive,
+      subtitleKey:
+          LocaleKeys.create_topic_critical_toggle_subtitle_time_sensitive,
+      offLineKey: LocaleKeys.create_topic_first_topic_critical_off_line,
+      planLineKey: planKey,
+    ),
+    (RingClaim.timeSensitive, true) => FirstTopicCardCopy(
+      titleKey:
+          LocaleKeys.create_topic_first_topic_critical_title_time_sensitive_on,
+      subtitleKey: LocaleKeys
+          .create_topic_first_topic_critical_subtitle_time_sensitive_on,
+      offLineKey: null,
+      planLineKey: planKey,
+    ),
+  };
+}
+
 /// The Critical delivery switch as the hero of the user's first topic.
 ///
 /// It says what the switch does and what happens if it stays off. The switch
@@ -22,7 +91,7 @@ class FirstTopicCriticalCard extends StatelessWidget {
     required this.claim,
     required this.isCritical,
     required this.onChanged,
-    this.freePlanLimit,
+    this.plan,
     super.key,
   });
 
@@ -35,30 +104,27 @@ class FirstTopicCriticalCard extends StatelessWidget {
   /// Null while a create is running, which locks the switch.
   final ValueChanged<bool>? onChanged;
 
-  /// The critical topics the free plan allows. Null off the free plan, which
-  /// leaves the plan line out.
-  final int? freePlanLimit;
+  /// On the free plan: the critical topics this one would use and the cap, both
+  /// from the plan. Null off the free plan, which leaves the plan line out.
+  final ({int used, int limit})? plan;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final title = switch (claim) {
-      RingClaim.alarm =>
-        LocaleKeys.create_topic_first_topic_critical_title.tr(),
-      RingClaim.timeSensitive =>
-        LocaleKeys.create_topic_first_topic_critical_title_time_sensitive.tr(),
+    final copy = firstTopicCardCopy(
+      claim: claim,
+      isCritical: isCritical,
+      hasPlanLine: plan != null,
+    );
+    final title = copy.titleKey.tr();
+    final subtitle = copy.subtitleKey?.tr();
+    final offLine = copy.offLineKey?.tr();
+    final planLine = switch ((copy.planLineKey, plan)) {
+      (final key?, final plan?) => key.tr(
+        namedArgs: {'used': '${plan.used}', 'limit': '${plan.limit}'},
+      ),
+      _ => null,
     };
-    final subtitle = switch (claim) {
-      RingClaim.alarm => LocaleKeys.create_topic_critical_toggle_subtitle.tr(),
-      RingClaim.timeSensitive =>
-        LocaleKeys.create_topic_critical_toggle_subtitle_time_sensitive.tr(),
-    };
-    final offLine = LocaleKeys.create_topic_first_topic_critical_off_line.tr();
-    final planLine = freePlanLimit == null
-        ? null
-        : LocaleKeys.create_topic_first_topic_critical_free_plan_line.tr(
-            namedArgs: {'limit': '$freePlanLimit'},
-          );
 
     final ink = colors.onCanvas;
     return AppHighlightCard(
@@ -85,14 +151,16 @@ class FirstTopicCriticalCard extends StatelessWidget {
                           fontSize: 15,
                         ).copyWith(fontWeight: FontWeight.w700, height: 1.3),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: AppTypography.small(
-                          ink,
-                          fontSize: 12,
-                        ).copyWith(height: 1.4),
-                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: AppTypography.small(
+                            ink,
+                            fontSize: 12,
+                          ).copyWith(height: 1.4),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -102,11 +170,7 @@ class FirstTopicCriticalCard extends StatelessWidget {
                 value: isCritical,
                 onChanged: onChanged,
                 semanticLabel: title,
-                semanticHint: [
-                  subtitle,
-                  if (!isCritical) offLine,
-                  ?planLine,
-                ].join(' '),
+                semanticHint: [?subtitle, ?offLine, ?planLine].join(' '),
               ),
             ],
           ),
@@ -116,7 +180,7 @@ class FirstTopicCriticalCard extends StatelessWidget {
             duration: context.motion(AppDurations.base),
             curve: AppCurves.easeOut,
             alignment: Alignment.topLeft,
-            child: isCritical
+            child: offLine == null
                 ? const SizedBox(width: double.infinity)
                 : Padding(
                     padding: const EdgeInsets.only(top: 10),
