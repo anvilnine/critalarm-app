@@ -358,7 +358,6 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                   ? AppEmptyState(
                       title: LocaleKeys.home_detail_empty_title.tr(),
                       description: LocaleKeys.home_detail_empty_body.tr(),
-                      buttonLabel: null,
                     )
                   : TopicDetailScreen(
                       key: ValueKey(selected),
@@ -494,12 +493,14 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                           AppEmptyState(
                             title: LocaleKeys.home_loading_title.tr(),
                             description: '',
-                            buttonLabel: null,
                             followsRefresh: true,
                             radius: Radii.md,
                           ),
                         ] else if (state.isEmpty) ...[
                           AppEmptyState(
+                            title: LocaleKeys.home_stage_word_no_topics.tr(),
+                            description: LocaleKeys.home_empty_body.tr(),
+                            buttonLabel: LocaleKeys.home_empty_button.tr(),
                             onButtonPressed: () => context.push('/topics/new'),
                             followsRefresh: true,
                             // The sheet is Radii.xl (32) with 16 of padding, so

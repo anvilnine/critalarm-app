@@ -253,7 +253,6 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                         description: LocaleKeys
                             .onboarding_permissions_denied_description
                             .tr(),
-                        buttonLabel: null,
                       )
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

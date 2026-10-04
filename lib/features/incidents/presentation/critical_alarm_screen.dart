@@ -195,7 +195,6 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
                         : isLoading
                         ? ''
                         : LocaleKeys.critical_alarm_no_alarm_body.tr(),
-                    buttonLabel: null,
                     faceState: didFail ? FaceState.worried : FaceState.calm,
                     isLive: isLoading,
                   ),
