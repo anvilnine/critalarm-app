@@ -11,6 +11,11 @@ abstract final class ServerModes {
   static const List<String> validModes = [selfhosted, relay, hosted];
 }
 
+Object? _readStatedRelayContent(Map<dynamic, dynamic> json, String _) {
+  final value = json['relay_content'];
+  return value is String ? value : null;
+}
+
 /// Metadata describing the server instance and its operational mode.
 @freezed
 abstract class ServerInfo with _$ServerInfo {
@@ -20,6 +25,17 @@ abstract class ServerInfo with _$ServerInfo {
     @JsonKey(name: 'relay_url') required String relayUrl,
     @Default('critalarm') String name,
     @JsonKey(name: 'relay_content') @Default('none') String relayContent,
+
+    /// `relay_content` as the server sent it, or null when the answer had
+    /// no such field. [relayContent] falls back to `none` for an older
+    /// server; this does not, so nothing is claimed about a server that
+    /// did not say.
+    @JsonKey(
+      name: 'relay_content_stated',
+      readValue: _readStatedRelayContent,
+      includeToJson: false,
+    )
+    String? statedRelayContent,
     @Default(ServerModes.selfhosted) String mode,
   }) = _ServerInfo;
 

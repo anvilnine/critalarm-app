@@ -8,8 +8,12 @@ class CompleteOnboardingUsecase implements UseCase<NoParams, Unit> {
   const CompleteOnboardingUsecase(
     this._repository, [
     this._flow,
+    this.onCompleted,
     this._firstTopic,
   ]);
+
+  /// Runs once setup is marked complete, however the user left it.
+  final void Function()? onCompleted;
 
   final OnboardingProgressRepository _repository;
 
@@ -30,6 +34,7 @@ class CompleteOnboardingUsecase implements UseCase<NoParams, Unit> {
     await _flow?.clear();
     // Setup is over, so the token held in memory for its last steps goes.
     await _firstTopic?.clear();
+    onCompleted?.call();
     return result;
   }
 }

@@ -250,6 +250,49 @@ A pinned flow is checked again every time it is read. Unknown ids are
 dropped, and a list the validator rejects (empty, or nothing known left) is
 replaced by the bundled default with the completed steps kept.
 
+Background connect: Continue with Crit Alarm Cloud finishes the `connect`
+step at once. `BackgroundConnect`
+(`lib/features/onboarding/domain/connect/background_connect.dart`, one object
+for the whole app run, registered in `lib/app/di.dart`) does the work behind
+the user: `GET /v1/info`, the device registration, then saving the
+connection.
+
+- The pending connect is saved under the prefs key `connect_intent_v1`. It
+  holds the server address and the retry time, and no token. It is not part
+  of the onboarding draft and it is not a saved connection, so Home never
+  reads it as "a server exists".
+- It retries on a timer (every 15 seconds, backing off to 5 minutes), on
+  resume, on launch, when the push token arrives, and when the permissions
+  step is finished. The timer stops once the connect lands or gives up.
+- No network and no push token yet are waits. A server version the app does
+  not know, or an answer a retry will not change, is a failure: the intent
+  is cleared and nothing retries.
+- The intent is also cleared when the user disconnects or connects to a
+  server by hand. Disconnecting cancels the pending connect first and
+  clears the connection second.
+- The `connect` step counts as done only while a connection is saved or a
+  connect is pending. A failure or a cancel takes it out of the completed
+  steps (`OnboardingFlowEngine.reopenStep`), so a relaunch resumes at the
+  connect step.
+- A 429 from the device registration is the device cap, a failure with its
+  own line. A 429 from `/v1/info` is the rate limit and is retried.
+- A failure is forgotten when setup completes or the user leaves through
+  Set this up later.
+- The privacy line reads `ServerInfo.statedRelayContent`, which is null when
+  the answer had no `relay_content`. `relayContent` keeps its `none`
+  default for the rest of the app.
+- The result shows as step content, never as a notice or a notification.
+  `OnboardingStepGate` (in `onboarding_shell.dart`) wraps every step route.
+  A step whose registry entry requires `connect` shows `AppWaitingFace` and
+  one line until the connect lands. A failure shows on whichever step is
+  open, with one button back to the connect step. A step that requires
+  `connect` with nothing pending and no saved connection shows the same
+  gate. Other steps show a short
+  status in the top corner of the shell. `connectGateFor` holds the rule.
+- A later step asks `getIt<BackgroundConnect>().state`: `isPending`,
+  `isConnected`, `isFailed` with `failure`. `stream` carries every change.
+- A server typed by hand connects in the foreground, on the connect screen.
+
 Developer settings: a build made with `--dart-define=SKIP_PAYWALL=true` or
 `--dart-define=PAYWALL_LAB=true` shows a setup section in Developer options
 (`developer_setup_section.dart`). Its controls:

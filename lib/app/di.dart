@@ -115,6 +115,8 @@ import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_con
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_developer_onboarding_overrides.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
+import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
+import 'package:critalarm/features/onboarding/domain/connect/connect_intent_store.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
@@ -749,6 +751,9 @@ Future<void> configureDependencies({
       () => CompleteOnboardingUsecase(
         getIt<OnboardingProgressRepository>(),
         getIt<OnboardingFlowRepository>(),
+        // Setup is over, so a connect failure shown during it is not
+        // shown again on a setup screen opened later.
+        () => getIt<BackgroundConnect>().dismissFailure(),
         getIt<FirstTopicHandoff>(),
       ),
     )
@@ -857,6 +862,15 @@ Future<void> configureDependencies({
         repository: getIt<OnboardingFlowRepository>(),
         completeOnboarding: getIt<CompleteOnboardingUsecase>(),
         getOnboardingCompleted: getIt<GetOnboardingCompletedUsecase>(),
+        // The permission steps are done. If a connect was waiting for this
+        // phone's push token, this is the moment to try again.
+        onStepEvent: (event) {
+          if (event.kind == OnboardingStepEventKind.finished &&
+              event.stepId == OnboardingStepId.permissions &&
+              !event.isReplay) {
+            unawaited(getIt<BackgroundConnect>().retryNow());
+          }
+        },
       ),
     )
     ..registerLazySingleton(
@@ -875,7 +889,39 @@ Future<void> configureDependencies({
       ),
     )
     ..registerLazySingleton(
-      () => ClearConnectionUsecase(getIt<ConnectionRepository>()),
+      () => ClearConnectionUsecase(
+        getIt<ConnectionRepository>(),
+        // Disconnecting also drops a connect that had not landed yet. It
+        // goes first, so that connect cannot save a server in the gap.
+        beforeClear: () => getIt<BackgroundConnect>().cancel(),
+      ),
+    )
+    ..registerLazySingleton(
+      () => ConnectIntentStore(getIt<SharedPreferences>()),
+    )
+    // One for the whole app run: the screen that starts a connect is gone
+    // before it lands.
+    ..registerLazySingleton(
+      () => BackgroundConnect(
+        intents: getIt<ConnectIntentStore>(),
+        getServerInfo: getIt<GetServerInfoUsecase>(),
+        establishSession: getIt<EstablishApiSessionUsecase>(),
+        saveConnection: getIt<SaveConnectionUsecase>(),
+        // Web registers no push, so its connect waits for no token.
+        tokens: kIsWeb ? null : getIt<PushTokenProvider>(),
+        // A Cloud connect makes this phone's account, so everything that
+        // reads the account or the server loads again: topics, incidents
+        // and the no-server card on Home.
+        onConnected: () async => appAccountIdentityChanges.bump(),
+        // A connect that gave up or was cancelled: the connect step is no
+        // longer done, so a relaunch comes back to it.
+        onAbandoned: () => getIt<OnboardingFlowEngine>().reopenStep(
+          OnboardingStepId.connect,
+        ),
+        removeConnection: () async {
+          await getIt<ConnectionRepository>().clearConnection();
+        },
+      ),
     )
     ..registerLazySingleton(
       () => GetAppearanceSettingsUsecase(
@@ -1114,6 +1160,7 @@ Future<void> configureDependencies({
         alarmHost: getIt<AlarmHost>(),
         readDraft: getIt<ReadOnboardingDraftUsecase>(),
         saveDraft: getIt<SaveOnboardingDraftUsecase>(),
+        backgroundConnect: getIt<BackgroundConnect>(),
         initialConnected: initialConnected ?? false,
       ),
     )
