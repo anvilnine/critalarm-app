@@ -20,6 +20,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - A mock build answers for the Crit Alarm Cloud address as hosted, so Continue with Crit Alarm Cloud works under MOCK
 - Welcome and the other intro screens show their words and button from the first frame. Removed the staged reveal, the per-animation text delays and the staged flag. The animation keeps its size at large text sizes and the page scrolls when the words need the room. The widgets step is optional: the default flow leaves it out, and its registry entry exists on iOS and Android only.
 - A replay of setup no longer saves the connect form draft, and the first-topic step in a replay ends without creating a topic.
+- The connect step counts as done only while a connection is saved or a connect is pending, a 429 from device registration is a permanent device cap failure, and the privacy line needs relay\_content present in the answer (ServerInfo.statedRelayContent)
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

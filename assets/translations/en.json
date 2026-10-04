@@ -145,6 +145,8 @@
     "background_quiet_connected": "Connected",
     "background_failed_version": "Crit Alarm Cloud is on version {version}, which this app cannot use. Update the app, then connect again.",
     "background_failed_admin_token": "This server needs its admin token. Go back and connect to it as your own server.",
+    "background_failed_device_cap": "This account already has the most devices its plan allows. Sign out of Crit Alarm on a phone you no longer use, then connect again.",
+    "background_no_server": "No server is connected yet. Go back and connect one.",
     "background_failed_refused": "The server did not accept the connection. Go back and connect again.",
     "background_failed_button": "Back to connect",
     "self_host_connecting": "Checking {host}",

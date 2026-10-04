@@ -44,6 +44,10 @@ enum BackgroundConnectFailure {
   /// connect step can ask for.
   needsAdminToken,
 
+  /// The account already holds as many devices as its plan allows, so the
+  /// relay registered nothing.
+  deviceCap,
+
   /// The server or the relay answered an error a retry will not change.
   refused,
 }
@@ -114,6 +118,8 @@ class BackgroundConnect {
     required this._saveConnection,
     this._tokens,
     this.onConnected,
+    this.onAbandoned,
+    this.removeConnection,
     DateTime Function()? clock,
     this.tickInterval = const Duration(seconds: 15),
   }) : _clock = clock ?? DateTime.now;
@@ -136,6 +142,15 @@ class BackgroundConnect {
   /// Called once the connection is saved, so the rest of the app can load
   /// from the new server.
   final Future<void> Function()? onConnected;
+
+  /// Called when a connect is given up or cancelled, so the connect step
+  /// stops counting as done. The step is only done while a connection is
+  /// saved or a connect is still pending.
+  final Future<void> Function()? onAbandoned;
+
+  /// Takes back a connection this object saved for a connect that was
+  /// cancelled while the save was on its way.
+  final Future<void> Function()? removeConnection;
 
   final DateTime Function() _clock;
   final Duration tickInterval;
@@ -224,10 +239,27 @@ class BackgroundConnect {
   /// Drops the pending connect. For a user who disconnects or picks another
   /// server.
   Future<void> cancel() async {
+    final hadIntent = _intents.read() != null;
     _generation++;
     _unwatch();
     await _intents.clear();
     _emit(const BackgroundConnectState());
+    if (hadIntent) await _abandoned();
+  }
+
+  /// Forgets a failure the user has seen and left behind. Without this it
+  /// would be shown again on every setup screen opened for the rest of the
+  /// app run.
+  void dismissFailure() {
+    if (_state.isFailed) _emit(const BackgroundConnectState());
+  }
+
+  Future<void> _abandoned() async {
+    try {
+      await onAbandoned?.call();
+    } on Object catch (error) {
+      debugPrint('CritAlarmConnect: on_abandoned_failed error=$error');
+    }
   }
 
   Future<void> dispose() async {
@@ -296,7 +328,7 @@ class BackgroundConnect {
     bool isStale() => generation != _generation;
 
     final uri = Uri.tryParse(intent.serverUrl);
-    if (uri == null) return _fail(BackgroundConnectFailure.refused);
+    if (uri == null) return _fail(BackgroundConnectFailure.refused, isStale);
 
     final infoResult = await _getServerInfo(uri);
     if (isStale()) return;
@@ -304,15 +336,29 @@ class BackgroundConnect {
     if (info == null) {
       final failure = infoResult.exceptionOrNull();
       if (failure is ApiFailure) {
-        return _afterStatus(intent, failure.statusCode);
+        // Here a 429 is the rate limit, which passes.
+        final status = failure.statusCode;
+        if (status == 408 || status == 429 || status >= 500) {
+          return _retryLater(
+            intent,
+            BackgroundConnectStatus.connecting,
+            isStale,
+          );
+        }
+        return _fail(BackgroundConnectFailure.refused, isStale);
       }
       // Anything that is not an answer from the server is the network.
-      return _retryLater(intent, BackgroundConnectStatus.waitingForNetwork);
+      return _retryLater(
+        intent,
+        BackgroundConnectStatus.waitingForNetwork,
+        isStale,
+      );
     }
 
     if (!ServerInfoValidation.isSemverCompatible(info.version)) {
       return _fail(
         BackgroundConnectFailure.versionUnsupported,
+        isStale,
         serverVersion: info.version,
       );
     }
@@ -320,10 +366,10 @@ class BackgroundConnect {
     try {
       mode = ServerMode.fromWireValue(info.mode);
     } on FormatException {
-      return _fail(BackgroundConnectFailure.refused);
+      return _fail(BackgroundConnectFailure.refused, isStale);
     }
     if (mode == ServerMode.selfhosted) {
-      return _fail(BackgroundConnectFailure.needsAdminToken);
+      return _fail(BackgroundConnectFailure.needsAdminToken, isStale);
     }
 
     // The device is registered with its push token, so the token comes
@@ -339,6 +385,7 @@ class BackgroundConnect {
         return _retryLater(
           intent,
           BackgroundConnectStatus.waitingForPushToken,
+          isStale,
         );
       }
       if (isStale()) return;
@@ -353,23 +400,39 @@ class BackgroundConnect {
           adminToken: session.managementCredential,
         ),
       );
-      if (isStale()) return;
+      if (isStale()) {
+        // Cancelled while the save was on its way: the user disconnected,
+        // or picked another server. The connection must not outlive that.
+        if (saved.isSuccess()) await removeConnection?.call();
+        return;
+      }
       if (saved.isError()) {
-        return _retryLater(intent, BackgroundConnectStatus.connecting);
+        return _retryLater(
+          intent,
+          BackgroundConnectStatus.connecting,
+          isStale,
+        );
       }
     } on ApiException catch (error) {
       if (isStale()) return;
-      return _afterStatus(intent, error.statusCode);
+      return _afterRegistrationStatus(intent, error.statusCode, isStale);
     } on Object catch (error) {
       if (isStale()) return;
       // The relay answered without a device token. Asking again gets the
       // same answer.
-      if (error is StateError) return _fail(BackgroundConnectFailure.refused);
+      if (error is StateError) {
+        return _fail(BackgroundConnectFailure.refused, isStale);
+      }
       // Offline, DNS failure, timeout: keep it and try later.
-      return _retryLater(intent, BackgroundConnectStatus.waitingForNetwork);
+      return _retryLater(
+        intent,
+        BackgroundConnectStatus.waitingForNetwork,
+        isStale,
+      );
     }
 
     await _intents.clear();
+    if (isStale()) return;
     _unwatch();
     _emit(
       BackgroundConnectState(
@@ -384,19 +447,32 @@ class BackgroundConnect {
     }
   }
 
-  /// 408, 429 and 5xx are worth trying again. Any other status will not
-  /// change on a retry.
-  Future<void> _afterStatus(ConnectIntent intent, int status) {
-    if (status == 408 || status == 429 || status >= 500) {
-      return _retryLater(intent, BackgroundConnectStatus.connecting);
+  /// A status from the device registration. 408 and 5xx are worth trying
+  /// again. A 429 here is the device cap: the account already holds as many
+  /// devices as its plan allows and no token was issued, so asking again
+  /// gets the same answer. Any other status will not change either.
+  Future<void> _afterRegistrationStatus(
+    ConnectIntent intent,
+    int status,
+    bool Function() isStale,
+  ) {
+    if (status == 429) {
+      return _fail(BackgroundConnectFailure.deviceCap, isStale);
     }
-    return _fail(BackgroundConnectFailure.refused);
+    if (status == 408 || status >= 500) {
+      return _retryLater(intent, BackgroundConnectStatus.connecting, isStale);
+    }
+    return _fail(BackgroundConnectFailure.refused, isStale);
   }
 
+  /// Keeps the intent for a later try. A cancel or a new start that lands
+  /// while the write is on its way wins: nothing is emitted after it.
   Future<void> _retryLater(
     ConnectIntent intent,
     BackgroundConnectStatus status,
+    bool Function() isStale,
   ) async {
+    if (isStale()) return;
     final attempts = intent.attempts + 1;
     await _intents.save(
       intent.copyWith(
@@ -406,15 +482,19 @@ class BackgroundConnect {
             .millisecondsSinceEpoch,
       ),
     );
+    if (isStale()) return;
     _emit(BackgroundConnectState(status: status, serverUrl: intent.serverUrl));
   }
 
   Future<void> _fail(
-    BackgroundConnectFailure failure, {
+    BackgroundConnectFailure failure,
+    bool Function() isStale, {
     String? serverVersion,
   }) async {
+    if (isStale()) return;
     final serverUrl = _intents.read()?.serverUrl ?? _state.serverUrl;
     await _intents.clear();
+    if (isStale()) return;
     _unwatch();
     _emit(
       BackgroundConnectState(
@@ -424,6 +504,7 @@ class BackgroundConnect {
         serverVersion: serverVersion,
       ),
     );
+    await _abandoned();
   }
 
   /// Wait before attempt [attempts], doubling each time up to [maxBackoff].

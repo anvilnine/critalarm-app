@@ -6,6 +6,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/connect_gate.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/model/background_connect_copy.dart';
@@ -143,6 +144,8 @@ class _OnboardingShellState extends State<OnboardingShell> {
       state: connect.state,
       path: uri.path,
       isReplay: isOnboardingReplayUri(uri),
+      // Only the quiet line is read here, and it does not depend on this.
+      hasConnection: true,
     );
     return gate == ConnectGate.quiet
         ? backgroundConnectShortLine(connect.state)
@@ -289,10 +292,11 @@ class _ConnectQuietLine extends StatelessWidget {
 ///
 /// The step itself is not built until it may show, so a screen that talks to
 /// the server never starts without one.
-class OnboardingStepGate extends StatelessWidget {
+class OnboardingStepGate extends StatefulWidget {
   const OnboardingStepGate({
     required this.builder,
     this.backgroundConnect,
+    this.readHasConnection,
     super.key,
   });
 
@@ -301,45 +305,96 @@ class OnboardingStepGate extends StatelessWidget {
   /// The connect running behind the user. Null takes the app's own.
   final BackgroundConnect? backgroundConnect;
 
+  /// Whether a server connection is saved. Null takes the app's own read.
+  final Future<bool> Function()? readHasConnection;
+
+  @override
+  State<OnboardingStepGate> createState() => _OnboardingStepGateState();
+}
+
+class _OnboardingStepGateState extends State<OnboardingStepGate> {
+  late final BackgroundConnect? _connect;
+  StreamSubscription<BackgroundConnectState>? _changes;
+
+  /// Null until the first read answers. It is one prefs read.
+  bool? _hasConnection;
+
+  @override
+  void initState() {
+    super.initState();
+    _connect = widget.backgroundConnect ?? _appBackgroundConnect();
+    if (_connect == null) return;
+    _changes = _connect.stream.listen((_) => unawaited(_refresh()));
+    unawaited(_refresh());
+  }
+
+  Future<void> _refresh() async {
+    final read =
+        widget.readHasConnection ??
+        () async =>
+            (await getIt<GetConnectionUsecase>()(
+              const NoParams(),
+            )).getOrNull() !=
+            null;
+    final has = await read();
+    if (mounted) setState(() => _hasConnection = has);
+  }
+
+  @override
+  void dispose() {
+    unawaited(_changes?.cancel());
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final connect = backgroundConnect ?? _appBackgroundConnect();
-    if (connect == null) return builder(context);
+    final connect = _connect;
+    if (connect == null) return widget.builder(context);
     final uri = GoRouterState.of(context).uri;
-    return StreamBuilder<BackgroundConnectState>(
-      stream: connect.stream,
-      initialData: connect.state,
-      builder: (context, snapshot) {
-        // Read from the object, not the snapshot: a change between the
-        // build and the subscription would otherwise be missed.
-        final state = connect.state;
-        final gate = connectGateFor(
-          state: state,
-          path: uri.path,
-          isReplay: isOnboardingReplayUri(uri),
-        );
-        return AnimatedSwitcher(
-          duration: context.motion(AppDurations.base),
-          switchInCurve: AppCurves.easeOut,
-          switchOutCurve: AppCurves.easeOut,
-          child: switch (gate) {
-            ConnectGate.none || ConnectGate.quiet => KeyedSubtree(
-              key: const ValueKey('connect-gate-step'),
-              child: builder(context),
-            ),
-            ConnectGate.waiting => _ConnectGateScreen(
-              key: const ValueKey('connect-gate-waiting'),
-              message: backgroundConnectLine(state) ?? '',
-              isFailure: false,
-            ),
-            ConnectGate.failed => _ConnectGateScreen(
-              key: const ValueKey('connect-gate-failed'),
-              message: backgroundConnectLine(state) ?? '',
-              isFailure: true,
-            ),
-          },
-        );
-      },
+    final state = connect.state;
+    final hasConnection = _hasConnection;
+    final entry = OnboardingStepRegistry.entryForPath(uri.path);
+    final needsServer =
+        entry != null && entry.requires.contains(OnboardingStepId.connect);
+    final Widget child;
+    if (hasConnection == null && needsServer && !isOnboardingReplayUri(uri)) {
+      // A step that talks to the server is not built before the read says
+      // there is one. One frame or two of the canvas alone.
+      child = const SizedBox.expand(key: ValueKey('connect-gate-reading'));
+    } else {
+      final gate = connectGateFor(
+        state: state,
+        path: uri.path,
+        isReplay: isOnboardingReplayUri(uri),
+        hasConnection: hasConnection ?? false,
+      );
+      child = switch (gate) {
+        ConnectGate.none || ConnectGate.quiet => KeyedSubtree(
+          key: const ValueKey('connect-gate-step'),
+          child: widget.builder(context),
+        ),
+        ConnectGate.waiting => _ConnectGateScreen(
+          key: const ValueKey('connect-gate-waiting'),
+          message: backgroundConnectLine(state) ?? '',
+          isFailure: false,
+          connect: connect,
+        ),
+        ConnectGate.failed => _ConnectGateScreen(
+          key: const ValueKey('connect-gate-failed'),
+          // With no failure to name, the step is simply missing its server.
+          message:
+              backgroundConnectLine(state) ??
+              LocaleKeys.onboarding_connect_background_no_server.tr(),
+          isFailure: true,
+          connect: connect,
+        ),
+      };
+    }
+    return AnimatedSwitcher(
+      duration: context.motion(AppDurations.base),
+      switchInCurve: AppCurves.easeOut,
+      switchOutCurve: AppCurves.easeOut,
+      child: child,
     );
   }
 }
@@ -349,15 +404,20 @@ class _ConnectGateScreen extends StatelessWidget {
   const _ConnectGateScreen({
     required this.message,
     required this.isFailure,
+    required this.connect,
     super.key,
   });
 
   final String message;
   final bool isFailure;
+  final BackgroundConnect connect;
 
   /// Leaves setup for Home. A connect still pending carries on from there.
   Future<void> _setUpLater(BuildContext context) async {
     final router = GoRouter.of(context);
+    // The user has seen the failure and is leaving it behind. A connect
+    // still pending is untouched and carries on.
+    connect.dismissFailure();
     if (router.canPop()) {
       // Opened on its own after setup: back to whatever opened it.
       router.pop();

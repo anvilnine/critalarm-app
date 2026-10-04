@@ -55,7 +55,7 @@ class ConnectIntent {
 ///
 /// It has its own key. It is not part of the setup draft, and it is not a
 /// saved connection: Home reads a saved connection as "a server exists".
-final class ConnectIntentStore {
+class ConnectIntentStore {
   const ConnectIntentStore(this._prefs);
 
   static const storageKey = 'connect_intent_v1';

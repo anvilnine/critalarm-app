@@ -17,7 +17,7 @@ void main() {
   ];
 
   group('connectGateFor', () {
-    test('nothing was asked for: every step shows as it is', () {
+    test('nothing was asked for and a server is saved: every step shows', () {
       for (final path in [
         '/onboarding/welcome',
         '/onboarding',
@@ -29,6 +29,42 @@ void main() {
             state: const BackgroundConnectState(),
             path: path,
             isReplay: false,
+            hasConnection: true,
+          ),
+          ConnectGate.none,
+        );
+      }
+    });
+
+    test('nothing pending and no server saved: a step that needs the server '
+        'shows the failed gate, as after a relaunch', () {
+      for (final path in [
+        '/onboarding/first-topic',
+        '/onboarding/real-ring',
+        '/onboarding/test',
+      ]) {
+        expect(
+          connectGateFor(
+            state: const BackgroundConnectState(),
+            path: path,
+            isReplay: false,
+            hasConnection: false,
+          ),
+          ConnectGate.failed,
+          reason: path,
+        );
+      }
+    });
+
+    test('nothing pending and no server saved: a step that does not need '
+        'the server shows as it is', () {
+      for (final path in ['/onboarding/welcome', '/onboarding']) {
+        expect(
+          connectGateFor(
+            state: const BackgroundConnectState(),
+            path: path,
+            isReplay: false,
+            hasConnection: false,
           ),
           ConnectGate.none,
         );
@@ -47,6 +83,7 @@ void main() {
               state: _state(status),
               path: path,
               isReplay: false,
+              hasConnection: false,
             ),
             ConnectGate.waiting,
             reason: '$status on $path',
@@ -63,6 +100,7 @@ void main() {
               state: _state(status),
               path: path,
               isReplay: false,
+              hasConnection: false,
             ),
             ConnectGate.quiet,
             reason: '$status on $path',
@@ -82,7 +120,12 @@ void main() {
         '/onboarding/real-ring',
       ]) {
         expect(
-          connectGateFor(state: failed, path: path, isReplay: false),
+          connectGateFor(
+            state: failed,
+            path: path,
+            isReplay: false,
+            hasConnection: false,
+          ),
           ConnectGate.failed,
         );
       }
@@ -95,6 +138,7 @@ void main() {
             state: _state(status),
             path: '/onboarding/connect',
             isReplay: false,
+            hasConnection: false,
           ),
           ConnectGate.none,
           reason: '$status',
@@ -108,6 +152,7 @@ void main() {
           state: _state(BackgroundConnectStatus.connected),
           path: '/onboarding/first-topic',
           isReplay: false,
+          hasConnection: false,
         ),
         ConnectGate.none,
       );
@@ -120,6 +165,7 @@ void main() {
             state: _state(status),
             path: '/onboarding/first-topic',
             isReplay: true,
+            hasConnection: false,
           ),
           ConnectGate.none,
         );
@@ -132,6 +178,7 @@ void main() {
           state: _state(BackgroundConnectStatus.waitingForNetwork),
           path: '/settings',
           isReplay: false,
+          hasConnection: false,
         ),
         ConnectGate.none,
       );

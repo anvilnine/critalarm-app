@@ -268,12 +268,26 @@ connection.
   not know, or an answer a retry will not change, is a failure: the intent
   is cleared and nothing retries.
 - The intent is also cleared when the user disconnects or connects to a
-  server by hand.
+  server by hand. Disconnecting cancels the pending connect first and
+  clears the connection second.
+- The `connect` step counts as done only while a connection is saved or a
+  connect is pending. A failure or a cancel takes it out of the completed
+  steps (`OnboardingFlowEngine.reopenStep`), so a relaunch resumes at the
+  connect step.
+- A 429 from the device registration is the device cap, a failure with its
+  own line. A 429 from `/v1/info` is the rate limit and is retried.
+- A failure is forgotten when setup completes or the user leaves through
+  Set this up later.
+- The privacy line reads `ServerInfo.statedRelayContent`, which is null when
+  the answer had no `relay_content`. `relayContent` keeps its `none`
+  default for the rest of the app.
 - The result shows as step content, never as a notice or a notification.
   `OnboardingStepGate` (in `onboarding_shell.dart`) wraps every step route.
   A step whose registry entry requires `connect` shows `AppWaitingFace` and
   one line until the connect lands. A failure shows on whichever step is
-  open, with one button back to the connect step. Other steps show a short
+  open, with one button back to the connect step. A step that requires
+  `connect` with nothing pending and no saved connection shows the same
+  gate. Other steps show a short
   status in the top corner of the shell. `connectGateFor` holds the rule.
 - A later step asks `getIt<BackgroundConnect>().state`: `isPending`,
   `isConnected`, `isFailed` with `failure`. `stream` carries every change.
