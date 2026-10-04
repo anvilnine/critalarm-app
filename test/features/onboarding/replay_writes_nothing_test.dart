@@ -140,6 +140,7 @@ void main() {
     ]);
     expect(destination.isHome, isTrue);
     expect(dump(), before);
+    // The dump is the before and after record for a review.
     // ignore: avoid_print
     print('prefs before and after a replay: $before');
   });
