@@ -1,3 +1,5 @@
+import 'package:critalarm/app/di.dart';
+import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
@@ -61,6 +63,12 @@ class OnboardingStepEntry {
       false;
 }
 
+/// A developer forced [stepId] to count as not done. Always false in a store
+/// build.
+bool _isForcedUnsatisfied(String stepId) =>
+    getIt.isRegistered<DeveloperOnboardingOverrides>() &&
+    getIt<DeveloperOnboardingOverrides>().forcedUnsatisfied.contains(stepId);
+
 bool _onMobileOnly(OnboardingPlatform on) => !on.isWeb;
 
 bool _notYet(OnboardingPlatform on) => false;
@@ -111,7 +119,9 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       isAvailable: _onMobileOnly,
       isSatisfied: (facts) => facts.hasEveryPermission(),
       screen: (context, state) => OnboardingPermissionsScreen(
-        replayForDemo: isOnboardingReplayUri(state.uri),
+        replayForDemo:
+            isOnboardingReplayUri(state.uri) ||
+            _isForcedUnsatisfied(OnboardingStepId.permissions),
         initialStep: state.uri.queryParameters['denied'] == 'true'
             ? NotificationPermissionStep.denied
             : NotificationPermissionStep.initial,
