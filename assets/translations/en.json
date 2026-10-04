@@ -402,11 +402,11 @@
     "server_title": "Connect a server",
     "critical_title": "Create a critical topic",
     "critical_line_off": "Turn on Critical delivery on a topic.",
-    "done_title": "Setup is finished"
+    "done_title": "All set"
   },
   "home_widgets": {
     "needs_hosted": "Widgets come with Hosted.",
-    "how_button": "Show me how to add it",
+    "how_button": "Show me how",
     "plans_button": "See Hosted",
     "dismiss_button": "Not now",
     "sheet_title": "Add a widget",

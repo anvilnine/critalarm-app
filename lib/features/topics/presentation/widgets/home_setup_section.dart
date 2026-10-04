@@ -133,6 +133,31 @@ abstract final class _SetupFaces {
   static const FaceState widgets = FaceState.proud;
 }
 
+/// The one surface the checklist and the widgets card sit on: a cream
+/// block with no stroke. The topic rows around it have no stroke either, so
+/// a tint sets the block apart without making it the heaviest thing in the
+/// list.
+class _SetupBlock extends StatelessWidget {
+  const _SetupBlock({required this.child, this.padding});
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: context.appColors.cream,
+        borderRadius: Radii.lgAll,
+      ),
+      child: Padding(
+        padding: padding ?? const EdgeInsets.fromLTRB(14, 12, 14, 6),
+        child: child,
+      ),
+    );
+  }
+}
+
 class _Checklist extends StatelessWidget {
   const _Checklist({required this.state, required this.onRowTap, super.key});
 
@@ -150,78 +175,79 @@ class _Checklist extends StatelessWidget {
     final criticalRoute = state.routeFor(SetupChecklistRow.criticalTopic);
     final messageRoute = state.routeFor(SetupChecklistRow.firstMessage);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(2, 0, 4, 12),
-          child: Row(
-            children: [
-              const ExcludeSemantics(
-                child: FaceWidget(state: _SetupFaces.checklist, size: 40),
-              ),
-              const SizedBox(width: Spacing.s3),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    LocaleKeys.home_setup_title.tr(),
-                    style: AppTypography.body(
-                      colors.ink,
-                    ).copyWith(fontWeight: FontWeight.w700),
+    return _SetupBlock(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.s1),
+            child: Row(
+              children: [
+                const ExcludeSemantics(
+                  child: FaceWidget(state: _SetupFaces.checklist, size: 32),
+                ),
+                const SizedBox(width: Spacing.s3),
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      LocaleKeys.home_setup_title.tr(),
+                      style: AppTypography.body(
+                        colors.ink,
+                      ).copyWith(fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: Spacing.s3),
-              Semantics(
-                label: LocaleKeys.home_setup_progress_aria_label.tr(
-                  namedArgs: progress,
-                ),
-                child: ExcludeSemantics(
-                  child: Text(
-                    LocaleKeys.home_setup_progress.tr(namedArgs: progress),
-                    style: AppTypography.mono(colors.ink3, fontSize: 12),
+                const SizedBox(width: Spacing.s3),
+                Semantics(
+                  label: LocaleKeys.home_setup_progress_aria_label.tr(
+                    namedArgs: progress,
+                  ),
+                  child: ExcludeSemantics(
+                    child: Text(
+                      LocaleKeys.home_setup_progress.tr(namedArgs: progress),
+                      style: AppTypography.mono(colors.ink3, fontSize: 12),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        _ChecklistRow(
-          title: LocaleKeys.home_setup_server_title.tr(),
-          isDone: checklist.hasServer,
-        ),
-        const SizedBox(height: Spacing.s2),
-        _ChecklistRow(
-          title: LocaleKeys.home_setup_critical_title.tr(),
-          // The label alone is wrong once a topic exists: nothing is left
-          // to create, only a switch to turn on.
-          line: checklist.hasTopics
-              ? LocaleKeys.home_setup_critical_line_off.tr()
-              : null,
-          isDone: checklist.hasCriticalTopic,
-          onTap: criticalRoute == null ? null : () => onRowTap(criticalRoute),
-        ),
-        const SizedBox(height: Spacing.s2),
-        _Tappable(
-          onTap: messageRoute == null ? null : () => onRowTap(messageRoute),
-          // The waiting row from the last setup step: a label and its
-          // tick. The checklist has its one face in the header.
-          child: FirstMessageRow(
-            isReceived: checklist.hasFirstMessage,
-            isCompact: true,
-            showsFace: false,
+          _ChecklistRow(
+            title: LocaleKeys.home_setup_server_title.tr(),
+            isDone: checklist.hasServer,
           ),
-        ),
-      ],
+          _ChecklistRow(
+            title: LocaleKeys.home_setup_critical_title.tr(),
+            // The label alone is wrong once a topic exists: nothing is left
+            // to create, only a switch to turn on.
+            line: checklist.hasTopics
+                ? LocaleKeys.home_setup_critical_line_off.tr()
+                : null,
+            isDone: checklist.hasCriticalTopic,
+            onTap: criticalRoute == null ? null : () => onRowTap(criticalRoute),
+          ),
+          _Tappable(
+            onTap: messageRoute == null ? null : () => onRowTap(messageRoute),
+            // The waiting row from the last setup step: a label and its
+            // tick. The checklist has its one face in the header.
+            child: FirstMessageRow(
+              isReceived: checklist.hasFirstMessage,
+              isCompact: true,
+              showsFace: false,
+              isBare: true,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 /// One row of the checklist, laid out like the first-message row so the
 /// three read as one list: a label, then the ring that fills when the row
-/// is true.
+/// is true. A finished row goes quiet, so the eye lands on what is left.
 class _ChecklistRow extends StatelessWidget {
   const _ChecklistRow({
     required this.title,
@@ -252,9 +278,8 @@ class _ChecklistRow extends StatelessWidget {
         container: true,
         label: [title, status, ?line].join('. '),
         child: ExcludeSemantics(
-          child: AppHighlightCard(
-            tone: isDone ? AppHighlightTone.calm : AppHighlightTone.pending,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Spacing.s2),
             child: Row(
               children: [
                 Expanded(
@@ -265,7 +290,7 @@ class _ChecklistRow extends StatelessWidget {
                       Text(
                         title,
                         style: AppTypography.small(
-                          colors.onCanvas,
+                          isDone ? colors.onCanvasMuted : colors.onCanvas,
                         ).copyWith(fontWeight: FontWeight.w600),
                       ),
                       if (line != null) ...[
@@ -282,7 +307,7 @@ class _ChecklistRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: Spacing.s3),
-                AppAnimatedTick(done: isDone, size: 28),
+                AppAnimatedTick(done: isDone),
               ],
             ),
           ),
@@ -334,6 +359,7 @@ class _FinishedLine extends StatelessWidget {
     return Semantics(
       container: true,
       liveRegion: true,
+      // The one settled card on Home: everything in the list is done.
       child: AppHighlightCard(
         tone: AppHighlightTone.calm,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -360,6 +386,10 @@ class _FinishedLine extends StatelessWidget {
 
 /// The widgets card, shown once after the checklist is finished: a title,
 /// at most one short line, and the action.
+///
+/// The main button is the next thing this user can do. With widgets
+/// unlocked that is adding one. Without Hosted the steps lead nowhere yet,
+/// so the plans come first and the steps are the quiet button beside them.
 class _WidgetsCard extends StatelessWidget {
   const _WidgetsCard({
     required this.plan,
@@ -379,8 +409,21 @@ class _WidgetsCard extends StatelessWidget {
     final colors = context.appColors;
     final needsHosted = plan == HomeWidgetsPlan.needsHosted;
 
-    return AppHighlightCard(
-      tone: AppHighlightTone.calm,
+    final plans = AppButton(
+      label: LocaleKeys.home_widgets_plans_button.tr(),
+      size: AppButtonSize.sm,
+      isFullWidth: true,
+      onPressed: onSeeHosted,
+    );
+    final how = AppButton(
+      label: LocaleKeys.home_widgets_how_button.tr(),
+      variant: needsHosted ? AppButtonVariant.ghost : AppButtonVariant.primary,
+      size: AppButtonSize.sm,
+      isFullWidth: true,
+      onPressed: onShowHowTo,
+    );
+
+    return _SetupBlock(
       padding: const EdgeInsets.fromLTRB(14, 6, 6, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -389,7 +432,7 @@ class _WidgetsCard extends StatelessWidget {
           Row(
             children: [
               const ExcludeSemantics(
-                child: FaceWidget(state: _SetupFaces.widgets, size: 40),
+                child: FaceWidget(state: _SetupFaces.widgets, size: 32),
               ),
               const SizedBox(width: Spacing.s3),
               // A server of the user's own has no plans, so no badge.
@@ -406,7 +449,7 @@ class _WidgetsCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: Spacing.s2),
+          const SizedBox(height: Spacing.s1),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Column(
@@ -430,24 +473,22 @@ class _WidgetsCard extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: Spacing.s3),
-                Wrap(
-                  spacing: Spacing.s2,
-                  runSpacing: Spacing.s2,
-                  children: [
-                    AppButton(
-                      label: LocaleKeys.home_widgets_how_button.tr(),
-                      size: AppButtonSize.sm,
-                      onPressed: onShowHowTo,
-                    ),
-                    if (needsHosted)
-                      AppButton(
-                        label: LocaleKeys.home_widgets_plans_button.tr(),
-                        variant: AppButtonVariant.ghost,
-                        size: AppButtonSize.sm,
-                        onPressed: onSeeHosted,
-                      ),
-                  ],
-                ),
+                if (!needsHosted)
+                  how
+                // Side by side while the labels fit. At large text they
+                // stack, each on its own line.
+                else if (MediaQuery.textScalerOf(context).scale(1) > 1.3) ...[
+                  plans,
+                  const SizedBox(height: Spacing.s2),
+                  how,
+                ] else
+                  Row(
+                    children: [
+                      Expanded(child: plans),
+                      const SizedBox(width: Spacing.s2),
+                      Expanded(child: how),
+                    ],
+                  ),
               ],
             ),
           ),
