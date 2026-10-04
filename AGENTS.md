@@ -431,7 +431,11 @@ topic is made: the name, server URL, template id and publish token. The entry
 lives in memory only, because the server never shows the token again. The
 topic name is also saved as `onboarding_first_topic`, so a resume after a
 kill knows which topic setup made. `CompleteOnboardingUsecase` clears both.
-A replay and a screen opened from Home hold nothing.
+A replay and a screen opened from Home hold nothing. The id of the token
+(never the token) is saved under `onboarding_hook_up_token_id` too: setup
+does not show that token until the hook-up step, so if the app dies first,
+hook up takes it back before it makes another. The server address handed on
+falls back to the saved connection when the screen had not loaded it yet.
 
 **Real ring.** The `real_ring` step asks the server to send the test alarm:
 `POST /v1/test?topic=<name>`, then the push, then the real alarm screen. The
@@ -641,7 +645,25 @@ runs them from the list Home drew.
 - Home polls for the first message only while Home is the screen in
   front, no guide is up and the third row is open. One
   `FirstMessageWatcher` per topic, three topics at most, critical ones
-  first.
+  first. The watch is quick for a minute, then slows to one read a minute
+  (`backsOffWhenQuiet`), and is quick again when Home comes back to the
+  front. Topics beyond the three get one read each on a sweep, a few per
+  sweep and at most every 30 seconds (`topicsToSweepForFirstMessage`), so
+  a first message on any topic ticks the row.
+- "In front" is `isHomeFrontScreen`: the router's location is `/` and the
+  app is resumed. The route observer alone is not enough, because an
+  alarm, the new-topic screen and the plans sit on the root navigator and
+  another tab is not a push.
+- The first look gives every topic of that time a baseline. A topic with
+  no baseline was made later, so everything it holds counts
+  (`countsFromStart`): a message sent from the topic page before Home
+  polled it is the first message.
+- A first look that fails is tried again after 15 seconds, doubling to 5
+  minutes (`setupSeedRetryDelay`). Nothing is drawn until it succeeds.
+- An install that owns a topic and finished setup before the checklist
+  existed (`SetupChecklistStore.wasSetUpHere` is false) never sees it.
+- The close control on the checklist retires it for good with no
+  celebration (`checklistDismissed`).
 - A row that turns true while Home is covered is held until Home is back,
   so the tick plays in view. When the last one turns in view,
   `setup_checklist_done` is saved first, the tick plays, then the rows

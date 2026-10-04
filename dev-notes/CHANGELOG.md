@@ -51,6 +51,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - FirstMessageRow takes showsFace, so a list with its own face can leave the row's out. The paywall pitch lists home screen widgets.
 - Every setup step draws one 80 px hero face with the tag onboarding-face at the same top inset. watching is kept for waits, worried for failures.
 - CreateTopicCubit.isOneStep creates from the first step and names the token after the picked tool. Setup sets it; the Home screen keeps two steps.
+- Home decides it is in front from the router's location (isHomeFrontScreen), backs off its first-message poll, sweeps topics beyond the polled three, and backs off a failed first look.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -58,6 +59,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The Time-Sensitive explainer no longer shows after notifications were refused, and the Android full-screen step drops its ring chip while notifications are off. The Android notification mock says Don't allow.
 - Setup never closes or leaves a real alarm: CriticalAlarmCubit.closeSetupTests acts only on the stored setup test on screen, a server push cancels a running phone-only countdown, and iOS names an incident to Dart only for a push that rings (AlarmScheduleRule.ringingIncidentId).
 - The Feature Guide offer is raised after the route change has settled, so it is no longer swept away and counted as declined when setup ends.
+- A token made in setup and never shown is taken back if the app is killed before the hook-up step: its id is saved with the handoff.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
