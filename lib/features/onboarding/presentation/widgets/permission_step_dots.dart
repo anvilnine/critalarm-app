@@ -48,7 +48,7 @@ class PermissionStepDots extends StatelessWidget {
               decoration: BoxDecoration(
                 color: i == index
                     ? colors.onCanvas
-                    : colors.onCanvasMuted.withValues(alpha: 0.35),
+                    : colors.onCanvas.withValues(alpha: 0.3),
                 borderRadius: Radii.fullAll,
               ),
             ),
