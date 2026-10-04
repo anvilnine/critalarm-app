@@ -18,6 +18,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
 - The welcome screen is ready to tap the moment it opens, with its words and Get started button in place while the animation plays.
 - The reminders sheet no longer opens right after setup, and the walkthrough offer comes first.
+- The Android app no longer closes the moment you open it.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added

@@ -53,6 +53,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The Time-Sensitive explainer no longer shows after notifications were refused, and the Android full-screen step drops its ring chip while notifications are off. The Android notification mock says Don't allow.
 - Setup never closes or leaves a real alarm: CriticalAlarmCubit.closeSetupTests acts only on the stored setup test on screen, a server push cancels a running phone-only countdown, and iOS names an incident to Dart only for a push that rings (AlarmScheduleRule.ringingIncidentId).
 - The Feature Guide offer is raised after the route change has settled, so it is no longer swept away and counted as declined when setup ends.
+- android/app/proguard-rules.pro keeps the no-arg constructor of Room database classes. R8 removed it from WorkDatabase\_Impl (WorkManager, pulled in by Play asset-delivery), so every release build crashed in androidx.startup.InitializationProvider before Dart started. Debug builds skip R8 and never showed it.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
