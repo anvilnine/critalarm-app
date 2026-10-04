@@ -12,6 +12,10 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
 - Locale values and the search keyword for the paid plan say Hosted. Keys, class names, routes and analytics event names keep their pro\_ names. The create-topic limit hint is now the key create\_topic.limit\_review\_plan\_hint.
 - `AppEmptyState` has no English defaults: `title` and `description` are required and `buttonLabel` is null unless passed. The Home empty card reads its words from `home.empty_body` and `home.empty_button`.
+- A pinned setup flow goes through the validator each time it is read: unknown ids are dropped, and a rejected or empty list is replaced by the bundled default with the completed steps kept. `finishOnboardingStep` does not navigate when the router moved while it was waiting. `CriticalAlarmState.hasOwnedTopic` decides whether the demo celebration offers the first topic.
+
+### Fixed
+- A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.

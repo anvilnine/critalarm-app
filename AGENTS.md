@@ -218,6 +218,17 @@ nothing is saved or pinned, no step is skipped for being satisfied, the flag
 carries on to the next route, and the connect step moves on without
 connecting. `isOnboardingReplay(context)` reads the flag.
 
+After setup: two setup screens are also opened on their own, by
+`OnboardingEntryPoint.connectServer` (Server settings, the no-server card on
+Home) and `OnboardingEntryPoint.testAlarm` (Health). Once setup is complete,
+`finishStep` saves nothing and pins nothing, and the screen closes back to
+whatever opened it. A user who connects late lands back where they were,
+connected, never in setup.
+
+A pinned flow is checked again every time it is read. Unknown ids are
+dropped, and a list the validator rejects (empty, or nothing known left) is
+replaced by the bundled default with the completed steps kept.
+
 **Changelogs.** Two files, both written with cider, never by hand. The
 how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 
@@ -256,8 +267,9 @@ how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 - Real: the design system in `lib/design/`, with its palette, fonts and
   component names. The `AppColors` `ThemeExtension` with `copyWith` and `lerp`,
   the single `ThemeData` construction point in `lib/design/theme/theme.dart`,
-  the theme preference round-trip, `go_router` wiring (`lib/app/router.dart`, 47
-  routes today), the `AppResult` and `Failure` types, `tool/check_layers.sh`, CI.
+  the theme preference round-trip, `go_router` wiring (`lib/app/router.dart`, 50
+  routes today: `GoRoute(` appears 43 times, and one of those is a loop that
+  builds the 8 setup step routes), the `AppResult` and `Failure` types, `tool/check_layers.sh`, CI.
 - Placeholder: nothing in `lib/design/`. The widgets left in
   `lib/design_system/widgets/` predate it. Do not build new screens from them.
 
