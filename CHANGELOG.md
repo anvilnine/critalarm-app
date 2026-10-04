@@ -2,8 +2,15 @@
 User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec.yaml`. Entries are added with cider (`make log`), one line each. Rules: `AGENTS.md`, Changelogs. Changes only developers notice go in `dev-notes/CHANGELOG.md`.
 
 ## Unreleased
+### Added
+- The connect step says what the push relay can see, taken from the server's own answer
+
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
+- Setup no longer waits on the connection. Continue with Crit Alarm Cloud moves on at once and the connection finishes while you answer the permission steps
+
+### Fixed
+- Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
 
 ## 1.0.0+12 - 2026-10-03
 ### Added

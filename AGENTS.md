@@ -229,6 +229,35 @@ A pinned flow is checked again every time it is read. Unknown ids are
 dropped, and a list the validator rejects (empty, or nothing known left) is
 replaced by the bundled default with the completed steps kept.
 
+Background connect: Continue with Crit Alarm Cloud finishes the `connect`
+step at once. `BackgroundConnect`
+(`lib/features/onboarding/domain/connect/background_connect.dart`, one object
+for the whole app run, registered in `lib/app/di.dart`) does the work behind
+the user: `GET /v1/info`, the device registration, then saving the
+connection.
+
+- The pending connect is saved under the prefs key `connect_intent_v1`. It
+  holds the server address and the retry time, and no token. It is not part
+  of the onboarding draft and it is not a saved connection, so Home never
+  reads it as "a server exists".
+- It retries on a timer (every 15 seconds, backing off to 5 minutes), on
+  resume, on launch, when the push token arrives, and when the permissions
+  step is finished. The timer stops once the connect lands or gives up.
+- No network and no push token yet are waits. A server version the app does
+  not know, or an answer a retry will not change, is a failure: the intent
+  is cleared and nothing retries.
+- The intent is also cleared when the user disconnects or connects to a
+  server by hand.
+- The result shows as step content, never as a notice or a notification.
+  `OnboardingStepGate` (in `onboarding_shell.dart`) wraps every step route.
+  A step whose registry entry requires `connect` shows `AppWaitingFace` and
+  one line until the connect lands. A failure shows on whichever step is
+  open, with one button back to the connect step. Other steps show one quiet
+  line at the bottom of the shell. `connectGateFor` holds the rule.
+- A later step asks `getIt<BackgroundConnect>().state`: `isPending`,
+  `isConnected`, `isFailed` with `failure`. `stream` carries every change.
+- A server typed by hand connects in the foreground, on the connect screen.
+
 **Changelogs.** Two files, both written with cider, never by hand. The
 how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 
