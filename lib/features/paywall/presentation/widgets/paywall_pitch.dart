@@ -28,7 +28,7 @@ class PaywallPitch extends StatelessWidget {
   }
 }
 
-/// Four bullets and the self-hosting note.
+/// The feature bullets and the self-hosting note.
 class _StraightPitch extends StatelessWidget {
   const _StraightPitch();
 
@@ -51,6 +51,11 @@ class _StraightPitch extends StatelessWidget {
         AppFeatureBullet(
           text: LocaleKeys.paywall_feature_history.tr(),
           glyph: GlyphType.clock,
+        ),
+        const SizedBox(height: 12),
+        AppFeatureBullet(
+          text: LocaleKeys.paywall_feature_widgets.tr(),
+          glyph: GlyphType.dot,
         ),
         const SizedBox(height: 12),
         AppFeatureBullet(
@@ -105,6 +110,11 @@ class _ComparePitch extends StatelessWidget {
           label: LocaleKeys.paywall_compare_row_history_days.tr(),
           free: LocaleKeys.paywall_compare_free_history_days.tr(),
           hosted: LocaleKeys.paywall_compare_hosted_history_days.tr(),
+        ),
+        _CompareRow(
+          label: LocaleKeys.paywall_compare_row_widgets.tr(),
+          free: LocaleKeys.paywall_compare_free_widgets.tr(),
+          hosted: LocaleKeys.paywall_compare_hosted_widgets.tr(),
           isLast: true,
         ),
         const SizedBox(height: 18),

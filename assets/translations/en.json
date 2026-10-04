@@ -405,6 +405,36 @@
     "waiting_short": "Waiting for your phone to ring.",
     "waiting_long": "Sent. Waiting for your phone to ring. On a slow connection this can take a few seconds, so keep the app open."
   },
+  "home_setup": {
+    "title": "Finish setting up",
+    "progress": "{done} of {count}",
+    "progress_aria_label": "{done} of {count} steps done",
+    "row_done": "Done",
+    "row_open": "Not done yet",
+    "server_title": "Connect a server",
+    "critical_title": "Create a critical topic",
+    "critical_line_off": "Turn on Critical delivery on a topic.",
+    "done_title": "Setup is finished"
+  },
+  "home_widgets": {
+    "needs_hosted": "Widgets come with Hosted.",
+    "how_button": "Show me how to add it",
+    "plans_button": "See Hosted",
+    "dismiss_button": "Not now",
+    "sheet_title": "Add a widget",
+    "ios": {
+      "step_1": "Touch and hold the Home Screen.",
+      "step_2": "Tap Edit, then Add Widget. On iOS 17, tap +.",
+      "step_3": "Search for Crit Alarm.",
+      "step_4": "Pick a size, then tap Add Widget."
+    },
+    "android": {
+      "step_1": "Touch and hold the home screen.",
+      "step_2": "Tap Widgets.",
+      "step_3": "Find Crit Alarm.",
+      "step_4": "Pick a widget and add it."
+    }
+  },
   "home": {
     "title": "Crit Alarm",
     "settings_aria_label": "Settings",
@@ -1041,6 +1071,7 @@
     "feature_push_limit": "1,000 high priority pushes a day, up from 50.",
     "feature_history": "90 days of alarm history, up from 7.",
     "feature_app_icons": "Three Hosted app icons: a crown, shades, or both.",
+    "feature_widgets": "Home screen widgets: see what is ringing without opening the app.",
     "self_hosted_note": "Running your own server? No limits, no charge.",
     "compare_header": "Free and Hosted",
     "compare_col_free": "Free",
@@ -1054,6 +1085,9 @@
     "compare_hosted_pushes": "1,000",
     "compare_free_history_days": "7 days",
     "compare_hosted_history_days": "90 days",
+    "compare_row_widgets": "Home screen widgets",
+    "compare_free_widgets": "Locked",
+    "compare_hosted_widgets": "Included",
     "active_title": "Crit Alarm Hosted is active",
     "active_subtitle": "Thanks for paying for this.",
     "manage_subscription_button": "Manage subscription",
