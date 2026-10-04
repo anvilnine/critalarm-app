@@ -50,7 +50,6 @@ class OnboardingConnectState {
     this.serverUrlError,
     this.adminTokenError,
     this.errorMessage,
-    this.qrNotice,
     this.incidentId,
     this.topic = '',
     this.canNavigateToHome = false,
@@ -76,7 +75,6 @@ class OnboardingConnectState {
   final String? serverUrlError;
   final String? adminTokenError;
   final String? errorMessage;
-  final String? qrNotice;
   final String? incidentId;
   final String topic;
   final bool canNavigateToHome;
@@ -119,7 +117,6 @@ class OnboardingConnectState {
     String? serverUrlError,
     String? adminTokenError,
     String? errorMessage,
-    String? qrNotice,
     String? incidentId,
     String? topic,
     bool? canNavigateToHome,
@@ -133,7 +130,6 @@ class OnboardingConnectState {
     bool clearServerUrlError = false,
     bool clearAdminTokenError = false,
     bool clearErrorMessage = false,
-    bool clearQrNotice = false,
     bool clearIncidentId = false,
   }) {
     return OnboardingConnectState(
@@ -156,7 +152,6 @@ class OnboardingConnectState {
       errorMessage: clearErrorMessage
           ? null
           : (errorMessage ?? this.errorMessage),
-      qrNotice: clearQrNotice ? null : (qrNotice ?? this.qrNotice),
       incidentId: clearIncidentId ? null : (incidentId ?? this.incidentId),
       topic: topic ?? this.topic,
       canNavigateToHome: canNavigateToHome ?? this.canNavigateToHome,
@@ -191,7 +186,6 @@ class OnboardingConnectState {
           serverUrlError == other.serverUrlError &&
           adminTokenError == other.adminTokenError &&
           errorMessage == other.errorMessage &&
-          qrNotice == other.qrNotice &&
           incidentId == other.incidentId &&
           topic == other.topic &&
           canNavigateToHome == other.canNavigateToHome &&
@@ -215,7 +209,6 @@ class OnboardingConnectState {
     serverUrlError,
     adminTokenError,
     errorMessage,
-    qrNotice,
     incidentId,
     topic,
     canNavigateToHome,

@@ -136,7 +136,7 @@ class IosPermissionDialogPreview extends StatelessWidget {
 }
 
 /// A drawn copy of a row in the iOS Settings app: the name of the setting
-/// with its switch, turned on, and a line under it.
+/// with its switch, turned on.
 ///
 /// For an iOS step whose prompt is spent, where the only way left is the
 /// switch in Settings. Drawing an alert there would promise one that iOS
@@ -144,12 +144,10 @@ class IosPermissionDialogPreview extends StatelessWidget {
 class IosSettingsSwitchPreview extends StatelessWidget {
   const IosSettingsSwitchPreview({
     required this.title,
-    required this.message,
     super.key,
   });
 
   final String title;
-  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -158,43 +156,25 @@ class IosSettingsSwitchPreview extends StatelessWidget {
     return Container(
       decoration: permissionPreviewDecoration(colors, 18),
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontDisplay,
-                    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                    height: 1.25,
-                    color: colors.ink,
-                  ),
-                ),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontFamily: AppTypography.fontDisplay,
+                fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                height: 1.25,
+                color: colors.ink,
               ),
-              const SizedBox(width: 12),
-              // Drawn on, the way the user should leave it. It is a picture:
-              // the frame around the card is the only control.
-              const AppSwitch(value: true),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            message,
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              fontFamilyFallback: AppTypography.fontBodyFallbacks,
-              fontWeight: FontWeight.w400,
-              fontSize: 13,
-              height: 1.35,
-              color: colors.ink2,
             ),
           ),
+          const SizedBox(width: 12),
+          // Drawn on, the way the user should leave it. It is a picture:
+          // the frame around the card is the only control.
+          const AppSwitch(value: true),
         ],
       ),
     );

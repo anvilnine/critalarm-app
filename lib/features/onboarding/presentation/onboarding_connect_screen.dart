@@ -79,6 +79,11 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
   late final TextEditingController _urlController;
   late final TextEditingController _tokenController;
 
+  /// The face every setup step shares, so it flies between them and stays
+  /// put from the form to the check to the answer.
+  static const _faceHeroTag = 'onboarding-face';
+  static const double _faceSize = 80;
+
   @override
   void initState() {
     super.initState();
@@ -324,7 +329,6 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
   ) {
     final colors = context.appColors;
     final errorMsg = state.errorMessage;
-    final qrNotice = state.qrNotice;
 
     final confirmation = state.confirmation;
     if (confirmation != null) {
@@ -333,14 +337,13 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     if (state.isSelfHosting && state.isConnecting) {
       // The address is being checked. The face waits with the user and one
       // line says what is going on.
-      return Padding(
-        padding: const EdgeInsets.only(top: Spacing.s8),
-        child: Center(
-          child: AppWaitingFace(
-            message: LocaleKeys.onboarding_connect_self_host_connecting.tr(
-              namedArgs: {'host': cubit.typedHost},
-            ),
+      return Center(
+        child: AppWaitingFace(
+          message: LocaleKeys.onboarding_connect_self_host_connecting.tr(
+            namedArgs: {'host': cubit.typedHost},
           ),
+          faceSize: _faceSize,
+          heroTag: _faceHeroTag,
         ),
       );
     }
@@ -348,15 +351,37 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          LocaleKeys.onboarding_connect_title.tr(),
-          style: AppTypography.display(colors.onCanvas, fontSize: 32),
-        ),
-        const SizedBox(height: Spacing.s2),
-        Text(
-          LocaleKeys.onboarding_connect_subtitle.tr(),
-          style: AppTypography.lead(colors.onCanvasMuted, fontSize: 15),
-        ),
+        if (state.isSelfHosting)
+          // The form is a task screen like the steps after it: the face
+          // waits for an address, over the one title.
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Hero(
+                  tag: _faceHeroTag,
+                  flightShuttleBuilder: faceFlightShuttleBuilder,
+                  child: FaceWidget(
+                    state: FaceState.thinking,
+                    size: _faceSize,
+                    isLive: true,
+                  ),
+                ),
+                const SizedBox(height: Spacing.s4),
+                Text(
+                  LocaleKeys.onboarding_connect_self_host_title.tr(),
+                  textAlign: TextAlign.center,
+                  style: AppTypography.headline(colors.onCanvas, fontSize: 30),
+                ),
+              ],
+            ),
+          )
+        else
+          // The two buttons below say the rest.
+          Text(
+            LocaleKeys.onboarding_connect_title.tr(),
+            style: AppTypography.display(colors.onCanvas, fontSize: 32),
+          ),
 
         // Everything above sits at the top; the card drops to the bottom,
         // with the face centered in the middle area.
@@ -373,25 +398,15 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           ),
           const SizedBox(height: Spacing.s4),
         ] else
-          const SizedBox(height: Spacing.s6),
+          const SizedBox(height: Spacing.s5),
 
         // Says why a tap is about to fail, without stopping the user taking
         // it. Onboarding never blocks on the network.
         if (state.cloudOnline == false) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 10,
-            ),
-            decoration: BoxDecoration(
-              color: colors.highCanvas,
-              borderRadius: Radii.lgAll,
-              border: Border.all(color: colors.highStroke),
-            ),
-            child: Text(
-              LocaleKeys.onboarding_connect_offline_notice.tr(),
-              style: AppTypography.small(colors.onCanvas),
-            ),
+          AppToast(
+            key: const ValueKey('connect-offline-toast'),
+            faceState: FaceState.concerned,
+            message: LocaleKeys.onboarding_connect_offline_notice.tr(),
           ),
           const SizedBox(height: Spacing.s4),
         ],
@@ -401,15 +416,6 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
             key: const ValueKey('connect-error-toast'),
             faceState: FaceState.worried,
             message: errorMsg,
-          ),
-          const SizedBox(height: Spacing.s4),
-        ],
-
-        if (qrNotice != null) ...[
-          AppToast(
-            key: const ValueKey('qr-notice-toast'),
-            faceState: FaceState.watching,
-            message: qrNotice,
           ),
           const SizedBox(height: Spacing.s4),
         ],
@@ -467,19 +473,20 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                         ? _finishConnectStep
                         : _continueWithCloud,
                   ),
+                // What the push relay sees, in the words the Cloud's own
+                // answer supports, as the small print of the choice it
+                // belongs to. Its room is kept, so the card does not jump
+                // when the answer arrives.
+                _PrivacyLine(line: state.cloudPrivacyLine),
               ],
             ),
           ),
-          // What the push relay sees, in the words the Cloud's own answer
-          // supports. Nothing is drawn until that answer is in hand.
-          _PrivacyLine(line: state.cloudPrivacyLine),
         ] else ...[
           // Advanced self-hosted form
           AppTextField(
             label: LocaleKeys.onboarding_connect_url_label.tr(),
             controller: _urlController,
             placeholder: 'https://api.critalarm.app',
-            helperText: LocaleKeys.onboarding_connect_url_helper.tr(),
             errorText: state.serverUrlError,
             // A long address wraps onto a second line rather than scrolling
             // out of sight, so the user can check what they typed.
@@ -508,31 +515,6 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                 icon: AppGlyph(GlyphType.copy, size: 13, color: colors.ink),
                 onPressed: _handlePaste,
               ),
-              const SizedBox(width: 8),
-              Semantics(
-                label: LocaleKeys.onboarding_connect_scan_qr_semantic_label
-                    .tr(),
-                button: true,
-                child: GestureDetector(
-                  onTap: cubit.scanQrTapped,
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: colors.surface,
-                      border: Border.all(color: colors.onCanvas, width: 2),
-                      boxShadow: AppShadows.lightSm,
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.qr_code_scanner_rounded,
-                      size: 18,
-                      color: colors.ink,
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -560,35 +542,56 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
   ) {
     final colors = context.appColors;
     final line = confirmation.privacyLine;
-    return Padding(
-      padding: const EdgeInsets.only(top: Spacing.s8),
-      child: Column(
-        children: [
-          const FaceWidget(state: FaceState.success, size: 96, isLive: true),
-          const SizedBox(height: Spacing.s4),
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              LocaleKeys.onboarding_connect_self_host_connected_title.tr(
-                namedArgs: {'host': confirmation.host},
-              ),
-              textAlign: TextAlign.center,
-              style: AppTypography.headline(colors.onCanvas, fontSize: 28),
+    final connected = LocaleKeys.onboarding_connect_self_host_connected_title
+        .tr();
+    return Column(
+      children: [
+        const Hero(
+          tag: _faceHeroTag,
+          flightShuttleBuilder: faceFlightShuttleBuilder,
+          child: FaceWidget(
+            state: FaceState.success,
+            size: _faceSize,
+            isLive: true,
+          ),
+        ),
+        const SizedBox(height: Spacing.s4),
+        Semantics(
+          liveRegion: true,
+          // Read as one: "Connected, alerts.example.com".
+          label: '$connected, ${confirmation.host}',
+          child: ExcludeSemantics(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  connected,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.headline(colors.onCanvas, fontSize: 30),
+                ),
+                const SizedBox(height: Spacing.s2),
+                // A host is a machine string, so it is set in mono.
+                Text(
+                  confirmation.host,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.mono(colors.onCanvas, fontSize: 15),
+                ),
+              ],
             ),
           ),
-          if (line != null) ...[
-            const SizedBox(height: Spacing.s3),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 380),
-              child: Text(
-                line.translationKey.tr(),
-                textAlign: TextAlign.center,
-                style: AppTypography.body(colors.onCanvasMuted, fontSize: 15),
-              ),
+        ),
+        if (line != null) ...[
+          const SizedBox(height: Spacing.s4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Text(
+              line.translationKey.tr(),
+              textAlign: TextAlign.center,
+              style: AppTypography.body(colors.onCanvasMuted, fontSize: 15),
             ),
-          ],
+          ),
         ],
-      ),
+      ],
     );
   }
 
@@ -695,13 +698,11 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         const SizedBox(height: Spacing.s5),
 
         Hero(
-          tag: 'onboarding-face',
+          tag: _faceHeroTag,
           flightShuttleBuilder: faceFlightShuttleBuilder,
           child: FaceWidget(
-            state: state.isCountingDown
-                ? FaceState.alarmed
-                : FaceState.watching,
-            size: 88,
+            state: state.isCountingDown ? FaceState.alarmed : FaceState.cheeky,
+            size: _faceSize,
             isLive: true,
           ),
         ),
@@ -725,17 +726,19 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         const SizedBox(height: Spacing.s5),
 
         if (state.isCountingDown) ...[
-          LocalTestCountdownCard(seconds: state.countdownSeconds),
+          LocalTestCountdownCard(
+            seconds: state.countdownSeconds,
+            line: LocaleKeys.onboarding_connect_hook_countdown.tr(),
+            semanticLabel: LocaleKeys.onboarding_connect_hook_countdown_aria.tr(
+              namedArgs: {'seconds': '${state.countdownSeconds}'},
+            ),
+          ),
         ] else ...[
           // 3-Step Challenge Box
           AppSheet(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppSectionHeader(
-                  LocaleKeys.onboarding_connect_hook_steps_header.tr(),
-                ),
-                const SizedBox(height: 8),
                 AppStepBullet(
                   number: 1,
                   text:
@@ -803,8 +806,11 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
   }
 }
 
-/// The privacy line under the Crit Alarm Cloud card. Takes no room and
-/// draws nothing while [line] is null, then fades in.
+/// The privacy line inside the Crit Alarm Cloud card, under its button.
+///
+/// Its room is kept while [line] is null, so the card holds its height and
+/// the line fades in where it will sit. Two lines of the small print fit the
+/// usual variant. A longer one grows the card.
 class _PrivacyLine extends StatelessWidget {
   const _PrivacyLine({required this.line});
 
@@ -814,32 +820,32 @@ class _PrivacyLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final current = line;
-    return AnimatedSize(
-      duration: context.motion(AppDurations.base),
-      curve: AppCurves.easeOut,
-      alignment: Alignment.topCenter,
-      child: AnimatedSwitcher(
-        duration: context.motion(AppDurations.base),
-        switchInCurve: AppCurves.easeOut,
-        switchOutCurve: AppCurves.easeOut,
-        child: current == null
-            ? const SizedBox(
-                key: ValueKey('connect-privacy-none'),
-                width: double.infinity,
-              )
-            : Padding(
-                key: ValueKey(current),
-                padding: const EdgeInsets.fromLTRB(
-                  Spacing.s1,
-                  Spacing.s3,
-                  Spacing.s1,
-                  0,
-                ),
-                child: Text(
+    final style = AppTypography.small(colors.ink3, fontSize: 12);
+    return Padding(
+      padding: const EdgeInsets.only(top: Spacing.s3),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.textScalerOf(context).scale(12) * 1.5 * 2,
+        ),
+        child: AnimatedSwitcher(
+          duration: context.motion(AppDurations.base),
+          switchInCurve: AppCurves.easeOut,
+          switchOutCurve: AppCurves.easeOut,
+          layoutBuilder: (current, previous) => Stack(
+            alignment: Alignment.topLeft,
+            children: [...previous, ?current],
+          ),
+          child: current == null
+              ? const SizedBox(
+                  key: ValueKey('connect-privacy-none'),
+                  width: double.infinity,
+                )
+              : Text(
                   current.translationKey.tr(),
-                  style: AppTypography.small(colors.onCanvasMuted),
+                  key: ValueKey(current),
+                  style: style,
                 ),
-              ),
+        ),
       ),
     );
   }

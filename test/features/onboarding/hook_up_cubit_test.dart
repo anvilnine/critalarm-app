@@ -202,6 +202,25 @@ void main() {
       verifyNever(() => createToken(any()));
     });
 
+    test('an entry handed on with no address takes the saved one', () async {
+      await handoff.hold(
+        const FirstTopicHandoffEntry(
+          topicName: 'nightly',
+          serverUrl: '',
+          token: _token,
+        ),
+      );
+      final cubit = build();
+
+      await cubit.load(tokenName: 'Setup');
+
+      expect(cubit.state.phase, HookUpPhase.ready);
+      expect(cubit.state.serverUrl, _server);
+      expect(cubit.state.token, _token);
+      expect(handoff.entry!.serverUrl, _server);
+      verifyNever(() => createToken(any()));
+    });
+
     test('shows before the topic list is read', () async {
       await holdFirstTopic();
       final gate = Completer<List<Topic>>();

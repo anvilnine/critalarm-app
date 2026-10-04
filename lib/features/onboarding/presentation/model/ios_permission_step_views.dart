@@ -12,16 +12,14 @@ PermissionStepView iosNotificationsStepView() {
       .onboarding_permissions_ios_notifications_preview_title
       .tr();
   return PermissionStepView(
-    face: FaceState.alarmed,
+    // A polite ask, so the face is interested, not shouting.
+    face: FaceState.interested,
     ambient: OnboardingAmbientStep.notifications,
-    badge: LocaleKeys.onboarding_permissions_ios_notifications_badge.tr(),
     title: LocaleKeys.onboarding_permissions_ios_notifications_title.tr(),
     subtitle: LocaleKeys.onboarding_permissions_ios_notifications_subtitle.tr(),
     button: LocaleKeys.onboarding_permissions_ios_notifications_button.tr(),
     preview: PermissionStepPreview(
       title: previewTitle,
-      hint: LocaleKeys.onboarding_permissions_ios_notifications_preview_hint
-          .tr(),
       child: IosPermissionDialogPreview(
         title: previewTitle,
         message: LocaleKeys
@@ -49,9 +47,8 @@ PermissionStepView iosNotificationsSettingsStepView() {
       .onboarding_permissions_ios_notifications_settings_preview_title
       .tr();
   return PermissionStepView(
-    face: FaceState.alarmed,
+    face: FaceState.interested,
     ambient: OnboardingAmbientStep.notifications,
-    badge: LocaleKeys.onboarding_permissions_ios_notifications_badge.tr(),
     title: LocaleKeys.onboarding_permissions_ios_notifications_title.tr(),
     subtitle: LocaleKeys.onboarding_permissions_ios_notifications_subtitle.tr(),
     button: LocaleKeys.onboarding_permissions_ios_notifications_settings_button
@@ -61,41 +58,31 @@ PermissionStepView iosNotificationsSettingsStepView() {
       hint: LocaleKeys
           .onboarding_permissions_ios_notifications_settings_preview_hint
           .tr(),
-      child: IosSettingsSwitchPreview(
-        title: previewTitle,
-        message: LocaleKeys
-            .onboarding_permissions_ios_notifications_settings_preview_desc
-            .tr(),
-      ),
+      child: IosSettingsSwitchPreview(title: previewTitle),
     ),
   );
 }
 
 /// The AlarmKit step, iOS 26 or later.
 ///
-/// The chip follows [claim]. This step only exists on a phone that has
-/// AlarmKit, where the claim is [RingClaim.alarm]. Should the two ever
-/// disagree, the chip says the smaller thing: a phone below iOS 26 is never
-/// told it rings through silent mode.
+/// Its title promises a ring through silent mode, so it is drawn only for
+/// [RingClaim.alarm]. This step exists only on a phone that has AlarmKit.
+/// Should the two ever disagree, the step says the smaller thing: a phone
+/// below iOS 26 is never told it rings through silent mode.
 PermissionStepView iosAlarmsStepView(RingClaim claim) {
+  if (claim == RingClaim.timeSensitive) return iosTimeSensitiveStepView();
   final previewTitle = LocaleKeys
       .onboarding_permissions_ios_alarms_preview_title
       .tr();
   return PermissionStepView(
-    face: FaceState.watching,
+    // "I can ring through anything."
+    face: FaceState.confident,
     ambient: OnboardingAmbientStep.alarms,
-    badge: switch (claim) {
-      RingClaim.alarm =>
-        LocaleKeys.onboarding_permissions_ios_alarms_badge.tr(),
-      RingClaim.timeSensitive =>
-        LocaleKeys.onboarding_permissions_ios_time_sensitive_badge.tr(),
-    },
     title: LocaleKeys.onboarding_permissions_ios_alarms_title.tr(),
     subtitle: LocaleKeys.onboarding_permissions_ios_alarms_subtitle.tr(),
     button: LocaleKeys.onboarding_permissions_ios_alarms_button.tr(),
     preview: PermissionStepPreview(
       title: previewTitle,
-      hint: LocaleKeys.onboarding_permissions_ios_alarms_preview_hint.tr(),
       child: IosPermissionDialogPreview(
         title: previewTitle,
         message: LocaleKeys.onboarding_permissions_ios_alarms_preview_desc.tr(),
@@ -112,9 +99,9 @@ PermissionStepView iosAlarmsStepView(RingClaim claim) {
 /// iOS 16 to 25: what the phone does in place of an alarm. No prompt is
 /// coming, so there is nothing to draw and nothing to skip.
 PermissionStepView iosTimeSensitiveStepView() => PermissionStepView(
-  face: FaceState.watching,
+  // A calm, honest limit.
+  face: FaceState.content,
   ambient: OnboardingAmbientStep.alarms,
-  badge: LocaleKeys.onboarding_permissions_ios_time_sensitive_badge.tr(),
   title: LocaleKeys.onboarding_permissions_ios_time_sensitive_title.tr(),
   subtitle: LocaleKeys.onboarding_permissions_ios_time_sensitive_subtitle.tr(),
   button: LocaleKeys.onboarding_permissions_ios_time_sensitive_button.tr(),

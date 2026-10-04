@@ -130,7 +130,7 @@ void main() {
           findsOneWidget,
         );
         expect(
-          find.text('Continue with Crit Alarm Cloud'),
+          find.text('Use Crit Alarm Cloud'),
           findsOneWidget,
         );
       },

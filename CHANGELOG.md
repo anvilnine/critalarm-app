@@ -8,16 +8,29 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The connect step says what the push relay can see, taken from the server's own answer
 - Setup ends with a ready curl line for your new topic and waits for your first message.
 - Home shows a short setup checklist until your first message arrives.
+- The Finish setting up list can be closed for good.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
 - Setup no longer waits on the connection. Continue with Crit Alarm Cloud moves on at once and the connection finishes while you answer the permission steps
 - The setup test alarm now comes from your server, so it tests the whole path.
+- Setup says less on every screen and shows a different Crit face for each moment.
+- Your first topic in setup is one screen: pick a tool, name it, decide on ringing through silent mode, create. The address and token show on the next steps, where you use them.
+- Setup problems are a short title and one line, and the test of this phone only is a plain button.
+- Hook up your tool shows your tool's own fields first when it has a form, in one tidy list.
+- The Finish setting up list on Home is lighter and shorter, and the widgets card leads with Hosted when widgets need it.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
 - The welcome screen is ready to tap the moment it opens, with its words and Get started button in place while the animation plays.
 - The reminders sheet no longer opens right after setup, and the walkthrough offer comes first.
+- The Connected note in setup no longer sits on top of the permission step dots.
+- Hook up your tool no longer says it is waiting for a message when no token could be made.
+- The Finish setting up list no longer finishes behind an alarm screen: its last tick and the celebration wait until you are looking at Home.
+- A first message sent from a topic page before going back to Home now ticks the list, and so does one on a fourth or later topic.
+
+### Removed
+- The QR button on the own-server form, until QR connect exists. Paste stays.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added

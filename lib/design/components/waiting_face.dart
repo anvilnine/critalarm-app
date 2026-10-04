@@ -21,12 +21,18 @@ class AppWaitingFace extends StatelessWidget {
   const AppWaitingFace({
     required this.message,
     this.faceSize = 96,
+    this.faceState = FaceState.watching,
     this.heroTag,
     super.key,
   });
 
   /// The one line under the face.
   final String message;
+
+  /// The face over the line. It watches by default. Pass another only when
+  /// the wait has just ended and the line says so, such as a phone that is
+  /// now ringing.
+  final FaceState faceState;
 
   /// Width and height of the face.
   final double faceSize;
@@ -44,7 +50,7 @@ class AppWaitingFace extends StatelessWidget {
     final colors = context.appColors;
 
     Widget face = FaceWidget(
-      state: FaceState.watching,
+      state: faceState,
       size: faceSize,
       isLive: true,
     );

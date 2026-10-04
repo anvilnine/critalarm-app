@@ -46,6 +46,12 @@ class FakeChecklistStore implements SetupChecklistStore {
   bool isWidgetsCardSeen = false;
 
   @override
+  bool wasSetUpHere = true;
+
+  @override
+  Future<void> markSetUpHere() async => wasSetUpHere = true;
+
+  @override
   Future<void> markSeeded() async {
     isSeeded = true;
     log.add('seeded');
@@ -135,6 +141,7 @@ class HomeSetupHarness {
         store: firstMessage,
         source: source,
         timer: _newTimer,
+        backsOffWhenQuiet: true,
       ),
       readIncidentIds: () => incidentIds,
       readSetupIncidentIds: () => setupIncidentIds,
@@ -147,6 +154,7 @@ class HomeSetupHarness {
       platform: platform,
       isWeb: isWeb,
       timer: _newTimer,
+      now: () => now,
     );
     _sub = cubit.stream.listen((state) {
       states.add(state);
@@ -162,6 +170,9 @@ class HomeSetupHarness {
   late final FakeChecklistStore store;
   late final HomeSetupCubit cubit;
   late final StreamSubscription<HomeSetupState> _sub;
+
+  /// The clock the cubit reads. A test moves it by hand.
+  DateTime now = DateTime.utc(2026, 10, 5, 12);
 
   List<String> incidentIds = [];
   Set<String> setupIncidentIds = {};
