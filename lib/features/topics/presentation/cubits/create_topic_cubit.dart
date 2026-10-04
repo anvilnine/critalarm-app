@@ -14,6 +14,7 @@ import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
+import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
 import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/domain/topic_name_rule.dart';
@@ -61,6 +62,11 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   /// True when this screen is a setup step, so the new topic is handed on to
   /// the next steps. Everywhere else the token is shown once and forgotten.
   bool holdsHandoff = false;
+
+  /// True in setup, where the screen is one step: the topic is created from
+  /// the first step and its token is named for the user. Everywhere else
+  /// the token-name step comes first.
+  bool isOneStep = false;
 
   /// Reads the server this app is connected to. Optional so a test can build
   /// the cubit without one.
@@ -293,6 +299,18 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
       return;
     }
 
+    // The two-step screen catches a taken name on the way to step 2. The
+    // one-step screen has no such stop, so it is caught here.
+    if (state.isDuplicateName) {
+      emit(
+        state.copyWith(
+          step: CreateTopicStep.topic,
+          errorMessage: LocaleKeys.api_errors_topic_already_exists.tr(),
+        ),
+      );
+      return;
+    }
+
     emit(
       state.copyWith(
         status: CreateTopicStatus.submitting,
@@ -306,7 +324,12 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
         name: trimmedName,
         critical: state.isCritical,
         // Left off when it is blank, so the server falls back to `Token 1`.
-        tokenName: trimmedTokenName.isEmpty ? null : trimmedTokenName,
+        // The one-step screen never asks, and names it after the tool.
+        tokenName: trimmedTokenName.isNotEmpty
+            ? trimmedTokenName
+            : isOneStep
+            ? setupTokenName(state.selectedTool)
+            : null,
       ),
     );
 

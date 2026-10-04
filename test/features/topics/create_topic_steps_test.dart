@@ -184,7 +184,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('critical delivery is called out only when it is on', (
+    testWidgets('the recap names the topic and nothing else, on or off', (
       tester,
     ) async {
       await openScreen(tester);
@@ -194,8 +194,8 @@ void main() {
       await tapButton(tester, 'Next');
       await settle(tester);
 
-      // Off is the default, so the recap says nothing about it.
-      expect(find.text('Critical delivery on'), findsNothing);
+      expect(find.text('release-bot'), findsOneWidget);
+      expect(find.textContaining('Critical delivery'), findsNothing);
 
       await tester.tap(find.bySemanticsLabel('Back'));
       await settle(tester);
@@ -204,7 +204,10 @@ void main() {
       await tapButton(tester, 'Next');
       await settle(tester);
 
-      expect(find.text('Critical delivery on'), findsOneWidget);
+      // The switch was set one screen ago. Small red text here was hard to
+      // read and said it a second time.
+      expect(find.text('release-bot'), findsOneWidget);
+      expect(find.textContaining('Critical delivery'), findsNothing);
     });
   });
 }
