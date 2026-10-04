@@ -11,6 +11,11 @@ enum AppHighlightTone {
   /// stroke.
   crit,
 
+  /// Not there yet: a step that is still open, such as a row waiting on
+  /// something. A plain surface with a quiet stroke, so the same card can
+  /// retint to [calm] when the step lands.
+  pending,
+
   /// Settled: a step that is done. The cobalt tint with a cobalt stroke, the
   /// same "good, done" pair a feature bullet uses.
   calm,
@@ -29,6 +34,7 @@ const double highlightCardStrokeWidth = 2;
     fill: colors.critCanvas,
     stroke: colors.critStroke,
   ),
+  AppHighlightTone.pending => (fill: colors.surface, stroke: colors.ink3),
   AppHighlightTone.calm => (fill: colors.cobaltTint, stroke: colors.cobalt),
 };
 

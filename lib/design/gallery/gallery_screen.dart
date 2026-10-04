@@ -1585,6 +1585,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   ),
                   const SizedBox(height: 12),
                   AppHighlightCard(
+                    tone: AppHighlightTone.pending,
+                    child: tickRow(
+                      done: false,
+                      label: LocaleKeys.gallery_highlight_pending_label.tr(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AppHighlightCard(
                     tone: AppHighlightTone.calm,
                     child: tickRow(
                       done: true,

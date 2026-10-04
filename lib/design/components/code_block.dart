@@ -12,15 +12,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// Syntax-highlighted code container with copy action.
+///
+/// By default a line longer than the block scrolls sideways and the Copy
+/// pill sits over the top right corner. With [isWrapped] the text wraps
+/// inside the block and the copy action is a full-width button under it:
+/// use that for one long command the user has to read and copy whole, where
+/// nothing may hide behind a scroll at any text size.
 class AppCodeBlock extends StatefulWidget {
   const AppCodeBlock({
     required this.code,
     this.onCopy,
+    this.isWrapped = false,
+    this.copyLabel,
     super.key,
   });
 
   final String code;
   final VoidCallback? onCopy;
+
+  /// Wraps the text and puts the copy button under it.
+  final bool isWrapped;
+
+  /// The words on the copy button. Null shows the plain "Copy".
+  final String? copyLabel;
 
   @override
   State<AppCodeBlock> createState() => _AppCodeBlockState();
@@ -44,6 +58,7 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    if (widget.isWrapped) return _wrapped(context, colors);
 
     return Container(
       decoration: BoxDecoration(
@@ -105,6 +120,73 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
                         fontWeight: FontWeight.w600,
                         color: colors.onPanel,
                       ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The wrapped layout: the whole text, then one wide copy button.
+  Widget _wrapped(BuildContext context, AppColors colors) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.panel,
+        borderRadius: Radii.lgAll,
+      ),
+      padding: const EdgeInsets.all(Spacing.s4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // A screen reader hears the copy button, not a token spelled out.
+          ExcludeSemantics(
+            child: RichText(
+              textScaler: MediaQuery.textScalerOf(context),
+              text: _buildSyntaxHighlightedSpan(widget.code, colors),
+            ),
+          ),
+          const SizedBox(height: Spacing.s3),
+          Semantics(
+            button: true,
+            liveRegion: true,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) => setState(() => _copyHovered = true),
+              onExit: (_) => setState(() => _copyHovered = false),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _handleCopy,
+                child: AnimatedContainer(
+                  duration: context.motion(AppDurations.quick),
+                  constraints: const BoxConstraints(minHeight: 44),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _copied || _copyHovered
+                        ? colors.panelHover
+                        : Colors.transparent,
+                    borderRadius: Radii.fullAll,
+                    border: Border.all(color: colors.panelLine, width: 1.5),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    _copied
+                        ? LocaleKeys.common_copied.tr()
+                        : widget.copyLabel ?? LocaleKeys.common_copy.tr(),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontBody,
+                      fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colors.onPanel,
                     ),
                   ),
                 ),
