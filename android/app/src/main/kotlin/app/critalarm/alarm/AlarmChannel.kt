@@ -160,6 +160,16 @@ class AlarmChannel(private val context: Context) {
                 deliveries.prune()
                 result.success(deliveries.acknowledgedIncidentIds())
             }
+            // Whether a push that rings reached this phone for the incident.
+            // Read from what the push service wrote, with no network call.
+            "receivedAlarmFor" -> {
+                val incidentId = call.argument<String>("incident_id")
+                val deliveries = IncidentDeliveryStore(context)
+                result.success(
+                    !incidentId.isNullOrEmpty() &&
+                        (deliveries.isActive(incidentId) || deliveries.isAcknowledged(incidentId)),
+                )
+            }
             "endActivity" -> {
                 val incidentId = call.argument<String>("incident_id")
                 if (!incidentId.isNullOrEmpty()) stop(incidentId, handOverToStatusCard = false)

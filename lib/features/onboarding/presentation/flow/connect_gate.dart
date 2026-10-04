@@ -28,8 +28,9 @@ enum ConnectGate {
 /// failure comes back to.
 ///
 /// The connect step is never covered, because it is where a failure sends
-/// the user. A replay from Settings connects to nothing, so it is never
-/// covered either.
+/// the user. A step that handles a missing server itself is never covered
+/// either: the real ring step says why and offers its fallback. A replay
+/// from Settings connects to nothing, so it is never covered either.
 ConnectGate connectGateFor({
   required BackgroundConnectState state,
   required String path,
@@ -41,6 +42,8 @@ ConnectGate connectGateFor({
   if (entry == null || entry.id == OnboardingStepId.connect) {
     return ConnectGate.none;
   }
+  // The step has its own words for a server that is not there.
+  if (entry.handlesMissingServer) return ConnectGate.none;
   if (state.isFailed) return ConnectGate.failed;
   final needsServer = entry.requires.contains(OnboardingStepId.connect);
   if (state.isPending) {

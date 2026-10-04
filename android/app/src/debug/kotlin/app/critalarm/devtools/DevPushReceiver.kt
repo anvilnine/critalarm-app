@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import app.critalarm.MainActivity
 import app.critalarm.push.PushRouter
 
 /**
@@ -31,7 +32,9 @@ class DevPushReceiver : BroadcastReceiver() {
             }
         }
         Log.i(TAG, "dev_push_injected data=$data")
-        PushRouter(context.applicationContext).route(data)
+        // Told to the running app the way a real push is, so a screen waiting
+        // for the alarm hears about this one too.
+        MainActivity.notifyPushReceived(PushRouter(context.applicationContext).route(data))
     }
 
     companion object {

@@ -5,37 +5,37 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
-import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
+import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
 import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rules.dart';
-import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/set_up_later_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/background_connect_copy.dart';
+import 'package:critalarm/features/onboarding/presentation/model/local_test_alarm.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit behind two setup steps that share a screen file: the server
-/// connection (admin token input, compatibility validation) and the test
-/// alarm "Ring me now" sequence.
+/// connection (admin token input, compatibility validation) and the local
+/// test alarm of the first shipped order.
 class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   OnboardingConnectCubit(
     this._getServerInfo,
-    this._saveConnection,
-    this._triggerTestAlarm, {
+    this._saveConnection, {
     required this.establishSession,
     this.getTopics,
     this.getConnection,
-    this.completeOnboarding,
+    this.setUpLater,
     this.alarmHost,
     this.readDraft,
     this.saveDraft,
@@ -76,12 +76,38 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   SaveOnboardingDraftUsecase? get _draftWriter =>
       _savesDraft ? saveDraft : null;
 
-  Timer? _countdownTimer;
+  /// How long the onboarding test alarm waits before it rings.
+  static const int testAlarmDelaySeconds = LocalTestAlarm.delaySeconds;
 
-  /// How long the onboarding test alarm waits before it rings. The countdown
-  /// on screen and the alarm the OS holds are both set from this, so they
-  /// cannot drift apart.
-  static const testAlarmDelaySeconds = 5;
+  /// The alarm the phone sets for itself. The logic lives in
+  /// [LocalTestAlarm], shared with the real ring step.
+  late final LocalTestAlarm _localTest = LocalTestAlarm(
+    host: alarmHost,
+    onChanged: _showLocalTest,
+    saveCountdownEndsAt: _saveCountdown,
+  );
+
+  void _showLocalTest(LocalTestAlarmState test) {
+    if (isClosed) return;
+    final failed = test.isFailure;
+    emit(
+      state.copyWith(
+        alarm: test.alarm,
+        testAlarmStatus: test.status,
+        isCountingDown: test.isCountingDown,
+        countdownSeconds: test.countdownSeconds,
+        canLaunchDemoAlarm: test.canLaunch,
+        topic: test.status == TestAlarmStatus.idle ? null : phoneOnlyTestTopic,
+        incidentId: test.status == TestAlarmStatus.idle
+            ? null
+            : phoneOnlyTestIncidentId,
+        errorMessage: failed
+            ? LocaleKeys.onboarding_connect_hook_no_alarm_body.tr()
+            : null,
+        clearErrorMessage: test.status == TestAlarmStatus.ringing,
+      ),
+    );
+  }
 
   /// [adoptSavedConnection] false leaves the form up even when a server is
   /// already saved, for a replay that is only a look at the connect screen.
@@ -134,37 +160,11 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     }
   }
 
-  /// A countdown that was running when the app went away. The alarm itself is
-  /// held by the OS, so this only catches the on-screen clock up.
+  /// A countdown that was running when the app went away.
   void _resumeCountdown(OnboardingDraft? draft) {
     final left = draft?.secondsLeft;
     if (left == null) return;
-    if (left <= 0) {
-      // The alarm is already due or has rung. Go straight to the screen that
-      // handles it rather than counting down to something in the past.
-      emit(
-        state.copyWith(
-          isCountingDown: false,
-          countdownSeconds: 0,
-          testAlarmStatus: TestAlarmStatus.success,
-          topic: 'demo-topic',
-          incidentId: 'inc_demo',
-          canLaunchDemoAlarm: true,
-        ),
-      );
-      unawaited(_saveCountdown(null));
-      return;
-    }
-    emit(
-      state.copyWith(
-        isCountingDown: true,
-        countdownSeconds: left,
-        testAlarmStatus: TestAlarmStatus.ringing,
-        topic: 'demo-topic',
-        incidentId: 'inc_demo',
-      ),
-    );
-    _tickCountdown();
+    _localTest.resume(left);
   }
 
   /// Keeps the half-typed form. Which step the user is on is not saved here:
@@ -209,8 +209,9 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   final EstablishApiSessionUsecase establishSession;
   final GetServerInfoUsecase _getServerInfo;
   final SaveConnectionUsecase _saveConnection;
-  final CompleteOnboardingUsecase? completeOnboarding;
-  final TriggerTestAlarmUsecase _triggerTestAlarm;
+
+  /// The "Set this up later" exit. Null in tests that never leave.
+  final SetUpLaterUsecase? setUpLater;
 
   void toggleSelfHosting() {
     // The failure from the mode the user just left does not belong over the
@@ -517,185 +518,12 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   }
 
   /// The local test alarm, set for [testAlarmDelaySeconds] from now.
-  ///
-  /// The OS holds the alarm, so it rings even if the app is backgrounded or
-  /// killed before the countdown ends. When the platform cannot set one, the
-  /// countdown is skipped rather than run in silence and then congratulate
-  /// the user for a ring that never happened.
-  Future<void> startLocalTestAlarm() async {
-    _countdownTimer?.cancel();
+  Future<void> startLocalTestAlarm() =>
+      _localTest.start(server: state.serverUrl);
 
-    final host = alarmHost;
-    // Read again on every tap. The user may have just come back from
-    // Settings, and the failure dialog explains itself from this value. The
-    // idle status lets a second failure in a row open the dialog again.
-    AlarmAuthorization? authorization;
-    try {
-      authorization = await host?.authorizationStatus();
-    } on Object catch (_) {
-      authorization = null;
-    }
-    if (isClosed) return;
-    emit(
-      state.copyWith(
-        alarm: authorization,
-        testAlarmStatus: TestAlarmStatus.idle,
-      ),
-    );
+  void cancelCountdown() => _localTest.cancel();
 
-    // Android parses this back out of the alarm intent and drops the whole
-    // start when it is not an http or https URL, so an empty string meant the
-    // service stopped itself and the countdown below congratulated the user
-    // for a ring that never happened.
-    final server = state.serverUrl.trim();
-    final scheduled =
-        host != null &&
-        server.isNotEmpty &&
-        await host
-            .scheduleAlarm(
-              incidentId: 'inc_demo',
-              topic: 'demo-topic',
-              server: server,
-              title: LocaleKeys.onboarding_connect_demo_alarm_title.tr(),
-              body: LocaleKeys.onboarding_connect_demo_alarm_body.tr(),
-              delaySeconds: testAlarmDelaySeconds,
-              // inc_demo is not on the server. The flag travels with the
-              // alarm to the Stop button on its notification, so that
-              // button leaves no card behind either.
-              handOverToStatusCard: false,
-            )
-            .catchError((_) => false);
-    if (isClosed) return;
-
-    if (!scheduled) {
-      emit(
-        state.copyWith(
-          isCountingDown: false,
-          countdownSeconds: testAlarmDelaySeconds,
-          testAlarmStatus: TestAlarmStatus.failure,
-          topic: 'demo-topic',
-          incidentId: 'inc_demo',
-          errorMessage: LocaleKeys.onboarding_connect_hook_no_alarm_body.tr(),
-        ),
-      );
-      return;
-    }
-
-    emit(
-      state.copyWith(
-        isCountingDown: true,
-        countdownSeconds: testAlarmDelaySeconds,
-        testAlarmStatus: TestAlarmStatus.ringing,
-        topic: 'demo-topic',
-        incidentId: 'inc_demo',
-        canLaunchDemoAlarm: false,
-        clearErrorMessage: true,
-      ),
-    );
-    unawaited(
-      _saveCountdown(
-        DateTime.now().add(const Duration(seconds: testAlarmDelaySeconds)),
-      ),
-    );
-    _tickCountdown();
-  }
-
-  /// Drives the on-screen clock. The alarm is already set; this only counts.
-  void _tickCountdown() {
-    _countdownTimer?.cancel();
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      final nextSec = state.countdownSeconds - 1;
-      if (nextSec <= 0) {
-        timer.cancel();
-        unawaited(_saveCountdown(null));
-        emit(
-          state.copyWith(
-            countdownSeconds: 0,
-            isCountingDown: false,
-            testAlarmStatus: TestAlarmStatus.success,
-            canLaunchDemoAlarm: true,
-          ),
-        );
-      } else {
-        emit(state.copyWith(countdownSeconds: nextSec));
-      }
-    });
-  }
-
-  void cancelCountdown() {
-    _countdownTimer?.cancel();
-    final host = alarmHost;
-    if (host != null) {
-      // No handover. inc_demo is not on the server, so an acked card for it
-      // would sit there for good: it is ongoing, so it cannot be swiped away,
-      // and its Done button would POST a close for an incident that does not
-      // exist.
-      unawaited(
-        host
-            .cancelAlarm('inc_demo', handOverToStatusCard: false)
-            .catchError((_) => false),
-      );
-    }
-    unawaited(_saveCountdown(null));
-    emit(
-      state.copyWith(
-        isCountingDown: false,
-        countdownSeconds: testAlarmDelaySeconds,
-        testAlarmStatus: TestAlarmStatus.idle,
-      ),
-    );
-  }
-
-  void demoAlarmHandled() {
-    emit(state.copyWith(canLaunchDemoAlarm: false));
-  }
-
-  Future<void> ringTestAlarm({String? topic}) async {
-    if (getTopics != null) await loadTestTopic();
-    final targetTopic = getTopics == null
-        ? (topic ?? state.topic)
-        : state.topic;
-    if (targetTopic.isEmpty) {
-      emit(
-        state.copyWith(
-          testAlarmStatus: TestAlarmStatus.failure,
-          errorMessage:
-              'Create a topic and enable critical delivery '
-              'before testing an alarm.',
-        ),
-      );
-      return;
-    }
-    emit(
-      state.copyWith(
-        testAlarmStatus: TestAlarmStatus.ringing,
-        topic: targetTopic,
-        clearErrorMessage: true,
-        clearIncidentId: true,
-      ),
-    );
-
-    final result = await _triggerTestAlarm(targetTopic);
-    result.fold(
-      (incidentId) {
-        emit(
-          state.copyWith(
-            testAlarmStatus: TestAlarmStatus.success,
-            incidentId: incidentId,
-            clearErrorMessage: true,
-          ),
-        );
-      },
-      (failure) {
-        emit(
-          state.copyWith(
-            testAlarmStatus: TestAlarmStatus.failure,
-            errorMessage: failureMessage(failure),
-          ),
-        );
-      },
-    );
-  }
+  void demoAlarmHandled() => _localTest.launched();
 
   void editConnection() {
     emit(
@@ -709,11 +537,13 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     );
   }
 
-  Future<void> navigateToHome() async {
-    final completion = completeOnboarding;
-    if (completion == null) return;
+  /// Set this up later, and "Go to your topics" on the test step: leaves
+  /// setup for Home. A replay completes nothing.
+  Future<void> navigateToHome({bool isReplay = false}) async {
+    final leave = setUpLater;
+    if (leave == null) return;
 
-    final result = await completion(const NoParams());
+    final result = await leave(isReplay: isReplay);
     result.fold(
       (_) => emit(state.copyWith(canNavigateToHome: true)),
       (failure) => emit(state.copyWith(errorMessage: failureMessage(failure))),
@@ -727,7 +557,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   @override
   Future<void> close() {
     unawaited(_cloudConnectChanges?.cancel());
-    _countdownTimer?.cancel();
+    _localTest.dispose();
     return super.close();
   }
 }
