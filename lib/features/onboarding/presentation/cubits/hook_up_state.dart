@@ -42,6 +42,7 @@ class HookUpState {
     this.isAnalyticsOn = false,
     this.isExample = false,
     this.mintFailure,
+    this.ringingIncidentId,
   });
 
   final HookUpPhase phase;
@@ -69,6 +70,11 @@ class HookUpState {
   /// Why the token could not be made. Set in [HookUpPhase.mintFailed].
   final Failure? mintFailure;
 
+  /// The incident of an alarm the user's own message set off while this
+  /// step was open. The phone is ringing, so the screen hands over to the
+  /// alarm, where the stop control is.
+  final String? ringingIncidentId;
+
   /// A wait the screen shows the waiting face for.
   bool get isWaiting =>
       phase == HookUpPhase.finding || phase == HookUpPhase.minting;
@@ -92,6 +98,7 @@ class HookUpState {
     bool? isAnalyticsOn,
     bool? isExample,
     Failure? mintFailure,
+    String? ringingIncidentId,
     bool clearMintFailure = false,
     bool clearTemplate = false,
   }) => HookUpState(
@@ -107,6 +114,7 @@ class HookUpState {
     isAnalyticsOn: isAnalyticsOn ?? this.isAnalyticsOn,
     isExample: isExample ?? this.isExample,
     mintFailure: clearMintFailure ? null : (mintFailure ?? this.mintFailure),
+    ringingIncidentId: ringingIncidentId ?? this.ringingIncidentId,
   );
 
   @override
@@ -122,7 +130,8 @@ class HookUpState {
       isFirstMessageReceived == other.isFirstMessageReceived &&
       isAnalyticsOn == other.isAnalyticsOn &&
       isExample == other.isExample &&
-      mintFailure == other.mintFailure;
+      mintFailure == other.mintFailure &&
+      ringingIncidentId == other.ringingIncidentId;
 
   @override
   int get hashCode => Object.hash(
@@ -137,6 +146,7 @@ class HookUpState {
     isAnalyticsOn,
     isExample,
     mintFailure,
+    ringingIncidentId,
   );
 
   /// Leaves the token and the address out.

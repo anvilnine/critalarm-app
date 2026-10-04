@@ -17,6 +17,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Topics: ToolTemplate enum, FirstTopicHandoff (in-memory token, name saved as onboarding\_first\_topic), ToolTemplateStore (topic\_tool\_template.<name>), isFirstTopicFor, AppTopicChip isSelected and hitSlop.
 - RealRingCubit and real\_ring\_screen.dart run the real\_ring step: the server sends the test alarm, AlarmArrivals says when it reached this phone, and LocalTestAlarm is the one copy of the phone-only fallback.
 - Prefs key onboarding\_real\_ring\_incident (SetupTestRing) holds the incident id of the setup test until setup completes.
+- FirstMessageWatcher polls a topic for the first message while a screen waits, with the prefs keys first\_message\_received and first\_message\_since.<topic>.
+- ToolSnippet.build returns the paste text or form fields for the tool picked on the first topic, and CurlLine.build takes an optional priority.
+- AppCodeBlock isWrapped wraps long commands with the copy button underneath, and AppHighlightTone.pending is a row that is still waiting.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -34,6 +37,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Setup completion moved: the acknowledged screen finishes the real\_ring step and the flow engine completes setup, legacy-1 keeps its own buttons, and every Set this up later exit calls SetUpLaterUsecase.
 - The onPushReceived channel call carries the incident id of an alarm push (PushHost.alarmPushes), and Android answers receivedAlarmFor on the alarm channel.
 - SetupTestRing keeps every test incident id of a setup run and the ones a close failed for (prefs keys onboarding\_real\_ring\_incidents and onboarding\_real\_ring\_unclosed), and EndSetupTestUsecase closes leftovers when the app opens.
+- The bundled flow 2026-10-a ends with hook\_up, and Developer options lists the hook-up states.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

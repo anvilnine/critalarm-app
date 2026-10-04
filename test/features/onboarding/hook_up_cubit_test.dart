@@ -84,6 +84,9 @@ void main() {
   String? serverUrl = _server;
   var topicReads = 0;
 
+  late StreamController<String> alarms;
+  var testIncidents = <String>{};
+
   HookUpCubit build({bool isReplay = false}) {
     final cubit = HookUpCubit(
       handoff: handoff,
@@ -113,6 +116,8 @@ void main() {
         notices: notices,
         onAnswered: ({required isOn}) async => answers.add(isOn),
       ),
+      alarmArrivals: alarms.stream,
+      setupTestIncidentIds: () => testIncidents,
       isReplay: isReplay,
     );
     addTearDown(cubit.close);
@@ -143,6 +148,8 @@ void main() {
     source = _Source();
     timers = [];
     answers = [];
+    alarms = StreamController<String>.broadcast();
+    testIncidents = {};
     topics = [const Topic(name: 'nightly', critical: true)];
     serverUrl = _server;
     topicReads = 0;
@@ -442,6 +449,65 @@ void main() {
         expect(waiting.cancelled, isTrue);
       },
     );
+  });
+
+  group('an alarm from the curl line', () {
+    test('turns the row at once and names the incident', () async {
+      await holdFirstTopic();
+      final cubit = build();
+      await cubit.load(tokenName: 'Setup');
+      await pumpEventQueue();
+      final polls = source.polls;
+
+      alarms.add('inc_mine');
+      await pumpEventQueue();
+
+      expect(cubit.state.isFirstMessageReceived, isTrue);
+      expect(cubit.state.ringingIncidentId, 'inc_mine');
+      expect(store.isReceived, isTrue);
+      expect(source.polls, polls, reason: 'no poll was needed');
+      expect(timers.last.cancelled, isTrue, reason: 'the polling ended');
+    });
+
+    test('a setup test ringing late is not the first message', () async {
+      testIncidents = {'inc_test'};
+      await holdFirstTopic();
+      final cubit = build();
+      await cubit.load(tokenName: 'Setup');
+      await pumpEventQueue();
+
+      alarms.add('inc_test');
+      await pumpEventQueue();
+
+      expect(cubit.state.isFirstMessageReceived, isFalse);
+      expect(cubit.state.ringingIncidentId, isNull);
+      expect(store.isReceived, isFalse);
+    });
+
+    test('only the first alarm is handed over', () async {
+      await holdFirstTopic();
+      final cubit = build();
+      await cubit.load(tokenName: 'Setup');
+
+      alarms.add('inc_one');
+      await pumpEventQueue();
+      alarms.add('inc_two');
+      await pumpEventQueue();
+
+      expect(cubit.state.ringingIncidentId, 'inc_one');
+    });
+
+    test('a replay does not listen for alarms', () async {
+      final cubit = build(isReplay: true);
+      await cubit.load(tokenName: 'Setup');
+
+      alarms.add('inc_mine');
+      await pumpEventQueue();
+
+      expect(cubit.state.ringingIncidentId, isNull);
+      expect(cubit.state.isFirstMessageReceived, isFalse);
+      expect(store.isReceived, isFalse);
+    });
   });
 
   group('the analytics switch', () {

@@ -220,6 +220,22 @@ void main() {
       expect(seen, isEmpty);
     });
 
+    test('an arrival known from an alarm sets the flag with no poll', () async {
+      final seen = <bool>[];
+      watcher.changes.listen(seen.add);
+      await watcher.start('nightly');
+      final waiting = timers.last;
+
+      await watcher.arrived();
+      await watcher.arrived();
+      await pumpEventQueue();
+
+      expect(store.isReceived, isTrue);
+      expect(seen, [true]);
+      expect(waiting.cancelled, isTrue);
+      expect(source.sinces, hasLength(1));
+    });
+
     test('the flag stays set when the topic is deleted', () async {
       source.answers.add(['m_1']);
       await watcher.start('nightly');

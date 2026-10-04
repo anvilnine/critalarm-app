@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
+import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_state.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
@@ -16,6 +18,7 @@ import 'package:critalarm/features/topics/presentation/widgets/first_message_row
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -135,9 +138,32 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
     unawaited(finishOnboardingStep(context, OnboardingStepId.hookUp));
   }
 
+  /// The user's own message set off an alarm and the phone is ringing.
+  /// While anything rings, the app is the alarm: the row gets its moment
+  /// to turn, then the alarm screen takes over, with the stop control.
+  ///
+  /// The alarm screen leaves for Home, never back to here, so the step is
+  /// finished first. Its job is done: a message from the tool arrived.
+  Future<void> _handOverTo(String incidentId) async {
+    if (_isFinished) return;
+    _isFinished = true;
+    final router = GoRouter.of(context);
+    final here = GoRouterState.of(context).uri.path;
+    await Future<void>.delayed(context.motion(tickDuration));
+    if (!mounted) return;
+    if (router.routerDelegate.currentConfiguration.uri.path != here) return;
+    await getIt<OnboardingFlowEngine>().finishStep(OnboardingStepId.hookUp);
+    router.go(PushDeepLink.incidentLocation(incidentId));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<HookUpCubit, HookUpState>(
+    return BlocConsumer<HookUpCubit, HookUpState>(
+      listenWhen: (prev, curr) =>
+          prev.ringingIncidentId != curr.ringingIncidentId &&
+          curr.ringingIncidentId != null,
+      listener: (context, state) =>
+          unawaited(_handOverTo(state.ringingIncidentId!)),
       builder: (context, state) {
         final cubit = context.read<HookUpCubit>();
         // The row has something to wait for once there is a topic. A phone
@@ -150,7 +176,8 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
         return AppScreenScaffold(
           backgroundColor: Colors.transparent,
           withGhosts: false,
-          withFades: false,
+          // The body scrolls under the pinned row and button, so the bar
+          // brings its scrim.
           hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.app_title.tr(),
@@ -168,7 +195,12 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (showsRow) ...[
-                FirstMessageRow(isReceived: state.isFirstMessageReceived),
+                FirstMessageRow(
+                  isReceived: state.isFirstMessageReceived,
+                  // At large text the pinned row keeps to its title, so
+                  // the curl line keeps most of the screen.
+                  isCompact: MediaQuery.textScalerOf(context).scale(1) > 1.3,
+                ),
                 const SizedBox(height: Spacing.s3),
               ],
               AppButton(
@@ -456,15 +488,82 @@ class _ToolSection extends StatelessWidget {
               children: [
                 for (final (index, field) in fields.indexed) ...[
                   if (index > 0) const SizedBox(height: 6),
-                  AppKeyValueRow(
-                    label: field.label,
-                    value: field.value,
-                    showCopyButton: field.isCopyable,
-                  ),
+                  _ToolField(field: field),
                 ],
               ],
             ),
           },
+        ],
+      ),
+    );
+  }
+}
+
+/// One field of the tool's form: its name, the whole value under it, and a
+/// copy button for a value the user pastes. The value wraps, so a token is
+/// never cut short at any text size.
+class _ToolField extends StatefulWidget {
+  const _ToolField({required this.field});
+
+  final ToolSnippetField field;
+
+  @override
+  State<_ToolField> createState() => _ToolFieldState();
+}
+
+class _ToolFieldState extends State<_ToolField> {
+  bool _isCopied = false;
+
+  void _copy() {
+    unawaited(Clipboard.setData(ClipboardData(text: widget.field.value)));
+    setState(() => _isCopied = true);
+    unawaited(
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _isCopied = false);
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final field = widget.field;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.cream,
+        borderRadius: Radii.mdAll,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  field.label,
+                  style: AppTypography.small(colors.ink3, fontSize: 13),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  field.value,
+                  style: AppTypography.monoBold(colors.ink, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          if (field.isCopyable) ...[
+            const SizedBox(width: Spacing.s2),
+            AppButton(
+              label: _isCopied
+                  ? LocaleKeys.common_copied.tr()
+                  : LocaleKeys.common_copy.tr(),
+              variant: AppButtonVariant.paper,
+              size: AppButtonSize.sm,
+              onPressed: _copy,
+            ),
+          ],
         ],
       ),
     );

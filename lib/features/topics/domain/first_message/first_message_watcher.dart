@@ -70,6 +70,16 @@ class FirstMessageWatcher {
     await _poll();
   }
 
+  /// A message is known to have landed without a poll: its alarm reached
+  /// this phone. Sets the flag, tells the listener and ends the polling.
+  /// Does nothing when a first message was already received.
+  Future<void> arrived() async {
+    if (_isDisposed || _store.isReceived) return;
+    _next?.cancel();
+    await _store.markReceived();
+    if (!_isDisposed) _changes.add(true);
+  }
+
   /// The app left the front. No poll runs until [resume].
   void pause() {
     _isPaused = true;
@@ -105,6 +115,8 @@ class FirstMessageWatcher {
         final ids = await _source.newerThan(topic, cursor);
         if (_isDisposed) return;
         if (ids.isNotEmpty) {
+          // An alarm push may have said so first.
+          if (_store.isReceived) return;
           await _store.markReceived();
           if (!_isDisposed) _changes.add(true);
           return;
