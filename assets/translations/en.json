@@ -243,84 +243,70 @@
     "tool_healthchecks": "In Healthchecks, add an ntfy integration and fill in these fields."
   },
   "onboarding_permissions": {
-    "denied_title": "Permissions required",
-    "denied_description": "Without these, a page cannot reach you or wake your screen.",
+    "denied_title": "Crit Alarm can't reach you yet",
+    "denied_description": "Turn these on in Settings, or carry on and fix it later in Health.",
     "denied_open_settings": "Open Settings",
     "denied_recheck": "Check again",
     "denied_skip": "Continue without this",
     "not_now": "Not now",
-    "checking": "Checking what this phone still needs",
+    "checking": "Checking this phone",
     "step_progress": "Step {step} of {count}",
     "ios": {
       "notifications": {
-        "badge": "Repeats until you acknowledge",
         "title": "First, notifications",
-        "subtitle": "Alert details need notification permission to reach your device.",
+        "subtitle": "Without them, no alarm reaches this iPhone.",
         "button": "Allow notifications",
         "preview_title": "“Crit Alarm” Would Like to Send You Notifications",
         "preview_desc": "Notifications may include alerts, sounds, and icon badges.",
         "preview_allow": "Allow",
         "preview_allow_summary": "Allow in Scheduled Summary",
         "preview_dont_allow": "Don't Allow",
-        "preview_hint": "Tap Allow when prompted",
         "settings_button": "Open Settings",
         "settings_preview_title": "Allow Notifications",
-        "settings_preview_desc": "Notifications are off for Crit Alarm. This is a switch in Settings, not a pop-up.",
         "settings_preview_hint": "Settings opens. Turn it on, then come back."
       },
       "alarms": {
-        "badge": "Rings through silent mode",
         "title": "Ring through silent",
-        "subtitle": "Alarm access lets a page ring through your silent switch and Do Not Disturb until you stop it.",
+        "subtitle": "And through Do Not Disturb, until you answer.",
         "button": "Allow alarms and timers",
         "preview_title": "Allow “Crit Alarm” to schedule alarms and timers?",
         "preview_desc": "This will allow the app to schedule alarms and timers that can play sounds and appear on screen even if a Focus is active.",
         "preview_allow": "Allow",
-        "preview_dont_allow": "Don't Allow",
-        "preview_hint": "Tap Allow when prompted"
+        "preview_dont_allow": "Don't Allow"
       },
       "time_sensitive": {
-        "badge": "Plays a sound, not through silent",
-        "title": "Your phone can still page you",
-        "subtitle": "Alarms that ring through silent mode need iOS 26. On this iPhone a page arrives as a notification with sound.",
+        "title": "This iPhone plays a sound",
+        "subtitle": "Ringing through silent mode needs iOS 26. Here an alarm arrives as a notification with sound.",
         "button": "Continue"
       }
     },
     "android": {
       "notifications": {
-        "badge": "Repeats until you acknowledge",
         "title": "First, notifications",
-        "subtitle": "Alert details need notification permission to reach your device.",
+        "subtitle": "Without them, no alarm reaches this phone.",
         "button": "Allow notifications",
         "preview_title": "Allow Crit Alarm to send you notifications?",
-        "preview_desc": "Pages, warnings and test alarms show up as notifications.",
         "preview_allow": "Allow",
         "preview_dont_allow": "Don't allow",
-        "preview_hint": "Tap Allow when prompted",
         "settings_button": "Open notification settings",
         "settings_preview_title": "All Crit Alarm notifications",
-        "settings_preview_desc": "Notifications are off for Crit Alarm. This is a switch in Settings, not a pop-up.",
         "settings_preview_hint": "Settings opens. Turn it on, then come back."
       },
       "full_screen": {
-        "badge": "Rings through silent mode",
         "title": "Full-screen alarm",
-        "subtitle": "Full-screen access lets a page take over your screen, even when the phone is locked, and keep ringing until you stop it.",
+        "subtitle": "An alarm takes over your screen, even when it's locked.",
         "button": "Allow full-screen alarms",
         "preview_title": "Allow full screen notifications",
-        "preview_desc": "Crit Alarm can take over the screen when a page comes in, even when the phone is locked. This is a switch in Settings, not a pop-up.",
         "preview_hint": "Settings opens. Turn it on, then come back."
       },
       "battery": {
-        "badge": "Stays awake for pages",
         "title": "Keep Crit Alarm awake",
-        "subtitle": "This phone puts apps to sleep to save battery, so a page can arrive late. Let Crit Alarm run in the background to stop that.",
+        "subtitle": "This phone puts apps to sleep, so an alarm can arrive late.",
         "button": "Allow background running",
         "preview_title": "Let app always run in background?",
         "preview_desc": "Allowing Crit Alarm to always run in the background may reduce battery life.",
         "preview_allow": "Allow",
-        "preview_deny": "Deny",
-        "preview_hint": "Tap Allow when prompted"
+        "preview_deny": "Deny"
       }
     }
   },
