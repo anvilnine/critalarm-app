@@ -3,17 +3,15 @@ import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
-import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
-import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../features/onboarding/support/onboarding_flow_fakes.dart';
+
 class MockGetOnboardingCompletedUsecase extends Mock
     implements GetOnboardingCompletedUsecase {}
-
-class MockReadOnboardingDraftUsecase extends Mock
-    implements ReadOnboardingDraftUsecase {}
 
 void main() {
   group('initialLocationFor', () {
@@ -24,20 +22,20 @@ void main() {
       );
     });
 
-    test('resumes the step the user had reached', () {
+    test('opens the route the flow engine resumes at', () {
       expect(
         initialLocationFor(
           hasCompletedOnboarding: false,
-          step: OnboardingStep.connect,
+          resumeRoute: '/onboarding/connect',
         ),
         '/onboarding/connect',
       );
       expect(
         initialLocationFor(
           hasCompletedOnboarding: false,
-          step: OnboardingStep.test,
+          resumeRoute: '/onboarding/real-ring',
         ),
-        '/onboarding/connect',
+        '/onboarding/real-ring',
       );
     });
 
@@ -47,7 +45,7 @@ void main() {
       expect(
         initialLocationFor(
           hasCompletedOnboarding: false,
-          step: OnboardingStep.test,
+          resumeRoute: '/onboarding/real-ring',
         ),
         isNot('/'),
       );
@@ -81,7 +79,7 @@ void main() {
       expect(
         initialLocationFor(
           hasCompletedOnboarding: false,
-          step: OnboardingStep.connect,
+          resumeRoute: '/onboarding/connect',
           deepLink: '/incidents/inc_1',
         ),
         '/onboarding/connect',
@@ -123,74 +121,110 @@ void main() {
 
   group('InitialRouteResolver', () {
     late MockGetOnboardingCompletedUsecase getOnboardingCompleted;
-    late MockReadOnboardingDraftUsecase readDraft;
 
     setUp(() {
       getOnboardingCompleted = MockGetOnboardingCompletedUsecase();
-      readDraft = MockReadOnboardingDraftUsecase();
     });
 
-    test('treats failed lookups as unfinished onboarding', () async {
+    void completedIs({required bool value}) =>
+        when(() => getOnboardingCompleted(const NoParams())).thenAnswer(
+          (_) async => value.toSuccess(),
+        );
+
+    InitialRouteResolver resolver(
+      EngineHarness h, {
+      String platformRoute = '/',
+    }) => InitialRouteResolver(
+      getOnboardingCompleted,
+      h.engine,
+      platformRoute: () => platformRoute,
+    );
+
+    test('treats a failed lookup as unfinished onboarding', () async {
       when(() => getOnboardingCompleted(const NoParams())).thenAnswer(
         (_) async => const Failure.unexpected().toFailure(),
       );
-      when(() => readDraft(const NoParams())).thenAnswer(
-        (_) async => const Failure.notFound().toFailure(),
-      );
 
-      final location = await InitialRouteResolver(
-        getOnboardingCompleted,
-        readDraft,
-        platformRoute: () => '/',
-      )();
-
-      expect(location, '/onboarding/welcome');
+      expect(await resolver(EngineHarness())(), '/onboarding/welcome');
     });
 
-    test('resumes the saved step', () async {
-      when(() => getOnboardingCompleted(const NoParams())).thenAnswer(
-        (_) async => false.toSuccess(),
-      );
-      when(() => readDraft(const NoParams())).thenAnswer(
-        (_) async => const OnboardingDraft(
-          step: OnboardingStep.test,
-        ).toSuccess(),
+    test('a fresh install opens the welcome', () async {
+      completedIs(value: false);
+
+      expect(await resolver(EngineHarness())(), '/onboarding/welcome');
+    });
+
+    test('resumes at the first open step of the pinned flow', () async {
+      completedIs(value: false);
+      final h = EngineHarness(
+        facts: FakeOnboardingStepFacts(connected: true),
+        repository: FakeOnboardingFlowRepository(
+          pinned: BundledOnboardingFlows.defaultFlow,
+          completed: {'welcome', 'how_it_rings'},
+        ),
       );
 
-      final location = await InitialRouteResolver(
-        getOnboardingCompleted,
-        readDraft,
-        platformRoute: () => '/',
-      )();
+      expect(await resolver(h)(), '/onboarding');
+    });
 
-      expect(location, '/onboarding/connect');
+    test('a tapped notification does not cut setup short', () async {
+      completedIs(value: false);
+      final h = EngineHarness(
+        repository: FakeOnboardingFlowRepository(
+          pinned: BundledOnboardingFlows.defaultFlow,
+          completed: {'welcome', 'how_it_rings'},
+        ),
+      );
+
+      expect(
+        await resolver(h, platformRoute: '/incidents/inc_1')(),
+        '/onboarding/connect',
+      );
+    });
+
+    test('places a user who was halfway through the old order', () async {
+      completedIs(value: false);
+      final h = EngineHarness(
+        facts: FakeOnboardingStepFacts(connected: true, permissions: true),
+        repository: FakeOnboardingFlowRepository(legacyStep: 'test'),
+      );
+
+      expect(await resolver(h)(), '/onboarding/first-topic');
+    });
+
+    test('no step left completes setup and opens Home', () async {
+      completedIs(value: false);
+      final h = EngineHarness(
+        facts: FakeOnboardingStepFacts(
+          connected: true,
+          permissions: true,
+          ownsTopic: true,
+        ),
+        repository: FakeOnboardingFlowRepository(
+          pinned: BundledOnboardingFlows.defaultFlow,
+          completed: {'welcome', 'how_it_rings', 'real_ring'},
+        ),
+      );
+
+      expect(
+        await resolver(h, platformRoute: '/incidents/inc_1')(),
+        '/incidents/inc_1',
+      );
+      expect(h.progress.completed, isTrue);
     });
 
     test('a finished user lands home, and a deep link still wins', () async {
-      when(() => getOnboardingCompleted(const NoParams())).thenAnswer(
-        (_) async => true.toSuccess(),
-      );
-      when(() => readDraft(const NoParams())).thenAnswer(
-        (_) async => const OnboardingDraft().toSuccess(),
-      );
+      completedIs(value: true);
+      final h = EngineHarness();
 
+      expect(await resolver(h)(), '/');
       expect(
-        await InitialRouteResolver(
-          getOnboardingCompleted,
-          readDraft,
-          platformRoute: () => '/',
-        )(),
-        '/',
-      );
-
-      expect(
-        await InitialRouteResolver(
-          getOnboardingCompleted,
-          readDraft,
-          platformRoute: () => '/incidents/inc_1',
-        )(),
+        await resolver(h, platformRoute: '/incidents/inc_1')(),
         '/incidents/inc_1',
       );
+      // Setup is over, so the engine is not asked and nothing is written.
+      expect(h.events, isEmpty);
+      expect(h.repository.writes, 0);
     });
   });
 }

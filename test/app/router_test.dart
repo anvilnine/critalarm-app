@@ -1,4 +1,5 @@
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -102,6 +103,52 @@ void main() {
               'builder',
         );
       }
+    });
+  });
+
+  group('the setup step routes', () {
+    test('every step with a screen has one route, under its own name', () {
+      final routes = buildRouter().configuration.routes
+          .expand(_flatten)
+          .whereType<GoRoute>()
+          .toList();
+
+      for (final step in OnboardingStepRegistry.entries) {
+        final matches = routes.where((r) => r.path == step.route).toList();
+        expect(
+          matches,
+          hasLength(step.route == null ? 0 : 1),
+          reason: step.id,
+        );
+        if (step.route != null) {
+          expect(matches.single.name, step.routeName, reason: step.id);
+          expect(step.screen, isNotNull, reason: step.id);
+        }
+      }
+    });
+
+    test('the names other screens navigate by still resolve', () {
+      final names = buildRouter().configuration.routes
+          .expand(_flatten)
+          .whereType<GoRoute>()
+          .map((r) => r.name)
+          .toSet();
+
+      expect(
+        names,
+        containsAll([
+          AppRoute.onboarding,
+          AppRoute.onboardingWelcome,
+          AppRoute.onboardingHowItRings,
+          AppRoute.onboardingConnect,
+          AppRoute.onboardingWidgets,
+          AppRoute.onboardingFirstTopic,
+          AppRoute.onboardingRealRing,
+          AppRoute.onboardingTest,
+          AppRoute.onboardingDenied,
+          AppRoute.onboardingPermissions,
+        ]),
+      );
     });
   });
 }
