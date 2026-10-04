@@ -829,7 +829,15 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                 title: isSetup
                     ? LocaleKeys.app_title.tr()
                     : LocaleKeys.create_topic_title.tr(),
-                leading: isTokenStep && !isSuccess
+                // With the keyboard up the big face makes room for the form.
+                // It moves up here, smaller, so a worried face after a
+                // failed create and the glad one after a good one are
+                // still seen.
+                leading: isSetup && hasKeyboard
+                    ? ExcludeSemantics(
+                        child: FaceWidget(state: face, size: 32, isLive: true),
+                      )
+                    : isTokenStep && !isSuccess
                     ? AppIconButton(
                         glyph: GlyphType.back,
                         ariaLabel: LocaleKeys.create_topic_back_aria_label.tr(),

@@ -105,7 +105,7 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     final access = _access(identity);
     emit(
       state.copyWith(
-        isFreeTier: !access.isPaid && !isSelfHosted,
+        isFreeTier: access.freeCriticalCap(isSelfHosted: isSelfHosted) != null,
         criticalLimit: access.caps?.criticalTopics,
       ),
     );
@@ -135,6 +135,9 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
       final conn = result.getOrNull();
       if (conn != null) {
         serverUrl = conn.serverUrl;
+        // Shown at once. The reads below go to the network, and a quick
+        // Create must not hand an empty address on to the next steps.
+        emit(state.copyWith(serverUrl: serverUrl));
       }
     }
 
@@ -149,7 +152,8 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
       final access = _access(identity);
       // Matches the Settings screen: a self-hosted server has no tier, so
       // it is never treated as the free plan.
-      isFreeTier = !access.isPaid && !await _isSelfHosted();
+      isFreeTier =
+          access.freeCriticalCap(isSelfHosted: await _isSelfHosted()) != null;
       limit = access.caps?.criticalTopics;
       final getTopics = _getTopics;
       if (getTopics != null) {
@@ -269,17 +273,33 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
         await handoff?.hold(
           FirstTopicHandoffEntry(
             topicName: topic.name,
-            serverUrl: state.serverUrl,
+            serverUrl: await _serverUrlToHandOn(),
             token: token,
             templateId: template?.id,
           ),
         );
+        // Setup never shows this token on this screen. Should the app be
+        // killed before the last step shows it, that step makes another,
+        // and takes this one back first: its id is saved for that. A token
+        // nobody ever saw must not stay valid.
+        final tokenId = topic.tokenId;
+        if (tokenId != null && tokenId.isNotEmpty) {
+          await handoff?.saveMintedTokenId(tokenId);
+        }
       }
     } on Object catch (error) {
       debugPrint(
         'CreateTopicCubit: remembering the topic failed: ${error.runtimeType}',
       );
     }
+  }
+
+  /// The server address for the steps after this one: what the screen
+  /// loaded, or the saved connection's when the load has not got there yet.
+  Future<String> _serverUrlToHandOn() async {
+    if (state.serverUrl.trim().isNotEmpty) return state.serverUrl;
+    final saved = await _getConnection?.call(const NoParams());
+    return saved?.getOrNull()?.serverUrl ?? state.serverUrl;
   }
 
   Future<void> createTopic() async {

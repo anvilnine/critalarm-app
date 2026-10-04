@@ -69,12 +69,39 @@ void main() {
 
       expect(prefs.getString('onboarding_first_topic'), 'healthchecks');
       expect(handoff.savedTopicName, 'healthchecks');
+      // The token's id is kept too, never the token: it lets the last
+      // step take the token back if the app dies before showing it.
       expect(
         prefs.getKeys(),
-        {'onboarding_first_topic', 'topic_tool_template.healthchecks'},
+        {
+          'onboarding_first_topic',
+          'topic_tool_template.healthchecks',
+          'onboarding_hook_up_token_id',
+        },
       );
     },
   );
+
+  test('the id of the token setup made is saved, so a relaunch can take '
+      'the unseen token back', () async {
+    final token = await makeFirstTopic();
+    final tokenId = cubit.state.createdTopic!.tokenId!;
+
+    expect(handoff.mintedTokenId, tokenId);
+    expect(tokenId, isNot(token));
+
+    // After a kill the token is gone from memory and its id is still here,
+    // which is what the last step revokes before it makes another.
+    final restarted = PrefsFirstTopicHandoff(prefs);
+    expect(restarted.entry, isNull);
+    expect(restarted.mintedTokenId, tokenId);
+  });
+
+  test('outside setup no token id is saved: that token was shown', () async {
+    cubit.holdsHandoff = false;
+    await makeFirstTopic();
+    expect(handoff.mintedTokenId, isNull);
+  });
 
   test('the entry never prints its token', () async {
     final token = await makeFirstTopic();
