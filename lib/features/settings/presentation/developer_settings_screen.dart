@@ -9,6 +9,7 @@ import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/edge_effect.dart';
+import 'package:critalarm/features/settings/presentation/developer_setup_section.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -72,6 +73,7 @@ class DeveloperSettingsScreen extends StatelessWidget {
                     const _PaywallVariantPicker(),
                     const SizedBox(height: 14),
                   ],
+                  const DeveloperSetupSection(),
                   AppListRow(
                     name: LocaleKeys.settings_developer_dialog_sheet_title.tr(),
                     meta: LocaleKeys.settings_developer_dialog_sheet_subtitle

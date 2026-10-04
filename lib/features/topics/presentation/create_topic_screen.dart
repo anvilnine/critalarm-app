@@ -13,6 +13,7 @@ import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_ask_sheet.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_settler.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rules.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/topic_name_formatter.dart';
@@ -28,12 +29,15 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// CreateTopicScreen matching docs/design-system/index.html mobile mockup.
 class CreateTopicScreen extends StatelessWidget {
-  const CreateTopicScreen({this.onDone, super.key});
+  const CreateTopicScreen({this.onDone, this.isReplay = false, super.key});
 
   /// Called in place of every exit, whether the topic was created or the
   /// screen was closed. Setup passes it to move on to its next step. Null
   /// everywhere else, where the exits pop or open the new topic.
   final VoidCallback? onDone;
+
+  /// A replay of setup: confirming ends the step without making a topic.
+  final bool isReplay;
 
   @override
   Widget build(BuildContext context) {
@@ -53,16 +57,17 @@ class CreateTopicScreen extends StatelessWidget {
             context.read<CreateTopicCubit>().existingNamesChanged(
               topicsState.topics.map((topic) => topic.name),
             ),
-        child: _CreateTopicScreenContent(onDone: onDone),
+        child: _CreateTopicScreenContent(onDone: onDone, isReplay: isReplay),
       ),
     );
   }
 }
 
 class _CreateTopicScreenContent extends StatefulWidget {
-  const _CreateTopicScreenContent({this.onDone});
+  const _CreateTopicScreenContent({this.onDone, this.isReplay = false});
 
   final VoidCallback? onDone;
+  final bool isReplay;
 
   @override
   State<_CreateTopicScreenContent> createState() =>
@@ -162,6 +167,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
 
   void _submit() {
     FocusScope.of(context).unfocus();
+    if (!onboardingCreatesTopic(isReplay: widget.isReplay)) {
+      widget.onDone?.call();
+      return;
+    }
     unawaited(context.read<CreateTopicCubit>().createTopic());
   }
 
