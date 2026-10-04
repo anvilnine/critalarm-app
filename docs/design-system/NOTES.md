@@ -70,16 +70,37 @@ Three components in `lib/design/components/`, each in the gallery at `/gallery`.
 
 - `AppHighlightCard`: use it to mark the one choice on a screen that matters, or one row in a short
   checklist. It draws a tinted, stroked surface and nothing else, so a toggle row or a checklist
-  row goes inside. `crit` is the critical canvas with its stroke. `calm` is the cobalt tint with a
-  cobalt stroke, for a row that is done. Text on it takes `onCanvas`: muted text on the light
-  `crit` tone is 3.85:1.
+  row goes inside. It has four tones:
+  - `choice`: cream with the ink stroke, for the one choice on a screen before the user has made
+    it. It stands out from a white sheet and from the canvas and claims no state. Never use `calm`
+    for an open choice: blue says done.
+  - `crit`: the critical canvas with its stroke, once that choice is on. In the light palette it
+    has the same stroke as `choice`, so only the fill changes when the switch flips.
+  - `pending`: a plain surface with a quiet stroke, for a row that is waiting on something.
+  - `calm`: the cobalt tint with a cobalt stroke, for a row that is done.
+
+  Text on it takes `onCanvas`: muted text on the light `crit` tone is 3.85:1.
 - `AppAnimatedTick`: use it when one thing finishes while the user watches, such as a first message
   landing or a checklist step. The ring fills, then the tick draws, once, in 600 ms. For a static
   "included" mark in a list, use `AppFeatureBullet`. The caller wraps it in `Semantics` with a
   label.
 - `AppWaitingFace`: use it for every wait on something outside the app, in place of a bare spinner.
   It is the watching face over one line that says what is happening. The line is a live region,
-  so a screen reader hears it change.
+  so a screen reader hears it change. `faceState` swaps the face for the moment the wait ends on
+  the same screen, such as a phone that is now ringing.
+
+## Faces in setup
+
+One face per setup screen: 80 px, in a `Hero` with the tag `onboarding-face`, at the same top inset
+on every step, so it flies from step to step and holds still inside one. A state that changes on
+a screen swaps the `FaceState` on that widget.
+
+- `watching` means waiting on something outside the app, and nothing else. A screen that asks the
+  user to do something gets another face.
+- `worried` means something failed. A state that is only missing a step (no server yet, Critical
+  delivery off, a test that timed out) gets its own face: `sad`, `skeptical`, `confused`.
+- Titles of setup task screens are `AppTypography.headline` at 30, centred. Problem titles are
+  headline 22, centred, with at most one `body` line in `onCanvasMuted` under them.
 
 All three stop moving when the phone asks for reduced motion.
 

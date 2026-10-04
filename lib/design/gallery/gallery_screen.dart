@@ -1575,7 +1575,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // The one choice on a screen: `choice` until the switch
+                  // is flipped, `crit` once it is on. Flip it to see the
+                  // fill change under the same stroke.
                   AppHighlightCard(
+                    tone: _highlightVal
+                        ? AppHighlightTone.crit
+                        : AppHighlightTone.choice,
                     child: AppToggleRow(
                       title: LocaleKeys.gallery_highlight_crit_title.tr(),
                       subtitle: LocaleKeys.gallery_highlight_crit_subtitle.tr(),

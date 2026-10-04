@@ -51,6 +51,22 @@ void main() {
       expect(c.stroke, const Color(0xFF7C8AFF));
     });
 
+    test('choice is cream with the ink stroke, in both palettes', () {
+      for (final colors in [AppColors.light, AppColors.dark]) {
+        final c = highlightToneColors(AppHighlightTone.choice, colors);
+        expect(c.fill, colors.cream);
+        expect(c.stroke, colors.ink);
+      }
+    });
+
+    test('choice keeps its stroke when it turns crit in the light palette', () {
+      const colors = AppColors.light;
+      expect(
+        highlightToneColors(AppHighlightTone.choice, colors).stroke,
+        highlightToneColors(AppHighlightTone.crit, colors).stroke,
+      );
+    });
+
     test('every tone is covered and no two tones share a fill', () {
       for (final colors in [AppColors.light, AppColors.dark]) {
         final fills = {
