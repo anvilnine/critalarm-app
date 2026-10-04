@@ -44,6 +44,7 @@ class RealRingCubit extends Cubit<RealRingState> {
     required this.arrivals,
     this.alarmHost,
     this.onTopicUpdated,
+    this.readCriticalLimit,
     this.isReplay = false,
     this.on = const OnboardingPlatform(
       platform: TargetPlatform.android,
@@ -87,6 +88,11 @@ class RealRingCubit extends Cubit<RealRingState> {
   /// Told about the topic the server answered after the switch, so the
   /// app's shared list follows.
   final void Function(Topic topic)? onTopicUpdated;
+
+  /// The free plan's cap on critical topics, or null where there is none
+  /// (a paid plan, a server of the user's own). Local reads only. Null in
+  /// tests that do not need the plan line.
+  final Future<int?> Function()? readCriticalLimit;
   final OneShotTimerFactory _timer;
 
   /// The phone the step runs on, handed in as values.
@@ -209,10 +215,17 @@ class RealRingCubit extends Cubit<RealRingState> {
       connect: connect,
       topic: topic,
     );
+    final plan = criticalPlanFor(
+      topics: topics,
+      topic: topic,
+      limit: await readCriticalLimit?.call(),
+    );
     if (isClosed) return gate;
     if (!force && !_gatePhases.contains(state.phase)) return gate;
     emit(
       state.copyWith(
+        plan: plan,
+        clearPlan: plan == null,
         phase: switch (gate) {
           RealRingGate.noServer => RealRingPhase.noServer,
           RealRingGate.noTopic => RealRingPhase.noTopic,
@@ -402,6 +415,9 @@ class RealRingCubit extends Cubit<RealRingState> {
             : sample.copyWith(critical: true),
         failure: phase == RealRingPhase.failed ? RealRingFailure.offline : null,
         clearFailure: phase != RealRingPhase.failed,
+        // Made-up numbers, like the topic: the card with its plan line.
+        plan: phase == RealRingPhase.criticalOff ? (used: 1, limit: 2) : null,
+        clearPlan: phase != RealRingPhase.criticalOff,
         local: isCountingDown
             ? const LocalTestAlarmState(
                 status: TestAlarmStatus.ringing,

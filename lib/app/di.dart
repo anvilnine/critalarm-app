@@ -31,6 +31,7 @@ import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/device/device_maker.dart';
 import 'package:critalarm/core/device/platform_device_maker_reader.dart';
 import 'package:critalarm/core/env/env.dart';
+import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/core/paywall/dev_paywall_variant_switch.dart';
@@ -1355,6 +1356,16 @@ Future<void> configureDependencies({
         arrivals: getIt<AlarmArrivals>(),
         alarmHost: getIt<AlarmHost>(),
         onTopicUpdated: (topic) => getIt<TopicsCubit>().applyTopic(topic),
+        // The same reads the create-topic screen makes for its plan line: a
+        // paid plan and a server of the user's own have no cap to state.
+        readCriticalLimit: () async {
+          final session = await getIt<ApiSessionStore>().read();
+          if (session?.mode == ServerMode.selfhosted) return null;
+          final access = AccountAccess(
+            await getIt<DeviceIdentityStore>().readOrCreate(),
+          );
+          return access.isPaid ? null : access.caps?.criticalTopics;
+        },
         isReplay: isReplay ?? false,
         on: OnboardingPlatform(platform: defaultTargetPlatform, isWeb: kIsWeb),
       ),

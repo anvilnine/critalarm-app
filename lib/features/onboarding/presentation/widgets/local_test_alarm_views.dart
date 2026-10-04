@@ -11,13 +11,35 @@ import 'package:go_router/go_router.dart';
 
 /// The countdown of the alarm the phone set for itself.
 class LocalTestCountdownCard extends StatelessWidget {
-  const LocalTestCountdownCard({required this.seconds, super.key});
+  const LocalTestCountdownCard({
+    required this.seconds,
+    required this.line,
+    required this.semanticLabel,
+    super.key,
+  });
 
   final int seconds;
+
+  /// What to do while it counts. The seconds are the big number above it,
+  /// so this line does not repeat them.
+  final String line;
+
+  /// The whole sentence, seconds included, for a screen reader.
+  final String semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      label: semanticLabel,
+      excludeSemantics: true,
+      child: _card(colors),
+    );
+  }
+
+  Widget _card(AppColors colors) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
@@ -42,9 +64,7 @@ class LocalTestCountdownCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            LocaleKeys.onboarding_connect_hook_countdown.tr(
-              namedArgs: {'seconds': '$seconds'},
-            ),
+            line,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: AppTypography.fontBody,

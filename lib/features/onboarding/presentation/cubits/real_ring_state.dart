@@ -53,6 +53,7 @@ class RealRingState {
     this.criticalFailure,
     this.local = const LocalTestAlarmState(),
     this.platform = RealRingPlatform.android,
+    this.plan,
   });
 
   final RealRingPhase phase;
@@ -87,6 +88,10 @@ class RealRingState {
   /// Which phone this is, for the instruction lines and the check list.
   final RealRingPlatform platform;
 
+  /// On the free plan: the critical topics this one would use and the cap,
+  /// for the line on the Critical card. Null where there is no cap.
+  final ({int used, int limit})? plan;
+
   /// What this phone can promise for a ring.
   RingClaim get claim => platform == RealRingPlatform.iosTimeSensitive
       ? RingClaim.timeSensitive
@@ -109,6 +114,8 @@ class RealRingState {
     Failure? criticalFailure,
     LocalTestAlarmState? local,
     RealRingPlatform? platform,
+    ({int used, int limit})? plan,
+    bool clearPlan = false,
     bool clearTopic = false,
     bool clearFailure = false,
     bool clearCriticalFailure = false,
@@ -125,6 +132,7 @@ class RealRingState {
         : (criticalFailure ?? this.criticalFailure),
     local: local ?? this.local,
     platform: platform ?? this.platform,
+    plan: clearPlan ? null : (plan ?? this.plan),
   );
 
   @override
@@ -139,7 +147,8 @@ class RealRingState {
       isSwitchingCritical == other.isSwitchingCritical &&
       criticalFailure == other.criticalFailure &&
       local == other.local &&
-      platform == other.platform;
+      platform == other.platform &&
+      plan == other.plan;
 
   @override
   int get hashCode => Object.hash(
@@ -153,5 +162,6 @@ class RealRingState {
     criticalFailure,
     local,
     platform,
+    plan,
   );
 }

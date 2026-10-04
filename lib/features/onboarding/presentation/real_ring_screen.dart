@@ -256,36 +256,50 @@ class _RealRingViewState extends State<_RealRingView>
       RealRingPhase.waiting => _wait(
         LocaleKeys.onboarding_real_ring_waiting.tr(),
       ),
-      RealRingPhase.rang => _wait(LocaleKeys.onboarding_real_ring_rang.tr()),
+      // The wait is over: the phone is ringing, and the face says so.
+      RealRingPhase.rang => _wait(
+        LocaleKeys.onboarding_real_ring_rang.tr(),
+        face: FaceState.alarmed,
+      ),
       RealRingPhase.ready => _ready(context, state),
       RealRingPhase.criticalOff => _criticalOff(context, state, cubit),
       RealRingPhase.noServer => _noServer(context, state, cubit),
+      // Missing, not broken.
       RealRingPhase.noTopic => _problem(
         context,
         cubit,
-        line: LocaleKeys.onboarding_real_ring_no_topic.tr(),
+        face: FaceState.sad,
+        reason: realRingNoTopicReason(),
       ),
       RealRingPhase.timedOut => _timedOut(context, state, cubit),
       RealRingPhase.failed => _problem(
         context,
         cubit,
-        line: realRingFailureLine(state.failure ?? RealRingFailure.unknown),
+        face: FaceState.worried,
+        reason: realRingFailureLine(state.failure ?? RealRingFailure.unknown),
       ),
     };
   }
 
-  /// A wait: the face, waiting, over the one line that says what for.
-  Widget _wait(String message) => Padding(
-    padding: const EdgeInsets.only(top: Spacing.s8),
-    child: Center(
-      child: AppWaitingFace(message: message, heroTag: 'onboarding-face'),
+  /// A wait: the face over the one line that says what for. It sits where
+  /// the face of every other state does, so nothing jumps between them.
+  Widget _wait(String message, {FaceState face = FaceState.watching}) => Center(
+    child: AppWaitingFace(
+      message: message,
+      faceState: face,
+      faceSize: _faceSize,
+      heroTag: _faceHeroTag,
     ),
   );
 
+  /// The face every setup step shares.
+  static const _faceHeroTag = 'onboarding-face';
+  static const double _faceSize = 80;
+
   Widget _face(FaceState face) => Hero(
-    tag: 'onboarding-face',
+    tag: _faceHeroTag,
     flightShuttleBuilder: faceFlightShuttleBuilder,
-    child: FaceWidget(state: face, size: 88, isLive: true),
+    child: FaceWidget(state: face, size: _faceSize, isLive: true),
   );
 
   Widget _heading(BuildContext context, RealRingState state) {
@@ -315,7 +329,8 @@ class _RealRingViewState extends State<_RealRingView>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _face(FaceState.watching),
+        // "Watch this."
+        _face(FaceState.cheeky),
         const SizedBox(height: Spacing.s4),
         _heading(context, state),
         const SizedBox(height: Spacing.s5),
@@ -323,10 +338,7 @@ class _RealRingViewState extends State<_RealRingView>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AppSectionHeader(
-                LocaleKeys.onboarding_real_ring_steps_header.tr(),
-              ),
-              const SizedBox(height: 8),
+              // The numbers say "do these in order".
               for (final (index, step) in copy.steps.indexed) ...[
                 if (index > 0) const SizedBox(height: 12),
                 AppStepBullet(number: index + 1, text: step),
@@ -338,20 +350,40 @@ class _RealRingViewState extends State<_RealRingView>
     );
   }
 
-  /// One line that says what is wrong, under a worried face.
-  Widget _reason(BuildContext context, String line) {
+  /// What is wrong, in a short title and at most one plain line, under a
+  /// face that fits it.
+  Widget _reason(
+    BuildContext context,
+    RealRingReason reason, {
+    required FaceState face,
+  }) {
     final colors = context.appColors;
+    final line = reason.line;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _face(FaceState.worried),
+        _face(face),
         const SizedBox(height: Spacing.s4),
         Semantics(
           liveRegion: true,
-          child: Text(
-            line,
-            textAlign: TextAlign.center,
-            style: AppTypography.headline(colors.onCanvas, fontSize: 22),
+          container: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                reason.title,
+                textAlign: TextAlign.center,
+                style: AppTypography.headline(colors.onCanvas, fontSize: 22),
+              ),
+              if (line != null) ...[
+                const SizedBox(height: Spacing.s2),
+                Text(
+                  line,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.body(colors.onCanvasMuted),
+                ),
+              ],
+            ],
           ),
         ),
       ],
@@ -361,12 +393,13 @@ class _RealRingViewState extends State<_RealRingView>
   Widget _problem(
     BuildContext context,
     RealRingCubit cubit, {
-    required String line,
+    required FaceState face,
+    required RealRingReason reason,
   }) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
-      _reason(context, line),
-      const SizedBox(height: Spacing.s5),
+      _reason(context, reason, face: face),
+      const SizedBox(height: Spacing.s6),
       _PhoneOnlyFallback(onPressed: cubit.startPhoneOnlyTest),
     ],
   );
@@ -376,26 +409,28 @@ class _RealRingViewState extends State<_RealRingView>
     RealRingState state,
     RealRingCubit cubit,
   ) {
-    // A connect still on its way is a wait, with its own line. Anything
-    // else is a server that is not there.
+    // A connect still on its way is a wait, with its own line. A connect
+    // that gave up is a failure with its reason. Anything else is a server
+    // that is simply not there yet.
     final connect = state.connect;
+    final failedLine = connect.isFailed ? backgroundConnectLine(connect) : null;
     final top = connect.isPending
-        ? AppWaitingFace(
-            message: backgroundConnectLine(connect) ?? '',
-            heroTag: 'onboarding-face',
-          )
-        : _reason(
+        ? _wait(backgroundConnectLine(connect) ?? '')
+        : failedLine != null
+        ? _reason(
             context,
-            connect.isFailed
-                ? backgroundConnectLine(connect) ??
-                      LocaleKeys.onboarding_real_ring_no_server.tr()
-                : LocaleKeys.onboarding_real_ring_no_server.tr(),
-          );
+            (
+              title: LocaleKeys.onboarding_real_ring_failed_unknown.tr(),
+              line: failedLine,
+            ),
+            face: FaceState.worried,
+          )
+        : _reason(context, realRingNoServerReason(), face: FaceState.sad);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         top,
-        const SizedBox(height: Spacing.s5),
+        const SizedBox(height: Spacing.s6),
         _PhoneOnlyFallback(onPressed: cubit.startPhoneOnlyTest),
       ],
     );
@@ -407,15 +442,25 @@ class _RealRingViewState extends State<_RealRingView>
     RealRingCubit cubit,
   ) {
     final failure = state.criticalFailure;
+    final isOn = state.topic?.critical ?? false;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _reason(context, LocaleKeys.onboarding_real_ring_critical_off.tr()),
+        // "It will not ring like that", and fierce once the user flips it.
+        _reason(
+          context,
+          (
+            title: LocaleKeys.onboarding_real_ring_critical_off.tr(),
+            line: null,
+          ),
+          face: isOn ? FaceState.determined : FaceState.skeptical,
+        ),
         const SizedBox(height: Spacing.s5),
         // The switch reports the user's tap and nothing else changes it.
         FirstTopicCriticalCard(
           claim: state.claim,
-          isCritical: state.topic?.critical ?? false,
+          isCritical: isOn,
+          plan: state.plan,
           onChanged: state.isSwitchingCritical
               ? null
               : (isOn) => unawaited(cubit.setCritical(isOn: isOn)),
@@ -427,7 +472,7 @@ class _RealRingViewState extends State<_RealRingView>
             message: failureMessage(failure),
           ),
         ],
-        const SizedBox(height: Spacing.s5),
+        const SizedBox(height: Spacing.s6),
         _PhoneOnlyFallback(onPressed: cubit.startPhoneOnlyTest),
       ],
     );
@@ -442,7 +487,12 @@ class _RealRingViewState extends State<_RealRingView>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _reason(context, LocaleKeys.onboarding_real_ring_timed_out.tr()),
+        // Sent, and nothing happened.
+        _reason(
+          context,
+          (title: LocaleKeys.onboarding_real_ring_timed_out.tr(), line: null),
+          face: FaceState.confused,
+        ),
         const SizedBox(height: Spacing.s5),
         AppSheet(
           child: Column(
@@ -459,7 +509,7 @@ class _RealRingViewState extends State<_RealRingView>
             ],
           ),
         ),
-        const SizedBox(height: Spacing.s4),
+        const SizedBox(height: Spacing.s5),
         _PhoneOnlyFallback(onPressed: cubit.startPhoneOnlyTest),
       ],
     );
@@ -468,7 +518,12 @@ class _RealRingViewState extends State<_RealRingView>
   Widget _countdown(BuildContext context, RealRingState state) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
-      _face(FaceState.alarmed),
+      // A breath before the yell.
+      _face(
+        state.local.countdownSeconds <= 1
+            ? FaceState.alarmed
+            : FaceState.breatheIn,
+      ),
       const SizedBox(height: Spacing.s4),
       Text(
         LocaleKeys.onboarding_real_ring_fallback_button.tr(),
@@ -485,7 +540,13 @@ class _RealRingViewState extends State<_RealRingView>
         style: AppTypography.body(context.appColors.onCanvasMuted),
       ),
       const SizedBox(height: Spacing.s5),
-      LocalTestCountdownCard(seconds: state.local.countdownSeconds),
+      LocalTestCountdownCard(
+        seconds: state.local.countdownSeconds,
+        line: LocaleKeys.onboarding_real_ring_countdown_line.tr(),
+        semanticLabel: LocaleKeys.onboarding_real_ring_countdown_aria.tr(
+          namedArgs: {'seconds': '${state.local.countdownSeconds}'},
+        ),
+      ),
     ],
   );
 
@@ -550,6 +611,9 @@ class _RealRingViewState extends State<_RealRingView>
 
 /// The fallback: a test of this phone only, said in so many words. It runs
 /// only when the user taps it.
+///
+/// A button straight on the canvas with its honest label under it, so it
+/// looks like a button and not like a settings row.
 class _PhoneOnlyFallback extends StatelessWidget {
   const _PhoneOnlyFallback({required this.onPressed});
 
@@ -558,24 +622,23 @@ class _PhoneOnlyFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return AppSheet(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            LocaleKeys.onboarding_real_ring_fallback_line.tr(),
-            style: AppTypography.body(colors.ink2, fontSize: 14),
-          ),
-          const SizedBox(height: Spacing.s3),
-          AppButton(
-            label: LocaleKeys.onboarding_real_ring_fallback_button.tr(),
-            variant: AppButtonVariant.paper,
-            isFullWidth: true,
-            onPressed: () => unawaited(onPressed()),
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppButton(
+          label: LocaleKeys.onboarding_real_ring_fallback_button.tr(),
+          variant: AppButtonVariant.ghost,
+          isFullWidth: true,
+          onPressed: () => unawaited(onPressed()),
+        ),
+        const SizedBox(height: Spacing.s2),
+        Text(
+          LocaleKeys.onboarding_real_ring_fallback_line.tr(),
+          textAlign: TextAlign.center,
+          style: AppTypography.small(colors.onCanvasMuted),
+        ),
+      ],
     );
   }
 }

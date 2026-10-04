@@ -80,19 +80,51 @@ String realRingSubtitle(RingClaim claim) => switch (claim) {
     LocaleKeys.onboarding_real_ring_subtitle_time_sensitive.tr(),
 };
 
-/// Why the server did not take the test, in one line.
-String realRingFailureLine(RealRingFailure failure) => switch (failure) {
-  RealRingFailure.offline =>
-    LocaleKeys.onboarding_real_ring_failed_offline.tr(),
-  RealRingFailure.slow => LocaleKeys.onboarding_real_ring_failed_slow.tr(),
-  RealRingFailure.signedOut =>
-    LocaleKeys.onboarding_real_ring_failed_signed_out.tr(),
-  RealRingFailure.topicGone =>
-    LocaleKeys.onboarding_real_ring_failed_topic_gone.tr(),
-  RealRingFailure.rateLimited =>
-    LocaleKeys.onboarding_real_ring_failed_rate_limited.tr(),
-  RealRingFailure.serverDown =>
-    LocaleKeys.onboarding_real_ring_failed_server_down.tr(),
-  RealRingFailure.unknown =>
-    LocaleKeys.onboarding_real_ring_failed_unknown.tr(),
-};
+/// A problem said in a short title and, where the title is not enough, one
+/// plain line under it.
+typedef RealRingReason = ({String title, String? line});
+
+/// No server is connected.
+RealRingReason realRingNoServerReason() => (
+  title: LocaleKeys.onboarding_real_ring_no_server.tr(),
+  line: LocaleKeys.onboarding_real_ring_no_server_line.tr(),
+);
+
+/// The server has no topic to ring.
+RealRingReason realRingNoTopicReason() => (
+  title: LocaleKeys.onboarding_real_ring_no_topic.tr(),
+  line: LocaleKeys.onboarding_real_ring_no_topic_line.tr(),
+);
+
+/// Why the server did not take the test.
+RealRingReason realRingFailureLine(RealRingFailure failure) =>
+    switch (failure) {
+      RealRingFailure.offline => (
+        title: LocaleKeys.onboarding_real_ring_failed_offline.tr(),
+        line: null,
+      ),
+      RealRingFailure.slow => (
+        title: LocaleKeys.onboarding_real_ring_failed_slow.tr(),
+        line: null,
+      ),
+      RealRingFailure.signedOut => (
+        title: LocaleKeys.onboarding_real_ring_failed_signed_out.tr(),
+        line: LocaleKeys.onboarding_real_ring_failed_signed_out_line.tr(),
+      ),
+      RealRingFailure.topicGone => (
+        title: LocaleKeys.onboarding_real_ring_failed_topic_gone.tr(),
+        line: null,
+      ),
+      RealRingFailure.rateLimited => (
+        title: LocaleKeys.onboarding_real_ring_failed_rate_limited.tr(),
+        line: LocaleKeys.onboarding_real_ring_failed_rate_limited_line.tr(),
+      ),
+      RealRingFailure.serverDown => (
+        title: LocaleKeys.onboarding_real_ring_failed_server_down.tr(),
+        line: null,
+      ),
+      RealRingFailure.unknown => (
+        title: LocaleKeys.onboarding_real_ring_failed_unknown.tr(),
+        line: null,
+      ),
+    };
