@@ -1,9 +1,8 @@
 import 'dart:ui';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
-import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
-import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 
 /// Routes a tapped notification or widget can ask for. Anything else from the
 /// platform is ignored, so a stray route name cannot drop the user somewhere
@@ -21,38 +20,46 @@ bool isPushDeepLink(String? location) =>
 /// Only [hasCompletedOnboarding] decides whether onboarding is over. A saved
 /// server connection used to count as finished, which meant force-quitting
 /// after the connect step silently skipped the alarm test for good.
-/// [step] says which onboarding screen to resume at instead.
+/// [resumeRoute] is the onboarding screen to open instead, worked out by the
+/// flow engine.
 String initialLocationFor({
   required bool hasCompletedOnboarding,
-  OnboardingStep step = OnboardingStep.welcome,
+  String resumeRoute = '/onboarding/welcome',
   String? deepLink,
 }) {
   // A tapped notification wins: the user asked for that screen by name.
   if (hasCompletedOnboarding && isPushDeepLink(deepLink)) return deepLink!;
-  return hasCompletedOnboarding ? '/' : step.route;
+  return hasCompletedOnboarding ? '/' : resumeRoute;
 }
 
 class InitialRouteResolver {
   const InitialRouteResolver(
     this._getOnboardingCompleted,
-    this._readDraft, {
+    this._flow, {
     String Function()? platformRoute,
   }) : _platformRoute = platformRoute ?? _defaultPlatformRoute;
 
   final GetOnboardingCompletedUsecase _getOnboardingCompleted;
-  final ReadOnboardingDraftUsecase _readDraft;
+  final OnboardingFlowEngine _flow;
   final String Function() _platformRoute;
 
   /// [deepLink] is the route a tapped notification asked for. iOS hands it
   /// over on a channel rather than through the platform route name, so it can
   /// be passed in; Android sets the platform route and passes nothing.
   Future<String> call({String? deepLink}) async {
-    final completed = await _getOnboardingCompleted(const NoParams());
-    final draft = await _readDraft(const NoParams());
+    var completed =
+        (await _getOnboardingCompleted(const NoParams())).getOrNull() ?? false;
+    String? resumeRoute;
+    if (!completed) {
+      // The engine completes setup itself when no step is left to show.
+      final resume = await _flow.resume();
+      completed = resume.isHome;
+      resumeRoute = resume.route;
+    }
 
     return initialLocationFor(
-      hasCompletedOnboarding: completed.getOrNull() ?? false,
-      step: draft.getOrNull()?.step ?? OnboardingStep.welcome,
+      hasCompletedOnboarding: completed,
+      resumeRoute: resumeRoute ?? '/onboarding/welcome',
       deepLink: deepLink ?? _platformRoute(),
     );
   }

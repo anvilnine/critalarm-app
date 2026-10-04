@@ -32,6 +32,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     this.ringTick = const Duration(seconds: 1),
     DateTime Function()? now,
     this._onboardingCompleted,
+    this._hasOwnedTopic,
   ]) : _now = now ?? DateTime.now,
        super(const CriticalAlarmState()) {
     current = this;
@@ -64,6 +65,11 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// test can build the cubit without it; absent reads as not finished,
   /// which is onboarding's own shape.
   final GetOnboardingCompletedUsecase? _onboardingCompleted;
+
+  /// Whether the user has owned a topic, a local read. The demo celebration
+  /// offers "Create your first topic" only while the answer is no. Absent
+  /// reads as no.
+  final Future<bool> Function()? _hasOwnedTopic;
 
   final DateTime Function() _now;
 
@@ -197,7 +203,14 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       // onboarding pair at someone who only re-tested from Settings.
       final done = await _onboardingCompleted?.call(const NoParams());
       if (isClosed) return;
-      emit(state.copyWith(isOnboardingDone: done?.getOrNull() ?? false));
+      final hasOwnedTopic = await _hasOwnedTopic?.call() ?? false;
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isOnboardingDone: done?.getOrNull() ?? false,
+          hasOwnedTopic: hasOwnedTopic,
+        ),
+      );
       final now = DateTime.now();
       final claim = await _ringClaim();
       if (isClosed) return;

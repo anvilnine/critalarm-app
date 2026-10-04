@@ -1,6 +1,6 @@
 part of 'onboarding_welcome_screen.dart';
 
-/// Onboarding step two (/onboarding/how-it-rings): a curl in a terminal makes
+/// The how-it-rings step (/onboarding/how-it-rings): a curl in a terminal makes
 /// a phone ring, drawn as the phone in the user's hand.
 class OnboardingHowItRingsScreen extends StatelessWidget {
   const OnboardingHowItRingsScreen({super.key});
@@ -17,13 +17,15 @@ class OnboardingHowItRingsScreen extends StatelessWidget {
       title: LocaleKeys.onboarding_welcome_rings_title.tr(),
       subtitle: LocaleKeys.onboarding_welcome_rings_subtitle.tr(),
       button: LocaleKeys.onboarding_welcome_continue.tr(),
-      onPressed: () => goToOnboardingStep(context, OnboardingStep.permissions),
+      onPressed: () => unawaited(
+        finishOnboardingStep(context, OnboardingStepId.howItRings),
+      ),
     );
   }
 }
 
-/// Onboarding step four (/onboarding/widgets), after the permissions: the
-/// home screen widgets, marked as a Pro feature.
+/// The widgets step (/onboarding/widgets): the home screen widgets, marked as
+/// a Pro feature.
 class OnboardingWidgetsScreen extends StatelessWidget {
   const OnboardingWidgetsScreen({super.key});
 
@@ -40,7 +42,9 @@ class OnboardingWidgetsScreen extends StatelessWidget {
       ),
       subtitle: LocaleKeys.onboarding_welcome_widgets_subtitle.tr(),
       button: LocaleKeys.onboarding_welcome_continue.tr(),
-      onPressed: () => goToOnboardingStep(context, OnboardingStep.connect),
+      onPressed: () => unawaited(
+        finishOnboardingStep(context, OnboardingStepId.widgets),
+      ),
     );
   }
 }

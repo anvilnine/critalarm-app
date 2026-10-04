@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -153,7 +153,9 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
       button: LocaleKeys.onboarding_welcome_button.tr(),
       onPressed: widget.isPreview
           ? () => context.pop()
-          : () => goToOnboardingStep(context, OnboardingStep.howItRings),
+          : () => unawaited(
+              finishOnboardingStep(context, OnboardingStepId.welcome),
+            ),
     );
   }
 

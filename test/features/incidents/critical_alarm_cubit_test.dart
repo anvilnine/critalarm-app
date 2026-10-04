@@ -68,6 +68,7 @@ void main() {
     CriticalAlarmCubit demoCubit({
       required bool completed,
       AlarmHost? alarm,
+      bool? ownsTopic,
     }) {
       final repo = _MockOnboardingProgressRepository();
       when(repo.isCompleted).thenAnswer((_) async => completed.toSuccess());
@@ -81,8 +82,39 @@ void main() {
         const Duration(seconds: 1),
         null,
         GetOnboardingCompletedUsecase(repo),
+        ownsTopic == null ? null : () async => ownsTopic,
       );
     }
+
+    test('a user with no topic is still offered the first one', () async {
+      // Closing the first-topic step without creating a topic ends here.
+      final demo = demoCubit(completed: false, ownsTopic: false);
+      addTearDown(demo.close);
+
+      await demo.load(incidentId: 'inc_demo');
+      await demo.acknowledge();
+
+      expect(demo.state.hasOwnedTopic, isFalse);
+    });
+
+    test('a user who made a topic is not offered another first one', () async {
+      final demo = demoCubit(completed: false, ownsTopic: true);
+      addTearDown(demo.close);
+
+      await demo.load(incidentId: 'inc_demo');
+      await demo.acknowledge();
+
+      expect(demo.state.hasOwnedTopic, isTrue);
+    });
+
+    test('with nothing to ask, the first topic stays on offer', () async {
+      final demo = demoCubit(completed: false);
+      addTearDown(demo.close);
+
+      await demo.load(incidentId: 'inc_demo');
+
+      expect(demo.state.hasOwnedTopic, isFalse);
+    });
 
     test('a test alarm during onboarding leaves the flag off', () async {
       final demo = demoCubit(completed: false);

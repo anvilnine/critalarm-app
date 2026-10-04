@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
@@ -189,7 +190,8 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
                             .tr(),
                         variant: AppButtonVariant.ghost,
                         isFullWidth: true,
-                        onPressed: () => context.push('/onboarding/connect'),
+                        onPressed: () =>
+                            context.push(OnboardingEntryPoint.testAlarm),
                       ),
                     ],
                   ),

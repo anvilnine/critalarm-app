@@ -583,6 +583,10 @@ class AcknowledgedScreen extends StatelessWidget {
     // onboarding. Onboarding is already complete then, so the exits skip
     // finishing it again and the second button reads Finish.
     final isRetest = isDemo && state.isOnboardingDone;
+    // The topic already exists, so there is nothing to offer but the way
+    // out. Asked of the user, not of the flow: closing the first-topic step
+    // without creating one still leaves the offer up.
+    final hasMadeFirstTopic = isDemo && !isRetest && state.hasOwnedTopic;
     final startedAt = incident?.openedAt;
     final ackedAt = incident?.ackedAt;
     final ringDuration = (startedAt != null && ackedAt != null)
@@ -619,6 +623,20 @@ class AcknowledgedScreen extends StatelessWidget {
                   onPressed: () {
                     AppHaptics.capture();
                     context.go('/');
+                  },
+                )
+              else if (hasMadeFirstTopic)
+                AppButton(
+                  label: LocaleKeys.onboarding_connect_celebration_finish.tr(),
+                  variant: AppButtonVariant.cream,
+                  size: AppButtonSize.lg,
+                  isFullWidth: true,
+                  onPressed: () async {
+                    AppHaptics.capture();
+                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
+                    if (context.mounted) {
+                      context.go('/');
+                    }
                   },
                 )
               else ...[

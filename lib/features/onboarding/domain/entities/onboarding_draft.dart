@@ -1,53 +1,16 @@
 import 'package:flutter/foundation.dart';
 
-/// Which onboarding screen the user had reached.
-enum OnboardingStep {
-  /// The faces say hello.
-  welcome,
-
-  /// A curl makes a phone ring, drawn for the user's own platform.
-  howItRings,
-
-  /// Notification permission, and on iOS 26 the alarm permission after it.
-  permissions,
-
-  /// The home screen widgets, a Pro feature.
-  widgets,
-
-  /// Pick Crit Alarm Cloud or your own server.
-  connect,
-
-  /// Connected, ready to run the test alarm.
-  test;
-
-  static OnboardingStep fromName(String? name) =>
-      OnboardingStep.values.firstWhere(
-        (step) => step.name == name,
-        orElse: () => OnboardingStep.welcome,
-      );
-
-  String get route => switch (this) {
-    OnboardingStep.welcome => '/onboarding/welcome',
-    OnboardingStep.howItRings => '/onboarding/how-it-rings',
-    OnboardingStep.permissions => '/onboarding',
-    OnboardingStep.widgets => '/onboarding/widgets',
-    OnboardingStep.connect || OnboardingStep.test => '/onboarding/connect',
-  };
-}
-
-/// What onboarding remembers between launches, so quitting halfway costs the
-/// user nothing but the tap that got them there.
+/// What the user had typed and started during onboarding, kept between
+/// launches so quitting halfway costs them nothing. Which step they are on is
+/// not here: the flow engine works that out.
 @immutable
 class OnboardingDraft {
   const OnboardingDraft({
-    this.step = OnboardingStep.welcome,
     this.serverUrl = '',
     this.adminToken = '',
     this.isSelfHosting = false,
     this.countdownEndsAt,
   });
-
-  final OnboardingStep step;
 
   /// The half-typed self-hosted form. Kept so a user who quits to read their
   /// server logs does not come back to an empty box.
@@ -69,7 +32,6 @@ class OnboardingDraft {
   }
 
   OnboardingDraft copyWith({
-    OnboardingStep? step,
     String? serverUrl,
     String? adminToken,
     bool? isSelfHosting,
@@ -77,7 +39,6 @@ class OnboardingDraft {
     bool clearCountdown = false,
   }) {
     return OnboardingDraft(
-      step: step ?? this.step,
       serverUrl: serverUrl ?? this.serverUrl,
       adminToken: adminToken ?? this.adminToken,
       isSelfHosting: isSelfHosting ?? this.isSelfHosting,
@@ -91,7 +52,6 @@ class OnboardingDraft {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is OnboardingDraft &&
-          step == other.step &&
           serverUrl == other.serverUrl &&
           adminToken == other.adminToken &&
           isSelfHosting == other.isSelfHosting &&
@@ -99,7 +59,6 @@ class OnboardingDraft {
 
   @override
   int get hashCode => Object.hash(
-    step,
     serverUrl,
     adminToken,
     isSelfHosting,
