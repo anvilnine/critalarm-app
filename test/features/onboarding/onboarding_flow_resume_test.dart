@@ -7,6 +7,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/get_connection_use
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
+import 'package:critalarm/features/topics/domain/first_message/first_message_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +18,8 @@ import 'support/permission_setup_fakes.dart';
 class _NoConnection extends Mock implements GetConnectionUsecase {}
 
 class _NoNotices extends Mock implements InAppNoticeRepository {}
+
+class _NoFirstMessage extends Mock implements FirstMessageStore {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -80,8 +83,23 @@ void main() {
       expect((await h.engine.resume()).stepId, 'first_topic');
     });
 
-    test('hook_up in a custom list is skipped, not shown', () async {
+    test('hook_up in a custom list is shown in its place', () async {
       final h = EngineHarness(
+        repository: FakeOnboardingFlowRepository(
+          pinned: const OnboardingFlow(
+            id: 'custom',
+            steps: ['welcome', 'connect', 'first_topic', 'hook_up', 'widgets'],
+          ),
+          completed: {'welcome', 'connect', 'first_topic'},
+        ),
+      );
+
+      expect((await h.engine.resume()).stepId, 'hook_up');
+    });
+
+    test('hook_up is passed over once a first message was received', () async {
+      final h = EngineHarness(
+        facts: FakeOnboardingStepFacts(firstMessage: true),
         repository: FakeOnboardingFlowRepository(
           pinned: const OnboardingFlow(
             id: 'custom',
@@ -117,7 +135,7 @@ void main() {
         ),
         repository: FakeOnboardingFlowRepository(
           pinned: flow,
-          completed: {'welcome', 'how_it_rings', 'real_ring'},
+          completed: {'welcome', 'how_it_rings', 'real_ring', 'hook_up'},
         ),
       );
 
@@ -160,6 +178,7 @@ void main() {
         '/onboarding',
         '/onboarding/first-topic',
         '/onboarding/real-ring',
+        '/onboarding/hook-up',
       ]);
       expect(h.progress.completed, isFalse);
     });
@@ -242,6 +261,7 @@ void main() {
         '/onboarding',
         '/onboarding/first-topic',
         '/onboarding/real-ring',
+        '/onboarding/hook-up',
         'home',
       ]);
       expect(h.repository.writes, 0);
@@ -536,6 +556,7 @@ void main() {
       getConnection: _NoConnection(),
       readPermissionSetup: phone.read,
       notices: _NoNotices(),
+      firstMessage: _NoFirstMessage(),
     ).hasEveryPermission();
 
     test('never without notifications', () async {

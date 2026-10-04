@@ -88,6 +88,7 @@ abstract final class BundledOnboardingFlows {
       OnboardingStepId.permissions,
       OnboardingStepId.firstTopic,
       OnboardingStepId.realRing,
+      OnboardingStepId.hookUp,
     ],
   );
 

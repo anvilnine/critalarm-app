@@ -45,6 +45,9 @@ enum OnboardingAmbientStep {
 
   /// Step 2C: Active countdown before test alarm rings.
   countdown,
+
+  /// The last step: the curl line and the wait for the first message.
+  hookUp,
 }
 
 /// Which step the canvas shows for the onboarding route at [path].
@@ -225,6 +228,22 @@ abstract final class OnboardingAmbientProfiles {
         ],
         scales: const [0.44, 0.42, 0.38],
         turns: const [0.20, -0.14, 0.32],
+        depths: const [0.35, 0.65, 0.85],
+      ),
+      // Settled: the shapes pull out to the corners and fade, so the dark
+      // code block is the loudest thing on the screen.
+      OnboardingAmbientStep.hookUp: _profile(
+        canvas: colors.canvas,
+        surfaceOpacity: 0.84,
+        colors: [colors.cobalt, colors.high, colors.crit],
+        opacities: const [0.22, 0.16, 0.10],
+        anchors: const [
+          Alignment(0.82, -0.78),
+          Alignment(-0.86, -0.30),
+          Alignment(-0.60, 0.88),
+        ],
+        scales: const [0.40, 0.30, 0.26],
+        turns: const [0.18, -0.10, 0.30],
         depths: const [0.35, 0.65, 0.85],
       ),
     });

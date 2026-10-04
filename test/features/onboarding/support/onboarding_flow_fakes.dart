@@ -87,11 +87,16 @@ class FakeOnboardingStepFacts implements OnboardingStepFacts {
     this.connected = false,
     this.permissions = false,
     this.ownsTopic = false,
+    this.firstMessage = false,
   });
 
   bool connected;
   bool permissions;
   bool ownsTopic;
+  bool firstMessage;
+
+  @override
+  Future<bool> hasReceivedFirstMessage() async => firstMessage;
 
   @override
   Future<bool> hasConnection() async => connected;
