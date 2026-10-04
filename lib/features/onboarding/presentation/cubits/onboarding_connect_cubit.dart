@@ -10,6 +10,7 @@ import 'package:critalarm/features/onboarding/domain/connect/background_connect.
 import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
 import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rules.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
@@ -69,6 +70,12 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   /// Where Crit Alarm Cloud lives.
   static const cloudUrl = 'https://api.critalarm.app';
 
+  /// False on a replay, which writes no draft.
+  bool _savesDraft = true;
+
+  SaveOnboardingDraftUsecase? get _draftWriter =>
+      _savesDraft ? saveDraft : null;
+
   Timer? _countdownTimer;
 
   /// How long the onboarding test alarm waits before it rings. The countdown
@@ -78,7 +85,13 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
 
   /// [adoptSavedConnection] false leaves the form up even when a server is
   /// already saved, for a replay that is only a look at the connect screen.
-  Future<void> loadConnection({bool adoptSavedConnection = true}) async {
+  ///
+  /// [isReplay] keeps the form from writing the saved draft.
+  Future<void> loadConnection({
+    bool adoptSavedConnection = true,
+    bool isReplay = false,
+  }) async {
+    _savesDraft = onboardingSavesFormDraft(isReplay: isReplay);
     final authorization = await alarmHost?.authorizationStatus();
     if (authorization != null && !isClosed) {
       emit(state.copyWith(alarm: authorization));
@@ -157,7 +170,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   /// Keeps the half-typed form. Which step the user is on is not saved here:
   /// the flow engine works that out.
   Future<void> _rememberForm() async {
-    final save = saveDraft;
+    final save = _draftWriter;
     final read = readDraft;
     if (save == null || read == null) return;
     final current =
@@ -172,7 +185,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   }
 
   Future<void> _forgetForm() async {
-    final save = saveDraft;
+    final save = _draftWriter;
     final read = readDraft;
     if (save == null || read == null) return;
     final current =
@@ -181,7 +194,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   }
 
   Future<void> _saveCountdown(DateTime? endsAt) async {
-    final save = saveDraft;
+    final save = _draftWriter;
     final read = readDraft;
     if (save == null || read == null) return;
     final current =

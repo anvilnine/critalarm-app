@@ -29,10 +29,12 @@ class FirebaseTelemetryGate implements TelemetryGate {
   static const Duration minimumFetchInterval = Duration(hours: 1);
   static const String paywallEnabledKey = 'paywall_enabled';
   static const String paywallVariantKeyName = 'paywall_variant';
+  static const String onboardingFlowKey = 'onboarding_flow';
 
   static const Map<String, dynamic> remoteConfigDefaults = {
     paywallEnabledKey: false,
     paywallVariantKeyName: 'straight',
+    onboardingFlowKey: '',
   };
 
   bool _isInitialized = false;
@@ -170,6 +172,15 @@ class FirebaseTelemetryGate implements TelemetryGate {
   String get paywallVariantKey {
     try {
       return remoteConfig?.getString(paywallVariantKeyName) ?? '';
+    } on Object catch (_) {
+      return '';
+    }
+  }
+
+  @override
+  String get onboardingFlowJson {
+    try {
+      return remoteConfig?.getString(onboardingFlowKey) ?? '';
     } on Object catch (_) {
       return '';
     }

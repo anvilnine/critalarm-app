@@ -9,6 +9,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - `AppHighlightCard` (tones `crit` and `calm`), `AppAnimatedTick` and `AppWaitingFace` in `lib/design/components/`, shown in the gallery. The no-server notice card draws its surface with `AppHighlightCard`.
 - BackgroundConnect, one object for the whole app run, connects to Crit Alarm Cloud behind the user. Its pending intent is saved under the prefs key connect\_intent\_v1 and retried on a timer, on resume and on launch
 - OnboardingStepGate wraps every setup step route: a step that requires connect shows the waiting face until the connect lands, and any step shows the failure when it gives up
+- Developer settings can pick the setup flow (bundled or a typed step list), replay it, open any setup step, and force a step to count as not done. Prefs keys: dev.onboarding\_flow and dev.onboarding\_forced\_unsatisfied. Release builds without the developer flags ignore both.
+- Remote Config key onboarding\_flow (default an empty string) feeds the remote slot of the setup flow sources through TelemetryGate.onboardingFlowJson and RemoteOnboardingFlowSource. OnboardingFlowEngine.chooseFlowWithOrigin() says whether the developer override, the remote value or the bundled default won.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -16,6 +18,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - `AppEmptyState` has no English defaults: `title` and `description` are required and `buttonLabel` is null unless passed. The Home empty card reads its words from `home.empty_body` and `home.empty_button`.
 - A pinned setup flow goes through the validator each time it is read: unknown ids are dropped, and a rejected or empty list is replaced by the bundled default with the completed steps kept. `finishOnboardingStep` does not navigate when the router moved while it was waiting. `CriticalAlarmState.hasOwnedTopic` decides whether the demo celebration offers the first topic.
 - A mock build answers for the Crit Alarm Cloud address as hosted, so Continue with Crit Alarm Cloud works under MOCK
+- Welcome and the other intro screens show their words and button from the first frame. Removed the staged reveal, the per-animation text delays and the staged flag. The animation keeps its size at large text sizes and the page scrolls when the words need the room. The widgets step is optional: the default flow leaves it out, and its registry entry exists on iOS and Android only.
+- A replay of setup no longer saves the connect form draft, and the first-topic step in a replay ends without creating a topic.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
