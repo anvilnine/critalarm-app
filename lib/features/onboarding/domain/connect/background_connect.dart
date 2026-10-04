@@ -262,6 +262,11 @@ class BackgroundConnect {
   void _emit(BackgroundConnectState next) {
     if (next == _state) return;
     _state = next;
+    // Goes to the device log, which is how the retry is checked on a phone.
+    debugPrint(
+      'CritAlarmConnect: status=${next.status.name}'
+      '${next.failure == null ? '' : ' failure=${next.failure!.name}'}',
+    );
     if (!_states.isClosed) _states.add(next);
   }
 

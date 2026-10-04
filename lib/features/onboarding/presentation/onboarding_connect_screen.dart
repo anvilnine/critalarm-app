@@ -150,9 +150,16 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
 
   /// Continue with Crit Alarm Cloud. The connect is handed over to run
   /// behind the user and the step is done at once, online or not.
+  ///
+  /// Opened on its own after setup, from Home or Server settings, there is
+  /// no next step: the screen waits with the user and closes when the
+  /// connect lands, so whatever opened it reads the new connection.
   Future<void> _continueWithCloud() async {
-    await context.read<OnboardingConnectCubit>().connectToCloud();
-    if (mounted) _finishConnectStep();
+    final opensOnItsOwn = context.canPop();
+    await context.read<OnboardingConnectCubit>().connectToCloud(
+      waitForResult: opensOnItsOwn,
+    );
+    if (mounted && !opensOnItsOwn) _finishConnectStep();
   }
 
   Future<void> _handlePaste() async {
@@ -507,14 +514,25 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                   style: AppTypography.body(colors.ink2, fontSize: 14),
                 ),
                 const SizedBox(height: 16),
-                AppButton(
-                  label: LocaleKeys.onboarding_connect_cloud_button.tr(),
-                  size: AppButtonSize.lg,
-                  isFullWidth: true,
-                  onPressed: widget.isReplay
-                      ? _finishConnectStep
-                      : _continueWithCloud,
-                ),
+                if (state.isConnecting)
+                  // Only when the screen was opened on its own: it waits
+                  // here, with the face and one line, until the connect
+                  // lands.
+                  Center(
+                    child: AppWaitingFace(
+                      message: state.cloudWaitLine ?? '',
+                      faceSize: 56,
+                    ),
+                  )
+                else
+                  AppButton(
+                    label: LocaleKeys.onboarding_connect_cloud_button.tr(),
+                    size: AppButtonSize.lg,
+                    isFullWidth: true,
+                    onPressed: widget.isReplay
+                        ? _finishConnectStep
+                        : _continueWithCloud,
+                  ),
               ],
             ),
           ),
