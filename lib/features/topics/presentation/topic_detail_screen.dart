@@ -320,9 +320,9 @@ class _TopicDetailScreenContent extends StatelessWidget {
                                       ),
                                       child: AppEmptyState(
                                         title: state.capReached!.message,
-                                        description:
-                                            'Review your plan to increase '
-                                            'this limit.',
+                                        description: LocaleKeys
+                                            .create_topic_limit_review_plan_hint
+                                            .tr(),
                                         faceState: FaceState.worried,
                                         isLive: false,
                                       ),

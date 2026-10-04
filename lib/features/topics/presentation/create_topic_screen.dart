@@ -14,9 +14,12 @@ import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_not
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_ask_sheet.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_settler.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rules.dart';
+import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/topic_name_formatter.dart';
+import 'package:critalarm/features/topics/presentation/widgets/first_topic_critical_card.dart';
 import 'package:critalarm/features/topics/presentation/widgets/token_actions.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -43,12 +46,18 @@ class CreateTopicScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) {
-        final cubit = getIt<CreateTopicCubit>();
+        // Only a setup step hands its new topic on to the steps after it. A
+        // replay never makes one.
+        final cubit = getIt<CreateTopicCubit>()
+          ..holdsHandoff = onDone != null && !isReplay;
         unawaited(cubit.loadConnection());
         // The shared topic list is already in memory, so a name that is taken
-        // can be caught on step 1 instead of by the server after step 2.
+        // can be caught on step 1 instead of by the server after step 2. The
+        // first-topic card waits on the list being ready.
+        final topics = context.read<TopicsCubit>().state;
         cubit.existingNamesChanged(
-          context.read<TopicsCubit>().state.topics.map((topic) => topic.name),
+          topics.topics.map((topic) => topic.name),
+          isListReady: topics.isReady,
         );
         return cubit;
       },
@@ -56,6 +65,7 @@ class CreateTopicScreen extends StatelessWidget {
         listener: (context, topicsState) =>
             context.read<CreateTopicCubit>().existingNamesChanged(
               topicsState.topics.map((topic) => topic.name),
+              isListReady: topicsState.isReady,
             ),
         child: _CreateTopicScreenContent(onDone: onDone, isReplay: isReplay),
       ),
@@ -104,8 +114,45 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     // Step 1 is a single field, so open with the keyboard already on it
     // instead of making the user tap it first. Not during a guide, or when
     // this screen's own guide is about to start: it points at the field, and
-    // the keyboard would cover the card.
-    if (!getIt<FeatureGuideCubit>().state.isActive) _focusNameField();
+    // the keyboard would cover the card. Nor on a first topic, where the
+    // Critical delivery card sits under the field and the keyboard would hide
+    // it.
+    unawaited(_focusUnlessFirstTopic());
+  }
+
+  /// Opens the keyboard on the name field, except on a first topic.
+  ///
+  /// Nothing loads the topic list before Home, so a setup run starts with it
+  /// not ready. Ask for it and wait a moment: the first-topic card needs it,
+  /// and a keyboard that opened first would cover the card. A list that does
+  /// not arrive in time leaves the plain row and the keyboard, so nothing
+  /// waits on the network.
+  Future<void> _focusUnlessFirstTopic() async {
+    final topics = context.read<TopicsCubit>();
+    if (!topics.state.isReady) {
+      try {
+        await topics.ensureLoaded().timeout(const Duration(seconds: 2));
+      } on Object catch (_) {
+        // Not loaded in time. The plain row is drawn.
+      }
+    }
+    if (!mounted) return;
+    if (getIt<FeatureGuideCubit>().state.isActive || _isFirstTopicNow()) {
+      return;
+    }
+    _focusNameField();
+  }
+
+  /// Whether the shared list is ready and empty right now, so the screen is
+  /// about to draw the first-topic card.
+  bool _isFirstTopicNow() {
+    final topics = context.read<TopicsCubit>().state;
+    return isFirstTopicFor(
+      existingNames: {
+        for (final topic in topics.topics) topic.name.trim().toLowerCase(),
+      },
+      isListReady: topics.isReady,
+    );
   }
 
   @override
@@ -338,11 +385,27 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     final duplicateError = state.isDuplicateName
         ? LocaleKeys.api_errors_topic_already_exists.tr()
         : null;
+    // The user's first topic gets the Critical delivery card and the tool
+    // chips. Every later topic keeps the plain row.
+    final isFirstTopic = state.isFirstTopic;
+    final claim = RingClaim.forPhone(state.alarm);
+    // An iPhone older than iOS 26 has no AlarmKit, so it must not be promised
+    // a ring through silent mode.
+    final plainSubtitle = claim == RingClaim.timeSensitive
+        ? LocaleKeys.create_topic_critical_toggle_subtitle_time_sensitive.tr()
+        : LocaleKeys.create_topic_critical_toggle_subtitle.tr();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (isFirstTopic) ...[
+          _ToolChips(
+            selected: state.selectedTool,
+            onTap: isSubmitting ? null : cubit.toolTemplateTapped,
+          ),
+          const SizedBox(height: 14),
+        ],
         FeatureGuideAnchor(
           id: FeatureGuideAnchorId.createName,
           child: AppTextField(
@@ -376,25 +439,27 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
         const SizedBox(height: 14),
         FeatureGuideAnchor(
           id: FeatureGuideAnchorId.createCritical,
-          child: AppToggleRow(
-            title: LocaleKeys.create_topic_critical_toggle_title.tr(),
-            // An iPhone older than iOS 26 has no AlarmKit, so it must not be
-            // promised a ring through silent mode.
-            subtitle: RingClaim.forPhone(state.alarm) == RingClaim.timeSensitive
-                ? LocaleKeys
-                      .create_topic_critical_toggle_subtitle_time_sensitive
-                      .tr()
-                : LocaleKeys.create_topic_critical_toggle_subtitle.tr(),
-            value: state.isCritical,
-            onChanged: isSubmitting
-                ? null
-                : (val) {
-                    AppHaptics.selection();
-                    cubit.criticalToggled(isCritical: val);
-                  },
-          ),
+          child: isFirstTopic
+              ? FirstTopicCriticalCard(
+                  claim: claim,
+                  isCritical: state.isCritical,
+                  // The limit is read once, from the plan, so the line stays
+                  // true if the cap changes.
+                  freePlanLimit: state.isFreeTier
+                      ? (state.criticalLimit ?? 2)
+                      : null,
+                  onChanged: isSubmitting ? null : _onCriticalChanged,
+                )
+              : AppToggleRow(
+                  title: LocaleKeys.create_topic_critical_toggle_title.tr(),
+                  subtitle: plainSubtitle,
+                  value: state.isCritical,
+                  onChanged: isSubmitting ? null : _onCriticalChanged,
+                ),
         ),
-        if (state.isFreeTier) ...[
+        // On the first topic the card above carries the plan line and the
+        // Go Hosted button waits for the second topic.
+        if (state.isFreeTier && !isFirstTopic) ...[
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(
@@ -451,6 +516,11 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
         ],
       ],
     );
+  }
+
+  void _onCriticalChanged(bool value) {
+    AppHaptics.selection();
+    context.read<CreateTopicCubit>().criticalToggled(isCritical: value);
   }
 
   /// Step 2: what to call the first token.
@@ -519,10 +589,20 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     final colors = context.appColors;
 
     return BlocConsumer<CreateTopicCubit, CreateTopicState>(
-      // Only on a change of status, so typing after a failed create does not
-      // drag the caret back to the end of the name on every keystroke.
-      listenWhen: (previous, current) => previous.status != current.status,
+      // Only on a change of status, or a name the field does not hold yet (a
+      // tool chip filled it), so typing after a failed create does not drag
+      // the caret back to the end of the name on every keystroke.
+      listenWhen: (previous, current) =>
+          previous.status != current.status ||
+          (previous.name != current.name &&
+              current.name != _nameController.text),
       listener: (context, state) {
+        if (state.name != _nameController.text) {
+          _nameController.value = TextEditingValue(
+            text: state.name,
+            selection: TextSelection.collapsed(offset: state.name.length),
+          );
+        }
         if (state.status == CreateTopicStatus.success) {
           AppHaptics.success();
           _showToast(
@@ -643,7 +723,12 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, Spacing.s4, 12, 16),
+                    padding: const EdgeInsets.fromLTRB(
+                      12,
+                      Spacing.s4,
+                      12,
+                      16,
+                    ),
                     child: AppSheet(
                       border: Border.all(color: colors.hairline, width: 2),
                       child: Column(
@@ -883,6 +968,51 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
           child: content,
         );
       },
+    );
+  }
+}
+
+/// The tools a first topic is usually set up for. A tap fills the name and
+/// remembers the tool, and it never opens a sheet.
+class _ToolChips extends StatelessWidget {
+  const _ToolChips({required this.selected, required this.onTap});
+
+  final ToolTemplate? selected;
+  final ValueChanged<ToolTemplate>? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final onTap = this.onTap;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          LocaleKeys.create_topic_tool_chips_label.tr(),
+          style: AppTypography.small(
+            colors.ink3,
+            fontSize: 12,
+          ).copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 2),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final template in ToolTemplate.values)
+              AppTopicChip(
+                // Tool names are product names and stay as they are.
+                text:
+                    template.label ??
+                    LocaleKeys.create_topic_tool_chip_other.tr(),
+                isSelected: template == selected,
+                hitSlop: 6,
+                onTap: onTap == null ? null : () => onTap(template),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -205,8 +205,12 @@ import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.d
 import 'package:critalarm/features/settings/presentation/cubits/sound_crop_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/features/topics/data/prefs_first_topic_handoff.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/data/repositories/shared_prefs_topic_list_prefs_repository.dart';
+import 'package:critalarm/features/topics/data/shared_prefs_tool_template_store.dart';
+import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
+import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
@@ -750,7 +754,16 @@ Future<void> configureDependencies({
         // Setup is over, so a connect failure shown during it is not
         // shown again on a setup screen opened later.
         () => getIt<BackgroundConnect>().dismissFailure(),
+        getIt<FirstTopicHandoff>(),
       ),
+    )
+    // The first topic setup made, held for the steps after it. The token stays
+    // in memory and is cleared when setup completes.
+    ..registerLazySingleton<FirstTopicHandoff>(
+      () => PrefsFirstTopicHandoff(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<ToolTemplateStore>(
+      () => SharedPrefsToolTemplateStore(getIt<SharedPreferences>()),
     )
     ..registerLazySingleton<OnboardingFlowRepository>(
       () => SharedPrefsOnboardingFlowRepository(getIt<SharedPreferences>()),
@@ -1265,7 +1278,9 @@ Future<void> configureDependencies({
               getIt<GetTopicsUsecase>(),
             )
             ..alarm = getIt<AlarmHost>()
-            ..sessionStore = getIt<ApiSessionStore>(),
+            ..sessionStore = getIt<ApiSessionStore>()
+            ..toolTemplates = getIt<ToolTemplateStore>()
+            ..handoff = getIt<FirstTopicHandoff>(),
     )
     ..registerFactory(
       () => CriticalAlarmCubit(

@@ -377,6 +377,27 @@ see the step on an emulator, run a debug build with
 `--dart-define=DEVICE_MAKER=samsung`. A release build ignores the flag.
 Settings > Health keeps its battery row for every phone.
 
+**First topic.** The create-topic screen is the `first_topic` step. On the
+user's first topic (`isFirstTopicFor`: the shared list is ready and empty,
+`CreateTopicState.isFirstTopic`) it draws two extra things:
+
+- `FirstTopicCriticalCard` in place of the Critical delivery row. It is an
+  `AppHighlightCard` around the switch, with the words picked by `RingClaim`.
+  The switch starts off and only the user's tap turns it on. The card's tone
+  comes from `firstTopicCardTone`, the one place to change it.
+- A row of tool chips (`ToolTemplate`) above the name field. A chip fills the
+  name only when the field is empty or still holds a name a chip put there.
+  The chosen id is saved under `topic_tool_template.<topic name>`
+  (`ToolTemplateStore`) once the topic exists. Nothing about it goes to the
+  server.
+
+A setup run also fills `FirstTopicHandoff` (registered in `get_it`) when the
+topic is made: the name, server URL, template id and publish token. The entry
+lives in memory only, because the server never shows the token again. The
+topic name is also saved as `onboarding_first_topic`, so a resume after a
+kill knows which topic setup made. `CompleteOnboardingUsecase` clears both.
+A replay and a screen opened from Home hold nothing.
+
 **Changelogs.** Two files, both written with cider, never by hand. The
 how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 
