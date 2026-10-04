@@ -147,14 +147,27 @@ class SetupChecklistSeed {
 /// - [incidentIds] and [setupIncidentIds]: an incident counts when
 ///   [countsAsRealUse] says so. A test setup sent never does.
 ///
-/// A phone with neither gets the checklist, with nothing marked.
+/// - [hasTopics] and [wasSetUpHere]: an install that owns a topic and
+///   finished setup before the checklist existed is a long-time user, even
+///   when the server no longer holds any of their messages (a quiet account
+///   past its retention window). It is retired, with nothing marked.
+///
+/// A phone with none of these gets the checklist, with nothing marked.
 SetupChecklistSeed seedSetupChecklist({
   required bool isFirstMessageReceived,
   required bool hasOwnMessage,
   required Iterable<String> incidentIds,
   required Set<String> setupIncidentIds,
+  bool hasTopics = false,
+  bool wasSetUpHere = true,
 }) {
   if (isFirstMessageReceived) {
+    return const SetupChecklistSeed(
+      marksFirstMessage: false,
+      retiresChecklist: true,
+    );
+  }
+  if (hasTopics && !wasSetUpHere) {
     return const SetupChecklistSeed(
       marksFirstMessage: false,
       retiresChecklist: true,
@@ -199,6 +212,61 @@ String? setupChecklistRoute(
       if (watchedTopic == null) return null;
       return '/topics/${Uri.encodeComponent(watchedTopic)}?curl=1';
   }
+}
+
+/// Whether Home is the screen the user is looking at.
+///
+/// Home lives at `/`, the root of the Topics tab. Anything else the router
+/// shows covers it: another tab, a topic page, and the routes that sit on
+/// the root navigator over the whole shell (an alarm, the new-topic screen,
+/// the plans). [location] is the router's current path, the top of
+/// anything pushed included. With the app in the background nobody is
+/// looking at all.
+///
+/// The checklist ticks, celebrates and polls only while this is true.
+bool isHomeFrontScreen({
+  required String location,
+  required bool isAppResumed,
+}) {
+  if (!isAppResumed) return false;
+  final path = Uri.tryParse(location)?.path ?? location;
+  return path.isEmpty || path == '/';
+}
+
+/// How long Home waits before it looks at this phone's data again after a
+/// look that failed: 15 seconds, doubling, at most 5 minutes.
+Duration setupSeedRetryDelay(int failures) {
+  const first = Duration(seconds: 15);
+  const longest = Duration(minutes: 5);
+  if (failures <= 1) return first;
+  final delay = first * (1 << (failures - 1).clamp(0, 6));
+  return delay > longest ? longest : delay;
+}
+
+/// Which of the topics Home is not polling get one read on this sweep.
+///
+/// Home polls a few topics (see [topicsToWatchForFirstMessage]). A first
+/// message on any other topic still has to tick the row, so each sweep
+/// reads up to [limit] of the rest, starting at [offset] and wrapping, and
+/// the next sweep carries on where this one stopped. Every topic gets its
+/// turn however long the list is.
+({List<String> topics, int nextOffset}) topicsToSweepForFirstMessage({
+  required List<String> all,
+  required List<String> watched,
+  required int offset,
+  int limit = 5,
+}) {
+  final rest = [
+    for (final topic in all)
+      if (!watched.contains(topic)) topic,
+  ];
+  if (rest.isEmpty) return (topics: const [], nextOffset: 0);
+  final start = offset % rest.length;
+  final count = rest.length < limit ? rest.length : limit;
+  return (
+    topics: [for (var i = 0; i < count; i++) rest[(start + i) % rest.length]],
+    nextOffset: (start + count) % rest.length,
+  );
 }
 
 /// The topics Home watches for the first message, most likely first.

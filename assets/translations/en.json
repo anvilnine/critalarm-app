@@ -403,7 +403,8 @@
     "server_title": "Connect a server",
     "critical_title": "Create a critical topic",
     "critical_line_off": "Turn on Critical delivery on a topic.",
-    "done_title": "All set"
+    "done_title": "All set",
+    "dismiss_button": "Hide the setup list"
   },
   "home_widgets": {
     "needs_hosted": "Widgets come with Hosted.",

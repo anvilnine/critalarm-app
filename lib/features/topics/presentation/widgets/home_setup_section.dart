@@ -21,6 +21,7 @@ class HomeSetupSection extends StatelessWidget {
     required this.state,
     required this.hasRowsBelow,
     required this.onRowTap,
+    required this.onDismissChecklist,
     required this.onShowWidgetsHowTo,
     required this.onSeeHosted,
     required this.onDismissWidgetsCard,
@@ -35,6 +36,9 @@ class HomeSetupSection extends StatelessWidget {
 
   /// A tap on an open row, with the screen it opens.
   final void Function(String route) onRowTap;
+
+  /// The user closed the checklist for good.
+  final VoidCallback onDismissChecklist;
 
   final VoidCallback onShowWidgetsHowTo;
   final VoidCallback onSeeHosted;
@@ -51,6 +55,7 @@ class HomeSetupSection extends StatelessWidget {
         key: const ValueKey('setup_checklist'),
         state: state,
         onRowTap: onRowTap,
+        onDismiss: onDismissChecklist,
       ),
       HomeSetupPhase.celebration => const _FinishedLine(
         key: ValueKey('setup_finished'),
@@ -159,10 +164,16 @@ class _SetupBlock extends StatelessWidget {
 }
 
 class _Checklist extends StatelessWidget {
-  const _Checklist({required this.state, required this.onRowTap, super.key});
+  const _Checklist({
+    required this.state,
+    required this.onRowTap,
+    required this.onDismiss,
+    super.key,
+  });
 
   final HomeSetupState state;
   final void Function(String route) onRowTap;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -176,70 +187,122 @@ class _Checklist extends StatelessWidget {
     final messageRoute = state.routeFor(SetupChecklistRow.firstMessage);
 
     return _SetupBlock(
+      padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Row(
+            children: [
+              const ExcludeSemantics(
+                child: FaceWidget(state: _SetupFaces.checklist, size: 32),
+              ),
+              const SizedBox(width: Spacing.s3),
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    LocaleKeys.home_setup_title.tr(),
+                    style: AppTypography.body(
+                      colors.ink,
+                    ).copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              const SizedBox(width: Spacing.s3),
+              Semantics(
+                label: LocaleKeys.home_setup_progress_aria_label.tr(
+                  namedArgs: progress,
+                ),
+                child: ExcludeSemantics(
+                  child: Text(
+                    LocaleKeys.home_setup_progress.tr(namedArgs: progress),
+                    style: AppTypography.mono(colors.ink3, fontSize: 12),
+                  ),
+                ),
+              ),
+              // The quiet way out, for a list that will never finish on
+              // this phone. Never the loud thing.
+              _QuietClose(
+                label: LocaleKeys.home_setup_dismiss_button.tr(),
+                onPressed: onDismiss,
+              ),
+            ],
+          ),
           Padding(
-            padding: const EdgeInsets.only(bottom: Spacing.s1),
-            child: Row(
+            padding: const EdgeInsets.only(right: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const ExcludeSemantics(
-                  child: FaceWidget(state: _SetupFaces.checklist, size: 32),
+                _ChecklistRow(
+                  title: LocaleKeys.home_setup_server_title.tr(),
+                  isDone: checklist.hasServer,
                 ),
-                const SizedBox(width: Spacing.s3),
-                Expanded(
-                  child: Semantics(
-                    header: true,
-                    child: Text(
-                      LocaleKeys.home_setup_title.tr(),
-                      style: AppTypography.body(
-                        colors.ink,
-                      ).copyWith(fontWeight: FontWeight.w700),
-                    ),
-                  ),
+                _ChecklistRow(
+                  title: LocaleKeys.home_setup_critical_title.tr(),
+                  // The label alone is wrong once a topic exists: nothing
+                  // is left to create, only a switch to turn on.
+                  line: checklist.hasTopics
+                      ? LocaleKeys.home_setup_critical_line_off.tr()
+                      : null,
+                  isDone: checklist.hasCriticalTopic,
+                  onTap: criticalRoute == null
+                      ? null
+                      : () => onRowTap(criticalRoute),
                 ),
-                const SizedBox(width: Spacing.s3),
-                Semantics(
-                  label: LocaleKeys.home_setup_progress_aria_label.tr(
-                    namedArgs: progress,
-                  ),
-                  child: ExcludeSemantics(
-                    child: Text(
-                      LocaleKeys.home_setup_progress.tr(namedArgs: progress),
-                      style: AppTypography.mono(colors.ink3, fontSize: 12),
-                    ),
+                _Tappable(
+                  onTap: messageRoute == null
+                      ? null
+                      : () => onRowTap(messageRoute),
+                  // The waiting row from the last setup step: a label and its
+                  // tick. The checklist has its one face in the header.
+                  child: FirstMessageRow(
+                    isReceived: checklist.hasFirstMessage,
+                    isCompact: true,
+                    showsFace: false,
+                    isBare: true,
                   ),
                 ),
               ],
             ),
           ),
-          _ChecklistRow(
-            title: LocaleKeys.home_setup_server_title.tr(),
-            isDone: checklist.hasServer,
-          ),
-          _ChecklistRow(
-            title: LocaleKeys.home_setup_critical_title.tr(),
-            // The label alone is wrong once a topic exists: nothing is left
-            // to create, only a switch to turn on.
-            line: checklist.hasTopics
-                ? LocaleKeys.home_setup_critical_line_off.tr()
-                : null,
-            isDone: checklist.hasCriticalTopic,
-            onTap: criticalRoute == null ? null : () => onRowTap(criticalRoute),
-          ),
-          _Tappable(
-            onTap: messageRoute == null ? null : () => onRowTap(messageRoute),
-            // The waiting row from the last setup step: a label and its
-            // tick. The checklist has its one face in the header.
-            child: FirstMessageRow(
-              isReceived: checklist.hasFirstMessage,
-              isCompact: true,
-              showsFace: false,
-              isBare: true,
+        ],
+      ),
+    );
+  }
+}
+
+/// A bare close glyph in a full-size tap target: no ring, no fill. The
+/// way out of the checklist is there for whoever wants it and never
+/// competes with the rows.
+class _QuietClose extends StatelessWidget {
+  const _QuietClose({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          AppHaptics.selection();
+          onPressed();
+        },
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Center(
+            child: AppGlyph(
+              GlyphType.close,
+              color: context.appColors.ink3,
             ),
           ),
-        ],
+        ),
       ),
     );
   }
