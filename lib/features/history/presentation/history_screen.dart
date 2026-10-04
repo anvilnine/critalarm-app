@@ -100,7 +100,6 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                 ? AppEmptyState(
                     title: LocaleKeys.history_detail_empty_title.tr(),
                     description: LocaleKeys.history_detail_empty_body.tr(),
-                    buttonLabel: null,
                   )
                 : _IncidentDetail(
                     key: ValueKey(_selected?.id),
@@ -155,7 +154,6 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                     child: AppEmptyState(
                       title: LocaleKeys.history_loading_title.tr(),
                       description: '',
-                      buttonLabel: null,
                     ),
                   ),
                 )
@@ -184,7 +182,6 @@ class _HistoryScreenContentState extends State<_HistoryScreenContent> {
                               namedArgs: {'days': '${state.shownDays}'},
                             )
                           : LocaleKeys.history_empty_body.tr(),
-                      buttonLabel: null,
                       faceState: FaceState.calm,
                       isLive: false,
                     ),

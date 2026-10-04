@@ -324,7 +324,6 @@ class _TopicDetailScreenContent extends StatelessWidget {
                                             'Review your plan to increase '
                                             'this limit.',
                                         faceState: FaceState.worried,
-                                        buttonLabel: null,
                                         isLive: false,
                                       ),
                                     ),
