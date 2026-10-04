@@ -1246,6 +1246,11 @@ Future<void> configureDependencies({
           await topics.ensureLoaded();
           return topics.state.topics;
         },
+        refreshTopics: () async {
+          final topics = getIt<TopicsCubit>();
+          await topics.refresh();
+          return topics.state.topics;
+        },
         hasConnection: () async =>
             (await getIt<GetConnectionUsecase>()(
               const NoParams(),

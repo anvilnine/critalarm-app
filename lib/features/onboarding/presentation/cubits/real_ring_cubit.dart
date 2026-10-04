@@ -35,6 +35,7 @@ class RealRingCubit extends Cubit<RealRingState> {
     required this.triggerTest,
     required this.updateTopic,
     required this.readTopics,
+    required this.refreshTopics,
     required this.hasConnection,
     required this.connectState,
     required this.connectChanges,
@@ -66,6 +67,11 @@ class RealRingCubit extends Cubit<RealRingState> {
 
   /// The topics on the server, from the app's shared list.
   final Future<List<Topic>> Function() readTopics;
+
+  /// The same list, fetched again. Asked only when the list does not hold
+  /// the topic setup made: the list may have been loaded before the topic
+  /// existed.
+  final Future<List<Topic>> Function() refreshTopics;
 
   /// Whether a server connection is saved. One local read.
   final Future<bool> Function() hasConnection;
@@ -168,10 +174,15 @@ class RealRingCubit extends Cubit<RealRingState> {
   Future<RealRingGate> _recheck({bool force = false}) async {
     final connect = connectState();
     final isConnected = await hasConnection();
-    final topics = isConnected ? await readTopics() : const <Topic>[];
+    final heldName = handoff.entry?.topicName;
+    final savedName = handoff.savedTopicName;
+    var topics = isConnected ? await readTopics() : const <Topic>[];
+    if (isConnected && !_holdsSetupTopic(topics, heldName ?? savedName)) {
+      topics = await refreshTopics();
+    }
     final found = setupTestTopic(
-      heldName: handoff.entry?.topicName,
-      savedName: handoff.savedTopicName,
+      heldName: heldName,
+      savedName: savedName,
       topics: topics,
     );
     // A 409 taught this cubit the switch is off before the shared list
@@ -202,6 +213,12 @@ class RealRingCubit extends Cubit<RealRingState> {
     );
     return gate;
   }
+
+  /// Whether [topics] has the topic setup made. With no name on record any
+  /// topic will do.
+  static bool _holdsSetupTopic(List<Topic> topics, String? name) => name == null
+      ? topics.isNotEmpty
+      : topics.any((topic) => topic.name == name);
 
   /// The server answered 409 for this topic and the user has not turned the
   /// switch on since.

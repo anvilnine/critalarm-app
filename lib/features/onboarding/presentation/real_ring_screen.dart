@@ -33,19 +33,33 @@ import 'package:go_router/go_router.dart';
 class RealRingScreen extends StatelessWidget {
   const RealRingScreen({super.key});
 
-  /// The state a developer build shows on a replay, from the `show` query
-  /// parameter. Null in a store build and for a name that is not a phase.
+  /// The query parameter that names the state a replay opens on. Read in a
+  /// developer build only.
+  static const replayStateParam = 'show';
+
+  static const _countdownName = 'countdown';
+
+  /// Every state a developer build can open a replay on: each phase the
+  /// step can rest on, and the countdown of the phone-only test.
+  static final List<String> replayStateNames = List.unmodifiable([
+    for (final phase in RealRingPhase.values)
+      if (phase != RealRingPhase.rang) phase.name,
+    _countdownName,
+  ]);
+
+  /// The state a developer build shows on a replay, from the query
+  /// parameter. Null in a store build and for a name that is not a state.
   static ({RealRingPhase phase, bool isCountingDown})? _shown(Uri uri) {
     if (!buildHasOnboardingDeveloperTools) return null;
-    final name = uri.queryParameters['show'];
-    if (name == null) return null;
-    if (name == 'countdown') {
+    final name = uri.queryParameters[replayStateParam];
+    if (name == null || !replayStateNames.contains(name)) return null;
+    if (name == _countdownName) {
       return (phase: RealRingPhase.ready, isCountingDown: true);
     }
-    for (final phase in RealRingPhase.values) {
-      if (phase.name == name) return (phase: phase, isCountingDown: false);
-    }
-    return null;
+    return (
+      phase: RealRingPhase.values.byName(name),
+      isCountingDown: false,
+    );
   }
 
   @override
@@ -515,7 +529,9 @@ class _RealRingViewState extends State<_RealRingView>
             : LocaleKeys.onboarding_real_ring_no_server_button.tr(),
         size: AppButtonSize.lg,
         isFullWidth: true,
-        onPressed: () => context.go(OnboardingEntryPoint.connectServer),
+        onPressed: widget.isReplay
+            ? _finishStep
+            : () => context.go(OnboardingEntryPoint.connectServer),
       ),
       _ => null,
     };
@@ -525,8 +541,6 @@ class _RealRingViewState extends State<_RealRingView>
       children: [
         if (primary != null) ...[primary, const SizedBox(height: Spacing.s3)],
         later,
-        // 12px from the scaffold makes 24 above the home indicator.
-        const SizedBox(height: 12),
       ],
     );
   }
@@ -565,6 +579,9 @@ class _PhoneOnlyFallback extends StatelessWidget {
 }
 
 /// The way out that every state keeps.
+///
+/// A solid button, not bare text: at the largest text size the body scrolls
+/// under the pinned bar, and words over words would be unreadable.
 class _SetUpLaterButton extends StatelessWidget {
   const _SetUpLaterButton({required this.onPressed});
 
@@ -572,23 +589,11 @@ class _SetUpLaterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextButton(
+    return AppButton(
+      label: LocaleKeys.onboarding_connect_skip_for_now.tr(),
+      variant: AppButtonVariant.paper,
+      isFullWidth: true,
       onPressed: () => unawaited(onPressed()),
-      style: TextButton.styleFrom(
-        minimumSize: const Size(double.infinity, 36),
-        padding: EdgeInsets.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      child: Text(
-        LocaleKeys.onboarding_connect_skip_for_now.tr(),
-        style: TextStyle(
-          fontFamily: AppTypography.fontBody,
-          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: context.appColors.onCanvas,
-        ),
-      ),
     );
   }
 }
