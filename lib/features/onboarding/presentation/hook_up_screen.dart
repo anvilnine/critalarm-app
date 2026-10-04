@@ -121,6 +121,26 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
   late String _path;
   Duration _tickWait = Duration.zero;
 
+  /// The face every setup step shares.
+  static const _faceHeroTag = 'onboarding-face';
+  static const double _faceSize = 80;
+
+  /// True for one beat after the first message lands, while the face
+  /// realizes it, before it settles.
+  bool _isRealizing = false;
+  Timer? _realizeTimer;
+
+  /// The message has just landed while the user watched.
+  void _onFirstMessage() {
+    final beat = context.motion(AppDurations.base);
+    if (beat == Duration.zero) return;
+    _realizeTimer?.cancel();
+    setState(() => _isRealizing = true);
+    _realizeTimer = Timer(beat, () {
+      if (mounted) setState(() => _isRealizing = false);
+    });
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -137,6 +157,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _realizeTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -160,10 +181,15 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return BlocConsumer<HookUpCubit, HookUpState>(
       listenWhen: (prev, curr) =>
-          prev.ringingIncidentId != curr.ringingIncidentId &&
-          curr.ringingIncidentId != null,
-      listener: (context, state) =>
-          unawaited(_leaving.alarm(state.ringingIncidentId!)),
+          (prev.ringingIncidentId != curr.ringingIncidentId &&
+              curr.ringingIncidentId != null) ||
+          (!prev.isFirstMessageReceived && curr.isFirstMessageReceived),
+      listener: (context, state) {
+        if (state.isFirstMessageReceived && !_isRealizing) _onFirstMessage();
+        if (state.ringingIncidentId case final incidentId?) {
+          unawaited(_leaving.alarm(incidentId));
+        }
+      },
       builder: (context, state) {
         final cubit = context.read<HookUpCubit>();
         // The row has something to wait for once there is a topic. A phone
@@ -171,6 +197,8 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
         final showsRow =
             state.isFirstMessageReceived ||
             (state.topicName != null &&
+                // With no token there is no line on screen to send.
+                state.phase != HookUpPhase.mintFailed &&
                 state.phase != HookUpPhase.noTopic &&
                 state.phase != HookUpPhase.noServer);
         // At the largest accessibility sizes a pinned row would take a
@@ -202,9 +230,10 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
               if (showsRow && pinsRow) ...[
                 FirstMessageRow(
                   isReceived: state.isFirstMessageReceived,
-                  // At large text the pinned row keeps to its title, so
-                  // the curl line keeps most of the screen.
-                  isCompact: textScale > 1.3,
+                  // Waiting, the row is a face, one line and the empty
+                  // tick. The second line is the proof, so it shows once
+                  // the message has landed, where there is room for it.
+                  isCompact: !state.isFirstMessageReceived || textScale > 1.3,
                 ),
                 const SizedBox(height: Spacing.s3),
               ],
@@ -234,6 +263,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
                       const SizedBox(height: Spacing.s5),
                       FirstMessageRow(
                         isReceived: state.isFirstMessageReceived,
+                        isCompact: !state.isFirstMessageReceived,
                       ),
                     ],
                     const SizedBox(height: Spacing.s5),
@@ -266,6 +296,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
       ),
       HookUpPhase.mintFailed => _problem(
         context,
+        face: FaceState.worried,
         title: LocaleKeys.onboarding_hook_up_mint_failed.tr(),
         line: LocaleKeys.onboarding_hook_up_mint_failed_line.tr(),
         reason: state.mintFailure == null
@@ -273,13 +304,16 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
             : failureMessage(state.mintFailure!),
         onTryAgain: () => unawaited(cubit.retryMint()),
       ),
+      // Missing, not broken.
       HookUpPhase.noTopic => _problem(
         context,
+        face: FaceState.sad,
         title: LocaleKeys.onboarding_hook_up_no_topic.tr(),
         line: LocaleKeys.onboarding_hook_up_no_topic_line.tr(),
       ),
       HookUpPhase.noServer => _problem(
         context,
+        face: FaceState.sad,
         title: LocaleKeys.onboarding_hook_up_no_server.tr(),
         line: LocaleKeys.onboarding_hook_up_no_server_line.tr(),
       ),
@@ -288,23 +322,25 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
   }
 
   /// A wait: the face, waiting, over the one line that says what for.
-  Widget _wait(String message) => Padding(
-    padding: const EdgeInsets.only(top: Spacing.s6),
-    child: Center(
-      child: AppWaitingFace(message: message, heroTag: 'onboarding-face'),
+  Widget _wait(String message) => Center(
+    child: AppWaitingFace(
+      message: message,
+      faceSize: _faceSize,
+      heroTag: _faceHeroTag,
     ),
   );
 
   Widget _face(FaceState face) => Center(
     child: Hero(
-      tag: 'onboarding-face',
+      tag: _faceHeroTag,
       flightShuttleBuilder: faceFlightShuttleBuilder,
-      child: FaceWidget(state: face, size: 72, isLive: true),
+      child: FaceWidget(state: face, size: _faceSize, isLive: true),
     ),
   );
 
   Widget _problem(
     BuildContext context, {
+    required FaceState face,
     required String title,
     required String line,
     String? reason,
@@ -315,7 +351,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _face(FaceState.worried),
+        _face(face),
         const SizedBox(height: Spacing.s4),
         Semantics(
           liveRegion: true,
@@ -331,7 +367,8 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
           textAlign: TextAlign.center,
           style: AppTypography.body(colors.onCanvasMuted),
         ),
-        if (reason != null) ...[
+        // The server's own reason, unless it only says the title again.
+        if (reason != null && reason != title) ...[
           const SizedBox(height: Spacing.s4),
           AppToast(faceState: FaceState.worried, message: reason),
         ],
@@ -369,40 +406,25 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
       color: colors.onCanvasMuted,
     );
 
-    return Column(
+    final curl = AppCodeBlock(
+      code: CurlLine.build(
+        serverUrl: serverUrl,
+        topic: topic,
+        token: token,
+        message: message,
+        priority: CurlLine.urgent,
+      ),
+      isWrapped: true,
+      copyLabel: LocaleKeys.onboarding_hook_up_copy_line.tr(),
+    );
+    // The line rings: it carries the priority a critical topic opens an
+    // alarm for. It wraps, so the whole of it shows at any text size, and
+    // the copy button sits under it.
+    final curlBlock = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _face(
-          state.isFirstMessageReceived ? FaceState.calm : FaceState.watching,
-        ),
-        const SizedBox(height: Spacing.s3),
-        Text(
-          LocaleKeys.onboarding_hook_up_title.tr(),
-          textAlign: TextAlign.center,
-          style: AppTypography.headline(colors.onCanvas, fontSize: 30),
-        ),
-        const SizedBox(height: Spacing.s2),
-        Text(
-          LocaleKeys.onboarding_hook_up_subtitle.tr(),
-          textAlign: TextAlign.center,
-          style: AppTypography.body(colors.onCanvasMuted),
-        ),
-        const SizedBox(height: Spacing.s5),
-        // The line rings: it carries the priority a critical topic opens
-        // an alarm for. It wraps, so the whole of it shows at any text
-        // size, and the copy button sits under it.
-        AppCodeBlock(
-          code: CurlLine.build(
-            serverUrl: serverUrl,
-            topic: topic,
-            token: token,
-            message: message,
-            priority: CurlLine.urgent,
-          ),
-          isWrapped: true,
-          copyLabel: LocaleKeys.onboarding_hook_up_copy_line.tr(),
-        ),
+        curl,
         const SizedBox(height: Spacing.s2),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -417,8 +439,10 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
                 style: note,
               ),
               if (state.isCritical == false) ...[
-                const SizedBox(height: Spacing.s1),
+                const SizedBox(height: Spacing.s2),
                 // The words about ringing follow what this phone can do.
+                // Same weight as the note above it: it stands out by its
+                // ink, not by going bold next to a regular line.
                 Text(
                   switch (state.claim) {
                     RingClaim.alarm =>
@@ -427,18 +451,55 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
                       LocaleKeys.onboarding_hook_up_critical_off_time_sensitive
                           .tr(),
                   },
-                  style: note.copyWith(
-                    color: colors.onCanvas,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: note.copyWith(color: colors.onCanvas),
                 ),
               ],
             ],
           ),
         ),
-        if (snippet != null && state.template != null) ...[
+      ],
+    );
+    final tool = snippet != null && state.template != null
+        ? _ToolSection(template: state.template!, snippet: snippet)
+        : null;
+    // A tool with a form of its own wants its fields, so they come first
+    // and the curl line second. Everything else pastes the line.
+    final toolFirst = snippet is ToolSnippetFields;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Handing over the line. When the message lands the face realizes
+        // it for a beat, then settles. The row below does the waiting.
+        _face(
+          !state.isFirstMessageReceived
+              ? FaceState.proud
+              : _isRealizing
+              ? FaceState.realization
+              : FaceState.love,
+        ),
+        const SizedBox(height: Spacing.s4),
+        Text(
+          LocaleKeys.onboarding_hook_up_title.tr(),
+          textAlign: TextAlign.center,
+          style: AppTypography.headline(colors.onCanvas, fontSize: 30),
+        ),
+        const SizedBox(height: Spacing.s2),
+        Text(
+          LocaleKeys.onboarding_hook_up_subtitle.tr(),
+          textAlign: TextAlign.center,
+          style: AppTypography.body(colors.onCanvasMuted),
+        ),
+        const SizedBox(height: Spacing.s5),
+        if (tool != null && toolFirst) ...[
+          tool,
           const SizedBox(height: Spacing.s5),
-          _ToolSection(template: state.template!, snippet: snippet),
+        ],
+        curlBlock,
+        if (tool != null && !toolFirst) ...[
+          const SizedBox(height: Spacing.s5),
+          tool,
         ],
       ],
     );
@@ -497,8 +558,10 @@ class _ToolSection extends StatelessWidget {
             ToolSnippetFields(:final fields) => Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // One list on the sheet, a hairline between rows. Six
+                // stacked tiles read as a settings page.
                 for (final (index, field) in fields.indexed) ...[
-                  if (index > 0) const SizedBox(height: 6),
+                  if (index > 0) Divider(height: 1, color: colors.hairline),
                   _ToolField(field: field),
                 ],
               ],
@@ -510,9 +573,12 @@ class _ToolSection extends StatelessWidget {
   }
 }
 
-/// One field of the tool's form: its name, the whole value under it, and a
-/// copy button for a value the user pastes. The value wraps, so a token is
-/// never cut short at any text size.
+/// One field of the tool's form: its name and the whole value, on one line
+/// where both fit and stacked where they do not. The value wraps, so a token
+/// is never cut short at any text size.
+///
+/// A value the user pastes has a copy button. A value they only read and
+/// pick in the tool's own list has none.
 class _ToolField extends StatefulWidget {
   const _ToolField({required this.field});
 
@@ -539,43 +605,72 @@ class _ToolFieldState extends State<_ToolField> {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final field = widget.field;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: colors.cream,
-        borderRadius: Radii.mdAll,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  field.label,
-                  style: AppTypography.small(colors.ink3, fontSize: 13),
-                ),
-                const SizedBox(height: 2),
-                Text(
+    final labelStyle = AppTypography.small(colors.ink3, fontSize: 13);
+    final valueStyle = AppTypography.monoBold(colors.ink, fontSize: 13);
+
+    final words = LayoutBuilder(
+      builder: (context, constraints) {
+        double width(String text, TextStyle style) => (TextPainter(
+          text: TextSpan(text: text, style: style),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 1,
+        )..layout()).width;
+        final fitsOneLine =
+            width(field.label, labelStyle) +
+                Spacing.s3 +
+                width(field.value, valueStyle) <=
+            constraints.maxWidth;
+        if (fitsOneLine) {
+          return Row(
+            children: [
+              Text(field.label, style: labelStyle),
+              const SizedBox(width: Spacing.s3),
+              Expanded(
+                child: Text(
                   field.value,
-                  style: AppTypography.monoBold(colors.ink, fontSize: 13),
+                  textAlign: TextAlign.end,
+                  style: valueStyle,
                 ),
-              ],
-            ),
-          ),
-          if (field.isCopyable) ...[
-            const SizedBox(width: Spacing.s2),
-            AppButton(
-              label: _isCopied
-                  ? LocaleKeys.common_copied.tr()
-                  : LocaleKeys.common_copy.tr(),
-              variant: AppButtonVariant.paper,
-              size: AppButtonSize.sm,
-              onPressed: _copy,
-            ),
+              ),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(field.label, style: labelStyle),
+            const SizedBox(height: 2),
+            Text(field.value, style: valueStyle),
           ],
-        ],
+        );
+      },
+    );
+
+    return ConstrainedBox(
+      // Every row is as tall as a row with a button, so the list is even.
+      constraints: const BoxConstraints(minHeight: 48),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 6, 0, 6),
+        child: Row(
+          children: [
+            Expanded(child: words),
+            if (field.isCopyable) ...[
+              const SizedBox(width: Spacing.s2),
+              AppButton(
+                label: _isCopied
+                    ? LocaleKeys.common_copied.tr()
+                    : LocaleKeys.common_copy.tr(),
+                variant: AppButtonVariant.paper,
+                size: AppButtonSize.sm,
+                onPressed: _copy,
+              ),
+            ] else
+              // Lines the value up with the values that have a button.
+              const SizedBox(width: 4),
+          ],
+        ),
       ),
     );
   }

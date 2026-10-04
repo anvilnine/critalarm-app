@@ -131,11 +131,15 @@ void main() {
     setUpAll(loadTestTranslations);
 
     test('the analytics switch reads exactly as approved', () {
+      // The same approved words. The title is a title, so it carries no
+      // full stop, and the line under it keeps its own.
       expect(
-        '${LocaleKeys.onboarding_hook_up_analytics_title.tr()} '
-            '${LocaleKeys.onboarding_hook_up_analytics_line.tr()}',
-        'Share anonymous setup stats. '
-            'Step names and timings only, never your messages.',
+        LocaleKeys.onboarding_hook_up_analytics_title.tr(),
+        'Share anonymous setup stats',
+      );
+      expect(
+        LocaleKeys.onboarding_hook_up_analytics_line.tr(),
+        'Step names and timings only, never your messages.',
       );
     });
 
