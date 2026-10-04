@@ -137,7 +137,7 @@ class _OnboardingShellState extends State<OnboardingShell> {
       // connect step shows its own result.
       final entry = OnboardingStepRegistry.entryForPath(uri.path);
       if (entry == null || entry.id == OnboardingStepId.connect) return null;
-      return backgroundConnectLine(connect.state);
+      return backgroundConnectShortLine(connect.state);
     }
     final gate = connectGateFor(
       state: connect.state,
@@ -145,7 +145,7 @@ class _OnboardingShellState extends State<OnboardingShell> {
       isReplay: isOnboardingReplayUri(uri),
     );
     return gate == ConnectGate.quiet
-        ? backgroundConnectLine(connect.state)
+        ? backgroundConnectShortLine(connect.state)
         : null;
   }
 
@@ -201,12 +201,11 @@ class _OnboardingShellState extends State<OnboardingShell> {
             ),
           ),
         ),
-        // Under the buttons' reach and over no title: a strip at the very
-        // bottom of the screen. It takes no taps.
+        // In the empty corner beside the app title: over no title and no
+        // button. It takes no taps.
         Positioned(
-          left: 0,
+          top: 0,
           right: 0,
-          bottom: 0,
           child: IgnorePointer(
             child: _ConnectQuietLine(
               message: quietLine,
@@ -219,7 +218,7 @@ class _OnboardingShellState extends State<OnboardingShell> {
   }
 }
 
-/// One line about the connect running behind the user, with the face
+/// A word or three about the connect running behind the user, with the face
 /// watching beside it. Fades in and out; holds still under reduce motion.
 class _ConnectQuietLine extends StatelessWidget {
   const _ConnectQuietLine({required this.message, required this.isLanded});
@@ -239,30 +238,42 @@ class _ConnectQuietLine extends StatelessWidget {
           ? const SizedBox.shrink(key: ValueKey('connect-quiet-none'))
           : SafeArea(
               key: ValueKey('connect-quiet-$line'),
-              top: false,
-              minimum: const EdgeInsets.only(bottom: Spacing.s2),
+              bottom: false,
+              left: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Spacing.s5),
+                padding: const EdgeInsets.only(
+                  top: Spacing.s3,
+                  right: Spacing.s4,
+                ),
                 child: Semantics(
                   liveRegion: true,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      FaceWidget(
-                        state: isLanded
-                            ? FaceState.success
-                            : FaceState.watching,
-                        size: 20,
-                        isLive: true,
-                      ),
-                      const SizedBox(width: Spacing.s2),
-                      Flexible(
-                        child: Text(
-                          line,
-                          style: AppTypography.small(colors.onCanvasMuted),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(6, 5, 12, 5),
+                    decoration: BoxDecoration(
+                      color: colors.surface.withValues(alpha: 0.88),
+                      borderRadius: BorderRadius.circular(Radii.pill),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FaceWidget(
+                          state: isLanded
+                              ? FaceState.success
+                              : FaceState.watching,
+                          size: 22,
+                          isLive: true,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: Spacing.s2),
+                        Text(
+                          line,
+                          // The shell sits above every route, so there is
+                          // no text style to inherit here.
+                          style: AppTypography.small(
+                            colors.ink,
+                          ).copyWith(decoration: TextDecoration.none),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

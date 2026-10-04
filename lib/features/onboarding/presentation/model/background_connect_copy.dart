@@ -28,3 +28,18 @@ String? backgroundConnectLine(BackgroundConnectState state) {
     },
   };
 }
+
+/// The same, in a word or three, for the small status in the corner of a
+/// step that carries on while the connect runs. Null for nothing to say.
+String? backgroundConnectShortLine(BackgroundConnectState state) {
+  return switch (state.status) {
+    BackgroundConnectStatus.connecting ||
+    BackgroundConnectStatus.waitingForPushToken =>
+      LocaleKeys.onboarding_connect_background_quiet_connecting.tr(),
+    BackgroundConnectStatus.waitingForNetwork =>
+      LocaleKeys.onboarding_connect_background_quiet_waiting_network.tr(),
+    BackgroundConnectStatus.connected =>
+      LocaleKeys.onboarding_connect_background_quiet_connected.tr(),
+    BackgroundConnectStatus.idle || BackgroundConnectStatus.failed => null,
+  };
+}
