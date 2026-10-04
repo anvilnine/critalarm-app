@@ -22,6 +22,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - AppCodeBlock isWrapped wraps long commands with the copy button underneath, and AppHighlightTone.pending is a row that is still waiting.
 - countsAsRealUse decides whether an alarm is the user's own use or one setup caused, and SetupTestRing.setupIncidentIds keeps those ids under onboarding\_setup\_incidents.
 - AppScreenScaffold barBacking puts a solid colour behind the top bar and the pinned bottom bar, and the hook-up token id is saved under onboarding\_hook\_up\_token\_id.
+- Home setup content: HomeSetupCubit and HomeSetupSection draw the setup checklist, its one celebration and the widgets card at the top of the Topics list sheet. Prefs keys setup\_checklist\_seeded, setup\_checklist\_done and home\_widgets\_card\_seen, each set once.
 - Setup sends onboarding\_step\_viewed and onboarding\_step\_completed (step, flow\_id, ms\_since\_previous). They wait in pending\_onboarding\_events until the user answers the analytics question, are sent on opt-in, and are deleted on opt-out and after 7 days unanswered. The answer is kept in onboarding\_funnel\_state.
 
 ### Changed
@@ -44,6 +45,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The hook-up step pins its first-message row above Done up to twice the default text size, and puts it in the body above that.
 - CurlLine.build single-quotes the message and the address for a shell, on the topic page too.
 - FirstMessageWatcher takes its starting point from the server with since=all and no longer reads the phone clock.
+- FirstMessageRow takes showsFace, so a list with its own face can leave the row's out. The paywall pitch lists home screen widgets.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

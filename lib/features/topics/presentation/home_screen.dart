@@ -21,9 +21,14 @@ import 'package:critalarm/features/in_app_notices/presentation/widgets/in_app_no
 import 'package:critalarm/features/in_app_notices/presentation/widgets/notice_detail_sheet.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_plan_sheet.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/pro_status_badge.dart';
+import 'package:critalarm/features/topics/domain/setup_checklist.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/home_setup_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/home_setup_section.dart';
+import 'package:critalarm/features/topics/presentation/widgets/home_widgets_sheet.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -56,6 +61,9 @@ class HomeScreen extends StatelessWidget {
             return cubit;
           },
         ),
+        // The setup checklist and the widgets card. Home content: it is
+        // fed by the list above and never by the notice slot.
+        BlocProvider(create: (_) => getIt<HomeSetupCubit>()),
       ],
       child: const _HomeScreenContent(),
     );
@@ -80,6 +88,17 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
 
   final FeatureGuideCubit _guides = getIt<FeatureGuideCubit>();
   StreamSubscription<FeatureGuideState>? _guideSub;
+  StreamSubscription<FeatureGuideState>? _guideSetupSub;
+
+  /// Another screen is on top of Home.
+  bool _isCovered = false;
+
+  /// The app is open and at the front.
+  bool _isResumed = true;
+
+  /// Bumped on every cover and uncover, so a late "back in view" from an
+  /// earlier pop is dropped.
+  int _viewChange = 0;
 
   @override
   void initState() {
@@ -93,10 +112,34 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       unawaited(context.read<InAppNoticeCubit>().load());
       unawaited(_runHomeAsk());
     });
+    // The setup checklist hears every guide change, the offer included: it
+    // holds still while one is up.
+    _guideSetupSub = _guides.stream.listen((_) => _tellSetup());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(_runHomeAsk());
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      _isResumed = lifecycle == null || lifecycle == AppLifecycleState.resumed;
+      unawaited(
+        context.read<HomeSetupCubit>().homeChanged(
+          context.read<HomeCubit>().state,
+        ),
+      );
+      _tellSetup();
     });
+  }
+
+  /// Tells the setup checklist whether the user is looking at Home. It
+  /// ticks rows, celebrates and polls for the first message only while they
+  /// are.
+  void _tellSetup() {
+    if (!mounted) return;
+    unawaited(
+      context.read<HomeSetupCubit>().screenChanged(
+        isInFront: !_isCovered && _isResumed,
+        isGuideActive: _guides.state.isActive,
+      ),
+    );
   }
 
   /// The Pro, Reminders and consent sheets and the review popup, when one is
@@ -117,12 +160,15 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_guideSub?.cancel());
+    unawaited(_guideSetupSub?.cancel());
     appRouteObserver.unsubscribe(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isResumed = state == AppLifecycleState.resumed;
+    _tellSetup();
     if (state == AppLifecycleState.resumed && mounted) {
       unawaited(context.read<InAppNoticeCubit>().onAppResumed());
       unawaited(_runHomeAsk());
@@ -136,6 +182,46 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     if (!mounted) return;
     unawaited(context.read<HomeCubit>().refresh());
     unawaited(context.read<InAppNoticeCubit>().refresh());
+    // Home counts as back in view once the screen above has slid away, so a
+    // row that turned true over there ticks where it can be seen.
+    final change = ++_viewChange;
+    unawaited(
+      Future<void>.delayed(AppDurations.slow, () {
+        if (!mounted || change != _viewChange) return;
+        _isCovered = false;
+        _tellSetup();
+      }),
+    );
+  }
+
+  @override
+  void didPushNext() {
+    _viewChange++;
+    _isCovered = true;
+    _tellSetup();
+  }
+
+  void _openSetupRoute(String route) => unawaited(context.push(route));
+
+  void _openWidgetsPaywall() {
+    unawaited(context.read<HomeSetupCubit>().widgetsPlansOpened());
+    unawaited(context.push('/paywall?source=$homeWidgetsPaywallSource'));
+  }
+
+  void _showWidgetsHowTo(HomeWidgetsPlan plan) {
+    final setup = context.read<HomeSetupCubit>();
+    unawaited(setup.widgetsHowToOpened());
+    unawaited(
+      showHomeWidgetsSheet(
+        context: context,
+        platform: setup.platform,
+        plan: plan,
+        onSeeHosted: () {
+          if (!mounted) return;
+          unawaited(context.push('/paywall?source=$homeWidgetsPaywallSource'));
+        },
+      ),
+    );
   }
 
   /// While anything is ringing, the app is the alarm. The list is no use to
@@ -217,14 +303,26 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     final size = AppSize.of(context);
 
     return BlocConsumer<HomeCubit, HomeState>(
-      listener: (context, state) => _handOverIfRinging(state),
+      listener: (context, state) {
+        _handOverIfRinging(state);
+        unawaited(context.read<HomeSetupCubit>().homeChanged(state));
+      },
       builder: (context, state) =>
           BlocBuilder<FeatureGuideCubit, FeatureGuideState>(
             bloc: _guides,
             builder: (context, guide) =>
                 BlocBuilder<InAppNoticeCubit, InAppNoticeState>(
                   builder: (context, notice) =>
-                      _build(context, size, state, guide, notice),
+                      BlocBuilder<HomeSetupCubit, HomeSetupState>(
+                        builder: (context, setup) => _build(
+                          context,
+                          size,
+                          state,
+                          guide,
+                          notice,
+                          setup,
+                        ),
+                      ),
                 ),
           ),
     );
@@ -236,6 +334,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     HomeState real,
     FeatureGuideState guide,
     InAppNoticeState notice,
+    HomeSetupState setup,
   ) {
     // While the guide runs, the list gets an example topic that is ringing,
     // so the user sees what trouble looks like before it happens. Someone
@@ -329,7 +428,19 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       ],
     ];
 
-    return SeverityScope(
+    // The setup checklist, its finished line or the widgets card, at the
+    // top of the list sheet. Home content, drawn here and nowhere else.
+    // Only over a list that loaded, and never beside a running guide's
+    // example rows. The offer sheet is not a guide yet, so the checklist
+    // stays put under it instead of jumping when it closes.
+    final showsSetup =
+        real.status == HomeStatus.success &&
+        !real.isStale &&
+        (!guide.isActive || guide.status == FeatureGuideStatus.offering);
+    final setupState = showsSetup ? setup : const HomeSetupState();
+    final checklistIsUp = setupState.phase == HomeSetupPhase.checklist;
+
+    final screen = SeverityScope(
       severity: state.severity,
       child: AppScreenScaffold(
         onFaceRefresh: () async {
@@ -416,6 +527,21 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        HomeSetupSection(
+                          state: setupState,
+                          // With no topics the checklist stands in for the
+                          // empty card, so nothing follows it.
+                          hasRowsBelow: !(state.isEmpty && checklistIsUp),
+                          onRowTap: _openSetupRoute,
+                          onShowWidgetsHowTo: () =>
+                              _showWidgetsHowTo(setupState.widgetsPlan),
+                          onSeeHosted: _openWidgetsPaywall,
+                          onDismissWidgetsCard: () => unawaited(
+                            context
+                                .read<HomeSetupCubit>()
+                                .widgetsCardDismissed(),
+                          ),
+                        ),
                         // Loading and failure both used to fall through to
                         // the empty state, so a slow network or a dead
                         // server told the user every topic they own was
@@ -496,6 +622,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                             followsRefresh: true,
                             radius: Radii.md,
                           ),
+                        ] else if (state.isEmpty && checklistIsUp) ...[
+                          // The checklist's second row carries the create
+                          // action, so the empty card would say it twice.
                         ] else if (state.isEmpty) ...[
                           AppEmptyState(
                             title: LocaleKeys.home_stage_word_no_topics.tr(),
@@ -525,6 +654,17 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             ),
         ],
       ),
+    );
+
+    // One short throw of confetti when the checklist finishes, over the
+    // whole screen and dead to the touch.
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        screen,
+        if (setupState.phase == HomeSetupPhase.celebration)
+          const Positioned.fill(child: HomeSetupConfetti()),
+      ],
     );
   }
 

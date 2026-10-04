@@ -16,6 +16,7 @@ class FirstMessageRow extends StatelessWidget {
   const FirstMessageRow({
     required this.isReceived,
     this.isCompact = false,
+    this.showsFace = true,
     super.key,
   });
 
@@ -24,6 +25,10 @@ class FirstMessageRow extends StatelessWidget {
   /// Leaves the supporting line out, for a row pinned where room is short.
   /// A screen reader still hears it.
   final bool isCompact;
+
+  /// False leaves the face out, for a list that already has one face of
+  /// its own above the rows.
+  final bool showsFace;
 
   @override
   Widget build(BuildContext context) {
@@ -45,12 +50,14 @@ class FirstMessageRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
-              FaceWidget(
-                state: isReceived ? FaceState.calm : FaceState.watching,
-                size: 36,
-                isLive: !isReceived,
-              ),
-              const SizedBox(width: Spacing.s3),
+              if (showsFace) ...[
+                FaceWidget(
+                  state: isReceived ? FaceState.calm : FaceState.watching,
+                  size: 36,
+                  isLive: !isReceived,
+                ),
+                const SizedBox(width: Spacing.s3),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
