@@ -473,9 +473,15 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
       mainAxisSize: MainAxisSize.min,
       children: [
         if (isFirstTopic) ...[
-          _ToolChips(
-            selected: state.selectedTool,
-            onTap: isSubmitting ? null : cubit.toolTemplateTapped,
+          // Locked while a create runs, without changing how the chips are
+          // built: a chip with no tap is laid out tighter, and the rows
+          // would shift under the user's finger.
+          IgnorePointer(
+            ignoring: isSubmitting,
+            child: _ToolChips(
+              selected: state.selectedTool,
+              onTap: cubit.toolTemplateTapped,
+            ),
           ),
           const SizedBox(height: Spacing.s4),
         ],
