@@ -1,3 +1,4 @@
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
 import 'package:critalarm/features/onboarding/presentation/model/permission_step_view.dart';
@@ -40,16 +41,60 @@ PermissionStepView androidNotificationsStepView() {
   );
 }
 
+/// The Android notification step once the system will not prompt again:
+/// after a refusal, or below Android 13 where there never was a prompt. The
+/// button opens the app's notification settings, so a switch is drawn and
+/// nothing says a prompt is coming.
+PermissionStepView androidNotificationsSettingsStepView() {
+  final previewTitle = LocaleKeys
+      .onboarding_permissions_android_notifications_settings_preview_title
+      .tr();
+  return PermissionStepView(
+    face: FaceState.alarmed,
+    ambient: OnboardingAmbientStep.notifications,
+    badge: LocaleKeys.onboarding_permissions_android_notifications_badge.tr(),
+    title: LocaleKeys.onboarding_permissions_android_notifications_title.tr(),
+    subtitle: LocaleKeys.onboarding_permissions_android_notifications_subtitle
+        .tr(),
+    button: LocaleKeys
+        .onboarding_permissions_android_notifications_settings_button
+        .tr(),
+    preview: PermissionStepPreview(
+      title: previewTitle,
+      hint: LocaleKeys
+          .onboarding_permissions_android_notifications_settings_preview_hint
+          .tr(),
+      child: AndroidSettingsSwitchPreview(
+        title: previewTitle,
+        message: LocaleKeys
+            .onboarding_permissions_android_notifications_settings_preview_desc
+            .tr(),
+      ),
+    ),
+  );
+}
+
 /// The full-screen alarm step. Android has no dialog for it: the button
 /// opens a settings page with one switch, so that is what is drawn.
-PermissionStepView androidFullScreenStepView() {
+///
+/// The chip promises a ring, so it takes its words from [claim], and it is
+/// left off when notifications are not granted: the full-screen alarm rides
+/// on a notification, and without one the phone does not ring.
+PermissionStepView androidFullScreenStepView(
+  RingClaim claim, {
+  required bool notificationsGranted,
+}) {
   final previewTitle = LocaleKeys
       .onboarding_permissions_android_full_screen_preview_title
       .tr();
   return PermissionStepView(
     face: FaceState.watching,
     ambient: OnboardingAmbientStep.alarms,
-    badge: LocaleKeys.onboarding_permissions_android_full_screen_badge.tr(),
+    badge: switch (claim) {
+      RingClaim.alarm when notificationsGranted =>
+        LocaleKeys.onboarding_permissions_android_full_screen_badge.tr(),
+      _ => null,
+    },
     title: LocaleKeys.onboarding_permissions_android_full_screen_title.tr(),
     subtitle: LocaleKeys.onboarding_permissions_android_full_screen_subtitle
         .tr(),

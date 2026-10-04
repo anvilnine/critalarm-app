@@ -72,22 +72,28 @@ void main() {
     await cubit.close();
   });
 
-  test('onboarding shows the explainer, standalone does not', () async {
-    final setup = PermissionPhone.iosOld().cubit();
-    final alone = PermissionPhone.iosOld().cubit(standalone: true);
+  test('standalone never shows the explainer, even after a grant', () async {
+    final phone = PermissionPhone.iosOld();
+    final alone = phone.cubit(standalone: true);
 
-    await setup.refresh();
     await alone.refresh();
+    await alone.allowCurrentStep();
 
-    expect(
-      setup.state.steps,
-      contains(PermissionSetupStep.iosTimeSensitiveExplainer),
-    );
     expect(
       alone.state.steps,
       isNot(contains(PermissionSetupStep.iosTimeSensitiveExplainer)),
     );
-    await setup.close();
+    expect(alone.state.canNavigate, isTrue);
+    await alone.close();
+  });
+
+  test('a spent notification prompt is not a step there', () async {
+    final phone = PermissionPhone.android()..refuseNotifications();
+    final alone = phone.cubit(standalone: true);
+
+    await alone.refresh();
+
+    expect(alone.state.steps, const [PermissionSetupStep.androidFullScreen]);
     await alone.close();
   });
 }

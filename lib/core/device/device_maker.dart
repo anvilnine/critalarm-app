@@ -52,3 +52,11 @@ class FixedDeviceMakerReader implements DeviceMakerReader {
   @override
   Future<DeviceMaker> read() async => maker;
 }
+
+/// Reads the Android API level of this phone. Null off Android, or when the
+/// phone could not say.
+// One method today, and it stays an interface so there is something to fake.
+// ignore: one_member_abstracts
+abstract interface class AndroidSdkReader {
+  Future<int?> sdkInt();
+}

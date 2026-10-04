@@ -13,10 +13,10 @@ class PermissionStepView {
   const PermissionStepView({
     required this.face,
     required this.ambient,
-    required this.badge,
     required this.title,
     required this.subtitle,
     required this.button,
+    this.badge,
     this.preview,
     this.canSkip = true,
   });
@@ -27,7 +27,9 @@ class PermissionStepView {
   /// What the canvas behind the screen shows on this step.
   final OnboardingAmbientStep ambient;
 
-  final String badge;
+  /// The chip under the face. Null when the step has nothing it can
+  /// promise on this phone.
+  final String? badge;
   final String title;
   final String subtitle;
 

@@ -105,15 +105,16 @@ enum PermissionAskMode {
   replay,
 }
 
-/// The steps one run of the screen draws, in order.
+/// The steps one run of the screen would draw if it opened now, in order.
 ///
 /// A granted step is never drawn. [alreadyShown] holds the steps this run has
-/// been on: they stay in the list whatever their status, so the count on
-/// screen never drops under the user. [cannotAsk] holds steps whose prompt is
-/// spent and will not come up again.
+/// been on: they stay in the list whatever their status. [cannotAsk] holds
+/// steps whose prompt is spent and will not come up again.
 ///
-/// In setup a step that only explains follows the others, and is not worth a
-/// screen by itself: with every permission granted the answer is empty.
+/// A step that only explains what the phone does with notifications follows
+/// the notification step, and only once notifications are granted: after a
+/// refusal what it says would be false. It is never worth a screen by
+/// itself, so with every permission granted the answer is empty.
 List<PermissionSetupStep> permissionStepsToRender(
   List<PermissionSetupStep> steps, {
   required Set<PermissionSetupStep> granted,
@@ -137,29 +138,85 @@ List<PermissionSetupStep> permissionStepsToRender(
             step,
       ];
     case PermissionAskMode.setup:
-      if (alreadyShown.isEmpty && !steps.any(needsAnswer)) return const [];
+      final explains =
+          alreadyShown.isNotEmpty &&
+          granted.contains(PermissionSetupStep.iosNotifications);
       return [
         for (final step in steps)
           if (alreadyShown.contains(step) ||
               needsAnswer(step) ||
-              step.permission == null)
+              (step.permission == null && explains))
             step,
       ];
   }
 }
 
-/// The first step in [rendered] this run has not been on yet, or null when
-/// there is none left and the screen is done.
+/// Keeps the list on screen still while the run goes on.
 ///
-/// [rendered] comes from [permissionStepsToRender], which has already left
-/// out what is granted, so this is the first step that still needs an
-/// answer. It never goes back to a step the user answered or skipped.
+/// [frozen] is what the screen has drawn dots for. [fresh] is what
+/// [permissionStepsToRender] says now. A step is never taken out of [frozen]
+/// and never put in before its last step, so no dot the user has seen moves.
+/// A step [fresh] adds after the last frozen one is appended. [order] is the
+/// phone's full list, which says what "after" means.
+List<PermissionSetupStep> freezePermissionSteps(
+  List<PermissionSetupStep> frozen,
+  List<PermissionSetupStep> fresh, {
+  required List<PermissionSetupStep> order,
+}) {
+  if (frozen.isEmpty) return fresh;
+  final last = order.indexOf(frozen.last);
+  return [
+    ...frozen,
+    for (final step in fresh)
+      if (!frozen.contains(step) && order.indexOf(step) > last) step,
+  ];
+}
+
+/// The next step to put on screen, or null when the screen is done.
+///
+/// It is the first step in [rendered] that this run has not been on and that
+/// still needs an answer. A step granted since the list was frozen is passed
+/// over, though its dot stays. It never goes back to a step the user answered
+/// or skipped, even one that was revoked since. With [showGranted], for a
+/// replay, a granted step is shown like any other.
 PermissionSetupStep? nextPermissionStep(
   List<PermissionSetupStep> rendered, {
   required Set<PermissionSetupStep> alreadyShown,
+  Set<PermissionSetupStep> granted = const {},
+  bool showGranted = false,
 }) {
-  for (final step in rendered) {
-    if (!alreadyShown.contains(step)) return step;
+  // Everything up to the last step shown is behind the user.
+  var from = 0;
+  for (var i = 0; i < rendered.length; i++) {
+    if (alreadyShown.contains(rendered[i])) from = i + 1;
+  }
+  for (final step in rendered.skip(from)) {
+    if (showGranted || !granted.contains(step)) return step;
   }
   return null;
 }
+
+/// Whether the system will show the notification prompt again.
+///
+/// iOS prompts once. Android 13 or later stops prompting after a refusal,
+/// and below 13 there is no prompt at all: notifications are a switch in
+/// Settings. [refusedBefore] is whether the app asked and was told no.
+/// [androidSdk] is null off Android or when it could not be read.
+bool notificationPromptSpent({
+  required TargetPlatform platform,
+  required bool granted,
+  required bool refusedBefore,
+  required int? androidSdk,
+}) {
+  if (granted) return false;
+  return switch (platform) {
+    TargetPlatform.iOS => refusedBefore,
+    TargetPlatform.android =>
+      refusedBefore ||
+          (androidSdk != null && androidSdk < _androidNotificationPromptSdk),
+    _ => false,
+  };
+}
+
+/// Android 13, the first version with a notification prompt.
+const _androidNotificationPromptSdk = 33;

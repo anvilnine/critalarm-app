@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
@@ -27,6 +29,7 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     this.devicePermissions,
     this.replayForDemo = false,
     this.standalone = false,
+    this.readTimeout = const Duration(seconds: 5),
     NotificationPermissionStep initialStep = NotificationPermissionStep.initial,
   }) : super(NotificationPermissionsState(step: initialStep));
 
@@ -55,6 +58,13 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   /// system prompt earns a step, and the screen closes once none is left.
   final bool standalone;
 
+  /// How long a status read may take. A read that is still out after this
+  /// is given up on, so the screen is never left checking for good.
+  final Duration readTimeout;
+
+  /// The step whose system dialog is open. Its answer, yes or no, moves on.
+  PermissionSetupStep? _dialogOpenFor;
+
   PermissionAskMode get _mode => replayForDemo
       ? PermissionAskMode.replay
       : standalone
@@ -79,32 +89,27 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     if (state.isRequesting || state.isGranted) return;
 
     emit(state.copyWith(isChecking: true));
-    final snapshot = await readSetup();
-    if (isClosed) return;
-    // The user answered while the read was out. Their answer stands.
-    if (state.isRequesting || state.isGranted) {
-      emit(state.copyWith(isChecking: false));
-      return;
+    PermissionSetupSnapshot? snapshot;
+    try {
+      // Null when the read timed out or failed. Nothing is known then, so
+      // nothing changes: "Not now" is on screen either way, and the next
+      // resume reads again.
+      snapshot = await _readWithinTimeout();
+    } finally {
+      if (!isClosed) emit(state.copyWith(isChecking: false));
     }
+    if (isClosed || snapshot == null) return;
+    // The user answered while the read was out. Their answer stands.
+    if (state.isRequesting || state.isGranted) return;
 
-    final shown = state.shown;
-    final rendered = permissionStepsToRender(
-      snapshot.steps,
-      granted: snapshot.granted,
-      mode: _mode,
-      alreadyShown: shown,
-      // AlarmKit prompts once. After a refusal there is no prompt left.
-      cannotAsk: {
-        if (snapshot.alarm == AlarmAuthorization.denied)
-          PermissionSetupStep.iosAlarms,
-      },
-    );
-    final read = state.copyWith(
-      isChecking: false,
-      steps: rendered,
-      granted: snapshot.granted,
-      alarm: snapshot.alarm,
-      clearError: true,
+    final read = _withSteps(
+      state.copyWith(
+        available: snapshot.steps,
+        granted: snapshot.granted,
+        promptSpent: snapshot.promptSpent,
+        alarm: snapshot.alarm,
+        clearError: true,
+      ),
     );
 
     // The denied screen stays until the user leaves it. It only closes
@@ -114,20 +119,65 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
       return;
     }
 
+    // A system dialog was open and the user is back. Yes or no, that was
+    // their answer, and a refusal moves on like a refused notification.
+    final answered = _dialogOpenFor;
+    _dialogOpenFor = null;
+
     // A granted step is not worth a screen, the one on screen included: a
     // switch turned on in Settings moves the user on when they come back. A
     // replay stays put, because it is there to be looked at.
     final current = state.current;
     final stillNeeded =
         current != null &&
+        current != answered &&
         (replayForDemo || !snapshot.granted.contains(current));
     if (stillNeeded) {
       emit(read);
       return;
     }
+    _moveOn(read);
+  }
 
-    final next = nextPermissionStep(rendered, alreadyShown: shown);
-    emit(next == null ? _finished(read) : read.copyWith(current: next));
+  /// The status read, given up on after [readTimeout]. A read that hangs
+  /// answers null rather than leaving the screen checking for good. The
+  /// timer is the cubit's own, so closing the screen stops it.
+  Future<PermissionSetupSnapshot?> _readWithinTimeout() {
+    final done = Completer<PermissionSetupSnapshot?>();
+    void finish(PermissionSetupSnapshot? snapshot) {
+      if (!done.isCompleted) done.complete(snapshot);
+    }
+
+    _readTimer?.cancel();
+    final timer = _readTimer = Timer(readTimeout, () => finish(null));
+    unawaited(
+      readSetup().then<void>(finish, onError: (Object _) => finish(null)),
+    );
+    return done.future.whenComplete(timer.cancel);
+  }
+
+  Timer? _readTimer;
+
+  @override
+  Future<void> close() {
+    _readTimer?.cancel();
+    return super.close();
+  }
+
+  /// Brings the list on screen up to date with what is granted now. The
+  /// first time, that is the list the dots are drawn from. After that it is
+  /// frozen: a step can only be added at its end.
+  NotificationPermissionsState _withSteps(NotificationPermissionsState from) {
+    final fresh = permissionStepsToRender(
+      from.available,
+      granted: from.granted,
+      mode: _mode,
+      alreadyShown: from.shown,
+      cannotAsk: from.promptSpent,
+    );
+    return from.copyWith(
+      steps: freezePermissionSteps(from.steps, fresh, order: from.available),
+    );
   }
 
   /// The main button of the step on screen.
@@ -146,15 +196,27 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
       case PermissionSetupStep.androidFullScreen:
         await _openSettingsPage(DevicePermissionType.fullScreenIntent);
       case PermissionSetupStep.androidBattery:
+        // Android asks for this one in a dialog. Coming back from it is an
+        // answer, whichever button was tapped.
+        _dialogOpenFor = current;
         await _openSettingsPage(DevicePermissionType.batteryOptimization);
     }
   }
 
   /// "Not now", and what a refused or failed prompt does too: move to the
   /// next step without asking, or finish when there is none.
-  void skipStep() => _moveOn(state);
+  void skipStep() {
+    _dialogOpenFor = null;
+    _moveOn(state);
+  }
 
   Future<void> _requestNotifications(PermissionSetupStep current) async {
+    // The system will not prompt again, so asking would do nothing. The
+    // switch is in Settings: open it and wait, as for any settings step.
+    if (state.promptSpent.contains(current)) {
+      await _openSettings(const NoParams());
+      return;
+    }
     emit(
       state.copyWith(
         step: NotificationPermissionStep.requesting,
@@ -227,8 +289,14 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     await repo.openPermissionSettings(type);
   }
 
-  void _moveOn(NotificationPermissionsState from) {
-    final next = nextPermissionStep(from.steps, alreadyShown: from.shown);
+  void _moveOn(NotificationPermissionsState before) {
+    final from = _withSteps(before);
+    final next = nextPermissionStep(
+      from.steps,
+      alreadyShown: from.shown,
+      granted: from.granted,
+      showGranted: replayForDemo,
+    );
     emit(
       next == null
           ? _finished(from)

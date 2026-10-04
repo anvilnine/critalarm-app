@@ -16,6 +16,7 @@ class PermissionSetupSnapshot {
     required this.steps,
     required this.granted,
     this.alarm = AlarmAuthorization.unsupported,
+    this.promptSpent = const {},
   });
 
   /// Every step this phone has, from [permissionSetupStepsFor].
@@ -26,6 +27,10 @@ class PermissionSetupSnapshot {
 
   /// What AlarmKit said. `unsupported` off iOS and below iOS 26.
   final AlarmAuthorization alarm;
+
+  /// The steps whose system prompt will not come up again, so the only way
+  /// left to grant them is a switch in Settings.
+  final Set<PermissionSetupStep> promptSpent;
 
   /// Nothing left for setup to ask.
   bool get everyGranted => everySetupPermissionGranted(steps, granted);
@@ -45,6 +50,7 @@ class ReadPermissionSetupUsecase {
     required this.alarm,
     required this.devicePermissions,
     required this.makerReader,
+    this.sdkReader,
   });
 
   final TargetPlatform platform;
@@ -53,6 +59,9 @@ class ReadPermissionSetupUsecase {
   final AlarmHost alarm;
   final DevicePermissionsRepository devicePermissions;
   final DeviceMakerReader makerReader;
+
+  /// Null in tests that do not care which Android this is.
+  final AndroidSdkReader? sdkReader;
 
   Future<PermissionSetupSnapshot> call() async {
     final isIos = !isWeb && platform == TargetPlatform.iOS;
@@ -71,39 +80,59 @@ class ReadPermissionSetupUsecase {
       maker: maker,
     );
 
+    final notifications = steps.isEmpty
+        ? null
+        : (await checkNotifications(const NoParams())).getOrNull();
+    final notificationsGranted =
+        notifications == NotificationPermissionStatus.granted;
+    final sdk = isAndroid ? await sdkReader?.sdkInt() : null;
+
     final granted = <PermissionSetupStep>{};
+    final promptSpent = <PermissionSetupStep>{};
     for (final step in steps) {
-      if (await _isGranted(step, authorization)) granted.add(step);
+      switch (step) {
+        case PermissionSetupStep.iosNotifications:
+        case PermissionSetupStep.androidNotifications:
+          if (notificationsGranted) granted.add(step);
+          if (notificationPromptSpent(
+            platform: platform,
+            granted: notificationsGranted,
+            // The repository answers `denied` only once the app has asked.
+            refusedBefore: notifications == NotificationPermissionStatus.denied,
+            androidSdk: sdk,
+          )) {
+            promptSpent.add(step);
+          }
+        case PermissionSetupStep.iosAlarms:
+          if (authorization == AlarmAuthorization.authorized) {
+            granted.add(step);
+          }
+          // AlarmKit prompts once.
+          if (authorization == AlarmAuthorization.denied) {
+            promptSpent.add(step);
+          }
+        case PermissionSetupStep.iosTimeSensitiveExplainer:
+          break;
+        case PermissionSetupStep.androidFullScreen:
+          if (await _deviceGranted(DevicePermissionType.fullScreenIntent)) {
+            granted.add(step);
+          }
+        case PermissionSetupStep.androidBattery:
+          if (await _deviceGranted(DevicePermissionType.batteryOptimization)) {
+            granted.add(step);
+          }
+      }
     }
     return PermissionSetupSnapshot(
       steps: steps,
       granted: granted,
       alarm: authorization,
+      promptSpent: promptSpent,
     );
   }
 
   /// A read that fails counts as not granted: the step shows, and the user
   /// can still skip it.
-  Future<bool> _isGranted(
-    PermissionSetupStep step,
-    AlarmAuthorization authorization,
-  ) async {
-    switch (step) {
-      case PermissionSetupStep.iosNotifications:
-      case PermissionSetupStep.androidNotifications:
-        final status = (await checkNotifications(const NoParams())).getOrNull();
-        return status == NotificationPermissionStatus.granted;
-      case PermissionSetupStep.iosAlarms:
-        return authorization == AlarmAuthorization.authorized;
-      case PermissionSetupStep.iosTimeSensitiveExplainer:
-        return false;
-      case PermissionSetupStep.androidFullScreen:
-        return _deviceGranted(DevicePermissionType.fullScreenIntent);
-      case PermissionSetupStep.androidBattery:
-        return _deviceGranted(DevicePermissionType.batteryOptimization);
-    }
-  }
-
   Future<bool> _deviceGranted(DevicePermissionType type) async =>
       (await devicePermissions.checkPermission(type)).getOrNull() ==
       DevicePermissionStatus.granted;
