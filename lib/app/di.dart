@@ -25,7 +25,10 @@ import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/device/dev_edge_effect_switch.dart';
+import 'package:critalarm/core/device/device_build_mode.dart';
 import 'package:critalarm/core/device/device_form.dart';
+import 'package:critalarm/core/device/device_maker.dart';
+import 'package:critalarm/core/device/platform_device_maker_reader.dart';
 import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
@@ -131,6 +134,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_com
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/open_notification_settings_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/read_permission_setup_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/request_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
@@ -210,6 +214,7 @@ import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
 import 'package:critalarm/firebase_options.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
@@ -753,6 +758,29 @@ Future<void> configureDependencies({
       () => const EmptyOnboardingFlowSource(),
       instanceName: remoteOnboardingFlowSource,
     )
+    // The real maker, or in a debug run the one DEVICE_MAKER names, so the
+    // battery step can be looked at on an emulator.
+    ..registerLazySingleton<DeviceMakerReader>(
+      () => kDebugMode && buildDeviceMaker.isNotEmpty
+          ? FixedDeviceMakerReader.named(buildDeviceMaker)
+          : PlatformDeviceMakerReader(
+              DeviceInfoPlugin(),
+              platform: defaultTargetPlatform,
+              isWeb: kIsWeb,
+            ),
+    )
+    // One reader for the permission steps and their statuses. The setup
+    // flow and the permissions screen both ask it.
+    ..registerLazySingleton(
+      () => ReadPermissionSetupUsecase(
+        platform: defaultTargetPlatform,
+        isWeb: kIsWeb,
+        checkNotifications: getIt<CheckNotificationPermissionUsecase>(),
+        alarm: getIt<AlarmHost>(),
+        devicePermissions: getIt<DevicePermissionsRepository>(),
+        makerReader: getIt<DeviceMakerReader>(),
+      ),
+    )
     ..registerLazySingleton<OnboardingStepCatalog>(
       () {
         final on = OnboardingPlatform(
@@ -764,9 +792,7 @@ Future<void> configureDependencies({
           facts: DeviceOnboardingStepFacts(
             on: on,
             getConnection: getIt<GetConnectionUsecase>(),
-            checkNotifications: getIt<CheckNotificationPermissionUsecase>(),
-            alarm: getIt<AlarmHost>(),
-            devicePermissions: getIt<DevicePermissionsRepository>(),
+            readPermissionSetup: getIt<ReadPermissionSetupUsecase>(),
             notices: getIt<InAppNoticeRepository>(),
           ),
         );
@@ -1024,8 +1050,8 @@ Future<void> configureDependencies({
       (initialStep, mode) => NotificationPermissionsCubit(
         getIt<RequestNotificationPermissionUsecase>(),
         getIt<OpenNotificationSettingsUsecase>(),
+        readSetup: getIt<ReadPermissionSetupUsecase>(),
         alarm: getIt<AlarmHost>(),
-        checkPermission: getIt<CheckNotificationPermissionUsecase>(),
         devicePermissions: getIt<DevicePermissionsRepository>(),
         replayForDemo: mode?.replayForDemo ?? false,
         standalone: mode?.standalone ?? false,

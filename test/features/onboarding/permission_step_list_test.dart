@@ -107,7 +107,10 @@ void main() {
       };
       for (final hasAlarmKit in [true, false]) {
         expect(
-          _steps(TargetPlatform.iOS, hasAlarmKit: hasAlarmKit).toSet().difference(
+          _steps(
+            TargetPlatform.iOS,
+            hasAlarmKit: hasAlarmKit,
+          ).toSet().difference(
             ios,
           ),
           isEmpty,
