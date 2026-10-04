@@ -3,11 +3,22 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 
 ## Unreleased
 ### Added
+- Setup flow engine in `lib/features/onboarding/domain/flow/`: a flow is an id plus a list of step ids, checked by `validateOnboardingFlow`, chosen from ordered `OnboardingFlowSource`s and pinned when the user taps Get started. `OnboardingStepRegistry` holds one entry per step (route, screen, `isAvailable`, `isSatisfied`, `requires`, canvas step) and the router builds the step routes from it. Screens call `finishOnboardingStep(context, stepId)` and no longer name the next step.
+- Prefs keys `onboarding_flow_id`, `onboarding_flow_steps` and `onboarding_flow_completed` hold the pinned setup flow and the steps finished in it. All three are cleared when setup completes.
+- Routes `/onboarding/first-topic`, `/onboarding/real-ring` and `/onboarding/test`. `CreateTopicScreen` takes an optional `onDone` callback that replaces its three exits, and `OnboardingConnectScreen` takes a `part` (connect or test).
 - `AppHighlightCard` (tones `crit` and `calm`), `AppAnimatedTick` and `AppWaitingFace` in `lib/design/components/`, shown in the gallery. The no-server notice card draws its surface with `AppHighlightCard`.
 
 ### Changed
+- A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
 - Locale values and the search keyword for the paid plan say Hosted. Keys, class names, routes and analytics event names keep their pro\_ names. The create-topic limit hint is now the key create\_topic.limit\_review\_plan\_hint.
 - `AppEmptyState` has no English defaults: `title` and `description` are required and `buttonLabel` is null unless passed. The Home empty card reads its words from `home.empty_body` and `home.empty_button`.
+- A pinned setup flow goes through the validator each time it is read: unknown ids are dropped, and a rejected or empty list is replaced by the bundled default with the completed steps kept. `finishOnboardingStep` does not navigate when the router moved while it was waiting. `CriticalAlarmState.hasOwnedTopic` decides whether the demo celebration offers the first topic.
+
+### Fixed
+- A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
+
+### Removed
+- The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added

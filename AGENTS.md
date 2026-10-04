@@ -129,8 +129,10 @@ names in code, strings, comments and PRs, and never one for another.
   `app.critalarm/local_reminders`. The Android channel id `reminders_v1`, the
   iOS category ids `reminder_<kind>` and the `reminder_*` prefs keys are
   persisted and keep their names.
-- **Setup order.** Onboarding, including the create-your-first-topic screens
-  after the demo alarm, shows no guide, notice, ask or Local Reminder. The
+- **Setup order.** Onboarding, including the first-topic step inside it,
+  shows no guide, notice, ask or Local Reminder. The order of the setup
+  steps is a flow (see "Setup flow engine" below). In the default flow the
+  first topic is created before the test alarm. The
   Topics guide is always the first Feature Guide. The first time the user
   reaches Topics, a sheet offers it (`FeatureGuideStatus.offering`); taking
   it plays the Topics guide, declining it marks every guide seen. Only after
@@ -150,6 +152,82 @@ names in code, strings, comments and PRs, and never one for another.
 - A screen that exists on one platform only is its own route gated by a capability, never a widget hidden behind a boolean: the message composer is web only, the permissions screen is mobile only.
 - Shared widgets take no platform-specific dependencies.
 - Layout breakpoints come from the design system, never from the platform.
+
+**Setup flow engine.** The order of the setup steps is data. A flow is an id
+plus a list of step ids, for example
+`{"id": "2026-10-a", "steps": ["welcome", "how_it_rings", "connect"]}`. The
+code is in `lib/features/onboarding/domain/flow/` (flow, validator, sources,
+engine) and `lib/features/onboarding/presentation/flow/onboarding_step_registry.dart`
+(the steps).
+
+To add a step:
+
+1. Add an id to `OnboardingStepId`. Ids are saved on phones, so a shipped id
+   never changes.
+2. Add an `OnboardingStepEntry` to `OnboardingStepRegistry.entries` with:
+   - `route` and `routeName`, and `screen`, the widget that route builds. The
+     router makes one route per entry inside the onboarding `ShellRoute`, so
+     there is nothing to add in `router.dart` except the `AppRoute` name.
+   - `isAvailable`: whether the step exists on this phone. It gets the
+     platform as values (`OnboardingPlatform`). No `Platform.isIOS`, no
+     `kIsWeb`.
+   - `isSatisfied`: whether the step is already true for this user, read
+     through `OnboardingStepFacts`. Local reads only, because launch waits on
+     it. Leave it out for a step that only counts once the user finishes it.
+   - `requires`: step ids that must come earlier in any flow that lists it.
+   - `ambientStep`: the `OnboardingAmbientStep` the canvas shows on that
+     route. `onboardingStepForPath` reads it from the entry.
+3. When the user is done with the screen, call
+   `finishOnboardingStep(context, OnboardingStepId.yourStep)`. A screen never
+   names the step after it.
+4. List the id in a flow. `BundledOnboardingFlows` holds the two that ship:
+   `2026-10-a` (the default) and `legacy-1` (the first shipped order).
+
+An entry with no route is known to the validator and never shown. `hook_up`
+is one today.
+
+Where a flow comes from, highest priority first: the developer settings
+override, the remote value, the bundled default. Each is an
+`OnboardingFlowSource` registered in `lib/app/di.dart`. The first two are
+empty slots today. A source answers with what it has in hand and never waits.
+
+Every source passes `validateOnboardingFlow`:
+
+- An unknown step id is dropped.
+- A duplicate id keeps its first position.
+- `welcome` not first, a step listed before one it requires, or a required
+  step missing: the whole flow is rejected and the next source is asked.
+- Nothing left after the drops: rejected too. The bundled default is the
+  last source, so that is where it ends.
+
+A flow decides order and inclusion only. Copy and defaults such as Critical
+OFF stay in code.
+
+Pinning: the flow is chosen once, when the user taps Get started on
+`welcome`, and saved (`onboarding_flow_id`, `onboarding_flow_steps`). A
+source that changes later applies to the next fresh install, never to a run
+in progress. Finished steps are saved in `onboarding_flow_completed`.
+`CompleteOnboardingUsecase` clears all three.
+
+Resume: no position is saved. The next step is the first one in the pinned
+list that is available, not completed and not satisfied. With nothing pinned
+the app opens `welcome`. With no step left, setup is complete.
+
+The replay flag: Settings opens the flow with `?demo=true`. On a replay
+nothing is saved or pinned, no step is skipped for being satisfied, the flag
+carries on to the next route, and the connect step moves on without
+connecting. `isOnboardingReplay(context)` reads the flag.
+
+After setup: two setup screens are also opened on their own, by
+`OnboardingEntryPoint.connectServer` (Server settings, the no-server card on
+Home) and `OnboardingEntryPoint.testAlarm` (Health). Once setup is complete,
+`finishStep` saves nothing and pins nothing, and the screen closes back to
+whatever opened it. A user who connects late lands back where they were,
+connected, never in setup.
+
+A pinned flow is checked again every time it is read. Unknown ids are
+dropped, and a list the validator rejects (empty, or nothing known left) is
+replaced by the bundled default with the completed steps kept.
 
 **Changelogs.** Two files, both written with cider, never by hand. The
 how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
@@ -189,8 +267,9 @@ how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 - Real: the design system in `lib/design/`, with its palette, fonts and
   component names. The `AppColors` `ThemeExtension` with `copyWith` and `lerp`,
   the single `ThemeData` construction point in `lib/design/theme/theme.dart`,
-  the theme preference round-trip, `go_router` wiring (`lib/app/router.dart`, 47
-  routes today), the `AppResult` and `Failure` types, `tool/check_layers.sh`, CI.
+  the theme preference round-trip, `go_router` wiring (`lib/app/router.dart`, 50
+  routes today: `GoRoute(` appears 43 times, and one of those is a loop that
+  builds the 8 setup step routes), the `AppResult` and `Failure` types, `tool/check_layers.sh`, CI.
 - Placeholder: nothing in `lib/design/`. The widgets left in
   `lib/design_system/widgets/` predate it. Do not build new screens from them.
 

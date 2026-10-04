@@ -1,5 +1,7 @@
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -42,6 +44,14 @@ void main() {
   });
 
   group('onboardingStepForPath', () {
+    test('every step with a route resolves to its registry entry', () {
+      for (final entry in OnboardingStepRegistry.entries) {
+        final route = entry.route;
+        if (route == null) continue;
+        expect(onboardingStepForPath(route), entry.ambientStep, reason: route);
+      }
+    });
+
     test('gives every first-run screen its own step', () {
       expect(
         onboardingStepForPath('/onboarding/welcome'),
@@ -71,24 +81,36 @@ void main() {
         onboardingStepForPath('/onboarding/denied'),
         OnboardingAmbientStep.denied,
       );
+      expect(
+        onboardingStepForPath('/onboarding/first-topic'),
+        OnboardingAmbientStep.firstTopic,
+      );
+      expect(
+        onboardingStepForPath('/onboarding/real-ring'),
+        OnboardingAmbientStep.connected,
+      );
+      expect(
+        onboardingStepForPath('/onboarding/test'),
+        OnboardingAmbientStep.connected,
+      );
     });
 
     test('screens in sequence never share a profile, so the canvas moves', () {
       for (final colors in const [AppColors.light, AppColors.dark]) {
         final catalog = OnboardingAmbientProfiles.forColors(colors);
-        const flow = [
-          '/onboarding/welcome',
-          '/onboarding/how-it-rings',
-          '/onboarding/permissions',
-          '/onboarding/widgets',
-          '/onboarding/connect',
-        ];
-        for (var i = 0; i < flow.length - 1; i++) {
-          expect(
-            catalog[onboardingStepForPath(flow[i])],
-            isNot(catalog[onboardingStepForPath(flow[i + 1])]),
-            reason: '${flow[i]} to ${flow[i + 1]}',
-          );
+        // Both bundled orders, by the routes the registry gives their steps.
+        for (final bundled in BundledOnboardingFlows.all) {
+          final flow = [
+            for (final step in bundled.steps)
+              OnboardingStepRegistry.entryFor(step)!.route!,
+          ];
+          for (var i = 0; i < flow.length - 1; i++) {
+            expect(
+              catalog[onboardingStepForPath(flow[i])],
+              isNot(catalog[onboardingStepForPath(flow[i + 1])]),
+              reason: '${bundled.id}: ${flow[i]} to ${flow[i + 1]}',
+            );
+          }
         }
       }
     });

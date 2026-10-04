@@ -5,9 +5,11 @@ import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
@@ -19,30 +21,52 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// Screen 2 of Onboarding (/onboarding/connect): Server Connection & Local Test Alarm.
+/// Which of the two setup steps in this file a route shows.
+enum OnboardingConnectPart {
+  /// Pick Crit Alarm Cloud or your own server. Done once a server answers.
+  connect,
+
+  /// Connected, ready to run the local test alarm.
+  test,
+}
+
+/// Two setup steps, each on its own route: the server connection
+/// (/onboarding/connect) and the local test alarm.
 class OnboardingConnectScreen extends StatelessWidget {
   const OnboardingConnectScreen({
-    this.initialConnected = false,
+    this.part = OnboardingConnectPart.connect,
     super.key,
   });
 
-  final bool initialConnected;
+  final OnboardingConnectPart part;
 
   @override
   Widget build(BuildContext context) {
+    final isTest = part == OnboardingConnectPart.test;
+    final isReplay = isOnboardingReplay(context);
     return BlocProvider(
       create: (_) {
-        final cubit = getIt<OnboardingConnectCubit>(param1: initialConnected);
-        unawaited(cubit.loadConnection());
+        final cubit = getIt<OnboardingConnectCubit>(param1: isTest);
+        // A replay of the connect step is a look at the form, so a server
+        // that is already saved does not move it on.
+        unawaited(
+          cubit.loadConnection(adoptSavedConnection: isTest || !isReplay),
+        );
         return cubit;
       },
-      child: const _OnboardingConnectView(),
+      child: _OnboardingConnectView(isTest: isTest, isReplay: isReplay),
     );
   }
 }
 
 class _OnboardingConnectView extends StatefulWidget {
-  const _OnboardingConnectView();
+  const _OnboardingConnectView({required this.isTest, required this.isReplay});
+
+  final bool isTest;
+
+  /// Opened from Settings to look at the screens. Nothing is saved, so the
+  /// connect buttons move on without connecting.
+  final bool isReplay;
 
   @override
   State<_OnboardingConnectView> createState() => _OnboardingConnectViewState();
@@ -75,12 +99,12 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     final cubit = context.read<OnboardingConnectCubit>();
     final ambient = OnboardingAmbientScope.maybeOf(context);
     if (ambient == null) return;
-    if (cubit.state.isCountingDown) {
-      ambient.setStep(OnboardingAmbientStep.countdown);
-    } else if (cubit.state.isConnected) {
-      ambient.setStep(OnboardingAmbientStep.connected);
-    } else {
+    if (!widget.isTest) {
       ambient.setStep(OnboardingAmbientStep.connect);
+    } else if (cubit.state.isCountingDown) {
+      ambient.setStep(OnboardingAmbientStep.countdown);
+    } else {
+      ambient.setStep(OnboardingAmbientStep.connected);
     }
   }
 
@@ -113,6 +137,14 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     _urlController.dispose();
     _tokenController.dispose();
     super.dispose();
+  }
+
+  bool _connectStepFinished = false;
+
+  void _finishConnectStep() {
+    if (_connectStepFinished) return;
+    _connectStepFinished = true;
+    unawaited(finishOnboardingStep(context, OnboardingStepId.connect));
   }
 
   Future<void> _handlePaste() async {
@@ -218,12 +250,18 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           cubit.navigationHandled();
           context.go('/');
           return;
-        } else if (state.canLaunchDemoAlarm) {
+        } else if (state.canLaunchDemoAlarm && widget.isTest) {
           cubit.demoAlarmHandled();
           // The demo alarm is a step forward in onboarding, not a detour, so
           // it replaces this screen. Pushing left it swipe-back-able into a
           // test the user has already run.
           context.go('/incidents/inc_demo');
+          return;
+        }
+        if (!widget.isTest) {
+          // A server answered, so this step is done. The flow says what
+          // comes next; this screen no longer turns into the test.
+          if (state.isConnected) _finishConnectStep();
           return;
         }
         final ambient = OnboardingAmbientScope.maybeOf(context);
@@ -233,13 +271,8 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
               OnboardingAmbientStep.countdown,
               AmbientDirection.push,
             );
-          } else if (state.isConnected) {
-            ambient.setStep(
-              OnboardingAmbientStep.connected,
-              AmbientDirection.push,
-            );
           } else {
-            ambient.setStep(OnboardingAmbientStep.connect);
+            ambient.setStep(OnboardingAmbientStep.connected);
           }
         }
       },
@@ -256,16 +289,17 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           _tokenController.text = state.adminToken;
         }
 
-        final bottomAligned = !state.isConnected && !state.isSelfHosting;
+        final isTest = widget.isTest;
+        final bottomAligned = !isTest && !state.isSelfHosting;
 
         // What the pinned bar takes off the bottom of the viewport: its own
         // buttons, the 12 the scaffold puts under them, and the home
         // indicator. AppButton is lg 60, md 48, sm 36.
         final barButtons = switch (state) {
-          _ when state.isConnected && state.isCountingDown => 48.0,
+          _ when isTest && state.isCountingDown => 48.0,
           // lg + Spacing.s3 + sm, on both the connected bar and the
           // self-hosted form's Connect + "use the cloud instead" pair.
-          _ when state.isConnected || state.isSelfHosting => 60.0 + 12 + 36,
+          _ when isTest || state.isSelfHosting => 60.0 + 12 + 36,
           // The cloud bar is the self-host toggle plus the text button.
           _ => 36.0 + 4 + 36,
         };
@@ -291,7 +325,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                   )
                 : null,
           ),
-          bottomBar: state.isConnected
+          bottomBar: isTest
               ? _buildHookBottomBar(context, state, cubit)
               : _buildConnectBottomBar(context, state, cubit),
           slivers: [
@@ -319,7 +353,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                       ),
                     )
                   : SliverToBoxAdapter(
-                      child: state.isConnected
+                      child: isTest
                           ? _buildHookTestState(context, state, cubit)
                           : _buildConnectOptions(context, state, cubit),
                     ),
@@ -446,8 +480,10 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                   label: LocaleKeys.onboarding_connect_cloud_button.tr(),
                   size: AppButtonSize.lg,
                   isFullWidth: true,
-                  isLoading: state.isConnecting,
-                  onPressed: cubit.connectToCloud,
+                  isLoading: state.isConnecting || state.isConnected,
+                  onPressed: widget.isReplay
+                      ? _finishConnectStep
+                      : cubit.connectToCloud,
                 ),
               ],
             ),
@@ -464,7 +500,8 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
             // out of sight, so the user can check what they typed.
             growToFit: true,
             onChanged: cubit.serverUrlChanged,
-            onSubmitted: (_) => cubit.connect(),
+            onSubmitted: (_) =>
+                widget.isReplay ? _finishConnectStep() : cubit.connect(),
           ),
           const SizedBox(height: Spacing.s4),
 
@@ -522,7 +559,8 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
             errorText: state.adminTokenError,
             growToFit: true,
             onChanged: cubit.adminTokenChanged,
-            onSubmitted: (_) => cubit.connect(),
+            onSubmitted: (_) =>
+                widget.isReplay ? _finishConnectStep() : cubit.connect(),
           ),
         ],
       ],
@@ -584,8 +622,8 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           label: LocaleKeys.onboarding_connect_connect_button.tr(),
           size: AppButtonSize.lg,
           isFullWidth: true,
-          isLoading: state.isConnecting,
-          onPressed: cubit.connect,
+          isLoading: state.isConnecting || state.isConnected,
+          onPressed: widget.isReplay ? _finishConnectStep : cubit.connect,
         ),
         const SizedBox(height: Spacing.s3),
         AppButton(

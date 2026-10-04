@@ -33,6 +33,7 @@ class CriticalAlarmState {
     this.feedbackMessage,
     this.errorMessage,
     this.isOnboardingDone = false,
+    this.hasOwnedTopic = false,
   });
 
   final CriticalAlarmStatus status;
@@ -60,6 +61,10 @@ class CriticalAlarmState {
   /// buttons that start the first topic.
   final bool isOnboardingDone;
 
+  /// Only the demo alarm reads it: with a topic already made, the
+  /// celebration has no first topic to offer.
+  final bool hasOwnedTopic;
+
   CriticalAlarmState copyWith({
     CriticalAlarmStatus? status,
     Incident? incident,
@@ -78,6 +83,7 @@ class CriticalAlarmState {
     String? feedbackMessage,
     String? errorMessage,
     bool? isOnboardingDone,
+    bool? hasOwnedTopic,
     bool clearError = false,
     bool clearFeedback = false,
   }) {
@@ -101,6 +107,7 @@ class CriticalAlarmState {
           : (feedbackMessage ?? this.feedbackMessage),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       isOnboardingDone: isOnboardingDone ?? this.isOnboardingDone,
+      hasOwnedTopic: hasOwnedTopic ?? this.hasOwnedTopic,
     );
   }
 
@@ -125,7 +132,8 @@ class CriticalAlarmState {
           isAcknowledging == other.isAcknowledging &&
           feedbackMessage == other.feedbackMessage &&
           errorMessage == other.errorMessage &&
-          isOnboardingDone == other.isOnboardingDone;
+          isOnboardingDone == other.isOnboardingDone &&
+          hasOwnedTopic == other.hasOwnedTopic;
 
   @override
   int get hashCode => Object.hash(
@@ -146,5 +154,6 @@ class CriticalAlarmState {
     feedbackMessage,
     errorMessage,
     isOnboardingDone,
+    hasOwnedTopic,
   );
 }

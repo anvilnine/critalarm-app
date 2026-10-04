@@ -28,7 +28,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// CreateTopicScreen matching docs/design-system/index.html mobile mockup.
 class CreateTopicScreen extends StatelessWidget {
-  const CreateTopicScreen({super.key});
+  const CreateTopicScreen({this.onDone, super.key});
+
+  /// Called in place of every exit, whether the topic was created or the
+  /// screen was closed. Setup passes it to move on to its next step. Null
+  /// everywhere else, where the exits pop or open the new topic.
+  final VoidCallback? onDone;
 
   @override
   Widget build(BuildContext context) {
@@ -48,14 +53,16 @@ class CreateTopicScreen extends StatelessWidget {
             context.read<CreateTopicCubit>().existingNamesChanged(
               topicsState.topics.map((topic) => topic.name),
             ),
-        child: const _CreateTopicScreenContent(),
+        child: _CreateTopicScreenContent(onDone: onDone),
       ),
     );
   }
 }
 
 class _CreateTopicScreenContent extends StatefulWidget {
-  const _CreateTopicScreenContent();
+  const _CreateTopicScreenContent({this.onDone});
+
+  final VoidCallback? onDone;
 
   @override
   State<_CreateTopicScreenContent> createState() =>
@@ -593,6 +600,11 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                   glyph: GlyphType.close,
                   ariaLabel: LocaleKeys.create_topic_cancel_aria_label.tr(),
                   onPressed: () {
+                    final onDone = widget.onDone;
+                    if (onDone != null) {
+                      onDone();
+                      return;
+                    }
                     final created = state.createdTopic;
                     if (created != null) {
                       if (context.canPop()) {
@@ -797,7 +809,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                                 ? null
                                 : () {
                                     AppHaptics.capture();
-                                    if (isSuccess) {
+                                    final onDone = widget.onDone;
+                                    if (isSuccess && onDone != null) {
+                                      onDone();
+                                    } else if (isSuccess) {
                                       final name = state.createdTopic!.name;
                                       if (context.canPop()) {
                                         context.pop();

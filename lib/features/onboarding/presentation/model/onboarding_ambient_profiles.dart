@@ -1,5 +1,6 @@
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/tokens/colors.dart';
+import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:flutter/material.dart';
 
 /// Distinct steps and visual states within the onboarding narrative.
@@ -8,8 +9,9 @@ import 'package:flutter/material.dart';
 /// its own route needs its own step. Two screens sharing one leave the
 /// background holding still between them.
 ///
-/// The order is the order of the flow: moving to a later value drifts the
-/// shapes forward, to an earlier one drifts them back.
+/// Within one screen, moving to a later value drifts the shapes forward and
+/// to an earlier one drifts them back. Between routes the shell always drifts
+/// forward, because the order of the screens is data.
 enum OnboardingAmbientStep {
   /// Step 0: The welcome screen, the first thing a new user sees.
   welcome,
@@ -32,6 +34,9 @@ enum OnboardingAmbientStep {
   /// Step 2A: Connect to server (Cloud or self-hosted).
   connect,
 
+  /// The first topic, created inside setup.
+  firstTopic,
+
   /// Step 2B: Connected to server, ready for test alarm.
   connected,
 
@@ -41,26 +46,21 @@ enum OnboardingAmbientStep {
 
 /// Which step the canvas shows for the onboarding route at [path].
 ///
-/// Screens that report their own sub-state (permissions, connect) refine this
-/// once they mount. Anything unrecognised falls back to the first permission
-/// prompt, the screen at `/onboarding`.
+/// A step's route takes the canvas step its registry entry names, so a new
+/// route never falls through to the permission prompt. Screens that report
+/// their own sub-state (permissions, connect) refine this once they mount.
+/// Anything unrecognised falls back to the first permission prompt, the
+/// screen at `/onboarding`.
 OnboardingAmbientStep onboardingStepForPath(String path) {
-  if (path.startsWith('/onboarding/welcome')) {
-    return OnboardingAmbientStep.welcome;
-  }
-  if (path.startsWith('/onboarding/how-it-rings')) {
-    return OnboardingAmbientStep.howItRings;
-  }
-  if (path.startsWith('/onboarding/widgets')) {
-    return OnboardingAmbientStep.widgets;
-  }
-  if (path.startsWith('/onboarding/connect')) {
-    return OnboardingAmbientStep.connect;
-  }
+  // Two more doors into the permissions screen, which is one step.
   if (path.startsWith('/onboarding/denied')) {
     return OnboardingAmbientStep.denied;
   }
-  return OnboardingAmbientStep.notifications;
+  if (path.startsWith('/onboarding/permissions')) {
+    return OnboardingAmbientStep.notifications;
+  }
+  return OnboardingStepRegistry.ambientStepForPath(path) ??
+      OnboardingAmbientStep.notifications;
 }
 
 /// Catalog of tailored ambient visual profiles for every onboarding state.
@@ -166,6 +166,20 @@ abstract final class OnboardingAmbientProfiles {
         ],
         scales: const [0.42, 0.34, 0.30],
         turns: const [0.08, -0.12, 0.20],
+        depths: const [0.35, 0.65, 0.85],
+      ),
+      OnboardingAmbientStep.firstTopic: _profile(
+        canvas: colors.canvasAlt,
+        surfaceOpacity: 0.82,
+        colors: [colors.high, colors.cobalt, colors.crit],
+        opacities: const [0.24, 0.20, 0.14],
+        anchors: const [
+          Alignment(-0.74, 0.48),
+          Alignment(0.70, -0.58),
+          Alignment(0.30, 0.86),
+        ],
+        scales: const [0.40, 0.44, 0.28],
+        turns: const [0.12, -0.04, 0.18],
         depths: const [0.35, 0.65, 0.85],
       ),
       OnboardingAmbientStep.connected: _profile(

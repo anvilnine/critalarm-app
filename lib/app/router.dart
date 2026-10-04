@@ -17,10 +17,9 @@ import 'package:critalarm/features/local_reminders/presentation/confirm_ring_scr
 import 'package:critalarm/features/local_reminders/presentation/local_reminder_lab_screen.dart';
 import 'package:critalarm/features/local_reminders/presentation/local_reminder_settings_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
-import 'package:critalarm/features/onboarding/presentation/onboarding_connect_screen.dart';
+import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
-import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
 import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/pro_welcome_screen.dart';
@@ -62,6 +61,9 @@ abstract final class AppRoute {
   static const onboardingWelcome = 'onboardingWelcome';
   static const onboardingHowItRings = 'onboardingHowItRings';
   static const onboardingWidgets = 'onboardingWidgets';
+  static const onboardingFirstTopic = 'onboardingFirstTopic';
+  static const onboardingRealRing = 'onboardingRealRing';
+  static const onboardingTest = 'onboardingTest';
   static const topics = 'topics';
   static const history = 'history';
   static const topicDetail = 'topicDetail';
@@ -591,52 +593,19 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         child: child,
       ),
       routes: [
-        GoRoute(
-          path: '/onboarding',
-          name: AppRoute.onboarding,
-          pageBuilder: (context, state) {
-            final isDenied = state.uri.queryParameters['denied'] == 'true';
-            final replay = state.uri.queryParameters['demo'] == 'true';
-            return AmbientPage(
-              key: state.pageKey,
-              child: OnboardingPermissionsScreen(
-                replayForDemo: replay,
-                initialStep: isDenied
-                    ? NotificationPermissionStep.denied
-                    : NotificationPermissionStep.initial,
+        // One route per setup step that has a screen. The registry holds
+        // the path and the screen, so a new step is added there.
+        for (final step in OnboardingStepRegistry.entries)
+          if (step.route != null && step.screen != null)
+            GoRoute(
+              path: step.route!,
+              name: step.routeName,
+              pageBuilder: (context, state) => AmbientPage(
+                key: state.pageKey,
+                child: step.screen!(context, state),
               ),
-            );
-          },
-        ),
-        GoRoute(
-          path: '/onboarding/welcome',
-          name: AppRoute.onboardingWelcome,
-          pageBuilder: (context, state) => AmbientPage(
-            key: state.pageKey,
-            child: OnboardingWelcomeScreen(
-              variant: state.uri.queryParameters.containsKey('v')
-                  ? WelcomeVariant.fromQuery(state.uri.queryParameters['v'])
-                  : null,
-              isPreview: state.uri.queryParameters['preview'] == 'true',
             ),
-          ),
-        ),
-        GoRoute(
-          path: '/onboarding/how-it-rings',
-          name: AppRoute.onboardingHowItRings,
-          pageBuilder: (context, state) => AmbientPage(
-            key: state.pageKey,
-            child: const OnboardingHowItRingsScreen(),
-          ),
-        ),
-        GoRoute(
-          path: '/onboarding/widgets',
-          name: AppRoute.onboardingWidgets,
-          pageBuilder: (context, state) => AmbientPage(
-            key: state.pageKey,
-            child: const OnboardingWidgetsScreen(),
-          ),
-        ),
+        // Two more doors into the permissions screen.
         GoRoute(
           path: '/onboarding/denied',
           name: AppRoute.onboardingDenied,
@@ -645,14 +614,6 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
             child: const OnboardingPermissionsScreen(
               initialStep: NotificationPermissionStep.denied,
             ),
-          ),
-        ),
-        GoRoute(
-          path: '/onboarding/connect',
-          name: AppRoute.onboardingConnect,
-          pageBuilder: (context, state) => AmbientPage(
-            key: state.pageKey,
-            child: const OnboardingConnectScreen(),
           ),
         ),
         GoRoute(
