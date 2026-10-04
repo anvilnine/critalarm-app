@@ -1,14 +1,24 @@
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
+import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_developer_onboarding_overrides.dart';
+import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
+import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_source.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rules.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
+import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/onboarding_flow_fakes.dart';
 
 class _MockGetServerInfo extends Mock implements GetServerInfoUsecase {}
 
@@ -79,5 +89,58 @@ void main() {
       );
       await cubit.close();
     });
+  });
+
+  test('replaying the whole legacy flow leaves every pref as it was', () async {
+    SharedPreferences.setMockInitialValues({
+      SharedPrefsDeveloperOnboardingOverrides.flowKey: 'legacy-1',
+      SharedPrefsDeveloperOnboardingOverrides.forcedKey: ['permissions'],
+    });
+    final prefs = await SharedPreferences.getInstance();
+    Map<String, Object?> dump() => {
+      for (final key in prefs.getKeys().toList()..sort()) key: prefs.get(key),
+    };
+    final overrides = developerOnboardingOverridesFor(prefs, enabled: true);
+    final repository = SharedPrefsOnboardingFlowRepository(prefs);
+    final progress = SharedPrefsOnboardingProgressRepository(prefs);
+    final engine = OnboardingFlowEngine(
+      sources: [
+        DeveloperOnboardingFlowSource(
+          overrides: overrides,
+          requires: OnboardingStepRegistry.requiresById,
+        ),
+        const BundledOnboardingFlowSource(),
+      ],
+      catalog: ForcedUnsatisfiedStepCatalog(
+        OnboardingStepRegistry(on: iPhone, facts: FakeOnboardingStepFacts()),
+        overrides,
+      ),
+      repository: repository,
+      completeOnboarding: CompleteOnboardingUsecase(progress, repository),
+      getOnboardingCompleted: GetOnboardingCompletedUsecase(progress),
+    );
+    final before = dump();
+
+    final walked = <String>[];
+    var destination = await engine.finishStep('welcome', isReplay: true);
+    while (destination.stepId != null) {
+      walked.add(destination.stepId!);
+      destination = await engine.finishStep(
+        destination.stepId!,
+        isReplay: true,
+      );
+    }
+
+    expect(walked, [
+      'how_it_rings',
+      'permissions',
+      'widgets',
+      'connect',
+      'legacy_test',
+    ]);
+    expect(destination.isHome, isTrue);
+    expect(dump(), before);
+    // ignore: avoid_print
+    print('prefs before and after a replay: $before');
   });
 }
