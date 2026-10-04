@@ -41,9 +41,12 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
     required this.platform,
     required bool isWeb,
     FirstMessageTimerFactory? timer,
+    DateTime Function()? now,
+    this.sweepEvery = const Duration(seconds: 30),
     this.tickHold = const Duration(milliseconds: 900),
     this.celebrationHold = const Duration(milliseconds: 3600),
   }) : _timer = timer ?? Timer.new,
+       _now = now ?? DateTime.now,
        _widgetsExist = homeScreenWidgetsExist(
          platform: platform,
          isWeb: isWeb,
@@ -73,6 +76,20 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
   final TargetPlatform platform;
   final bool _widgetsExist;
   final FirstMessageTimerFactory _timer;
+  final DateTime Function() _now;
+
+  /// The shortest gap between two sweeps of the topics that are not being
+  /// polled.
+  final Duration sweepEvery;
+
+  /// The first look failed this many times in a row, and may not be tried
+  /// again before [_seedRetryAt].
+  int _seedFailures = 0;
+  DateTime? _seedRetryAt;
+  Timer? _seedRetryTimer;
+
+  DateTime? _lastSweep;
+  int _sweepOffset = 0;
 
   /// How long the last tick is left on screen before the celebration
   /// replaces the rows: the tick first, then the celebration.
@@ -141,6 +158,18 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
   /// The user went to see the plans from the widgets card.
   Future<void> widgetsPlansOpened() => _widgetsCardAnswered();
 
+  /// The user closed the checklist. It goes for good, like one that was
+  /// finished, with no celebration. The widgets card waits for a later
+  /// visit, so closing one thing does not open another.
+  Future<void> checklistDismissed() async {
+    if (state.phase != HomeSetupPhase.checklist || _isInMoment) return;
+    await _store.markDone();
+    _celebratedThisVisit = true;
+    await _stopWatching();
+    if (isClosed) return;
+    _show(const HomeSetupState());
+  }
+
   Future<void> _widgetsCardAnswered() async {
     await _store.markWidgetsCardSeen();
     if (isClosed) return;
@@ -152,6 +181,7 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
   @override
   Future<void> close() async {
     _momentTimer?.cancel();
+    _seedRetryTimer?.cancel();
     await _stopWatching();
     return super.close();
   }
@@ -186,12 +216,20 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
     }
 
     if (!_store.isDone && !_store.isSeeded) {
-      final isSeeded = await _takeFirstLook(home);
+      // Undecided draws nothing, and a look that failed is not repeated on
+      // every change of Home: it waits its turn.
+      final retryAt = _seedRetryAt;
+      final mayLook = retryAt == null || !_now().isBefore(retryAt);
+      final isSeeded = mayLook && await _takeFirstLook(home);
       if (isClosed) return;
       if (!isSeeded) {
+        if (mayLook) _scheduleSeedRetry();
         _show(const HomeSetupState());
         return;
       }
+      _seedFailures = 0;
+      _seedRetryAt = null;
+      _seedRetryTimer?.cancel();
     }
 
     final topics = [
@@ -211,6 +249,13 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
           ? const <String>[]
           : topicsToWatchForFirstMessage(topics);
       await _watch(watched);
+      if (isClosed) return;
+      if (!checklist.hasFirstMessage &&
+          await _sweep([for (final topic in topics) topic.name], watched)) {
+        // A topic outside the polled few holds the first message.
+        _isDirty = true;
+        return;
+      }
       if (isClosed) return;
       final next = HomeSetupState(
         phase: HomeSetupPhase.checklist,
@@ -316,6 +361,7 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
   /// a long-time user never sees a checklist flash past.
   Future<bool> _takeFirstLook(HomeState home) async {
     var hasOwnMessage = false;
+    final baselines = <String, String>{};
     if (!_firstMessage.isReceived) {
       try {
         for (final topic in home.topicItems) {
@@ -327,6 +373,8 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
             hasOwnMessage = true;
             break;
           }
+          baselines[topic.name] =
+              page.newestId ?? FirstMessageSource.everything;
         }
       } on Exception {
         return false;
@@ -337,7 +385,19 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
       hasOwnMessage: hasOwnMessage,
       incidentIds: _readIncidentIds(),
       setupIncidentIds: _readSetupIncidentIds(),
+      hasTopics: home.topicItems.isNotEmpty,
+      wasSetUpHere: _store.wasSetUpHere,
     );
+    // Every topic that exists now starts its watch from what it held at
+    // this look. A topic with no baseline is therefore one made later,
+    // and everything it holds counts.
+    if (!seed.retiresChecklist) {
+      for (final MapEntry(key: topic, value: cursor) in baselines.entries) {
+        if (_firstMessage.cursorFor(topic) == null) {
+          await _firstMessage.saveCursor(topic, cursor);
+        }
+      }
+    }
     if (seed.marksFirstMessage) await _firstMessage.markReceived();
     if (seed.retiresChecklist) await _store.markDone();
     await _store.markSeeded();
@@ -365,8 +425,62 @@ class HomeSetupCubit extends Cubit<HomeSetupState> {
       _watcherSubs.add(
         watcher.changes.listen((_) => unawaited(_evaluate())),
       );
-      unawaited(watcher.start(topic));
+      // The first look gave every topic of that time a baseline. One
+      // without is new since, so a message sent before this poll counts.
+      unawaited(watcher.start(topic, countsFromStart: true));
     }
+  }
+
+  /// Tries the first look again after a wait that grows with each failure.
+  void _scheduleSeedRetry() {
+    _seedFailures++;
+    final delay = setupSeedRetryDelay(_seedFailures);
+    _seedRetryAt = _now().add(delay);
+    _seedRetryTimer?.cancel();
+    _seedRetryTimer = _timer(delay, () {
+      if (!isClosed) unawaited(_evaluate());
+    });
+  }
+
+  /// One read each of a few topics Home is not polling, so a first message
+  /// on any topic ticks the row. At most once per [sweepEvery], and only
+  /// while Home is in front. True when it found the first message.
+  Future<bool> _sweep(List<String> all, List<String> watched) async {
+    if (!_isInFront) return false;
+    final last = _lastSweep;
+    final now = _now();
+    if (last != null && now.difference(last) < sweepEvery) return false;
+    final turn = topicsToSweepForFirstMessage(
+      all: all,
+      watched: watched,
+      offset: _sweepOffset,
+    );
+    if (turn.topics.isEmpty) return false;
+    _lastSweep = now;
+    _sweepOffset = turn.nextOffset;
+    for (final topic in turn.topics) {
+      try {
+        final since =
+            _firstMessage.cursorFor(topic) ?? FirstMessageSource.everything;
+        final page = await _source.read(topic, since);
+        if (isClosed || _firstMessage.isReceived) {
+          return _firstMessage.isReceived;
+        }
+        if (page.candidates.isNotEmpty) {
+          await _firstMessage.markReceived();
+          return true;
+        }
+        final newest = page.newestId;
+        if (newest != null && newest != since) {
+          await _firstMessage.saveCursor(topic, newest);
+        } else if (_firstMessage.cursorFor(topic) == null) {
+          await _firstMessage.saveCursor(topic, since);
+        }
+      } on Exception {
+        // This topic gets its turn again on a later sweep.
+      }
+    }
+    return false;
   }
 
   void _pauseWatching() {
