@@ -12,8 +12,6 @@ class OnboardingHowItRingsScreen extends StatelessWidget {
     final isAndroid = defaultTargetPlatform == TargetPlatform.android;
     return _IntroLayout(
       hero: isAndroid ? const _AndroidCurlHero() : const _CurlHero(),
-      textDelay: const Duration(milliseconds: 900),
-      staged: false,
       title: LocaleKeys.onboarding_welcome_rings_title.tr(),
       subtitle: LocaleKeys.onboarding_welcome_rings_subtitle.tr(),
       button: LocaleKeys.onboarding_welcome_continue.tr(),
@@ -25,7 +23,8 @@ class OnboardingHowItRingsScreen extends StatelessWidget {
 }
 
 /// The widgets step (/onboarding/widgets): the home screen widgets, marked as
-/// a Pro feature.
+/// a Hosted feature. It is optional. A flow lists it where it wants it, and
+/// the button finishes it like any other step, whatever comes next.
 class OnboardingWidgetsScreen extends StatelessWidget {
   const OnboardingWidgetsScreen({super.key});
 
@@ -33,8 +32,6 @@ class OnboardingWidgetsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return _IntroLayout(
       hero: const _WidgetsHero(),
-      textDelay: const Duration(milliseconds: 900),
-      staged: false,
       title: LocaleKeys.onboarding_welcome_widgets_title.tr(),
       badge: AppBadge(
         text: LocaleKeys.onboarding_welcome_widgets_pro.tr(),

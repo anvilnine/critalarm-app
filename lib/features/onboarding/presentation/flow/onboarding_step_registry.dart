@@ -1,3 +1,5 @@
+import 'package:critalarm/app/di.dart';
+import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
@@ -61,7 +63,19 @@ class OnboardingStepEntry {
       false;
 }
 
+/// A developer forced [stepId] to count as not done. Always false in a store
+/// build.
+bool _isForcedUnsatisfied(String stepId) =>
+    getIt.isRegistered<DeveloperOnboardingOverrides>() &&
+    getIt<DeveloperOnboardingOverrides>().forcedUnsatisfied.contains(stepId);
+
 bool _onMobileOnly(OnboardingPlatform on) => !on.isWeb;
+
+/// The home screen widgets exist on iOS and Android only.
+bool _whereWidgetsExist(OnboardingPlatform on) =>
+    !on.isWeb &&
+    (on.platform == TargetPlatform.iOS ||
+        on.platform == TargetPlatform.android);
 
 bool _notYet(OnboardingPlatform on) => false;
 
@@ -111,7 +125,9 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       isAvailable: _onMobileOnly,
       isSatisfied: (facts) => facts.hasEveryPermission(),
       screen: (context, state) => OnboardingPermissionsScreen(
-        replayForDemo: isOnboardingReplayUri(state.uri),
+        replayForDemo:
+            isOnboardingReplayUri(state.uri) ||
+            _isForcedUnsatisfied(OnboardingStepId.permissions),
         initialStep: state.uri.queryParameters['denied'] == 'true'
             ? NotificationPermissionStep.denied
             : NotificationPermissionStep.initial,
@@ -128,6 +144,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       // where the route's state can be read from.
       screen: (context, state) => Builder(
         builder: (context) => CreateTopicScreen(
+          isReplay: isOnboardingReplay(context),
           onDone: () =>
               finishOnboardingStep(context, OnboardingStepId.firstTopic),
         ),
@@ -156,7 +173,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       route: '/onboarding/widgets',
       routeName: 'onboardingWidgets',
       ambientStep: OnboardingAmbientStep.widgets,
-      isAvailable: _onMobileOnly,
+      isAvailable: _whereWidgetsExist,
       screen: (context, state) => const OnboardingWidgetsScreen(),
     ),
     // Known to the validator, so a flow may list it, but it has no screen
