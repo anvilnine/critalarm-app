@@ -48,7 +48,7 @@ Future<void> showHomeWidgetsSheet({
   await showExpandingSheet<void>(
     context: context,
     title: LocaleKeys.home_widgets_sheet_title.tr(),
-    initialChildSize: 0.5,
+    initialChildSize: 0.45,
     minChildSize: 0.3,
     content: (sheetContext) => _HomeWidgetsSheet(
       steps: steps,
