@@ -138,7 +138,6 @@ class _TopicMessagesView extends StatelessWidget {
                                       description: LocaleKeys
                                           .topic_messages_empty_body
                                           .tr(),
-                                      buttonLabel: null,
                                       isLive: false,
                                     ),
                                   )
