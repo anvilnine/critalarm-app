@@ -295,7 +295,12 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   /// Continue with Crit Alarm Cloud. Hands the connect to
   /// [backgroundConnect] and answers as soon as the intent is on disk, so
   /// the screen can move on at once, online or not.
-  Future<void> connectToCloud() async {
+  ///
+  /// [waitForResult] is for the screen opened on its own after setup, from
+  /// Home or Server settings. There is no next step to move on to, so the
+  /// screen stays up, says what the connect is doing, and closes when it
+  /// lands. Leaving early is fine: the connect carries on.
+  Future<void> connectToCloud({bool waitForResult = false}) async {
     final background = backgroundConnect;
     if (background == null) {
       serverUrlChanged(cloudUrl);
@@ -304,6 +309,46 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     }
     emit(state.copyWith(clearErrorMessage: true));
     await background.start(cloudUrl);
+    if (!waitForResult || isClosed) return;
+    _showCloudConnect(background.state);
+    await _cloudConnectChanges?.cancel();
+    _cloudConnectChanges = background.stream.listen(_showCloudConnect);
+  }
+
+  StreamSubscription<BackgroundConnectState>? _cloudConnectChanges;
+
+  void _showCloudConnect(BackgroundConnectState connect) {
+    if (isClosed) return;
+    if (connect.isPending) {
+      emit(
+        state.copyWith(
+          status: OnboardingConnectStatus.connecting,
+          cloudWaitLine: backgroundConnectLine(connect),
+          clearErrorMessage: true,
+        ),
+      );
+    } else if (connect.isConnected) {
+      emit(
+        state.copyWith(
+          serverUrl: connect.serverUrl,
+          status: OnboardingConnectStatus.connected,
+          clearCloudWaitLine: true,
+          clearErrorMessage: true,
+        ),
+      );
+    } else {
+      emit(
+        state.copyWith(
+          status: connect.isFailed
+              ? OnboardingConnectStatus.failure
+              : OnboardingConnectStatus.idle,
+          errorMessage: connect.isFailed
+              ? backgroundConnectLine(connect)
+              : null,
+          clearCloudWaitLine: true,
+        ),
+      );
+    }
   }
 
   /// Connects to the server in the form, in the foreground: the user typed
@@ -342,6 +387,8 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     );
     // The user picked a server by hand, so a Cloud connect still waiting
     // behind them is no longer wanted.
+    await _cloudConnectChanges?.cancel();
+    _cloudConnectChanges = null;
     await backgroundConnect?.cancel();
 
     final result = await _getServerInfo(Uri.parse(trimmedUrl));
@@ -666,6 +713,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
 
   @override
   Future<void> close() {
+    unawaited(_cloudConnectChanges?.cancel());
     _countdownTimer?.cancel();
     return super.close();
   }

@@ -60,6 +60,7 @@ class OnboardingConnectState {
     this.cloudOnline,
     this.cloudPrivacyLine,
     this.confirmation,
+    this.cloudWaitLine,
   });
 
   final String serverUrl;
@@ -96,6 +97,11 @@ class OnboardingConnectState {
   /// and waits for Continue.
   final ConnectConfirmation? confirmation;
 
+  /// What the Cloud connect is doing, while the screen waits on it. Only
+  /// set when the screen was opened on its own after setup, where it stays
+  /// up until the connect lands.
+  final String? cloudWaitLine;
+
   bool get isConnecting => status == OnboardingConnectStatus.connecting;
   bool get isConnected => status == OnboardingConnectStatus.connected;
   bool get isRinging => testAlarmStatus == TestAlarmStatus.ringing;
@@ -123,6 +129,8 @@ class OnboardingConnectState {
     bool? cloudOnline,
     ConnectPrivacyLine? cloudPrivacyLine,
     ConnectConfirmation? confirmation,
+    String? cloudWaitLine,
+    bool clearCloudWaitLine = false,
     bool clearCloudPrivacyLine = false,
     bool clearConfirmation = false,
     bool clearServerUrlError = false,
@@ -162,6 +170,9 @@ class OnboardingConnectState {
       confirmation: clearConfirmation
           ? null
           : (confirmation ?? this.confirmation),
+      cloudWaitLine: clearCloudWaitLine
+          ? null
+          : (cloudWaitLine ?? this.cloudWaitLine),
     );
   }
 
@@ -189,10 +200,11 @@ class OnboardingConnectState {
           canNavigateToHome == other.canNavigateToHome &&
           cloudOnline == other.cloudOnline &&
           cloudPrivacyLine == other.cloudPrivacyLine &&
-          confirmation == other.confirmation;
+          confirmation == other.confirmation &&
+          cloudWaitLine == other.cloudWaitLine;
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     serverUrl,
     adminToken,
     requiresAdminToken,
@@ -213,5 +225,6 @@ class OnboardingConnectState {
     cloudOnline,
     cloudPrivacyLine,
     confirmation,
-  );
+    cloudWaitLine,
+  ]);
 }

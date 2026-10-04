@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
@@ -713,6 +715,73 @@ void main() {
 
       verify(() => background.cancel()).called(1);
       verifyNever(() => background.start(any()));
+      await cubit.close();
+    });
+
+    test('opened on its own it waits, says what is happening, and is done '
+        'when the connect lands', () async {
+      final changes = StreamController<BackgroundConnectState>.broadcast();
+      addTearDown(changes.close);
+      when(() => background.stream).thenAnswer((_) => changes.stream);
+      when(() => background.state).thenReturn(
+        const BackgroundConnectState(
+          status: BackgroundConnectStatus.connecting,
+        ),
+      );
+      final cubit = build();
+
+      await cubit.connectToCloud(waitForResult: true);
+      expect(cubit.state.status, OnboardingConnectStatus.connecting);
+      final connecting = cubit.state.cloudWaitLine;
+      expect(connecting, isNotNull);
+
+      changes.add(
+        const BackgroundConnectState(
+          status: BackgroundConnectStatus.waitingForNetwork,
+        ),
+      );
+      await pumpEventQueue();
+      expect(cubit.state.status, OnboardingConnectStatus.connecting);
+      expect(cubit.state.cloudWaitLine, isNot(connecting));
+
+      changes.add(
+        const BackgroundConnectState(
+          status: BackgroundConnectStatus.connected,
+          serverUrl: 'https://api.critalarm.app',
+        ),
+      );
+      await pumpEventQueue();
+      expect(cubit.state.isConnected, isTrue);
+      expect(cubit.state.cloudWaitLine, isNull);
+      // No confirmation: the Cloud needs none, so the screen closes.
+      expect(cubit.state.confirmation, isNull);
+      await cubit.close();
+    });
+
+    test('opened on its own, a connect that gives up says why and lets the '
+        'user try again', () async {
+      final changes = StreamController<BackgroundConnectState>.broadcast();
+      addTearDown(changes.close);
+      when(() => background.stream).thenAnswer((_) => changes.stream);
+      when(() => background.state).thenReturn(
+        const BackgroundConnectState(
+          status: BackgroundConnectStatus.connecting,
+        ),
+      );
+      final cubit = build();
+      await cubit.connectToCloud(waitForResult: true);
+
+      changes.add(
+        const BackgroundConnectState(
+          status: BackgroundConnectStatus.failed,
+          failure: BackgroundConnectFailure.refused,
+        ),
+      );
+      await pumpEventQueue();
+
+      expect(cubit.state.status, OnboardingConnectStatus.failure);
+      expect(cubit.state.errorMessage, isNotNull);
+      expect(cubit.state.cloudWaitLine, isNull);
       await cubit.close();
     });
 
