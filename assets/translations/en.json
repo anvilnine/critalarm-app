@@ -238,6 +238,17 @@
     "example_message_time": "Today 09:41",
     "example_message_body": "db-1 is at 92% disk. Sent by your monitor."
   },
+  "gallery": {
+    "setup_title": "Highlight, Tick & Waiting Face",
+    "highlight_crit_title": "Critical delivery",
+    "highlight_crit_subtitle": "Repeats until you acknowledge it",
+    "highlight_calm_label": "First topic created",
+    "tick_todo_label": "Not done",
+    "tick_done_label": "Done",
+    "tick_flip_button": "Flip the tick",
+    "waiting_short": "Waiting for your phone to ring.",
+    "waiting_long": "Sent. Waiting for your phone to ring. On a slow connection this can take a few seconds, so keep the app open."
+  },
   "home": {
     "title": "Crit Alarm",
     "settings_aria_label": "Settings",
@@ -278,6 +289,8 @@
     "delivery_normal": "normal",
     "detail_empty_title": "No topic selected",
     "detail_empty_body": "Pick a topic to see its details.",
+    "empty_body": "Create one, point a script at it, and this face will tell you when something breaks.",
+    "empty_button": "Create a topic",
     "stage_word_no_server": "Nothing can reach you",
     "stage_sub_no_server": "Connect a server and your topics load from it.",
     "stage_word_unreachable": "Out of touch",

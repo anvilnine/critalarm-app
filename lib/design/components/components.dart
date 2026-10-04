@@ -1,6 +1,7 @@
 /// Components of the Crit Alarm Design System.
 library;
 
+export 'animated_tick.dart';
 export 'badges.dart';
 export 'bottom_sheets.dart';
 export 'brand_icons.dart';
@@ -12,6 +13,7 @@ export 'dialogs.dart';
 export 'empty_state.dart';
 export 'floating_tab_bar.dart';
 export 'glyphs.dart';
+export 'highlight_card.dart';
 export 'inputs.dart';
 export 'key_value_rows.dart';
 export 'ladder_rows.dart';
@@ -36,4 +38,5 @@ export 'tilt_showcase.dart';
 export 'toasts.dart';
 export 'top_bar.dart';
 export 'transport_button.dart';
+export 'waiting_face.dart';
 export 'waveform_bars.dart';

@@ -149,7 +149,6 @@ class _ConfirmRingContent extends StatelessWidget {
                         description: didFail
                             ? LocaleKeys.local_reminders_ring_error_offline.tr()
                             : LocaleKeys.local_reminders_ring_empty_body.tr(),
-                        buttonLabel: null,
                         faceState: FaceState.calm,
                         isLive: false,
                       )

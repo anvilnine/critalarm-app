@@ -11,11 +11,9 @@ import 'package:flutter/material.dart';
 /// Empty state container with dashed border and expressive face.
 class AppEmptyState extends StatelessWidget {
   const AppEmptyState({
-    this.title = 'No topics yet',
-    this.description =
-        'Create one, point a script at it, and this face will tell you '
-        'when something breaks.',
-    this.buttonLabel = 'Create a topic',
+    required this.title,
+    required this.description,
+    this.buttonLabel,
     this.onButtonPressed,
     this.faceState = FaceState.watching,
     this.isLive = true,

@@ -64,6 +64,25 @@ Appearance: Crowned, Shades, and Shades and crown. They change nothing else abou
 - The masters are `assets/icon/src/*.svg` in the app repo and `src/assets/critalarm-icon*.svg` on
   the site. `tool/export_app_icons.sh` renders every size.
 
+## Setup components
+
+Three components in `lib/design/components/`, each in the gallery at `/gallery`.
+
+- `AppHighlightCard`: use it to mark the one choice on a screen that matters, or one row in a short
+  checklist. It draws a tinted, stroked surface and nothing else, so a toggle row or a checklist
+  row goes inside. `crit` is the critical canvas with its stroke. `calm` is the cobalt tint with a
+  cobalt stroke, for a row that is done. Text on it takes `onCanvas`: muted text on the light
+  `crit` tone is 3.85:1.
+- `AppAnimatedTick`: use it when one thing finishes while the user watches, such as a first message
+  landing or a checklist step. The ring fills, then the tick draws, once, in 600 ms. For a static
+  "included" mark in a list, use `AppFeatureBullet`. The caller wraps it in `Semantics` with a
+  label.
+- `AppWaitingFace`: use it for every wait on something outside the app, in place of a bare spinner.
+  It is the watching face over one line that says what is happening. The line is a live region,
+  so a screen reader hears it change.
+
+All three stop moving when the phone asks for reduced motion.
+
 ## With more time
 
 - Draw the face in a real vector tool and test it against a grid of eye and mouth offsets; the
