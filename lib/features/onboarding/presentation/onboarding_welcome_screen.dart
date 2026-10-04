@@ -270,6 +270,9 @@ class _IntroLayout extends StatelessWidget {
   /// The least room the animation keeps when large text crowds the page.
   static const double _minHeroHeight = 380;
 
+  /// The most the system text size may grow the title.
+  static const double _titleMaxTextScale = 1.4;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -307,7 +310,13 @@ class _IntroLayout extends StatelessWidget {
               // it carries that room itself: the lg button, the 12 under it
               // and the home indicator, plus a gap above the button.
               padding: EdgeInsets.only(
-                bottom: 60 + 12 + MediaQuery.paddingOf(context).bottom + 12,
+                bottom:
+                    // The button grows with the system text size, so the
+                    // room for it does too.
+                    MediaQuery.textScalerOf(context).scale(60) +
+                    12 +
+                    MediaQuery.paddingOf(context).bottom +
+                    12,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -337,6 +346,12 @@ class _IntroLayout extends StatelessWidget {
                   const SizedBox(height: Spacing.s5),
                   Text(
                     title,
+                    // The display size is already large. Capped, it holds
+                    // to about three lines at the largest system size, while
+                    // the words below keep the full scale.
+                    textScaler: MediaQuery.textScalerOf(
+                      context,
+                    ).clamp(maxScaleFactor: _titleMaxTextScale),
                     style: AppTypography.display(
                       colors.onCanvas,
                       fontSize: 36,
