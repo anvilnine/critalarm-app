@@ -23,6 +23,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - countsAsRealUse decides whether an alarm is the user's own use or one setup caused, and SetupTestRing.setupIncidentIds keeps those ids under onboarding\_setup\_incidents.
 - AppScreenScaffold barBacking puts a solid colour behind the top bar and the pinned bottom bar, and the hook-up token id is saved under onboarding\_hook\_up\_token\_id.
 - Home setup content: HomeSetupCubit and HomeSetupSection draw the setup checklist, its one celebration and the widgets card at the top of the Topics list sheet. Prefs keys setup\_checklist\_seeded, setup\_checklist\_done and home\_widgets\_card\_seen, each set once.
+- Setup sends onboarding\_step\_viewed and onboarding\_step\_completed (step, flow\_id, ms\_since\_previous). They wait in pending\_onboarding\_events until the user answers the analytics question, are sent on opt-in, and are deleted on opt-out and after 7 days unanswered. The answer is kept in onboarding\_funnel\_state.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.

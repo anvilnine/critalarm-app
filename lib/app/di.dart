@@ -59,6 +59,7 @@ import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
+import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -126,6 +127,7 @@ import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.d
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_source.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_funnel_hook.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
 import 'package:critalarm/features/onboarding/domain/flow/remote_onboarding_flow_source.dart';
@@ -185,6 +187,7 @@ import 'package:critalarm/features/search/domain/usecases/clear_recent_searches_
 import 'package:critalarm/features/search/domain/usecases/get_docs_index_usecase.dart';
 import 'package:critalarm/features/search/domain/usecases/get_recent_searches_usecase.dart';
 import 'package:critalarm/features/search/presentation/cubits/search_cubit.dart';
+import 'package:critalarm/features/settings/data/repositories/observed_privacy_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_appearance_settings_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_privacy_repository.dart';
@@ -469,8 +472,15 @@ Future<void> configureDependencies({
     ..registerLazySingleton<AppearanceSettingsRepository>(
       () => SharedPrefsAppearanceSettingsRepository(getIt<SharedPreferences>()),
     )
+    // Every analytics answer is saved through this one repository, so the
+    // setup funnel hears the setup switch, Settings > Privacy and the Home
+    // consent sheet without each of them knowing about it.
     ..registerLazySingleton<PrivacyRepository>(
-      () => SharedPrefsPrivacyRepository(getIt<SharedPreferences>()),
+      () => ObservedPrivacyRepository(
+        SharedPrefsPrivacyRepository(getIt<SharedPreferences>()),
+        onAnalyticsChoice: ({required isOn}) =>
+            getIt<OnboardingFunnel>().answered(isOn: isOn),
+      ),
     )
     ..registerLazySingleton<AlarmSoundRepository>(
       () => SharedPrefsAlarmSoundRepository(getIt<SharedPreferences>()),
@@ -732,6 +742,15 @@ Future<void> configureDependencies({
     ..registerLazySingleton(
       () => PushEventDrain(getIt<SharedPreferences>(), getIt<TelemetryGate>()),
     )
+    // Setup step events. They wait on the phone until the user answers the
+    // analytics question.
+    ..registerLazySingleton(
+      () => OnboardingFunnel(
+        prefs: getIt<SharedPreferences>(),
+        gate: getIt<TelemetryGate>(),
+        stepIds: OnboardingStepRegistry.requiresById.keys.toSet(),
+      ),
+    )
     ..registerLazySingleton(
       () => AckQueue(
         getIt<SharedPreferences>(),
@@ -848,8 +867,9 @@ Future<void> configureDependencies({
         source: ApiFirstMessageSource(api: getIt<ApiClient>()),
       ),
     )
-    // The analytics switch on the last setup step. Setup events that are
-    // held back until the user chooses hook in through `onAnswered`.
+    // The analytics switch on the last setup step. Setup events held back
+    // until the user chooses are sent or deleted by the funnel, which hears
+    // the answer through the privacy repository.
     ..registerLazySingleton(
       () => SetupStatsConsent(
         privacy: getIt<PrivacyRepository>(),
@@ -957,6 +977,7 @@ Future<void> configureDependencies({
         // The permission steps are done. If a connect was waiting for this
         // phone's push token, this is the moment to try again.
         onStepEvent: (event) {
+          unawaited(reportStepToFunnel(getIt<OnboardingFunnel>(), event));
           if (event.kind == OnboardingStepEventKind.finished &&
               event.stepId == OnboardingStepId.permissions &&
               !event.isReplay) {
