@@ -186,10 +186,31 @@ To add a step:
 An entry with no route is known to the validator and never shown. `hook_up`
 is one today.
 
+`widgets` is an optional step. The default flow leaves it out and `legacy-1`
+lists it. It works at any position, the last one included, and it exists on
+iOS and Android only.
+
 Where a flow comes from, highest priority first: the developer settings
 override, the remote value, the bundled default. Each is an
-`OnboardingFlowSource` registered in `lib/app/di.dart`. The first two are
-empty slots today. A source answers with what it has in hand and never waits.
+`OnboardingFlowSource` registered in `lib/app/di.dart`. A source answers with
+what it has in hand and never waits. `OnboardingFlowEngine.chooseFlowWithOrigin()`
+says which one won (`OnboardingFlowOrigin`: developer, remote, bundled).
+
+The remote source is `RemoteOnboardingFlowSource`. It reads the Remote Config
+key `onboarding_flow` through `TelemetryGate.onboardingFlowJson`, which
+returns what is already activated and never fetches. The default is an empty
+string, which means no remote flow. The value is the same JSON as a bundled
+flow, and only `id` and `steps` are read. It is rejected before the validator
+sees it when:
+
+- the text is empty or is not JSON;
+- `id` is missing or is not 1 to 40 characters of letters, digits, `.`, `_`
+  or `-` (it becomes an analytics parameter);
+- `steps` is missing, is not a list, or holds anything but strings.
+
+A remote flow applies only to installs that have not tapped Get started yet.
+A value that arrives later changes nothing for a user who is already pinned.
+A build without Firebase config uses the bundled flow.
 
 Every source passes `validateOnboardingFlow`:
 
@@ -228,6 +249,32 @@ connected, never in setup.
 A pinned flow is checked again every time it is read. Unknown ids are
 dropped, and a list the validator rejects (empty, or nothing known left) is
 replaced by the bundled default with the completed steps kept.
+
+Developer settings: a build made with `--dart-define=SKIP_PAYWALL=true` or
+`--dart-define=PAYWALL_LAB=true` shows a setup section in Developer options
+(`developer_setup_section.dart`). Its controls:
+
+- Flow: pick no override, a bundled flow, or Custom. Custom takes comma
+  separated step ids and shows what the validator did (ids dropped, ids
+  repeated, the final order, or why the list was rejected). A rejected list is
+  never saved and the previous choice stays. The choice is saved in
+  `dev.onboarding_flow`. It fills the `developerOnboardingFlowSource` slot, so
+  it outranks the remote value and still passes the validator.
+- Redo onboarding: replays the flow that would run now (`?demo=true`) and
+  names its id.
+- Open a step: every registered step, opened as a replay. A step that is not
+  on this phone, or has no screen yet, is listed greyed with the reason.
+- Count as not done: one switch per step that has an `isSatisfied` check
+  (`forceableOnboardingSteps`), saved in `dev.onboarding_forced_unsatisfied`.
+  A forced step is the resume point even when its check says it is done, and
+  the permissions screen shows its steps (`replayForDemo`).
+
+A store build is compiled with `NoDeveloperOnboardingOverrides` and the empty
+developer slot (`buildHasOnboardingDeveloperTools` is a compile-time
+constant), so it ignores both keys even when they are set.
+
+A replay changes nothing real: no flow state, no topic on the first-topic
+step, and no connect form draft (`onboarding_replay_rules.dart`).
 
 **Permission steps.** The permissions screen is one setup step that walks a
 list of its own. `permissionSetupStepsFor`
