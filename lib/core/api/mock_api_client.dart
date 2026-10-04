@@ -16,8 +16,20 @@ class MockApiClient implements ApiClient {
   final MockServer server;
 
   @override
-  Future<ServerInfo> getServerInfo([Uri? candidateBaseUri]) async =>
-      server.getInfo();
+  Future<ServerInfo> getServerInfo([Uri? candidateBaseUri]) async {
+    final info = server.getInfo();
+    // Asked about Crit Alarm Cloud, the mock answers as the Cloud does:
+    // hosted, at that address. Any other address is the user's own server.
+    // Without this a mock build could never take the Cloud path, because
+    // the Cloud would ask for an admin token.
+    if (candidateBaseUri?.host == 'api.critalarm.app') {
+      return info.copyWith(
+        baseUrl: 'https://api.critalarm.app',
+        mode: ServerModes.hosted,
+      );
+    }
+    return info;
+  }
 
   @override
   Future<List<Topic>> getTopics() async => server.getTopics();

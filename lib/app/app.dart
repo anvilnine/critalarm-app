@@ -38,6 +38,7 @@ import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_not
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
+import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/domain/entities/appearance_settings.dart';
@@ -225,6 +226,9 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     _replan();
     unawaited(_incomingAudio.onResumed());
     unawaited(_retryFailedLaunchCalls());
+    // Coming back to the front is when wifi was just turned on, or a system
+    // permission prompt was just answered: a connect still waiting tries now.
+    unawaited(getIt<BackgroundConnect>().retryNow());
     _autoDelete();
     _checkAppIcon();
   }
