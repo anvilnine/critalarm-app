@@ -38,6 +38,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The onPushReceived channel call carries the incident id of an alarm push (PushHost.alarmPushes), and Android answers receivedAlarmFor on the alarm channel.
 - SetupTestRing keeps every test incident id of a setup run and the ones a close failed for (prefs keys onboarding\_real\_ring\_incidents and onboarding\_real\_ring\_unclosed), and EndSetupTestUsecase closes leftovers when the app opens.
 - The bundled flow 2026-10-a ends with hook\_up, and Developer options lists the hook-up states.
+- The hook-up step pins its first-message row above Done up to twice the default text size, and puts it in the body above that.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

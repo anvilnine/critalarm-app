@@ -173,6 +173,10 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
             (state.topicName != null &&
                 state.phase != HookUpPhase.noTopic &&
                 state.phase != HookUpPhase.noServer);
+        // At the largest accessibility sizes a pinned row would take a
+        // third of the screen, so it goes into the body, under the line.
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final pinsRow = textScale <= 2;
         return AppScreenScaffold(
           backgroundColor: Colors.transparent,
           withGhosts: false,
@@ -194,12 +198,12 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
           bottomBar: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (showsRow) ...[
+              if (showsRow && pinsRow) ...[
                 FirstMessageRow(
                   isReceived: state.isFirstMessageReceived,
                   // At large text the pinned row keeps to its title, so
                   // the curl line keeps most of the screen.
-                  isCompact: MediaQuery.textScalerOf(context).scale(1) > 1.3,
+                  isCompact: textScale > 1.3,
                 ),
                 const SizedBox(height: Spacing.s3),
               ],
@@ -225,6 +229,12 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _top(context, state, cubit),
+                    if (showsRow && !pinsRow) ...[
+                      const SizedBox(height: Spacing.s5),
+                      FirstMessageRow(
+                        isReceived: state.isFirstMessageReceived,
+                      ),
+                    ],
                     const SizedBox(height: Spacing.s5),
                     // The one ask in setup: a row, no sheet, nothing held.
                     AppToggleRow(
