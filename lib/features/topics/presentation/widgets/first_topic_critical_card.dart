@@ -48,11 +48,13 @@ FirstTopicCardCopy firstTopicCardCopy({
   required bool isCritical,
   required bool hasPlanLine,
 }) {
-  // The same line either way: it is a count, and the switch does not change
-  // what the count would be.
-  final planKey = hasPlanLine
+  // The same count either way. Off, the line says the slot is taken only
+  // once the switch is on, so it never reads as one already used.
+  final planKey = !hasPlanLine
+      ? null
+      : isCritical
       ? LocaleKeys.create_topic_first_topic_critical_plan_line
-      : null;
+      : LocaleKeys.create_topic_first_topic_critical_plan_line_off;
   return switch ((claim, isCritical)) {
     (RingClaim.alarm, false) => FirstTopicCardCopy(
       titleKey: LocaleKeys.create_topic_first_topic_critical_title,

@@ -803,7 +803,13 @@ Future<void> configureDependencies({
         getIt<OnboardingFlowRepository>(),
         // Setup is over, so a connect failure shown during it is not
         // shown again on a setup screen opened later.
-        () => getIt<BackgroundConnect>().dismissFailure(),
+        () {
+          getIt<BackgroundConnect>().dismissFailure();
+          // Setup was finished or left on a build that has the Home
+          // checklist, which is what lets Home tell this install from one
+          // set up long before it.
+          unawaited(getIt<SetupChecklistStore>().markSetUpHere());
+        },
         getIt<FirstTopicHandoff>(),
         getIt<SetupTestRing>(),
       ),
@@ -1360,11 +1366,11 @@ Future<void> configureDependencies({
         // paid plan and a server of the user's own have no cap to state.
         readCriticalLimit: () async {
           final session = await getIt<ApiSessionStore>().read();
-          if (session?.mode == ServerMode.selfhosted) return null;
-          final access = AccountAccess(
+          return AccountAccess(
             await getIt<DeviceIdentityStore>().readOrCreate(),
+          ).freeCriticalCap(
+            isSelfHosted: session?.mode == ServerMode.selfhosted,
           );
-          return access.isPaid ? null : access.caps?.criticalTopics;
         },
         isReplay: isReplay ?? false,
         on: OnboardingPlatform(platform: defaultTargetPlatform, isWeb: kIsWeb),
@@ -1427,7 +1433,13 @@ Future<void> configureDependencies({
         store: getIt<SetupChecklistStore>(),
         firstMessage: getIt<FirstMessageStore>(),
         source: ApiFirstMessageSource(api: getIt<ApiClient>()),
-        newWatcher: getIt.get<FirstMessageWatcher>,
+        // Home can stay open for days, so its watch slows while nothing
+        // arrives. The setup step keeps the steady pace of its own.
+        newWatcher: () => FirstMessageWatcher(
+          store: getIt<FirstMessageStore>(),
+          source: ApiFirstMessageSource(api: getIt<ApiClient>()),
+          backsOffWhenQuiet: true,
+        ),
         readIncidentIds: () => [
           for (final incident in getIt<IncidentsCubit>().state.incidents)
             incident.id,

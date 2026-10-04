@@ -420,7 +420,8 @@ class _RealRingViewState extends State<_RealRingView>
         ? _reason(
             context,
             (
-              title: LocaleKeys.onboarding_real_ring_failed_unknown.tr(),
+              // The connect gave up, so no alarm was ever asked for.
+              title: LocaleKeys.onboarding_real_ring_connect_failed.tr(),
               line: failedLine,
             ),
             face: FaceState.worried,

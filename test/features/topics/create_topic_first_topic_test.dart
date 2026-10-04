@@ -240,15 +240,25 @@ void main() {
       }
     });
 
-    test('the plan line shows on the free plan only, on or off', () {
+    test('the plan line shows on the free plan only', () {
       for (final claim in RingClaim.values) {
         for (final on in [false, true]) {
-          expect(
-            copy(claim, on: on, plan: true).planLineKey,
-            LocaleKeys.create_topic_first_topic_critical_plan_line,
-          );
+          expect(copy(claim, on: on, plan: true).planLineKey, isNotNull);
           expect(copy(claim, on: on).planLineKey, isNull);
         }
+      }
+    });
+
+    test('off, the plan line says the slot is used once it is on', () {
+      for (final claim in RingClaim.values) {
+        expect(
+          copy(claim, on: false, plan: true).planLineKey,
+          LocaleKeys.create_topic_first_topic_critical_plan_line_off,
+        );
+        expect(
+          copy(claim, on: true, plan: true).planLineKey,
+          LocaleKeys.create_topic_first_topic_critical_plan_line,
+        );
       }
     });
   });
