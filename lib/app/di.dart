@@ -1335,6 +1335,11 @@ Future<void> configureDependencies({
         )).getOrNull()?.serverUrl,
         watcher: getIt<FirstMessageWatcher>(),
         consent: getIt<SetupStatsConsent>(),
+        alarmArrivals: getIt<AlarmArrivals>().incidentIds,
+        setupTestIncidentIds: () => {
+          ...getIt<SetupTestRing>().incidentIds,
+          ...getIt<SetupTestRing>().unclosedIds,
+        },
         alarmHost: getIt<AlarmHost>(),
         isReplay: isReplay ?? false,
         on: OnboardingPlatform(platform: defaultTargetPlatform, isWeb: kIsWeb),

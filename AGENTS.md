@@ -130,7 +130,9 @@ names in code, strings, comments and PRs, and never one for another.
   iOS category ids `reminder_<kind>` and the `reminder_*` prefs keys are
   persisted and keep their names.
 - **Setup order.** Onboarding, including the first-topic step inside it,
-  shows no guide, notice, ask or Local Reminder. The order of the setup
+  shows no guide, notice, ask or Local Reminder. There is one exception:
+  the analytics switch row on the last step (`hook_up`). It is a row on
+  the screen, it opens no sheet and it holds nothing back. The order of the setup
   steps is a flow (see "Setup flow engine" below). In the default flow the
   first topic is created before the test alarm, and the server sends that
   test alarm (see "Real ring" below). The
@@ -184,12 +186,15 @@ To add a step:
 4. List the id in a flow. `BundledOnboardingFlows` holds the two that ship:
    `2026-10-a` (the default) and `legacy-1` (the first shipped order).
 
-An entry with no route is known to the validator and never shown. `hook_up`
-is one today.
+An entry with no route is known to the validator and never shown. None is
+like that today.
 
 An entry that requires `connect` is covered by the shell while no server is
 connected. `handlesMissingServer: true` turns that off for a step that has
-its own state for it. `real_ring` is the one today.
+its own state for it: `real_ring` and `hook_up` today.
+
+`hook_up` is the last step of the default flow. It exists on iOS and
+Android, and counts as already done once a first message was received.
 
 `widgets` is an optional step. The default flow leaves it out and `legacy-1`
 lists it. It works at any position, the last one included, and it exists on
@@ -471,6 +476,46 @@ a close that still fails moves the id to `unclosedIds`
 Every "Set this up later" exit calls `SetUpLaterUsecase`, which completes
 setup, and completes nothing on a replay.
 
+**Hook up your tool.** The `hook_up` step is `hook_up_screen.dart` with
+`HookUpCubit`. Done on it finishes the step, and the engine completes setup
+because no step is left.
+
+- The curl line comes from `CurlLine.build` with `priority: CurlLine.urgent`,
+  so it rings a critical topic. Callers that leave `priority` out get the
+  line without the header, which is what the topic page shows.
+- The token is the one in `FirstTopicHandoff`, in memory only. When it is
+  gone (the app was killed since the topic was made) the cubit makes one
+  new named token and holds it, so a second visit makes none.
+  `HookUpState.toString` leaves the token out.
+- `ToolSnippet.build` returns what to give the tool picked on the first
+  topic: code to paste (cron, CI, Home Assistant) or the fields of the
+  tool's own form (Uptime Kuma, Healthchecks). The CI snippet reads the
+  token from a secret and never holds it. Field labels are the tool's own
+  words and stay in English.
+- `FirstMessageWatcher` (`lib/features/topics/domain/first_message/`) polls
+  the topic every 5 seconds while its screen is open and the app is in
+  front, and backs off to a minute when the server cannot be asked. It
+  starts after setup's own test message (read from the test incident), or
+  at the second it began when no test was sent, and saves that point under
+  `first_message_since.<topic>`. It sees message ids only. It never moves
+  the `MessageSyncService` cursor.
+- `FirstMessageStore.isReceived` (`first_message_received`) is set once and
+  never cleared. Deleting a topic drops that topic's starting point and
+  keeps the flag.
+- `FirstMessageRow` draws the row from one boolean. It holds no state.
+- When the curl line sets off an alarm, the alarm reaches the phone before
+  a poll would. The cubit hears it through `AlarmArrivals`, turns the row,
+  and the screen finishes the step and opens the alarm screen, because a
+  ringing phone needs its stop control. One of setup's own tests ringing
+  late does not count.
+- `SetupStatsConsent` is the analytics switch. A tap either way saves the
+  same choice Settings > Privacy does and marks the Home consent ask as
+  answered. A switch nobody touched writes nothing. `onAnswered` runs after
+  each answer.
+- A replay shows made-up values and reads, sends, makes and saves nothing.
+  In a developer build `?show=<state>` and `?tool=<id>` put it on a state
+  (`HookUpScreen.replayStateNames`); Developer options lists them.
+
 **Changelogs.** Two files, both written with cider, never by hand. The
 how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 
@@ -509,9 +554,9 @@ how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 - Real: the design system in `lib/design/`, with its palette, fonts and
   component names. The `AppColors` `ThemeExtension` with `copyWith` and `lerp`,
   the single `ThemeData` construction point in `lib/design/theme/theme.dart`,
-  the theme preference round-trip, `go_router` wiring (`lib/app/router.dart`, 50
+  the theme preference round-trip, `go_router` wiring (`lib/app/router.dart`, 51
   routes today: `GoRoute(` appears 43 times, and one of those is a loop that
-  builds the 8 setup step routes), the `AppResult` and `Failure` types, `tool/check_layers.sh`, CI.
+  builds the 9 setup step routes), the `AppResult` and `Failure` types, `tool/check_layers.sh`, CI.
 - Placeholder: nothing in `lib/design/`. The widgets left in
   `lib/design_system/widgets/` predate it. Do not build new screens from them.
 

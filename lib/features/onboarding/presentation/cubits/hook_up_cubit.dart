@@ -26,6 +26,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 ///   made) one new token is made for the topic.
 /// - Nothing here waits on the first message. The screen's Done button
 ///   never asks this cubit whether it may leave.
+/// - The curl line rings a critical topic. When that alarm reaches the
+///   phone the row turns at once, without waiting for a poll, and the state
+///   names the incident so the screen can hand over to the alarm.
 /// - A replay from Settings shows made-up values and reads, sends, makes
 ///   and saves nothing.
 class HookUpCubit extends Cubit<HookUpState> {
@@ -38,6 +41,8 @@ class HookUpCubit extends Cubit<HookUpState> {
     required this.readServerUrl,
     required this.watcher,
     required this.consent,
+    this.alarmArrivals,
+    this.setupTestIncidentIds,
     this.alarmHost,
     this.isReplay = false,
     this.on = const OnboardingPlatform(
@@ -62,6 +67,14 @@ class HookUpCubit extends Cubit<HookUpState> {
   final FirstMessageWatcher watcher;
   final SetupStatsConsent consent;
 
+  /// The incident of every alarm that reaches this phone while the app
+  /// runs. Null in tests that do not need it.
+  final Stream<String>? alarmArrivals;
+
+  /// The incidents of setup's own test alarms. One of those ringing late
+  /// is not the user's first message.
+  final Set<String> Function()? setupTestIncidentIds;
+
   /// Null in tests with no platform channel.
   final AlarmHost? alarmHost;
 
@@ -75,6 +88,7 @@ class HookUpCubit extends Cubit<HookUpState> {
   static const exampleToken = 'tk_example';
 
   StreamSubscription<bool>? _arrivals;
+  StreamSubscription<String>? _alarms;
   String _tokenName = '';
   bool _isMinting = false;
   bool _isAnswering = false;
@@ -83,8 +97,6 @@ class HookUpCubit extends Cubit<HookUpState> {
   /// token made when the first one is gone.
   Future<void> load({required String tokenName}) async {
     _tokenName = tokenName;
-    final claim = await _readClaim();
-    if (isClosed) return;
 
     if (isReplay) {
       emit(
@@ -94,42 +106,42 @@ class HookUpCubit extends Cubit<HookUpState> {
           serverUrl: exampleServerUrl,
           token: exampleToken,
           isCritical: true,
-          claim: claim,
           isExample: true,
         ),
       );
+      final claim = await _readClaim();
+      if (!isClosed) emit(state.copyWith(claim: claim));
       return;
     }
 
-    final isAnalyticsOn = await consent.isOn();
-    if (isClosed) return;
+    // With the topic setup made still in hand, the line shows in the first
+    // frame. Everything else is read behind it.
+    final held = handoff.entry;
     emit(
       state.copyWith(
-        claim: claim,
-        isAnalyticsOn: isAnalyticsOn,
+        phase: held == null ? null : HookUpPhase.ready,
+        topicName: held?.topicName,
+        serverUrl: held?.serverUrl,
+        token: held?.token,
+        template: held == null
+            ? null
+            : ToolTemplate.fromId(held.templateId) ??
+                  templates.read(held.topicName),
         isFirstMessageReceived: watcher.isReceived,
       ),
     );
     _arrivals = watcher.changes.listen((_) {
       if (!isClosed) emit(state.copyWith(isFirstMessageReceived: true));
     });
+    _alarms = alarmArrivals?.listen(_onAlarm);
+    if (held != null) unawaited(watcher.start(held.topicName));
 
-    final held = handoff.entry;
+    final claim = await _readClaim();
+    final isAnalyticsOn = await consent.isOn();
+    if (isClosed) return;
+    emit(state.copyWith(claim: claim, isAnalyticsOn: isAnalyticsOn));
+
     if (held != null) {
-      // Everything the line needs is in hand, so it shows at once. Whether
-      // the topic is critical is read behind it.
-      emit(
-        state.copyWith(
-          phase: HookUpPhase.ready,
-          topicName: held.topicName,
-          serverUrl: held.serverUrl,
-          token: held.token,
-          template:
-              ToolTemplate.fromId(held.templateId) ??
-              templates.read(held.topicName),
-        ),
-      );
-      unawaited(watcher.start(held.topicName));
       final topic = await _findTopic(held.topicName);
       if (isClosed || topic == null) return;
       emit(state.copyWith(isCritical: topic.critical));
@@ -158,6 +170,22 @@ class HookUpCubit extends Cubit<HookUpState> {
     );
     unawaited(watcher.start(topic.name));
     await _mint();
+  }
+
+  /// An alarm reached the phone. Unless it is one of setup's own tests,
+  /// the user's tool sent it: that is the first message, and the phone is
+  /// ringing.
+  Future<void> _onAlarm(String incidentId) async {
+    if (isClosed || state.ringingIncidentId != null) return;
+    if (setupTestIncidentIds?.call().contains(incidentId) ?? false) return;
+    await watcher.arrived();
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        isFirstMessageReceived: true,
+        ringingIncidentId: incidentId,
+      ),
+    );
   }
 
   Future<RingClaim> _readClaim() async {
@@ -288,6 +316,7 @@ class HookUpCubit extends Cubit<HookUpState> {
   @override
   Future<void> close() async {
     await _arrivals?.cancel();
+    await _alarms?.cancel();
     await watcher.dispose();
     return super.close();
   }

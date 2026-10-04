@@ -147,7 +147,10 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
           ExcludeSemantics(
             child: RichText(
               textScaler: MediaQuery.textScalerOf(context),
-              text: _buildSyntaxHighlightedSpan(widget.code, colors),
+              text: _buildSyntaxHighlightedSpan(
+                _keepAddressesWhole(widget.code),
+                colors,
+              ),
             ),
           ),
           const SizedBox(height: Spacing.s3),
@@ -198,6 +201,18 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
     );
   }
 
+  /// A line may break after a slash or a hyphen, which splits an address
+  /// at `https://` when it would have fitted on the next line whole. A word
+  /// joiner after each takes those break points away. For drawing only:
+  /// the copied text is the code as given.
+  static String _keepAddressesWhole(String code) => code.replaceAllMapped(
+    RegExp(r'https?://\S+'),
+    (match) => match[0]!.replaceAllMapped(
+      RegExp('[/-]'),
+      (mark) => '${mark[0]}\u2060',
+    ),
+  );
+
   TextSpan _buildSyntaxHighlightedSpan(String text, AppColors colors) {
     final lines = text.split('\n');
     final spans = <InlineSpan>[];
@@ -215,7 +230,9 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
       } else {
         // Tokenize line by strings vs code
         final regex = RegExp(
-          r'("(?:\\.|[^"\\])*")|(-[a-zA-Z]+|\b(?:curl|POST|GET|Bearer)\b)',
+          // A flag starts a word. A hyphen inside one, as in a topic
+          // called `my-topic`, is not a flag.
+          r'("(?:\\.|[^"\\])*")|((?<![\w-])-[a-zA-Z]+|\b(?:curl|POST|GET|Bearer)\b)',
         );
         var lastIndex = 0;
         for (final match in regex.allMatches(line)) {

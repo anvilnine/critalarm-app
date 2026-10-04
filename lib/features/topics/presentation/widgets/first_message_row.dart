@@ -13,9 +13,17 @@ import 'package:flutter/material.dart';
 /// The row draws what it is told. It does not poll and holds no state:
 /// `FirstMessageWatcher` says when the message landed.
 class FirstMessageRow extends StatelessWidget {
-  const FirstMessageRow({required this.isReceived, super.key});
+  const FirstMessageRow({
+    required this.isReceived,
+    this.isCompact = false,
+    super.key,
+  });
 
   final bool isReceived;
+
+  /// Leaves the supporting line out, for a row pinned where room is short.
+  /// A screen reader still hears it.
+  final bool isCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -54,14 +62,16 @@ class FirstMessageRow extends StatelessWidget {
                         colors.onCanvas,
                       ).copyWith(fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      line,
-                      style: AppTypography.small(
-                        colors.onCanvasMuted,
-                        fontSize: 13,
+                    if (!isCompact) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        line,
+                        style: AppTypography.small(
+                          colors.onCanvasMuted,
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
