@@ -1,0 +1,533 @@
+import 'dart:math' as math;
+
+import 'package:confetti/confetti.dart';
+import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/topics/domain/setup_checklist.dart';
+import 'package:critalarm/features/topics/presentation/cubits/home_setup_state.dart';
+import 'package:critalarm/features/topics/presentation/widgets/first_message_row.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+
+/// The setup content at the top of Home's list sheet: the checklist, the
+/// line that says it is finished, or the widgets card. One of them or
+/// nothing.
+///
+/// Home content. It draws what [state] says and reports taps. It holds no
+/// state of its own and opens nothing by itself.
+class HomeSetupSection extends StatelessWidget {
+  const HomeSetupSection({
+    required this.state,
+    required this.hasRowsBelow,
+    required this.onRowTap,
+    required this.onShowWidgetsHowTo,
+    required this.onSeeHosted,
+    required this.onDismissWidgetsCard,
+    super.key,
+  });
+
+  final HomeSetupState state;
+
+  /// Topic rows follow, so the block ends with the gap that sets it apart
+  /// from them.
+  final bool hasRowsBelow;
+
+  /// A tap on an open row, with the screen it opens.
+  final void Function(String route) onRowTap;
+
+  final VoidCallback onShowWidgetsHowTo;
+  final VoidCallback onSeeHosted;
+  final VoidCallback onDismissWidgetsCard;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = switch (state.phase) {
+      HomeSetupPhase.none => const SizedBox(
+        key: ValueKey('setup_none'),
+        width: double.infinity,
+      ),
+      HomeSetupPhase.checklist => _Checklist(
+        key: const ValueKey('setup_checklist'),
+        state: state,
+        onRowTap: onRowTap,
+      ),
+      HomeSetupPhase.celebration => const _FinishedLine(
+        key: ValueKey('setup_finished'),
+      ),
+      HomeSetupPhase.widgetsCard => _WidgetsCard(
+        key: const ValueKey('setup_widgets'),
+        plan: state.widgetsPlan,
+        onShowHowTo: onShowWidgetsHowTo,
+        onSeeHosted: onSeeHosted,
+        onDismiss: onDismissWidgetsCard,
+      ),
+    };
+
+    final isShown = state.phase != HomeSetupPhase.none;
+    return _OnSurface(
+      // The block grows and shrinks with the list around it. Under reduce
+      // motion it cuts.
+      child: AnimatedSize(
+        duration: context.motion(AppDurations.base),
+        curve: AppCurves.easeOut,
+        alignment: Alignment.topCenter,
+        // A cross-fade moves nothing, so it also runs under reduce motion:
+        // the finished line fades away instead of blinking out.
+        child: AnimatedSwitcher(
+          duration: AppDurations.base,
+          switchInCurve: AppCurves.easeOut,
+          switchOutCurve: AppCurves.easeOut,
+          layoutBuilder: (current, previous) => Stack(
+            alignment: Alignment.topCenter,
+            children: [...previous, ?current],
+          ),
+          child: Padding(
+            key: child.key,
+            padding: EdgeInsets.only(
+              bottom: isShown && hasRowsBelow ? Spacing.s4 : 0,
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The section sits on the white list sheet, never on the canvas, so text
+/// that follows the canvas (the first-message row's) takes the sheet's ink
+/// instead. Without this an acknowledged Home would draw it in the canvas
+/// text colour on white.
+class _OnSurface extends StatelessWidget {
+  const _OnSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+    return Theme(
+      data: theme.copyWith(
+        extensions: [
+          ...theme.extensions.values.where((ext) => ext is! AppColors),
+          colors.copyWith(onCanvas: colors.ink, onCanvasMuted: colors.ink2),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+/// The face each piece of setup content wears. One per surface, and a
+/// different one for each moment, so the three never read as the same card.
+abstract final class _SetupFaces {
+  /// Something is still to come: eyes up, one brow lifted, a soft smile.
+  static const FaceState checklist = FaceState.curious;
+
+  /// The last row landed.
+  static const FaceState finished = FaceState.happy;
+
+  /// Showing something off.
+  static const FaceState widgets = FaceState.proud;
+}
+
+class _Checklist extends StatelessWidget {
+  const _Checklist({required this.state, required this.onRowTap, super.key});
+
+  final HomeSetupState state;
+  final void Function(String route) onRowTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final checklist = state.checklist;
+    final progress = {
+      'done': '${checklist.tickedCount}',
+      'count': '${SetupChecklistRow.values.length}',
+    };
+    final criticalRoute = state.routeFor(SetupChecklistRow.criticalTopic);
+    final messageRoute = state.routeFor(SetupChecklistRow.firstMessage);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(2, 0, 4, 12),
+          child: Row(
+            children: [
+              const ExcludeSemantics(
+                child: FaceWidget(state: _SetupFaces.checklist, size: 40),
+              ),
+              const SizedBox(width: Spacing.s3),
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    LocaleKeys.home_setup_title.tr(),
+                    style: AppTypography.body(
+                      colors.ink,
+                    ).copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              const SizedBox(width: Spacing.s3),
+              Semantics(
+                label: LocaleKeys.home_setup_progress_aria_label.tr(
+                  namedArgs: progress,
+                ),
+                child: ExcludeSemantics(
+                  child: Text(
+                    LocaleKeys.home_setup_progress.tr(namedArgs: progress),
+                    style: AppTypography.mono(colors.ink3, fontSize: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        _ChecklistRow(
+          title: LocaleKeys.home_setup_server_title.tr(),
+          isDone: checklist.hasServer,
+        ),
+        const SizedBox(height: Spacing.s2),
+        _ChecklistRow(
+          title: LocaleKeys.home_setup_critical_title.tr(),
+          // The label alone is wrong once a topic exists: nothing is left
+          // to create, only a switch to turn on.
+          line: checklist.hasTopics
+              ? LocaleKeys.home_setup_critical_line_off.tr()
+              : null,
+          isDone: checklist.hasCriticalTopic,
+          onTap: criticalRoute == null ? null : () => onRowTap(criticalRoute),
+        ),
+        const SizedBox(height: Spacing.s2),
+        _Tappable(
+          onTap: messageRoute == null ? null : () => onRowTap(messageRoute),
+          // The waiting row from the last setup step: a label and its
+          // tick. The checklist has its one face in the header.
+          child: FirstMessageRow(
+            isReceived: checklist.hasFirstMessage,
+            isCompact: true,
+            showsFace: false,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One row of the checklist, laid out like the first-message row so the
+/// three read as one list: a label, then the ring that fills when the row
+/// is true.
+class _ChecklistRow extends StatelessWidget {
+  const _ChecklistRow({
+    required this.title,
+    required this.isDone,
+    this.line,
+    this.onTap,
+  });
+
+  final String title;
+
+  /// What is left to do, for the one case the label does not say it. Drawn
+  /// only while the row is open.
+  final String? line;
+  final bool isDone;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final line = isDone ? null : this.line;
+    final status = isDone
+        ? LocaleKeys.home_setup_row_done.tr()
+        : LocaleKeys.home_setup_row_open.tr();
+
+    return _Tappable(
+      onTap: onTap,
+      child: Semantics(
+        container: true,
+        label: [title, status, ?line].join('. '),
+        child: ExcludeSemantics(
+          child: AppHighlightCard(
+            tone: isDone ? AppHighlightTone.calm : AppHighlightTone.pending,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: AppTypography.small(
+                          colors.onCanvas,
+                        ).copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      if (line != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          line,
+                          style: AppTypography.small(
+                            colors.onCanvasMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: Spacing.s3),
+                AppAnimatedTick(done: isDone, size: 28),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Makes a row a button when it has somewhere to go.
+///
+/// The same widgets are built either way. A row loses its tap the moment
+/// it is ticked, and a wrapper that came and went would rebuild the tick
+/// under it already finished, with nothing played.
+class _Tappable extends StatelessWidget {
+  const _Tappable({required this.child, this.onTap});
+
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final onTap = this.onTap;
+    return Semantics(
+      button: onTap != null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap == null
+            ? null
+            : () {
+                AppHaptics.selection();
+                onTap();
+              },
+        child: child,
+      ),
+    );
+  }
+}
+
+/// What the checklist turns into when the last row lands: one line, which
+/// then goes for good.
+class _FinishedLine extends StatelessWidget {
+  const _FinishedLine({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: AppHighlightCard(
+        tone: AppHighlightTone.calm,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            const ExcludeSemantics(
+              child: FaceWidget(state: _SetupFaces.finished, size: 40),
+            ),
+            const SizedBox(width: Spacing.s3),
+            Expanded(
+              child: Text(
+                LocaleKeys.home_setup_done_title.tr(),
+                style: AppTypography.body(
+                  colors.onCanvas,
+                ).copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The widgets card, shown once after the checklist is finished: a title,
+/// at most one short line, and the action.
+class _WidgetsCard extends StatelessWidget {
+  const _WidgetsCard({
+    required this.plan,
+    required this.onShowHowTo,
+    required this.onSeeHosted,
+    required this.onDismiss,
+    super.key,
+  });
+
+  final HomeWidgetsPlan plan;
+  final VoidCallback onShowHowTo;
+  final VoidCallback onSeeHosted;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final needsHosted = plan == HomeWidgetsPlan.needsHosted;
+
+    return AppHighlightCard(
+      tone: AppHighlightTone.calm,
+      padding: const EdgeInsets.fromLTRB(14, 6, 6, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const ExcludeSemantics(
+                child: FaceWidget(state: _SetupFaces.widgets, size: 40),
+              ),
+              const SizedBox(width: Spacing.s3),
+              // A server of the user's own has no plans, so no badge.
+              if (plan != HomeWidgetsPlan.selfHosted)
+                ProBadge(label: LocaleKeys.paywall_pro_badge.tr()),
+              const Spacer(),
+              // The way out is always there and never the loud thing.
+              AppIconButton(
+                glyph: GlyphType.close,
+                ariaLabel: LocaleKeys.home_widgets_dismiss_button.tr(),
+                glyphSize: 14,
+                color: colors.onCanvasMuted,
+                onPressed: onDismiss,
+              ),
+            ],
+          ),
+          const SizedBox(height: Spacing.s2),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Semantics(
+                  header: true,
+                  child: Text(
+                    LocaleKeys.onboarding_welcome_widgets_title.tr(),
+                    style: AppTypography.body(
+                      colors.onCanvas,
+                    ).copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                if (needsHosted) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    LocaleKeys.home_widgets_needs_hosted.tr(),
+                    style: AppTypography.small(colors.onCanvasMuted),
+                  ),
+                ],
+                const SizedBox(height: Spacing.s3),
+                Wrap(
+                  spacing: Spacing.s2,
+                  runSpacing: Spacing.s2,
+                  children: [
+                    AppButton(
+                      label: LocaleKeys.home_widgets_how_button.tr(),
+                      size: AppButtonSize.sm,
+                      onPressed: onShowHowTo,
+                    ),
+                    if (needsHosted)
+                      AppButton(
+                        label: LocaleKeys.home_widgets_plans_button.tr(),
+                        variant: AppButtonVariant.ghost,
+                        size: AppButtonSize.sm,
+                        onPressed: onSeeHosted,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One short throw of confetti over Home when the checklist finishes, the
+/// same two side bursts the acknowledged screen uses. Under reduce motion
+/// nothing is thrown. Brand colours only, no crit red.
+class HomeSetupConfetti extends StatefulWidget {
+  const HomeSetupConfetti({super.key});
+
+  @override
+  State<HomeSetupConfetti> createState() => _HomeSetupConfettiState();
+}
+
+class _HomeSetupConfettiState extends State<HomeSetupConfetti> {
+  final _left = ConfettiController(duration: const Duration(seconds: 1));
+  final _right = ConfettiController(duration: const Duration(seconds: 1));
+  bool _started = false;
+
+  // Started here rather than in initState because it reads MediaQuery.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (context.reduceMotion) return;
+    AppHaptics.success();
+    _left.play();
+    _right.play();
+  }
+
+  @override
+  void dispose() {
+    _left.dispose();
+    _right.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.appColors;
+    final palette = [c.yellow, c.cobalt, c.surface, c.highlight];
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: Stack(
+          children: [
+            Align(
+              alignment: const Alignment(-1, 0.35),
+              child: ConfettiWidget(
+                confettiController: _left,
+                blastDirection: -math.pi / 3,
+                emissionFrequency: 0.08,
+                numberOfParticles: 12,
+                maxBlastForce: 45,
+                minBlastForce: 20,
+                gravity: 0.25,
+                colors: palette,
+              ),
+            ),
+            Align(
+              alignment: const Alignment(1, 0.35),
+              child: ConfettiWidget(
+                confettiController: _right,
+                blastDirection: -2 * math.pi / 3,
+                emissionFrequency: 0.08,
+                numberOfParticles: 12,
+                maxBlastForce: 45,
+                minBlastForce: 20,
+                gravity: 0.25,
+                colors: palette,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

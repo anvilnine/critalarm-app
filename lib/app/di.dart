@@ -219,6 +219,7 @@ import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart
 import 'package:critalarm/features/topics/data/api_first_message_source.dart';
 import 'package:critalarm/features/topics/data/prefs_first_message_store.dart';
 import 'package:critalarm/features/topics/data/prefs_first_topic_handoff.dart';
+import 'package:critalarm/features/topics/data/prefs_setup_checklist_store.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/data/repositories/shared_prefs_topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/data/shared_prefs_tool_template_store.dart';
@@ -228,6 +229,8 @@ import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
 import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
+import 'package:critalarm/features/topics/domain/setup_checklist.dart';
+import 'package:critalarm/features/topics/domain/setup_checklist_store.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/delete_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
@@ -235,6 +238,7 @@ import 'package:critalarm/features/topics/domain/usecases/topic_token_usecases.d
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
 import 'package:critalarm/firebase_options.dart';
@@ -1379,6 +1383,39 @@ Future<void> configureDependencies({
         null,
         const Duration(seconds: 5),
         getIt<TopicListPrefsRepository>(),
+      ),
+    )
+    // The setup checklist and the widgets card on Home. Home content: it
+    // goes through neither the notice slot nor `SetupGate`.
+    ..registerLazySingleton<SetupChecklistStore>(
+      () => PrefsSetupChecklistStore(getIt<SharedPreferences>()),
+    )
+    ..registerFactory(
+      () => HomeSetupCubit(
+        store: getIt<SetupChecklistStore>(),
+        firstMessage: getIt<FirstMessageStore>(),
+        source: ApiFirstMessageSource(api: getIt<ApiClient>()),
+        newWatcher: getIt.get<FirstMessageWatcher>,
+        readIncidentIds: () => [
+          for (final incident in getIt<IncidentsCubit>().state.incidents)
+            incident.id,
+        ],
+        readSetupIncidentIds: () => getIt<SetupTestRing>().setupIncidentIds,
+        isGuideOfferAnswered: () =>
+            getIt<FeatureGuideCubit>().hasSeenFirstGuide,
+        // The same line the widgets themselves draw: locked on the hosted
+        // plan without Hosted, open on a server that has no plans.
+        readWidgetsPlan: () async {
+          final account = getIt<AccountRepository>();
+          if (await account.readServerMode() != ServerMode.hosted) {
+            return HomeWidgetsPlan.selfHosted;
+          }
+          return await account.readIsPaid()
+              ? HomeWidgetsPlan.hosted
+              : HomeWidgetsPlan.needsHosted;
+        },
+        platform: defaultTargetPlatform,
+        isWeb: kIsWeb,
       ),
     )
     ..registerFactory(
