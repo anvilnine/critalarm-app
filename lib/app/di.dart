@@ -750,9 +750,9 @@ Future<void> configureDependencies({
     ..registerLazySingleton<DeveloperOnboardingOverrides>(
       () => developerOnboardingOverridesFor(getIt<SharedPreferences>()),
     )
-    // Where a setup flow comes from, highest priority first. The remote slot
-    // is empty until its source is built; the bundled flow is always there to
-    // fall back on. A store build never holds the developer source.
+    // Where a setup flow comes from, highest priority first. The bundled flow
+    // is always there to fall back on. A store build never holds the
+    // developer source.
     ..registerLazySingleton<OnboardingFlowSource>(
       () => buildHasOnboardingDeveloperTools
           ? DeveloperOnboardingFlowSource(
