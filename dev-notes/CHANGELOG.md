@@ -12,6 +12,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Android battery step in setup, shown only on makers listed in backgroundKillerMakers. DeviceMakerReader reads the maker, and a debug run takes --dart-define=DEVICE\_MAKER=<name> to fake it.
 - PermissionStepDots counts the steps a phone draws. OnboardingAmbientStep.battery is the canvas for the battery step.
 - Settings variant of the notification step for a spent prompt, with keys onboarding\_permissions.{ios,android}.notifications.settings\_\*. AndroidSdkReader reads the API level.
+- Topics: ToolTemplate enum, FirstTopicHandoff (in-memory token, name saved as onboarding\_first\_topic), ToolTemplateStore (topic\_tool\_template.<name>), isFirstTopicFor, AppTopicChip isSelected and hitSlop.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.

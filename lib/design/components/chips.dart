@@ -243,15 +243,25 @@ class AppDeliveryChip extends StatelessWidget {
 }
 
 /// Chip used for topic names (e.g. `POST /alerts`).
+///
+/// With [onTap] it is a button, and [isSelected] marks the picked one in a
+/// row of them: a filled cobalt pill with white text, which reads without
+/// colour because the fill and the text both flip. [hitSlop] grows the tap
+/// area above and below the pill without growing what is drawn, for a row of
+/// chips a thumb has to hit.
 class AppTopicChip extends StatelessWidget {
   const AppTopicChip({
     required this.text,
     this.onTap,
+    this.isSelected = false,
+    this.hitSlop = 0,
     super.key,
   });
 
   final String text;
   final VoidCallback? onTap;
+  final bool isSelected;
+  final double hitSlop;
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +271,7 @@ class AppTopicChip extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 26),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: colors.cobaltTint,
+        color: isSelected ? colors.highlight : colors.cobaltTint,
         borderRadius: Radii.fullAll,
       ),
       alignment: Alignment.center,
@@ -275,7 +285,7 @@ class AppTopicChip extends StatelessWidget {
           fontSize: 12,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.2,
-          color: colors.ink,
+          color: isSelected ? colors.onHighlight : colors.ink,
           height: 1,
         ),
       ),
@@ -285,11 +295,18 @@ class AppTopicChip extends StatelessWidget {
 
     return Semantics(
       button: true,
+      selected: isSelected,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: onTap,
-          child: chip,
+          child: hitSlop == 0
+              ? chip
+              : Padding(
+                  padding: EdgeInsets.symmetric(vertical: hitSlop),
+                  child: chip,
+                ),
         ),
       ),
     );

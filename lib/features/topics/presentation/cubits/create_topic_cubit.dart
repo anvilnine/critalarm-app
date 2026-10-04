@@ -12,6 +12,11 @@ import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
+import 'package:critalarm/features/topics/domain/entities/topic.dart';
+import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
+import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
+import 'package:critalarm/features/topics/domain/topic_name_rule.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
@@ -44,6 +49,18 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   /// tier, so it is never the free tier. Null in tests, and then the server
   /// is treated as not self-hosted.
   ApiSessionStore? sessionStore;
+
+  /// Where the picked tool chip is kept once the topic exists. Null in tests
+  /// that do not need it.
+  ToolTemplateStore? toolTemplates;
+
+  /// Holds the new topic for the steps after this one in setup. Null in tests
+  /// that do not need it.
+  FirstTopicHandoff? handoff;
+
+  /// True when this screen is a setup step, so the new topic is handed on to
+  /// the next steps. Everywhere else the token is shown once and forgotten.
+  bool holdsHandoff = false;
 
   /// Reads the server this app is connected to. Optional so a test can build
   /// the cubit without one.
@@ -146,8 +163,6 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     );
   }
 
-  static final RegExp _topicRegex = RegExp(r'^[-_A-Za-z0-9]{1,64}$');
-
   void nameChanged(String name) {
     emit(state.copyWith(name: name, clearError: true));
   }
@@ -159,10 +174,36 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   /// Feeds in the names of the topics the app already holds, so a name that is
   /// taken is caught on step 1 as the user types. The screen passes these from
   /// the shared topic list, so nothing here asks the server again.
-  void existingNamesChanged(Iterable<String> names) {
+  ///
+  /// [isListReady] says the shared list has loaded. Leave it out to keep what
+  /// was last said. The first-topic card waits on it, because an empty list
+  /// that is still loading is not a user with no topics.
+  void existingNamesChanged(Iterable<String> names, {bool? isListReady}) {
     final lowered = names.map((name) => name.trim().toLowerCase()).toSet();
-    if (setEquals(lowered, state.existingNames)) return;
-    emit(state.copyWith(existingNames: lowered));
+    if (setEquals(lowered, state.existingNames) &&
+        (isListReady == null || isListReady == state.isListReady)) {
+      return;
+    }
+    emit(state.copyWith(existingNames: lowered, isListReady: isListReady));
+  }
+
+  /// A tap on a tool chip. Picks it, and fills the name field only when the
+  /// field is empty or still holds a name a chip put there. A second tap on
+  /// the picked chip clears the pick and leaves the name. Never touches
+  /// [CreateTopicState.isCritical].
+  void toolTemplateTapped(ToolTemplate tapped) {
+    final result = tapToolTemplate(
+      current: state.toolPick,
+      currentName: state.name,
+      tapped: tapped,
+    );
+    emit(
+      state.copyWith(
+        toolPick: result.pick,
+        name: result.name,
+        clearError: true,
+      ),
+    );
   }
 
   /// Why this topic name cannot be used, or null when it can.
@@ -170,7 +211,7 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     if (trimmedName.isEmpty) {
       return LocaleKeys.create_topic_name_error_empty.tr();
     }
-    if (!_topicRegex.hasMatch(trimmedName)) {
+    if (!isValidTopicName(trimmedName)) {
       return LocaleKeys.create_topic_name_error_invalid.tr();
     }
     return null;
@@ -210,6 +251,31 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     );
   }
 
+  /// What the phone keeps about a topic the server just made: the tool chip,
+  /// and in setup the hand-off to the next steps. A preference that fails to
+  /// write never turns a created topic into an error.
+  Future<void> _rememberTopic(Topic topic) async {
+    final template = state.selectedTool;
+    try {
+      if (template != null) await toolTemplates?.save(topic.name, template);
+      final token = topic.token;
+      if (holdsHandoff && token != null) {
+        await handoff?.hold(
+          FirstTopicHandoffEntry(
+            topicName: topic.name,
+            serverUrl: state.serverUrl,
+            token: token,
+            templateId: template?.id,
+          ),
+        );
+      }
+    } on Object catch (error) {
+      debugPrint(
+        'CreateTopicCubit: remembering the topic failed: ${error.runtimeType}',
+      );
+    }
+  }
+
   Future<void> createTopic() async {
     if (state.status == CreateTopicStatus.success ||
         state.status == CreateTopicStatus.submitting) {
@@ -243,6 +309,10 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
         tokenName: trimmedTokenName.isEmpty ? null : trimmedTokenName,
       ),
     );
+
+    final created = result.getOrNull();
+    if (created != null) await _rememberTopic(created);
+    if (isClosed) return;
 
     result.fold(
       (topic) {
