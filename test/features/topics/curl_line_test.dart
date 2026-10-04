@@ -10,8 +10,8 @@ void main() {
         token: 'tk_8Qm2',
         message: 'disk full',
       ),
-      'curl -H "Authorization: Bearer tk_8Qm2" -d "disk full" '
-      'https://api.critalarm.app/prod-db',
+      'curl -H "Authorization: Bearer tk_8Qm2" '
+      "-d 'disk full' 'https://api.critalarm.app/prod-db'",
     );
   });
 
@@ -23,7 +23,7 @@ void main() {
         token: 'tk_1',
         message: 'disk full',
       ),
-      endsWith('https://alerts.example.com/nas'),
+      endsWith("'https://alerts.example.com/nas'"),
     );
   });
 
@@ -47,7 +47,7 @@ void main() {
         priority: CurlLine.urgent,
       ),
       'curl -H "Authorization: Bearer tk_8Qm2" -H "Priority: urgent" '
-      '-d "disk full" https://api.critalarm.app/prod-db',
+      "-d 'disk full' 'https://api.critalarm.app/prod-db'",
     );
   });
 
@@ -62,5 +62,49 @@ void main() {
       ).contains('Priority'),
       isFalse,
     );
+  });
+
+  group('a shell runs the line as written', () {
+    String lineWith({
+      String serverUrl = 'https://api.critalarm.app',
+      String message = 'disk full',
+    }) => CurlLine.build(
+      serverUrl: serverUrl,
+      topic: 'nas',
+      token: 'tk_1',
+      message: message,
+    );
+
+    test('an address with ? and & stays one word', () {
+      expect(
+        lineWith(serverUrl: 'https://alerts.example.com/hook?a=1&b=2'),
+        endsWith(" 'https://alerts.example.com/hook?a=1&b=2/nas'"),
+      );
+    });
+
+    test('a double quote, a dollar and a backtick are not acted on', () {
+      const message = r'say "hi" to $HOME and `id`';
+      expect(lineWith(message: message), contains("-d '$message' "));
+    });
+
+    test('a single quote in the message is escaped', () {
+      expect(
+        lineWith(message: "it's down"),
+        contains(r"-d 'it'\''s down' "),
+      );
+    });
+
+    test('a single quote in the address is escaped', () {
+      expect(
+        lineWith(serverUrl: "https://alerts.example.com/a'b"),
+        endsWith(r" 'https://alerts.example.com/a'\''b/nas'"),
+      );
+    });
+
+    test('shellQuote wraps and escapes', () {
+      expect(CurlLine.shellQuote('plain'), "'plain'");
+      expect(CurlLine.shellQuote("a'b"), r"'a'\''b'");
+      expect(CurlLine.shellQuote(''), "''");
+    });
   });
 }

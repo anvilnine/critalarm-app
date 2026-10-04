@@ -13,6 +13,7 @@ import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
+import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
@@ -23,6 +24,7 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_settler
 import 'package:critalarm/features/local_reminders/domain/local_reminder_store.dart';
 import 'package:critalarm/features/local_reminders/presentation/widgets/local_reminder_ask_sheets.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -127,6 +129,13 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
         setState(() {
           _direction = AmbientDirection.push;
         });
+        // An alarm setup itself caused (its test, or the first hook-up
+        // message) is not real use: it stamps nothing and opens no sheet.
+        final isRealUse = countsAsRealUse(
+          incidentId: state.incident?.id,
+          setupIncidentIds: getIt<SetupTestRing>().setupIncidentIds,
+        );
+        if (!isRealUse) return;
         unawaited(getIt<InAppNoticeRepository>().markAcknowledged());
         unawaited(_afterAck(state));
       },

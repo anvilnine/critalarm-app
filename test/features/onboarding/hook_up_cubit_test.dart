@@ -6,6 +6,7 @@ import 'package:critalarm/core/models/topic_token.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/in_app_notices/data/repositories/shared_prefs_in_app_notice_repository.dart';
+import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/onboarding/domain/setup_stats_consent.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_state.dart';
@@ -21,6 +22,8 @@ import 'package:critalarm/features/topics/domain/usecases/topic_token_usecases.d
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/fake_setup_test_ring.dart';
 
 class _MockCreateToken extends Mock implements CreateTopicTokenUsecase {}
 
@@ -51,20 +54,24 @@ class _Timer implements Timer {
 class _Source implements FirstMessageSource {
   List<String> next = const [];
   int polls = 0;
-  int baselineReads = 0;
+  final List<String> sinces = [];
 
   @override
-  Future<List<String>> newerThan(String topic, String since) async {
+  Future<FirstMessagePage> read(String topic, String since) async {
     polls++;
-    return next;
-  }
-
-  @override
-  Future<FirstMessageBaseline> testBaseline() async {
-    baselineReads++;
-    return const FirstMessageBaseline.after('m_test');
+    sinces.add(since);
+    // The first read is the baseline: the setup test message.
+    if (since == FirstMessageSource.everything) {
+      return const FirstMessagePage(candidates: [], newestId: 'm_test');
+    }
+    return FirstMessagePage(
+      candidates: next,
+      newestId: next.isEmpty ? null : next.last,
+    );
   }
 }
+
+class _MockRevokeToken extends Mock implements RevokeTopicTokenUsecase {}
 
 const _server = 'https://api.critalarm.app';
 const _token = 'tk_6f1d2c7e-secret';
@@ -85,7 +92,10 @@ void main() {
   var topicReads = 0;
 
   late StreamController<String> alarms;
-  var testIncidents = <String>{};
+  late FakeSetupTestRing ring;
+  late _MockRevokeToken revokeToken;
+  var incidentTopics = <String, String>{};
+  var isSetupComplete = false;
 
   HookUpCubit build({bool isReplay = false}) {
     final cubit = HookUpCubit(
@@ -113,11 +123,13 @@ void main() {
       consent: SetupStatsConsent(
         privacy: SharedPrefsPrivacyRepository(prefs),
         telemetry: telemetry,
-        notices: notices,
         onAnswered: ({required isOn}) async => answers.add(isOn),
       ),
+      revokeToken: revokeToken,
+      ring: ring,
+      isSetupComplete: () async => isSetupComplete,
       alarmArrivals: alarms.stream,
-      setupTestIncidentIds: () => testIncidents,
+      readIncidentTopic: (id) async => incidentTopics[id],
       isReplay: isReplay,
     );
     addTearDown(cubit.close);
@@ -135,6 +147,9 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(const CreateTopicTokenParams(topicName: ''));
+    registerFallbackValue(
+      const RevokeTopicTokenParams(topicName: '', tokenId: ''),
+    );
   });
 
   setUp(() async {
@@ -149,7 +164,13 @@ void main() {
     timers = [];
     answers = [];
     alarms = StreamController<String>.broadcast();
-    testIncidents = {};
+    ring = FakeSetupTestRing();
+    revokeToken = _MockRevokeToken();
+    incidentTopics = {'inc_mine': 'nightly', 'inc_one': 'nightly'};
+    isSetupComplete = false;
+    when(
+      () => revokeToken(any()),
+    ).thenAnswer((_) async => unit.toSuccess());
     topics = [const Topic(name: 'nightly', critical: true)];
     serverUrl = _server;
     topicReads = 0;
@@ -196,8 +217,9 @@ void main() {
         consent: SetupStatsConsent(
           privacy: SharedPrefsPrivacyRepository(prefs),
           telemetry: telemetry,
-          notices: notices,
         ),
+        revokeToken: revokeToken,
+        ring: ring,
       );
       addTearDown(cubit.close);
 
@@ -318,14 +340,150 @@ void main() {
       verify(() => createToken(any())).called(1);
     });
 
-    test('with no name saved it is the first topic on the server', () async {
-      await prefs.remove(PrefsFirstTopicHandoff.topicNameKey);
-      topics = [const Topic(name: 'prod'), const Topic(name: 'nas')];
+    test(
+      'with no name saved no topic is guessed and nothing is made',
+      () async {
+        await prefs.remove(PrefsFirstTopicHandoff.topicNameKey);
+        topics = [const Topic(name: 'prod'), const Topic(name: 'nas')];
+        final cubit = build();
+
+        await cubit.load(tokenName: 'Setup');
+
+        expect(cubit.state.phase, HookUpPhase.noTopic);
+        expect(cubit.state.topicName, isNull);
+        expect(source.polls, 0);
+        verifyNever(() => createToken(any()));
+      },
+    );
+
+    test('a saved name the server no longer has is no topic', () async {
+      topics = [const Topic(name: 'prod')];
       final cubit = build();
 
       await cubit.load(tokenName: 'Setup');
 
-      expect(cubit.state.topicName, 'prod');
+      expect(cubit.state.phase, HookUpPhase.noTopic);
+      verifyNever(() => createToken(any()));
+    });
+
+    test('the id of the token made is saved, never its value', () async {
+      final cubit = build();
+
+      await cubit.load(tokenName: 'Setup');
+
+      expect(handoff.mintedTokenId, 'tok_1');
+      verifyNever(() => revokeToken(any()));
+    });
+
+    test(
+      'a cold start takes the earlier token back before making one',
+      () async {
+        // An earlier launch made tok_old, then the app was killed.
+        await handoff.saveMintedTokenId('tok_old');
+        final order = <String>[];
+        when(() => revokeToken(any())).thenAnswer((_) async {
+          order.add('revoke');
+          return unit.toSuccess();
+        });
+        when(() => createToken(any())).thenAnswer((_) async {
+          order.add('create');
+          return const TopicToken(
+            token: _minted,
+            tokenId: 'tok_new',
+            name: 'Setup',
+          ).toSuccess();
+        });
+        final cubit = build();
+
+        await cubit.load(tokenName: 'Setup');
+
+        final revoked =
+            verify(() => revokeToken(captureAny())).captured.single
+                as RevokeTopicTokenParams;
+        expect(revoked.topicName, 'nightly');
+        expect(revoked.tokenId, 'tok_old');
+        expect(order, ['revoke', 'create']);
+        expect(handoff.mintedTokenId, 'tok_new');
+        expect(cubit.state.token, _minted);
+      },
+    );
+
+    test('three cold starts leave one token of this step, not three', () async {
+      final live = <String>{};
+      var made = 0;
+      when(() => createToken(any())).thenAnswer((_) async {
+        made++;
+        live.add('tok_$made');
+        return TopicToken(
+          token: 'tk_secret_$made',
+          tokenId: 'tok_$made',
+          name: 'Setup',
+        ).toSuccess();
+      });
+      when(() => revokeToken(any())).thenAnswer((invocation) async {
+        final params =
+            invocation.positionalArguments.single as RevokeTopicTokenParams;
+        live.remove(params.tokenId);
+        return unit.toSuccess();
+      });
+
+      for (var launch = 0; launch < 3; launch++) {
+        // A cold start: nothing in memory, the prefs as they were left.
+        handoff = PrefsFirstTopicHandoff(prefs);
+        final cubit = build();
+        await cubit.load(tokenName: 'Setup');
+        await cubit.close();
+      }
+
+      expect(made, 3);
+      expect(live, {'tok_3'});
+    });
+
+    test(
+      'an earlier token already gone from the server is no obstacle',
+      () async {
+        await handoff.saveMintedTokenId('tok_old');
+        when(() => revokeToken(any())).thenAnswer(
+          (_) async => const Failure.api(
+            statusCode: 404,
+            message: 'not found',
+          ).toFailure(),
+        );
+        final cubit = build();
+
+        await cubit.load(tokenName: 'Setup');
+
+        expect(cubit.state.phase, HookUpPhase.ready);
+        verify(() => createToken(any())).called(1);
+      },
+    );
+
+    test('when the earlier token cannot be taken back none is made', () async {
+      await handoff.saveMintedTokenId('tok_old');
+      when(() => revokeToken(any())).thenAnswer(
+        (_) async => const Failure.unexpected(message: 'offline').toFailure(),
+      );
+      final cubit = build();
+
+      await cubit.load(tokenName: 'Setup');
+
+      expect(cubit.state.phase, HookUpPhase.mintFailed);
+      expect(handoff.mintedTokenId, 'tok_old');
+      verifyNever(() => createToken(any()));
+    });
+
+    test('the saved id goes when setup completes', () async {
+      final cubit = build();
+      await cubit.load(tokenName: 'Setup');
+      expect(handoff.mintedTokenId, isNotNull);
+
+      await handoff.clear();
+
+      expect(handoff.mintedTokenId, isNull);
+      expect(
+        prefs.containsKey(PrefsFirstTopicHandoff.mintedTokenIdKey),
+        isFalse,
+      );
     });
 
     test('no topic on the server: nothing is made', () async {
@@ -347,6 +505,31 @@ void main() {
       expect(cubit.state.phase, HookUpPhase.noServer);
       expect(topicReads, 0);
       verifyNever(() => createToken(any()));
+    });
+  });
+
+  group('a user who already finished setup', () {
+    test('gets nothing read, made, watched or saved', () async {
+      isSetupComplete = true;
+      await prefs.setString(PrefsFirstTopicHandoff.topicNameKey, 'nightly');
+      final before = {for (final key in prefs.getKeys()) key: prefs.get(key)};
+      final cubit = build();
+
+      await cubit.load(tokenName: 'Setup');
+      alarms.add('inc_mine');
+      await pumpEventQueue();
+
+      expect(cubit.state.phase, HookUpPhase.noTopic);
+      expect(cubit.state.hasLine, isFalse);
+      expect(topicReads, 0);
+      expect(source.polls, 0);
+      expect(cubit.state.ringingIncidentId, isNull);
+      expect(
+        {for (final key in prefs.getKeys()) key: prefs.get(key)},
+        before,
+      );
+      verifyNever(() => createToken(any()));
+      verifyNever(() => revokeToken(any()));
     });
   });
 
@@ -400,6 +583,7 @@ void main() {
       await pumpEventQueue();
 
       expect(store.cursorFor('nightly'), 'm_test');
+      expect(source.sinces.first, FirstMessageSource.everything);
       expect(cubit.state.isFirstMessageReceived, isFalse);
     });
 
@@ -469,8 +653,69 @@ void main() {
       expect(timers.last.cancelled, isTrue, reason: 'the polling ended');
     });
 
+    test('the alarm is recorded as one setup asked for', () async {
+      await holdFirstTopic();
+      final cubit = build();
+      await cubit.load(tokenName: 'Setup');
+
+      alarms.add('inc_mine');
+      await pumpEventQueue();
+
+      expect(ring.setupIncidentIds, contains('inc_mine'));
+      expect(ring.incidentIds, isNot(contains('inc_mine')));
+    });
+
+    test('an alarm on another topic is not the first message', () async {
+      incidentTopics['inc_other'] = 'prod';
+      await holdFirstTopic();
+      final cubit = build();
+      await cubit.load(tokenName: 'Setup');
+      await pumpEventQueue();
+
+      alarms.add('inc_other');
+      await pumpEventQueue();
+
+      expect(cubit.state.isFirstMessageReceived, isFalse);
+      expect(cubit.state.ringingIncidentId, isNull);
+      expect(store.isReceived, isFalse);
+      expect(ring.setupIncidentIds, isEmpty);
+    });
+
+    test(
+      'an alarm whose topic cannot be read is not the first message',
+      () async {
+        await holdFirstTopic();
+        final cubit = build();
+        await cubit.load(tokenName: 'Setup');
+        await pumpEventQueue();
+
+        alarms.add('inc_unknown');
+        await pumpEventQueue();
+
+        expect(cubit.state.ringingIncidentId, isNull);
+        expect(store.isReceived, isFalse);
+      },
+    );
+
+    test('the test of this phone only is not the first message', () async {
+      // A tap on its leftover notification arrives here as an alarm.
+      incidentTopics[phoneOnlyTestIncidentId] = 'nightly';
+      await holdFirstTopic();
+      final cubit = build();
+      await cubit.load(tokenName: 'Setup');
+      await pumpEventQueue();
+
+      alarms.add(phoneOnlyTestIncidentId);
+      await pumpEventQueue();
+
+      expect(cubit.state.isFirstMessageReceived, isFalse);
+      expect(cubit.state.ringingIncidentId, isNull);
+      expect(store.isReceived, isFalse);
+    });
+
     test('a setup test ringing late is not the first message', () async {
-      testIncidents = {'inc_test'};
+      await ring.hold('inc_test');
+      incidentTopics['inc_test'] = 'nightly';
       await holdFirstTopic();
       final cubit = build();
       await cubit.load(tokenName: 'Setup');
@@ -534,11 +779,12 @@ void main() {
       expect(cubit.state.isAnalyticsOn, isTrue);
       expect(prefs.getBool('privacy_analytics_enabled'), isTrue);
       expect(telemetry.analytics, [true]);
-      expect(notices.getConsentAskedAt(), isNotNull);
       expect(answers, [true]);
+      // The Home sheet still gets its turn: it also offers crash reports.
+      expect(notices.getConsentAskedAt(), isNull);
     });
 
-    test('turning it back off is an answer too', () async {
+    test('turning it back off turns analytics off again', () async {
       await holdFirstTopic();
       final cubit = build();
       await cubit.load(tokenName: 'Setup');
@@ -549,7 +795,7 @@ void main() {
       expect(cubit.state.isAnalyticsOn, isFalse);
       expect(prefs.getBool('privacy_analytics_enabled'), isFalse);
       expect(telemetry.analytics, [true, false]);
-      expect(notices.getConsentAskedAt(), isNotNull);
+      expect(notices.getConsentAskedAt(), isNull);
       expect(answers, [true, false]);
     });
 
@@ -590,7 +836,6 @@ void main() {
         before,
       );
       expect(source.polls, 0);
-      expect(source.baselineReads, 0);
       expect(topicReads, 0);
       expect(telemetry.analytics, isEmpty);
       expect(answers, isEmpty);

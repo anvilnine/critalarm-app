@@ -482,11 +482,17 @@ because no step is left.
 
 - The curl line comes from `CurlLine.build` with `priority: CurlLine.urgent`,
   so it rings a critical topic. Callers that leave `priority` out get the
-  line without the header, which is what the topic page shows.
+  line without the header, which is what the topic page shows. The message
+  and the address are single-quoted for a shell (`CurlLine.shellQuote`).
 - The token is the one in `FirstTopicHandoff`, in memory only. When it is
   gone (the app was killed since the topic was made) the cubit makes one
-  new named token and holds it, so a second visit makes none.
+  new named token and holds it. The id of that token, never its value, is
+  saved under `onboarding_hook_up_token_id`, and the next cold start
+  deletes that token on the server before making another.
   `HookUpState.toString` leaves the token out.
+- Only the topic setup made is used. With no saved name, or a name the
+  server no longer has, the screen shows its no-topic state and makes
+  nothing. For a user who already completed setup the step does nothing.
 - `ToolSnippet.build` returns what to give the tool picked on the first
   topic: code to paste (cron, CI, Home Assistant) or the fields of the
   tool's own form (Uptime Kuma, Healthchecks). The CI snippet reads the
@@ -494,27 +500,58 @@ because no step is left.
   words and stay in English.
 - `FirstMessageWatcher` (`lib/features/topics/domain/first_message/`) polls
   the topic every 5 seconds while its screen is open and the app is in
-  front, and backs off to a minute when the server cannot be asked. It
-  starts after setup's own test message (read from the test incident), or
-  at the second it began when no test was sent, and saves that point under
-  `first_message_since.<topic>`. It sees message ids only. It never moves
+  front, and backs off to a minute when the server cannot be asked. Where
+  it starts is the server's answer, never the phone's clock: the first
+  poll reads everything (`since=all`) and saves the newest message id
+  under `first_message_since.<topic>`. An empty topic saves `all`, so its
+  first message counts. A message after that point that is not a test
+  alarm is the first message. It sees message ids only, and never moves
   the `MessageSyncService` cursor.
+- A test alarm never ticks the row: `ApiFirstMessageSource` leaves out any
+  message with the test route's title, from setup or from Settings.
 - `FirstMessageStore.isReceived` (`first_message_received`) is set once and
   never cleared. Deleting a topic drops that topic's starting point and
   keeps the flag.
 - `FirstMessageRow` draws the row from one boolean. It holds no state.
 - When the curl line sets off an alarm, the alarm reaches the phone before
-  a poll would. The cubit hears it through `AlarmArrivals`, turns the row,
-  and the screen finishes the step and opens the alarm screen, because a
-  ringing phone needs its stop control. One of setup's own tests ringing
-  late does not count.
+  a poll would. The cubit hears it through `AlarmArrivals` and counts it
+  only when the incident is on this step's topic and is not a setup test
+  or the phone-only test. Then the row turns, the screen finishes the step
+  and opens the alarm screen, because a ringing phone needs its stop
+  control. `HookUpLeaving` holds the rule that Done and the handover never
+  both run.
 - `SetupStatsConsent` is the analytics switch. A tap either way saves the
-  same choice Settings > Privacy does and marks the Home consent ask as
-  answered. A switch nobody touched writes nothing. `onAnswered` runs after
-  each answer.
+  same choice Settings > Privacy does. A switch nobody touched writes
+  nothing. It does not stamp the Home consent ask: that sheet also offers
+  crash reports, so it still gets its turn. `onAnswered` runs after each
+  answer.
 - A replay shows made-up values and reads, sends, makes and saves nothing.
   In a developer build `?show=<state>` and `?tool=<id>` put it on a state
   (`HookUpScreen.replayStateNames`); Developer options lists them.
+
+**Real use.** Setup rings the phone on purpose, so those alarms are not
+the user's own use of the app. `countsAsRealUse`
+(`lib/features/incidents/domain/real_use.dart`) is the one decision: false
+for a test setup asked the server for, for the alarm the first hook-up
+message set off, and for the phone-only test. `SetupTestRing.setupIncidentIds`
+(`onboarding_setup_incidents`) keeps those ids after setup completes,
+because the acknowledgement often comes later. Three places read it:
+
+- The alarm screen: an acknowledgement that is not real use stamps no
+  last-acknowledged time and opens no sheet.
+- `HomeAskRules`' newest acknowledgement (`newestRealAckedAt`), which the
+  rating ask and the Local reminders sheet on Home wait for.
+- `LocalReminderInputsReader`, where such an incident counts as a test for
+  the fire drill and morning-after rules.
+
+`EndSetupTestUsecase.closeLeftovers` does not close a leftover test
+incident that now holds a message of the user's own. It drops it from the
+list and leaves it for them to answer.
+
+The Feature Guide offer is raised after the frame in which the route
+changed (`FeatureGuideHost._onRoute`). Raised earlier, the sheet sat on the
+page that was leaving, went down with it, and was read as "not now". An
+offer whose screen went away under it is not counted as declined.
 
 **Changelogs.** Two files, both written with cider, never by hand. The
 how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.

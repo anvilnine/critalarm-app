@@ -185,6 +185,31 @@ void main() {
     );
   });
 
+  group('a run pinned before the hook-up step existed', () {
+    test('still completes after the real ring', () async {
+      // What a phone that tapped Get started on an earlier build holds:
+      // the same flow id, without the last step.
+      const pinnedEarlier = OnboardingFlow(
+        id: '2026-10-a',
+        steps: [
+          OnboardingStepId.welcome,
+          OnboardingStepId.howItRings,
+          OnboardingStepId.connect,
+          OnboardingStepId.permissions,
+          OnboardingStepId.firstTopic,
+          OnboardingStepId.realRing,
+        ],
+      );
+      final run = engineOn(pinnedEarlier);
+
+      final next = await run.engine.finishStep(OnboardingStepId.realRing);
+
+      expect(next.isHome, isTrue);
+      expect(run.completion.calls, 1);
+      expect(run.completion.progress.completed, isTrue);
+    });
+  });
+
   group('Done on the hook-up step', () {
     test('completes setup and opens Home', () async {
       final run = engineOn(BundledOnboardingFlows.defaultFlow);

@@ -1,10 +1,9 @@
 import 'dart:async';
 
 import 'package:critalarm/core/api/api_client.dart';
-import 'package:critalarm/core/api/api_exception.dart';
-import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
+import 'package:critalarm/features/local_reminders/domain/incident_kinds.dart';
 import 'package:critalarm/features/topics/data/api_first_message_source.dart';
 import 'package:critalarm/features/topics/data/prefs_first_message_store.dart';
 import 'package:critalarm/features/topics/domain/first_message/first_message_source.dart';
@@ -33,29 +32,22 @@ class _Timer implements Timer {
   int get tick => 0;
 }
 
-/// A source the test scripts answer by answer.
+FirstMessagePage _page({List<String> candidates = const [], String? newest}) =>
+    FirstMessagePage(candidates: candidates, newestId: newest);
+
+/// A source the test scripts answer by answer. With nothing scripted it
+/// answers an empty read.
 class _Source implements FirstMessageSource {
-  FirstMessageBaseline baseline = const FirstMessageBaseline.noTest();
-  Object? baselineError;
   final List<Object> answers = [];
   final List<String> sinces = [];
-  int baselineReads = 0;
 
   @override
-  Future<List<String>> newerThan(String topic, String since) async {
+  Future<FirstMessagePage> read(String topic, String since) async {
     sinces.add(since);
-    if (answers.isEmpty) return const [];
+    if (answers.isEmpty) return const FirstMessagePage.empty();
     final next = answers.removeAt(0);
-    if (next is List<String>) return next;
+    if (next is FirstMessagePage) return next;
     throw next as Exception;
-  }
-
-  @override
-  Future<FirstMessageBaseline> testBaseline() async {
-    baselineReads++;
-    final error = baselineError;
-    if (error != null) throw error as Exception;
-    return baseline;
   }
 }
 
@@ -65,12 +57,10 @@ void main() {
   late _Source source;
   late List<_Timer> timers;
   late FirstMessageWatcher watcher;
-  final openedAt = DateTime.fromMillisecondsSinceEpoch(1790000000 * 1000);
 
   FirstMessageWatcher build() => FirstMessageWatcher(
     store: store,
     source: source,
-    now: () => openedAt,
     timer: (duration, onFire) {
       final timer = _Timer(duration, onFire);
       timers.add(timer);
@@ -96,83 +86,129 @@ void main() {
     addTearDown(() => watcher.dispose());
   });
 
-  group('the cursor', () {
-    test('is the test message id after a server-sent test', () async {
-      source.baseline = const FirstMessageBaseline.after('m_test');
+  group('the baseline', () {
+    test('is the newest message the topic already holds', () async {
+      source.answers.add(_page(newest: 'm_test'));
 
       await watcher.start('nightly');
 
-      expect(source.sinces, ['m_test']);
+      expect(source.sinces, [FirstMessageSource.everything]);
       expect(store.cursorFor('nightly'), 'm_test');
+      expect(store.isReceived, isFalse);
     });
 
-    test('is the unix second the watch began when no test was sent', () async {
+    test('a message already there is the baseline, never the first', () async {
+      // Something the user sent before the watch began.
+      source.answers.add(_page(candidates: ['m_old'], newest: 'm_old'));
+
       await watcher.start('nightly');
 
-      expect(source.sinces, ['1790000000']);
-      expect(store.cursorFor('nightly'), '1790000000');
+      expect(store.isReceived, isFalse);
+      expect(store.cursorFor('nightly'), 'm_old');
+    });
+
+    test('the next poll asks for what came after it', () async {
+      source.answers.add(_page(newest: 'm_test'));
+
+      await watcher.start('nightly');
+      await fire();
+
+      expect(source.sinces, [FirstMessageSource.everything, 'm_test']);
+    });
+
+    test('on an empty topic everything that arrives counts', () async {
+      await watcher.start('nightly');
+
+      expect(store.cursorFor('nightly'), FirstMessageSource.everything);
+      expect(store.isReceived, isFalse);
+
+      source.answers.add(_page(candidates: ['m_1'], newest: 'm_1'));
+      await fire();
+
+      expect(source.sinces, [
+        FirstMessageSource.everything,
+        FirstMessageSource.everything,
+      ]);
+      expect(store.isReceived, isTrue);
+    });
+
+    test('an empty topic is remembered across a restart', () async {
+      await watcher.start('nightly');
+      await watcher.dispose();
+
+      // The message lands while nothing is watching. A new watch must not
+      // take it for the baseline.
+      source.answers.add(_page(candidates: ['m_1'], newest: 'm_1'));
+      final second = build();
+      addTearDown(second.dispose);
+      await second.start('nightly');
+
+      expect(store.isReceived, isTrue);
     });
 
     test('is read from the phone when one was saved before', () async {
       await store.saveCursor('nightly', 'm_saved');
-      source.baseline = const FirstMessageBaseline.after('m_test');
 
       await watcher.start('nightly');
 
       expect(source.sinces, ['m_saved']);
-      expect(source.baselineReads, 0);
     });
 
     test('is kept per topic', () async {
       await store.saveCursor('other', 'm_other');
+      source.answers.add(_page(newest: 'm_test'));
 
       await watcher.start('nightly');
 
       expect(store.cursorFor('other'), 'm_other');
-      expect(store.cursorFor('nightly'), '1790000000');
+      expect(store.cursorFor('nightly'), 'm_test');
     });
 
-    test('waits for the test message when it cannot be read yet', () async {
-      source.baselineError = Exception('offline');
+    test('is not set while the server cannot be asked', () async {
+      source.answers.add(Exception('offline'));
 
       await watcher.start('nightly');
-      expect(source.sinces, isEmpty, reason: 'no poll without a cursor');
       expect(store.cursorFor('nightly'), isNull);
 
-      source
-        ..baselineError = null
-        ..baseline = const FirstMessageBaseline.after('m_test');
+      source.answers.add(_page(newest: 'm_test'));
       await fire();
-
-      expect(source.sinces, ['m_test']);
+      expect(store.cursorFor('nightly'), 'm_test');
     });
 
-    test(
-      'falls back to the time the watch began when the test stays unreadable',
-      () async {
-        source.baselineError = Exception('offline');
+    test('the phone clock plays no part, fast or slow', () async {
+      // The watcher takes no clock at all, and no cursor is ever a time:
+      // what it saves and sends is a message id or "everything".
+      source.answers.addAll([
+        _page(newest: 'm_test'),
+        const FirstMessagePage.empty(),
+        _page(candidates: ['m_1'], newest: 'm_1'),
+      ]);
 
-        await watcher.start('nightly');
-        for (var i = 1; i < FirstMessageWatcher.baselineTries; i++) {
-          await fire();
-        }
+      await watcher.start('nightly');
+      await fire();
+      await fire();
 
-        expect(source.baselineReads, FirstMessageWatcher.baselineTries);
-        expect(source.sinces, ['1790000000']);
-      },
-    );
+      expect(store.isReceived, isTrue);
+      for (final since in source.sinces) {
+        expect(int.tryParse(since), isNull, reason: '$since is a time');
+      }
+      expect(int.tryParse(store.cursorFor('nightly')!), isNull);
+    });
   });
 
   group('the first message', () {
+    setUp(() => source.answers.add(_page(newest: 'm_test')));
+
     test('sets the flag and tells the listener', () async {
       final seen = <bool>[];
       watcher.changes.listen(seen.add);
       source.answers.addAll([
-        <String>[],
-        ['m_1'],
+        const FirstMessagePage.empty(),
+        _page(candidates: ['m_1'], newest: 'm_1'),
       ]);
 
       await watcher.start('nightly');
+      await fire();
       expect(store.isReceived, isFalse);
       expect(watcher.isReceived, isFalse);
 
@@ -184,29 +220,36 @@ void main() {
     });
 
     test('stops the polling once it has landed', () async {
-      source.answers.add(['m_1']);
+      source.answers.add(_page(candidates: ['m_1'], newest: 'm_1'));
 
       await watcher.start('nightly');
+      await fire();
 
       expect(timers.where((timer) => !timer.cancelled), isEmpty);
-      expect(source.sinces, hasLength(1));
+      expect(source.sinces, hasLength(2));
     });
 
-    test('the setup test is never counted: it is the cursor', () async {
-      // The server answers nothing newer than the test message.
-      source.baseline = const FirstMessageBaseline.after('m_test');
+    test('a second test alarm does not tick, and is stepped past', () async {
+      // A test sent again, from setup or from Settings: a newer message
+      // with no candidate in it.
+      source.answers.add(_page(newest: 'm_test_2'));
 
       await watcher.start('nightly');
       await fire();
 
       expect(store.isReceived, isFalse);
-      expect(source.sinces, everyElement('m_test'));
+      expect(store.cursorFor('nightly'), 'm_test_2');
+
+      await fire();
+      expect(source.sinces.last, 'm_test_2');
     });
 
     test('the flag is written once', () async {
-      source.answers.add(['m_1']);
+      source.answers.add(_page(candidates: ['m_1'], newest: 'm_1'));
       await watcher.start('nightly');
+      await fire();
       expect(store.isReceived, isTrue);
+      final reads = source.sinces.length;
 
       // A second watcher, say on Home, starts on a phone that has it.
       final second = build();
@@ -216,7 +259,7 @@ void main() {
       await second.start('nightly');
 
       expect(second.isReceived, isTrue);
-      expect(source.sinces, hasLength(1), reason: 'no poll once received');
+      expect(source.sinces, hasLength(reads), reason: 'no poll once received');
       expect(seen, isEmpty);
     });
 
@@ -237,8 +280,9 @@ void main() {
     });
 
     test('the flag stays set when the topic is deleted', () async {
-      source.answers.add(['m_1']);
+      source.answers.add(_page(candidates: ['m_1'], newest: 'm_1'));
       await watcher.start('nightly');
+      await fire();
 
       await store.forgetTopic('nightly');
 
@@ -256,9 +300,7 @@ void main() {
       expect(source.sinces, hasLength(3));
       expect(
         timers.map((timer) => timer.duration),
-        everyElement(
-          const Duration(seconds: 5),
-        ),
+        everyElement(const Duration(seconds: 5)),
       );
     });
 
@@ -266,8 +308,8 @@ void main() {
       source.answers.addAll([
         Exception('offline'),
         Exception('offline'),
-        <String>[],
-        ['m_1'],
+        _page(newest: 'm_test'),
+        _page(candidates: ['m_1'], newest: 'm_1'),
       ]);
 
       await watcher.start('nightly');
@@ -328,19 +370,18 @@ void main() {
     });
 
     test('an answer that lands after dispose sets nothing', () async {
-      final gate = Completer<List<String>>();
-      final slow = _SlowSource(gate);
+      await store.saveCursor('nightly', 'm_test');
+      final gate = Completer<FirstMessagePage>();
       final slowWatcher = FirstMessageWatcher(
         store: store,
-        source: slow,
-        now: () => openedAt,
+        source: _SlowSource(gate),
         timer: _Timer.new,
       );
 
       final started = slowWatcher.start('nightly');
       await pumpEventQueue();
       await slowWatcher.dispose();
-      gate.complete(['m_1']);
+      gate.complete(_page(candidates: ['m_1'], newest: 'm_1'));
       await started;
 
       expect(store.isReceived, isFalse);
@@ -350,130 +391,123 @@ void main() {
   group('against the api', () {
     late _Api api;
     late ApiFirstMessageSource apiSource;
-    var testIncidents = <String>{};
 
-    Message message(String id, {int time = 0, String event = 'message'}) =>
-        Message(
-          id: id,
-          topic: 'nightly',
-          time: time,
-          event: event,
-          title: 'db01',
-          message: 'disk full',
-        );
+    Message message(
+      String id, {
+      String title = 'db01',
+      String event = 'message',
+    }) => Message(
+      id: id,
+      topic: 'nightly',
+      event: event,
+      title: title,
+      message: 'disk full',
+    );
+
+    Message testAlarm(String id) =>
+        message(id, title: IncidentKinds.testAlarmTitle);
+
+    void answers(List<Message> messages) => when(
+      () => api.pollMessages('nightly', poll: 1, since: any(named: 'since')),
+    ).thenAnswer((_) async => messages);
 
     setUp(() {
       api = _Api();
-      testIncidents = {};
-      apiSource = ApiFirstMessageSource(
-        api: api,
-        testIncidentIds: () => testIncidents,
-      );
+      apiSource = ApiFirstMessageSource(api: api);
     });
 
     test('a message comes back as its id and nothing else', () async {
-      when(
-        () => api.pollMessages('nightly', poll: 1, since: 'm_0'),
-      ).thenAnswer((_) async => [message('m_1'), message('m_2')]);
+      answers([message('m_1'), message('m_2')]);
 
-      final ids = await apiSource.newerThan('nightly', 'm_0');
+      final page = await apiSource.read('nightly', 'm_0');
 
-      // The type is the proof: a list of ids has no room for a title or a
-      // body.
-      expect(ids, isA<List<String>>());
-      expect(ids, ['m_1', 'm_2']);
+      // The type is the proof: ids have no room for a title or a body.
+      expect(page.candidates, isA<List<String>>());
+      expect(page.candidates, ['m_1', 'm_2']);
+      expect(page.newestId, 'm_2');
+      verify(() => api.pollMessages('nightly', poll: 1, since: 'm_0'));
+    });
+
+    test('a test alarm is never a candidate, but moves the newest', () async {
+      answers([message('m_1'), testAlarm('m_test')]);
+
+      final page = await apiSource.read('nightly', 'm_0');
+
+      expect(page.candidates, ['m_1']);
+      expect(page.newestId, 'm_test');
+    });
+
+    test('a read of only test alarms has no candidate', () async {
+      answers([testAlarm('m_test'), testAlarm('m_test_2')]);
+
+      final page = await apiSource.read('nightly', 'all');
+
+      expect(page.candidates, isEmpty);
+      expect(page.newestId, 'm_test_2');
     });
 
     test('a row that is not a message is not counted', () async {
-      when(
-        () => api.pollMessages('nightly', poll: 1, since: 'm_0'),
-      ).thenAnswer((_) async => [message('m_1', event: 'keepalive')]);
+      answers([message('m_1', event: 'keepalive')]);
 
-      expect(await apiSource.newerThan('nightly', 'm_0'), isEmpty);
+      expect((await apiSource.read('nightly', 'm_0')).candidates, isEmpty);
     });
 
-    test('no test sent: there is no test message to start after', () async {
-      expect(
-        await apiSource.testBaseline(),
-        const FirstMessageBaseline.noTest(),
-      );
-      verifyNever(() => api.getIncident(any()));
+    test('an empty answer is an empty page', () async {
+      answers([]);
+
+      final page = await apiSource.read('nightly', 'all');
+
+      expect(page.candidates, isEmpty);
+      expect(page.newestId, isNull);
     });
 
-    test('the baseline is the newest message of the setup tests', () async {
-      testIncidents = {'inc_1', 'inc_2'};
-      when(() => api.getIncident('inc_1')).thenAnswer(
-        (_) async => Incident(
-          id: 'inc_1',
-          topic: 'nightly',
-          messages: [message('m_a', time: 100)],
-        ),
+    FirstMessageWatcher real() {
+      final real = FirstMessageWatcher(
+        store: store,
+        source: apiSource,
+        timer: (duration, onFire) {
+          final timer = _Timer(duration, onFire);
+          timers.add(timer);
+          return timer;
+        },
       );
-      when(() => api.getIncident('inc_2')).thenAnswer(
-        (_) async => Incident(
-          id: 'inc_2',
-          topic: 'nightly',
-          messages: [message('m_b', time: 300), message('m_c', time: 200)],
-        ),
-      );
+      addTearDown(real.dispose);
+      return real;
+    }
 
-      expect(
-        await apiSource.testBaseline(),
-        const FirstMessageBaseline.after('m_b'),
-      );
-    });
+    test('a second setup test alarm never ticks the row', () async {
+      answers([testAlarm('m_test')]);
+      final watch = real();
+      await watch.start('nightly');
 
-    test('a test incident the server no longer has is passed over', () async {
-      testIncidents = {'inc_gone'};
-      when(
-        () => api.getIncident('inc_gone'),
-      ).thenThrow(const ApiException(statusCode: 404, message: 'not found'));
+      answers([testAlarm('m_test_2')]);
+      await fire();
+      expect(store.isReceived, isFalse);
 
-      expect(
-        await apiSource.testBaseline(),
-        const FirstMessageBaseline.noTest(),
-      );
-    });
-
-    test('a test incident that cannot be read is an error, not a guess', () {
-      testIncidents = {'inc_1'};
-      when(() => api.getIncident('inc_1')).thenThrow(Exception('offline'));
-
-      expect(apiSource.testBaseline(), throwsException);
+      answers([message('m_mine')]);
+      await fire();
+      expect(store.isReceived, isTrue);
     });
 
     test('the sync cursor of the topic is left alone', () async {
       final sync = MessageSyncService(prefs, api);
-      when(
-        () => api.pollMessages('nightly', poll: 1, since: any(named: 'since')),
-      ).thenAnswer((_) async => [message('m_1')]);
-      final real = FirstMessageWatcher(
-        store: store,
-        source: apiSource,
-        now: () => openedAt,
-        timer: _Timer.new,
-      );
-      addTearDown(real.dispose);
-
-      await real.start('nightly');
+      answers([testAlarm('m_test')]);
+      final watch = real();
+      await watch.start('nightly');
+      answers([message('m_1')]);
+      await fire();
 
       expect(store.isReceived, isTrue);
       expect(sync.lastMessageId('nightly'), isNull);
     });
 
     test('nothing the phone saves holds a title or a body', () async {
-      when(
-        () => api.pollMessages('nightly', poll: 1, since: any(named: 'since')),
-      ).thenAnswer((_) async => [message('m_1')]);
-      final real = FirstMessageWatcher(
-        store: store,
-        source: apiSource,
-        now: () => openedAt,
-        timer: _Timer.new,
-      );
-      addTearDown(real.dispose);
-
-      await real.start('nightly');
+      answers([message('m_0')]);
+      final watch = real();
+      await watch.start('nightly');
+      answers([message('m_1')]);
+      await fire();
+      expect(store.isReceived, isTrue);
 
       for (final key in prefs.getKeys()) {
         final value = prefs.get(key).toString();
@@ -487,12 +521,8 @@ void main() {
 class _SlowSource implements FirstMessageSource {
   _SlowSource(this.gate);
 
-  final Completer<List<String>> gate;
+  final Completer<FirstMessagePage> gate;
 
   @override
-  Future<List<String>> newerThan(String topic, String since) => gate.future;
-
-  @override
-  Future<FirstMessageBaseline> testBaseline() async =>
-      const FirstMessageBaseline.noTest();
+  Future<FirstMessagePage> read(String topic, String since) => gate.future;
 }

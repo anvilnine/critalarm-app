@@ -10,6 +10,7 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_state.dart';
+import 'package:critalarm/features/onboarding/presentation/model/hook_up_leaving.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/topics/domain/curl_line.dart';
 import 'package:critalarm/features/topics/domain/tool_snippet.dart';
@@ -101,7 +102,32 @@ class _HookUpView extends StatefulWidget {
 }
 
 class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
-  bool _isFinished = false;
+  late final HookUpLeaving _leaving = HookUpLeaving(
+    // The flow engine completes setup when no step is left, and that is
+    // what forgets the token.
+    finishAndGoNext: () =>
+        unawaited(finishOnboardingStep(context, OnboardingStepId.hookUp)),
+    finishStep: () =>
+        getIt<OnboardingFlowEngine>().finishStep(OnboardingStepId.hookUp),
+    openAlarm: (incidentId) =>
+        _router.go(PushDeepLink.incidentLocation(incidentId)),
+    wait: () => Future<void>.delayed(_tickWait),
+    isStillHere: () =>
+        mounted &&
+        _router.routerDelegate.currentConfiguration.uri.path == _path,
+  );
+
+  late GoRouter _router;
+  late String _path;
+  Duration _tickWait = Duration.zero;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _router = GoRouter.of(context);
+    _path = GoRouterState.of(context).uri.path;
+    _tickWait = context.motion(tickDuration);
+  }
 
   @override
   void initState() {
@@ -130,32 +156,6 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
     }
   }
 
-  /// Done. The flow engine completes setup when no step is left, and that
-  /// is what forgets the token.
-  void _finish() {
-    if (_isFinished) return;
-    _isFinished = true;
-    unawaited(finishOnboardingStep(context, OnboardingStepId.hookUp));
-  }
-
-  /// The user's own message set off an alarm and the phone is ringing.
-  /// While anything rings, the app is the alarm: the row gets its moment
-  /// to turn, then the alarm screen takes over, with the stop control.
-  ///
-  /// The alarm screen leaves for Home, never back to here, so the step is
-  /// finished first. Its job is done: a message from the tool arrived.
-  Future<void> _handOverTo(String incidentId) async {
-    if (_isFinished) return;
-    _isFinished = true;
-    final router = GoRouter.of(context);
-    final here = GoRouterState.of(context).uri.path;
-    await Future<void>.delayed(context.motion(tickDuration));
-    if (!mounted) return;
-    if (router.routerDelegate.currentConfiguration.uri.path != here) return;
-    await getIt<OnboardingFlowEngine>().finishStep(OnboardingStepId.hookUp);
-    router.go(PushDeepLink.incidentLocation(incidentId));
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<HookUpCubit, HookUpState>(
@@ -163,7 +163,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
           prev.ringingIncidentId != curr.ringingIncidentId &&
           curr.ringingIncidentId != null,
       listener: (context, state) =>
-          unawaited(_handOverTo(state.ringingIncidentId!)),
+          unawaited(_leaving.alarm(state.ringingIncidentId!)),
       builder: (context, state) {
         final cubit = context.read<HookUpCubit>();
         // The row has something to wait for once there is a topic. A phone
@@ -180,8 +180,9 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
         return AppScreenScaffold(
           backgroundColor: Colors.transparent,
           withGhosts: false,
-          // The body scrolls under the pinned row and button, so the bar
-          // brings its scrim.
+          // The body scrolls under the top bar and the pinned row and
+          // button, so both get a solid backing in the canvas colour.
+          barBacking: context.appColors.canvas,
           hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.app_title.tr(),
@@ -211,7 +212,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
                 label: LocaleKeys.onboarding_hook_up_done.tr(),
                 size: AppButtonSize.lg,
                 isFullWidth: true,
-                onPressed: _finish,
+                onPressed: _leaving.done,
               ),
             ],
           ),
