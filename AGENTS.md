@@ -303,6 +303,9 @@ connection.
   `connect` with nothing pending and no saved connection shows the same
   gate. Other steps show a short
   status in the top corner of the shell. `connectGateFor` holds the rule.
+  A step that draws something in that corner (the permission step dots)
+  asks `OnboardingAmbientScope.hasQuietLineOf` and gives the corner up
+  while the status is there.
 - A later step asks `getIt<BackgroundConnect>().state`: `isPending`,
   `isConnected`, `isFailed` with `failure`. `stream` carries every change.
 - A server typed by hand connects in the foreground, on the connect screen.
@@ -320,7 +323,9 @@ Developer settings: a build made with `--dart-define=SKIP_PAYWALL=true` or
 - Redo onboarding: replays the flow that would run now (`?demo=true`) and
   names its id.
 - Open a step: every registered step, opened as a replay. A step that is not
-  on this phone, or has no screen yet, is listed greyed with the reason.
+  on this phone, or has no screen yet, is listed greyed with the reason. A
+  replay of the permissions step takes `?skip=<n>` to open on a later step
+  (`OnboardingPermissionsScreen.replaySkipParam`).
 - Count as not done: one switch per step that has an `isSatisfied` check
   (`forceableOnboardingSteps`), saved in `dev.onboarding_forced_unsatisfied`.
   A forced step is the resume point even when its check says it is done, and
@@ -363,9 +368,14 @@ but never removes a dot or puts one in before the step on screen. The read
 gives up after five seconds, so the screen never stays checking, and "Not now"
 is on screen from the first frame.
 
+Each step is a face, a title, one line, the drawn prompt and the button. A
+drawn dialog has no hint under it; a drawn Settings switch keeps one. When
+the user allows a step, its face is glad for one beat
+(`PermissionStepView.grantedFace`) before the next step draws, and under
+reduce motion there is no beat.
+
 A step never says more than is true. The Time-Sensitive explainer shows only
-once notifications are granted. The Android full-screen chip is left off while
-notifications are not granted. When the system will not show a notification
+once notifications are granted. No step carries a chip today. When the system will not show a notification
 prompt again (`notificationPromptSpent`), the step opens Settings and draws a
 switch instead of a prompt.
 
@@ -397,13 +407,24 @@ user's first topic (`isFirstTopicFor`: the shared list is ready and empty,
 
 - `FirstTopicCriticalCard` in place of the Critical delivery row. It is an
   `AppHighlightCard` around the switch, with the words picked by `RingClaim`.
-  The switch starts off and only the user's tap turns it on. The card's tone
-  comes from `firstTopicCardTone`, the one place to change it.
+  The switch starts off and only the user's tap turns it on. The card is one
+  title and one line (`firstTopicCardCopy`), plus the plan line on the free
+  plan. Its tone comes from `firstTopicCardTone`, the one place to change it:
+  `choice` while off, `crit` once on, never `calm`.
 - A row of tool chips (`ToolTemplate`) above the name field. A chip fills the
   name only when the field is empty or still holds a name a chip put there.
   The chosen id is saved under `topic_tool_template.<topic name>`
   (`ToolTemplateStore`) once the topic exists. Nothing about it goes to the
-  server.
+  server. `ToolTemplate.other` has no chip: picking none means the same.
+
+In setup the screen is one step (`CreateTopicCubit.isOneStep`, set whenever
+the screen is given `onDone`). The pinned button creates the topic from the
+first step. There is no token-name step: the token is named after the picked
+tool (`setupTokenName`), or by the server when no tool is picked. There is no
+created stop either: the face is glad for one beat and the screen moves on,
+because the hook-up step shows the address and the token where they are
+used. It shows no ask, the Hosted ask included. Opened from Home, the screen
+keeps its two steps and its created state, whatever the topic count.
 
 A setup run also fills `FirstTopicHandoff` (registered in `get_it`) when the
 topic is made: the name, server URL, template id and publish token. The entry
@@ -455,6 +476,12 @@ rules are pure functions in
   `onboarding_real_ring.ios_time_sensitive.*` and
   `onboarding_real_ring.android.*`. Words about silent mode come from
   `RingClaim`.
+- A problem is a short title and at most one plain line (`RealRingReason`),
+  under a face that fits it: `sad` for a server or topic that is not there
+  yet, `skeptical` for Critical delivery off, `confused` for a test that
+  timed out, `worried` for a failure.
+- The Critical card on this step carries the same free-plan line as on the
+  first topic (`criticalPlanFor`, from `readCriticalLimit`).
 - A replay sends nothing: the button moves on to the next step.
 
 **After the ring.** The acknowledged screen says what the alarm proved
@@ -598,7 +625,9 @@ runs them from the list Home drew.
 
 - Three rows: a server is connected, a topic has Critical delivery on, a
   first message arrived (`FirstMessageStore.isReceived`). The third row is
-  `FirstMessageRow`, the same one the last setup step uses.
+  `FirstMessageRow`, the same one the last setup step uses, drawn bare. The
+  rows have no stroke of their own: the checklist is one cream block, so it
+  is no heavier than the topic rows under it.
 - It shows only over a list that loaded, and stays until all three are
   true. With no server nothing is drawn: the no-server card has that row.
   With no topics it stands in for the empty card.
@@ -621,7 +650,8 @@ runs them from the list Home drew.
 - After that, on a later visit and once the Feature Guides offer was
   answered, the widgets card shows once (`home_widgets_card_seen`), on iOS
   and Android only. Opening the how-to, going to the plans or closing it
-  all count as seen. The how-to steps have separate iOS and Android keys
+  all count as seen. Its main button is the next thing that user can do:
+  the how-to where widgets are unlocked, the plans where they need Hosted. The how-to steps have separate iOS and Android keys
   (`home_widgets.ios.*`, `home_widgets.android.*`).
 
 The Feature Guide offer is raised after the frame in which the route

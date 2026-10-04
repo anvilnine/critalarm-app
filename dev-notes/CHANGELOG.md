@@ -24,6 +24,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - AppScreenScaffold barBacking puts a solid colour behind the top bar and the pinned bottom bar, and the hook-up token id is saved under onboarding\_hook\_up\_token\_id.
 - Home setup content: HomeSetupCubit and HomeSetupSection draw the setup checklist, its one celebration and the widgets card at the top of the Topics list sheet. Prefs keys setup\_checklist\_seeded, setup\_checklist\_done and home\_widgets\_card\_seen, each set once.
 - Setup sends onboarding\_step\_viewed and onboarding\_step\_completed (step, flow\_id, ms\_since\_previous). They wait in pending\_onboarding\_events until the user answers the analytics question, are sent on opt-in, and are deleted on opt-out and after 7 days unanswered. The answer is kept in onboarding\_funnel\_state.
+- AppHighlightTone.choice: cream with the ink stroke, for the one choice on a screen before it is made. The first-topic Critical card uses it while off.
+- AppWaitingFace takes faceState, FaceRipple takes restFaces for a mixed wall, AppTextField takes scrollPadding.
+- A replay of the permissions step takes ?skip=<n> to open on a later step in a developer build.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -46,6 +49,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - CurlLine.build single-quotes the message and the address for a shell, on the topic page too.
 - FirstMessageWatcher takes its starting point from the server with since=all and no longer reads the phone clock.
 - FirstMessageRow takes showsFace, so a list with its own face can leave the row's out. The paywall pitch lists home screen widgets.
+- Every setup step draws one 80 px hero face with the tag onboarding-face at the same top inset. watching is kept for waits, worried for failures.
+- CreateTopicCubit.isOneStep creates from the first step and names the token after the picked tool. Setup sets it; the Home screen keeps two steps.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -58,6 +63,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
 - NotificationPermissionsState.activeSubstep, totalSteps, alarmSupported, fullScreenStep, fullScreenGranted, notificationsGranted and criticalAlertsGranted, replaced by steps, current and granted. The cubit's requestNotifications, requestCriticalAlerts and requestPermissions are one allowCurrentStep.
 - OnboardingPermissionsCubit and OnboardingConnectCubit.ringTestAlarm, both unused and holding hardcoded English.
+- Setup strings that said a thing twice: permission badges, dialog hints, helper lines, the steps header. Their keys are gone from en.json.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added
