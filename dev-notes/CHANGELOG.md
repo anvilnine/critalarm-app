@@ -8,6 +8,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Routes `/onboarding/first-topic`, `/onboarding/real-ring` and `/onboarding/test`. `CreateTopicScreen` takes an optional `onDone` callback that replaces its three exits, and `OnboardingConnectScreen` takes a `part` (connect or test).
 - `AppHighlightCard` (tones `crit` and `calm`), `AppAnimatedTick` and `AppWaitingFace` in `lib/design/components/`, shown in the gallery. The no-server notice card draws its surface with `AppHighlightCard`.
 - Developer settings can pick the setup flow (bundled or a typed step list), replay it, open any setup step, and force a step to count as not done. Prefs keys: dev.onboarding\_flow and dev.onboarding\_forced\_unsatisfied. Release builds without the developer flags ignore both.
+- Remote Config key onboarding\_flow (default an empty string) feeds the remote slot of the setup flow sources through TelemetryGate.onboardingFlowJson and RemoteOnboardingFlowSource. OnboardingFlowEngine.chooseFlowWithOrigin() says whether the developer override, the remote value or the bundled default won.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
