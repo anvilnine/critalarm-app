@@ -112,13 +112,16 @@ import 'package:critalarm/features/onboarding/data/repositories/in_memory_server
 import 'package:critalarm/features/onboarding/data/repositories/keychain_mirror_connection_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/platform_notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_connection_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_developer_onboarding_overrides.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
+import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_source.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
+import 'package:critalarm/features/onboarding/domain/flow/remote_onboarding_flow_source.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flow_repository.dart';
@@ -747,15 +750,28 @@ Future<void> configureDependencies({
     ..registerLazySingleton<OnboardingFlowRepository>(
       () => SharedPrefsOnboardingFlowRepository(getIt<SharedPreferences>()),
     )
-    // Where a setup flow comes from, highest priority first. The first two
-    // slots are empty until their sources are built; the bundled flow is
-    // always there to fall back on.
+    // What a developer set for setup. A store build gets the one that holds
+    // nothing, and ignores whatever the prefs contain.
+    ..registerLazySingleton<DeveloperOnboardingOverrides>(
+      () => developerOnboardingOverridesFor(getIt<SharedPreferences>()),
+    )
+    // Where a setup flow comes from, highest priority first. The bundled flow
+    // is always there to fall back on. A store build never holds the
+    // developer source.
     ..registerLazySingleton<OnboardingFlowSource>(
-      () => const EmptyOnboardingFlowSource(),
+      () => buildHasOnboardingDeveloperTools
+          ? DeveloperOnboardingFlowSource(
+              overrides: getIt<DeveloperOnboardingOverrides>(),
+              requires: OnboardingStepRegistry.requiresById,
+            )
+          : const EmptyOnboardingFlowSource(),
       instanceName: developerOnboardingFlowSource,
     )
+    // Remote Config: reads what is already activated, never waits.
     ..registerLazySingleton<OnboardingFlowSource>(
-      () => const EmptyOnboardingFlowSource(),
+      () => getIt.isRegistered<TelemetryGate>()
+          ? RemoteOnboardingFlowSource(getIt<TelemetryGate>())
+          : const EmptyOnboardingFlowSource(),
       instanceName: remoteOnboardingFlowSource,
     )
     // The real maker, or in a debug run the one DEVICE_MAKER names, so the
@@ -787,7 +803,7 @@ Future<void> configureDependencies({
           platform: defaultTargetPlatform,
           isWeb: kIsWeb,
         );
-        return OnboardingStepRegistry(
+        final registry = OnboardingStepRegistry(
           on: on,
           facts: DeviceOnboardingStepFacts(
             on: on,
@@ -796,6 +812,12 @@ Future<void> configureDependencies({
             notices: getIt<InAppNoticeRepository>(),
           ),
         );
+        return buildHasOnboardingDeveloperTools
+            ? ForcedUnsatisfiedStepCatalog(
+                registry,
+                getIt<DeveloperOnboardingOverrides>(),
+              )
+            : registry;
       },
     )
     ..registerLazySingleton(

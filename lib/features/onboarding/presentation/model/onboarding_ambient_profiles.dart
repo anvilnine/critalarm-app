@@ -31,7 +31,7 @@ enum OnboardingAmbientStep {
   /// Step 1C: Permission denied guidance and skip.
   denied,
 
-  /// Step 1D: The home screen widgets, after the permissions.
+  /// The home screen widgets, an optional step with no fixed position.
   widgets,
 
   /// Step 2A: Connect to server (Cloud or self-hosted).

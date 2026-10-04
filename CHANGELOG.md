@@ -7,6 +7,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
+- The welcome screen is ready to tap the moment it opens, with its words and Get started button in place while the animation plays.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added

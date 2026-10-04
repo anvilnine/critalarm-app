@@ -72,13 +72,14 @@ void main() {
         );
 
         // Typed defaults map: paywall_enabled false, paywall_variant
-        // straight.
+        // straight, onboarding_flow empty.
         expect(
           FirebaseTelemetryGate.remoteConfigDefaults,
           equals(
             const {
               'paywall_enabled': false,
               'paywall_variant': 'straight',
+              'onboarding_flow': '',
             },
           ),
         );
@@ -117,6 +118,7 @@ void main() {
           () => mockRemoteConfig.setDefaults(const {
             'paywall_enabled': false,
             'paywall_variant': 'straight',
+            'onboarding_flow': '',
           }),
         ).called(1);
 
