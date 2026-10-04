@@ -229,6 +229,32 @@ A pinned flow is checked again every time it is read. Unknown ids are
 dropped, and a list the validator rejects (empty, or nothing known left) is
 replaced by the bundled default with the completed steps kept.
 
+Developer settings: a build made with `--dart-define=SKIP_PAYWALL=true` or
+`--dart-define=PAYWALL_LAB=true` shows a setup section in Developer options
+(`developer_setup_section.dart`). Its controls:
+
+- Flow: pick no override, a bundled flow, or Custom. Custom takes comma
+  separated step ids and shows what the validator did (ids dropped, ids
+  repeated, the final order, or why the list was rejected). A rejected list is
+  never saved and the previous choice stays. The choice is saved in
+  `dev.onboarding_flow`. It fills the `developerOnboardingFlowSource` slot, so
+  it outranks the remote value and still passes the validator.
+- Redo onboarding: replays the flow that would run now (`?demo=true`) and
+  names its id.
+- Open a step: every registered step, opened as a replay. A step that is not
+  on this phone, or has no screen yet, is listed greyed with the reason.
+- Count as not done: one switch per step that has an `isSatisfied` check
+  (`forceableOnboardingSteps`), saved in `dev.onboarding_forced_unsatisfied`.
+  A forced step is the resume point even when its check says it is done, and
+  the permissions screen shows its steps (`replayForDemo`).
+
+A store build is compiled with `NoDeveloperOnboardingOverrides` and the empty
+developer slot (`buildHasOnboardingDeveloperTools` is a compile-time
+constant), so it ignores both keys even when they are set.
+
+A replay changes nothing real: no flow state, no topic on the first-topic
+step, and no connect form draft (`onboarding_replay_rules.dart`).
+
 **Changelogs.** Two files, both written with cider, never by hand. The
 how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 
