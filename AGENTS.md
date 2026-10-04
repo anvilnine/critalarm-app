@@ -164,7 +164,7 @@ how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 - Add entries with `make log TYPE=<added|changed|fixed|removed|deprecated|security> MSG="..."`
   or `make devlog TYPE=... MSG="..."`. One line per entry, no hard wraps,
   plain words, no em dashes. Write user entries from the user's side ("History
-  keeps 90 days on Pro"), not the code's.
+  keeps 90 days on Hosted"), not the code's.
 - Add the entry in the same branch as the change. When branches merge, keep
   both sides' lines.
 - This repo is public. Neither file names prices, keys, task numbers or
@@ -186,7 +186,7 @@ how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 
 - Real: the `AppColors` `ThemeExtension` with `copyWith` and `lerp`, the single
   `ThemeData` construction point in `lib/design_system/theme.dart`, the theme
-  preference round-trip, `go_router` wiring (`lib/app/router.dart`, 37 routes
+  preference round-trip, `go_router` wiring (`lib/app/router.dart`, 47 routes
   today), the `AppResult` and `Failure` types, `tool/check_layers.sh`, CI.
 - Placeholder: every colour and font value, and the widget names in
   `lib/design_system/widgets/`.

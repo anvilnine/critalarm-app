@@ -166,7 +166,7 @@ abstract final class SettingsSearchIndex {
         'home screen',
         'crown',
         'shades',
-        'pro',
+        'hosted',
       ],
     ),
     SettingsDestination(
@@ -205,7 +205,7 @@ abstract final class SettingsSearchIndex {
       parentTitleKey: LocaleKeys.nav_settings,
       keywords: <String>[
         'plan',
-        'pro',
+        'hosted',
         'free',
         'upgrade',
         'subscription',
