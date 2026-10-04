@@ -231,7 +231,7 @@ how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 - Add entries with `make log TYPE=<added|changed|fixed|removed|deprecated|security> MSG="..."`
   or `make devlog TYPE=... MSG="..."`. One line per entry, no hard wraps,
   plain words, no em dashes. Write user entries from the user's side ("History
-  keeps 90 days on Pro"), not the code's.
+  keeps 90 days on Hosted"), not the code's.
 - Add the entry in the same branch as the change. When branches merge, keep
   both sides' lines.
 - This repo is public. Neither file names prices, keys, task numbers or
@@ -243,20 +243,23 @@ how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 
 - `docs/api.md` and `docs/ARCHITECTURE.md` are **generated copies**. Do not edit
   them. Run `make sync-contract` to refresh them from `critalarm-server`.
-- `docs/design-system/` holds `index.html` and `NOTES.md`. `lib/design_system/`
-  must implement that. It does not yet. The palette, the three font families
-  and several widget names in `lib/design_system/` are placeholders standing in
-  until A0 replaces them. A0 reconciles the two. Do not reconcile them inside
-  another task.
+- `docs/design-system/` holds `index.html` and `NOTES.md`. `lib/design/` is the
+  design system that implements them, and screens build from it: tokens in
+  `tokens/`, components in `components/`, the face in `faces/`, the theme in
+  `theme/`. `NOTES.md` lists the components and when to use each. The debug
+  route `/gallery` shows every one.
+- `lib/design_system/` is the older folder. It re-exports `lib/design/` and
+  keeps the motion and haptics helpers. Do not add components there.
 
 **What is real and what is a placeholder.**
 
-- Real: the `AppColors` `ThemeExtension` with `copyWith` and `lerp`, the single
-  `ThemeData` construction point in `lib/design_system/theme.dart`, the theme
-  preference round-trip, `go_router` wiring (`lib/app/router.dart`, 37 routes
-  today), the `AppResult` and `Failure` types, `tool/check_layers.sh`, CI.
-- Placeholder: every colour and font value, and the widget names in
-  `lib/design_system/widgets/`.
+- Real: the design system in `lib/design/`, with its palette, fonts and
+  component names. The `AppColors` `ThemeExtension` with `copyWith` and `lerp`,
+  the single `ThemeData` construction point in `lib/design/theme/theme.dart`,
+  the theme preference round-trip, `go_router` wiring (`lib/app/router.dart`, 47
+  routes today), the `AppResult` and `Failure` types, `tool/check_layers.sh`, CI.
+- Placeholder: nothing in `lib/design/`. The widgets left in
+  `lib/design_system/widgets/` predate it. Do not build new screens from them.
 
 **Public repo.** Never commit a `.p8`, a keystore, `google-services.json`,
 `GoogleService-Info.plist`, a `.env`, a RevenueCat key, or a price. Signing

@@ -1,11 +1,13 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/design/components/animated_tick.dart';
 import 'package:critalarm/design/components/badges.dart';
 import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/components/code_block.dart';
 import 'package:critalarm/design/components/crop_editor.dart';
 import 'package:critalarm/design/components/empty_state.dart';
+import 'package:critalarm/design/components/highlight_card.dart';
 import 'package:critalarm/design/components/inputs.dart';
 import 'package:critalarm/design/components/key_value_rows.dart';
 import 'package:critalarm/design/components/ladder_rows.dart';
@@ -18,6 +20,7 @@ import 'package:critalarm/design/components/sheets.dart';
 import 'package:critalarm/design/components/switches.dart';
 import 'package:critalarm/design/components/toasts.dart';
 import 'package:critalarm/design/components/transport_button.dart';
+import 'package:critalarm/design/components/waiting_face.dart';
 import 'package:critalarm/design/components/waveform_bars.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
@@ -29,6 +32,8 @@ import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// Full interactive GalleryScreen showcasing every token, face, and component
@@ -52,6 +57,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   bool _toggleVal1 = true;
   bool _toggleVal2 = false;
+
+  bool _highlightVal = false;
+  bool _tickDone = false;
 
   @override
   Widget build(BuildContext context) {
@@ -115,6 +123,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           _buildCodeBlockSection(colors),
                           const SizedBox(height: 48),
                           _buildEmptyStateSection(colors),
+                          const SizedBox(height: 48),
+                          _buildSetupComponentsSection(colors),
                           const SizedBox(height: 48),
                           _buildControlsAndCardsSection(colors),
                           const SizedBox(height: 48),
@@ -1511,7 +1521,146 @@ class _GalleryScreenState extends State<GalleryScreen> {
         Text('Empty State', style: AppTypography.headline(colors.onCanvas)),
         const SizedBox(height: 18),
         AppEmptyState(
+          title: LocaleKeys.home_stage_word_no_topics.tr(),
+          description: LocaleKeys.home_empty_body.tr(),
+          buttonLabel: LocaleKeys.home_empty_button.tr(),
           onButtonPressed: () {},
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSetupComponentsSection(AppColors colors) {
+    final rowLabel = TextStyle(
+      fontFamily: AppTypography.fontBody,
+      fontFamilyFallback: AppTypography.fontBodyFallbacks,
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: colors.ink,
+      height: 1.3,
+    );
+
+    Widget tickRow({required bool done, required String label}) => Row(
+      children: [
+        Semantics(
+          label: label,
+          child: AppAnimatedTick(done: done),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ExcludeSemantics(child: Text(label, style: rowLabel)),
+        ),
+      ],
+    );
+
+    final tickLabel = _tickDone
+        ? LocaleKeys.gallery_tick_done_label.tr()
+        : LocaleKeys.gallery_tick_todo_label.tr();
+
+    return Column(
+      key: const ValueKey('gallery-setup-components'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          LocaleKeys.gallery_setup_title.tr(),
+          style: AppTypography.headline(colors.onCanvas),
+        ),
+        const SizedBox(height: 18),
+        Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: [
+            SizedBox(
+              width: 480,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppHighlightCard(
+                    child: AppToggleRow(
+                      title: LocaleKeys.gallery_highlight_crit_title.tr(),
+                      subtitle: LocaleKeys.gallery_highlight_crit_subtitle.tr(),
+                      value: _highlightVal,
+                      onChanged: (val) => setState(() => _highlightVal = val),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AppHighlightCard(
+                    tone: AppHighlightTone.calm,
+                    child: tickRow(
+                      done: true,
+                      label: LocaleKeys.gallery_highlight_calm_label.tr(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 480,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: Radii.xlAll,
+                  boxShadow: AppShadows.lightSm,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    tickRow(
+                      done: false,
+                      label: LocaleKeys.gallery_tick_todo_label.tr(),
+                    ),
+                    const SizedBox(height: 12),
+                    tickRow(
+                      done: true,
+                      label: LocaleKeys.gallery_tick_done_label.tr(),
+                    ),
+                    const SizedBox(height: 20),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 12,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Semantics(
+                          label: tickLabel,
+                          child: AppAnimatedTick(done: _tickDone, size: 40),
+                        ),
+                        AppButton(
+                          label: LocaleKeys.gallery_tick_flip_button.tr(),
+                          size: AppButtonSize.sm,
+                          variant: AppButtonVariant.ghost,
+                          onPressed: () =>
+                              setState(() => _tickDone = !_tickDone),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 480,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Center(
+                  child: AppWaitingFace(
+                    message: LocaleKeys.gallery_waiting_short.tr(),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 480,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Center(
+                  child: AppWaitingFace(
+                    message: LocaleKeys.gallery_waiting_long.tr(),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

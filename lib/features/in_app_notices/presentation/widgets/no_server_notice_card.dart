@@ -15,13 +15,7 @@ class NoServerNoticeCard extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, Spacing.s3, 12, 0),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: colors.critCanvas,
-          borderRadius: Radii.lgAll,
-          border: Border.all(color: colors.critStroke, width: 2),
-        ),
+      child: AppHighlightCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
