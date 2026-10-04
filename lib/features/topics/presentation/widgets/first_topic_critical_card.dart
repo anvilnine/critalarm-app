@@ -6,17 +6,18 @@ import 'package:flutter/material.dart';
 
 /// The tone of the first-topic card for a switch that is [isCritical].
 ///
-/// The one place that decides it. The card settles while the switch is off
-/// and takes the critical canvas once the user turns it on, so red appears
-/// only after the choice is made and the flip is the one thing that moves.
+/// The one place that decides it. Off, the card is a choice nobody has made
+/// yet: it stands out, and claims nothing. On, it takes the critical canvas.
+/// In the light palette the two share a stroke, so red is the only thing
+/// that moves when the user flips the switch.
 AppHighlightTone firstTopicCardTone({required bool isCritical}) =>
-    isCritical ? AppHighlightTone.crit : AppHighlightTone.calm;
+    isCritical ? AppHighlightTone.crit : AppHighlightTone.choice;
 
 /// The locale keys the first-topic card shows, picked from what is true now.
 ///
-/// Off, the card asks the user to turn it on and says what leaving it off
-/// costs. On, it states what the topic does. A subtitle that would only repeat
-/// the title is left out, so every line adds something.
+/// One title and one line under it. Off, the title names what the switch
+/// does and the line says what leaving it off costs. On, the title states
+/// what the topic does and the line adds what the title left out.
 class FirstTopicCardCopy {
   const FirstTopicCardCopy({
     required this.titleKey,
@@ -27,7 +28,7 @@ class FirstTopicCardCopy {
 
   final String titleKey;
 
-  /// Null when the title already says it.
+  /// Only while the switch is on. Null when the title already says it.
   final String? subtitleKey;
 
   /// Only while the switch is off.
@@ -35,6 +36,9 @@ class FirstTopicCardCopy {
 
   /// Null off the free plan. Takes `used` and `limit`.
   final String? planLineKey;
+
+  /// The one line under the title: what off costs, or what on adds.
+  String? get lineKey => offLineKey ?? subtitleKey;
 }
 
 /// The words for the card, by [claim], the switch and whether the free plan
@@ -44,15 +48,15 @@ FirstTopicCardCopy firstTopicCardCopy({
   required bool isCritical,
   required bool hasPlanLine,
 }) {
-  final planKey = !hasPlanLine
-      ? null
-      : isCritical
-      ? LocaleKeys.create_topic_first_topic_critical_free_plan_line_on
-      : LocaleKeys.create_topic_first_topic_critical_free_plan_line_off;
+  // The same line either way: it is a count, and the switch does not change
+  // what the count would be.
+  final planKey = hasPlanLine
+      ? LocaleKeys.create_topic_first_topic_critical_plan_line
+      : null;
   return switch ((claim, isCritical)) {
     (RingClaim.alarm, false) => FirstTopicCardCopy(
       titleKey: LocaleKeys.create_topic_first_topic_critical_title,
-      subtitleKey: LocaleKeys.create_topic_critical_toggle_subtitle,
+      subtitleKey: null,
       offLineKey: LocaleKeys.create_topic_first_topic_critical_off_line,
       planLineKey: planKey,
     ),
@@ -65,9 +69,9 @@ FirstTopicCardCopy firstTopicCardCopy({
     (RingClaim.timeSensitive, false) => FirstTopicCardCopy(
       titleKey:
           LocaleKeys.create_topic_first_topic_critical_title_time_sensitive,
-      subtitleKey:
-          LocaleKeys.create_topic_critical_toggle_subtitle_time_sensitive,
-      offLineKey: LocaleKeys.create_topic_first_topic_critical_off_line,
+      subtitleKey: null,
+      offLineKey:
+          LocaleKeys.create_topic_first_topic_critical_off_line_time_sensitive,
       planLineKey: planKey,
     ),
     (RingClaim.timeSensitive, true) => FirstTopicCardCopy(
@@ -83,9 +87,9 @@ FirstTopicCardCopy firstTopicCardCopy({
 
 /// The Critical delivery switch as the hero of the user's first topic.
 ///
-/// It says what the switch does and what happens if it stays off. The switch
-/// is off until the user flips it: this widget only reports a tap through
-/// [onChanged] and never changes the value itself.
+/// One title, one line. It says what the switch does and what off costs.
+/// The switch is off until the user flips it: this widget only reports a tap
+/// through [onChanged] and never changes the value itself.
 class FirstTopicCriticalCard extends StatelessWidget {
   const FirstTopicCriticalCard({
     required this.claim,
@@ -117,8 +121,7 @@ class FirstTopicCriticalCard extends StatelessWidget {
       hasPlanLine: plan != null,
     );
     final title = copy.titleKey.tr();
-    final subtitle = copy.subtitleKey?.tr();
-    final offLine = copy.offLineKey?.tr();
+    final line = copy.lineKey?.tr();
     final planLine = switch ((copy.planLineKey, plan)) {
       (final key?, final plan?) => key.tr(
         namedArgs: {'used': '${plan.used}', 'limit': '${plan.limit}'},
@@ -129,81 +132,51 @@ class FirstTopicCriticalCard extends StatelessWidget {
     final ink = colors.onCanvas;
     return AppHighlightCard(
       tone: firstTopicCardTone(isCritical: isCritical),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                // The switch carries the words, so a screen reader hears one
-                // "Title, switch, off" instead of loose lines.
-                child: ExcludeSemantics(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        style: AppTypography.small(
-                          ink,
-                          fontSize: 15,
-                        ).copyWith(fontWeight: FontWeight.w700, height: 1.3),
-                      ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle,
-                          style: AppTypography.small(
-                            ink,
-                            fontSize: 12,
-                          ).copyWith(height: 1.4),
-                        ),
-                      ],
-                    ],
+          Expanded(
+            // The switch carries the words, so a screen reader hears one
+            // "Title, switch, off" instead of loose lines.
+            child: ExcludeSemantics(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: AppTypography.small(
+                      ink,
+                      fontSize: 15,
+                    ).copyWith(fontWeight: FontWeight.w700, height: 1.3),
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              AppSwitch(
-                value: isCritical,
-                onChanged: onChanged,
-                semanticLabel: title,
-                semanticHint: [?subtitle, ?offLine, ?planLine].join(' '),
-              ),
-            ],
-          ),
-          // Drawn while the switch is off, so the cost of leaving it off is
-          // in front of the user. It retracts with the tone change.
-          AnimatedSize(
-            duration: context.motion(AppDurations.base),
-            curve: AppCurves.easeOut,
-            alignment: Alignment.topLeft,
-            child: offLine == null
-                ? const SizedBox(width: double.infinity)
-                : Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: ExcludeSemantics(
-                      child: Text(
-                        offLine,
-                        style: AppTypography.small(
-                          ink,
-                          fontSize: 13,
-                        ).copyWith(fontWeight: FontWeight.w600, height: 1.35),
-                      ),
+                  if (line != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      line,
+                      style: AppTypography.small(
+                        ink,
+                        fontSize: 13,
+                      ).copyWith(height: 1.35),
                     ),
-                  ),
-          ),
-          if (planLine != null) ...[
-            const SizedBox(height: 8),
-            ExcludeSemantics(
-              child: Text(
-                planLine,
-                style: AppTypography.small(ink, fontSize: 12),
+                  ],
+                  if (planLine != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      planLine,
+                      style: AppTypography.small(ink, fontSize: 12),
+                    ),
+                  ],
+                ],
               ),
             ),
-          ],
+          ),
+          const SizedBox(width: 12),
+          AppSwitch(
+            value: isCritical,
+            onChanged: onChanged,
+            semanticLabel: title,
+            semanticHint: [?line, ?planLine].join(' '),
+          ),
         ],
       ),
     );

@@ -19,11 +19,13 @@ import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:critalarm/features/topics/presentation/formatters/topic_name_formatter.dart';
+import 'package:critalarm/features/topics/presentation/widgets/create_topic_face.dart';
 import 'package:critalarm/features/topics/presentation/widgets/first_topic_critical_card.dart';
 import 'package:critalarm/features/topics/presentation/widgets/token_actions.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -49,7 +51,9 @@ class CreateTopicScreen extends StatelessWidget {
         // Only a setup step hands its new topic on to the steps after it. A
         // replay never makes one.
         final cubit = getIt<CreateTopicCubit>()
-          ..holdsHandoff = onDone != null && !isReplay;
+          ..holdsHandoff = onDone != null && !isReplay
+          // Setup asks for the topic and nothing else: no token-name step.
+          ..isOneStep = onDone != null;
         unawaited(cubit.loadConnection());
         // The shared topic list is already in memory, so a name that is taken
         // can be caught on step 1 instead of by the server after step 2. The
@@ -84,7 +88,8 @@ class _CreateTopicScreenContent extends StatefulWidget {
       _CreateTopicScreenContentState();
 }
 
-class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
+class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
+    with WidgetsBindingObserver {
   static const String _prefAskAgainOnEnter = 'create_topic_ask_again_on_enter';
 
   late final TextEditingController _nameController;
@@ -104,6 +109,70 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
   /// the sheet already went up and do not stack a second one.
   bool _hasAskedAboutPro = false;
 
+  /// This screen is a setup step: one screen, no token-name step and no
+  /// created stop.
+  bool get _isSetup => widget.onDone != null;
+
+  /// Room a focused field keeps under itself, so it comes to rest above the
+  /// pinned button and its links, never behind them.
+  static const _fieldScrollPadding = EdgeInsets.fromLTRB(20, 20, 20, 132);
+
+  final ScrollController _scroll = ScrollController();
+
+  /// The keyboard came up or went down. With a field in focus the form is
+  /// brought up above the pinned button: the list already leaves room for
+  /// the button under its last row, so the end of the list is the place
+  /// where the whole form shows.
+  @override
+  void didChangeMetrics() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final hasKeyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
+      final isTyping = _nameFocus.hasFocus || _tokenNameFocus.hasFocus;
+      if (!hasKeyboard || !isTyping) return;
+      final end = _scroll.position.maxScrollExtent;
+      if (end <= _scroll.offset) return;
+      final duration = context.motion(AppDurations.base);
+      if (duration == Duration.zero) {
+        _scroll.jumpTo(end);
+      } else {
+        unawaited(
+          _scroll.animateTo(end, duration: duration, curve: AppCurves.easeOut),
+        );
+      }
+    });
+  }
+
+  /// The glad face has had its moment and settles.
+  bool _faceSettled = false;
+  Timer? _settleTimer;
+
+  /// Setup moves on by itself after the topic is made. Guards the X and the
+  /// timer from both doing it.
+  bool _hasLeftSetup = false;
+
+  void _leaveSetup() {
+    if (_hasLeftSetup) return;
+    _hasLeftSetup = true;
+    widget.onDone?.call();
+  }
+
+  /// What the topic being made does on screen: the face is glad for a beat,
+  /// then settles. In setup the screen then moves on, because the next
+  /// steps show the address and token where they are used.
+  void _onCreated() {
+    final beat = context.motion(AppDurations.slow);
+    _settleTimer?.cancel();
+    _settleTimer = Timer(beat, () {
+      if (!mounted) return;
+      if (_isSetup) {
+        _leaveSetup();
+      } else {
+        setState(() => _faceSettled = true);
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -111,6 +180,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     _tokenNameController = TextEditingController();
     _nameFocus = FocusNode();
     _tokenNameFocus = FocusNode();
+    WidgetsBinding.instance.addObserver(this);
     // Step 1 is a single field, so open with the keyboard already on it
     // instead of making the user tap it first. Not during a guide, or when
     // this screen's own guide is about to start: it points at the field, and
@@ -157,7 +227,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _scroll.dispose();
     _toastTimer?.cancel();
+    _settleTimer?.cancel();
     _nameController.dispose();
     _tokenNameController.dispose();
     _nameFocus.dispose();
@@ -215,7 +288,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
   void _submit() {
     FocusScope.of(context).unfocus();
     if (!onboardingCreatesTopic(isReplay: widget.isReplay)) {
-      widget.onDone?.call();
+      _leaveSetup();
       return;
     }
     unawaited(context.read<CreateTopicCubit>().createTopic());
@@ -404,7 +477,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
             selected: state.selectedTool,
             onTap: isSubmitting ? null : cubit.toolTemplateTapped,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Spacing.s4),
         ],
         FeatureGuideAnchor(
           id: FeatureGuideAnchorId.createName,
@@ -413,27 +486,33 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
             controller: _nameController,
             focusNode: _nameFocus,
             placeholder: LocaleKeys.create_topic_name_placeholder.tr(),
-            helperText: LocaleKeys.create_topic_name_helper.tr(),
             errorText: state.errorMessage ?? duplicateError,
             enabled: !isSubmitting,
             maxLength: 100,
+            scrollPadding: _fieldScrollPadding,
             textInputAction: TextInputAction.done,
             inputFormatters: const [
               TopicNameInputFormatter(),
             ],
-            headerTrailing: AppButton(
-              label: LocaleKeys.create_topic_paste_button.tr(),
-              size: AppButtonSize.sm,
-              variant: AppButtonVariant.paper,
-              icon: AppGlyph(
-                GlyphType.copy,
-                size: 13,
-                color: colors.ink,
-              ),
-              onPressed: isSubmitting ? null : _handlePaste,
-            ),
+            // Nobody on their first topic has a topic name on the clipboard.
+            headerTrailing: _isSetup
+                ? null
+                : AppButton(
+                    label: LocaleKeys.create_topic_paste_button.tr(),
+                    size: AppButtonSize.sm,
+                    variant: AppButtonVariant.paper,
+                    icon: AppGlyph(
+                      GlyphType.copy,
+                      size: 13,
+                      color: colors.ink,
+                    ),
+                    onPressed: isSubmitting ? null : _handlePaste,
+                  ),
             onChanged: cubit.nameChanged,
-            onSubmitted: (_) => _next(),
+            // In setup the keyboard's Done only puts the keyboard away: the
+            // Critical card is still to be read, and Create is pinned.
+            onSubmitted: (_) =>
+                _isSetup ? FocusScope.of(context).unfocus() : _next(),
           ),
         ),
         const SizedBox(height: 14),
@@ -555,15 +634,6 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                 style: AppTypography.mono(colors.ink2, fontSize: 12),
               ),
             ),
-            // Only when it is on. Off is the default, so saying so every time
-            // is noise; on is the thing worth remembering.
-            if (state.isCritical) ...[
-              const SizedBox(width: 8),
-              Text(
-                LocaleKeys.create_topic_token_recap_critical.tr(),
-                style: AppTypography.small(colors.crit, fontSize: 12),
-              ),
-            ],
           ],
         ),
         const SizedBox(height: 10),
@@ -572,13 +642,13 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
           controller: _tokenNameController,
           focusNode: _tokenNameFocus,
           placeholder: LocaleKeys.create_topic_token_name_placeholder.tr(),
-          helperText: LocaleKeys.create_topic_token_name_helper.tr(),
           // No errorText here. A failed create is always about the topic, and
           // the cubit sends the user back to step 1 so the message sits under
           // the topic name field.
           enabled: !isSubmitting,
           isMono: false,
           maxLength: 40,
+          scrollPadding: _fieldScrollPadding,
           textInputAction: TextInputAction.done,
           onChanged: cubit.tokenNameChanged,
           onSubmitted: (_) => _handleEnterSubmit(),
@@ -608,13 +678,26 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
         }
         if (state.status == CreateTopicStatus.success) {
           AppHaptics.success();
-          _showToast(
-            '${LocaleKeys.create_topic_toast_created.tr()} ${state.name}',
-          );
+          final created = LocaleKeys.create_topic_toast_created.tr();
+          if (_isSetup) {
+            // The screen is about to move on, so a toast would only flash.
+            // The face says it, and a screen reader hears it.
+            unawaited(
+              SemanticsService.sendAnnouncement(
+                View.of(context),
+                created,
+                Directionality.of(context),
+              ),
+            );
+          } else {
+            _showToast(created);
+          }
+          _onCreated();
           // One critical topic left on the free plan. The user is closer to
           // the wall than they may know, so this is a fair time to mention
-          // it, after the topic they came for is safely made.
-          if (state.isFreeTier && state.criticalRemaining == 1) {
+          // it, after the topic they came for is safely made. Never in
+          // setup, which shows no ask.
+          if (!_isSetup && state.isFreeTier && state.criticalRemaining == 1) {
             unawaited(_askAboutPro(context));
           }
         }
@@ -627,7 +710,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
           // buy it again would be wrong, so say it is on its way.
           if (state.isProPending) {
             _showToast(LocaleKeys.create_topic_toast_pro_pending.tr());
-          } else {
+          } else if (!_isSetup) {
             unawaited(_askAboutPro(context));
           }
         }
@@ -641,25 +724,84 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
       builder: (context, state) {
         final cubit = context.read<CreateTopicCubit>();
         final token = state.createdToken;
-        final stageFace = state.errorMessage != null
-            ? FaceState.worried
-            : FaceState.watching;
+        final isSetup = _isSetup;
+        final hasKeyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
 
         final isSubmitting = state.status == CreateTopicStatus.submitting;
         final isSuccess = state.status == CreateTopicStatus.success;
         final isTokenStep = state.step == CreateTopicStep.token;
+        final face = createTopicFace(
+          hasError: state.errorMessage != null,
+          isCreated: isSuccess,
+          hasSettled: _faceSettled,
+          isCritical: state.isCritical,
+        );
         final stepKey = ValueKey<CreateTopicStep>(state.step);
         // Duration.zero under reduce motion, so the step swaps instead of
         // sliding. Same flag the ambient canvas below is handed.
         final stepDuration = context.motion(AppDurations.base);
-        // Nothing to do on step 2 with a name the app already knows is taken.
+        // Nothing to do with a name the app already knows is taken.
         final isNameTaken = !isSuccess && !isTokenStep && state.isDuplicateName;
+        // Setup has no created stop: the form stays as it was for the beat
+        // before the screen moves on.
+        final showsForm = !isSuccess || isSetup;
+        final showsCreated = token != null && !isSetup;
+        // The step where the topic gets made is the one with something to
+        // agree to.
+        final showsLegal = !isSuccess && (isSetup || isTokenStep);
 
         // The system back button and the back gesture do what the top bar's
         // Back does: on step 2 they return to step 1 with everything typed
         // still there. Once the topic exists the form is over, so back leaves
         // the screen like it does on step 1.
         final canPop = !isTokenStep || isSuccess;
+
+        void close() {
+          if (isSetup) {
+            _leaveSetup();
+            return;
+          }
+          final created = state.createdTopic;
+          if (created != null) {
+            if (context.canPop()) {
+              context.pop();
+              unawaited(context.push('/topics/${created.name}'));
+            } else {
+              context.go('/topics/${created.name}');
+            }
+            return;
+          }
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/');
+          }
+        }
+
+        final button = AppButton(
+          label: switch ((isSuccess && !isSetup, isTokenStep || isSetup)) {
+            (true, _) => LocaleKeys.create_topic_done_button.tr(),
+            (false, true) => LocaleKeys.create_topic_create_button.tr(),
+            (false, false) => LocaleKeys.create_topic_next_button.tr(),
+          },
+          size: isSetup ? AppButtonSize.lg : AppButtonSize.md,
+          isFullWidth: true,
+          // In setup the button keeps spinning through the glad beat, so
+          // it cannot be tapped twice on the way out.
+          isLoading: isSubmitting || (isSetup && isSuccess),
+          onPressed: isNameTaken
+              ? null
+              : () {
+                  AppHaptics.capture();
+                  if (isSuccess) {
+                    close();
+                  } else if (isTokenStep || isSetup) {
+                    _submit();
+                  } else {
+                    _next();
+                  }
+                },
+        );
 
         final content = PopScope(
           canPop: canPop,
@@ -674,8 +816,13 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
             child: AppScreenScaffold(
               hasTabBar: false,
               resizeForKeyboard: true,
+              scrollController: _scroll,
               topBar: AppTopBar(
-                title: LocaleKeys.create_topic_title.tr(),
+                // In setup the top bar reads like every other step's, and
+                // the title sits under the face.
+                title: isSetup
+                    ? LocaleKeys.app_title.tr()
+                    : LocaleKeys.create_topic_title.tr(),
                 leading: isTokenStep && !isSuccess
                     ? AppIconButton(
                         glyph: GlyphType.back,
@@ -690,50 +837,114 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                     : null,
                 trailing: AppIconButton(
                   glyph: GlyphType.close,
-                  ariaLabel: LocaleKeys.create_topic_cancel_aria_label.tr(),
-                  onPressed: () {
-                    final onDone = widget.onDone;
-                    if (onDone != null) {
-                      onDone();
-                      return;
-                    }
-                    final created = state.createdTopic;
-                    if (created != null) {
-                      if (context.canPop()) {
-                        context.pop();
-                        unawaited(context.push('/topics/${created.name}'));
-                      } else {
-                        context.go('/topics/${created.name}');
-                      }
-                      return;
-                    }
-                    if (context.canPop()) {
-                      context.pop();
-                    } else {
-                      context.go('/');
-                    }
-                  },
+                  ariaLabel: isSetup
+                      ? LocaleKeys.onboarding_permissions_not_now.tr()
+                      : LocaleKeys.create_topic_cancel_aria_label.tr(),
+                  onPressed: close,
                 ),
               ),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: AppStage(
-                    faceState: stageFace,
-                    faceSize: 110,
-                    isLive: true,
-                    padding: const EdgeInsets.fromLTRB(24, Spacing.s3, 24, 0),
+              // Pinned, so the button is at one height in every state and
+              // stays above the keyboard.
+              bottomBar: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_toast case final message?) ...[
+                    AppToast(message: message),
+                    const SizedBox(height: Spacing.s2),
+                  ],
+                  FeatureGuideAnchor(
+                    id: FeatureGuideAnchorId.createButton,
+                    child: button,
                   ),
-                ),
+                  if (showsLegal)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Spacing.s2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _LegalLink(
+                            label: LocaleKeys.create_topic_terms_link.tr(),
+                            url: termsUrl,
+                          ),
+                          const SizedBox(width: 16),
+                          _LegalLink(
+                            label: LocaleKeys.create_topic_privacy_link.tr(),
+                            url: privacyUrl,
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              slivers: [
+                if (isSetup)
+                  SliverToBoxAdapter(
+                    // With the keyboard up there is room for the form or
+                    // for the face and title, not both, and the form is
+                    // what the user is typing into.
+                    child: AnimatedSize(
+                      duration: stepDuration,
+                      curve: AppCurves.easeOut,
+                      alignment: Alignment.topCenter,
+                      child: hasKeyboard
+                          ? const SizedBox(width: double.infinity)
+                          : Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                Spacing.s5,
+                                Spacing.s4,
+                                Spacing.s5,
+                                0,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // The face every setup step shares, so
+                                  // it flies in from the step before.
+                                  Hero(
+                                    tag: 'onboarding-face',
+                                    flightShuttleBuilder:
+                                        faceFlightShuttleBuilder,
+                                    child: FaceWidget(
+                                      state: face,
+                                      size: 80,
+                                      isLive: true,
+                                    ),
+                                  ),
+                                  const SizedBox(height: Spacing.s4),
+                                  Semantics(
+                                    header: true,
+                                    child: Text(
+                                      LocaleKeys.create_topic_first_topic_title
+                                          .tr(),
+                                      textAlign: TextAlign.center,
+                                      style: AppTypography.headline(
+                                        colors.onCanvas,
+                                        fontSize: 30,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                    ),
+                  )
+                else
+                  SliverToBoxAdapter(
+                    child: AppStage(
+                      faceState: face,
+                      faceSize: 110,
+                      isLive: true,
+                      padding: const EdgeInsets.fromLTRB(24, Spacing.s3, 24, 0),
+                    ),
+                  ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      12,
-                      Spacing.s4,
-                      12,
-                      16,
-                    ),
+                    // Tighter with the keyboard up in setup, where every
+                    // point decides whether the form fits above the button.
+                    padding: isSetup && hasKeyboard
+                        ? const EdgeInsets.fromLTRB(12, 0, 12, Spacing.s1)
+                        : const EdgeInsets.fromLTRB(12, Spacing.s4, 12, 16),
                     child: AppSheet(
-                      border: Border.all(color: colors.hairline, width: 2),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
@@ -746,7 +957,8 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                                   .tr(),
                               showFace: false,
                             ),
-                          if (!isSuccess) ...[
+                          // One step needs no counter.
+                          if (showsForm && !isSetup) ...[
                             Text(
                               LocaleKeys.create_topic_step_label.tr(
                                 namedArgs: {
@@ -765,7 +977,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                             ),
                             const SizedBox(height: 12),
                           ],
-                          if (!isSuccess)
+                          if (showsForm)
                             AnimatedSize(
                               duration: stepDuration,
                               curve: AppCurves.easeOut,
@@ -812,8 +1024,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                                 ),
                               ),
                             ),
-                          if (token != null) ...[
-                            const SizedBox(height: 14),
+                          if (showsCreated) ...[
                             Text(
                               LocaleKeys.create_topic_generated_label.tr(),
                               style: TextStyle(
@@ -859,100 +1070,24 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                                 onCopied: _showToast,
                               ),
                             ),
-                            ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                LocaleKeys.create_topic_token_warning.tr(),
-                                style: TextStyle(
-                                  fontFamily: AppTypography.fontBody,
-                                  fontFamilyFallback:
-                                      AppTypography.fontBodyFallbacks,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: colors.ink3,
-                                ),
+                            const SizedBox(height: 6),
+                            Text(
+                              LocaleKeys.create_topic_token_warning.tr(),
+                              style: TextStyle(
+                                fontFamily: AppTypography.fontBody,
+                                fontFamilyFallback:
+                                    AppTypography.fontBodyFallbacks,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: colors.ink3,
                               ),
-                            ],
+                            ),
                           ],
                         ],
                       ),
                     ),
                   ),
                 ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_toast case final message?) ...[
-                          AppToast(message: message),
-                          const SizedBox(height: Spacing.s2),
-                        ],
-                        FeatureGuideAnchor(
-                          id: FeatureGuideAnchorId.createButton,
-                          child: AppButton(
-                            label: switch ((isSuccess, isTokenStep)) {
-                              (true, _) =>
-                                LocaleKeys.create_topic_done_button.tr(),
-                              (false, true) =>
-                                LocaleKeys.create_topic_create_button.tr(),
-                              (false, false) =>
-                                LocaleKeys.create_topic_next_button.tr(),
-                            },
-                            isFullWidth: true,
-                            isLoading: isSubmitting,
-                            onPressed: isNameTaken
-                                ? null
-                                : () {
-                                    AppHaptics.capture();
-                                    final onDone = widget.onDone;
-                                    if (isSuccess && onDone != null) {
-                                      onDone();
-                                    } else if (isSuccess) {
-                                      final name = state.createdTopic!.name;
-                                      if (context.canPop()) {
-                                        context.pop();
-                                        unawaited(
-                                          context.push('/topics/$name'),
-                                        );
-                                      } else {
-                                        context.go('/topics/$name');
-                                      }
-                                    } else if (isTokenStep) {
-                                      _submit();
-                                    } else {
-                                      _next();
-                                    }
-                                  },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Terms and Privacy sit under the button on step 2, where the
-                // topic gets created. Step 1 has nothing to agree to yet.
-                if (isTokenStep && !isSuccess)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _LegalLink(
-                            label: LocaleKeys.create_topic_terms_link.tr(),
-                            url: termsUrl,
-                          ),
-                          const SizedBox(width: 16),
-                          _LegalLink(
-                            label: LocaleKeys.create_topic_privacy_link.tr(),
-                            url: privacyUrl,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -999,20 +1134,21 @@ class _ToolChips extends StatelessWidget {
             fontSize: 12,
           ).copyWith(fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         Wrap(
           spacing: 8,
           children: [
+            // No chip for "something else": picking none already means it.
             for (final template in ToolTemplate.values)
-              AppTopicChip(
-                // Tool names are product names and stay as they are.
-                text:
-                    template.label ??
-                    LocaleKeys.create_topic_tool_chip_other.tr(),
-                isSelected: template == selected,
-                hitSlop: 6,
-                onTap: onTap == null ? null : () => onTap(template),
-              ),
+              if (template.label case final label?)
+                AppTopicChip(
+                  // Tool names are product names and stay as they are.
+                  text: label,
+                  isSelected: template == selected,
+                  // With the slop above and below, two rows sit 8 apart.
+                  hitSlop: 4,
+                  onTap: onTap == null ? null : () => onTap(template),
+                ),
           ],
         ),
       ],
