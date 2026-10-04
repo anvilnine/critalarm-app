@@ -179,6 +179,15 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                     onPressed: () => _close(context),
                   )
                 : null,
+            // Counts the steps this phone draws, so it is right with two
+            // steps and with three. One step has nothing to count and
+            // draws no dots. Up here they never push the buttons around.
+            trailing: view != null && !state.isDenied && state.steps.length > 1
+                ? PermissionStepDots(
+                    count: state.steps.length,
+                    index: state.currentIndex,
+                  )
+                : null,
           ),
           bottomBar: Column(
             mainAxisSize: MainAxisSize.min,
@@ -204,17 +213,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                     ),
                   ]
                 : [
-                    if (view != null) ...[
-                      // Counts the steps this phone draws, so it is right
-                      // with two steps and with three. One step has nothing
-                      // to count and draws no dots.
-                      if (state.steps.length > 1) ...[
-                        PermissionStepDots(
-                          count: state.steps.length,
-                          index: state.currentIndex,
-                        ),
-                        const SizedBox(height: Spacing.s4),
-                      ],
+                    if (view != null)
                       AppButton(
                         label: view.button,
                         size: AppButtonSize.lg,
@@ -222,7 +221,6 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                         isLoading: state.isRequesting,
                         onPressed: cubit.allowCurrentStep,
                       ),
-                    ],
                     // The way forward is there before the first step is: a
                     // status read that hangs must not hold the user here.
                     if (view == null || view.canSkip) ...[
