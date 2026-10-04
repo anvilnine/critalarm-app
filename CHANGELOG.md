@@ -1,6 +1,10 @@
 # Changelog
 User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec.yaml`. Entries are added with cider (`make log`), one line each. Rules: `AGENTS.md`, Changelogs. Changes only developers notice go in `dev-notes/CHANGELOG.md`.
 
+## Unreleased
+### Changed
+- The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
+
 ## 1.0.0+12 - 2026-10-03
 ### Added
 - Android onboarding asks for the full-screen alarm permission, so pages can ring over the lock screen from the first run.

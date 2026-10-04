@@ -632,8 +632,9 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
                           if (state.capReached != null)
                             AppEmptyState(
                               title: state.capReached!.message,
-                              description:
-                                  'Review your plan to increase this limit.',
+                              description: LocaleKeys
+                                  .create_topic_limit_review_plan_hint
+                                  .tr(),
                               buttonLabel: null,
                               showFace: false,
                             ),

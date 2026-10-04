@@ -70,7 +70,7 @@ void main() {
         LocalReminderArgs.headsUp: 'billing',
       }),
     );
-    expect(billing.title, "Your Pro payment didn't go through");
+    expect(billing.title, "Your Hosted payment didn't go through");
     expect(billing.actions.single.title, 'Update payment');
 
     final renew = ios.build(
@@ -80,7 +80,7 @@ void main() {
         LocalReminderArgs.price: 'PRICE',
       }),
     );
-    expect(renew.title, 'Pro renews on 4 Oct for PRICE');
+    expect(renew.title, 'Hosted renews on 4 Oct for PRICE');
     expect(renew.actions, isEmpty);
 
     final ends = ios.build(
@@ -89,7 +89,7 @@ void main() {
         LocalReminderArgs.weekday: 'Friday',
       }),
     );
-    expect(ends.title, 'Pro ends Friday');
+    expect(ends.title, 'Hosted ends Friday');
   });
 
   test('the morning after goes on the Offers channel', () {
@@ -103,7 +103,7 @@ void main() {
     expect(r.title, 'Crit Alarm woke you at 03:12');
     expect(
       r.body,
-      'db-2 rang and you were up in 48 s. Pro gives you unlimited critical '
+      'db-2 rang and you were up in 48 s. Hosted gives you unlimited critical '
       'topics and 90 days of history.',
     );
     expect(r.channelId, 'offers_v1');
@@ -114,15 +114,15 @@ void main() {
     expect(r.actions.last.opensApp, isFalse);
   });
 
-  test('the Pro later notice repeats the See Pro offer', () {
+  test('the Hosted later notice repeats the See Hosted offer', () {
     final r = ios.build(candidate(LocalReminderKind.proLater, const {}));
-    expect(r.title, 'Still thinking about Pro?');
+    expect(r.title, 'Still thinking about Hosted?');
     expect(
       r.body,
-      'Pro gives you unlimited critical topics and 90 days of history.',
+      'Hosted gives you unlimited critical topics and 90 days of history.',
     );
     expect(r.actions.map((a) => a.id), [LocalReminderActionIds.seePro]);
-    expect(r.actions.single.title, 'See Pro');
+    expect(r.actions.single.title, 'See Hosted');
   });
 
   test('the review ask names the store per platform', () {

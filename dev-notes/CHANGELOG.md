@@ -1,6 +1,10 @@
 # Dev notes
 Changes developers need to know about: new tokens and components, prefs keys, build flags, tooling, tests, refactors and small UI polish too minor for the user changelog. Added with cider (`make devlog`), one line each. Versions match the app's `pubspec.yaml`. This repo is public: no prices, keys, task numbers or planning links.
 
+## Unreleased
+### Changed
+- Locale values and the search keyword for the paid plan say Hosted. Keys, class names, routes and analytics event names keep their pro\_ names. The create-topic limit hint is now the key create\_topic.limit\_review\_plan\_hint.
+
 ## 1.0.0+12 - 2026-10-03
 ### Added
 - Prefs keys `home_prompt_first_topic_at` (first time the user owned a topic, set once) and `home_prompt_battery_dismissed_at` (battery notice dismissed for good).
