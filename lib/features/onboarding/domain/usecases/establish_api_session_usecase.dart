@@ -15,12 +15,20 @@ class EstablishApiSessionUsecase {
   final RegisterDeviceUsecase _register;
   final DeviceIdentityStore _identity;
 
-  Future<ApiSession> call(ServerInfo info, String adminToken) async {
+  /// [pushToken] is for a caller that already holds the token and has to
+  /// tell "no token yet" apart from "the relay refused". Left out, the
+  /// registration reads the token itself.
+  Future<ApiSession> call(
+    ServerInfo info,
+    String adminToken, {
+    String? pushToken,
+  }) async {
     final mode = ServerMode.fromWireValue(info.mode);
     var credential = adminToken;
     if (mode != ServerMode.selfhosted) {
       await _register(
         appVersion: appVersion,
+        pushToken: pushToken,
         relayUri: Uri.parse(info.relayUrl),
       );
       credential = (await _identity.readOrCreate()).deviceToken!;
