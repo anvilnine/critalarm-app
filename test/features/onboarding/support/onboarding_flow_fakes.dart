@@ -134,6 +134,7 @@ class EngineHarness {
     FakeOnboardingFlowRepository? repository,
     List<OnboardingFlowSource>? sources,
     OnboardingFlowRepository? store,
+    void Function(OnboardingStepEvent event)? onStepEvent,
   }) : facts = facts ?? FakeOnboardingStepFacts(),
        repository = repository ?? FakeOnboardingFlowRepository() {
     engine = OnboardingFlowEngine(
@@ -145,7 +146,10 @@ class EngineHarness {
         store ?? this.repository,
       ),
       getOnboardingCompleted: GetOnboardingCompletedUsecase(progress),
-      onStepEvent: events.add,
+      onStepEvent: (event) {
+        events.add(event);
+        onStepEvent?.call(event);
+      },
     );
   }
 
