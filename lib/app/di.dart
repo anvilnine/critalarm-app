@@ -116,6 +116,7 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_source.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
+import 'package:critalarm/features/onboarding/domain/flow/remote_onboarding_flow_source.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flow_repository.dart';
@@ -749,8 +750,11 @@ Future<void> configureDependencies({
       () => const EmptyOnboardingFlowSource(),
       instanceName: developerOnboardingFlowSource,
     )
+    // Remote Config: reads what is already activated, never waits.
     ..registerLazySingleton<OnboardingFlowSource>(
-      () => const EmptyOnboardingFlowSource(),
+      () => getIt.isRegistered<TelemetryGate>()
+          ? RemoteOnboardingFlowSource(getIt<TelemetryGate>())
+          : const EmptyOnboardingFlowSource(),
       instanceName: remoteOnboardingFlowSource,
     )
     ..registerLazySingleton<OnboardingStepCatalog>(

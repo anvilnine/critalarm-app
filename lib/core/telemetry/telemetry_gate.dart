@@ -32,6 +32,11 @@ abstract interface class TelemetryGate {
   /// string under `paywall_variant`. `PaywallVariant.fromKey` turns an
   /// unknown value into the default, so this getter never has to validate.
   String get paywallVariantKey;
+
+  /// The setup flow Remote Config holds under `onboarding_flow`, as the raw
+  /// JSON text. Empty when none has been set or fetched yet. Answers at once
+  /// with what is already activated and never waits for the network.
+  String get onboardingFlowJson;
 }
 
 /// A no-op implementation of [TelemetryGate] used for testing or fallback.
@@ -39,6 +44,7 @@ class NoopTelemetryGate implements TelemetryGate {
   const NoopTelemetryGate({
     this.paywallEnabled = false,
     this.paywallVariantKey = '',
+    this.onboardingFlowJson = '',
   });
 
   @override
@@ -46,6 +52,9 @@ class NoopTelemetryGate implements TelemetryGate {
 
   @override
   final String paywallVariantKey;
+
+  @override
+  final String onboardingFlowJson;
 
   @override
   bool get isPaywallEnabled => paywallEnabled;

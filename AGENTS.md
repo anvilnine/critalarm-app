@@ -188,8 +188,25 @@ is one today.
 
 Where a flow comes from, highest priority first: the developer settings
 override, the remote value, the bundled default. Each is an
-`OnboardingFlowSource` registered in `lib/app/di.dart`. The first two are
-empty slots today. A source answers with what it has in hand and never waits.
+`OnboardingFlowSource` registered in `lib/app/di.dart`. A source answers with
+what it has in hand and never waits. `OnboardingFlowEngine.chooseFlowWithOrigin()`
+says which one won (`OnboardingFlowOrigin`: developer, remote, bundled).
+
+The remote source is `RemoteOnboardingFlowSource`. It reads the Remote Config
+key `onboarding_flow` through `TelemetryGate.onboardingFlowJson`, which
+returns what is already activated and never fetches. The default is an empty
+string, which means no remote flow. The value is the same JSON as a bundled
+flow, and only `id` and `steps` are read. It is rejected before the validator
+sees it when:
+
+- the text is empty or is not JSON;
+- `id` is missing or is not 1 to 40 characters of letters, digits, `.`, `_`
+  or `-` (it becomes an analytics parameter);
+- `steps` is missing, is not a list, or holds anything but strings.
+
+A remote flow applies only to installs that have not tapped Get started yet.
+A value that arrives later changes nothing for a user who is already pinned.
+A build without Firebase config uses the bundled flow.
 
 Every source passes `validateOnboardingFlow`:
 
