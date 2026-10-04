@@ -15,6 +15,7 @@ import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
 import 'package:critalarm/gen/assets.gen.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -100,6 +101,10 @@ Future<void> main() async {
 
   // Acks queued offline go out as soon as the network is back.
   unawaited(getIt<AckQueue>().start());
+
+  // A setup test the server would not close last time would ring again as
+  // a real alarm, so it is closed now that the app is open again.
+  unawaited(getIt<EndSetupTestUsecase>().closeLeftovers());
 
   // A connect the last run left waiting, for a network that was not there,
   // is picked up again.

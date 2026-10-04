@@ -424,11 +424,19 @@ rules are pure functions in
   server, because the server holding an incident says nothing about this
   phone ringing. Coming back to the app, and a cold start, ask the phone
   (`isUp`).
-- The incident id is saved by `SetupTestRing` under
-  `onboarding_real_ring_incident`. The alarm can start the app from cold,
-  and the acknowledged screen still has to know the incident was the setup
-  test. The step after the ring reads the same id.
-  `CompleteOnboardingUsecase` clears it.
+- The incident ids are saved by `SetupTestRing`. The alarm can start the
+  app from cold, and the acknowledged screen still has to know the incident
+  was the setup test. `incidentId` (`onboarding_real_ring_incident`) is the
+  newest, which the step after the ring reads. `incidentIds`
+  (`onboarding_real_ring_incidents`) is every test of the run: Try again
+  sends a second one and the first can still ring late, so each counts.
+  `CompleteOnboardingUsecase` clears both.
+- A push from the server that lands while the phone-only countdown runs
+  cancels the phone's own alarm, so only one rings.
+- Only a push that rings counts as an arrival: priority 5 `open`, `repeat`
+  or `reopen`. Android decides in `PushRouter.route`, iOS in
+  `AlarmScheduleRule.ringingIncidentId`. An ack, a close, a forward and a
+  ring held by quiet hours name no incident.
 - The fallback is the alarm the phone sets for itself, `LocalTestAlarm`,
   the only copy of that logic. It starts from the user's tap and from
   nothing else, and the screen calls it a test of this phone only. The
@@ -442,12 +450,23 @@ rules are pure functions in
 
 **After the ring.** The acknowledged screen says what the alarm proved
 (`setupTestKind`: server-sent, phone-only, or not a test) and picks its
-buttons with `ackedExitsFor`. In a setup run on a flow that has `real_ring`
+buttons with `ackedExitsFor`. A test is matched by incident id only, never
+by a topic name. In a setup run on a flow that has `real_ring`
 it shows one Continue button, which calls `finishOnboardingStep` and never
 completes setup itself: the engine does, when no step is left. `legacy-1`
 keeps its two buttons and completes setup from them. A test run again after
-setup ends on one Finish button. Continue on a server-sent test also closes
-the incident, so its desk timer does not ring the phone again mid-setup.
+setup ends on one Finish button.
+
+Setup never closes, silences or walks away from a real alarm. Continue on a
+server-sent test calls `CriticalAlarmCubit.closeSetupTests(id)`, which does
+nothing unless that id is the incident on screen and a stored setup test.
+It ends every test of the run through `EndSetupTestUsecase` (acknowledge if
+needed, close, one retry), and answers false when a real alarm took the
+screen over meanwhile, in which case the screen stays on that alarm. A test
+left acknowledged would ring again from its desk timer as a real alarm, so
+a close that still fails moves the id to `unclosedIds`
+(`onboarding_real_ring_unclosed`): it stops counting as a setup test, and
+`closeLeftovers` closes it the next time the app opens.
 
 Every "Set this up later" exit calls `SetUpLaterUsecase`, which completes
 setup, and completes nothing on a replay.

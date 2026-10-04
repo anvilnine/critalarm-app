@@ -152,13 +152,27 @@ class RealRingCubit extends Cubit<RealRingState> {
 
     // The alarm can start the app from cold. When the test sent before the
     // app went away is ringing on this phone, its screen is the one to show.
-    final sent = ring.incidentId;
-    if (sent != null && await arrivals.isUp(sent)) {
-      if (isClosed) return;
-      emit(state.copyWith(phase: RealRingPhase.rang, incidentId: sent));
+    final up = await _firstUp();
+    if (isClosed) return;
+    if (up != null) {
+      emit(state.copyWith(phase: RealRingPhase.rang, incidentId: up));
       return;
     }
     await _recheck();
+  }
+
+  /// The first test of this setup run whose alarm is up on this phone, the
+  /// newest one first. Null when none is. A local read.
+  Future<String?> _firstUp() async {
+    final newest = ring.incidentId;
+    final ids = [
+      ?newest,
+      ...ring.incidentIds.where((id) => id != newest),
+    ];
+    for (final id in ids) {
+      if (await arrivals.isUp(id)) return id;
+    }
+    return null;
   }
 
   Future<AlarmAuthorization?> _readAuthorization() async {
@@ -271,7 +285,7 @@ class RealRingCubit extends Cubit<RealRingState> {
     await ring.hold(incidentId);
     if (isClosed) return;
     if (_arrived.contains(incidentId)) {
-      emit(state.copyWith(phase: RealRingPhase.rang, incidentId: incidentId));
+      _rang(incidentId);
       return;
     }
     emit(state.copyWith(phase: RealRingPhase.waiting, incidentId: incidentId));
@@ -289,30 +303,36 @@ class RealRingCubit extends Cubit<RealRingState> {
     final awaited =
         state.phase == RealRingPhase.waiting ||
         state.phase == RealRingPhase.timedOut;
-    if (!awaited || incidentId != state.incidentId) return;
-    _rang();
+    // Try again sends a second test, and the first can still ring late.
+    // Either one is this setup's test alarm reaching the phone.
+    if (!awaited || !_isSetupTest(incidentId)) return;
+    _rang(incidentId);
   }
 
-  void _rang() {
+  bool _isSetupTest(String incidentId) =>
+      incidentId == state.incidentId || ring.incidentIds.contains(incidentId);
+
+  void _rang(String incidentId) {
     _pushWait?.cancel();
-    emit(state.copyWith(phase: RealRingPhase.rang));
+    // The user may have started the test of this phone only while waiting.
+    // The server's alarm is here now, so the phone's own alarm is taken
+    // back before it fires on top of it.
+    if (_local.state.isCountingDown) _local.cancel();
+    emit(state.copyWith(phase: RealRingPhase.rang, incidentId: incidentId));
   }
 
   /// The app came back to the front. An alarm that started while it was
   /// away may have been missed, so the phone is asked. The server is not.
   Future<void> appResumed() async {
     if (isReplay) return;
-    final id = state.incidentId;
     final awaited =
         state.phase == RealRingPhase.waiting ||
         state.phase == RealRingPhase.timedOut;
-    if (id != null && awaited) {
-      final isUp = await arrivals.isUp(id);
+    if (state.incidentId != null && awaited) {
+      final up = await _firstUp();
       if (isClosed) return;
       // The phase may have moved while the phone was asked.
-      if (isUp && state.incidentId == id && state.phase != RealRingPhase.rang) {
-        _rang();
-      }
+      if (up != null && state.phase != RealRingPhase.rang) _rang(up);
       return;
     }
     await _recheck();

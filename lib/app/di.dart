@@ -137,6 +137,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/check_notification
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
@@ -772,6 +773,14 @@ Future<void> configureDependencies({
     ..registerLazySingleton<SetupTestRing>(
       () => PrefsSetupTestRing(getIt<SharedPreferences>()),
     )
+    // Ends a setup test on the server so it cannot ring again later.
+    ..registerLazySingleton(
+      () => EndSetupTestUsecase(
+        getIt<SetupTestRing>(),
+        getIt<AcknowledgeIncidentUsecase>(),
+        getIt<CloseIncidentUsecase>(),
+      ),
+    )
     // How setup hears that an alarm reached this phone.
     ..registerLazySingleton<AlarmArrivals>(
       () => PlatformAlarmArrivals(
@@ -1347,10 +1356,11 @@ Future<void> configureDependencies({
         () => getIt<OnboardingFlowEngine>().isStepSatisfied(
           OnboardingStepId.firstTopic,
         ),
-        () => getIt<SetupTestRing>().incidentId,
+        () => getIt<SetupTestRing>().incidentIds,
         () => getIt<OnboardingFlowEngine>().runningFlow().contains(
           OnboardingStepId.realRing,
         ),
+        getIt<EndSetupTestUsecase>(),
       ),
     )
     ..registerFactory(

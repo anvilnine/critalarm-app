@@ -33,11 +33,13 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The connect step counts as done only while a connection is saved or a connect is pending, a 429 from device registration is a permanent device cap failure, and the privacy line needs relay\_content present in the answer (ServerInfo.statedRelayContent)
 - Setup completion moved: the acknowledged screen finishes the real\_ring step and the flow engine completes setup, legacy-1 keeps its own buttons, and every Set this up later exit calls SetUpLaterUsecase.
 - The onPushReceived channel call carries the incident id of an alarm push (PushHost.alarmPushes), and Android answers receivedAlarmFor on the alarm channel.
+- SetupTestRing keeps every test incident id of a setup run and the ones a close failed for (prefs keys onboarding\_real\_ring\_incidents and onboarding\_real\_ring\_unclosed), and EndSetupTestUsecase closes leftovers when the app opens.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
 - The denied permissions screen stays on screen through a status read. It used to turn into the stepper as soon as the first read finished.
 - The Time-Sensitive explainer no longer shows after notifications were refused, and the Android full-screen step drops its ring chip while notifications are off. The Android notification mock says Don't allow.
+- Setup never closes or leaves a real alarm: CriticalAlarmCubit.closeSetupTests acts only on the stored setup test on screen, a server push cancels a running phone-only countdown, and iOS names an incident to Dart only for a push that rings (AlarmScheduleRule.ringingIncidentId).
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.

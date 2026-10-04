@@ -20,20 +20,21 @@ enum SetupTestKind {
 
 /// Says which test, if any, the alarm for [incidentId] was.
 ///
-/// [storedRealRingIncidentId] is the id the server answered when setup asked
-/// it to ring this phone. It is saved, so an alarm that started the app from
-/// cold is still recognised when nothing else is in memory.
+/// Matched by incident id and nothing else. A topic's name never decides
+/// it: a real topic may be called anything, and its alarms are real.
+///
+/// [setupTestIncidentIds] are the ids the server answered when setup asked
+/// it to ring this phone. They are saved, so an alarm that started the app
+/// from cold is still recognised when nothing else is in memory. An id
+/// whose close failed is not in the set, so a later ring from it is not
+/// taken for a test.
 SetupTestKind setupTestKind({
   required String? incidentId,
-  required String topic,
-  required String? storedRealRingIncidentId,
+  required Set<String> setupTestIncidentIds,
 }) {
-  if (incidentId == phoneOnlyTestIncidentId || topic == phoneOnlyTestTopic) {
-    return SetupTestKind.phoneOnly;
-  }
-  if (incidentId != null &&
-      incidentId.isNotEmpty &&
-      incidentId == storedRealRingIncidentId) {
+  if (incidentId == null || incidentId.isEmpty) return SetupTestKind.none;
+  if (incidentId == phoneOnlyTestIncidentId) return SetupTestKind.phoneOnly;
+  if (setupTestIncidentIds.contains(incidentId)) {
     return SetupTestKind.serverSent;
   }
   return SetupTestKind.none;
