@@ -50,7 +50,10 @@ class OnboardingConnectScreen extends StatelessWidget {
         // A replay of the connect step is a look at the form, so a server
         // that is already saved does not move it on.
         unawaited(
-          cubit.loadConnection(adoptSavedConnection: isTest || !isReplay),
+          cubit.loadConnection(
+            adoptSavedConnection: isTest || !isReplay,
+            isReplay: isReplay,
+          ),
         );
         return cubit;
       },

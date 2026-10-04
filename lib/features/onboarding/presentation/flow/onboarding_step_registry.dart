@@ -128,6 +128,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       // where the route's state can be read from.
       screen: (context, state) => Builder(
         builder: (context) => CreateTopicScreen(
+          isReplay: isOnboardingReplay(context),
           onDone: () =>
               finishOnboardingStep(context, OnboardingStepId.firstTopic),
         ),
