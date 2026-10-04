@@ -35,6 +35,7 @@ final class LocalReminderInputsReader {
     required bool isWeb,
     required bool isIos,
     Future<bool> Function()? isSetupDone,
+    this.countsAsRealUse,
     String appStoreId = FeedbackLinks.appStoreId,
     String feedbackFormUrl = FeedbackLinks.feedbackFormUrl,
     DateTime Function()? clock,
@@ -123,6 +124,11 @@ final class LocalReminderInputsReader {
   final PrivacyRepository _privacy;
   final Future<List<Topic>?> Function() _readTopics;
   final Future<List<Incident>?> Function() _readIncidents;
+
+  /// Whether an incident is real use and not one setup itself caused. An
+  /// incident that is not counts as a test for every rule. Null in tests
+  /// that do not care, where everything counts.
+  final bool Function(String incidentId)? countsAsRealUse;
   final Future<bool> Function(String topic) _topicHasMessages;
   final Future<ServerMode?> Function() _readServerMode;
   final Future<bool> Function() _readIsPaid;
@@ -224,7 +230,9 @@ final class LocalReminderInputsReader {
           LocalReminderIncident(
             id: incident.id,
             topic: incident.topic,
-            isTest: IncidentKinds.isTest(incident),
+            isTest:
+                IncidentKinds.isTest(incident) ||
+                !(countsAsRealUse?.call(incident.id) ?? true),
             isOpenOrAcked: incident.isOpen || incident.isAcked,
             openedAt: wall(incident.openedAt),
             ackedAt: wall(incident.ackedAt),

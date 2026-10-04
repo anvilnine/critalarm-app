@@ -43,6 +43,13 @@ class _FakeHandoff implements FirstTopicHandoff {
   String? savedTopicName;
 
   @override
+  String? mintedTokenId;
+
+  @override
+  Future<void> saveMintedTokenId(String tokenId) async =>
+      mintedTokenId = tokenId;
+
+  @override
   Future<void> hold(FirstTopicHandoffEntry entry) async => this.entry = entry;
 
   @override

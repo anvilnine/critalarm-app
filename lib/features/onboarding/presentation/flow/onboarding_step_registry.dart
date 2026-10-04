@@ -4,6 +4,7 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
+import 'package:critalarm/features/onboarding/presentation/hook_up_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_connect_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
@@ -85,7 +86,11 @@ bool _whereWidgetsExist(OnboardingPlatform on) =>
     (on.platform == TargetPlatform.iOS ||
         on.platform == TargetPlatform.android);
 
-bool _notYet(OnboardingPlatform on) => false;
+/// iOS and Android, the phones a server can ring.
+bool _wherePushRings(OnboardingPlatform on) =>
+    !on.isWeb &&
+    (on.platform == TargetPlatform.iOS ||
+        on.platform == TargetPlatform.android);
 
 /// Every setup step, bound to this phone and this user.
 ///
@@ -186,13 +191,19 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       isAvailable: _whereWidgetsExist,
       screen: (context, state) => const OnboardingWidgetsScreen(),
     ),
-    // Known to the validator, so a flow may list it, but it has no screen
-    // yet and is skipped.
-    const OnboardingStepEntry(
+    OnboardingStepEntry(
       id: OnboardingStepId.hookUp,
-      ambientStep: OnboardingAmbientStep.connected,
-      requires: {OnboardingStepId.firstTopic},
-      isAvailable: _notYet,
+      route: '/onboarding/hook-up',
+      routeName: 'onboardingHookUp',
+      ambientStep: OnboardingAmbientStep.hookUp,
+      requires: const {OnboardingStepId.firstTopic},
+      // It says for itself when there is no server or no topic, and Done
+      // is always there, so the shell does not stand in for it.
+      handlesMissingServer: true,
+      // A curl line is for a phone that can ring from a push.
+      isAvailable: _wherePushRings,
+      isSatisfied: (facts) => facts.hasReceivedFirstMessage(),
+      screen: (context, state) => const HookUpScreen(),
     ),
   ]);
 

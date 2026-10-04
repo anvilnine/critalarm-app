@@ -18,6 +18,7 @@ import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
@@ -84,6 +85,7 @@ import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_not
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/close_incident_usecase.dart';
@@ -96,6 +98,7 @@ import 'package:critalarm/features/local_reminders/data/native_local_reminder_sc
 import 'package:critalarm/features/local_reminders/data/noop_local_reminder_scheduler.dart';
 import 'package:critalarm/features/local_reminders/data/revenuecat_plan_status_source.dart';
 import 'package:critalarm/features/local_reminders/data/shared_prefs_local_reminder_store.dart';
+import 'package:critalarm/features/local_reminders/domain/incident_kinds.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_copy.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_inputs_reader.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_pass.dart';
@@ -133,6 +136,7 @@ import 'package:critalarm/features/onboarding/domain/repositories/notification_p
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
+import 'package:critalarm/features/onboarding/domain/setup_stats_consent.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
@@ -149,6 +153,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/register_device_us
 import 'package:critalarm/features/onboarding/domain/usecases/request_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/set_up_later_usecase.dart';
+import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
@@ -211,10 +216,14 @@ import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.d
 import 'package:critalarm/features/settings/presentation/cubits/sound_crop_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/features/topics/data/api_first_message_source.dart';
+import 'package:critalarm/features/topics/data/prefs_first_message_store.dart';
 import 'package:critalarm/features/topics/data/prefs_first_topic_handoff.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/data/repositories/shared_prefs_topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/data/shared_prefs_tool_template_store.dart';
+import 'package:critalarm/features/topics/domain/first_message/first_message_store.dart';
+import 'package:critalarm/features/topics/domain/first_message/first_message_watcher.dart';
 import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
 import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
@@ -604,6 +613,10 @@ Future<void> configureDependencies({
             (await getIt<IdentityRepository>().readIdentity()) != null,
         proShouldAsk: () => getIt<ProAskRules>().shouldAsk(),
         isSetupDone: () => getIt<SetupGate>().isDone(),
+        countsAsRealUse: (incidentId) => countsAsRealUse(
+          incidentId: incidentId,
+          setupIncidentIds: getIt<SetupTestRing>().setupIncidentIds,
+        ),
         isWeb: kIsWeb,
         isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
       ),
@@ -657,7 +670,14 @@ Future<void> configureDependencies({
         isSetupDone: () => getIt<SetupGate>().isDone(),
         // An ack made on another device counts too, and only the shared list
         // carries it. The review popup skips the whole day of one.
-        newestAckedAt: () => getIt<IncidentsCubit>().state.newestAckedAt,
+        // An alarm setup itself caused is left out: it is not real use.
+        newestAckedAt: () => newestRealAckedAt(
+          acks: [
+            for (final incident in getIt<IncidentsCubit>().state.incidents)
+              (id: incident.id, ackedAt: incident.ackedAt),
+          ],
+          setupIncidentIds: getIt<SetupTestRing>().setupIncidentIds,
+        ),
       ),
     )
     ..registerLazySingleton<DeviceReportRepository>(
@@ -779,6 +799,19 @@ Future<void> configureDependencies({
         getIt<SetupTestRing>(),
         getIt<AcknowledgeIncidentUsecase>(),
         getIt<CloseIncidentUsecase>(),
+        // Told apart the way the rest of the app tells a test: the title
+        // the test route gives its message.
+        (incidentId) async {
+          try {
+            final incident = await getIt<ApiClient>().getIncident(incidentId);
+            return incident.messages.any(
+              (message) => message.title != IncidentKinds.testAlarmTitle,
+            );
+          } on ApiException catch (error) {
+            // Gone from the server: nothing of the user's is in it.
+            return error.statusCode == 404 ? false : null;
+          }
+        },
       ),
     )
     // How setup hears that an alarm reached this phone.
@@ -797,6 +830,27 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton<ToolTemplateStore>(
       () => SharedPrefsToolTemplateStore(getIt<SharedPreferences>()),
+    )
+    // "A first message arrived", set once, and where each topic's watch
+    // for it starts from.
+    ..registerLazySingleton<FirstMessageStore>(
+      () => PrefsFirstMessageStore(getIt<SharedPreferences>()),
+    )
+    // One watcher per screen that waits for the first message. The screen
+    // starts it, pauses it in the background and disposes it on leaving.
+    ..registerFactory(
+      () => FirstMessageWatcher(
+        store: getIt<FirstMessageStore>(),
+        source: ApiFirstMessageSource(api: getIt<ApiClient>()),
+      ),
+    )
+    // The analytics switch on the last setup step. Setup events that are
+    // held back until the user chooses hook in through `onAnswered`.
+    ..registerLazySingleton(
+      () => SetupStatsConsent(
+        privacy: getIt<PrivacyRepository>(),
+        telemetry: getIt<TelemetryGate>(),
+      ),
     )
     ..registerLazySingleton<OnboardingFlowRepository>(
       () => SharedPrefsOnboardingFlowRepository(getIt<SharedPreferences>()),
@@ -870,6 +924,7 @@ Future<void> configureDependencies({
             getConnection: getIt<GetConnectionUsecase>(),
             readPermissionSetup: getIt<ReadPermissionSetupUsecase>(),
             notices: getIt<InAppNoticeRepository>(),
+            firstMessage: getIt<FirstMessageStore>(),
           ),
         );
         return buildHasOnboardingDeveloperTools
@@ -1131,7 +1186,10 @@ Future<void> configureDependencies({
       () => UpdateTopicUsecase(getIt<TopicRepository>()),
     )
     ..registerLazySingleton(
-      () => DeleteTopicUsecase(getIt<TopicRepository>()),
+      () => DeleteTopicUsecase(
+        getIt<TopicRepository>(),
+        getIt<FirstMessageStore>(),
+      ),
     )
     ..registerLazySingleton(
       () => GetTopicTokensUsecase(getIt<TopicRepository>()),
@@ -1272,6 +1330,41 @@ Future<void> configureDependencies({
         arrivals: getIt<AlarmArrivals>(),
         alarmHost: getIt<AlarmHost>(),
         onTopicUpdated: (topic) => getIt<TopicsCubit>().applyTopic(topic),
+        isReplay: isReplay ?? false,
+        on: OnboardingPlatform(platform: defaultTargetPlatform, isWeb: kIsWeb),
+      ),
+    )
+    ..registerFactoryParam<HookUpCubit, bool?, void>(
+      (isReplay, _) => HookUpCubit(
+        handoff: getIt<FirstTopicHandoff>(),
+        templates: getIt<ToolTemplateStore>(),
+        createToken: getIt<CreateTopicTokenUsecase>(),
+        readTopics: () async {
+          final topics = getIt<TopicsCubit>();
+          await topics.ensureLoaded();
+          return topics.state.topics;
+        },
+        refreshTopics: () async {
+          final topics = getIt<TopicsCubit>();
+          await topics.refresh();
+          return topics.state.topics;
+        },
+        readServerUrl: () async => (await getIt<GetConnectionUsecase>()(
+          const NoParams(),
+        )).getOrNull()?.serverUrl,
+        watcher: getIt<FirstMessageWatcher>(),
+        consent: getIt<SetupStatsConsent>(),
+        revokeToken: getIt<RevokeTopicTokenUsecase>(),
+        ring: getIt<SetupTestRing>(),
+        isSetupComplete: () async =>
+            (await getIt<GetOnboardingCompletedUsecase>()(
+              const NoParams(),
+            )).getOrNull() ??
+            false,
+        alarmArrivals: getIt<AlarmArrivals>().incidentIds,
+        readIncidentTopic: (incidentId) async =>
+            (await getIt<ApiClient>().getIncident(incidentId)).topic,
+        alarmHost: getIt<AlarmHost>(),
         isReplay: isReplay ?? false,
         on: OnboardingPlatform(platform: defaultTargetPlatform, isWeb: kIsWeb),
       ),

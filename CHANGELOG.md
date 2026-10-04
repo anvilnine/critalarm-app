@@ -6,6 +6,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - On Android phones that put background apps to sleep, setup offers to let Crit Alarm run in the background so pages are not late. You can skip it, and it stays in Settings under Health.
 - The first topic you create shows what Critical delivery does before you choose, and offers a chip for the tool that will send to it.
 - The connect step says what the push relay can see, taken from the server's own answer
+- Setup ends with a ready curl line for your new topic and waits for your first message.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
@@ -15,6 +16,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
 - The welcome screen is ready to tap the moment it opens, with its words and Get started button in place while the animation plays.
+- The reminders sheet no longer opens right after setup, and the walkthrough offer comes first.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added

@@ -151,11 +151,31 @@ void main() {
       expect(run.completion.progress.completed, isFalse);
     });
 
+    test('opens the hook-up step on the bundled flow', () async {
+      final run = engineOn(BundledOnboardingFlows.defaultFlow);
+
+      final next = await run.engine.finishStep(OnboardingStepId.realRing);
+
+      expect(next.stepId, OnboardingStepId.hookUp);
+      expect(next.route, '/onboarding/hook-up');
+      expect(run.completion.calls, 0);
+    });
+
     test(
       'lets the engine finish when the real ring is the last step',
       () async {
-        // The bundled flow today: the step after the ring has no screen yet.
-        final run = engineOn(BundledOnboardingFlows.defaultFlow);
+        const endsOnRing = OnboardingFlow(
+          id: 'ends-on-ring',
+          steps: [
+            OnboardingStepId.welcome,
+            OnboardingStepId.howItRings,
+            OnboardingStepId.connect,
+            OnboardingStepId.permissions,
+            OnboardingStepId.firstTopic,
+            OnboardingStepId.realRing,
+          ],
+        );
+        final run = engineOn(endsOnRing);
 
         final next = await run.engine.finishStep(OnboardingStepId.realRing);
 
@@ -163,6 +183,106 @@ void main() {
         expect(run.completion.calls, 1);
       },
     );
+  });
+
+  group('a run pinned before the hook-up step existed', () {
+    test('still completes after the real ring', () async {
+      // What a phone that tapped Get started on an earlier build holds:
+      // the same flow id, without the last step.
+      const pinnedEarlier = OnboardingFlow(
+        id: '2026-10-a',
+        steps: [
+          OnboardingStepId.welcome,
+          OnboardingStepId.howItRings,
+          OnboardingStepId.connect,
+          OnboardingStepId.permissions,
+          OnboardingStepId.firstTopic,
+          OnboardingStepId.realRing,
+        ],
+      );
+      final run = engineOn(pinnedEarlier);
+
+      final next = await run.engine.finishStep(OnboardingStepId.realRing);
+
+      expect(next.isHome, isTrue);
+      expect(run.completion.calls, 1);
+      expect(run.completion.progress.completed, isTrue);
+    });
+  });
+
+  group('Done on the hook-up step', () {
+    test('completes setup and opens Home', () async {
+      final run = engineOn(BundledOnboardingFlows.defaultFlow);
+      await run.engine.finishStep(OnboardingStepId.realRing);
+
+      final next = await run.engine.finishStep(OnboardingStepId.hookUp);
+
+      expect(next.isHome, isTrue);
+      expect(run.completion.calls, 1);
+      expect(run.completion.progress.completed, isTrue);
+    });
+
+    test('forgets the token held for the curl line', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final handoff = PrefsFirstTopicHandoff(prefs);
+      await handoff.hold(
+        const FirstTopicHandoffEntry(
+          topicName: 'setup-test',
+          serverUrl: 'https://api.critalarm.app',
+          token: 'tk_secret',
+        ),
+      );
+      const flow = BundledOnboardingFlows.defaultFlow;
+      final repository = FakeOnboardingFlowRepository(
+        pinned: flow,
+        completed: {
+          for (final step in flow.steps)
+            if (step != OnboardingStepId.hookUp) step,
+        },
+      );
+      final progress = FakeOnboardingProgressRepository();
+      final engine = OnboardingFlowEngine(
+        sources: const [BundledOnboardingFlowSource()],
+        catalog: OnboardingStepRegistry(
+          on: androidPhone,
+          facts: FakeOnboardingStepFacts(
+            connected: true,
+            permissions: true,
+            ownsTopic: true,
+          ),
+        ),
+        repository: repository,
+        completeOnboarding: CompleteOnboardingUsecase(
+          progress,
+          repository,
+          null,
+          handoff,
+        ),
+        getOnboardingCompleted: GetOnboardingCompletedUsecase(progress),
+      );
+
+      final next = await engine.finishStep(OnboardingStepId.hookUp);
+
+      expect(next.isHome, isTrue);
+      expect(progress.completed, isTrue);
+      expect(handoff.entry, isNull);
+      for (final key in prefs.getKeys()) {
+        expect(prefs.get(key).toString().contains('tk_secret'), isFalse);
+      }
+    });
+
+    test('a replay completes nothing', () async {
+      final run = engineOn(BundledOnboardingFlows.defaultFlow);
+
+      final next = await run.engine.finishStep(
+        OnboardingStepId.hookUp,
+        isReplay: true,
+      );
+
+      expect(next.isHome, isTrue);
+      expect(run.completion.calls, 0);
+    });
   });
 
   group('Set this up later', () {

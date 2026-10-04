@@ -32,11 +32,23 @@ enum SetupTestEnd {
 ///
 /// Only ever called with an id [SetupTestRing] holds. Never throws.
 class EndSetupTestUsecase {
-  const EndSetupTestUsecase(this._ring, this._acknowledge, this._close);
+  const EndSetupTestUsecase(
+    this._ring,
+    this._acknowledge,
+    this._close, [
+    this._holdsUserMessage,
+  ]);
 
   final SetupTestRing _ring;
   final AcknowledgeIncidentUsecase _acknowledge;
   final CloseIncidentUsecase _close;
+
+  /// Whether the incident now holds a message that is not a test: the
+  /// user's own tool sent to the topic while the test was still open, and
+  /// the server put it in the same incident. Null when that cannot be read
+  /// right now. Null as a field in tests that do not need it, where no
+  /// incident holds one.
+  final Future<bool?> Function(String incidentId)? _holdsUserMessage;
 
   /// [isAcknowledged] true skips the acknowledge, for the test the user has
   /// just answered on the alarm screen. [onClosed] gets the server's copy.
@@ -63,9 +75,28 @@ class EndSetupTestUsecase {
   }
 
   /// Closes every test an earlier try could not. Run when the app opens.
+  ///
+  /// A leftover that has taken in a message from the user's own tool is no
+  /// longer only a test: it is their alarm now. It is not closed behind
+  /// their back. It is dropped from the list and left for them to answer.
+  /// One that cannot be read is left for the next time the app opens.
   Future<void> closeLeftovers() async {
     // A copy: ending one takes it out of the set being walked.
     for (final id in {..._ring.unclosedIds}) {
+      final holdsUserMessage = _holdsUserMessage;
+      if (holdsUserMessage != null) {
+        bool? isUsers;
+        try {
+          isUsers = await holdsUserMessage(id);
+        } on Object catch (_) {
+          isUsers = null;
+        }
+        if (isUsers == null) continue;
+        if (isUsers) {
+          await _ring.markClosed(id);
+          continue;
+        }
+      }
       await call(id);
     }
   }

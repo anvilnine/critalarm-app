@@ -5,6 +5,7 @@ class FakeSetupTestRing implements SetupTestRing {
   FakeSetupTestRing([Iterable<String> ids = const []]) {
     for (final id in ids) {
       incidentIds.add(id);
+      setupIncidentIds.add(id);
       incidentId = id;
     }
   }
@@ -19,9 +20,18 @@ class FakeSetupTestRing implements SetupTestRing {
   final Set<String> unclosedIds = {};
 
   @override
+  final Set<String> setupIncidentIds = {};
+
+  @override
+  Future<void> holdFirstMessage(String incidentId) async {
+    setupIncidentIds.add(incidentId);
+  }
+
+  @override
   Future<void> hold(String incidentId) async {
     this.incidentId = incidentId;
     incidentIds.add(incidentId);
+    setupIncidentIds.add(incidentId);
   }
 
   @override
