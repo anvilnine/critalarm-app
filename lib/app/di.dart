@@ -18,6 +18,7 @@ import 'package:critalarm/core/alarm/live_activity_token_registry.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_build_mode.dart';
 import 'package:critalarm/core/api/api_client.dart';
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
@@ -84,6 +85,7 @@ import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_not
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
+import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/close_incident_usecase.dart';
@@ -96,6 +98,7 @@ import 'package:critalarm/features/local_reminders/data/native_local_reminder_sc
 import 'package:critalarm/features/local_reminders/data/noop_local_reminder_scheduler.dart';
 import 'package:critalarm/features/local_reminders/data/revenuecat_plan_status_source.dart';
 import 'package:critalarm/features/local_reminders/data/shared_prefs_local_reminder_store.dart';
+import 'package:critalarm/features/local_reminders/domain/incident_kinds.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_copy.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_inputs_reader.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_pass.dart';
@@ -610,6 +613,10 @@ Future<void> configureDependencies({
             (await getIt<IdentityRepository>().readIdentity()) != null,
         proShouldAsk: () => getIt<ProAskRules>().shouldAsk(),
         isSetupDone: () => getIt<SetupGate>().isDone(),
+        countsAsRealUse: (incidentId) => countsAsRealUse(
+          incidentId: incidentId,
+          setupIncidentIds: getIt<SetupTestRing>().setupIncidentIds,
+        ),
         isWeb: kIsWeb,
         isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
       ),
@@ -663,7 +670,14 @@ Future<void> configureDependencies({
         isSetupDone: () => getIt<SetupGate>().isDone(),
         // An ack made on another device counts too, and only the shared list
         // carries it. The review popup skips the whole day of one.
-        newestAckedAt: () => getIt<IncidentsCubit>().state.newestAckedAt,
+        // An alarm setup itself caused is left out: it is not real use.
+        newestAckedAt: () => newestRealAckedAt(
+          acks: [
+            for (final incident in getIt<IncidentsCubit>().state.incidents)
+              (id: incident.id, ackedAt: incident.ackedAt),
+          ],
+          setupIncidentIds: getIt<SetupTestRing>().setupIncidentIds,
+        ),
       ),
     )
     ..registerLazySingleton<DeviceReportRepository>(
@@ -785,6 +799,19 @@ Future<void> configureDependencies({
         getIt<SetupTestRing>(),
         getIt<AcknowledgeIncidentUsecase>(),
         getIt<CloseIncidentUsecase>(),
+        // Told apart the way the rest of the app tells a test: the title
+        // the test route gives its message.
+        (incidentId) async {
+          try {
+            final incident = await getIt<ApiClient>().getIncident(incidentId);
+            return incident.messages.any(
+              (message) => message.title != IncidentKinds.testAlarmTitle,
+            );
+          } on ApiException catch (error) {
+            // Gone from the server: nothing of the user's is in it.
+            return error.statusCode == 404 ? false : null;
+          }
+        },
       ),
     )
     // How setup hears that an alarm reached this phone.
@@ -814,14 +841,7 @@ Future<void> configureDependencies({
     ..registerFactory(
       () => FirstMessageWatcher(
         store: getIt<FirstMessageStore>(),
-        source: ApiFirstMessageSource(
-          api: getIt<ApiClient>(),
-          // A test whose close failed is still a test message to skip.
-          testIncidentIds: () => {
-            ...getIt<SetupTestRing>().incidentIds,
-            ...getIt<SetupTestRing>().unclosedIds,
-          },
-        ),
+        source: ApiFirstMessageSource(api: getIt<ApiClient>()),
       ),
     )
     // The analytics switch on the last setup step. Setup events that are
@@ -830,7 +850,6 @@ Future<void> configureDependencies({
       () => SetupStatsConsent(
         privacy: getIt<PrivacyRepository>(),
         telemetry: getIt<TelemetryGate>(),
-        notices: getIt<InAppNoticeRepository>(),
       ),
     )
     ..registerLazySingleton<OnboardingFlowRepository>(
@@ -1335,11 +1354,16 @@ Future<void> configureDependencies({
         )).getOrNull()?.serverUrl,
         watcher: getIt<FirstMessageWatcher>(),
         consent: getIt<SetupStatsConsent>(),
+        revokeToken: getIt<RevokeTopicTokenUsecase>(),
+        ring: getIt<SetupTestRing>(),
+        isSetupComplete: () async =>
+            (await getIt<GetOnboardingCompletedUsecase>()(
+              const NoParams(),
+            )).getOrNull() ??
+            false,
         alarmArrivals: getIt<AlarmArrivals>().incidentIds,
-        setupTestIncidentIds: () => {
-          ...getIt<SetupTestRing>().incidentIds,
-          ...getIt<SetupTestRing>().unclosedIds,
-        },
+        readIncidentTopic: (incidentId) async =>
+            (await getIt<ApiClient>().getIncident(incidentId)).topic,
         alarmHost: getIt<AlarmHost>(),
         isReplay: isReplay ?? false,
         on: OnboardingPlatform(platform: defaultTargetPlatform, isWeb: kIsWeb),

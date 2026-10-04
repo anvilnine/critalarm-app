@@ -187,7 +187,11 @@ class _FeatureGuideHostState extends State<FeatureGuideHost>
   void _onRoute() {
     final guide = _guides.state;
     if (!guide.isActive) {
-      _requestForScreen();
+      // After the frame, not now: the router tells its listeners before
+      // the Navigator has swapped its pages. An offer sheet pushed at this
+      // point sits on the page that is leaving, goes down with it, and
+      // would be read as the user saying no.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _requestIfIdle());
       return;
     }
     final path = _currentPath;
@@ -238,6 +242,7 @@ class _FeatureGuideHostState extends State<FeatureGuideHost>
       return;
     }
     _offerOpen = true;
+    final offeredOn = _currentPath;
     final ticket = ++_offerTicket;
     final answer = await showFeatureGuideOfferSheet(
       context,
@@ -252,6 +257,10 @@ class _FeatureGuideHostState extends State<FeatureGuideHost>
     _offerContext = null;
     if (answer == FeatureGuideOfferAnswer.accept) {
       _guides.acceptOffer();
+    } else if (answer == null && _currentPath != offeredOn) {
+      // The screen under the sheet went away and took the sheet with it.
+      // Nobody answered, so the offer comes back on the next visit.
+      _guides.stop();
     } else {
       _guides.declineOffer();
     }

@@ -51,7 +51,7 @@ void main() {
       snippet.code,
       '0 3 * * * /usr/local/bin/backup.sh || '
       'curl -H "Authorization: Bearer tk_8Qm2" -H "Priority: urgent" '
-      '-d "backup failed" https://api.critalarm.app/nightly',
+      "-d 'backup failed' 'https://api.critalarm.app/nightly'",
     );
   });
 

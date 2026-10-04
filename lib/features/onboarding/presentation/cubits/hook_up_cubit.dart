@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
+import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
-import 'package:critalarm/features/onboarding/domain/real_ring/real_ring_rules.dart';
+import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/setup_stats_consent.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_state.dart';
 import 'package:critalarm/features/topics/domain/first_message/first_message_watcher.dart';
@@ -23,7 +25,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 ///
 /// - The token is held in memory, here and in [FirstTopicHandoff], and
 ///   nowhere else. When it is gone (the app was killed since the topic was
-///   made) one new token is made for the topic.
+///   made) one new token is made for the topic, after the one an earlier
+///   launch made is taken back.
 /// - Nothing here waits on the first message. The screen's Done button
 ///   never asks this cubit whether it may leave.
 /// - The curl line rings a critical topic. When that alarm reaches the
@@ -41,8 +44,11 @@ class HookUpCubit extends Cubit<HookUpState> {
     required this.readServerUrl,
     required this.watcher,
     required this.consent,
+    required this.revokeToken,
+    required this.ring,
+    this.isSetupComplete,
     this.alarmArrivals,
-    this.setupTestIncidentIds,
+    this.readIncidentTopic,
     this.alarmHost,
     this.isReplay = false,
     this.on = const OnboardingPlatform(
@@ -67,13 +73,23 @@ class HookUpCubit extends Cubit<HookUpState> {
   final FirstMessageWatcher watcher;
   final SetupStatsConsent consent;
 
+  final RevokeTopicTokenUsecase revokeToken;
+
+  /// Setup's own incidents: its tests, and the alarm of the first message.
+  final SetupTestRing ring;
+
+  /// Whether setup is already over. This step does nothing for a user who
+  /// finished it. Null in tests that do not care, and counts as not over.
+  final Future<bool> Function()? isSetupComplete;
+
   /// The incident of every alarm that reaches this phone while the app
   /// runs. Null in tests that do not need it.
   final Stream<String>? alarmArrivals;
 
-  /// The incidents of setup's own test alarms. One of those ringing late
-  /// is not the user's first message.
-  final Set<String> Function()? setupTestIncidentIds;
+  /// The topic an incident is on, or null when it cannot be read. An alarm
+  /// only counts as the first message when it is on the topic of this
+  /// step.
+  final Future<String?> Function(String incidentId)? readIncidentTopic;
 
   /// Null in tests with no platform channel.
   final AlarmHost? alarmHost;
@@ -113,6 +129,13 @@ class HookUpCubit extends Cubit<HookUpState> {
       if (!isClosed) emit(state.copyWith(claim: claim));
       return;
     }
+
+    // Setup is over: nothing is read, made, watched or saved.
+    if (await isSetupComplete?.call() ?? false) {
+      if (!isClosed) emit(state.copyWith(phase: HookUpPhase.noTopic));
+      return;
+    }
+    if (isClosed) return;
 
     // With the topic setup made still in hand, the line shows in the first
     // frame. Everything else is read behind it.
@@ -154,7 +177,10 @@ class HookUpCubit extends Cubit<HookUpState> {
       emit(state.copyWith(phase: HookUpPhase.noServer));
       return;
     }
-    final topic = await _findTopic(handoff.savedTopicName);
+    // Only the topic setup made. With no name on record there is nothing
+    // to guess from: another topic on the account is not this step's.
+    final savedName = handoff.savedTopicName;
+    final topic = savedName == null ? null : await _findTopic(savedName);
     if (isClosed) return;
     if (topic == null) {
       emit(state.copyWith(phase: HookUpPhase.noTopic, serverUrl: serverUrl));
@@ -172,12 +198,30 @@ class HookUpCubit extends Cubit<HookUpState> {
     await _mint();
   }
 
-  /// An alarm reached the phone. Unless it is one of setup's own tests,
-  /// the user's tool sent it: that is the first message, and the phone is
-  /// ringing.
+  /// An alarm reached the phone. It is the first message only when it is
+  /// on this step's topic and is not one of setup's own tests: an alarm
+  /// from another topic, a test ringing late and the test of this phone
+  /// only all leave the row alone.
   Future<void> _onAlarm(String incidentId) async {
     if (isClosed || state.ringingIncidentId != null) return;
-    if (setupTestIncidentIds?.call().contains(incidentId) ?? false) return;
+    if (incidentId == phoneOnlyTestIncidentId) return;
+    if (ring.incidentIds.contains(incidentId) ||
+        ring.unclosedIds.contains(incidentId) ||
+        ring.setupIncidentIds.contains(incidentId)) {
+      return;
+    }
+    final topicName = state.topicName;
+    if (topicName == null) return;
+    String? alarmTopic;
+    try {
+      alarmTopic = await readIncidentTopic?.call(incidentId);
+    } on Exception {
+      alarmTopic = null;
+    }
+    if (isClosed || alarmTopic != topicName) return;
+    if (state.ringingIncidentId != null) return;
+    // Setup asked for this message, so its alarm is not real use.
+    await ring.holdFirstMessage(incidentId);
     await watcher.arrived();
     if (isClosed) return;
     emit(
@@ -202,16 +246,18 @@ class HookUpCubit extends Cubit<HookUpState> {
     );
   }
 
-  /// The topic setup made: the one called [name], else the first on the
-  /// server. Null when the server holds none or cannot be asked.
-  Future<Topic?> _findTopic(String? name) async {
+  /// The topic called [name], or null when the server does not hold it or
+  /// cannot be asked.
+  Future<Topic?> _findTopic(String name) async {
     try {
       var topics = await readTopics();
-      final isListed = name == null
-          ? topics.isNotEmpty
-          : topics.any((topic) => topic.name == name);
-      if (!isListed) topics = await refreshTopics();
-      return setupTestTopic(heldName: name, savedName: name, topics: topics);
+      if (!topics.any((topic) => topic.name == name)) {
+        topics = await refreshTopics();
+      }
+      for (final topic in topics) {
+        if (topic.name == name) return topic;
+      }
+      return null;
     } on Exception {
       return null;
     }
@@ -229,12 +275,33 @@ class HookUpCubit extends Cubit<HookUpState> {
     _isMinting = true;
     try {
       emit(state.copyWith(phase: HookUpPhase.minting, clearMintFailure: true));
+      // A token this step made on an earlier launch is taken back first,
+      // so relaunching never piles up valid tokens nobody can see.
+      final earlier = handoff.mintedTokenId;
+      if (earlier != null) {
+        final revoked = await revokeToken(
+          RevokeTopicTokenParams(topicName: topicName, tokenId: earlier),
+        );
+        if (isClosed) return;
+        final failure = revoked.exceptionOrNull();
+        if (failure != null && !_isGone(failure)) {
+          emit(
+            state.copyWith(
+              phase: HookUpPhase.mintFailed,
+              mintFailure: failure,
+            ),
+          );
+          return;
+        }
+      }
       final result = await createToken(
         CreateTopicTokenParams(topicName: topicName, name: _tokenName),
       );
       if (isClosed) return;
       await result.fold(
         (made) async {
+          // The id is saved, never the secret.
+          await handoff.saveMintedTokenId(made.tokenId);
           // Held for the rest of this run, so coming back to the step does
           // not make another.
           await handoff.hold(
@@ -256,6 +323,11 @@ class HookUpCubit extends Cubit<HookUpState> {
       _isMinting = false;
     }
   }
+
+  /// The token to take back is already gone from the server.
+  static bool _isGone(Failure failure) =>
+      failure is NotFoundFailure ||
+      (failure is ApiFailure && failure.statusCode == 404);
 
   /// Try again, after the server would not make the token.
   Future<void> retryMint() async {

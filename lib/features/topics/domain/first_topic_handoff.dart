@@ -41,6 +41,13 @@ abstract interface class FirstTopicHandoff {
   /// restart, unlike [entry].
   String? get savedTopicName;
 
+  /// The id of the token the last setup step made when the first one was
+  /// gone, or null when it made none. An id, never the secret. Saved on the
+  /// phone so the token can be taken back before another is made.
+  String? get mintedTokenId;
+
+  Future<void> saveMintedTokenId(String tokenId);
+
   /// Keeps [entry] in memory and saves its topic name.
   Future<void> hold(FirstTopicHandoffEntry entry);
 

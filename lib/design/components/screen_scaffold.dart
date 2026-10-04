@@ -37,6 +37,7 @@ class AppScreenScaffold extends StatefulWidget {
     this.withEdgeBlur = true,
     this.ghostOpacity = 1,
     this.resizeForKeyboard = false,
+    this.barBacking,
     super.key,
   }) : assert(
          onRefresh == null || onFaceRefresh == null,
@@ -90,6 +91,19 @@ class AppScreenScaffold extends StatefulWidget {
   /// inset of its own on top of that.
   final bool resizeForKeyboard;
 
+  /// A solid colour behind the top bar and the pinned bottom bar, from the
+  /// edge of the display to the inner edge of the bar, with a short soft
+  /// edge where the list meets it. Nothing shows through.
+  ///
+  /// For a screen with a transparent background (it sits on an ambient
+  /// canvas) whose body scrolls under a tall pinned block: the usual wash
+  /// has no canvas colour to draw there, and half-seen rows between two
+  /// pinned controls read as a fault. Pass the canvas colour.
+  final Color? barBacking;
+
+  /// How far the soft edge of [barBacking] runs past the bar.
+  static const double _backingEdge = 16;
+
   /// Height of the top bar itself, before the status bar inset.
   static const double topBarHeight = 56;
 
@@ -117,11 +131,16 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
   /// The bar is whatever the screen handed over, so its height is not known
   /// before layout. The list leaves this much room under its last row, which
   /// is why it is measured rather than guessed at.
+  /// How far the list has gone under the top bar, 0 at rest to 1. Only
+  /// read when the bars have a backing.
+  final ValueNotifier<double> _scrolledUnderTop = ValueNotifier<double>(0);
+
   final ValueNotifier<double> _bottomBarHeight = ValueNotifier<double>(0);
 
   @override
   void dispose() {
     _bottomBarHeight.dispose();
+    _scrolledUnderTop.dispose();
     super.dispose();
   }
 
@@ -226,7 +245,22 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
 
       return Stack(
         children: [
-          Positioned.fill(child: list),
+          Positioned.fill(
+            child: widget.barBacking == null
+                ? list
+                : NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification.depth == 0) {
+                        _scrolledUnderTop.value =
+                            (notification.metrics.pixels /
+                                    AppScreenScaffold._backingEdge)
+                                .clamp(0.0, 1.0);
+                      }
+                      return false;
+                    },
+                    child: list,
+                  ),
+          ),
           if (widget.withEdgeBlur) ...[
             Positioned(
               top: 0,
@@ -279,6 +313,24 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                 color: canvas,
               ),
             ),
+          if (widget.barBacking != null && widget.topBar != null)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              // Nothing is under the bar until the list has moved, and a
+              // block there would cut the background shapes for no reason.
+              child: ValueListenableBuilder<double>(
+                valueListenable: _scrolledUnderTop,
+                builder: (context, amount, child) =>
+                    Opacity(opacity: amount, child: child),
+                child: _BarBacking(
+                  color: widget.barBacking!,
+                  solid: topInset,
+                  isTop: true,
+                ),
+              ),
+            ),
           if (widget.topBar != null)
             Positioned(
               top: 0,
@@ -307,7 +359,17 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                   // A screen that draws an ambient canvas leaves this scaffold
                   // transparent, and that is exactly the screen where the
                   // button floats over a white card with nothing behind it.
-                  if (widget.withFades)
+                  if (widget.barBacking != null)
+                    _BarBacking(
+                      color: widget.barBacking!,
+                      solid:
+                          padding.bottom +
+                          tabBarRoom +
+                          barHeight +
+                          AppScreenScaffold.bottomBarGap,
+                      isTop: false,
+                    )
+                  else if (widget.withFades)
                     AppScrollScrim(
                       height:
                           padding.bottom +
@@ -464,6 +526,49 @@ class AppDetailPane extends StatelessWidget {
         boxShadow: AppShadows.shadowLg(isDark: isDark),
       ),
       child: child,
+    );
+  }
+}
+
+/// The solid block behind a bar, with its soft inner edge. See
+/// [AppScreenScaffold.barBacking].
+class _BarBacking extends StatelessWidget {
+  const _BarBacking({
+    required this.color,
+    required this.solid,
+    required this.isTop,
+  });
+
+  final Color color;
+
+  /// Height of the fully solid part, measured from the edge of the display.
+  final double solid;
+  final bool isTop;
+
+  @override
+  Widget build(BuildContext context) {
+    final edge = DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: isTop ? Alignment.topCenter : Alignment.bottomCenter,
+          end: isTop ? Alignment.bottomCenter : Alignment.topCenter,
+          colors: [color, color.withValues(alpha: 0)],
+        ),
+      ),
+      child: const SizedBox(
+        height: AppScreenScaffold._backingEdge,
+        width: double.infinity,
+      ),
+    );
+    final block = ColoredBox(
+      color: color,
+      child: SizedBox(height: solid, width: double.infinity),
+    );
+    return IgnorePointer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: isTop ? [block, edge] : [edge, block],
+      ),
     );
   }
 }

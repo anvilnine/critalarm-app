@@ -203,15 +203,23 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
 
   /// A line may break after a slash or a hyphen, which splits an address
   /// at `https://` when it would have fitted on the next line whole. A word
-  /// joiner after each takes those break points away. For drawing only:
-  /// the copied text is the code as given.
-  static String _keepAddressesWhole(String code) => code.replaceAllMapped(
-    RegExp(r'https?://\S+'),
-    (match) => match[0]!.replaceAllMapped(
-      RegExp('[/-]'),
-      (mark) => '${mark[0]}\u2060',
-    ),
-  );
+  /// joiner after each takes those break points away, except after the
+  /// last slash: an address too long for one line breaks there, between
+  /// the server and the path's last part, and nowhere inside a word. For
+  /// drawing only: the copied text is the code as given.
+  static String _keepAddressesWhole(String code) =>
+      code.replaceAllMapped(RegExp(r'https?://\S+'), (match) {
+        final address = match[0]!;
+        final lastSlash = address.lastIndexOf('/');
+        final out = StringBuffer();
+        for (var i = 0; i < address.length; i++) {
+          final mark = address[i];
+          out.write(mark);
+          final joins = (mark == '/' || mark == '-') && i != lastSlash;
+          if (joins) out.write('⁠');
+        }
+        return out.toString();
+      });
 
   TextSpan _buildSyntaxHighlightedSpan(String text, AppColors colors) {
     final lines = text.split('\n');
@@ -232,7 +240,10 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
         final regex = RegExp(
           // A flag starts a word. A hyphen inside one, as in a topic
           // called `my-topic`, is not a flag.
-          r'("(?:\\.|[^"\\])*")|((?<![\w-])-[a-zA-Z]+|\b(?:curl|POST|GET|Bearer)\b)',
+          // A string is double quoted, or single quoted the way a shell
+          // takes it.
+          '("(?:\\\\.|[^"\\\\])*"|\'[^\']*\')'
+          r'|((?<![\w-])-[a-zA-Z]+|\b(?:curl|POST|GET|Bearer)\b)',
         );
         var lastIndex = 0;
         for (final match in regex.allMatches(line)) {
@@ -245,7 +256,7 @@ class _AppCodeBlockState extends State<AppCodeBlock> {
             );
           }
           final matchedText = match.group(0)!;
-          if (matchedText.startsWith('"')) {
+          if (matchedText.startsWith('"') || matchedText.startsWith("'")) {
             // String literal
             spans.add(
               TextSpan(

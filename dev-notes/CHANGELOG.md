@@ -20,6 +20,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - FirstMessageWatcher polls a topic for the first message while a screen waits, with the prefs keys first\_message\_received and first\_message\_since.<topic>.
 - ToolSnippet.build returns the paste text or form fields for the tool picked on the first topic, and CurlLine.build takes an optional priority.
 - AppCodeBlock isWrapped wraps long commands with the copy button underneath, and AppHighlightTone.pending is a row that is still waiting.
+- countsAsRealUse decides whether an alarm is the user's own use or one setup caused, and SetupTestRing.setupIncidentIds keeps those ids under onboarding\_setup\_incidents.
+- AppScreenScaffold barBacking puts a solid colour behind the top bar and the pinned bottom bar, and the hook-up token id is saved under onboarding\_hook\_up\_token\_id.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -39,12 +41,15 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - SetupTestRing keeps every test incident id of a setup run and the ones a close failed for (prefs keys onboarding\_real\_ring\_incidents and onboarding\_real\_ring\_unclosed), and EndSetupTestUsecase closes leftovers when the app opens.
 - The bundled flow 2026-10-a ends with hook\_up, and Developer options lists the hook-up states.
 - The hook-up step pins its first-message row above Done up to twice the default text size, and puts it in the body above that.
+- CurlLine.build single-quotes the message and the address for a shell, on the topic page too.
+- FirstMessageWatcher takes its starting point from the server with since=all and no longer reads the phone clock.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
 - The denied permissions screen stays on screen through a status read. It used to turn into the stepper as soon as the first read finished.
 - The Time-Sensitive explainer no longer shows after notifications were refused, and the Android full-screen step drops its ring chip while notifications are off. The Android notification mock says Don't allow.
 - Setup never closes or leaves a real alarm: CriticalAlarmCubit.closeSetupTests acts only on the stored setup test on screen, a server push cancels a running phone-only countdown, and iOS names an incident to Dart only for a push that rings (AlarmScheduleRule.ringingIncidentId).
+- The Feature Guide offer is raised after the route change has settled, so it is no longer swept away and counted as declined when setup ends.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.

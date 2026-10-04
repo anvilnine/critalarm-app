@@ -22,8 +22,18 @@ abstract interface class SetupTestRing {
   /// next app open can close them.
   Set<String> get unclosedIds;
 
+  /// Every incident setup itself caused: each test it asked the server to
+  /// send, and the alarm the first hook-up message set off. Kept after
+  /// [clear], because their acknowledgements come after setup is over and
+  /// must never count as real use (`countsAsRealUse`).
+  Set<String> get setupIncidentIds;
+
   /// Saves the id of the incident the server just opened.
   Future<void> hold(String incidentId);
+
+  /// The alarm the user's first hook-up message set off. Setup asked for
+  /// that message, so it joins [setupIncidentIds]. It is not a test.
+  Future<void> holdFirstMessage(String incidentId);
 
   /// The close of [incidentId] failed. It stops counting as a setup test
   /// and is kept to be closed later.

@@ -1,35 +1,30 @@
 import 'package:flutter/foundation.dart';
 
-/// Where the watch for a first message starts when setup sent a test alarm.
+/// One read of a topic, as the first-message watch sees it: ids and
+/// nothing else. No title and no body gets past the source.
 @immutable
-class FirstMessageBaseline {
-  /// Setup sent no test to the server, so there is no message to skip.
-  const FirstMessageBaseline.noTest() : messageId = null;
+class FirstMessagePage {
+  const FirstMessagePage({required this.candidates, required this.newestId});
 
-  /// The newest message of setup's own test. Only messages after it count.
-  const FirstMessageBaseline.after(String this.messageId);
+  /// Nothing came back.
+  const FirstMessagePage.empty() : candidates = const [], newestId = null;
 
-  final String? messageId;
+  /// The ids of the messages that could be the user's own, oldest first.
+  /// A test alarm, whoever asked for it, is never one of them.
+  final List<String> candidates;
 
-  @override
-  bool operator ==(Object other) =>
-      other is FirstMessageBaseline && other.messageId == messageId;
-
-  @override
-  int get hashCode => messageId.hashCode;
-
-  @override
-  String toString() => 'FirstMessageBaseline($messageId)';
+  /// The id of the newest message of any kind, tests included, or null
+  /// when the read returned none. The next read starts after it.
+  final String? newestId;
 }
 
-/// What the first-message watch asks the server. It learns that a message
-/// arrived and nothing about it: ids come back, never a title or a body.
+/// What the first-message watch asks the server.
 abstract interface class FirstMessageSource {
-  /// The ids of the messages on [topic] newer than [since], oldest first.
+  /// The messages on [topic] after [since]: a message id, or
+  /// [FirstMessageSource.everything] for all the server still holds.
   /// Throws when the server cannot be asked.
-  Future<List<String>> newerThan(String topic, String since);
+  Future<FirstMessagePage> read(String topic, String since);
 
-  /// The newest message of the test alarms setup sent. Throws when a test
-  /// was sent and its message cannot be read right now.
-  Future<FirstMessageBaseline> testBaseline();
+  /// The `since` value that asks for everything (api.md 2).
+  static const everything = 'all';
 }
