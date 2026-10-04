@@ -1,3 +1,7 @@
+// The limit card below still passes `buttonLabel: null`, which is now the
+// default. Drop the argument and this line the next time that card is edited.
+// ignore_for_file: avoid_redundant_argument_values
+
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
