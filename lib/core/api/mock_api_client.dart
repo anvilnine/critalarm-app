@@ -17,7 +17,9 @@ class MockApiClient implements ApiClient {
 
   @override
   Future<ServerInfo> getServerInfo([Uri? candidateBaseUri]) async {
-    final info = server.getInfo();
+    // The mock states its relay_content, as a current server does.
+    final stored = server.getInfo();
+    final info = stored.copyWith(statedRelayContent: stored.relayContent);
     // Asked about Crit Alarm Cloud, the mock answers as the Cloud does:
     // hosted, at that address. Any other address is the user's own server.
     // Without this a mock build could never take the Cloud path, because

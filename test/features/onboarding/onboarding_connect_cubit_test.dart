@@ -825,6 +825,7 @@ void main() {
           baseUrl: 'https://api.critalarm.app',
           relayUrl: 'https://relay.critalarm.app',
           mode: ServerModes.hosted,
+          statedRelayContent: 'none',
         ).toSuccess(),
       );
       final cubit = build();
@@ -847,6 +848,7 @@ void main() {
           relayUrl: 'https://relay.critalarm.app',
           mode: ServerModes.hosted,
           relayContent: 'full',
+          statedRelayContent: 'full',
         ).toSuccess(),
       );
       final cubit = build();
@@ -890,6 +892,7 @@ void main() {
           baseUrl: 'https://api.critalarm.app',
           relayUrl: 'https://relay.critalarm.app',
           mode: ServerModes.hosted,
+          statedRelayContent: 'none',
         ).toSuccess(),
       );
       final cubit = build(isOnline: () async => false);
@@ -939,6 +942,7 @@ void main() {
             version: '0.4.0',
             baseUrl: 'https://alerts.mybox.local:8443',
             relayUrl: 'https://relay.critalarm.app',
+            statedRelayContent: 'none',
           ).toSuccess(),
         );
         final cubit = build()
@@ -969,6 +973,7 @@ void main() {
             baseUrl: 'https://alerts.mybox.local',
             relayUrl: 'https://relay.critalarm.app',
             relayContent: 'full',
+            statedRelayContent: 'full',
           ).toSuccess(),
         );
         final cubit = build()
@@ -994,6 +999,7 @@ void main() {
           baseUrl: 'https://alerts.mybox.local',
           relayUrl: 'https://relay.critalarm.app',
           relayContent: 'partial',
+          statedRelayContent: 'partial',
         ).toSuccess(),
       );
       final cubit = build()
@@ -1007,6 +1013,29 @@ void main() {
       expect(cubit.state.confirmation?.privacyLine, isNull);
       await cubit.close();
     });
+
+    test(
+      'a server that sends no relay_content confirms with no line',
+      () async {
+        when(() => mockGetServerInfo(any())).thenAnswer(
+          (_) async => const ServerInfo(
+            version: '0.4.0',
+            baseUrl: 'https://alerts.mybox.local',
+            relayUrl: 'https://relay.critalarm.app',
+          ).toSuccess(),
+        );
+        final cubit = build()
+          ..toggleSelfHosting()
+          ..serverUrlChanged('https://alerts.mybox.local')
+          ..adminTokenChanged('ad_secret');
+
+        await cubit.connect();
+
+        expect(cubit.state.confirmation?.host, 'alerts.mybox.local');
+        expect(cubit.state.confirmation?.privacyLine, isNull);
+        await cubit.close();
+      },
+    );
 
     test('a failed connect shows no confirmation', () async {
       when(() => mockGetServerInfo(any())).thenAnswer(

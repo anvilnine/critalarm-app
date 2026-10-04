@@ -287,7 +287,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     if (info != null) {
       final line = connectPrivacyLine(
         mode: info.mode,
-        relayContent: info.relayContent,
+        relayContent: info.statedRelayContent,
       );
       emit(
         state.copyWith(
@@ -457,7 +457,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
                           host: _hostOf(info.baseUrl),
                           privacyLine: connectPrivacyLine(
                             mode: info.mode,
-                            relayContent: info.relayContent,
+                            relayContent: info.statedRelayContent,
                           ),
                         )
                       : null,

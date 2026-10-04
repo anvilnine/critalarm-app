@@ -19,11 +19,13 @@ enum ConnectPrivacyLine {
 /// Picks the line for a server from the `mode` and `relay_content` of its
 /// `/v1/info` answer.
 ///
-/// Null when either value is one this version has no sentence for. Saying
-/// nothing is better than a claim the answer does not back.
+/// [relayContent] is the field as the server sent it, null when the answer
+/// had none. Null comes back for that, and for any value this version has
+/// no sentence for. Saying nothing is better than a claim the answer does
+/// not back.
 ConnectPrivacyLine? connectPrivacyLine({
   required String mode,
-  required String relayContent,
+  required String? relayContent,
 }) {
   final isCloud = mode == ServerModes.hosted;
   final isOwn = mode == ServerModes.selfhosted;
