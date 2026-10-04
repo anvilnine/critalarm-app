@@ -131,7 +131,22 @@
     "hook_open_settings": "Open Settings",
     "hook_failed_title": "The test alarm could not be set",
     "hook_failed_body": "Your phone did not let Crit Alarm set an alarm. Allow alarms and reminders for Crit Alarm in Settings, then try again.",
-    "hook_ok": "OK"
+    "hook_ok": "OK",
+    "privacy_cloud_none": "Crit Alarm Cloud stores your messages. The push relay sees ids and the priority, never the text.",
+    "privacy_own_none": "Your server keeps your messages. Pushes pass through the Crit Alarm relay, which sees ids and the priority, never the text.",
+    "privacy_cloud_full": "Crit Alarm Cloud stores your messages. Pushes pass through the Crit Alarm relay and carry the message text.",
+    "privacy_own_full": "Your server keeps your messages. Pushes pass through the Crit Alarm relay and carry the message text.",
+    "background_connecting": "Connecting to Crit Alarm Cloud. This finishes by itself.",
+    "background_waiting_network": "No internet yet. Crit Alarm will connect when you are back online.",
+    "background_waiting_push": "Waiting for this phone's push address. This finishes by itself.",
+    "background_connected": "Connected to Crit Alarm Cloud.",
+    "background_failed_version": "Crit Alarm Cloud is on version {version}, which this app cannot use. Update the app, then connect again.",
+    "background_failed_admin_token": "This server needs its admin token. Go back and connect to it as your own server.",
+    "background_failed_refused": "The server did not accept the connection. Go back and connect again.",
+    "background_failed_button": "Back to connect",
+    "self_host_connecting": "Checking {host}",
+    "self_host_connected_title": "Connected to {host}",
+    "self_host_continue": "Continue"
   },
   "onboarding_permissions": {
     "denied_title": "Permissions required",
