@@ -8,6 +8,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The connect step says what the push relay can see, taken from the server's own answer
 - Setup ends with a ready curl line for your new topic and waits for your first message.
 - Home shows a short setup checklist until your first message arrives.
+- The Finish setting up list can be closed for good.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
@@ -25,6 +26,8 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The reminders sheet no longer opens right after setup, and the walkthrough offer comes first.
 - The Connected note in setup no longer sits on top of the permission step dots.
 - Hook up your tool no longer says it is waiting for a message when no token could be made.
+- The Finish setting up list no longer finishes behind an alarm screen: its last tick and the celebration wait until you are looking at Home.
+- A first message sent from a topic page before going back to Home now ticks the list, and so does one on a fourth or later topic.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.
