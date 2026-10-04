@@ -9,6 +9,7 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_connect_sc
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
+import 'package:critalarm/features/onboarding/presentation/real_ring_screen.dart';
 import 'package:critalarm/features/topics/presentation/create_topic_screen.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
@@ -27,6 +28,7 @@ class OnboardingStepEntry {
     this.routeName,
     this.screen,
     this.requires = const {},
+    this.handlesMissingServer = false,
     this.isAvailable = _onEveryPhone,
     this.isSatisfied = _onlyOnceCompleted,
   });
@@ -44,6 +46,12 @@ class OnboardingStepEntry {
 
   /// Step ids that must come earlier in a flow that lists this one.
   final Set<String> requires;
+
+  /// True for a step that requires `connect` and has its own screen state
+  /// for a server that is not there. The shell leaves such a step alone
+  /// where it would otherwise put the waiting face or the failure in its
+  /// place.
+  final bool handlesMissingServer;
 
   /// Whether the step exists on this phone.
   final bool Function(OnboardingPlatform on) isAvailable;
@@ -156,8 +164,10 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       routeName: 'onboardingRealRing',
       ambientStep: OnboardingAmbientStep.connected,
       requires: const {OnboardingStepId.connect, OnboardingStepId.firstTopic},
-      screen: (context, state) =>
-          const OnboardingConnectScreen(part: OnboardingConnectPart.test),
+      // It says for itself when no server is connected, and offers the test
+      // of this phone only, so the shell does not stand in for it.
+      handlesMissingServer: true,
+      screen: (context, state) => const RealRingScreen(),
     ),
     OnboardingStepEntry(
       id: OnboardingStepId.legacyTest,

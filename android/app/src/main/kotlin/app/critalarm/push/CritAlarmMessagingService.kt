@@ -19,11 +19,11 @@ class CritAlarmMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         Log.i(TAG, "fcm_received")
-        PushRouter(this).route(message.data)
+        val alarmIncidentId = PushRouter(this).route(message.data)
         // The notification goes up first; this is only so an app that is
         // already open catches up. With no engine attached it does nothing,
-        // which is the usual case here.
-        MainActivity.notifyPushReceived()
+        // which is the usual case here. A push that rang names its incident.
+        MainActivity.notifyPushReceived(alarmIncidentId)
     }
 
     companion object {

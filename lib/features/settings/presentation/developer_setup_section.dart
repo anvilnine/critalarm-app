@@ -8,6 +8,7 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
+import 'package:critalarm/features/onboarding/presentation/real_ring_screen.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -94,6 +95,12 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
                 subtitle: LocaleKeys.developer_setup_jump_subtitle.tr(),
               ),
               _jumpRows(context),
+              const SizedBox(height: 14),
+              _Heading(
+                title: LocaleKeys.developer_setup_ring_states_title.tr(),
+                subtitle: LocaleKeys.developer_setup_ring_states_subtitle.tr(),
+              ),
+              _ringStateRows(context),
               const SizedBox(height: 14),
               _Heading(
                 title: LocaleKeys.developer_setup_force_title.tr(),
@@ -281,6 +288,40 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
             )
           : null,
       onTap: isOpen ? () => unawaited(context.push('$route?demo=true')) : null,
+    );
+  }
+
+  /// One row per state of the real ring step, each opened as a replay that
+  /// is put on that state. Nothing is sent, set or saved.
+  Widget _ringStateRows(BuildContext context) {
+    final route = OnboardingStepRegistry.entryFor(
+      OnboardingStepId.realRing,
+    )?.route;
+    if (route == null || !_catalog.isAvailable(OnboardingStepId.realRing)) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      children: [
+        for (final name in RealRingScreen.replayStateNames) ...[
+          if (name != RealRingScreen.replayStateNames.first)
+            const SizedBox(height: 4),
+          AppListRow(
+            name: name,
+            meta: route,
+            faceState: null,
+            trailing: AppGlyph(
+              GlyphType.arrow,
+              color: context.appColors.ink3,
+              size: 16,
+            ),
+            onTap: () => unawaited(
+              context.push(
+                '$route?demo=true&${RealRingScreen.replayStateParam}=$name',
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 

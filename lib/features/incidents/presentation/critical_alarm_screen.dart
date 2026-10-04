@@ -13,6 +13,7 @@ import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
+import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/local_reminders/domain/after_ack_decider.dart';
@@ -21,7 +22,9 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_tr
 import 'package:critalarm/features/local_reminders/domain/local_reminder_settler.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_store.dart';
 import 'package:critalarm/features/local_reminders/presentation/widgets/local_reminder_ask_sheets.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -283,10 +286,11 @@ class _RingingScreen extends StatelessWidget {
           },
         ),
         const SizedBox(height: 8),
-        // Hidden during onboarding: `demo-topic` is invented for the test and
-        // is on no server, so opening it drops the user on a broken screen
-        // halfway through setup.
-        if (state.incident?.id != 'inc_demo')
+        // Hidden for a setup test, which is known by its incident id and never
+        // by a topic name. The phone-only test's topic is on no server, and
+        // the server-sent test rings halfway through setup, where a topic
+        // screen would be a detour out of it.
+        if (state.ackedExits == AckedExits.incident)
           AppButton(
             label: LocaleKeys.critical_alarm_read_message_button.tr(),
             variant: AppButtonVariant.ghost,
@@ -378,7 +382,8 @@ class _RingingScreen extends StatelessWidget {
   static const double _ringingStageScale = RingingFacePainter.stageUnits / 200;
 
   Widget _face(double faceSize) {
-    final isDemo = state.incident?.id == 'inc_demo';
+    // A setup test takes the face over from the setup screen it came from.
+    final isDemo = state.ackedExits != AckedExits.incident;
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: SizedBox(
@@ -578,15 +583,12 @@ class AcknowledgedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final incident = state.incident;
-    final isDemo = incident?.id == 'inc_demo' || state.topic == 'demo-topic';
-    // The same test alarm is reachable from Settings long after
-    // onboarding. Onboarding is already complete then, so the exits skip
-    // finishing it again and the second button reads Finish.
-    final isRetest = isDemo && state.isOnboardingDone;
-    // The topic already exists, so there is nothing to offer but the way
-    // out. Asked of the user, not of the flow: closing the first-topic step
-    // without creating one still leaves the offer up.
-    final hasMadeFirstTopic = isDemo && !isRetest && state.hasOwnedTopic;
+    // Which test this was, and so which exits it ends on. A setup run on a
+    // flow with the real ring step continues; the first shipped order and a
+    // test run again from Settings keep the exits they always had.
+    final setupTest = state.setupTest;
+    final exits = state.ackedExits;
+    final isDemo = exits != AckedExits.incident;
     final startedAt = incident?.openedAt;
     final ackedAt = incident?.ackedAt;
     final ringDuration = (startedAt != null && ackedAt != null)
@@ -613,65 +615,87 @@ class AcknowledgedScreen extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: isDemo
           ? [
-              if (isRetest)
+              ...switch (exits) {
+                // Setup goes on. The flow says what comes next, and ends
+                // setup itself when nothing does.
+                AckedExits.continueSetup => [
+                  _ContinueSetupButton(
+                    setupTest: setupTest,
+                    incidentId: incident?.id ?? '',
+                  ),
+                ],
                 // Onboarding is done, so the only thing left is the way out.
-                AppButton(
-                  label: LocaleKeys.onboarding_connect_celebration_finish.tr(),
-                  variant: AppButtonVariant.cream,
-                  size: AppButtonSize.lg,
-                  isFullWidth: true,
-                  onPressed: () {
-                    AppHaptics.capture();
-                    context.go('/');
-                  },
-                )
-              else if (hasMadeFirstTopic)
-                AppButton(
-                  label: LocaleKeys.onboarding_connect_celebration_finish.tr(),
-                  variant: AppButtonVariant.cream,
-                  size: AppButtonSize.lg,
-                  isFullWidth: true,
-                  onPressed: () async {
-                    AppHaptics.capture();
-                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
-                    if (context.mounted) {
+                AckedExits.retest => [
+                  AppButton(
+                    label: LocaleKeys.onboarding_connect_celebration_finish
+                        .tr(),
+                    variant: AppButtonVariant.cream,
+                    size: AppButtonSize.lg,
+                    isFullWidth: true,
+                    onPressed: () {
+                      AppHaptics.capture();
                       context.go('/');
-                    }
-                  },
-                )
-              else ...[
-                // The first topic is the next step. Cream, because cobalt on
-                // the navy acknowledged canvas would disappear.
-                AppButton(
-                  label: LocaleKeys.onboarding_connect_create_first_topic_button
-                      .tr(),
-                  variant: AppButtonVariant.cream,
-                  size: AppButtonSize.lg,
-                  isFullWidth: true,
-                  onPressed: () async {
-                    AppHaptics.capture();
-                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
-                    if (context.mounted) {
-                      context.go('/topics/new');
-                    }
-                  },
-                ),
-                const SizedBox(height: Spacing.s3),
-                // Ghost reads on the navy canvas and ranks below Create.
-                AppButton(
-                  label: LocaleKeys.onboarding_connect_celebration_finish.tr(),
-                  variant: AppButtonVariant.ghost,
-                  size: AppButtonSize.lg,
-                  isFullWidth: true,
-                  onPressed: () async {
-                    AppHaptics.capture();
-                    await getIt<CompleteOnboardingUsecase>()(const NoParams());
-                    if (context.mounted) {
-                      context.go('/');
-                    }
-                  },
-                ),
-              ],
+                    },
+                  ),
+                ],
+                AckedExits.legacyFinish => [
+                  AppButton(
+                    label: LocaleKeys.onboarding_connect_celebration_finish
+                        .tr(),
+                    variant: AppButtonVariant.cream,
+                    size: AppButtonSize.lg,
+                    isFullWidth: true,
+                    onPressed: () async {
+                      AppHaptics.capture();
+                      await getIt<CompleteOnboardingUsecase>()(
+                        const NoParams(),
+                      );
+                      if (context.mounted) {
+                        context.go('/');
+                      }
+                    },
+                  ),
+                ],
+                AckedExits.legacyCreateTopicOrFinish || AckedExits.incident => [
+                  // The first topic is the next step. Cream, because cobalt
+                  // on the navy acknowledged canvas would disappear.
+                  AppButton(
+                    label: LocaleKeys
+                        .onboarding_connect_create_first_topic_button
+                        .tr(),
+                    variant: AppButtonVariant.cream,
+                    size: AppButtonSize.lg,
+                    isFullWidth: true,
+                    onPressed: () async {
+                      AppHaptics.capture();
+                      await getIt<CompleteOnboardingUsecase>()(
+                        const NoParams(),
+                      );
+                      if (context.mounted) {
+                        context.go('/topics/new');
+                      }
+                    },
+                  ),
+                  const SizedBox(height: Spacing.s3),
+                  // Ghost reads on the navy canvas and ranks below Create.
+                  AppButton(
+                    label: LocaleKeys.onboarding_connect_celebration_finish
+                        .tr(),
+                    variant: AppButtonVariant.ghost,
+                    size: AppButtonSize.lg,
+                    isFullWidth: true,
+                    onPressed: () async {
+                      AppHaptics.capture();
+                      await getIt<CompleteOnboardingUsecase>()(
+                        const NoParams(),
+                      );
+                      if (context.mounted) {
+                        context.go('/');
+                      }
+                    },
+                  ),
+                ],
+              },
               // 12px from the scaffold makes 24 above the home indicator.
               const SizedBox(height: 12),
             ]
@@ -725,7 +749,27 @@ class AcknowledgedScreen extends StatelessWidget {
     );
 
     if (isDemo) {
-      return _demoBody(context, isWide, bottomBar);
+      return _demoBody(
+        context,
+        isWide,
+        bottomBar,
+        // Setup going on says what the ring proved, in one line. The other
+        // exits keep the welcome they always had.
+        title: exits == AckedExits.continueSetup
+            ? switch (setupTest) {
+                SetupTestKind.serverSent =>
+                  LocaleKeys.onboarding_real_ring_works_server_title.tr(),
+                _ => LocaleKeys.onboarding_real_ring_works_phone_title.tr(),
+              }
+            : LocaleKeys.onboarding_connect_welcome_title.tr(),
+        line: exits == AckedExits.continueSetup
+            ? switch (setupTest) {
+                SetupTestKind.serverSent =>
+                  LocaleKeys.onboarding_real_ring_works_server_line.tr(),
+                _ => LocaleKeys.onboarding_real_ring_works_phone_line.tr(),
+              }
+            : LocaleKeys.onboarding_connect_welcome_body.tr(),
+      );
     }
 
     if (isWide) {
@@ -749,7 +793,7 @@ class AcknowledgedScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _title(TextAlign.left, false),
+                        _title(TextAlign.left),
                         const SizedBox(height: Spacing.s2),
                         _topic(TextAlign.left),
                         const SizedBox(height: Spacing.s2),
@@ -783,7 +827,7 @@ class AcknowledgedScreen extends StatelessWidget {
                   child: FaceWidget(state: faceState, size: 224),
                 ),
                 const SizedBox(height: Spacing.s4),
-                _title(TextAlign.center, false),
+                _title(TextAlign.center),
                 const SizedBox(height: Spacing.s2),
                 _topic(TextAlign.center),
                 const SizedBox(height: Spacing.s2),
@@ -810,8 +854,10 @@ class AcknowledgedScreen extends StatelessWidget {
   Widget _demoBody(
     BuildContext context,
     bool isWide,
-    Widget bottomBar,
-  ) {
+    Widget bottomBar, {
+    required String title,
+    required String line,
+  }) {
     const ripple = ExcludeSemantics(
       child: IgnorePointer(
         child: FaceRipple(
@@ -827,10 +873,14 @@ class AcknowledgedScreen extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: cross,
         children: [
-          _title(align, true),
+          Text(
+            title,
+            textAlign: align,
+            style: AppTypography.display(colors.onCanvas),
+          ),
           const SizedBox(height: Spacing.s3),
           Text(
-            LocaleKeys.onboarding_connect_welcome_body.tr(),
+            line,
             textAlign: align,
             style: _bodyStyle(18, FontWeight.w500, colors.onCanvas),
           ),
@@ -908,11 +958,9 @@ class AcknowledgedScreen extends StatelessWidget {
         color: color,
       );
 
-  Widget _title(TextAlign align, bool isDemo) {
+  Widget _title(TextAlign align) {
     return Text(
-      isDemo
-          ? LocaleKeys.onboarding_connect_welcome_title.tr()
-          : LocaleKeys.critical_alarm_acked_title.tr(),
+      LocaleKeys.critical_alarm_acked_title.tr(),
       textAlign: align,
       style: AppTypography.display(colors.onCanvas),
     );
@@ -980,6 +1028,63 @@ class AcknowledgedScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Continue, on the acknowledged screen of a setup test.
+///
+/// It finishes the real ring step and lets the flow decide what comes next.
+/// It never completes setup itself: the flow engine does, when no step is
+/// left.
+class _ContinueSetupButton extends StatefulWidget {
+  const _ContinueSetupButton({
+    required this.setupTest,
+    required this.incidentId,
+  });
+
+  final SetupTestKind setupTest;
+
+  /// The test this button was drawn for.
+  final String incidentId;
+
+  @override
+  State<_ContinueSetupButton> createState() => _ContinueSetupButtonState();
+}
+
+class _ContinueSetupButtonState extends State<_ContinueSetupButton> {
+  bool _isBusy = false;
+
+  Future<void> _continue() async {
+    if (_isBusy) return;
+    setState(() => _isBusy = true);
+    AppHaptics.capture();
+    final cubit = context.read<CriticalAlarmCubit>();
+    // The server-sent test is a real incident. Acknowledged and left open,
+    // its desk timer would ring the phone again later as a real alarm, so
+    // every test of this run is closed. The cubit does that only for the
+    // test this button was drawn for, and says whether that test is still
+    // what the screen shows afterwards.
+    final mayContinue = widget.setupTest == SetupTestKind.serverSent
+        ? await cubit.closeSetupTests(widget.incidentId)
+        : cubit.state.incident?.id == widget.incidentId;
+    if (!mounted) return;
+    // A real alarm took the screen over. Setup waits; the alarm does not.
+    if (mayContinue) {
+      await finishOnboardingStep(context, OnboardingStepId.realRing);
+    }
+    if (mounted) setState(() => _isBusy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppButton(
+      label: LocaleKeys.onboarding_welcome_continue.tr(),
+      variant: AppButtonVariant.cream,
+      size: AppButtonSize.lg,
+      isFullWidth: true,
+      isLoading: _isBusy,
+      onPressed: _continue,
     );
   }
 }

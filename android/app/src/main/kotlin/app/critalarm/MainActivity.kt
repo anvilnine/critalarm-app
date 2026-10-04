@@ -425,12 +425,13 @@ class MainActivity : FlutterFragmentActivity() {
          * looking at can catch up without being left and come back to. Does
          * nothing when the app is not running, and never blocks the caller:
          * the push service is on a background thread and a channel call has
-         * to be made on the main one.
+         * to be made on the main one. [alarmIncidentId] is set when the push
+         * was one that rings, and null for every other push.
          */
-        fun notifyPushReceived() {
+        fun notifyPushReceived(alarmIncidentId: String? = null) {
             if (pushChannel == null) return
             Handler(Looper.getMainLooper()).post {
-                pushChannel?.invokeMethod("onPushReceived", null)
+                pushChannel?.invokeMethod("onPushReceived", alarmIncidentId)
             }
         }
     }

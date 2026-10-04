@@ -1,6 +1,7 @@
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
+import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:flutter/foundation.dart';
 
 enum CriticalAlarmStatus {
@@ -34,6 +35,8 @@ class CriticalAlarmState {
     this.errorMessage,
     this.isOnboardingDone = false,
     this.hasOwnedTopic = false,
+    this.setupTestIncidentIds = const <String>{},
+    this.setupFlowHasRealRing = false,
   });
 
   final CriticalAlarmStatus status;
@@ -65,6 +68,28 @@ class CriticalAlarmState {
   /// celebration has no first topic to offer.
   final bool hasOwnedTopic;
 
+  /// The incidents the server opened when setup asked it to ring this
+  /// phone. Empty when no such test was sent, and once setup is complete.
+  final Set<String> setupTestIncidentIds;
+
+  /// Whether the setup flow the user is in has the real ring step. The
+  /// first shipped order does not, and keeps its own exits.
+  final bool setupFlowHasRealRing;
+
+  /// Which setup test the alarm on screen was, if any.
+  SetupTestKind get setupTest => setupTestKind(
+    incidentId: incident?.id,
+    setupTestIncidentIds: setupTestIncidentIds,
+  );
+
+  /// The buttons the acknowledged screen ends on.
+  AckedExits get ackedExits => ackedExitsFor(
+    kind: setupTest,
+    isOnboardingDone: isOnboardingDone,
+    flowHasRealRing: setupFlowHasRealRing,
+    hasOwnedTopic: hasOwnedTopic,
+  );
+
   CriticalAlarmState copyWith({
     CriticalAlarmStatus? status,
     Incident? incident,
@@ -84,6 +109,8 @@ class CriticalAlarmState {
     String? errorMessage,
     bool? isOnboardingDone,
     bool? hasOwnedTopic,
+    Set<String>? setupTestIncidentIds,
+    bool? setupFlowHasRealRing,
     bool clearError = false,
     bool clearFeedback = false,
   }) {
@@ -108,6 +135,8 @@ class CriticalAlarmState {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       isOnboardingDone: isOnboardingDone ?? this.isOnboardingDone,
       hasOwnedTopic: hasOwnedTopic ?? this.hasOwnedTopic,
+      setupTestIncidentIds: setupTestIncidentIds ?? this.setupTestIncidentIds,
+      setupFlowHasRealRing: setupFlowHasRealRing ?? this.setupFlowHasRealRing,
     );
   }
 
@@ -133,7 +162,9 @@ class CriticalAlarmState {
           feedbackMessage == other.feedbackMessage &&
           errorMessage == other.errorMessage &&
           isOnboardingDone == other.isOnboardingDone &&
-          hasOwnedTopic == other.hasOwnedTopic;
+          hasOwnedTopic == other.hasOwnedTopic &&
+          setEquals(setupTestIncidentIds, other.setupTestIncidentIds) &&
+          setupFlowHasRealRing == other.setupFlowHasRealRing;
 
   @override
   int get hashCode => Object.hash(
@@ -155,5 +186,7 @@ class CriticalAlarmState {
     errorMessage,
     isOnboardingDone,
     hasOwnedTopic,
+    Object.hashAllUnordered(setupTestIncidentIds),
+    setupFlowHasRealRing,
   );
 }

@@ -11,7 +11,6 @@ import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
-import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
 import 'package:critalarm/features/permissions/domain/repositories/device_permissions_repository.dart';
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
@@ -194,7 +193,6 @@ void main() {
       expect(getIt.isRegistered<GetServerInfoUsecase>(), isTrue);
       expect(getIt.isRegistered<TriggerTestAlarmUsecase>(), isTrue);
       expect(getIt.isRegistered<OnboardingWelcomeCubit>(), isTrue);
-      expect(getIt.isRegistered<OnboardingPermissionsCubit>(), isTrue);
       expect(getIt.isRegistered<DevicePermissionsRepository>(), isTrue);
       expect(getIt.isRegistered<GetDevicePermissionsUsecase>(), isTrue);
       expect(getIt.isRegistered<OpenPermissionSettingsUsecase>(), isTrue);

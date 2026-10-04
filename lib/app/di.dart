@@ -110,7 +110,9 @@ import 'package:critalarm/features/local_reminders/presentation/cubits/local_rem
 import 'package:critalarm/features/local_reminders/presentation/cubits/local_reminder_settings_cubit.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/keychain_mirror_connection_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/platform_alarm_arrivals.dart';
 import 'package:critalarm/features/onboarding/data/repositories/platform_notification_permission_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/prefs_setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_connection_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_developer_onboarding_overrides.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_flow_repository.dart';
@@ -124,6 +126,8 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_source
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
 import 'package:critalarm/features/onboarding/domain/flow/remote_onboarding_flow_source.dart';
+import 'package:critalarm/features/onboarding/domain/real_ring/alarm_arrivals.dart';
+import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flow_repository.dart';
@@ -133,6 +137,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/check_notification
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
@@ -143,11 +148,12 @@ import 'package:critalarm/features/onboarding/domain/usecases/read_permission_se
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/request_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/set_up_later_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
-import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
+import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
@@ -755,6 +761,33 @@ Future<void> configureDependencies({
         // shown again on a setup screen opened later.
         () => getIt<BackgroundConnect>().dismissFailure(),
         getIt<FirstTopicHandoff>(),
+        getIt<SetupTestRing>(),
+      ),
+    )
+    // The one exit every "Set this up later" button takes.
+    ..registerLazySingleton(
+      () => SetUpLaterUsecase(getIt<CompleteOnboardingUsecase>()),
+    )
+    // The incident of the test alarm setup sent, kept for the steps after
+    // the ring and cleared when setup completes.
+    ..registerLazySingleton<SetupTestRing>(
+      () => PrefsSetupTestRing(getIt<SharedPreferences>()),
+    )
+    // Ends a setup test on the server so it cannot ring again later.
+    ..registerLazySingleton(
+      () => EndSetupTestUsecase(
+        getIt<SetupTestRing>(),
+        getIt<AcknowledgeIncidentUsecase>(),
+        getIt<CloseIncidentUsecase>(),
+      ),
+    )
+    // How setup hears that an alarm reached this phone.
+    ..registerLazySingleton<AlarmArrivals>(
+      () => PlatformAlarmArrivals(
+        push: getIt<PushHost>(),
+        alarm: getIt<AlarmHost>(),
+        alarmingIncidentIds: () =>
+            getIt<IncidentAlarmController>().alarmingIncidentIds,
       ),
     )
     // The first topic setup made, held for the steps after it. The token stays
@@ -1152,8 +1185,7 @@ Future<void> configureDependencies({
       (initialConnected, _) => OnboardingConnectCubit(
         getIt<GetServerInfoUsecase>(),
         getIt<SaveConnectionUsecase>(),
-        getIt<TriggerTestAlarmUsecase>(),
-        completeOnboarding: getIt<CompleteOnboardingUsecase>(),
+        setUpLater: getIt<SetUpLaterUsecase>(),
         establishSession: getIt<EstablishApiSessionUsecase>(),
         getConnection: getIt<GetConnectionUsecase>(),
         getTopics: getIt<GetTopicsUsecase>(),
@@ -1212,10 +1244,36 @@ Future<void> configureDependencies({
         getIt<GetServerInfoUsecase>(),
       ),
     )
-    ..registerFactory(
-      () => OnboardingPermissionsCubit(
-        getIt<TriggerTestAlarmUsecase>(),
-        getTopics: getIt<GetTopicsUsecase>(),
+    ..registerFactoryParam<RealRingCubit, bool?, void>(
+      (isReplay, _) => RealRingCubit(
+        triggerTest: getIt<TriggerTestAlarmUsecase>(),
+        updateTopic: getIt<UpdateTopicUsecase>(),
+        // The app's one topic list. Loaded once if this step is the first
+        // to need it, never fetched again here.
+        readTopics: () async {
+          final topics = getIt<TopicsCubit>();
+          await topics.ensureLoaded();
+          return topics.state.topics;
+        },
+        refreshTopics: () async {
+          final topics = getIt<TopicsCubit>();
+          await topics.refresh();
+          return topics.state.topics;
+        },
+        hasConnection: () async =>
+            (await getIt<GetConnectionUsecase>()(
+              const NoParams(),
+            )).getOrNull() !=
+            null,
+        connectState: () => getIt<BackgroundConnect>().state,
+        connectChanges: getIt<BackgroundConnect>().stream,
+        handoff: getIt<FirstTopicHandoff>(),
+        ring: getIt<SetupTestRing>(),
+        arrivals: getIt<AlarmArrivals>(),
+        alarmHost: getIt<AlarmHost>(),
+        onTopicUpdated: (topic) => getIt<TopicsCubit>().applyTopic(topic),
+        isReplay: isReplay ?? false,
+        on: OnboardingPlatform(platform: defaultTargetPlatform, isWeb: kIsWeb),
       ),
     )
     ..registerFactory(
@@ -1298,6 +1356,11 @@ Future<void> configureDependencies({
         () => getIt<OnboardingFlowEngine>().isStepSatisfied(
           OnboardingStepId.firstTopic,
         ),
+        () => getIt<SetupTestRing>().incidentIds,
+        () => getIt<OnboardingFlowEngine>().runningFlow().contains(
+          OnboardingStepId.realRing,
+        ),
+        getIt<EndSetupTestUsecase>(),
       ),
     )
     ..registerFactory(

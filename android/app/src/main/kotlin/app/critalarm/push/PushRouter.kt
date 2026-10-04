@@ -73,17 +73,21 @@ object LateContentRule {
 class PushRouter(private val context: Context) {
     private val events = PushEventLog(context)
 
-    fun route(data: Map<String, String>) {
+    /**
+     * Returns the incident id when the push took the alarm path, and null for
+     * every other push. A running app is told which incident just rang.
+     */
+    fun route(data: Map<String, String>): String? {
         val payload = FcmIncidentPayload.fromData(data) ?: run {
             Log.w(TAG, "push_dropped reason=unparseable")
             events.record("push_dropped", mapOf("reason" to "unparseable"))
-            return
+            return null
         }
         if (!NativeConnectionStore(context).matchesCanonicalServer(payload.server)) {
             // One server connection per app in v1.
             Log.w(TAG, "push_dropped reason=other_server server=${payload.server}")
             events.record("push_dropped", mapOf("reason" to "other_server"))
-            return
+            return null
         }
         events.record(
             "push_received",
@@ -99,12 +103,21 @@ class PushRouter(private val context: Context) {
         // new notification: stop what is going off here and fix the card.
         if (payload.kind.isStateChange) {
             handleStateChange(payload)
-            return
+            return null
         }
-        when {
-            payload.priority == 5 && payload.isIncident -> handleAlarm(payload)
-            payload.priority >= 4 -> handleMessage(payload, NotificationChannels.highChannelId())
-            else -> handleMessage(payload, NotificationChannels.standardChannelId())
+        return when {
+            payload.priority == 5 && payload.isIncident -> {
+                handleAlarm(payload)
+                payload.incidentId
+            }
+            payload.priority >= 4 -> {
+                handleMessage(payload, NotificationChannels.highChannelId())
+                null
+            }
+            else -> {
+                handleMessage(payload, NotificationChannels.standardChannelId())
+                null
+            }
         }
     }
 

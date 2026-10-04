@@ -240,12 +240,26 @@ import AlarmKit
     if !isLocalReminder {
       NSLog("CritAlarm: push_presented_foreground title=%@", notification.request.content.title)
       // Nobody is going to tap this: the app is already open. Tell Dart so the
-      // screen the user is on reloads. Nothing about the notification is passed
-      // over; what changed is on the server and Dart asks it. This happens even
-      // when the banner below is dropped, so a second incident still reaches
-      // the alarm screen.
+      // screen the user is on reloads. What changed is on the server and Dart
+      // asks it. The incident id goes over only when this push is one that
+      // rings (`AlarmScheduleRule.ringingIncidentId`), so a screen waiting for
+      // that alarm never takes an ack, a close or a held ring for it. This
+      // happens even when the banner below is dropped, so a second incident
+      // still reaches the alarm screen.
       if dartIsListening {
-        pushChannel?.invokeMethod("onPushReceived", arguments: nil)
+        let push = IncidentPush(payload: notification.request.content.userInfo)
+        let quietHours = QuietHours.read(from: QuietHours.groupDefaults)
+        pushChannel?.invokeMethod(
+          "onPushReceived",
+          arguments: AlarmScheduleRule.ringingIncidentId(
+            push: push,
+            acked: AckedIncidentStore.all(),
+            heldByQuietHours: quietHours.holdsRing(
+              minuteOfDay: QuietHours.minuteOf(Date()),
+              priority: push?.priority ?? 0
+            )
+          )
+        )
       }
     }
     // While an alarm is under way nothing but an alarm gets a banner or a
