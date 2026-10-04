@@ -131,7 +131,8 @@ void main() {
       // Completing setup clears all three.
       await h.engine.finishStep('permissions');
       await h.engine.finishStep('first_topic');
-      expect((await h.engine.finishStep('real_ring')).isHome, isTrue);
+      await h.engine.finishStep('real_ring');
+      expect((await h.engine.finishStep('hook_up')).isHome, isTrue);
       expect(
         prefs.getKeys().where((key) => key.startsWith('onboarding_flow')),
         isEmpty,

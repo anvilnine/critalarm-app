@@ -80,6 +80,7 @@ void main() {
         'permissions',
         'first_topic',
         'real_ring',
+        'hook_up',
       ]);
       expect(BundledOnboardingFlows.legacy.id, 'legacy-1');
       expect(BundledOnboardingFlows.legacy.steps, [

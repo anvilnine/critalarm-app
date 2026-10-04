@@ -14,6 +14,10 @@ class PrefsSetupTestRing implements SetupTestRing {
   static const incidentIdsKey = 'onboarding_real_ring_incidents';
   static const unclosedIdsKey = 'onboarding_real_ring_unclosed';
 
+  /// Outlives [clear]. A handful of ids per setup run, capped.
+  static const setupIncidentIdsKey = 'onboarding_setup_incidents';
+  static const _setupIncidentCap = 20;
+
   @override
   String? get incidentId {
     final id = _prefs.getString(incidentIdKey);
@@ -44,6 +48,27 @@ class PrefsSetupTestRing implements SetupTestRing {
     if (incidentId.isEmpty) return;
     await _prefs.setString(incidentIdKey, incidentId);
     await _write(incidentIdsKey, {...incidentIds, incidentId});
+    await _remember(incidentId);
+  }
+
+  @override
+  Set<String> get setupIncidentIds => _read(setupIncidentIdsKey);
+
+  @override
+  Future<void> holdFirstMessage(String incidentId) async {
+    if (incidentId.isEmpty) return;
+    await _remember(incidentId);
+  }
+
+  Future<void> _remember(String incidentId) async {
+    final ids = [
+      ...setupIncidentIds.where((id) => id != incidentId),
+      incidentId,
+    ];
+    final kept = ids.length > _setupIncidentCap
+        ? ids.sublist(ids.length - _setupIncidentCap)
+        : ids;
+    await _prefs.setStringList(setupIncidentIdsKey, kept);
   }
 
   @override

@@ -8,7 +8,9 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
+import 'package:critalarm/features/onboarding/presentation/hook_up_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/real_ring_screen.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -101,6 +103,13 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
                 subtitle: LocaleKeys.developer_setup_ring_states_subtitle.tr(),
               ),
               _ringStateRows(context),
+              const SizedBox(height: 14),
+              _Heading(
+                title: LocaleKeys.developer_setup_hook_up_states_title.tr(),
+                subtitle: LocaleKeys.developer_setup_hook_up_states_subtitle
+                    .tr(),
+              ),
+              _hookUpStateRows(context),
               const SizedBox(height: 14),
               _Heading(
                 title: LocaleKeys.developer_setup_force_title.tr(),
@@ -293,20 +302,45 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
 
   /// One row per state of the real ring step, each opened as a replay that
   /// is put on that state. Nothing is sent, set or saved.
-  Widget _ringStateRows(BuildContext context) {
-    final route = OnboardingStepRegistry.entryFor(
-      OnboardingStepId.realRing,
-    )?.route;
-    if (route == null || !_catalog.isAvailable(OnboardingStepId.realRing)) {
+  Widget _ringStateRows(BuildContext context) => _stateRows(
+    context,
+    stepId: OnboardingStepId.realRing,
+    queries: {
+      for (final name in RealRingScreen.replayStateNames)
+        name: '${RealRingScreen.replayStateParam}=$name',
+    },
+  );
+
+  /// One row per state of the hook-up step and one per tool, each opened
+  /// as a replay with made-up values. Nothing is sent, made or saved.
+  Widget _hookUpStateRows(BuildContext context) => _stateRows(
+    context,
+    stepId: OnboardingStepId.hookUp,
+    queries: {
+      for (final name in HookUpScreen.replayStateNames)
+        name: '${HookUpScreen.replayStateParam}=$name',
+      for (final tool in ToolTemplate.values)
+        tool.id: '${HookUpScreen.replayToolParam}=${tool.id}',
+    },
+  );
+
+  /// Rows that open the step [stepId] as a replay, one per entry of
+  /// [queries]: the row's name and the query that puts the step on it.
+  Widget _stateRows(
+    BuildContext context, {
+    required String stepId,
+    required Map<String, String> queries,
+  }) {
+    final route = OnboardingStepRegistry.entryFor(stepId)?.route;
+    if (route == null || !_catalog.isAvailable(stepId)) {
       return const SizedBox.shrink();
     }
     return Column(
       children: [
-        for (final name in RealRingScreen.replayStateNames) ...[
-          if (name != RealRingScreen.replayStateNames.first)
-            const SizedBox(height: 4),
+        for (final (index, entry) in queries.entries.indexed) ...[
+          if (index > 0) const SizedBox(height: 4),
           AppListRow(
-            name: name,
+            name: entry.key,
             meta: route,
             faceState: null,
             trailing: AppGlyph(
@@ -315,9 +349,7 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
               size: 16,
             ),
             onTap: () => unawaited(
-              context.push(
-                '$route?demo=true&${RealRingScreen.replayStateParam}=$name',
-              ),
+              context.push('$route?demo=true&${entry.value}'),
             ),
           ),
         ],
