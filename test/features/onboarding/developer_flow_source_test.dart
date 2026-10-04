@@ -98,10 +98,7 @@ void main() {
         final prefs = await prefsWith({
           SharedPrefsDeveloperOnboardingOverrides.flowKey: 'legacy-1',
         });
-        final overrides = developerOnboardingOverridesFor(
-          prefs,
-          enabled: false,
-        );
+        final overrides = developerOnboardingOverridesFor(prefs);
 
         expect(overrides, isA<NoDeveloperOnboardingOverrides>());
         expect(overrides.isActive, isFalse);
@@ -111,7 +108,7 @@ void main() {
 
     test('the store implementation saves nothing when asked to', () async {
       final prefs = await prefsWith({});
-      final overrides = developerOnboardingOverridesFor(prefs, enabled: false);
+      final overrides = developerOnboardingOverridesFor(prefs);
 
       await overrides.chooseFlow(const DeveloperFlowChoice.bundled('legacy-1'));
       await overrides.forceUnsatisfied('connect', forced: true);
