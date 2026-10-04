@@ -4,7 +4,14 @@ import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flo
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
 
 class CompleteOnboardingUsecase implements UseCase<NoParams, Unit> {
-  const CompleteOnboardingUsecase(this._repository, [this._flow]);
+  const CompleteOnboardingUsecase(
+    this._repository, [
+    this._flow,
+    this.onCompleted,
+  ]);
+
+  /// Runs once setup is marked complete, however the user left it.
+  final void Function()? onCompleted;
 
   final OnboardingProgressRepository _repository;
 
@@ -19,6 +26,7 @@ class CompleteOnboardingUsecase implements UseCase<NoParams, Unit> {
     // pinned flow and its completed steps go for the same reason.
     await _repository.clearDraft();
     await _flow?.clear();
+    onCompleted?.call();
     return result;
   }
 }

@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
-import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
@@ -80,10 +80,6 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
   late final TextEditingController _urlController;
   late final TextEditingController _tokenController;
 
-  /// Null until the first check answers. Never blocks anything: it is a line
-  /// of text saying why the next tap may fail.
-  bool? _online;
-
   @override
   void initState() {
     super.initState();
@@ -121,12 +117,17 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
 
   Timer? _connectivityRetryTimer;
 
+  /// Asks Crit Alarm Cloud for its `/v1/info`. The one answer says whether
+  /// the phone is online and which privacy line is true. Never blocks
+  /// anything.
   Future<void> _checkConnectivity() async {
     _connectivityRetryTimer?.cancel();
-    final online = await hasInternet();
+    // The test step shows neither the offline card nor the line.
+    if (widget.isTest) return;
+    final cubit = context.read<OnboardingConnectCubit>();
+    await cubit.probeCloud();
     if (!mounted) return;
-    setState(() => _online = online);
-    if (!online) {
+    if (cubit.state.cloudOnline == false) {
       _connectivityRetryTimer = Timer(const Duration(seconds: 4), () {
         if (mounted) unawaited(_checkConnectivity());
       });
@@ -148,6 +149,20 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     if (_connectStepFinished) return;
     _connectStepFinished = true;
     unawaited(finishOnboardingStep(context, OnboardingStepId.connect));
+  }
+
+  /// Continue with Crit Alarm Cloud. The connect is handed over to run
+  /// behind the user and the step is done at once, online or not.
+  ///
+  /// Opened on its own after setup, from Home or Server settings, there is
+  /// no next step: the screen waits with the user and closes when the
+  /// connect lands, so whatever opened it reads the new connection.
+  Future<void> _continueWithCloud() async {
+    final opensOnItsOwn = context.canPop();
+    await context.read<OnboardingConnectCubit>().connectToCloud(
+      waitForResult: opensOnItsOwn,
+    );
+    if (mounted && !opensOnItsOwn) _finishConnectStep();
   }
 
   Future<void> _handlePaste() async {
@@ -263,8 +278,12 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         }
         if (!widget.isTest) {
           // A server answered, so this step is done. The flow says what
-          // comes next; this screen no longer turns into the test.
-          if (state.isConnected) _finishConnectStep();
+          // comes next; this screen no longer turns into the test. A server
+          // the user typed by hand first shows that it worked, and waits
+          // for Continue.
+          if (state.isConnected && state.confirmation == null) {
+            _finishConnectStep();
+          }
           return;
         }
         final ambient = OnboardingAmbientScope.maybeOf(context);
@@ -376,6 +395,25 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     final errorMsg = state.errorMessage;
     final qrNotice = state.qrNotice;
 
+    final confirmation = state.confirmation;
+    if (confirmation != null) {
+      return _buildSelfHostConfirmation(context, confirmation);
+    }
+    if (state.isSelfHosting && state.isConnecting) {
+      // The address is being checked. The face waits with the user and one
+      // line says what is going on.
+      return Padding(
+        padding: const EdgeInsets.only(top: Spacing.s8),
+        child: Center(
+          child: AppWaitingFace(
+            message: LocaleKeys.onboarding_connect_self_host_connecting.tr(
+              namedArgs: {'host': cubit.typedHost},
+            ),
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -408,7 +446,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
 
         // Says why a tap is about to fail, without stopping the user taking
         // it. Onboarding never blocks on the network.
-        if (_online == false) ...[
+        if (state.cloudOnline == false) ...[
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 14,
@@ -479,18 +517,31 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                   style: AppTypography.body(colors.ink2, fontSize: 14),
                 ),
                 const SizedBox(height: 16),
-                AppButton(
-                  label: LocaleKeys.onboarding_connect_cloud_button.tr(),
-                  size: AppButtonSize.lg,
-                  isFullWidth: true,
-                  isLoading: state.isConnecting || state.isConnected,
-                  onPressed: widget.isReplay
-                      ? _finishConnectStep
-                      : cubit.connectToCloud,
-                ),
+                if (state.isConnecting)
+                  // Only when the screen was opened on its own: it waits
+                  // here, with the face and one line, until the connect
+                  // lands.
+                  Center(
+                    child: AppWaitingFace(
+                      message: state.cloudWaitLine ?? '',
+                      faceSize: 56,
+                    ),
+                  )
+                else
+                  AppButton(
+                    label: LocaleKeys.onboarding_connect_cloud_button.tr(),
+                    size: AppButtonSize.lg,
+                    isFullWidth: true,
+                    onPressed: widget.isReplay
+                        ? _finishConnectStep
+                        : _continueWithCloud,
+                  ),
               ],
             ),
           ),
+          // What the push relay sees, in the words the Cloud's own answer
+          // supports. Nothing is drawn until that answer is in hand.
+          _PrivacyLine(line: state.cloudPrivacyLine),
         ] else ...[
           // Advanced self-hosted form
           AppTextField(
@@ -570,6 +621,46 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     );
   }
 
+  /// The user's own server answered: its host, the privacy line its answer
+  /// supports, and nothing else. Continue is in the pinned bar.
+  Widget _buildSelfHostConfirmation(
+    BuildContext context,
+    ConnectConfirmation confirmation,
+  ) {
+    final colors = context.appColors;
+    final line = confirmation.privacyLine;
+    return Padding(
+      padding: const EdgeInsets.only(top: Spacing.s8),
+      child: Column(
+        children: [
+          const FaceWidget(state: FaceState.success, size: 96, isLive: true),
+          const SizedBox(height: Spacing.s4),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              LocaleKeys.onboarding_connect_self_host_connected_title.tr(
+                namedArgs: {'host': confirmation.host},
+              ),
+              textAlign: TextAlign.center,
+              style: AppTypography.headline(colors.onCanvas, fontSize: 28),
+            ),
+          ),
+          if (line != null) ...[
+            const SizedBox(height: Spacing.s3),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Text(
+                line.translationKey.tr(),
+                textAlign: TextAlign.center,
+                style: AppTypography.body(colors.onCanvasMuted, fontSize: 15),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   /// Pinned actions for the not-yet-connected states.
   Widget _buildConnectBottomBar(
     BuildContext context,
@@ -577,6 +668,14 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     OnboardingConnectCubit cubit,
   ) {
     final colors = context.appColors;
+    if (state.confirmation != null) {
+      return AppButton(
+        label: LocaleKeys.onboarding_connect_self_host_continue.tr(),
+        size: AppButtonSize.lg,
+        isFullWidth: true,
+        onPressed: _finishConnectStep,
+      );
+    }
     // No server has answered yet, so offer the way out. Without it a user who
     // is offline or has the address wrong has no forward exit and no back.
     final skipButton = TextButton(
@@ -618,6 +717,10 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
       );
     }
 
+    // While the address is being checked the face and its line carry the
+    // wait, so the bar only keeps the way out.
+    if (state.isConnecting) return skipButton;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -625,7 +728,6 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           label: LocaleKeys.onboarding_connect_connect_button.tr(),
           size: AppButtonSize.lg,
           isFullWidth: true,
-          isLoading: state.isConnecting || state.isConnected,
           onPressed: widget.isReplay ? _finishConnectStep : cubit.connect,
         ),
         const SizedBox(height: Spacing.s3),
@@ -800,6 +902,48 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         // 12px from the scaffold makes 24 above the home indicator.
         const SizedBox(height: 12),
       ],
+    );
+  }
+}
+
+/// The privacy line under the Crit Alarm Cloud card. Takes no room and
+/// draws nothing while [line] is null, then fades in.
+class _PrivacyLine extends StatelessWidget {
+  const _PrivacyLine({required this.line});
+
+  final ConnectPrivacyLine? line;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final current = line;
+    return AnimatedSize(
+      duration: context.motion(AppDurations.base),
+      curve: AppCurves.easeOut,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: context.motion(AppDurations.base),
+        switchInCurve: AppCurves.easeOut,
+        switchOutCurve: AppCurves.easeOut,
+        child: current == null
+            ? const SizedBox(
+                key: ValueKey('connect-privacy-none'),
+                width: double.infinity,
+              )
+            : Padding(
+                key: ValueKey(current),
+                padding: const EdgeInsets.fromLTRB(
+                  Spacing.s1,
+                  Spacing.s3,
+                  Spacing.s1,
+                  0,
+                ),
+                child: Text(
+                  current.translationKey.tr(),
+                  style: AppTypography.small(colors.onCanvasMuted),
+                ),
+              ),
+      ),
     );
   }
 }

@@ -600,9 +600,13 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
             GoRoute(
               path: step.route!,
               name: step.routeName,
+              // The gate holds a step that needs the server back while a
+              // connect is still running behind the user.
               pageBuilder: (context, state) => AmbientPage(
                 key: state.pageKey,
-                child: step.screen!(context, state),
+                child: OnboardingStepGate(
+                  builder: (context) => step.screen!(context, state),
+                ),
               ),
             ),
         // Two more doors into the permissions screen.
