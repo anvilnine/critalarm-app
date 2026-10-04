@@ -1,10 +1,13 @@
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+
+import 'support/onboarding_flow_fakes.dart';
 
 class MockOnboardingProgressRepository extends Mock
     implements OnboardingProgressRepository {}
@@ -45,5 +48,23 @@ void main() {
     verify(() => repository.markCompleted()).called(1);
     // A leftover draft would drop a second run into a step already passed.
     verify(() => repository.clearDraft()).called(1);
+  });
+
+  test('CompleteOnboardingUsecase drops the pinned flow too', () async {
+    when(() => repository.markCompleted()).thenAnswer(
+      (_) async => unit.toSuccess(),
+    );
+    when(() => repository.clearDraft()).thenAnswer(
+      (_) async => unit.toSuccess(),
+    );
+    final flow = FakeOnboardingFlowRepository(
+      pinned: BundledOnboardingFlows.defaultFlow,
+      completed: {'welcome', 'connect'},
+    );
+
+    await CompleteOnboardingUsecase(repository, flow)(const NoParams());
+
+    expect(flow.pinned, isNull);
+    expect(flow.completed, isEmpty);
   });
 }

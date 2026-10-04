@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
@@ -17,7 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// Screen 1 of Onboarding (/onboarding): Permissions.
+/// The permissions step of setup (/onboarding).
 ///
 /// A stepper that only shows the steps this phone actually has, and only the
 /// ones the user has not already answered. Nothing here blocks: "Not now" or a
@@ -128,7 +128,9 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
           if (widget.standalone) {
             _close(context);
           } else {
-            goToOnboardingStep(context, OnboardingStep.widgets);
+            unawaited(
+              finishOnboardingStep(context, OnboardingStepId.permissions),
+            );
           }
           return;
         }

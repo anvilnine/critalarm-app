@@ -20,8 +20,9 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Cubit managing Screen 2: server connection, admin token input, compatibility
-/// validation, and the test alarm "Ring me now" sequence.
+/// Cubit behind two setup steps that share a screen file: the server
+/// connection (admin token input, compatibility validation) and the test
+/// alarm "Ring me now" sequence.
 class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   OnboardingConnectCubit(
     this._getServerInfo,
@@ -58,14 +59,16 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   /// cannot drift apart.
   static const testAlarmDelaySeconds = 5;
 
-  Future<void> loadConnection() async {
+  /// [adoptSavedConnection] false leaves the form up even when a server is
+  /// already saved, for a replay that is only a look at the connect screen.
+  Future<void> loadConnection({bool adoptSavedConnection = true}) async {
     final authorization = await alarmHost?.authorizationStatus();
     if (authorization != null && !isClosed) {
       emit(state.copyWith(alarm: authorization));
     }
 
-    // What the user typed and where they had got to last time, first: a
-    // half-typed server survives a force-quit this way.
+    // What the user typed last time, first: a half-typed server survives a
+    // force-quit this way.
     final draft = (await readDraft?.call(const NoParams()))?.getOrNull();
     if (draft != null && !isClosed) {
       emit(
@@ -83,19 +86,16 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
 
     final result = await getConnection?.call(const NoParams());
     final connection = result?.getOrNull();
-    if (connection != null && !isClosed) {
+    if (connection != null && adoptSavedConnection && !isClosed) {
       emit(
         state.copyWith(
           serverUrl: connection.serverUrl,
           status: OnboardingConnectStatus.connected,
         ),
       );
-      unawaited(_rememberStep(OnboardingStep.test));
       await loadTestTopic();
       _resumeCountdown(draft);
-      return;
     }
-    unawaited(_rememberStep(OnboardingStep.connect));
   }
 
   /// A countdown that was running when the app went away. The alarm itself is
@@ -131,7 +131,9 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     _tickCountdown();
   }
 
-  Future<void> _rememberStep(OnboardingStep step) async {
+  /// Keeps the half-typed form. Which step the user is on is not saved here:
+  /// the flow engine works that out.
+  Future<void> _rememberForm() async {
     final save = saveDraft;
     final read = readDraft;
     if (save == null || read == null) return;
@@ -139,7 +141,6 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         (await read(const NoParams())).getOrNull() ?? const OnboardingDraft();
     await save(
       current.copyWith(
-        step: step,
         serverUrl: state.serverUrl,
         adminToken: state.adminToken,
         isSelfHosting: state.isSelfHosting,
@@ -178,7 +179,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         clearQrNotice: true,
       ),
     );
-    unawaited(_rememberStep(OnboardingStep.connect));
+    unawaited(_rememberForm());
   }
 
   void serverUrlChanged(String url) {
@@ -192,7 +193,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         clearQrNotice: true,
       ),
     );
-    unawaited(_rememberStep(OnboardingStep.connect));
+    unawaited(_rememberForm());
   }
 
   void adminTokenChanged(String token) {
@@ -204,7 +205,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         clearQrNotice: true,
       ),
     );
-    unawaited(_rememberStep(OnboardingStep.connect));
+    unawaited(_rememberForm());
   }
 
   void pasteToken(String token) {
@@ -391,19 +392,19 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         host != null &&
         server.isNotEmpty &&
         await host
-              .scheduleAlarm(
-                incidentId: 'inc_demo',
-                topic: 'demo-topic',
-                server: server,
-                title: LocaleKeys.onboarding_connect_demo_alarm_title.tr(),
-                body: LocaleKeys.onboarding_connect_demo_alarm_body.tr(),
-                delaySeconds: testAlarmDelaySeconds,
-                // inc_demo is not on the server. The flag travels with the
-                // alarm to the Stop button on its notification, so that
-                // button leaves no card behind either.
-                handOverToStatusCard: false,
-              )
-              .catchError((_) => false);
+            .scheduleAlarm(
+              incidentId: 'inc_demo',
+              topic: 'demo-topic',
+              server: server,
+              title: LocaleKeys.onboarding_connect_demo_alarm_title.tr(),
+              body: LocaleKeys.onboarding_connect_demo_alarm_body.tr(),
+              delaySeconds: testAlarmDelaySeconds,
+              // inc_demo is not on the server. The flag travels with the
+              // alarm to the Stop button on its notification, so that
+              // button leaves no card behind either.
+              handOverToStatusCard: false,
+            )
+            .catchError((_) => false);
     if (isClosed) return;
 
     if (!scheduled) {

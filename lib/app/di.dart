@@ -109,9 +109,15 @@ import 'package:critalarm/features/onboarding/data/repositories/in_memory_server
 import 'package:critalarm/features/onboarding/data/repositories/keychain_mirror_connection_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/platform_notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_connection_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_source.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/notification_permission_repository.dart';
+import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
@@ -132,6 +138,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/notification_p
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_welcome_cubit.dart';
+import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
@@ -726,7 +733,59 @@ Future<void> configureDependencies({
           GetOnboardingCompletedUsecase(getIt<OnboardingProgressRepository>()),
     )
     ..registerLazySingleton(
-      () => CompleteOnboardingUsecase(getIt<OnboardingProgressRepository>()),
+      () => CompleteOnboardingUsecase(
+        getIt<OnboardingProgressRepository>(),
+        getIt<OnboardingFlowRepository>(),
+      ),
+    )
+    ..registerLazySingleton<OnboardingFlowRepository>(
+      () => SharedPrefsOnboardingFlowRepository(getIt<SharedPreferences>()),
+    )
+    // Where a setup flow comes from, highest priority first. The first two
+    // slots are empty until their sources are built; the bundled flow is
+    // always there to fall back on.
+    ..registerLazySingleton<OnboardingFlowSource>(
+      () => const EmptyOnboardingFlowSource(),
+      instanceName: developerOnboardingFlowSource,
+    )
+    ..registerLazySingleton<OnboardingFlowSource>(
+      () => const EmptyOnboardingFlowSource(),
+      instanceName: remoteOnboardingFlowSource,
+    )
+    ..registerLazySingleton<OnboardingStepCatalog>(
+      () {
+        final on = OnboardingPlatform(
+          platform: defaultTargetPlatform,
+          isWeb: kIsWeb,
+        );
+        return OnboardingStepRegistry(
+          on: on,
+          facts: DeviceOnboardingStepFacts(
+            on: on,
+            getConnection: getIt<GetConnectionUsecase>(),
+            checkNotifications: getIt<CheckNotificationPermissionUsecase>(),
+            alarm: getIt<AlarmHost>(),
+            devicePermissions: getIt<DevicePermissionsRepository>(),
+            notices: getIt<InAppNoticeRepository>(),
+          ),
+        );
+      },
+    )
+    ..registerLazySingleton(
+      () => OnboardingFlowEngine(
+        sources: [
+          getIt<OnboardingFlowSource>(
+            instanceName: developerOnboardingFlowSource,
+          ),
+          getIt<OnboardingFlowSource>(
+            instanceName: remoteOnboardingFlowSource,
+          ),
+          const BundledOnboardingFlowSource(),
+        ],
+        catalog: getIt<OnboardingStepCatalog>(),
+        repository: getIt<OnboardingFlowRepository>(),
+        completeOnboarding: getIt<CompleteOnboardingUsecase>(),
+      ),
     )
     ..registerLazySingleton(
       () => ReadOnboardingDraftUsecase(getIt<OnboardingProgressRepository>()),
@@ -738,13 +797,9 @@ Future<void> configureDependencies({
       () => ClearOnboardingDraftUsecase(getIt<OnboardingProgressRepository>()),
     )
     ..registerLazySingleton(
-      () =>
-          RememberOnboardingStepUsecase(getIt<OnboardingProgressRepository>()),
-    )
-    ..registerLazySingleton(
       () => InitialRouteResolver(
         getIt<GetOnboardingCompletedUsecase>(),
-        getIt<ReadOnboardingDraftUsecase>(),
+        getIt<OnboardingFlowEngine>(),
       ),
     )
     ..registerLazySingleton(

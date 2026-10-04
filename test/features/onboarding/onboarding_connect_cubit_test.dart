@@ -5,15 +5,19 @@ import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
+import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MockGetServerInfoUsecase extends Mock implements GetServerInfoUsecase {}
 
@@ -26,6 +30,8 @@ class MockTriggerTestAlarmUsecase extends Mock
     implements TriggerTestAlarmUsecase {}
 
 class MockEstablishSession extends Mock implements EstablishApiSessionUsecase {}
+
+class MockGetConnectionUsecase extends Mock implements GetConnectionUsecase {}
 
 void main() {
   late MockEstablishSession mockEstablishSession;
@@ -527,5 +533,92 @@ void main() {
         const OnboardingConnectState(),
       ],
     );
+  });
+
+  group('the connect and test steps share the cubit', () {
+    late SharedPrefsOnboardingProgressRepository progress;
+    late MockGetConnectionUsecase getConnection;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      progress = SharedPrefsOnboardingProgressRepository(
+        await SharedPreferences.getInstance(),
+      );
+      getConnection = MockGetConnectionUsecase();
+      when(() => getConnection(any())).thenAnswer(
+        (_) async => const ServerConnection(
+          serverUrl: 'https://alerts.example.com',
+          adminToken: 'ad_token',
+        ).toSuccess(),
+      );
+    });
+
+    OnboardingConnectCubit build({bool initialConnected = false}) =>
+        OnboardingConnectCubit(
+          mockGetServerInfo,
+          mockSaveConnection,
+          mockTriggerTestAlarm,
+          establishSession: mockEstablishSession,
+          getConnection: getConnection,
+          readDraft: ReadOnboardingDraftUsecase(progress),
+          saveDraft: SaveOnboardingDraftUsecase(progress),
+          initialConnected: initialConnected,
+        );
+
+    test('a saved server marks the connect step connected', () async {
+      final cubit = build();
+
+      await cubit.loadConnection();
+
+      expect(cubit.state.isConnected, isTrue);
+      expect(cubit.state.serverUrl, 'https://alerts.example.com');
+      await cubit.close();
+    });
+
+    test('a replay leaves the connect form up over a saved server', () async {
+      final cubit = build();
+
+      await cubit.loadConnection(adoptSavedConnection: false);
+
+      expect(cubit.state.isConnected, isFalse);
+      expect(cubit.state.status, OnboardingConnectStatus.idle);
+      await cubit.close();
+    });
+
+    test('the test step starts connected and reads the server', () async {
+      final cubit = build(initialConnected: true);
+      expect(cubit.state.isConnected, isTrue);
+
+      await cubit.loadConnection();
+
+      expect(cubit.state.serverUrl, 'https://alerts.example.com');
+      await cubit.close();
+    });
+
+    test('typing saves the form and no step', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final cubit = build()
+        ..toggleSelfHosting()
+        ..serverUrlChanged('https://alerts.mybox.local');
+      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
+
+      final draft = (await progress.readDraft()).getOrNull()!;
+      expect(draft.serverUrl, 'https://alerts.mybox.local');
+      expect(draft.isSelfHosting, isTrue);
+      expect(prefs.containsKey('onboarding_step'), isFalse);
+      await cubit.close();
+    });
+
+    test('opening either step writes nothing', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final cubit = build();
+
+      await cubit.loadConnection();
+      await pumpEventQueue();
+
+      expect(prefs.getKeys(), isEmpty);
+      await cubit.close();
+    });
   });
 }

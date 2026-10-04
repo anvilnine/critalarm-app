@@ -20,7 +20,8 @@ class OnboardingAmbientController extends ChangeNotifier {
 
   void setStep(OnboardingAmbientStep nextStep, [AmbientDirection? direction]) {
     if (_step == nextStep) return;
-    final resolvedDirection = direction ??
+    final resolvedDirection =
+        direction ??
         (nextStep.index >= _step.index
             ? AmbientDirection.push
             : AmbientDirection.pop);
@@ -86,7 +87,9 @@ class _OnboardingShellState extends State<OnboardingShell> {
     super.didUpdateWidget(oldWidget);
     if (widget.state.uri.path != oldWidget.state.uri.path) {
       final routeStep = onboardingStepForPath(widget.state.uri.path);
-      _controller.setStep(routeStep);
+      // Setup only moves forward, and the order of its routes is a flow, not
+      // the order of the enum, so a route change is always a push.
+      _controller.setStep(routeStep, AmbientDirection.push);
     }
   }
 
