@@ -13,6 +13,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Locale values and the search keyword for the paid plan say Hosted. Keys, class names, routes and analytics event names keep their pro\_ names. The create-topic limit hint is now the key create\_topic.limit\_review\_plan\_hint.
 - `AppEmptyState` has no English defaults: `title` and `description` are required and `buttonLabel` is null unless passed. The Home empty card reads its words from `home.empty_body` and `home.empty_button`.
 - A pinned setup flow goes through the validator each time it is read: unknown ids are dropped, and a rejected or empty list is replaced by the bundled default with the completed steps kept. `finishOnboardingStep` does not navigate when the router moved while it was waiting. `CriticalAlarmState.hasOwnedTopic` decides whether the demo celebration offers the first topic.
+- Welcome and the other intro screens show their words and button from the first frame. Removed the staged reveal, the per-animation text delays and the staged flag. The animation keeps its size at large text sizes and the page scrolls when the words need the room. The widgets step is optional: the default flow leaves it out, and its registry entry exists on iOS and Android only.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
