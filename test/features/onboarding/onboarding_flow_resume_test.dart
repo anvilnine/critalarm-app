@@ -1,14 +1,22 @@
-import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
+import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/onboarding_flow_fakes.dart';
+import 'support/permission_setup_fakes.dart';
+
+class _NoConnection extends Mock implements GetConnectionUsecase {}
+
+class _NoNotices extends Mock implements InAppNoticeRepository {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -521,49 +529,67 @@ void main() {
   });
 
   group('the permissions step is satisfied', () {
-    bool satisfied(
-      OnboardingPlatform on, {
-      bool notifications = true,
-      AlarmAuthorization alarm = AlarmAuthorization.unsupported,
-      bool fullScreen = false,
-    }) => onboardingPermissionsSatisfied(
-      on: on,
-      notificationsGranted: notifications,
-      alarm: alarm,
-      fullScreenGranted: fullScreen,
+    // The engine asks the same reader the permissions screen draws from,
+    // so "satisfied" and "nothing left to show" are one answer.
+    Future<bool> satisfied(PermissionPhone phone) => DeviceOnboardingStepFacts(
+      on: OnboardingPlatform(platform: phone.platform, isWeb: phone.isWeb),
+      getConnection: _NoConnection(),
+      readPermissionSetup: phone.read,
+      notices: _NoNotices(),
+    ).hasEveryPermission();
+
+    test('never without notifications', () async {
+      final ios = PermissionPhone.ios26(alarmStatus: 'authorized');
+      final android = PermissionPhone.android()
+        ..device.grant(DevicePermissionType.fullScreenIntent);
+
+      expect(await satisfied(ios), isFalse);
+      expect(await satisfied(android), isFalse);
+    });
+
+    test('iOS 26: only once AlarmKit is authorized', () async {
+      for (final (status, expected) in [
+        ('notDetermined', false),
+        ('denied', false),
+        ('authorized', true),
+      ]) {
+        final phone = PermissionPhone.ios26(alarmStatus: status)
+          ..grantNotifications();
+        expect(await satisfied(phone), expected, reason: status);
+      }
+    });
+
+    test('iOS 16 to 25: on notifications alone', () async {
+      final phone = PermissionPhone.iosOld()..grantNotifications();
+      expect(await satisfied(phone), isTrue);
+    });
+
+    test('Android: needs the full-screen intent permission too', () async {
+      final phone = PermissionPhone.android()..grantNotifications();
+      expect(await satisfied(phone), isFalse);
+
+      phone.device.grant(DevicePermissionType.fullScreenIntent);
+      expect(await satisfied(phone), isTrue);
+    });
+
+    test(
+      'Android on a listed maker: needs the battery exemption too',
+      () async {
+        final phone = PermissionPhone.android(maker: samsung)
+          ..grantNotifications()
+          ..device.grant(DevicePermissionType.fullScreenIntent);
+        expect(await satisfied(phone), isFalse);
+
+        phone.device.grant(DevicePermissionType.batteryOptimization);
+        expect(await satisfied(phone), isTrue);
+      },
     );
 
-    test('never without notifications', () {
-      expect(
-        satisfied(
-          iPhone,
-          notifications: false,
-          alarm: AlarmAuthorization.authorized,
-        ),
-        isFalse,
-      );
-      expect(
-        satisfied(androidPhone, notifications: false, fullScreen: true),
-        isFalse,
-      );
-    });
-
-    test('iOS 26: only once AlarmKit is authorized', () {
-      expect(
-        satisfied(iPhone, alarm: AlarmAuthorization.notDetermined),
-        isFalse,
-      );
-      expect(satisfied(iPhone, alarm: AlarmAuthorization.denied), isFalse);
-      expect(satisfied(iPhone, alarm: AlarmAuthorization.authorized), isTrue);
-    });
-
-    test('iOS 16 to 25: on notifications alone', () {
-      expect(satisfied(iPhone), isTrue);
-    });
-
-    test('Android: needs the full-screen intent permission too', () {
-      expect(satisfied(androidPhone), isFalse);
-      expect(satisfied(androidPhone, fullScreen: true), isTrue);
+    test('Android on a Pixel: the battery exemption does not count', () async {
+      final phone = PermissionPhone.android()
+        ..grantNotifications()
+        ..device.grant(DevicePermissionType.fullScreenIntent);
+      expect(await satisfied(phone), isTrue);
     });
   });
 

@@ -1,15 +1,16 @@
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/features/permissions/domain/entities/permission_setup_step.dart';
 import 'package:flutter/foundation.dart';
 
-/// Step in the notification permissions onboarding flow.
+/// Where the permissions screen is in asking.
 enum NotificationPermissionStep {
-  /// Prompt before user clicks allow.
+  /// A step is on screen, waiting for the user.
   initial,
 
-  /// In the middle of requesting permissions from the OS.
+  /// In the middle of requesting a permission from the OS.
   requesting,
 
-  /// All required permissions granted. Ready to proceed.
+  /// Nothing left to ask. Ready to proceed.
   granted,
 
   /// Permission was denied. Showing denial path with recovery action.
@@ -20,88 +21,98 @@ enum NotificationPermissionStep {
 class NotificationPermissionsState {
   const NotificationPermissionsState({
     this.step = NotificationPermissionStep.initial,
-    this.activeSubstep = 0,
-    this.notificationsGranted = false,
-    this.criticalAlertsGranted = false,
+    this.steps = const [],
+    this.current,
+    this.granted = const {},
+    this.available = const [],
+    this.promptSpent = const {},
     this.errorMessage,
     this.canNavigate = false,
     this.alarm = AlarmAuthorization.notDetermined,
     this.liveActivityStarted = false,
-    this.alarmSupported = true,
     this.isChecking = false,
-    this.fullScreenStep = false,
-    this.fullScreenGranted = false,
   });
 
   final NotificationPermissionStep step;
 
-  /// 0 = Notifications step, 1 = Critical Alerts / Silent bypass step.
-  final int activeSubstep;
+  /// The steps this run of the screen draws on this phone, in order. A step
+  /// that was already granted when the screen first read it is not in here.
+  /// Once drawn the list only grows at its end, so no dot the user has seen
+  /// moves or disappears.
+  final List<PermissionSetupStep> steps;
 
-  final bool notificationsGranted;
-  final bool criticalAlertsGranted;
+  /// Every step this phone has, drawn or not.
+  final List<PermissionSetupStep> available;
+
+  /// The steps whose system prompt will not come up again. Such a step sends
+  /// the user to Settings and never says a prompt is coming.
+  final Set<PermissionSetupStep> promptSpent;
+
+  /// The step on screen. Null until the statuses have been read: the screen
+  /// shows no prompt before it knows which one the user still needs.
+  final PermissionSetupStep? current;
+
+  /// The steps whose permission was granted at the last read.
+  final Set<PermissionSetupStep> granted;
+
   final String? errorMessage;
   final bool canNavigate;
 
-  /// Whether iOS lets the app set alarms / Critical Alerts.
+  /// What AlarmKit said at the last read.
   final AlarmAuthorization alarm;
 
   /// True once onboarding has started its one local Live Activity.
   final bool liveActivityStarted;
 
-  /// False where this OS has no alarm permission to ask for: Android, and iOS
-  /// below 26. The step still shows, saying plainly what the phone can do,
-  /// rather than promising a ring the platform will never deliver.
-  final bool alarmSupported;
-
-  /// True on an Android phone where step 2 asks for the full-screen alarm
-  /// permission. There is no AlarmKit there, so [alarmSupported] stays false.
-  final bool fullScreenStep;
-
-  /// Whether Android lets the app take over the screen for a page.
-  final bool fullScreenGranted;
-
   /// Re-reading the system state after the user came back from Settings.
   final bool isChecking;
-
-  /// How many steps the stepper really has on this phone. Both steps are
-  /// always presented: step 1 requests notification permission, and step 2
-  /// requests alarm permission or explains the notification sound fallback.
-  int get totalSteps => 2;
 
   bool get isRequesting => step == NotificationPermissionStep.requesting;
   bool get isGranted => step == NotificationPermissionStep.granted;
   bool get isDenied => step == NotificationPermissionStep.denied;
 
+  /// Whether a page can reach this phone as a notification at all. Without
+  /// it nothing on screen may promise a ring.
+  bool get notificationsGranted =>
+      granted.contains(PermissionSetupStep.iosNotifications) ||
+      granted.contains(PermissionSetupStep.androidNotifications);
+
+  /// Where [current] sits in [steps], from zero. -1 with no step on screen.
+  int get currentIndex {
+    final on = current;
+    return on == null ? -1 : steps.indexOf(on);
+  }
+
+  /// The steps this run has been on, [current] included. The screen only
+  /// moves forward, so that is everything up to [current].
+  Set<PermissionSetupStep> get shown => steps.take(currentIndex + 1).toSet();
+
   NotificationPermissionsState copyWith({
     NotificationPermissionStep? step,
-    int? activeSubstep,
-    bool? notificationsGranted,
-    bool? criticalAlertsGranted,
+    List<PermissionSetupStep>? steps,
+    PermissionSetupStep? current,
+    Set<PermissionSetupStep>? granted,
+    List<PermissionSetupStep>? available,
+    Set<PermissionSetupStep>? promptSpent,
     String? errorMessage,
     bool? canNavigate,
     AlarmAuthorization? alarm,
     bool? liveActivityStarted,
-    bool? alarmSupported,
     bool? isChecking,
-    bool? fullScreenStep,
-    bool? fullScreenGranted,
     bool clearError = false,
   }) {
     return NotificationPermissionsState(
       step: step ?? this.step,
-      activeSubstep: activeSubstep ?? this.activeSubstep,
-      notificationsGranted: notificationsGranted ?? this.notificationsGranted,
-      criticalAlertsGranted:
-          criticalAlertsGranted ?? this.criticalAlertsGranted,
+      steps: steps ?? this.steps,
+      current: current ?? this.current,
+      granted: granted ?? this.granted,
+      available: available ?? this.available,
+      promptSpent: promptSpent ?? this.promptSpent,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       canNavigate: canNavigate ?? this.canNavigate,
       alarm: alarm ?? this.alarm,
       liveActivityStarted: liveActivityStarted ?? this.liveActivityStarted,
-      alarmSupported: alarmSupported ?? this.alarmSupported,
       isChecking: isChecking ?? this.isChecking,
-      fullScreenStep: fullScreenStep ?? this.fullScreenStep,
-      fullScreenGranted: fullScreenGranted ?? this.fullScreenGranted,
     );
   }
 
@@ -111,31 +122,35 @@ class NotificationPermissionsState {
       other is NotificationPermissionsState &&
           runtimeType == other.runtimeType &&
           step == other.step &&
-          activeSubstep == other.activeSubstep &&
-          notificationsGranted == other.notificationsGranted &&
-          criticalAlertsGranted == other.criticalAlertsGranted &&
+          listEquals(steps, other.steps) &&
+          current == other.current &&
+          setEquals(granted, other.granted) &&
+          listEquals(available, other.available) &&
+          setEquals(promptSpent, other.promptSpent) &&
           errorMessage == other.errorMessage &&
           canNavigate == other.canNavigate &&
           alarm == other.alarm &&
           liveActivityStarted == other.liveActivityStarted &&
-          alarmSupported == other.alarmSupported &&
-          isChecking == other.isChecking &&
-          fullScreenStep == other.fullScreenStep &&
-          fullScreenGranted == other.fullScreenGranted;
+          isChecking == other.isChecking;
 
   @override
   int get hashCode => Object.hash(
     step,
-    activeSubstep,
-    notificationsGranted,
-    criticalAlertsGranted,
+    Object.hashAll(steps),
+    current,
+    Object.hashAllUnordered(granted),
+    Object.hashAll(available),
+    Object.hashAllUnordered(promptSpent),
     errorMessage,
     canNavigate,
     alarm,
     liveActivityStarted,
-    alarmSupported,
     isChecking,
-    fullScreenStep,
-    fullScreenGranted,
   );
+
+  @override
+  String toString() =>
+      'NotificationPermissionsState($step, current: $current, steps: $steps, '
+      'granted: $granted, alarm: $alarm, canNavigate: $canNavigate, '
+      'isChecking: $isChecking)';
 }

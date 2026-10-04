@@ -1,76 +1,13 @@
-import 'package:bloc_test/bloc_test.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
-import 'package:critalarm/core/result/result.dart';
-import 'package:critalarm/core/usecase/usecase.dart';
-import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
-import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
-import 'package:critalarm/features/onboarding/domain/usecases/open_notification_settings_usecase.dart';
-import 'package:critalarm/features/onboarding/domain/usecases/request_notification_permission_usecase.dart';
-import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
-import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
-import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
-import 'package:critalarm/features/permissions/domain/repositories/device_permissions_repository.dart';
+import 'package:critalarm/features/permissions/domain/entities/permission_setup_step.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
 
-import '../../core/alarm/fake_alarm_host.dart';
-
-class _Request extends Mock implements RequestNotificationPermissionUsecase {}
-
-class _Check extends Mock implements CheckNotificationPermissionUsecase {}
-
-class _Open extends Mock implements OpenNotificationSettingsUsecase {}
-
-class _Permissions extends Mock implements DevicePermissionsRepository {}
+import 'support/permission_setup_fakes.dart';
 
 void main() {
-  late _Request request;
-  late _Check check;
-  late _Open open;
-  late _Permissions permissions;
-  late FakeAlarmHost fake;
-
-  setUpAll(() {
-    registerFallbackValue(const NoParams());
-    registerFallbackValue(DevicePermissionType.fullScreenIntent);
-  });
-
-  setUp(() {
-    request = _Request();
-    check = _Check();
-    open = _Open();
-    permissions = _Permissions();
-    fake = FakeAlarmHost();
-    // Android's alarm channel answers unsupported.
-    fake.answers['authorizationStatus'] = 'unsupported';
-    when(() => check(any())).thenAnswer(
-      (_) async => NotificationPermissionStatus.granted.toSuccess(),
-    );
-    when(
-      () => permissions.openPermissionSettings(any()),
-    ).thenAnswer((_) async => true.toSuccess());
-  });
-
-  void fullScreen(DevicePermissionStatus status) {
-    when(
-      () => permissions.checkPermission(DevicePermissionType.fullScreenIntent),
-    ).thenAnswer((_) async => status.toSuccess());
-  }
-
-  NotificationPermissionsCubit android({bool standalone = false}) =>
-      NotificationPermissionsCubit(
-        request,
-        open,
-        alarm: fake.host,
-        checkPermission: check,
-        devicePermissions: permissions,
-        platform: TargetPlatform.android,
-        standalone: standalone,
-      );
-
   group('Android step 2 is the full-screen alarm permission', () {
     test(
       'Android never gets the iOS 26 copy, whatever the alarm channel says',
@@ -88,16 +25,46 @@ void main() {
       },
     );
 
-    blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
-      'step 2 stays and is marked as a full-screen step',
-      setUp: () => fullScreen(DevicePermissionStatus.denied),
-      build: android,
-      act: (cubit) => cubit.refresh(),
-      verify: (cubit) {
-        expect(cubit.state.fullScreenStep, isTrue);
-        expect(cubit.state.fullScreenGranted, isFalse);
-        expect(cubit.state.alarmSupported, isFalse);
-        expect(cubit.state.activeSubstep, 1);
+    test('no Android run ever lands on an iOS step', () async {
+      for (final maker in [pixel, samsung]) {
+        final phone = PermissionPhone.android(maker: maker);
+        final cubit = phone.cubit(replayForDemo: true);
+        final states = record(cubit);
+
+        await cubit.refresh();
+        cubit
+          ..skipStep()
+          ..skipStep()
+          ..skipStep();
+        await pumpEventQueue();
+
+        const ios = {
+          PermissionSetupStep.iosNotifications,
+          PermissionSetupStep.iosAlarms,
+          PermissionSetupStep.iosTimeSensitiveExplainer,
+        };
+        expect(
+          states.where((state) => ios.contains(state.current)),
+          isEmpty,
+        );
+        expect(
+          states.expand((state) => state.steps).toSet().intersection(ios),
+          isEmpty,
+        );
+        await cubit.close();
+      }
+    });
+
+    test(
+      'with notifications granted it opens on the full-screen step',
+      () async {
+        final phone = PermissionPhone.android()..grantNotifications();
+        final cubit = phone.cubit();
+
+        await cubit.refresh();
+
+        expect(cubit.state.current, PermissionSetupStep.androidFullScreen);
+        expect(cubit.state.granted, {PermissionSetupStep.androidNotifications});
         expect(cubit.state.canNavigate, isFalse);
         expect(
           RingClaim.forPhone(
@@ -107,56 +74,113 @@ void main() {
           ),
           RingClaim.alarm,
         );
+        await cubit.close();
       },
     );
 
-    blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
-      'both granted lets onboarding move on',
-      setUp: () => fullScreen(DevicePermissionStatus.granted),
-      build: android,
-      act: (cubit) => cubit.refresh(),
-      verify: (cubit) {
-        expect(cubit.state.canNavigate, isTrue);
-        expect(cubit.state.criticalAlertsGranted, isTrue);
-      },
-    );
+    test('both granted lets onboarding move on', () async {
+      final phone = PermissionPhone.android()
+        ..grantNotifications()
+        ..device.grant(DevicePermissionType.fullScreenIntent);
+      final cubit = phone.cubit();
 
-    blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
-      'the button opens the full-screen settings page and waits',
-      setUp: () => fullScreen(DevicePermissionStatus.denied),
-      build: android,
-      act: (cubit) async {
-        await cubit.refresh();
-        await cubit.requestCriticalAlerts();
-      },
-      verify: (cubit) {
-        verify(
-          () => permissions.openPermissionSettings(
-            DevicePermissionType.fullScreenIntent,
-          ),
-        ).called(1);
-        expect(cubit.state.canNavigate, isFalse);
-        expect(fake.callsTo('requestAuthorization'), isEmpty);
-      },
-    );
+      await cubit.refresh();
 
-    blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
-      'standalone closes at once when it is already granted',
-      setUp: () => fullScreen(DevicePermissionStatus.granted),
-      build: () => android(standalone: true),
-      act: (cubit) => cubit.refresh(),
-      verify: (cubit) => expect(cubit.state.canNavigate, isTrue),
-    );
+      expect(cubit.state.canNavigate, isTrue);
+      await cubit.close();
+    });
 
-    blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
-      'Not now on step 1 reaches step 2 on Android',
-      setUp: () => fullScreen(DevicePermissionStatus.denied),
-      build: android,
-      act: (cubit) async {
-        await cubit.refresh();
-        cubit.skipStep();
-      },
-      verify: (cubit) => expect(cubit.state.activeSubstep, 1),
-    );
+    test('the button opens the full-screen settings page and waits', () async {
+      final phone = PermissionPhone.android()..grantNotifications();
+      final cubit = phone.cubit();
+
+      await cubit.refresh();
+      await cubit.allowCurrentStep();
+
+      expect(phone.device.opened, [DevicePermissionType.fullScreenIntent]);
+      expect(cubit.state.canNavigate, isFalse);
+      expect(phone.alarm.callsTo('requestAuthorization'), isEmpty);
+      await cubit.close();
+    });
+
+    test('standalone closes at once when it is already granted', () async {
+      final phone = PermissionPhone.android()
+        ..grantNotifications()
+        ..device.grant(DevicePermissionType.fullScreenIntent);
+      final cubit = phone.cubit(standalone: true);
+
+      await cubit.refresh();
+
+      expect(cubit.state.canNavigate, isTrue);
+      await cubit.close();
+    });
+
+    test('Not now on step 1 reaches step 2 on Android', () async {
+      final phone = PermissionPhone.android();
+      final cubit = phone.cubit();
+
+      await cubit.refresh();
+      cubit.skipStep();
+
+      expect(cubit.state.current, PermissionSetupStep.androidFullScreen);
+      expect(cubit.state.currentIndex, 1);
+      expect(phone.notifications.requests, 0);
+      await cubit.close();
+    });
+  });
+
+  group('Android step 3 is battery, on the makers that need it', () {
+    test('a Pixel finishes after the full-screen step', () async {
+      final phone = PermissionPhone.android();
+      final cubit = phone.cubit();
+
+      await cubit.refresh();
+      expect(cubit.state.steps, hasLength(2));
+      cubit
+        ..skipStep()
+        ..skipStep();
+
+      expect(cubit.state.canNavigate, isTrue);
+      expect(
+        phone.device.checked,
+        isNot(contains(DevicePermissionType.batteryOptimization)),
+      );
+      await cubit.close();
+    });
+
+    test('a listed maker gets battery third', () async {
+      final phone = PermissionPhone.android(maker: samsung);
+      final cubit = phone.cubit();
+
+      await cubit.refresh();
+      expect(cubit.state.steps, hasLength(3));
+      cubit
+        ..skipStep()
+        ..skipStep();
+
+      expect(cubit.state.current, PermissionSetupStep.androidBattery);
+      expect(cubit.state.currentIndex, 2);
+      expect(cubit.state.canNavigate, isFalse);
+      await cubit.close();
+    });
+
+    test('a listed maker already exempt never sees it', () async {
+      final phone = PermissionPhone.android(maker: samsung)
+        ..device.grant(DevicePermissionType.batteryOptimization);
+      final cubit = phone.cubit();
+
+      await cubit.refresh();
+      expect(cubit.state.steps, const [
+        PermissionSetupStep.androidNotifications,
+        PermissionSetupStep.androidFullScreen,
+      ]);
+      cubit
+        ..skipStep()
+        ..skipStep();
+
+      expect(cubit.state.canNavigate, isTrue);
+      expect(phone.device.opened, isEmpty);
+      await cubit.close();
+    });
   });
 }
