@@ -101,7 +101,9 @@ void main() {
     when(progress.markCompleted).thenAnswer((_) async => unit.toSuccess());
     when(progress.clearDraft).thenAnswer((_) async => unit.toSuccess());
 
-    await CompleteOnboardingUsecase(progress, null, handoff)(const NoParams());
+    await CompleteOnboardingUsecase(progress, null, null, handoff)(
+      const NoParams(),
+    );
 
     expect(handoff.entry, isNull);
     expect(handoff.savedTopicName, isNull);

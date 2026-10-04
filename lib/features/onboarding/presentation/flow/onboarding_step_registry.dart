@@ -199,9 +199,9 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
     return null;
   }
 
-  /// The canvas step of the entry whose route is [path], or the closest one
-  /// above it. Null when [path] is outside onboarding.
-  static OnboardingAmbientStep? ambientStepForPath(String path) {
+  /// The entry whose route is [path], or the closest one above it. Null
+  /// when [path] is outside onboarding.
+  static OnboardingStepEntry? entryForPath(String path) {
     OnboardingStepEntry? best;
     for (final entry in entries) {
       final route = entry.route;
@@ -209,8 +209,12 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       if (path != route && !path.startsWith('$route/')) continue;
       if (best == null || route.length > best.route!.length) best = entry;
     }
-    return best?.ambientStep;
+    return best;
   }
+
+  /// The canvas step of the entry [entryForPath] finds for [path].
+  static OnboardingAmbientStep? ambientStepForPath(String path) =>
+      entryForPath(path)?.ambientStep;
 
   @override
   Map<String, Set<String>> get requires => requiresById;

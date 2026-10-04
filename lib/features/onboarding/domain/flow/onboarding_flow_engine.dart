@@ -171,6 +171,16 @@ class OnboardingFlowEngine {
     return _open(pinned, completed);
   }
 
+  /// [stepId] no longer counts as done. For a step that was finished on a
+  /// promise that then fell through: the connect step is finished at
+  /// Continue, before the connect has landed. Does nothing once setup is
+  /// complete, where there is no run to change.
+  Future<void> reopenStep(String stepId) async {
+    final completed = repository.read().completed;
+    if (!completed.contains(stepId)) return;
+    await repository.saveCompleted({...completed}..remove(stepId));
+  }
+
   /// Places a user who was halfway through setup in a version that saved the
   /// step by name. Runs once. Running it again changes nothing.
   Future<void> migrateLegacyStep() async {
