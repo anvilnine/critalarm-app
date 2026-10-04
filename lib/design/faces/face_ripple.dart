@@ -65,6 +65,26 @@ const List<FaceState> happyRippleFaces = [
   FaceState.curious,
 ];
 
+/// A mixed wall for a full celebration: eight glad faces, one per head in
+/// turn, so no two neighbours in a row of four match.
+const List<FaceState> celebrationRestFaces = [
+  FaceState.happy,
+  FaceState.content,
+  FaceState.laughing,
+  FaceState.love,
+  FaceState.proud,
+  FaceState.cheeky,
+  FaceState.calm,
+  FaceState.success,
+];
+
+/// A calmer mixed wall, for good news that is only part of the story.
+const List<FaceState> quietRestFaces = [
+  FaceState.content,
+  FaceState.calm,
+  FaceState.happy,
+];
+
 /// Which of [pool] a cell shows for [wave]. Without [random] the faces run
 /// in order, so two waves show every face there is (the welcome screen).
 /// With it each cell and wave gets its own pick, never the same face twice
@@ -95,6 +115,17 @@ FaceState pickRippleFace(
   }
   return pool[shown];
 }
+
+/// The face head [cell] rests on between waves: its own entry of
+/// [restFaces] when there are any, else [restFace].
+@visibleForTesting
+FaceState rippleRestFace({
+  required int cell,
+  required FaceState restFace,
+  List<FaceState>? restFaces,
+}) => restFaces == null || restFaces.isEmpty
+    ? restFace
+    : restFaces[cell % restFaces.length];
 
 /// The grid for a box: the head size and how many rows and columns fit.
 /// Always four columns and up to five rows, sized by the tighter of width
@@ -127,6 +158,7 @@ class FaceRipple extends StatefulWidget {
   const FaceRipple({
     this.faces,
     this.restFace = FaceState.calm,
+    this.restFaces,
     this.randomFaces = false,
     super.key,
   });
@@ -136,6 +168,11 @@ class FaceRipple extends StatefulWidget {
 
   /// The face each head settles back to between waves.
   final FaceState restFace;
+
+  /// A different rest face per head: cell `i` settles on
+  /// `restFaces[i % length]`, so the wall is mixed and the same from frame
+  /// to frame. Null or empty means every head rests on [restFace].
+  final List<FaceState>? restFaces;
 
   /// Pick a face per cell and wave at random (a fixed shuffle, so a frame is
   /// repeatable) instead of running through [faces] in order.
@@ -258,7 +295,11 @@ class _FaceRippleState extends State<FaceRipple>
       cellCount: rows * cols,
       random: widget.randomFaces,
     );
-    final rest = widget.restFace;
+    final rest = rippleRestFace(
+      cell: cell,
+      restFace: widget.restFace,
+      restFaces: widget.restFaces,
+    );
 
     FaceShape face;
     var flip = 0.0;

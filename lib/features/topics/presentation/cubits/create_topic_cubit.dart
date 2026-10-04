@@ -14,6 +14,7 @@ import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
 import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
+import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
 import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/domain/topic_name_rule.dart';
@@ -62,6 +63,11 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   /// the next steps. Everywhere else the token is shown once and forgotten.
   bool holdsHandoff = false;
 
+  /// True in setup, where the screen is one step: the topic is created from
+  /// the first step and its token is named for the user. Everywhere else
+  /// the token-name step comes first.
+  bool isOneStep = false;
+
   /// Reads the server this app is connected to. Optional so a test can build
   /// the cubit without one.
   final GetConnectionUsecase? _getConnection;
@@ -99,7 +105,7 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
     final access = _access(identity);
     emit(
       state.copyWith(
-        isFreeTier: !access.isPaid && !isSelfHosted,
+        isFreeTier: access.freeCriticalCap(isSelfHosted: isSelfHosted) != null,
         criticalLimit: access.caps?.criticalTopics,
       ),
     );
@@ -129,6 +135,9 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
       final conn = result.getOrNull();
       if (conn != null) {
         serverUrl = conn.serverUrl;
+        // Shown at once. The reads below go to the network, and a quick
+        // Create must not hand an empty address on to the next steps.
+        emit(state.copyWith(serverUrl: serverUrl));
       }
     }
 
@@ -143,7 +152,8 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
       final access = _access(identity);
       // Matches the Settings screen: a self-hosted server has no tier, so
       // it is never treated as the free plan.
-      isFreeTier = !access.isPaid && !await _isSelfHosted();
+      isFreeTier =
+          access.freeCriticalCap(isSelfHosted: await _isSelfHosted()) != null;
       limit = access.caps?.criticalTopics;
       final getTopics = _getTopics;
       if (getTopics != null) {
@@ -263,17 +273,33 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
         await handoff?.hold(
           FirstTopicHandoffEntry(
             topicName: topic.name,
-            serverUrl: state.serverUrl,
+            serverUrl: await _serverUrlToHandOn(),
             token: token,
             templateId: template?.id,
           ),
         );
+        // Setup never shows this token on this screen. Should the app be
+        // killed before the last step shows it, that step makes another,
+        // and takes this one back first: its id is saved for that. A token
+        // nobody ever saw must not stay valid.
+        final tokenId = topic.tokenId;
+        if (tokenId != null && tokenId.isNotEmpty) {
+          await handoff?.saveMintedTokenId(tokenId);
+        }
       }
     } on Object catch (error) {
       debugPrint(
         'CreateTopicCubit: remembering the topic failed: ${error.runtimeType}',
       );
     }
+  }
+
+  /// The server address for the steps after this one: what the screen
+  /// loaded, or the saved connection's when the load has not got there yet.
+  Future<String> _serverUrlToHandOn() async {
+    if (state.serverUrl.trim().isNotEmpty) return state.serverUrl;
+    final saved = await _getConnection?.call(const NoParams());
+    return saved?.getOrNull()?.serverUrl ?? state.serverUrl;
   }
 
   Future<void> createTopic() async {
@@ -293,6 +319,18 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
       return;
     }
 
+    // The two-step screen catches a taken name on the way to step 2. The
+    // one-step screen has no such stop, so it is caught here.
+    if (state.isDuplicateName) {
+      emit(
+        state.copyWith(
+          step: CreateTopicStep.topic,
+          errorMessage: LocaleKeys.api_errors_topic_already_exists.tr(),
+        ),
+      );
+      return;
+    }
+
     emit(
       state.copyWith(
         status: CreateTopicStatus.submitting,
@@ -306,7 +344,12 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
         name: trimmedName,
         critical: state.isCritical,
         // Left off when it is blank, so the server falls back to `Token 1`.
-        tokenName: trimmedTokenName.isEmpty ? null : trimmedTokenName,
+        // The one-step screen never asks, and names it after the tool.
+        tokenName: trimmedTokenName.isNotEmpty
+            ? trimmedTokenName
+            : isOneStep
+            ? setupTokenName(state.selectedTool)
+            : null,
       ),
     );
 

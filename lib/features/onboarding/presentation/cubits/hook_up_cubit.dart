@@ -139,7 +139,23 @@ class HookUpCubit extends Cubit<HookUpState> {
 
     // With the topic setup made still in hand, the line shows in the first
     // frame. Everything else is read behind it.
-    final held = handoff.entry;
+    var held = handoff.entry;
+    // An entry handed on without its address is completed from the saved
+    // connection, never shown as it is: the line would have no host.
+    if (held != null && held.serverUrl.trim().isEmpty) {
+      final saved = await readServerUrl();
+      if (isClosed) return;
+      held = saved == null || saved.trim().isEmpty
+          ? null
+          : FirstTopicHandoffEntry(
+              topicName: held.topicName,
+              serverUrl: saved,
+              token: held.token,
+              templateId: held.templateId,
+            );
+      if (held != null) await handoff.hold(held);
+      if (isClosed) return;
+    }
     emit(
       state.copyWith(
         phase: held == null ? null : HookUpPhase.ready,

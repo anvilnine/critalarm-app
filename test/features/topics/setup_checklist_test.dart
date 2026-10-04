@@ -519,11 +519,277 @@ void main() {
       expect(h.store.isSeeded, isFalse);
       expect(h.cubit.state.phase, HomeSetupPhase.none);
 
+      // Not on the very next change of Home: it waits its turn.
       h.source.failure = null;
+      final readsBefore = h.source.reads.length;
       await h.cubit.homeChanged(loadedHome([topicItem('prod')]));
       await h.settle();
+      expect(h.source.reads.length, readsBefore);
+      expect(h.store.isSeeded, isFalse);
+      expect(h.cubit.state.phase, HomeSetupPhase.none);
+
+      h.now = h.now.add(setupSeedRetryDelay(1));
+      await h.fire(setupSeedRetryDelay(1));
       expect(h.store.isSeeded, isTrue);
       expect(h.cubit.state.phase, HomeSetupPhase.checklist);
+    });
+
+    test('a look that keeps failing waits longer each time', () async {
+      h.source.failure = Exception('offline');
+      await h.open(loadedHome([topicItem('prod')]));
+      h.now = h.now.add(setupSeedRetryDelay(1));
+      await h.fire(setupSeedRetryDelay(1));
+      expect(
+        h.timers.where((t) => t.isActive).map((t) => t.duration),
+        contains(setupSeedRetryDelay(2)),
+      );
+      expect(h.cubit.state.phase, HomeSetupPhase.none);
+    });
+
+    test('a topic and a setup finished before the checklist existed: a '
+        'long-time user with a quiet account never sees it', () async {
+      h.store.wasSetUpHere = false;
+      await h.open(loadedHome([topicItem('prod', isCritical: true)]));
+      expect(h.store.isDone, isTrue);
+      expect(h.cubit.state.phase, isNot(HomeSetupPhase.checklist));
+      expect(
+        h.states.map((s) => s.phase),
+        isNot(
+          contains(
+            HomeSetupPhase.celebration,
+          ),
+        ),
+      );
+    });
+
+    test('someone who left setup early on this build still gets it', () async {
+      h.store.wasSetUpHere = true;
+      await h.open(loadedHome([topicItem('prod')]));
+      expect(h.cubit.state.phase, HomeSetupPhase.checklist);
+    });
+  });
+
+  group('isHomeFrontScreen', () {
+    test('Home is the root of the Topics tab', () {
+      expect(isHomeFrontScreen(location: '/', isAppResumed: true), isTrue);
+      expect(isHomeFrontScreen(location: '', isAppResumed: true), isTrue);
+      expect(isHomeFrontScreen(location: '/?x=1', isAppResumed: true), isTrue);
+    });
+
+    test('an alarm, the new-topic screen and the plans cover it', () {
+      for (final location in [
+        '/incidents/inc_1',
+        '/topics/new',
+        '/paywall',
+        '/topics/prod-db',
+      ]) {
+        expect(
+          isHomeFrontScreen(location: location, isAppResumed: true),
+          isFalse,
+          reason: location,
+        );
+      }
+    });
+
+    test('another tab is not Home', () {
+      for (final location in ['/history', '/settings', '/search']) {
+        expect(
+          isHomeFrontScreen(location: location, isAppResumed: true),
+          isFalse,
+        );
+      }
+    });
+
+    test('nobody is looking with the app in the background', () {
+      expect(isHomeFrontScreen(location: '/', isAppResumed: false), isFalse);
+    });
+  });
+
+  group('setupSeedRetryDelay', () {
+    test('starts at 15 seconds, doubles, and stops at 5 minutes', () {
+      expect(setupSeedRetryDelay(1), const Duration(seconds: 15));
+      expect(setupSeedRetryDelay(2), const Duration(seconds: 30));
+      expect(setupSeedRetryDelay(3), const Duration(seconds: 60));
+      expect(setupSeedRetryDelay(20), const Duration(minutes: 5));
+    });
+  });
+
+  group('topicsToSweepForFirstMessage', () {
+    test('nothing to sweep when every topic is polled', () {
+      final turn = topicsToSweepForFirstMessage(
+        all: const ['a', 'b'],
+        watched: const ['a', 'b'],
+        offset: 0,
+      );
+      expect(turn.topics, isEmpty);
+    });
+
+    test('reads the rest a few at a time and carries on where it stopped', () {
+      const all = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+      const watched = ['a', 'b', 'c'];
+      final first = topicsToSweepForFirstMessage(
+        all: all,
+        watched: watched,
+        offset: 0,
+        limit: 3,
+      );
+      expect(first.topics, ['d', 'e', 'f']);
+      final second = topicsToSweepForFirstMessage(
+        all: all,
+        watched: watched,
+        offset: first.nextOffset,
+        limit: 3,
+      );
+      expect(second.topics, ['g', 'd', 'e']);
+    });
+  });
+
+  group('HomeSetupCubit, covered by another screen', () {
+    late HomeSetupHarness h;
+
+    setUp(() => h = HomeSetupHarness());
+    tearDown(() => h.dispose());
+
+    test('the last row landing under an alarm screen is held: no done flag, '
+        'no celebration, until Home is in front again', () async {
+      h.source.everything['prod'] = const FirstMessagePage(
+        candidates: [],
+        newestId: 'm0',
+      );
+      await h.open(loadedHome([topicItem('prod', isCritical: true)]));
+
+      // The alarm screen takes over, as the router says, and the message
+      // is known to have arrived.
+      await h.cubit.screenChanged(isInFront: false, isGuideActive: false);
+      await h.firstMessage.markReceived();
+      await h.cubit.homeChanged(
+        loadedHome([topicItem('prod', isCritical: true)]),
+      );
+      await h.settle();
+
+      expect(h.store.isDone, isFalse);
+      expect(h.cubit.state.checklist.hasFirstMessage, isFalse);
+      expect(h.timers.where((t) => t.isActive), isEmpty);
+
+      await h.cubit.screenChanged(isInFront: true, isGuideActive: false);
+      await h.settle();
+      expect(h.store.isDone, isTrue);
+      expect(h.cubit.state.checklist.isComplete, isTrue);
+      await h.fire(h.cubit.tickHold);
+      expect(h.cubit.state.phase, HomeSetupPhase.celebration);
+    });
+
+    test('nothing is polled while Home is not the front screen', () async {
+      await h.open(loadedHome([topicItem('prod', isCritical: true)]));
+      await h.cubit.screenChanged(isInFront: false, isGuideActive: false);
+      final reads = h.source.reads.length;
+      expect(h.timers.where((t) => t.isActive), isEmpty);
+      await h.cubit.homeChanged(
+        loadedHome([topicItem('prod', isCritical: true)]),
+      );
+      await h.settle();
+      expect(h.source.reads.length, reads);
+    });
+  });
+
+  group('HomeSetupCubit, a topic made after the first look', () {
+    late HomeSetupHarness h;
+
+    setUp(() => h = HomeSetupHarness());
+    tearDown(() => h.dispose());
+
+    test('a message sent before Home polls it is the first message', () async {
+      // The first look: no topics yet.
+      await h.open(loadedHome());
+      expect(h.store.isSeeded, isTrue);
+
+      // The user makes a topic from the checklist, sends the curl from the
+      // topic page and comes back. The message is already there.
+      await h.cubit.screenChanged(isInFront: false, isGuideActive: false);
+      h.source.everything['prod'] = const FirstMessagePage(
+        candidates: ['m1'],
+        newestId: 'm1',
+      );
+      await h.cubit.homeChanged(
+        loadedHome([topicItem('prod', isCritical: true)]),
+      );
+      await h.cubit.screenChanged(isInFront: true, isGuideActive: false);
+      await h.settle();
+
+      expect(h.firstMessage.isReceived, isTrue);
+      expect(h.cubit.state.checklist.hasFirstMessage, isTrue);
+    });
+
+    test('a topic that was there at the first look keeps its baseline: an '
+        'old message is not the first message', () async {
+      h.source.everything['old'] = const FirstMessagePage(
+        candidates: [],
+        newestId: 't9',
+      );
+      await h.open(loadedHome([topicItem('old')]));
+      expect(h.firstMessage.cursors['old'], 't9');
+      expect(h.firstMessage.isReceived, isFalse);
+      expect(h.source.reads.last, 'old@t9');
+    });
+  });
+
+  group('HomeSetupCubit, more topics than it polls', () {
+    late HomeSetupHarness h;
+    final four = [
+      topicItem('a', isCritical: true),
+      topicItem('b'),
+      topicItem('c'),
+      topicItem('d'),
+    ];
+
+    setUp(() => h = HomeSetupHarness());
+    tearDown(() => h.dispose());
+
+    test('a first message on a fourth topic ticks the row', () async {
+      await h.open(loadedHome(four));
+      expect(h.cubit.watchedTopics, ['a', 'b', 'c']);
+      expect(h.cubit.state.checklist.hasFirstMessage, isFalse);
+
+      h.source.later['d'] = const FirstMessagePage(
+        candidates: ['m1'],
+        newestId: 'm1',
+      );
+      h.source.everything['d'] = h.source.later['d']!;
+      h.now = h.now.add(h.cubit.sweepEvery);
+      await h.cubit.homeChanged(loadedHome(four));
+      await h.settle();
+
+      expect(h.firstMessage.isReceived, isTrue);
+      expect(h.cubit.state.checklist.hasFirstMessage, isTrue);
+    });
+
+    test('the sweep is spread out: not on every change of Home', () async {
+      await h.open(loadedHome(four));
+      final reads = h.source.reads.where((r) => r.startsWith('d@')).length;
+      await h.cubit.homeChanged(loadedHome(four));
+      await h.cubit.homeChanged(loadedHome(four));
+      await h.settle();
+      expect(h.source.reads.where((r) => r.startsWith('d@')).length, reads);
+    });
+
+    test('the checklist can be closed for good, with no celebration', () async {
+      await h.open(loadedHome(four));
+      await h.cubit.checklistDismissed();
+      await h.settle();
+
+      expect(h.store.isDone, isTrue);
+      expect(h.cubit.state.phase, HomeSetupPhase.none);
+      expect(h.timers.where((t) => t.isActive), isEmpty);
+      expect(
+        h.states.map((s) => s.phase),
+        isNot(contains(HomeSetupPhase.celebration)),
+      );
+
+      // Not back on the next look, and the widgets card waits for a later
+      // visit, so closing one thing does not open another.
+      await h.cubit.homeChanged(loadedHome(four));
+      await h.settle();
+      expect(h.cubit.state.phase, HomeSetupPhase.none);
     });
   });
 

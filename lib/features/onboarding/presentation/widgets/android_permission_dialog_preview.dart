@@ -11,15 +11,17 @@ class AndroidPermissionDialogPreview extends StatelessWidget {
   const AndroidPermissionDialogPreview({
     required this.icon,
     required this.title,
-    required this.message,
     required this.allowLabel,
     required this.denyLabel,
+    this.message,
     super.key,
   });
 
   final IconData icon;
   final String title;
-  final String message;
+
+  /// The dialog's body text. Null for a dialog that has none.
+  final String? message;
   final String allowLabel;
   final String denyLabel;
 
@@ -41,8 +43,10 @@ class AndroidPermissionDialogPreview extends StatelessWidget {
               Expanded(child: _AndroidPreviewTitle(title)),
             ],
           ),
-          const SizedBox(height: 12),
-          _AndroidPreviewMessage(message),
+          if (message case final message?) ...[
+            const SizedBox(height: 12),
+            _AndroidPreviewMessage(message),
+          ],
           const SizedBox(height: 20),
           // Wraps, so both choices stay on the card at large text sizes.
           Align(
@@ -96,19 +100,17 @@ class AndroidPermissionDialogPreview extends StatelessWidget {
 }
 
 /// A drawn copy of a row on an Android settings page: the name of the
-/// setting with its switch, turned on, and a line under it.
+/// setting with its switch, turned on.
 ///
 /// For a step whose permission is a switch in Settings. Drawing a dialog
 /// there would promise a pop-up the phone never shows.
 class AndroidSettingsSwitchPreview extends StatelessWidget {
   const AndroidSettingsSwitchPreview({
     required this.title,
-    required this.message,
     super.key,
   });
 
   final String title;
-  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -117,21 +119,13 @@ class AndroidSettingsSwitchPreview extends StatelessWidget {
     return Container(
       decoration: permissionPreviewDecoration(colors, 24),
       padding: const EdgeInsets.all(22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(child: _AndroidPreviewTitle(title)),
-              const SizedBox(width: 12),
-              // Drawn on, the way the user should leave it. It is a picture:
-              // the frame around the card is the only control.
-              const AppSwitch(value: true),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _AndroidPreviewMessage(message),
+          Expanded(child: _AndroidPreviewTitle(title)),
+          const SizedBox(width: 12),
+          // Drawn on, the way the user should leave it. It is a picture:
+          // the frame around the card is the only control.
+          const AppSwitch(value: true),
         ],
       ),
     );

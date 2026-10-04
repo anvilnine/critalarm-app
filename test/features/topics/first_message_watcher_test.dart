@@ -86,6 +86,76 @@ void main() {
     addTearDown(() => watcher.dispose());
   });
 
+  group('a topic known to be new', () {
+    test('a message already there counts when the caller says so', () async {
+      source.answers.add(_page(candidates: ['m_1'], newest: 'm_1'));
+
+      await watcher.start('nightly', countsFromStart: true);
+
+      expect(store.isReceived, isTrue);
+    });
+
+    test('a saved baseline still wins over the caller', () async {
+      await store.saveCursor('nightly', 'm_old');
+      await watcher.start('nightly', countsFromStart: true);
+      expect(source.sinces, ['m_old']);
+      expect(store.isReceived, isFalse);
+    });
+  });
+
+  group('a quiet watch', () {
+    FirstMessageWatcher slow() => FirstMessageWatcher(
+      store: store,
+      source: source,
+      backsOffWhenQuiet: true,
+      timer: (duration, onFire) {
+        final timer = _Timer(duration, onFire);
+        timers.add(timer);
+        return timer;
+      },
+    );
+
+    test('keeps its steady pace by default, however long', () async {
+      await watcher.start('nightly');
+      for (var i = 0; i < 30; i++) {
+        await fire();
+      }
+      expect(timers.last.duration, FirstMessageWatcher.interval);
+    });
+
+    test('is quick for the first minute, then slows to a minute', () async {
+      final quiet = slow();
+      addTearDown(quiet.dispose);
+      await quiet.start('nightly');
+      final polls =
+          FirstMessageWatcher.quickFor.inSeconds ~/
+          FirstMessageWatcher.interval.inSeconds;
+      for (var i = 0; i < polls - 2; i++) {
+        await fire();
+        expect(timers.last.duration, FirstMessageWatcher.interval);
+      }
+      for (var i = 0; i < 10; i++) {
+        await fire();
+      }
+      expect(timers.last.duration, FirstMessageWatcher.maxInterval);
+    });
+
+    test('coming back to the front makes it quick again', () async {
+      final quiet = slow();
+      addTearDown(quiet.dispose);
+      await quiet.start('nightly');
+      for (var i = 0; i < 25; i++) {
+        await fire();
+      }
+      expect(timers.last.duration, greaterThan(FirstMessageWatcher.interval));
+      quiet
+        ..pause()
+        ..resume();
+      await pumpEventQueue();
+      expect(timers.last.duration, FirstMessageWatcher.interval);
+    });
+  });
+
   group('the baseline', () {
     test('is the newest message the topic already holds', () async {
       source.answers.add(_page(newest: 'm_test'));

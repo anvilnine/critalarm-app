@@ -15,6 +15,41 @@ void main() {
   const critical = Topic(name: 'prod-db', critical: true);
   const quiet = Topic(name: 'prod-db');
 
+  group('criticalPlanFor', () {
+    test('no cap, no line: a paid plan and a server of your own', () {
+      expect(
+        criticalPlanFor(topics: const [quiet], topic: quiet, limit: null),
+        isNull,
+      );
+    });
+
+    test('no topic, no line', () {
+      expect(criticalPlanFor(topics: const [], topic: null, limit: 2), isNull);
+    });
+
+    test('counts this topic as one, whether its switch is on or off', () {
+      for (final topic in [quiet, critical]) {
+        expect(
+          criticalPlanFor(topics: [topic], topic: topic, limit: 2),
+          (used: 1, limit: 2),
+        );
+      }
+    });
+
+    test('adds the other critical topics and skips the quiet ones', () {
+      const other = Topic(name: 'backups', critical: true);
+      const silent = Topic(name: 'chatter');
+      expect(
+        criticalPlanFor(
+          topics: const [quiet, other, silent],
+          topic: quiet,
+          limit: 2,
+        ),
+        (used: 2, limit: 2),
+      );
+    });
+  });
+
   group('realRingGateFor', () {
     test('a saved server and a critical topic are ready', () {
       for (final connect in [idle, connected]) {

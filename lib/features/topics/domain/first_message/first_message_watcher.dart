@@ -27,10 +27,21 @@ class FirstMessageWatcher {
     required this._store,
     required this._source,
     FirstMessageTimerFactory? timer,
+    this.backsOffWhenQuiet = false,
   }) : _timer = timer ?? Timer.new;
 
   /// How long between two polls that went well.
   static const interval = Duration(seconds: 5);
+
+  /// How long a quiet watch keeps to [interval] before it starts to slow.
+  static const quickFor = Duration(minutes: 1);
+
+  /// True slows a watch that keeps finding nothing: [interval] for the
+  /// first [quickFor], then twice as long each time, up to [maxInterval].
+  /// [resume] and [start] make it quick again. For a watch that can stay
+  /// open for days, such as Home's. The setup step keeps its steady pace:
+  /// the user is on that screen to send the message now.
+  final bool backsOffWhenQuiet;
 
   /// The longest wait between polls after the server could not be asked.
   static const maxInterval = Duration(minutes: 1);
@@ -44,6 +55,8 @@ class FirstMessageWatcher {
   String? _topic;
   Timer? _next;
   Duration _wait = interval;
+  Duration _quietFor = Duration.zero;
+  bool _countsFromStart = false;
   bool _isPaused = false;
   bool _isPolling = false;
   bool _isDisposed = false;
@@ -56,9 +69,17 @@ class FirstMessageWatcher {
 
   /// Begins watching [topic] and makes the first poll. Does nothing when a
   /// first message was already received.
-  Future<void> start(String topic) async {
+  ///
+  /// [countsFromStart]: with no baseline saved for the topic, everything it
+  /// holds counts, so a message sent before this watch began is the first
+  /// message. For a topic the caller knows is new. Left false, the first
+  /// poll only sets the baseline.
+  Future<void> start(String topic, {bool countsFromStart = false}) async {
     if (_isDisposed || _store.isReceived) return;
     _topic = topic;
+    _countsFromStart = countsFromStart;
+    _quietFor = Duration.zero;
+    _wait = interval;
     await _poll();
   }
 
@@ -81,6 +102,8 @@ class FirstMessageWatcher {
   /// The app is back at the front. Polls at once.
   void resume() {
     _isPaused = false;
+    _quietFor = Duration.zero;
+    _wait = interval;
     if (_topic == null) return;
     unawaited(_poll());
   }
@@ -99,7 +122,9 @@ class FirstMessageWatcher {
     _next?.cancel();
     _isPolling = true;
     try {
-      final saved = _store.cursorFor(topic);
+      final saved =
+          _store.cursorFor(topic) ??
+          (_countsFromStart ? FirstMessageSource.everything : null);
       final page = await _source.read(
         topic,
         saved ?? FirstMessageSource.everything,
@@ -117,8 +142,10 @@ class FirstMessageWatcher {
       // it steps past a test alarm so it is not read again. An empty topic
       // keeps "everything", so its very first message counts.
       final next = page.newestId ?? saved ?? FirstMessageSource.everything;
-      if (next != saved) await _store.saveCursor(topic, next);
-      _wait = interval;
+      if (next != _store.cursorFor(topic)) {
+        await _store.saveCursor(topic, next);
+      }
+      _wait = _quietWait();
     } on Exception {
       // Nothing changes on screen. The next poll asks again, later.
       _slowDown();
@@ -127,6 +154,15 @@ class FirstMessageWatcher {
     }
     if (_isStopped) return;
     _next = _timer(_wait, () => unawaited(_poll()));
+  }
+
+  /// The wait after a poll that went well and found nothing.
+  Duration _quietWait() {
+    if (!backsOffWhenQuiet) return interval;
+    _quietFor += _wait;
+    if (_quietFor < quickFor) return interval;
+    final doubled = _wait * 2;
+    return doubled > maxInterval ? maxInterval : doubled;
   }
 
   void _slowDown() {

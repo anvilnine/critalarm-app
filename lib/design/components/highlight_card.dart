@@ -11,6 +11,12 @@ enum AppHighlightTone {
   /// stroke.
   crit,
 
+  /// The one choice on the screen, before the user has made it. Cream with
+  /// the ink stroke: it stands out from a white sheet and from the canvas
+  /// without claiming a state. The light crit tone has the same stroke, so
+  /// when the choice is made only the fill changes.
+  choice,
+
   /// Not there yet: a step that is still open, such as a row waiting on
   /// something. A plain surface with a quiet stroke, so the same card can
   /// retint to [calm] when the step lands.
@@ -34,6 +40,7 @@ const double highlightCardStrokeWidth = 2;
     fill: colors.critCanvas,
     stroke: colors.critStroke,
   ),
+  AppHighlightTone.choice => (fill: colors.cream, stroke: colors.ink),
   AppHighlightTone.pending => (fill: colors.surface, stroke: colors.ink3),
   AppHighlightTone.calm => (fill: colors.cobaltTint, stroke: colors.cobalt),
 };

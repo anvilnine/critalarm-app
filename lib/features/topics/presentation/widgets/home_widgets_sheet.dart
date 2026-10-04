@@ -87,9 +87,9 @@ class _HomeWidgetsSheet extends StatelessWidget {
           const SizedBox(height: Spacing.s4),
           AppNote(text: LocaleKeys.home_widgets_needs_hosted.tr()),
           const SizedBox(height: Spacing.s3),
+          // The steps above do nothing without it, so this is the button.
           AppButton(
             label: LocaleKeys.home_widgets_plans_button.tr(),
-            variant: AppButtonVariant.ghost,
             isFullWidth: true,
             onPressed: onSeeHosted,
           ),

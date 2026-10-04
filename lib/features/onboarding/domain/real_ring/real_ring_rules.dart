@@ -148,3 +148,19 @@ RealRingPlatform realRingPlatformFor({
   }
   return RealRingPlatform.android;
 }
+
+/// The free-plan line for the Critical switch of [topic]: the critical
+/// topics the account would be using with this one switched on, and the cap.
+///
+/// The count is the same whether the switch is on or off, because it counts
+/// the other critical topics plus this one. Null when there is no cap to
+/// state: [limit] is null off the free plan.
+({int used, int limit})? criticalPlanFor({
+  required Iterable<Topic> topics,
+  required Topic? topic,
+  required int? limit,
+}) {
+  if (limit == null || topic == null) return null;
+  final others = topics.where((t) => t.critical && t.name != topic.name).length;
+  return (used: others + 1, limit: limit);
+}

@@ -16,6 +16,7 @@ class PermissionStepView {
     required this.title,
     required this.subtitle,
     required this.button,
+    this.grantedFace = FaceState.happy,
     this.badge,
     this.preview,
     this.canSkip = true,
@@ -24,11 +25,14 @@ class PermissionStepView {
   /// The face at the top of the step, and in its badge.
   final FaceState face;
 
+  /// The face for the beat after the user allows this step.
+  final FaceState grantedFace;
+
   /// What the canvas behind the screen shows on this step.
   final OnboardingAmbientStep ambient;
 
-  /// The chip under the face. Null when the step has nothing it can
-  /// promise on this phone.
+  /// A chip under the face. No step passes one today: the title and the
+  /// line under it already say it.
   final String? badge;
   final String title;
   final String subtitle;
@@ -49,15 +53,16 @@ class PermissionStepView {
 class PermissionStepPreview {
   const PermissionStepPreview({
     required this.title,
-    required this.hint,
     required this.child,
+    this.hint,
   });
 
   /// The prompt's own heading, read out for the card as a whole.
   final String title;
 
-  /// What to do when the real prompt opens.
-  final String hint;
+  /// What to do when Settings opens. Null for a dialog, whose drawn Allow
+  /// button already says it.
+  final String? hint;
 
   /// One platform's drawn prompt.
   final Widget child;

@@ -28,6 +28,7 @@ class AppTextField extends StatefulWidget {
     this.headerTrailing,
     this.textCapitalization = TextCapitalization.none,
     this.textInputAction,
+    this.scrollPadding = const EdgeInsets.all(20),
     super.key,
   });
 
@@ -54,6 +55,11 @@ class AppTextField extends StatefulWidget {
   final Widget? headerTrailing;
   final TextCapitalization textCapitalization;
   final TextInputAction? textInputAction;
+
+  /// How much room the field keeps around itself when focus scrolls it into
+  /// view. On a screen with a pinned bottom bar, pass the bar's height as the
+  /// bottom, or the field comes to rest behind the bar.
+  final EdgeInsets scrollPadding;
 
   @override
   State<AppTextField> createState() => _AppTextFieldState();
@@ -180,6 +186,7 @@ class _AppTextFieldState extends State<AppTextField> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             alignment: Alignment.center,
             child: TextField(
+              scrollPadding: widget.scrollPadding,
               controller: _controller,
               focusNode: _focusNode,
               enabled: widget.enabled,

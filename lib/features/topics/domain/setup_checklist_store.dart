@@ -15,6 +15,14 @@ abstract interface class SetupChecklistStore {
 
   Future<void> markDone();
 
+  /// Setup was completed on this install by a build that has the checklist.
+  /// An install that finished setup before the checklist existed never has
+  /// this, which is how a long-time user with a quiet account is told apart
+  /// from someone who has just left setup early.
+  bool get wasSetUpHere;
+
+  Future<void> markSetUpHere();
+
   /// The user opened the widgets how-to or dismissed the card.
   bool get isWidgetsCardSeen;
 

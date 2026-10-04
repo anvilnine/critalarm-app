@@ -136,7 +136,17 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     if (!mounted) return;
     unawaited(
       context.read<HomeSetupCubit>().screenChanged(
-        isInFront: !_isCovered && _isResumed,
+        // Both have to agree. The route observer only hears about pages
+        // on this tab's own navigator, so the router's location is what
+        // says an alarm, the new-topic screen, the plans or another tab
+        // is on top.
+        isInFront:
+            !_isCovered &&
+            !_isRouteElsewhere &&
+            isHomeFrontScreen(
+              location: _routerLocation(),
+              isAppResumed: _isResumed,
+            ),
         isGuideActive: _guides.state.isActive,
       ),
     );
@@ -149,11 +159,67 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     await runHomeAsk(context);
   }
 
+  GoRouter? _router;
+
+  /// The router showed something other than Home and has not been back
+  /// long enough for that screen to have slid away.
+  bool _isRouteElsewhere = false;
+
+  /// The path the router is showing right now, the top of anything pushed
+  /// included.
+  String _routerLocation() {
+    final router = _router;
+    if (router == null) return '/';
+    final shown = router.routerDelegate.currentConfiguration;
+    if (shown.isEmpty) return '/';
+    final last = shown.last;
+    return last is ImperativeRouteMatch
+        ? last.matches.uri.path
+        : shown.uri.path;
+  }
+
+  /// The router moved. Leaving Home counts at once. Coming back counts once
+  /// the screen above has slid away, so a row that turned true over there
+  /// ticks where it can be seen.
+  void _onRouterMoved() {
+    if (!mounted) return;
+    final isHome = isHomeFrontScreen(
+      location: _routerLocation(),
+      isAppResumed: true,
+    );
+    if (!isHome) {
+      _viewChange++;
+      _isRouteElsewhere = true;
+      _tellSetup();
+      return;
+    }
+    if (!_isRouteElsewhere) return;
+    final change = ++_viewChange;
+    unawaited(
+      Future<void>.delayed(AppDurations.slow, () {
+        if (!mounted || change != _viewChange) return;
+        _isRouteElsewhere = false;
+        _isCovered = false;
+        _tellSetup();
+      }),
+    );
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final route = ModalRoute.of(context);
     if (route is PageRoute) appRouteObserver.subscribe(this, route);
+    final router = GoRouter.maybeOf(context);
+    if (router != _router) {
+      _router?.routerDelegate.removeListener(_onRouterMoved);
+      _router = router;
+      router?.routerDelegate.addListener(_onRouterMoved);
+      _isRouteElsewhere = !isHomeFrontScreen(
+        location: _routerLocation(),
+        isAppResumed: true,
+      );
+    }
   }
 
   @override
@@ -162,6 +228,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     unawaited(_guideSub?.cancel());
     unawaited(_guideSetupSub?.cancel());
     appRouteObserver.unsubscribe(this);
+    _router?.routerDelegate.removeListener(_onRouterMoved);
     super.dispose();
   }
 
@@ -189,6 +256,10 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       Future<void>.delayed(AppDurations.slow, () {
         if (!mounted || change != _viewChange) return;
         _isCovered = false;
+        _isRouteElsewhere = !isHomeFrontScreen(
+          location: _routerLocation(),
+          isAppResumed: true,
+        );
         _tellSetup();
       }),
     );
@@ -533,6 +604,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                           // empty card, so nothing follows it.
                           hasRowsBelow: !(state.isEmpty && checklistIsUp),
                           onRowTap: _openSetupRoute,
+                          onDismissChecklist: () => unawaited(
+                            context.read<HomeSetupCubit>().checklistDismissed(),
+                          ),
                           onShowWidgetsHowTo: () =>
                               _showWidgetsHowTo(setupState.widgetsPlan),
                           onSeeHosted: _openWidgetsPaywall,

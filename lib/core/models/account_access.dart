@@ -44,6 +44,13 @@ class AccountAccess {
   bool get canRingUntilAcked => isPaid;
   AccountCaps? get caps => isKnown ? identity!.caps : null;
 
+  /// The cap on critical topics to state next to a Critical switch, or
+  /// null where there is none to state: a paid plan, and a server of the
+  /// user's own ([isSelfHosted]), which has no plans. The one answer for
+  /// every screen that draws that line.
+  int? freeCriticalCap({required bool isSelfHosted}) =>
+      isPaid || isSelfHosted ? null : (caps?.criticalTopics ?? 2);
+
   int criticalCount(Iterable<Topic> topics) =>
       topics.where((topic) => topic.critical).length;
 

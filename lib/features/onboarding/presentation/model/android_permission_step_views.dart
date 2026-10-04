@@ -1,4 +1,3 @@
-import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
 import 'package:critalarm/features/onboarding/presentation/model/permission_step_view.dart';
@@ -13,23 +12,19 @@ PermissionStepView androidNotificationsStepView() {
       .onboarding_permissions_android_notifications_preview_title
       .tr();
   return PermissionStepView(
-    face: FaceState.alarmed,
+    // A polite ask, so the face is interested, not shouting.
+    face: FaceState.interested,
     ambient: OnboardingAmbientStep.notifications,
-    badge: LocaleKeys.onboarding_permissions_android_notifications_badge.tr(),
     title: LocaleKeys.onboarding_permissions_android_notifications_title.tr(),
     subtitle: LocaleKeys.onboarding_permissions_android_notifications_subtitle
         .tr(),
     button: LocaleKeys.onboarding_permissions_android_notifications_button.tr(),
     preview: PermissionStepPreview(
       title: previewTitle,
-      hint: LocaleKeys.onboarding_permissions_android_notifications_preview_hint
-          .tr(),
+      // The real Android dialog has no body text either.
       child: AndroidPermissionDialogPreview(
         icon: Icons.notifications_active_rounded,
         title: previewTitle,
-        message: LocaleKeys
-            .onboarding_permissions_android_notifications_preview_desc
-            .tr(),
         allowLabel: LocaleKeys
             .onboarding_permissions_android_notifications_preview_allow
             .tr(),
@@ -50,9 +45,8 @@ PermissionStepView androidNotificationsSettingsStepView() {
       .onboarding_permissions_android_notifications_settings_preview_title
       .tr();
   return PermissionStepView(
-    face: FaceState.alarmed,
+    face: FaceState.interested,
     ambient: OnboardingAmbientStep.notifications,
-    badge: LocaleKeys.onboarding_permissions_android_notifications_badge.tr(),
     title: LocaleKeys.onboarding_permissions_android_notifications_title.tr(),
     subtitle: LocaleKeys.onboarding_permissions_android_notifications_subtitle
         .tr(),
@@ -64,12 +58,7 @@ PermissionStepView androidNotificationsSettingsStepView() {
       hint: LocaleKeys
           .onboarding_permissions_android_notifications_settings_preview_hint
           .tr(),
-      child: AndroidSettingsSwitchPreview(
-        title: previewTitle,
-        message: LocaleKeys
-            .onboarding_permissions_android_notifications_settings_preview_desc
-            .tr(),
-      ),
+      child: AndroidSettingsSwitchPreview(title: previewTitle),
     ),
   );
 }
@@ -77,24 +66,15 @@ PermissionStepView androidNotificationsSettingsStepView() {
 /// The full-screen alarm step. Android has no dialog for it: the button
 /// opens a settings page with one switch, so that is what is drawn.
 ///
-/// The chip promises a ring, so it takes its words from [claim], and it is
-/// left off when notifications are not granted: the full-screen alarm rides
-/// on a notification, and without one the phone does not ring.
-PermissionStepView androidFullScreenStepView(
-  RingClaim claim, {
-  required bool notificationsGranted,
-}) {
+/// The words say what the screen does and make no promise about ringing
+/// through silent mode, so they are the same whatever the phone can claim.
+PermissionStepView androidFullScreenStepView() {
   final previewTitle = LocaleKeys
       .onboarding_permissions_android_full_screen_preview_title
       .tr();
   return PermissionStepView(
-    face: FaceState.watching,
+    face: FaceState.confident,
     ambient: OnboardingAmbientStep.alarms,
-    badge: switch (claim) {
-      RingClaim.alarm when notificationsGranted =>
-        LocaleKeys.onboarding_permissions_android_full_screen_badge.tr(),
-      _ => null,
-    },
     title: LocaleKeys.onboarding_permissions_android_full_screen_title.tr(),
     subtitle: LocaleKeys.onboarding_permissions_android_full_screen_subtitle
         .tr(),
@@ -103,33 +83,28 @@ PermissionStepView androidFullScreenStepView(
       title: previewTitle,
       hint: LocaleKeys.onboarding_permissions_android_full_screen_preview_hint
           .tr(),
-      child: AndroidSettingsSwitchPreview(
-        title: previewTitle,
-        message: LocaleKeys
-            .onboarding_permissions_android_full_screen_preview_desc
-            .tr(),
-      ),
+      child: AndroidSettingsSwitchPreview(title: previewTitle),
     ),
   );
 }
 
 /// The battery step, only on phones whose maker puts apps to sleep. The
 /// system asks in a dialog. Its one line of why makes no promise about
-/// ringing through silent mode: it is about a page arriving on time.
+/// ringing through silent mode: it is about an alarm arriving on time.
 PermissionStepView androidBatteryStepView() {
   final previewTitle = LocaleKeys
       .onboarding_permissions_android_battery_preview_title
       .tr();
   return PermissionStepView(
-    face: FaceState.curious,
+    // The copy is about apps being put to sleep, and allowing wakes it.
+    face: FaceState.sleepy,
+    grantedFace: FaceState.wakesUp,
     ambient: OnboardingAmbientStep.battery,
-    badge: LocaleKeys.onboarding_permissions_android_battery_badge.tr(),
     title: LocaleKeys.onboarding_permissions_android_battery_title.tr(),
     subtitle: LocaleKeys.onboarding_permissions_android_battery_subtitle.tr(),
     button: LocaleKeys.onboarding_permissions_android_battery_button.tr(),
     preview: PermissionStepPreview(
       title: previewTitle,
-      hint: LocaleKeys.onboarding_permissions_android_battery_preview_hint.tr(),
       child: AndroidPermissionDialogPreview(
         icon: Icons.battery_saver_rounded,
         title: previewTitle,

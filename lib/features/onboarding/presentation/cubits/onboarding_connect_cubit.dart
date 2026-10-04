@@ -222,7 +222,6 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         clearErrorMessage: true,
         clearServerUrlError: true,
         clearAdminTokenError: true,
-        clearQrNotice: true,
       ),
     );
     unawaited(_rememberForm());
@@ -236,7 +235,6 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         clearAdminTokenError: true,
         clearServerUrlError: true,
         clearErrorMessage: true,
-        clearQrNotice: true,
       ),
     );
     unawaited(_rememberForm());
@@ -248,7 +246,6 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         adminToken: token,
         clearAdminTokenError: true,
         clearErrorMessage: true,
-        clearQrNotice: true,
       ),
     );
     unawaited(_rememberForm());
@@ -262,18 +259,6 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
         clearErrorMessage: true,
       ),
     );
-  }
-
-  void scanQrTapped() {
-    emit(
-      state.copyWith(
-        qrNotice: LocaleKeys.onboarding_connect_qr_notice.tr(),
-      ),
-    );
-  }
-
-  void clearQrNotice() {
-    emit(state.copyWith(clearQrNotice: true));
   }
 
   static bool isSemverCompatible(String version) =>

@@ -144,6 +144,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
         initialStep: state.uri.queryParameters['denied'] == 'true'
             ? NotificationPermissionStep.denied
             : NotificationPermissionStep.initial,
+        replaySkips: OnboardingPermissionsScreen.replaySkipsFrom(state.uri),
       ),
     ),
     OnboardingStepEntry(
