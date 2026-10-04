@@ -7,6 +7,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The first topic you create shows what Critical delivery does before you choose, and offers a chip for the tool that will send to it.
 - The connect step says what the push relay can see, taken from the server's own answer
 - Setup ends with a ready curl line for your new topic and waits for your first message.
+- Home shows a short setup checklist until your first message arrives.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.

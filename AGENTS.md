@@ -123,6 +123,10 @@ names in code, strings, comments and PRs, and never one for another.
   review), governed by `HomeAskRules` and `SetupGate`. Never call a sheet a
   notice. Formerly "home prompts"; the `home_prompt_*` prefs keys and the
   `pro_prompt_answered` analytics event keep their names.
+  The setup checklist and the widgets card are neither: they are Home
+  content, drawn at the top of the list sheet by `HomeSetupSection` from
+  `HomeSetupCubit`, and they do not go through the notice slot or
+  `SetupGate`. See "Home setup content" below.
 - **Local Reminders** (`lib/features/local_reminders/`): notifications the app
   schedules for itself on the device: fire drill, silent topic, backup, plan
   heads-up, review and feedback asks, Pro later. Method channel
@@ -586,6 +590,39 @@ because the acknowledgement often comes later. Three places read it:
 `EndSetupTestUsecase.closeLeftovers` does not close a leftover test
 incident that now holds a message of the user's own. It drops it from the
 list and leaves it for them to answer.
+
+**Home setup content.** A user who left setup early gets a checklist at
+the top of the Topics list sheet. The rules are pure functions in
+`lib/features/topics/domain/setup_checklist.dart`, and `HomeSetupCubit`
+runs them from the list Home drew.
+
+- Three rows: a server is connected, a topic has Critical delivery on, a
+  first message arrived (`FirstMessageStore.isReceived`). The third row is
+  `FirstMessageRow`, the same one the last setup step uses.
+- It shows only over a list that loaded, and stays until all three are
+  true. With no server nothing is drawn: the no-server card has that row.
+  With no topics it stands in for the empty card.
+- A row only opens a screen (`setupChecklistRoute`). Nothing here turns
+  Critical delivery on.
+- The first look at a phone (`seedSetupChecklist`, once, saved as
+  `setup_checklist_seeded`): a phone that already has the first-message
+  flag, a message that is not a test alarm, or an incident that
+  `countsAsRealUse`, never sees the checklist. That covers installs from
+  before it existed and a user who finished setup.
+- Home polls for the first message only while Home is the screen in
+  front, no guide is up and the third row is open. One
+  `FirstMessageWatcher` per topic, three topics at most, critical ones
+  first.
+- A row that turns true while Home is covered is held until Home is back,
+  so the tick plays in view. When the last one turns in view,
+  `setup_checklist_done` is saved first, the tick plays, then the rows
+  become one finished line with a short throw of confetti (none under
+  reduce motion), and it goes for good. Leaving Home ends it.
+- After that, on a later visit and once the Feature Guides offer was
+  answered, the widgets card shows once (`home_widgets_card_seen`), on iOS
+  and Android only. Opening the how-to, going to the plans or closing it
+  all count as seen. The how-to steps have separate iOS and Android keys
+  (`home_widgets.ios.*`, `home_widgets.android.*`).
 
 The Feature Guide offer is raised after the frame in which the route
 changed (`FeatureGuideHost._onRoute`). Raised earlier, the sheet sat on the
