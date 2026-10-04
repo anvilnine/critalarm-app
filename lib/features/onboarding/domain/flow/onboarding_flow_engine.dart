@@ -67,11 +67,16 @@ class OnboardingFlowEngine {
     required this.repository,
     required this.completeOnboarding,
     required this.getOnboardingCompleted,
+    this.origins = defaultOnboardingFlowOrigins,
     this.onStepEvent,
   });
 
   /// In priority order. The first one with a valid flow wins.
   final List<OnboardingFlowSource> sources;
+
+  /// Names each of [sources] by position, for the screens that show which
+  /// one won.
+  final List<OnboardingFlowOrigin> origins;
   final OnboardingStepCatalog catalog;
   final OnboardingFlowRepository repository;
   final CompleteOnboardingUsecase completeOnboarding;
@@ -81,8 +86,15 @@ class OnboardingFlowEngine {
   final void Function(OnboardingStepEvent event)? onStepEvent;
 
   /// The flow a run starting now would get.
-  OnboardingFlow chooseFlow() =>
-      chooseOnboardingFlow(sources, requires: catalog.requires);
+  OnboardingFlow chooseFlow() => chooseFlowWithOrigin().flow;
+
+  /// The flow a run starting now would get, and the source that gave it:
+  /// the developer override, Remote Config, or the bundled default.
+  ChosenOnboardingFlow chooseFlowWithOrigin() => chooseOnboardingFlowWithOrigin(
+    sources,
+    requires: catalog.requires,
+    origins: origins,
+  );
 
   /// The flow the user is in: the pinned one, or the one a replay runs.
   OnboardingFlow runningFlow() => repository.read().pinned ?? chooseFlow();

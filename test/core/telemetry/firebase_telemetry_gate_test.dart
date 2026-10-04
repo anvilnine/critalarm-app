@@ -58,6 +58,7 @@ void main() {
         expect(unconfiguredGate.initialize, returnsNormally);
         expect(unconfiguredGate.paywallEnabled, isFalse);
         expect(unconfiguredGate.isPaywallEnabled, isFalse);
+        expect(unconfiguredGate.onboardingFlowJson, isEmpty);
         expect(
           () => unconfiguredGate.setAnalyticsEnabled(true),
           returnsNormally,
@@ -103,6 +104,7 @@ void main() {
           () => remoteConfig.setDefaults(const {
             'paywall_enabled': false,
             'paywall_variant': 'straight',
+            'onboarding_flow': '',
           }),
         ).called(1);
 
@@ -171,6 +173,43 @@ void main() {
     });
   });
 
+  group('onboardingFlowJson', () {
+    late MockFirebaseRemoteConfig remoteConfig;
+    late FirebaseTelemetryGate gate;
+
+    setUp(() {
+      remoteConfig = MockFirebaseRemoteConfig();
+      gate = FirebaseTelemetryGate(remoteConfig: remoteConfig);
+    });
+
+    test('the key defaults to an empty string', () {
+      expect(
+        FirebaseTelemetryGate.remoteConfigDefaults['onboarding_flow'],
+        isEmpty,
+      );
+    });
+
+    test('returns the raw string Remote Config holds', () {
+      when(
+        () => remoteConfig.getString('onboarding_flow'),
+      ).thenReturn('{"id": "x", "steps": ["welcome"]}');
+
+      expect(gate.onboardingFlowJson, '{"id": "x", "steps": ["welcome"]}');
+    });
+
+    test('returns an empty string when Remote Config throws', () {
+      when(
+        () => remoteConfig.getString('onboarding_flow'),
+      ).thenThrow(Exception('Config missing'));
+
+      expect(gate.onboardingFlowJson, isEmpty);
+    });
+
+    test('returns an empty string when there is no Remote Config', () {
+      expect(FirebaseTelemetryGate().onboardingFlowJson, isEmpty);
+    });
+  });
+
   group('NoopTelemetryGate', () {
     test(
       'provides safe no-op implementation with default or custom flag',
@@ -178,6 +217,7 @@ void main() {
         const defaultGate = NoopTelemetryGate();
         expect(defaultGate.paywallEnabled, isFalse);
         expect(defaultGate.isPaywallEnabled, isFalse);
+        expect(defaultGate.onboardingFlowJson, isEmpty);
         await defaultGate.initialize();
         await defaultGate.setAnalyticsEnabled(true);
         await defaultGate.setCrashlyticsEnabled(true);
