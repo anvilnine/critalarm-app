@@ -1,6 +1,13 @@
 # Dev notes
 Changes developers need to know about: new tokens and components, prefs keys, build flags, tooling, tests, refactors and small UI polish too minor for the user changelog. Added with cider (`make devlog`), one line each. Versions match the app's `pubspec.yaml`. This repo is public: no prices, keys, task numbers or planning links.
 
+## Unreleased
+### Added
+- `AppHighlightCard` (tones `crit` and `calm`), `AppAnimatedTick` and `AppWaitingFace` in `lib/design/components/`, shown in the gallery. The no-server notice card draws its surface with `AppHighlightCard`.
+
+### Changed
+- `AppEmptyState` has no English defaults: `title` and `description` are required and `buttonLabel` is null unless passed. The Home empty card reads its words from `home.empty_body` and `home.empty_button`.
+
 ## 1.0.0+12 - 2026-10-03
 ### Added
 - Prefs keys `home_prompt_first_topic_at` (first time the user owned a topic, set once) and `home_prompt_battery_dismissed_at` (battery notice dismissed for good).
