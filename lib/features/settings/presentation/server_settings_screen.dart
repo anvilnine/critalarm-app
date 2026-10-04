@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -342,7 +343,7 @@ class _ServerSettingsView extends StatelessWidget {
             label: LocaleKeys.settings_server_connect_button.tr(),
             size: AppButtonSize.sm,
             isFullWidth: true,
-            onPressed: () => context.push('/onboarding/connect'),
+            onPressed: () => context.push(OnboardingEntryPoint.connectServer),
           ),
         ],
       ),

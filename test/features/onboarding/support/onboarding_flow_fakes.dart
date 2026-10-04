@@ -7,6 +7,7 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:flutter/foundation.dart';
 
@@ -138,6 +139,7 @@ class EngineHarness {
         progress,
         store ?? this.repository,
       ),
+      getOnboardingCompleted: GetOnboardingCompletedUsecase(progress),
       onStepEvent: events.add,
     );
   }

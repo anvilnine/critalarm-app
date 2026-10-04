@@ -21,8 +21,6 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_tr
 import 'package:critalarm/features/local_reminders/domain/local_reminder_settler.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_store.dart';
 import 'package:critalarm/features/local_reminders/presentation/widgets/local_reminder_ask_sheets.dart';
-import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
-import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -585,14 +583,10 @@ class AcknowledgedScreen extends StatelessWidget {
     // onboarding. Onboarding is already complete then, so the exits skip
     // finishing it again and the second button reads Finish.
     final isRetest = isDemo && state.isOnboardingDone;
-    // A flow that has the first-topic step ran it before this test, so the
-    // topic already exists and there is nothing to offer but the way out.
-    final hasMadeFirstTopic =
-        isDemo &&
-        !isRetest &&
-        getIt<OnboardingFlowEngine>().runningFlow().contains(
-          OnboardingStepId.firstTopic,
-        );
+    // The topic already exists, so there is nothing to offer but the way
+    // out. Asked of the user, not of the flow: closing the first-topic step
+    // without creating one still leaves the offer up.
+    final hasMadeFirstTopic = isDemo && !isRetest && state.hasOwnedTopic;
     final startedAt = incident?.openedAt;
     final ackedAt = incident?.ackedAt;
     final ringDuration = (startedAt != null && ackedAt != null)

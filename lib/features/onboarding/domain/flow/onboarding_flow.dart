@@ -19,6 +19,16 @@ abstract final class OnboardingStepId {
   static const legacyTest = 'legacy_test';
 }
 
+/// The two setup screens the rest of the app opens on their own, after setup
+/// is over. Each is pushed, and closes back to the screen that opened it.
+abstract final class OnboardingEntryPoint {
+  /// Connect a server, for a user who skipped it or disconnected.
+  static const connectServer = '/onboarding/connect';
+
+  /// The local test alarm.
+  static const testAlarm = '/onboarding/test';
+}
+
 /// The order of the setup steps, as data: an id and a list of step ids.
 ///
 /// A flow decides order and inclusion only. Copy and defaults stay in code.
