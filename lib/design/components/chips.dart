@@ -274,20 +274,29 @@ class AppTopicChip extends StatelessWidget {
         color: isSelected ? colors.highlight : colors.cobaltTint,
         borderRadius: Radii.fullAll,
       ),
-      alignment: Alignment.center,
-      child: Text(
-        text,
-        overflow: TextOverflow.ellipsis,
-        maxLines: 1,
-        style: TextStyle(
-          fontFamily: AppTypography.fontMono,
-          fontFamilyFallback: AppTypography.fontMonoFallbacks,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.2,
-          color: isSelected ? colors.onHighlight : colors.ink,
-          height: 1,
-        ),
+      // A Row that shrinks to its text. `alignment` on the Container would
+      // stretch the pill to the full width of a Wrap.
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Flexible(
+            child: Text(
+              text,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: TextStyle(
+                fontFamily: AppTypography.fontMono,
+                fontFamilyFallback: AppTypography.fontMonoFallbacks,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+                color: isSelected ? colors.onHighlight : colors.ink,
+                height: 1,
+              ),
+            ),
+          ),
+        ],
       ),
     );
 

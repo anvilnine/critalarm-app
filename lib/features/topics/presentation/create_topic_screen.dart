@@ -117,9 +117,30 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
     // the keyboard would cover the card. Nor on a first topic, where the
     // Critical delivery card sits under the field and the keyboard would hide
     // it.
-    if (!getIt<FeatureGuideCubit>().state.isActive && !_isFirstTopicNow()) {
-      _focusNameField();
+    unawaited(_focusUnlessFirstTopic());
+  }
+
+  /// Opens the keyboard on the name field, except on a first topic.
+  ///
+  /// Nothing loads the topic list before Home, so a setup run starts with it
+  /// not ready. Ask for it and wait a moment: the first-topic card needs it,
+  /// and a keyboard that opened first would cover the card. A list that does
+  /// not arrive in time leaves the plain row and the keyboard, so nothing
+  /// waits on the network.
+  Future<void> _focusUnlessFirstTopic() async {
+    final topics = context.read<TopicsCubit>();
+    if (!topics.state.isReady) {
+      try {
+        await topics.ensureLoaded().timeout(const Duration(seconds: 2));
+      } on Object catch (_) {
+        // Not loaded in time. The plain row is drawn.
+      }
     }
+    if (!mounted) return;
+    if (getIt<FeatureGuideCubit>().state.isActive || _isFirstTopicNow()) {
+      return;
+    }
+    _focusNameField();
   }
 
   /// Whether the shared list is ready and empty right now, so the screen is
