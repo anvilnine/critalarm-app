@@ -497,7 +497,9 @@ class _RealRingViewState extends State<_RealRingView>
     if (state.local.isCountingDown) {
       return AppButton(
         label: LocaleKeys.onboarding_connect_hook_cancel.tr(),
-        variant: AppButtonVariant.ghost,
+        // Solid, like the way out: the body scrolls under the bar at the
+        // largest text size.
+        variant: AppButtonVariant.paper,
         isFullWidth: true,
         onPressed: cubit.cancelPhoneOnlyTest,
       );
