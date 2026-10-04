@@ -124,9 +124,13 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       ambientStep: OnboardingAmbientStep.firstTopic,
       requires: const {OnboardingStepId.connect},
       isSatisfied: (facts) => facts.hasOwnedTopic(),
-      screen: (context, state) => CreateTopicScreen(
-        onDone: () =>
-            finishOnboardingStep(context, OnboardingStepId.firstTopic),
+      // The Builder gives the callback a context inside the page, which is
+      // where the route's state can be read from.
+      screen: (context, state) => Builder(
+        builder: (context) => CreateTopicScreen(
+          onDone: () =>
+              finishOnboardingStep(context, OnboardingStepId.firstTopic),
+        ),
       ),
     ),
     OnboardingStepEntry(
