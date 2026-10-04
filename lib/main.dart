@@ -11,6 +11,7 @@ import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_pack.dart';
+import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
@@ -79,17 +80,21 @@ Future<void> main() async {
     if (apnsToken != null) debugPrint('CritAlarm: apns_token=$apnsToken');
   }
 
+  // The gate starts with collection off every launch, so the saved choice has
+  // to be put back before anything is reported.
+  final privacy = await getIt<GetPrivacySettingsUsecase>()(const NoParams());
+  final analyticsOn = privacy.getOrNull()?.analyticsEnabled ?? false;
+  await getIt<TelemetryGate>().setAnalyticsEnabled(analyticsOn);
+  // Setup events waiting for an answer are sent, deleted or aged out. With
+  // analytics off and no answer this makes no analytics call at all.
+  unawaited(getIt<OnboardingFunnel>().start(analyticsOn: analyticsOn));
+
   // A notification tapped while the app was closed opens its own screen. iOS
   // hands that route over on a channel; Android sets the platform route name.
   final tappedRoute = await pushHost.takePendingRoute();
   final initialLocation = await getIt<InitialRouteResolver>()(
     deepLink: tappedRoute,
   );
-  // The gate starts with collection off every launch, so the saved choice has
-  // to be put back before anything is reported.
-  final privacy = await getIt<GetPrivacySettingsUsecase>()(const NoParams());
-  final analyticsOn = privacy.getOrNull()?.analyticsEnabled ?? false;
-  await getIt<TelemetryGate>().setAnalyticsEnabled(analyticsOn);
   // Crash reporting is put back here as well, so a crash on a launch where
   // Settings is never opened still gets reported.
   final crashReportingOn = privacy.getOrNull()?.crashReportingEnabled ?? false;

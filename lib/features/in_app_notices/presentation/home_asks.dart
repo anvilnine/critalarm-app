@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
+import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
@@ -76,11 +77,23 @@ Future<void> runHomeAsk(BuildContext context) async {
 
     switch (ask) {
       case HomeAsk.consent:
+        var sharesAnalytics = false;
         await showConsentAskSheet(
           context: context,
           repository: getIt<InAppNoticeRepository>(),
-          onShare: _share,
+          onShare: ({required crashReports, required analytics}) {
+            sharesAnalytics = analytics;
+            return _share(crashReports: crashReports, analytics: analytics);
+          },
         );
+        // Not now, a swipe, or Share with analytics switched off: the ask
+        // never opens again, so setup events still waiting are deleted. An
+        // analytics switch that was already on stays an opt-in.
+        final privacy = await getIt<PrivacyRepository>().getPrivacySettings();
+        final isAnalyticsOn = privacy.getOrNull()?.analyticsEnabled ?? false;
+        if (!sharesAnalytics && !isAnalyticsOn) {
+          await getIt<OnboardingFunnel>().answered(isOn: false);
+        }
       case HomeAsk.review:
         await _askForReview();
         // The popup moved the review ask time, so a planned review
