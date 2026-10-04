@@ -742,6 +742,9 @@ Future<void> configureDependencies({
       () => CompleteOnboardingUsecase(
         getIt<OnboardingProgressRepository>(),
         getIt<OnboardingFlowRepository>(),
+        // Setup is over, so a connect failure shown during it is not
+        // shown again on a setup screen opened later.
+        () => getIt<BackgroundConnect>().dismissFailure(),
       ),
     )
     ..registerLazySingleton<OnboardingFlowRepository>(
@@ -840,8 +843,9 @@ Future<void> configureDependencies({
     ..registerLazySingleton(
       () => ClearConnectionUsecase(
         getIt<ConnectionRepository>(),
-        // Disconnecting also drops a connect that had not landed yet.
-        onCleared: () => getIt<BackgroundConnect>().cancel(),
+        // Disconnecting also drops a connect that had not landed yet. It
+        // goes first, so that connect cannot save a server in the gap.
+        beforeClear: () => getIt<BackgroundConnect>().cancel(),
       ),
     )
     ..registerLazySingleton(
@@ -861,6 +865,14 @@ Future<void> configureDependencies({
         // reads the account or the server loads again: topics, incidents
         // and the no-server card on Home.
         onConnected: () async => appAccountIdentityChanges.bump(),
+        // A connect that gave up or was cancelled: the connect step is no
+        // longer done, so a relaunch comes back to it.
+        onAbandoned: () => getIt<OnboardingFlowEngine>().reopenStep(
+          OnboardingStepId.connect,
+        ),
+        removeConnection: () async {
+          await getIt<ConnectionRepository>().clearConnection();
+        },
       ),
     )
     ..registerLazySingleton(

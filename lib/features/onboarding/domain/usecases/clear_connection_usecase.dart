@@ -4,19 +4,18 @@ import 'package:critalarm/features/onboarding/domain/repositories/connection_rep
 
 /// Usecase to clear saved server connection details.
 class ClearConnectionUsecase implements UseCase<NoParams, Unit> {
-  const ClearConnectionUsecase(this._repository, {this.onCleared});
+  const ClearConnectionUsecase(this._repository, {this.beforeClear});
 
   final ConnectionRepository _repository;
 
-  /// Runs after the connection is gone. The app uses it to drop a connect
-  /// that is still waiting to land, so a server the user just left is not
-  /// connected again behind them.
-  final Future<void> Function()? onCleared;
+  /// Runs before the connection is removed. The app uses it to drop a
+  /// connect that is still waiting to land. It comes first so a connect on
+  /// its way cannot save a connection in the gap after the clear.
+  final Future<void> Function()? beforeClear;
 
   @override
   Future<AppResult<Unit>> call(NoParams input) async {
-    final result = await _repository.clearConnection();
-    await onCleared?.call();
-    return result;
+    await beforeClear?.call();
+    return _repository.clearConnection();
   }
 }

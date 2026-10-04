@@ -22,6 +22,21 @@ class _EstablishSession extends Mock implements EstablishApiSessionUsecase {}
 
 class _SaveConnection extends Mock implements SaveConnectionUsecase {}
 
+/// Writes at once, as the prefs cache does, and holds the answer back
+/// until the gate is completed.
+class _SlowIntents extends ConnectIntentStore {
+  _SlowIntents(super._prefs);
+
+  Completer<void>? gate;
+
+  @override
+  Future<void> save(ConnectIntent intent) async {
+    final written = super.save(intent);
+    await gate?.future;
+    await written;
+  }
+}
+
 class _Tokens implements PushTokenProvider {
   @override
   PushTokenKind get kind => PushTokenKind.fcm;
@@ -54,6 +69,8 @@ void main() {
   late DateTime now;
   late List<BackgroundConnectState> seen;
   late int landed;
+  late int abandoned;
+  late int removed;
 
   setUpAll(() {
     registerFallbackValue(Uri.parse(cloudUrl));
@@ -73,6 +90,8 @@ void main() {
     now = DateTime.utc(2026, 10, 4, 9);
     seen = [];
     landed = 0;
+    abandoned = 0;
+    removed = 0;
 
     when(() => getServerInfo(any())).thenAnswer(
       (_) async => cloudInfo.toSuccess(),
@@ -94,14 +113,16 @@ void main() {
     when(() => saveConnection(any())).thenAnswer((_) async => unit.toSuccess());
   });
 
-  BackgroundConnect build({SharedPreferences? on}) {
+  BackgroundConnect build({SharedPreferences? on, ConnectIntentStore? store}) {
     final connect = BackgroundConnect(
-      intents: on == null ? intents : ConnectIntentStore(on),
+      intents: store ?? (on == null ? intents : ConnectIntentStore(on)),
       getServerInfo: getServerInfo,
       establishSession: establishSession,
       saveConnection: saveConnection,
       tokens: _Tokens(),
       onConnected: () async => landed++,
+      onAbandoned: () async => abandoned++,
+      removeConnection: () async => removed++,
       clock: () => now,
     );
     connect.stream.listen(seen.add);
@@ -483,5 +504,224 @@ void main() {
     await connect.settled;
 
     expect(connect.state.isConnected, isTrue);
+  });
+
+  group('device cap', () {
+    test('a 429 from the registration is the device cap: it fails with its '
+        'own reason, clears the intent and is not retried', () async {
+      when(
+        () => establishSession(
+          any(),
+          any(),
+          pushToken: any(named: 'pushToken'),
+        ),
+      ).thenThrow(
+        const ApiException(statusCode: 429, message: 'cap', cap: 'devices'),
+      );
+      final connect = build();
+
+      await connect.start(cloudUrl);
+      await connect.settled;
+
+      expect(connect.state.status, BackgroundConnectStatus.failed);
+      expect(connect.state.failure, BackgroundConnectFailure.deviceCap);
+      expect(intents.read(), isNull);
+      expect(connect.hasTimer, isFalse);
+
+      clearInteractions(establishSession);
+      now = now.add(const Duration(hours: 1));
+      await connect.tick();
+      await connect.retryNow();
+      verifyNever(
+        () => establishSession(
+          any(),
+          any(),
+          pushToken: any(named: 'pushToken'),
+        ),
+      );
+    });
+
+    test('a 429 from /v1/info is the rate limit and is tried again', () async {
+      when(() => getServerInfo(any())).thenAnswer(
+        (_) async => const Failure.api(statusCode: 429).toFailure(),
+      );
+      final connect = build();
+
+      await connect.start(cloudUrl);
+      await connect.settled;
+
+      expect(connect.state.status, BackgroundConnectStatus.connecting);
+      expect(intents.read()!.attempts, 1);
+    });
+
+    test(
+      'a registration the relay is briefly too busy for is tried again',
+      () async {
+        when(
+          () => establishSession(
+            any(),
+            any(),
+            pushToken: any(named: 'pushToken'),
+          ),
+        ).thenThrow(const ApiException(statusCode: 503, message: 'down'));
+        final connect = build();
+
+        await connect.start(cloudUrl);
+        await connect.settled;
+
+        expect(connect.state.status, BackgroundConnectStatus.connecting);
+        expect(intents.read()!.attempts, 1);
+      },
+    );
+  });
+
+  group('the connect step stops counting as done', () {
+    test('when the connect gives up', () async {
+      when(() => getServerInfo(any())).thenAnswer(
+        (_) async => const Failure.api(statusCode: 404).toFailure(),
+      );
+      final connect = build();
+
+      await connect.start(cloudUrl);
+      await connect.settled;
+
+      expect(abandoned, 1);
+    });
+
+    test('when a pending connect is cancelled', () async {
+      when(() => getServerInfo(any())).thenAnswer((_) async => offline());
+      final connect = build();
+      await connect.start(cloudUrl);
+      await connect.settled;
+
+      await connect.cancel();
+
+      expect(abandoned, 1);
+    });
+
+    test(
+      'not when it lands, and not when there was nothing to cancel',
+      () async {
+        final connect = build();
+        await connect.cancel();
+        await connect.start(cloudUrl);
+        await connect.settled;
+        // Disconnecting later cancels with no intent left.
+        await connect.cancel();
+
+        expect(connect.state.status, BackgroundConnectStatus.idle);
+        expect(abandoned, 0);
+      },
+    );
+  });
+
+  group('cancel races', () {
+    test('cancelled while the connection is being saved: the saved '
+        'connection is taken back and nothing is reported', () async {
+      final saving = Completer<AppResult<Unit>>();
+      when(() => saveConnection(any())).thenAnswer((_) => saving.future);
+      final connect = build();
+      await connect.start(cloudUrl);
+      await untilCalled(() => saveConnection(any()));
+
+      // The user disconnects: cancel comes first, then the clear.
+      await connect.cancel();
+      saving.complete(unit.toSuccess());
+      await connect.settled;
+
+      expect(removed, 1);
+      expect(connect.state.status, BackgroundConnectStatus.idle);
+      expect(landed, 0);
+      expect(intents.read(), isNull);
+    });
+
+    test(
+      'cancelled while the save fails: there is nothing to take back',
+      () async {
+        final saving = Completer<AppResult<Unit>>();
+        when(() => saveConnection(any())).thenAnswer((_) => saving.future);
+        final connect = build();
+        await connect.start(cloudUrl);
+        await untilCalled(() => saveConnection(any()));
+
+        await connect.cancel();
+        saving.complete(const Failure.unexpected(message: 'disk').toFailure());
+        await connect.settled;
+
+        expect(removed, 0);
+        expect(connect.state.status, BackgroundConnectStatus.idle);
+      },
+    );
+
+    test('cancelled while the retry time is being written: it stays idle, '
+        'with no intent and no timer', () async {
+      when(() => getServerInfo(any())).thenAnswer((_) async => offline());
+      final slow = _SlowIntents(prefs);
+      final connect = build(store: slow);
+      await connect.start(cloudUrl);
+      await connect.settled;
+      expect(connect.state.status, BackgroundConnectStatus.waitingForNetwork);
+
+      // The next try fails too, and its write of the retry time hangs.
+      slow.gate = Completer<void>();
+      final retry = connect.retryNow();
+      await pumpEventQueue();
+      await connect.cancel();
+      slow.gate!.complete();
+      await retry;
+      await connect.settled;
+
+      expect(connect.state.status, BackgroundConnectStatus.idle);
+      expect(connect.state.isPending, isFalse);
+      expect(intents.read(), isNull);
+      expect(connect.hasTimer, isFalse);
+    });
+
+    test('a new Continue while a failure is being written is not overwritten '
+        'by it', () async {
+      final answer = Completer<AppResult<ServerInfo>>();
+      var calls = 0;
+      when(() => getServerInfo(any())).thenAnswer((_) {
+        calls++;
+        return calls == 1 ? answer.future : Future.value(cloudInfo.toSuccess());
+      });
+      final connect = build();
+      await connect.start(cloudUrl);
+      await connect.cancel();
+      await connect.start(cloudUrl);
+      answer.complete(const Failure.api(statusCode: 404).toFailure());
+      await connect.settled;
+
+      expect(connect.state.status, BackgroundConnectStatus.connected);
+      expect(connect.state.failure, isNull);
+    });
+  });
+
+  group('a failure the user has left behind', () {
+    test('dismissFailure puts it back to idle', () async {
+      when(() => getServerInfo(any())).thenAnswer(
+        (_) async => const Failure.api(statusCode: 404).toFailure(),
+      );
+      final connect = build();
+      await connect.start(cloudUrl);
+      await connect.settled;
+      expect(connect.state.isFailed, isTrue);
+
+      connect.dismissFailure();
+
+      expect(connect.state, const BackgroundConnectState());
+    });
+
+    test('dismissFailure leaves a pending connect alone', () async {
+      when(() => getServerInfo(any())).thenAnswer((_) async => offline());
+      final connect = build();
+      await connect.start(cloudUrl);
+      await connect.settled;
+
+      connect.dismissFailure();
+
+      expect(connect.state.status, BackgroundConnectStatus.waitingForNetwork);
+      expect(intents.read(), isNotNull);
+    });
   });
 }

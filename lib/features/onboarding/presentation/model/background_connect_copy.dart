@@ -23,6 +23,8 @@ String? backgroundConnectLine(BackgroundConnectState state) {
         ),
       BackgroundConnectFailure.needsAdminToken =>
         LocaleKeys.onboarding_connect_background_failed_admin_token.tr(),
+      BackgroundConnectFailure.deviceCap =>
+        LocaleKeys.onboarding_connect_background_failed_device_cap.tr(),
       BackgroundConnectFailure.refused ||
       null => LocaleKeys.onboarding_connect_background_failed_refused.tr(),
     },
