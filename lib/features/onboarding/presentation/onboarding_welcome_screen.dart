@@ -106,25 +106,6 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
 
   bool get _isPlaylist => widget.variant == null && !widget.isPreview;
 
-  /// When the words come in, so they land after the face has done its bit.
-  Duration get _textDelay => switch (_variant) {
-    WelcomeVariant.wakeUp => const Duration(milliseconds: 2300),
-    WelcomeVariant.parade => const Duration(milliseconds: 1300),
-    WelcomeVariant.orbit => const Duration(milliseconds: 1100),
-    WelcomeVariant.ripple => const Duration(milliseconds: 1400),
-    WelcomeVariant.peekaboo => const Duration(milliseconds: 2700),
-    WelcomeVariant.curl ||
-    WelcomeVariant.iphone ||
-    WelcomeVariant.android ||
-    WelcomeVariant.ladder ||
-    WelcomeVariant.pipeline ||
-    WelcomeVariant.widgets ||
-    WelcomeVariant.androidCurl => const Duration(milliseconds: 900),
-    WelcomeVariant.featureOrbit => const Duration(milliseconds: 1800),
-    WelcomeVariant.angryParade => const Duration(milliseconds: 1500),
-    WelcomeVariant.ringingOrbit => const Duration(milliseconds: 1200),
-  };
-
   @override
   Widget build(BuildContext context) {
     return _IntroLayout(
@@ -144,10 +125,6 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
               key: ValueKey((_variant, _replays)),
               child: _heroFor(_variant),
             ),
-      // On first launch the words come in once and stay put while the
-      // animations change above them. The preview replays them each time.
-      wordsKey: ValueKey(widget.isPreview ? _replays : 0),
-      textDelay: _textDelay,
       title: LocaleKeys.onboarding_welcome_title.tr(),
       subtitle: LocaleKeys.onboarding_welcome_subtitle.tr(),
       button: LocaleKeys.onboarding_welcome_button.tr(),
@@ -264,23 +241,21 @@ class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
 }
 
 /// The shape every intro step shares: an animation filling the top, then a
-/// title, a line of text and one button, which fade in after [textDelay].
+/// title, a line of text and one button. The words and the button are on the
+/// page from the first frame and stay put while the animation above them
+/// plays and changes.
 class _IntroLayout extends StatelessWidget {
   const _IntroLayout({
     required this.hero,
-    required this.textDelay,
     required this.title,
     required this.subtitle,
     required this.button,
     required this.onPressed,
     this.top,
     this.badge,
-    this.wordsKey,
-    this.staged = true,
   });
 
   final Widget hero;
-  final Duration textDelay;
   final String title;
   final String subtitle;
   final String button;
@@ -289,25 +264,18 @@ class _IntroLayout extends StatelessWidget {
   /// Above the animation, such as the preview switch.
   final Widget? top;
 
-  /// Between the title and the text, such as the Pro badge.
+  /// Between the title and the text, such as the Hosted badge.
   final Widget? badge;
 
-  /// A new key plays the words in again.
-  final Key? wordsKey;
+  /// The least room the animation keeps when large text crowds the page.
+  static const double _minHeroHeight = 380;
 
-  /// True on the first screen, where the words wait for the animation. False
-  /// on a screen reached from another one: the title, text and button are
-  /// already on the page while it slides in, like the permissions and
-  /// connect screens, so the whole screen moves instead of an empty one
-  /// arriving with its words popping in after the slide has finished.
-  final bool staged;
+  /// The most the system text size may grow the title.
+  static const double _titleMaxTextScale = 1.4;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    const step = Duration(milliseconds: 180);
-    Widget reveal(Duration delay, Widget child) =>
-        staged ? _Reveal(delay: delay, child: child) : child;
 
     // Same frame as the permissions and connect screens, so the button sits
     // in the same place on every onboarding step.
@@ -316,18 +284,15 @@ class _IntroLayout extends StatelessWidget {
       withGhosts: false,
       withFades: false,
       hasTabBar: false,
-      physics: const NeverScrollableScrollPhysics(),
-      bottomBar: KeyedSubtree(
-        key: wordsKey,
-        child: reveal(
-          textDelay + step * 2,
-          AppButton(
-            label: button,
-            size: AppButtonSize.lg,
-            isFullWidth: true,
-            onPressed: onPressed,
-          ),
-        ),
+      // Still while the words fit. At a large text size they take the room
+      // the animation had, and then the page scrolls instead of cutting them
+      // off behind the button.
+      physics: const ClampingScrollPhysics(),
+      bottomBar: AppButton(
+        label: button,
+        size: AppButtonSize.lg,
+        isFullWidth: true,
+        onPressed: onPressed,
       ),
       slivers: [
         SliverPadding(
@@ -345,7 +310,13 @@ class _IntroLayout extends StatelessWidget {
               // it carries that room itself: the lg button, the 12 under it
               // and the home indicator, plus a gap above the button.
               padding: EdgeInsets.only(
-                bottom: 60 + 12 + MediaQuery.paddingOf(context).bottom + 12,
+                bottom:
+                    // The button grows with the system text size, so the
+                    // room for it does too.
+                    MediaQuery.textScalerOf(context).scale(60) +
+                    12 +
+                    MediaQuery.paddingOf(context).bottom +
+                    12,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -356,55 +327,46 @@ class _IntroLayout extends StatelessWidget {
                   ],
                   Expanded(
                     child: _NoIntrinsicSize(
-                      // A mock-up; the words below carry the meaning.
+                      minHeight: _minHeroHeight,
+                      // A mock-up; the words below carry the meaning. It is
+                      // a drawing, so it keeps its size when the system text
+                      // grows.
                       child: ExcludeSemantics(
-                        child: AnimatedSwitcher(
-                          duration: context.motion(
-                            const Duration(milliseconds: 450),
+                        child: MediaQuery.withNoTextScaling(
+                          child: AnimatedSwitcher(
+                            duration: context.motion(
+                              const Duration(milliseconds: 450),
+                            ),
+                            child: hero,
                           ),
-                          child: hero,
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(height: Spacing.s5),
-                  KeyedSubtree(
-                    key: wordsKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        reveal(
-                          textDelay,
-                          Text(
-                            title,
-                            style: AppTypography.display(
-                              colors.onCanvas,
-                              fontSize: 36,
-                            ),
-                          ),
-                        ),
-                        if (badge != null) ...[
-                          const SizedBox(height: Spacing.s3),
-                          reveal(
-                            textDelay + step,
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: badge,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: Spacing.s2),
-                        reveal(
-                          textDelay + step,
-                          Text(
-                            subtitle,
-                            style: AppTypography.lead(
-                              colors.onCanvasMuted,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ],
+                  Text(
+                    title,
+                    // The display size is already large. Capped, it holds
+                    // to about three lines at the largest system size, while
+                    // the words below keep the full scale.
+                    textScaler: MediaQuery.textScalerOf(
+                      context,
+                    ).clamp(maxScaleFactor: _titleMaxTextScale),
+                    style: AppTypography.display(
+                      colors.onCanvas,
+                      fontSize: 36,
+                    ),
+                  ),
+                  if (badge != null) ...[
+                    const SizedBox(height: Spacing.s3),
+                    Align(alignment: Alignment.centerLeft, child: badge),
+                  ],
+                  const SizedBox(height: Spacing.s2),
+                  Text(
+                    subtitle,
+                    style: AppTypography.lead(
+                      colors.onCanvasMuted,
+                      fontSize: 16,
                     ),
                   ),
                 ],
@@ -415,58 +377,6 @@ class _IntroLayout extends StatelessWidget {
       ],
     );
   }
-}
-
-/// Fades and lifts [child] in after [delay].
-class _Reveal extends StatefulWidget {
-  const _Reveal({required this.delay, required this.child});
-
-  final Duration delay;
-  final Widget child;
-
-  @override
-  State<_Reveal> createState() => _RevealState();
-}
-
-class _RevealState extends State<_Reveal> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 550),
-  );
-  Timer? _start;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
-      _controller.value = 1;
-    } else {
-      _start ??= Timer(widget.delay, () => unawaited(_controller.forward()));
-    }
-  }
-
-  @override
-  void dispose() {
-    _start?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _controller,
-    child: widget.child,
-    builder: (context, child) {
-      final t = Curves.easeOutCubic.transform(_controller.value);
-      return Opacity(
-        opacity: t,
-        child: Transform.translate(
-          offset: Offset(0, 16 * (1 - t)),
-          child: child,
-        ),
-      );
-    },
-  );
 }
 
 /// A hero that redraws every frame and knows how many seconds it has run.
@@ -883,19 +793,43 @@ class _PeekabooHeroState extends _ClockState<_PeekabooHero> {
   }
 }
 
-/// Answers "how big do you want to be" with zero, so a scroll view that asks
-/// (SliverFillRemaining does) never reaches the LayoutBuilder inside the
-/// animations, which cannot answer it. The animations fill whatever room
-/// they are given anyway.
+/// Answers "how big do you want to be" with [minHeight] (zero by default),
+/// so a scroll view that asks (SliverFillRemaining does) never reaches the
+/// LayoutBuilder inside the animations, which cannot answer it. The
+/// animations fill whatever room they are given anyway. A [minHeight] above
+/// zero is the room the page keeps for them when other things on the page
+/// grow.
 class _NoIntrinsicSize extends SingleChildRenderObjectWidget {
-  const _NoIntrinsicSize({required Widget super.child});
+  const _NoIntrinsicSize({required Widget super.child, this.minHeight = 0});
+
+  final double minHeight;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderNoIntrinsicSize();
+      _RenderNoIntrinsicSize(minHeight);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderNoIntrinsicSize renderObject,
+  ) {
+    renderObject.minHeight = minHeight;
+  }
 }
 
 class _RenderNoIntrinsicSize extends RenderProxyBox {
+  _RenderNoIntrinsicSize(this._minHeight);
+
+  double _minHeight;
+
+  double get minHeight => _minHeight;
+
+  set minHeight(double value) {
+    if (_minHeight == value) return;
+    _minHeight = value;
+    markNeedsLayout();
+  }
+
   @override
   double computeMinIntrinsicWidth(double height) => 0;
 
@@ -903,8 +837,8 @@ class _RenderNoIntrinsicSize extends RenderProxyBox {
   double computeMaxIntrinsicWidth(double height) => 0;
 
   @override
-  double computeMinIntrinsicHeight(double width) => 0;
+  double computeMinIntrinsicHeight(double width) => _minHeight;
 
   @override
-  double computeMaxIntrinsicHeight(double width) => 0;
+  double computeMaxIntrinsicHeight(double width) => _minHeight;
 }

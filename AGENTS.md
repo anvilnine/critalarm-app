@@ -186,6 +186,10 @@ To add a step:
 An entry with no route is known to the validator and never shown. `hook_up`
 is one today.
 
+`widgets` is an optional step. The default flow leaves it out and `legacy-1`
+lists it. It works at any position, the last one included, and it exists on
+iOS and Android only.
+
 Where a flow comes from, highest priority first: the developer settings
 override, the remote value, the bundled default. Each is an
 `OnboardingFlowSource` registered in `lib/app/di.dart`. A source answers with

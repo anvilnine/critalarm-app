@@ -71,6 +71,12 @@ bool _isForcedUnsatisfied(String stepId) =>
 
 bool _onMobileOnly(OnboardingPlatform on) => !on.isWeb;
 
+/// The home screen widgets exist on iOS and Android only.
+bool _whereWidgetsExist(OnboardingPlatform on) =>
+    !on.isWeb &&
+    (on.platform == TargetPlatform.iOS ||
+        on.platform == TargetPlatform.android);
+
 bool _notYet(OnboardingPlatform on) => false;
 
 /// Every setup step, bound to this phone and this user.
@@ -167,7 +173,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       route: '/onboarding/widgets',
       routeName: 'onboardingWidgets',
       ambientStep: OnboardingAmbientStep.widgets,
-      isAvailable: _onMobileOnly,
+      isAvailable: _whereWidgetsExist,
       screen: (context, state) => const OnboardingWidgetsScreen(),
     ),
     // Known to the validator, so a flow may list it, but it has no screen
