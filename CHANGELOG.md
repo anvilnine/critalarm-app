@@ -4,6 +4,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 ## Unreleased
 ### Added
 - On Android phones that put background apps to sleep, setup offers to let Crit Alarm run in the background so pages are not late. You can skip it, and it stays in Settings under Health.
+- The first topic you create shows what Critical delivery does before you choose, and offers a chip for the tool that will send to it.
 - The connect step says what the push relay can see, taken from the server's own answer
 
 ### Changed

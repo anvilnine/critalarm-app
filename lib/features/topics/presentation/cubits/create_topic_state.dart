@@ -1,6 +1,8 @@
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
+import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
+import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:flutter/foundation.dart';
 
 enum CreateTopicStatus { initial, submitting, success, failure }
@@ -32,6 +34,8 @@ class CreateTopicState {
     this.criticalUsed = 0,
     this.existingNames = const <String>{},
     this.isProPending = false,
+    this.isListReady = false,
+    this.toolPick = const ToolTemplatePick(),
   });
 
   final CapReached? capReached;
@@ -75,6 +79,22 @@ class CreateTopicState {
   /// and the server had not caught up yet.
   final bool isProPending;
 
+  /// The shared topic list has loaded, so [existingNames] is the real answer
+  /// and not just the empty list before the first fetch.
+  final bool isListReady;
+
+  /// The tool chip picked on the first topic, and the name a chip last put in
+  /// the name field.
+  final ToolTemplatePick toolPick;
+
+  /// The chip that is picked, or null.
+  ToolTemplate? get selectedTool => toolPick.selected;
+
+  /// This is the user's first topic: the list has loaded and is empty. False
+  /// while it loads, so a returning user never sees the first-topic card.
+  bool get isFirstTopic =>
+      isFirstTopicFor(existingNames: existingNames, isListReady: isListReady);
+
   /// True when the typed name matches a topic the app already holds. The
   /// server still checks on create: this list can be stale and two devices can
   /// race, so it only saves the user a round trip through step 2.
@@ -105,6 +125,8 @@ class CreateTopicState {
     int? criticalUsed,
     Set<String>? existingNames,
     bool? isProPending,
+    bool? isListReady,
+    ToolTemplatePick? toolPick,
     bool clearError = false,
   }) {
     return CreateTopicState(
@@ -124,6 +146,8 @@ class CreateTopicState {
       criticalUsed: criticalUsed ?? this.criticalUsed,
       existingNames: existingNames ?? this.existingNames,
       isProPending: isProPending ?? this.isProPending,
+      isListReady: isListReady ?? this.isListReady,
+      toolPick: toolPick ?? this.toolPick,
     );
   }
 
@@ -147,7 +171,9 @@ class CreateTopicState {
           criticalLimit == other.criticalLimit &&
           criticalUsed == other.criticalUsed &&
           setEquals(existingNames, other.existingNames) &&
-          isProPending == other.isProPending;
+          isProPending == other.isProPending &&
+          isListReady == other.isListReady &&
+          toolPick == other.toolPick;
 
   @override
   int get hashCode => Object.hash(
@@ -167,5 +193,7 @@ class CreateTopicState {
     criticalUsed,
     Object.hashAllUnordered(existingNames),
     isProPending,
+    isListReady,
+    toolPick,
   );
 }
