@@ -14,6 +14,8 @@ abstract final class AnalyticsEvents {
   static const paywallPurchaseStarted = 'paywall_purchase_started';
   static const paywallPurchaseCompleted = 'paywall_purchase_completed';
   static const paywallPurchaseFailed = 'paywall_purchase_failed';
+  static const onboardingStepViewed = 'onboarding_step_viewed';
+  static const onboardingStepCompleted = 'onboarding_step_completed';
 }
 
 /// Thin wrapper so callers name an event instead of building a params map.
@@ -48,4 +50,38 @@ final class PushAnalytics {
       });
     }
   }
+}
+
+/// The two events every setup step sends. Each carries exactly three
+/// parameters, and nothing the user typed or chose: the step id, the id of
+/// the flow the step ran in, and the milliseconds since the previous step
+/// event.
+final class OnboardingAnalytics {
+  const OnboardingAnalytics(this._gate);
+
+  final TelemetryGate _gate;
+
+  Future<void> stepViewed({
+    required String step,
+    required String flowId,
+    required int msSincePrevious,
+  }) => _gate.logEvent(
+    AnalyticsEvents.onboardingStepViewed,
+    _params(step, flowId, msSincePrevious),
+  );
+
+  Future<void> stepCompleted({
+    required String step,
+    required String flowId,
+    required int msSincePrevious,
+  }) => _gate.logEvent(
+    AnalyticsEvents.onboardingStepCompleted,
+    _params(step, flowId, msSincePrevious),
+  );
+
+  static Map<String, Object?> _params(
+    String step,
+    String flowId,
+    int msSincePrevious,
+  ) => {'step': step, 'flow_id': flowId, 'ms_since_previous': msSincePrevious};
 }

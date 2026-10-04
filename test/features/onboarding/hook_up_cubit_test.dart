@@ -10,6 +10,7 @@ import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/onboarding/domain/setup_stats_consent.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_state.dart';
+import 'package:critalarm/features/settings/data/repositories/observed_privacy_repository.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_privacy_repository.dart';
 import 'package:critalarm/features/topics/data/prefs_first_message_store.dart';
 import 'package:critalarm/features/topics/data/prefs_first_topic_handoff.dart';
@@ -121,9 +122,11 @@ void main() {
         },
       ),
       consent: SetupStatsConsent(
-        privacy: SharedPrefsPrivacyRepository(prefs),
+        privacy: ObservedPrivacyRepository(
+          SharedPrefsPrivacyRepository(prefs),
+          onAnalyticsChoice: ({required isOn}) async => answers.add(isOn),
+        ),
         telemetry: telemetry,
-        onAnswered: ({required isOn}) async => answers.add(isOn),
       ),
       revokeToken: revokeToken,
       ring: ring,

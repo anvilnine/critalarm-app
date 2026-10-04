@@ -527,11 +527,50 @@ because no step is left.
 - `SetupStatsConsent` is the analytics switch. A tap either way saves the
   same choice Settings > Privacy does. A switch nobody touched writes
   nothing. It does not stamp the Home consent ask: that sheet also offers
-  crash reports, so it still gets its turn. `onAnswered` runs after each
-  answer.
+  crash reports, so it still gets its turn. The setup funnel hears the answer
+  through the privacy repository (see "Setup funnel events").
 - A replay shows made-up values and reads, sends, makes and saves nothing.
   In a developer build `?show=<state>` and `?tool=<id>` put it on a state
   (`HookUpScreen.replayStateNames`); Developer options lists them.
+
+**Setup funnel events.** Each setup step sends two analytics events,
+`onboarding_step_viewed` and `onboarding_step_completed`. Each has three
+parameters and no others: `step` (a step id from the registry), `flow_id`
+(the flow the user is in) and `ms_since_previous` (whole milliseconds since
+the previous step event in this app run, 0 for the first one). No content,
+topic name, URL, token or device id ever goes in them. `OnboardingFunnel`
+(`lib/core/telemetry/onboarding_funnel.dart`) sends them, fed by
+`OnboardingFlowEngine.onStepEvent`, so screens make no calls of their own.
+The names live in `AnalyticsEvents` and the wrapper is `OnboardingAnalytics`.
+
+The consent question comes on the last step, so events wait on the phone
+until the user answers:
+
+- No answer yet: each event is added to the prefs list
+  `pending_onboarding_events`. Nothing is sent and no analytics call is made.
+- Opt in (the setup switch, Settings > Privacy or the Home consent sheet,
+  whichever comes first): the waiting events go through
+  `TelemetryGate.logEvent` once, in order, and the list is deleted. Later
+  events go straight to the gate.
+- Opt out, or analytics switched off again: the list is deleted and nothing
+  is sent. On the Home consent sheet, Not now counts as opting out.
+- No answer for 7 days after the first event: the list is deleted and no more
+  events are held for this install. The age is checked at app launch and
+  whenever an event is added.
+- The list holds at most 100 events. When it is full a new event is dropped
+  and the old ones stay as they are. A list that does not read back exactly as
+  written is deleted, never sent.
+- A replay (`?demo=true`, developer "Redo onboarding" and "Open a step") records
+  nothing. Neither does a setup screen opened after setup is complete.
+- `flow_id` must match `[A-Za-z0-9._-]{1,40}` and `step` must be a registry id,
+  or the event is dropped.
+
+Every answer is saved through `ObservedPrivacyRepository`, which tells the
+funnel. A new way to answer needs no code of its own as long as it saves
+through `PrivacyRepository`. The funnel keeps who answered what under
+`onboarding_funnel_state` (`in`, `out` or `expired`), because
+`privacy_analytics_enabled` reads false both for "never asked" and for "said
+no".
 
 **Real use.** Setup rings the phone on purpose, so those alarms are not
 the user's own use of the app. `countsAsRealUse`
