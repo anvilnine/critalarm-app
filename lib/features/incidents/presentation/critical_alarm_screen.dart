@@ -778,6 +778,13 @@ class AcknowledgedScreen extends StatelessWidget {
                 _ => LocaleKeys.onboarding_real_ring_works_phone_line.tr(),
               }
             : LocaleKeys.onboarding_connect_welcome_body.tr(),
+        // A partial proof gets a calmer wall than the full one, so the two
+        // differ in feel as well as in words.
+        restFaces:
+            exits == AckedExits.continueSetup &&
+                setupTest != SetupTestKind.serverSent
+            ? quietRestFaces
+            : celebrationRestFaces,
       );
     }
 
@@ -866,12 +873,14 @@ class AcknowledgedScreen extends StatelessWidget {
     Widget bottomBar, {
     required String title,
     required String line,
+    required List<FaceState> restFaces,
   }) {
-    const ripple = ExcludeSemantics(
+    final ripple = ExcludeSemantics(
       child: IgnorePointer(
         child: FaceRipple(
           faces: happyRippleFaces,
           restFace: FaceState.content,
+          restFaces: restFaces,
           randomFaces: true,
         ),
       ),
@@ -909,7 +918,7 @@ class AcknowledgedScreen extends StatelessWidget {
                   padding: EdgeInsets.fromLTRB(24, 16, 24, bottomGap),
                   child: Row(
                     children: [
-                      const Expanded(child: ripple),
+                      Expanded(child: ripple),
                       const SizedBox(width: 40),
                       Expanded(
                         child: Center(
@@ -938,7 +947,7 @@ class AcknowledgedScreen extends StatelessWidget {
                   padding: EdgeInsets.fromLTRB(24, Spacing.s4, 24, bottomGap),
                   child: Column(
                     children: [
-                      const Expanded(child: ripple),
+                      Expanded(child: ripple),
                       const SizedBox(height: Spacing.s5),
                       copy(TextAlign.center, CrossAxisAlignment.center),
                       const SizedBox(height: Spacing.s5),

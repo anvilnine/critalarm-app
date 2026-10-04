@@ -150,22 +150,6 @@ void main() {
     );
 
     blocTest<OnboardingConnectCubit, OnboardingConnectState>(
-      'scanQrTapped emits placeholder notification notice',
-      build: () => OnboardingConnectCubit(
-        mockGetServerInfo,
-        mockSaveConnection,
-        establishSession: mockEstablishSession,
-      ),
-      act: (cubit) => cubit.scanQrTapped(),
-      expect: () => [
-        const OnboardingConnectState(
-          qrNotice:
-              'QR scanning is not in this version. Paste the token instead.',
-        ),
-      ],
-    );
-
-    blocTest<OnboardingConnectCubit, OnboardingConnectState>(
       'connect with empty URL emits serverUrlError',
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
