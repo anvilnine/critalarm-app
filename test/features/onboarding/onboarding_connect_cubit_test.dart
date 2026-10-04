@@ -610,6 +610,27 @@ void main() {
       await cubit.close();
     });
 
+    test('a successful connect drops the typed form', () async {
+      when(() => mockSaveConnection(any())).thenAnswer(
+        (_) async => unit.toSuccess(),
+      );
+      final cubit = build()
+        ..toggleSelfHosting()
+        ..serverUrlChanged('https://alerts.mybox.local')
+        ..adminTokenChanged('ad_secret');
+      await pumpEventQueue();
+
+      await cubit.connect();
+      await pumpEventQueue();
+
+      expect(cubit.state.isConnected, isTrue);
+      final draft = (await progress.readDraft()).getOrNull()!;
+      expect(draft.serverUrl, isEmpty);
+      expect(draft.adminToken, isEmpty);
+      expect(draft.isSelfHosting, isFalse);
+      await cubit.close();
+    });
+
     test('opening either step writes nothing', () async {
       final prefs = await SharedPreferences.getInstance();
       final cubit = build();

@@ -148,6 +148,15 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     );
   }
 
+  Future<void> _forgetForm() async {
+    final save = saveDraft;
+    final read = readDraft;
+    if (save == null || read == null) return;
+    final current =
+        (await read(const NoParams())).getOrNull() ?? const OnboardingDraft();
+    await save(OnboardingDraft(countdownEndsAt: current.countdownEndsAt));
+  }
+
   Future<void> _saveCountdown(DateTime? endsAt) async {
     final save = saveDraft;
     final read = readDraft;
@@ -307,6 +316,10 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
           );
           await saved.fold(
             (_) async {
+              // The form has done its job. Left behind, the typed admin
+              // token would sit in the draft for as long as the app lives
+              // when the screen was opened after setup.
+              await _forgetForm();
               await loadTestTopic();
               emit(
                 state.copyWith(
