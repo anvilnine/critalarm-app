@@ -111,6 +111,7 @@ import 'package:critalarm/features/onboarding/data/repositories/platform_notific
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_connection_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_source.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
@@ -785,6 +786,7 @@ Future<void> configureDependencies({
         catalog: getIt<OnboardingStepCatalog>(),
         repository: getIt<OnboardingFlowRepository>(),
         completeOnboarding: getIt<CompleteOnboardingUsecase>(),
+        getOnboardingCompleted: getIt<GetOnboardingCompletedUsecase>(),
       ),
     )
     ..registerLazySingleton(
@@ -1174,6 +1176,9 @@ Future<void> configureDependencies({
         const Duration(seconds: 1),
         null,
         getIt<GetOnboardingCompletedUsecase>(),
+        () => getIt<OnboardingFlowEngine>().isStepSatisfied(
+          OnboardingStepId.firstTopic,
+        ),
       ),
     )
     ..registerFactory(

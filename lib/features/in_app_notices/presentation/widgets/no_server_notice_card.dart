@@ -1,5 +1,6 @@
 import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -48,7 +49,8 @@ class NoServerNoticeCard extends StatelessWidget {
               label: LocaleKeys.notices_no_server_button.tr(),
               size: AppButtonSize.sm,
               isFullWidth: true,
-              onPressed: () => openAppPath(context, '/onboarding/connect'),
+              onPressed: () =>
+                  openAppPath(context, OnboardingEntryPoint.connectServer),
             ),
           ],
         ),
