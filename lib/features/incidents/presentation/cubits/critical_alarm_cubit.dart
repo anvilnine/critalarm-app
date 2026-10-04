@@ -33,6 +33,8 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     DateTime Function()? now,
     this._onboardingCompleted,
     this._hasOwnedTopic,
+    this._setupTestIncidentId,
+    this._setupFlowHasRealRing,
   ]) : _now = now ?? DateTime.now,
        super(const CriticalAlarmState()) {
     current = this;
@@ -70,6 +72,14 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// offers "Create your first topic" only while the answer is no. Absent
   /// reads as no.
   final Future<bool> Function()? _hasOwnedTopic;
+
+  /// The incident the server opened for setup's test alarm, read from the
+  /// phone. Null when none was sent. Absent reads as none.
+  final String? Function()? _setupTestIncidentId;
+
+  /// Whether the setup flow the user is in has the real ring step. Absent
+  /// reads as no, which is the first shipped order.
+  final bool Function()? _setupFlowHasRealRing;
 
   final DateTime Function() _now;
 
@@ -198,7 +208,11 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   Future<void> load({String? incidentId}) async {
     _stopRingTicker();
     emit(const CriticalAlarmState(status: CriticalAlarmStatus.loading));
-    if (incidentId == 'inc_demo') {
+    // Only a setup test needs to know where setup stands: the phone-only
+    // alarm, or any alarm while a server-sent test is on record. A real
+    // alarm outside setup reads nothing extra on its way to the screen.
+    final setupTestIncidentId = _setupTestIncidentId?.call();
+    if (incidentId == 'inc_demo' || setupTestIncidentId != null) {
       // Read before the screen is drawn, so the exits never flash the
       // onboarding pair at someone who only re-tested from Settings.
       final done = await _onboardingCompleted?.call(const NoParams());
@@ -209,8 +223,12 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         state.copyWith(
           isOnboardingDone: done?.getOrNull() ?? false,
           hasOwnedTopic: hasOwnedTopic,
+          setupTestIncidentId: setupTestIncidentId,
+          setupFlowHasRealRing: _setupFlowHasRealRing?.call() ?? false,
         ),
       );
+    }
+    if (incidentId == 'inc_demo') {
       final now = DateTime.now();
       final claim = await _ringClaim();
       if (isClosed) return;

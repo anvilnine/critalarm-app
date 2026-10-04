@@ -30,6 +30,7 @@ final class PushHost {
   final _routes = StreamController<String>.broadcast();
   final _acks = StreamController<String>.broadcast();
   final _pushes = StreamController<void>.broadcast();
+  final _alarmPushes = StreamController<String>.broadcast();
 
   /// The last tap the platform handed over. Both paths hold a tap until Dart
   /// takes it, so the same one can arrive twice; the second copy is dropped.
@@ -50,6 +51,11 @@ final class PushHost {
   /// touched. It carries nothing: what changed is on the server, and the
   /// shared incident list is what asks for it.
   Stream<void> get foregroundPushes => _pushes.stream;
+
+  /// The incident id of an alarm push that reached a running app. The
+  /// platform names the incident when the push is one that rings; a push
+  /// that only changes state names nothing and is not on this stream.
+  Stream<String> get alarmPushes => _alarmPushes.stream;
 
   /// The current APNs token, or null before APNs has handed one out.
   Future<String?> apnsToken() => _invoke<String>('getApnsToken');
@@ -110,6 +116,8 @@ final class PushHost {
         if (id != null && id.isNotEmpty) _acks.add(id);
       case 'onPushReceived':
         _pushes.add(null);
+        final id = call.arguments;
+        if (id is String && id.isNotEmpty) _alarmPushes.add(id);
     }
   }
 
@@ -139,5 +147,6 @@ final class PushHost {
     await _routes.close();
     await _acks.close();
     await _pushes.close();
+    await _alarmPushes.close();
   }
 }

@@ -1,6 +1,5 @@
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
-import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
@@ -15,8 +14,6 @@ import '../../core/alarm/fake_alarm_host.dart';
 class _MockGetServerInfo extends Mock implements GetServerInfoUsecase {}
 
 class _MockSaveConnection extends Mock implements SaveConnectionUsecase {}
-
-class _MockTriggerTestAlarm extends Mock implements TriggerTestAlarmUsecase {}
 
 class _MockEstablishSession extends Mock
     implements EstablishApiSessionUsecase {}
@@ -52,7 +49,6 @@ void main() {
   OnboardingConnectCubit build() => OnboardingConnectCubit(
     _MockGetServerInfo(),
     _MockSaveConnection(),
-    _MockTriggerTestAlarm(),
     establishSession: _MockEstablishSession(),
     alarmHost: alarm.host,
   );

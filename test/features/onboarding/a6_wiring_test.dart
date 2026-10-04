@@ -6,8 +6,6 @@ import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
-import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
-import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
@@ -141,7 +139,6 @@ void main() {
   OnboardingConnectCubit connectCubit() => OnboardingConnectCubit(
     GetServerInfoUsecase(InMemoryServerRepository(api)),
     SaveConnectionUsecase(SharedPrefsConnectionRepository(prefs)),
-    TriggerTestAlarmUsecase(InMemoryIncidentRepository(api)),
     establishSession: EstablishApiSessionUsecase(sessions, register, identity),
   );
 

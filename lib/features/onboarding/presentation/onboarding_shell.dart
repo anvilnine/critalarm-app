@@ -5,8 +5,8 @@ import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
-import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/set_up_later_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/connect_gate.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/model/background_connect_copy.dart';
@@ -423,7 +423,7 @@ class _ConnectGateScreen extends StatelessWidget {
       router.pop();
       return;
     }
-    await getIt<CompleteOnboardingUsecase>()(const NoParams());
+    await getIt<SetUpLaterUsecase>()();
     router.go('/');
   }
 

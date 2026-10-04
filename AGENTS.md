@@ -132,7 +132,8 @@ names in code, strings, comments and PRs, and never one for another.
 - **Setup order.** Onboarding, including the first-topic step inside it,
   shows no guide, notice, ask or Local Reminder. The order of the setup
   steps is a flow (see "Setup flow engine" below). In the default flow the
-  first topic is created before the test alarm. The
+  first topic is created before the test alarm, and the server sends that
+  test alarm (see "Real ring" below). The
   Topics guide is always the first Feature Guide. The first time the user
   reaches Topics, a sheet offers it (`FeatureGuideStatus.offering`); taking
   it plays the Topics guide, declining it marks every guide seen. Only after
@@ -185,6 +186,10 @@ To add a step:
 
 An entry with no route is known to the validator and never shown. `hook_up`
 is one today.
+
+An entry that requires `connect` is covered by the shell while no server is
+connected. `handlesMissingServer: true` turns that off for a step that has
+its own state for it. `real_ring` is the one today.
 
 `widgets` is an optional step. The default flow leaves it out and `legacy-1`
 lists it. It works at any position, the last one included, and it exists on
@@ -397,6 +402,55 @@ lives in memory only, because the server never shows the token again. The
 topic name is also saved as `onboarding_first_topic`, so a resume after a
 kill knows which topic setup made. `CompleteOnboardingUsecase` clears both.
 A replay and a screen opened from Home hold nothing.
+
+**Real ring.** The `real_ring` step asks the server to send the test alarm:
+`POST /v1/test?topic=<name>`, then the push, then the real alarm screen. The
+screen is `real_ring_screen.dart`, the logic is `RealRingCubit`, and the
+rules are pure functions in
+`lib/features/onboarding/domain/real_ring/real_ring_rules.dart`.
+
+- The checks run when the step opens and on every tap (`realRingGateFor`).
+  No server and Critical off are known before the call, so neither one
+  calls the server. A 409 that arrives anyway shows as Critical off.
+- Critical delivery is the user's to turn on. `setCritical` is the only
+  path to `UpdateTopicUsecase`, and only the switch on the card calls it.
+- The topic is the one setup made (`setupTestTopic`): the name in
+  `FirstTopicHandoff`, then the saved name, then the first topic in the
+  shared list.
+- After a 200 the phone gets 20 seconds (`realRingPushWait`). The wait ends
+  when the alarm for that incident reaches this phone. `AlarmArrivals` is
+  where that comes from: an alarm push the running app received, an alarm
+  the phone scheduled, a tapped alarm notification. It never asks the
+  server, because the server holding an incident says nothing about this
+  phone ringing. Coming back to the app, and a cold start, ask the phone
+  (`isUp`).
+- The incident id is saved by `SetupTestRing` under
+  `onboarding_real_ring_incident`. The alarm can start the app from cold,
+  and the acknowledged screen still has to know the incident was the setup
+  test. The step after the ring reads the same id.
+  `CompleteOnboardingUsecase` clears it.
+- The fallback is the alarm the phone sets for itself, `LocalTestAlarm`,
+  the only copy of that logic. It starts from the user's tap and from
+  nothing else, and the screen calls it a test of this phone only. The
+  `legacy_test` step runs the same class as its test.
+- iOS and Android stay apart: `realRingCopyFor` returns the instruction
+  lines and the check list from `onboarding_real_ring.ios.*`,
+  `onboarding_real_ring.ios_time_sensitive.*` and
+  `onboarding_real_ring.android.*`. Words about silent mode come from
+  `RingClaim`.
+- A replay sends nothing: the button moves on to the next step.
+
+**After the ring.** The acknowledged screen says what the alarm proved
+(`setupTestKind`: server-sent, phone-only, or not a test) and picks its
+buttons with `ackedExitsFor`. In a setup run on a flow that has `real_ring`
+it shows one Continue button, which calls `finishOnboardingStep` and never
+completes setup itself: the engine does, when no step is left. `legacy-1`
+keeps its two buttons and completes setup from them. A test run again after
+setup ends on one Finish button. Continue on a server-sent test also closes
+the incident, so its desk timer does not ring the phone again mid-setup.
+
+Every "Set this up later" exit calls `SetUpLaterUsecase`, which completes
+setup, and completes nothing on a replay.
 
 **Changelogs.** Two files, both written with cider, never by hand. The
 how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
