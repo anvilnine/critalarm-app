@@ -108,6 +108,10 @@ void main() {
   late StreamController<BackgroundConnectState> connectChanges;
   late List<Topic> applied;
 
+  /// What the server holds, when it differs from the shared list.
+  late List<Topic>? onServer;
+  late int refreshes;
+
   setUpAll(() {
     registerFallbackValue(const UpdateTopicParams(name: ''));
   });
@@ -125,6 +129,8 @@ void main() {
     connect = connected;
     connectChanges = StreamController<BackgroundConnectState>.broadcast();
     applied = [];
+    onServer = null;
+    refreshes = 0;
   });
 
   tearDown(() async {
@@ -137,6 +143,10 @@ void main() {
     triggerTest: triggerTest,
     updateTopic: updateTopic,
     readTopics: () async => topics,
+    refreshTopics: () async {
+      refreshes++;
+      return topics = onServer ?? topics;
+    },
     hasConnection: () async => hasConnection,
     connectState: () => connect,
     connectChanges: connectChanges.stream,
@@ -199,6 +209,31 @@ void main() {
       final cubit = build();
       await cubit.load();
       expect(cubit.state.phase, RealRingPhase.noServer);
+      await cubit.close();
+    });
+
+    test(
+      'a topic made a moment ago is found by reading the list again',
+      () async {
+        // The shared list was loaded before setup made the topic, so it is
+        // still empty. The server has the topic.
+        topics = [];
+        onServer = [quiet];
+        final cubit = build();
+        await cubit.load();
+
+        expect(refreshes, 1);
+        expect(cubit.state.topic, quiet);
+        expect(cubit.state.phase, RealRingPhase.criticalOff);
+        await cubit.close();
+      },
+    );
+
+    test('a list that already holds the topic is not fetched again', () async {
+      final cubit = build();
+      await cubit.load();
+      await cubit.appResumed();
+      expect(refreshes, 0);
       await cubit.close();
     });
 
@@ -700,6 +735,10 @@ void main() {
         triggerTest: triggerTest,
         updateTopic: updateTopic,
         readTopics: () async {
+          reads++;
+          return topics;
+        },
+        refreshTopics: () async {
           reads++;
           return topics;
         },
