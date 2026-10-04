@@ -35,7 +35,7 @@ class CriticalAlarmState {
     this.errorMessage,
     this.isOnboardingDone = false,
     this.hasOwnedTopic = false,
-    this.setupTestIncidentId,
+    this.setupTestIncidentIds = const <String>{},
     this.setupFlowHasRealRing = false,
   });
 
@@ -68,9 +68,9 @@ class CriticalAlarmState {
   /// celebration has no first topic to offer.
   final bool hasOwnedTopic;
 
-  /// The incident the server opened when setup asked it to ring this phone.
-  /// Null when no such test was sent, and once setup is complete.
-  final String? setupTestIncidentId;
+  /// The incidents the server opened when setup asked it to ring this
+  /// phone. Empty when no such test was sent, and once setup is complete.
+  final Set<String> setupTestIncidentIds;
 
   /// Whether the setup flow the user is in has the real ring step. The
   /// first shipped order does not, and keeps its own exits.
@@ -79,8 +79,7 @@ class CriticalAlarmState {
   /// Which setup test the alarm on screen was, if any.
   SetupTestKind get setupTest => setupTestKind(
     incidentId: incident?.id,
-    topic: topic,
-    storedRealRingIncidentId: setupTestIncidentId,
+    setupTestIncidentIds: setupTestIncidentIds,
   );
 
   /// The buttons the acknowledged screen ends on.
@@ -110,7 +109,7 @@ class CriticalAlarmState {
     String? errorMessage,
     bool? isOnboardingDone,
     bool? hasOwnedTopic,
-    String? setupTestIncidentId,
+    Set<String>? setupTestIncidentIds,
     bool? setupFlowHasRealRing,
     bool clearError = false,
     bool clearFeedback = false,
@@ -136,7 +135,7 @@ class CriticalAlarmState {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       isOnboardingDone: isOnboardingDone ?? this.isOnboardingDone,
       hasOwnedTopic: hasOwnedTopic ?? this.hasOwnedTopic,
-      setupTestIncidentId: setupTestIncidentId ?? this.setupTestIncidentId,
+      setupTestIncidentIds: setupTestIncidentIds ?? this.setupTestIncidentIds,
       setupFlowHasRealRing: setupFlowHasRealRing ?? this.setupFlowHasRealRing,
     );
   }
@@ -164,7 +163,7 @@ class CriticalAlarmState {
           errorMessage == other.errorMessage &&
           isOnboardingDone == other.isOnboardingDone &&
           hasOwnedTopic == other.hasOwnedTopic &&
-          setupTestIncidentId == other.setupTestIncidentId &&
+          setEquals(setupTestIncidentIds, other.setupTestIncidentIds) &&
           setupFlowHasRealRing == other.setupFlowHasRealRing;
 
   @override
@@ -187,7 +186,7 @@ class CriticalAlarmState {
     errorMessage,
     isOnboardingDone,
     hasOwnedTopic,
-    setupTestIncidentId,
+    Object.hashAllUnordered(setupTestIncidentIds),
     setupFlowHasRealRing,
   );
 }

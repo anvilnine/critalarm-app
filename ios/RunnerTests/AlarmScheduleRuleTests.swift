@@ -38,4 +38,61 @@ final class AlarmScheduleRuleTests: XCTestCase {
         XCTAssertFalse(AlarmScheduleRule.clearsAck(kind: .repeat))
         XCTAssertFalse(AlarmScheduleRule.clearsAck(kind: .open))
     }
+
+    // What a running app is told about a push: the incident it rang for, or
+    // nothing. A screen waiting for one alarm reads this as "it rang".
+
+    private func push(_ kind: String, id: String? = "inc_9", priority: Int? = nil) -> IncidentPush? {
+        var payload: [AnyHashable: Any] = ["kind": kind, "server": "https://alerts.example.com"]
+        if let id { payload["incident_id"] = id }
+        if let priority { payload["priority"] = priority }
+        return IncidentPush(payload: payload)
+    }
+
+    func testAPriorityFiveAlarmKindNamesItsIncident() {
+        for kind in ["open", "repeat", "reopen"] {
+            XCTAssertEqual(
+                AlarmScheduleRule.ringingIncidentId(push: push(kind), acked: [], heldByQuietHours: false),
+                "inc_9",
+                kind
+            )
+        }
+    }
+
+    func testAStateChangePushNamesNothing() {
+        for kind in ["ack", "close", "expire"] {
+            XCTAssertNil(
+                AlarmScheduleRule.ringingIncidentId(push: push(kind), acked: [], heldByQuietHours: false),
+                kind
+            )
+        }
+    }
+
+    func testAForwardNamesNothing() {
+        XCTAssertNil(
+            AlarmScheduleRule.ringingIncidentId(push: push("p4"), acked: [], heldByQuietHours: false)
+        )
+    }
+
+    func testALowerPriorityNamesNothing() {
+        XCTAssertNil(
+            AlarmScheduleRule.ringingIncidentId(
+                push: push("open", priority: 4), acked: [], heldByQuietHours: false
+            )
+        )
+    }
+
+    func testARingHeldByQuietHoursNamesNothing() {
+        XCTAssertNil(
+            AlarmScheduleRule.ringingIncidentId(push: push("open"), acked: [], heldByQuietHours: true)
+        )
+    }
+
+    func testARepeatForAnIncidentStoppedHereNamesNothing() {
+        XCTAssertNil(
+            AlarmScheduleRule.ringingIncidentId(
+                push: push("repeat", id: "inc_1"), acked: acked, heldByQuietHours: false
+            )
+        )
+    }
 }

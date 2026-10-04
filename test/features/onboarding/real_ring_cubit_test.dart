@@ -7,7 +7,6 @@ import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/alarm_arrivals.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/real_ring_rules.dart';
-import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/local_test_alarm.dart';
@@ -17,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../core/alarm/fake_alarm_host.dart';
+import 'support/fake_setup_test_ring.dart';
 
 class _MockTriggerTest extends Mock implements TriggerTestAlarmUsecase {}
 
@@ -31,17 +31,6 @@ class _FakeArrivals implements AlarmArrivals {
 
   @override
   Future<bool> isUp(String incidentId) async => up.contains(incidentId);
-}
-
-class _FakeRing implements SetupTestRing {
-  @override
-  String? incidentId;
-
-  @override
-  Future<void> hold(String incidentId) async => this.incidentId = incidentId;
-
-  @override
-  Future<void> clear() async => incidentId = null;
 }
 
 class _FakeHandoff implements FirstTopicHandoff {
@@ -98,7 +87,7 @@ void main() {
   late _MockTriggerTest triggerTest;
   late _MockUpdateTopic updateTopic;
   late _FakeArrivals arrivals;
-  late _FakeRing ring;
+  late FakeSetupTestRing ring;
   late _FakeHandoff handoff;
   late FakeAlarmHost alarm;
   late List<_FakeTimer> timers;
@@ -120,7 +109,7 @@ void main() {
     triggerTest = _MockTriggerTest();
     updateTopic = _MockUpdateTopic();
     arrivals = _FakeArrivals();
-    ring = _FakeRing();
+    ring = FakeSetupTestRing();
     handoff = _FakeHandoff(savedTopicName: 'setup-test');
     alarm = FakeAlarmHost();
     timers = [];
@@ -441,7 +430,7 @@ void main() {
     );
 
     test('a stored id with no alarm up opens the step as usual', () async {
-      ring.incidentId = 'inc_7';
+      await ring.hold('inc_7');
       final cubit = build();
       await cubit.load();
       expect(cubit.state.phase, RealRingPhase.ready);
@@ -477,6 +466,40 @@ void main() {
       expect(cubit.state.incidentId, 'inc_8');
       expect(ring.incidentId, 'inc_8');
       expect(timers.last.isActive, isTrue);
+      await cubit.close();
+    });
+
+    test('after Try again, a late ring from the first test still counts '
+        'as the setup test', () async {
+      serverAnswers('inc_7');
+      final cubit = build();
+      await cubit.load();
+      await cubit.ringForReal();
+      timers.single.fire();
+      serverAnswers('inc_8');
+      await cubit.ringForReal();
+      // Both ids are kept, so the first is still known as a setup test.
+      expect(ring.incidentIds, {'inc_7', 'inc_8'});
+
+      arrivals.controller.add('inc_7');
+      await settle();
+
+      expect(cubit.state.phase, RealRingPhase.rang);
+      // The alarm screen opens the incident that is ringing.
+      expect(cubit.state.incidentId, 'inc_7');
+      expect(timers.last.isActive, isFalse);
+      await cubit.close();
+    });
+
+    test('a cold start finds an earlier test of the run ringing', () async {
+      await ring.hold('inc_7');
+      await ring.hold('inc_8');
+      arrivals.up.add('inc_7');
+      final cubit = build();
+      await cubit.load();
+
+      expect(cubit.state.phase, RealRingPhase.rang);
+      expect(cubit.state.incidentId, 'inc_7');
       await cubit.close();
     });
 
@@ -697,6 +720,46 @@ void main() {
         await cubit.close();
       },
     );
+
+    test('a late server push during its countdown takes the phone alarm '
+        'back, so only one alarm rings', () async {
+      serverAnswers('inc_7');
+      final cubit = build();
+      await cubit.load();
+      await cubit.ringForReal();
+      timers.single.fire();
+      expect(cubit.state.phase, RealRingPhase.timedOut);
+
+      await cubit.startPhoneOnlyTest();
+      expect(cubit.state.local.isCountingDown, isTrue);
+      expect(alarm.callsTo('cancelAlarm'), isEmpty);
+
+      arrivals.controller.add('inc_7');
+      await settle();
+
+      expect(cubit.state.phase, RealRingPhase.rang);
+      // The alarm the OS was holding for the phone-only test is cancelled,
+      // not just the clock on screen.
+      final cancel = alarm.argsOnce('cancelAlarm');
+      expect(cancel['incident_id'], 'inc_demo');
+      expect(cancel['hand_over_to_status_card'], isFalse);
+      expect(cubit.state.local.isCountingDown, isFalse);
+      expect(cubit.state.local.canLaunch, isFalse);
+      await cubit.close();
+    });
+
+    test('a server push with no countdown running cancels nothing', () async {
+      serverAnswers('inc_7');
+      final cubit = build();
+      await cubit.load();
+      await cubit.ringForReal();
+      arrivals.controller.add('inc_7');
+      await settle();
+
+      expect(cubit.state.phase, RealRingPhase.rang);
+      expect(alarm.callsTo('cancelAlarm'), isEmpty);
+      await cubit.close();
+    });
 
     test('with no server it still has an address to carry', () async {
       hasConnection = false;

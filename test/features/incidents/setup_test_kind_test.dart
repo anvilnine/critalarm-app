@@ -7,94 +7,68 @@ void main() {
       'the incident the server opened for the setup test is server-sent',
       () {
         expect(
-          setupTestKind(
-            incidentId: 'inc_9',
-            topic: 'prod-db',
-            storedRealRingIncidentId: 'inc_9',
-          ),
+          setupTestKind(incidentId: 'inc_9', setupTestIncidentIds: {'inc_9'}),
           SetupTestKind.serverSent,
         );
       },
     );
 
     test('a cold start knows the test by the stored incident id alone', () {
-      // The alarm started the app, so nothing is in memory: no topic yet, and
-      // only the id written when the server answered.
+      // The alarm started the app, so nothing is in memory: only the id
+      // written when the server answered.
       expect(
-        setupTestKind(
-          incidentId: 'inc_9',
-          topic: '',
-          storedRealRingIncidentId: 'inc_9',
-        ),
+        setupTestKind(incidentId: 'inc_9', setupTestIncidentIds: {'inc_9'}),
         SetupTestKind.serverSent,
       );
     });
 
+    test('every test of the run counts, an earlier try included', () {
+      for (final id in ['inc_8', 'inc_9']) {
+        expect(
+          setupTestKind(
+            incidentId: id,
+            setupTestIncidentIds: {'inc_8', 'inc_9'},
+          ),
+          SetupTestKind.serverSent,
+        );
+      }
+    });
+
     test('the alarm the phone set for itself is phone-only', () {
       expect(
-        setupTestKind(
-          incidentId: 'inc_demo',
-          topic: 'demo-topic',
-          storedRealRingIncidentId: null,
-        ),
+        setupTestKind(incidentId: 'inc_demo', setupTestIncidentIds: {}),
         SetupTestKind.phoneOnly,
       );
       expect(
-        setupTestKind(
-          incidentId: null,
-          topic: 'demo-topic',
-          storedRealRingIncidentId: null,
-        ),
+        setupTestKind(incidentId: 'inc_demo', setupTestIncidentIds: {'inc_9'}),
         SetupTestKind.phoneOnly,
       );
     });
 
-    test('the phone-only alarm stays phone-only after a server test', () {
+    test('a real alarm is never a test because of its topic name', () {
+      // A user may name a topic anything, `demo-topic` included. The topic
+      // is not even asked for.
       expect(
-        setupTestKind(
-          incidentId: 'inc_demo',
-          topic: 'demo-topic',
-          storedRealRingIncidentId: 'inc_9',
-        ),
-        SetupTestKind.phoneOnly,
+        setupTestKind(incidentId: 'inc_4', setupTestIncidentIds: {}),
+        SetupTestKind.none,
       );
     });
 
     test('any other incident is not a setup test', () {
       expect(
-        setupTestKind(
-          incidentId: 'inc_4',
-          topic: 'prod-db',
-          storedRealRingIncidentId: 'inc_9',
-        ),
-        SetupTestKind.none,
-      );
-      expect(
-        setupTestKind(
-          incidentId: 'inc_4',
-          topic: 'prod-db',
-          storedRealRingIncidentId: null,
-        ),
+        setupTestKind(incidentId: 'inc_4', setupTestIncidentIds: {'inc_9'}),
         SetupTestKind.none,
       );
     });
 
     test('no incident and nothing stored is not a setup test', () {
       expect(
-        setupTestKind(
-          incidentId: null,
-          topic: 'prod-db',
-          storedRealRingIncidentId: null,
-        ),
+        setupTestKind(incidentId: null, setupTestIncidentIds: {}),
         SetupTestKind.none,
       );
-      // An empty stored id never matches an empty incident id.
+      // An empty id never matches, whatever is stored.
       expect(
-        setupTestKind(
-          incidentId: '',
-          topic: 'prod-db',
-          storedRealRingIncidentId: '',
-        ),
+        setupTestKind(incidentId: '', setupTestIncidentIds: {''}),
         SetupTestKind.none,
       );
     });

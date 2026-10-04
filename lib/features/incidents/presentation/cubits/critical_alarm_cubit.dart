@@ -15,6 +15,7 @@ import 'package:critalarm/features/incidents/domain/usecases/close_incident_usec
 import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -33,8 +34,9 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     DateTime Function()? now,
     this._onboardingCompleted,
     this._hasOwnedTopic,
-    this._setupTestIncidentId,
+    this._setupTestIncidentIds,
     this._setupFlowHasRealRing,
+    this._endSetupTest,
   ]) : _now = now ?? DateTime.now,
        super(const CriticalAlarmState()) {
     current = this;
@@ -73,13 +75,16 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// reads as no.
   final Future<bool> Function()? _hasOwnedTopic;
 
-  /// The incident the server opened for setup's test alarm, read from the
-  /// phone. Null when none was sent. Absent reads as none.
-  final String? Function()? _setupTestIncidentId;
+  /// The incidents the server opened for setup's test alarm, read from the
+  /// phone. Empty when none was sent. Absent reads as none.
+  final Set<String> Function()? _setupTestIncidentIds;
 
   /// Whether the setup flow the user is in has the real ring step. Absent
   /// reads as no, which is the first shipped order.
   final bool Function()? _setupFlowHasRealRing;
+
+  /// Ends one setup test on the server. Absent in tests that never do.
+  final EndSetupTestUsecase? _endSetupTest;
 
   final DateTime Function() _now;
 
@@ -211,22 +216,29 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     // Only a setup test needs to know where setup stands: the phone-only
     // alarm, or any alarm while a server-sent test is on record. A real
     // alarm outside setup reads nothing extra on its way to the screen.
-    final setupTestIncidentId = _setupTestIncidentId?.call();
-    if (incidentId == 'inc_demo' || setupTestIncidentId != null) {
-      // Read before the screen is drawn, so the exits never flash the
-      // onboarding pair at someone who only re-tested from Settings.
-      final done = await _onboardingCompleted?.call(const NoParams());
+    //
+    // Nothing here may stop the alarm from loading. A read that throws is
+    // taken as "not a setup test", and the incident is loaded all the same.
+    try {
+      final setupTestIds = _setupTestIncidentIds?.call() ?? const <String>{};
+      if (incidentId == 'inc_demo' || setupTestIds.isNotEmpty) {
+        // Read before the screen is drawn, so the exits never flash the
+        // onboarding pair at someone who only re-tested from Settings.
+        final done = await _onboardingCompleted?.call(const NoParams());
+        if (isClosed) return;
+        final hasOwnedTopic = await _hasOwnedTopic?.call() ?? false;
+        if (isClosed) return;
+        emit(
+          state.copyWith(
+            isOnboardingDone: done?.getOrNull() ?? false,
+            hasOwnedTopic: hasOwnedTopic,
+            setupTestIncidentIds: setupTestIds,
+            setupFlowHasRealRing: _setupFlowHasRealRing?.call() ?? false,
+          ),
+        );
+      }
+    } on Object catch (_) {
       if (isClosed) return;
-      final hasOwnedTopic = await _hasOwnedTopic?.call() ?? false;
-      if (isClosed) return;
-      emit(
-        state.copyWith(
-          isOnboardingDone: done?.getOrNull() ?? false,
-          hasOwnedTopic: hasOwnedTopic,
-          setupTestIncidentId: setupTestIncidentId,
-          setupFlowHasRealRing: _setupFlowHasRealRing?.call() ?? false,
-        ),
-      );
     }
     if (incidentId == 'inc_demo') {
       final now = DateTime.now();
@@ -531,6 +543,44 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         emit(state.copyWith(errorMessage: failure.message));
       },
     );
+  }
+
+  /// Continue, on the acknowledged screen of a server-sent setup test:
+  /// ends every test incident of this setup run, so none of them can ring
+  /// again later looking like a real alarm.
+  ///
+  /// [incidentId] is the test the screen was showing when the user tapped.
+  /// Nothing happens unless that is still the incident on screen and it is
+  /// one of the stored setup tests, so a real alarm that took the screen
+  /// over a moment before the tap is never silenced or closed here.
+  ///
+  /// Answers whether the screen may move on. False when it did nothing, and
+  /// false when a real alarm took the screen over while the server was
+  /// being asked: the user stays with that alarm.
+  ///
+  /// The screen is not redrawn. Only the named ids are silenced and closed.
+  Future<bool> closeSetupTests(String incidentId) async {
+    // A copy: a close that fails takes its id out of the stored set.
+    final ids = {...?_setupTestIncidentIds?.call()};
+    if (state.incident?.id != incidentId || !ids.contains(incidentId)) {
+      return false;
+    }
+    // The one on screen first. The others are earlier tries of the same
+    // run, which the user never answered.
+    for (final id in [incidentId, ...ids.where((id) => id != incidentId)]) {
+      try {
+        await _alarm?.cancelAlarm(id, handOverToStatusCard: false);
+      } on Object catch (_) {
+        // Nothing to do. The close below is what the server cares about.
+      }
+      await _endSetupTest?.call(
+        id,
+        isAcknowledged: id == incidentId,
+        onClosed: (closed) => _incidents?.applyIncident(closed),
+      );
+      if (isClosed) return false;
+    }
+    return state.incident?.id == incidentId;
   }
 
   void _applyIncident(Incident incident, {List<Incident>? openIncidents}) {

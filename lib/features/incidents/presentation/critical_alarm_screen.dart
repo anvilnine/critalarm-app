@@ -286,9 +286,10 @@ class _RingingScreen extends StatelessWidget {
           },
         ),
         const SizedBox(height: 8),
-        // Hidden for a setup test. `demo-topic` is invented for the phone-only
-        // test and is on no server, and the server-sent test rings halfway
-        // through setup, where a topic screen would be a detour out of it.
+        // Hidden for a setup test, which is known by its incident id and never
+        // by a topic name. The phone-only test's topic is on no server, and
+        // the server-sent test rings halfway through setup, where a topic
+        // screen would be a detour out of it.
         if (state.ackedExits == AckedExits.incident)
           AppButton(
             label: LocaleKeys.critical_alarm_read_message_button.tr(),
@@ -618,7 +619,10 @@ class AcknowledgedScreen extends StatelessWidget {
                 // Setup goes on. The flow says what comes next, and ends
                 // setup itself when nothing does.
                 AckedExits.continueSetup => [
-                  _ContinueSetupButton(setupTest: setupTest),
+                  _ContinueSetupButton(
+                    setupTest: setupTest,
+                    incidentId: incident?.id ?? '',
+                  ),
                 ],
                 // Onboarding is done, so the only thing left is the way out.
                 AckedExits.retest => [
@@ -1034,9 +1038,15 @@ class AcknowledgedScreen extends StatelessWidget {
 /// It never completes setup itself: the flow engine does, when no step is
 /// left.
 class _ContinueSetupButton extends StatefulWidget {
-  const _ContinueSetupButton({required this.setupTest});
+  const _ContinueSetupButton({
+    required this.setupTest,
+    required this.incidentId,
+  });
 
   final SetupTestKind setupTest;
+
+  /// The test this button was drawn for.
+  final String incidentId;
 
   @override
   State<_ContinueSetupButton> createState() => _ContinueSetupButtonState();
@@ -1049,14 +1059,20 @@ class _ContinueSetupButtonState extends State<_ContinueSetupButton> {
     if (_isBusy) return;
     setState(() => _isBusy = true);
     AppHaptics.capture();
+    final cubit = context.read<CriticalAlarmCubit>();
     // The server-sent test is a real incident. Acknowledged and left open,
-    // its desk timer would ring the phone again in the middle of setup, so
-    // the test is closed the way At my desk closes any incident.
-    if (widget.setupTest == SetupTestKind.serverSent) {
-      await context.read<CriticalAlarmCubit>().closeIncident();
-    }
+    // its desk timer would ring the phone again later as a real alarm, so
+    // every test of this run is closed. The cubit does that only for the
+    // test this button was drawn for, and says whether that test is still
+    // what the screen shows afterwards.
+    final mayContinue = widget.setupTest == SetupTestKind.serverSent
+        ? await cubit.closeSetupTests(widget.incidentId)
+        : cubit.state.incident?.id == widget.incidentId;
     if (!mounted) return;
-    await finishOnboardingStep(context, OnboardingStepId.realRing);
+    // A real alarm took the screen over. Setup waits; the alarm does not.
+    if (mayContinue) {
+      await finishOnboardingStep(context, OnboardingStepId.realRing);
+    }
     if (mounted) setState(() => _isBusy = false);
   }
 
