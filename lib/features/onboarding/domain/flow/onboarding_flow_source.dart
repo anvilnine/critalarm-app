@@ -39,7 +39,7 @@ enum OnboardingFlowOrigin { developer, remote, bundled }
 
 /// The priority order of the origins. [chooseOnboardingFlowWithOrigin] and
 /// the engine read their sources in this order unless told otherwise.
-const defaultOnboardingFlowOrigins = [
+const List<OnboardingFlowOrigin> defaultOnboardingFlowOrigins = [
   OnboardingFlowOrigin.developer,
   OnboardingFlowOrigin.remote,
   OnboardingFlowOrigin.bundled,

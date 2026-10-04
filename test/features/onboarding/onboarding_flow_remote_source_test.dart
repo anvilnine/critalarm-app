@@ -174,8 +174,12 @@ void main() {
     });
 
     test('answers at once with what the gate holds, never a future', () {
-      final OnboardingFlow? flow = RemoteOnboardingFlowSource(gate).current();
-      expect(flow, isNull);
+      gate.json = _valid;
+
+      final flow = RemoteOnboardingFlowSource(gate).current();
+
+      expect(flow, isA<OnboardingFlow>());
+      expect(flow, isNot(isA<Future<Object?>>()));
     });
   });
 
