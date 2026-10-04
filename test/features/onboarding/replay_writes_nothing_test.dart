@@ -1,4 +1,3 @@
-import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_developer_onboarding_overrides.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
@@ -23,8 +22,6 @@ import 'support/onboarding_flow_fakes.dart';
 class _MockGetServerInfo extends Mock implements GetServerInfoUsecase {}
 
 class _MockSaveConnection extends Mock implements SaveConnectionUsecase {}
-
-class _MockTriggerTestAlarm extends Mock implements TriggerTestAlarmUsecase {}
 
 class _MockEstablishSession extends Mock
     implements EstablishApiSessionUsecase {}
@@ -55,7 +52,6 @@ void main() {
     OnboardingConnectCubit build() => OnboardingConnectCubit(
       _MockGetServerInfo(),
       _MockSaveConnection(),
-      _MockTriggerTestAlarm(),
       establishSession: _MockEstablishSession(),
       readDraft: ReadOnboardingDraftUsecase(progress),
       saveDraft: SaveOnboardingDraftUsecase(progress),

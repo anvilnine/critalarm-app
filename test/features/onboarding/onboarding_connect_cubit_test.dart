@@ -6,7 +6,6 @@ import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
-import 'package:critalarm/features/incidents/domain/usecases/trigger_test_alarm_usecase.dart';
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
@@ -17,6 +16,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/get_connection_use
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/onboarding_draft_usecases.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/set_up_later_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,9 +30,6 @@ class MockSaveConnectionUsecase extends Mock implements SaveConnectionUsecase {}
 class MockCompleteOnboardingUsecase extends Mock
     implements CompleteOnboardingUsecase {}
 
-class MockTriggerTestAlarmUsecase extends Mock
-    implements TriggerTestAlarmUsecase {}
-
 class MockEstablishSession extends Mock implements EstablishApiSessionUsecase {}
 
 class MockGetConnectionUsecase extends Mock implements GetConnectionUsecase {}
@@ -44,7 +41,6 @@ void main() {
   late MockGetServerInfoUsecase mockGetServerInfo;
   late MockSaveConnectionUsecase mockSaveConnection;
   late MockCompleteOnboardingUsecase mockCompleteOnboarding;
-  late MockTriggerTestAlarmUsecase mockTriggerTestAlarm;
 
   setUpAll(() {
     registerFallbackValue(Uri.parse('https://api.critalarm.app'));
@@ -77,7 +73,6 @@ void main() {
     mockGetServerInfo = MockGetServerInfoUsecase();
     mockSaveConnection = MockSaveConnectionUsecase();
     mockCompleteOnboarding = MockCompleteOnboardingUsecase();
-    mockTriggerTestAlarm = MockTriggerTestAlarmUsecase();
     when(() => mockGetServerInfo(any())).thenAnswer(
       (_) async => const ServerInfo(
         version: '0.1.0',
@@ -92,7 +87,6 @@ void main() {
       final cubit = OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       );
       expect(cubit.state.serverUrl, isEmpty);
@@ -108,7 +102,6 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
@@ -128,7 +121,6 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
@@ -147,7 +139,6 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       ),
       act: (cubit) => cubit.pasteToken('ad_pasted_token'),
@@ -163,7 +154,6 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       ),
       act: (cubit) => cubit.scanQrTapped(),
@@ -180,7 +170,6 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
@@ -202,7 +191,6 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
@@ -224,7 +212,6 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
@@ -260,7 +247,6 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
@@ -298,7 +284,6 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
@@ -337,7 +322,6 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
@@ -380,7 +364,6 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
@@ -413,73 +396,6 @@ void main() {
     );
 
     blocTest<OnboardingConnectCubit, OnboardingConnectState>(
-      'ringTestAlarm succeeds and emits ringing then success with incidentId',
-      setUp: () {
-        when(() => mockTriggerTestAlarm('prod-db')).thenAnswer(
-          (_) async => 'inc_test_999'.toSuccess(),
-        );
-      },
-      build: () => OnboardingConnectCubit(
-        mockGetServerInfo,
-        mockSaveConnection,
-        mockTriggerTestAlarm,
-        establishSession: mockEstablishSession,
-      ),
-      seed: () => const OnboardingConnectState(
-        status: OnboardingConnectStatus.connected,
-      ),
-      act: (cubit) => cubit.ringTestAlarm(topic: 'prod-db'),
-      expect: () => [
-        const OnboardingConnectState(
-          status: OnboardingConnectStatus.connected,
-          testAlarmStatus: TestAlarmStatus.ringing,
-          topic: 'prod-db',
-        ),
-        const OnboardingConnectState(
-          status: OnboardingConnectStatus.connected,
-          testAlarmStatus: TestAlarmStatus.success,
-          incidentId: 'inc_test_999',
-          topic: 'prod-db',
-        ),
-      ],
-    );
-
-    blocTest<OnboardingConnectCubit, OnboardingConnectState>(
-      'ringTestAlarm failure emits ringing then failure with errorMessage',
-      setUp: () {
-        when(() => mockTriggerTestAlarm('prod-db')).thenAnswer(
-          (_) async => const Failure.api(
-            statusCode: 500,
-            message: 'Server error',
-          ).toFailure(),
-        );
-      },
-      build: () => OnboardingConnectCubit(
-        mockGetServerInfo,
-        mockSaveConnection,
-        mockTriggerTestAlarm,
-        establishSession: mockEstablishSession,
-      ),
-      seed: () => const OnboardingConnectState(
-        status: OnboardingConnectStatus.connected,
-      ),
-      act: (cubit) => cubit.ringTestAlarm(topic: 'prod-db'),
-      expect: () => [
-        const OnboardingConnectState(
-          status: OnboardingConnectStatus.connected,
-          testAlarmStatus: TestAlarmStatus.ringing,
-          topic: 'prod-db',
-        ),
-        const OnboardingConnectState(
-          status: OnboardingConnectStatus.connected,
-          testAlarmStatus: TestAlarmStatus.failure,
-          errorMessage: 'Something went wrong on the server. Try again.',
-          topic: 'prod-db',
-        ),
-      ],
-    );
-
-    blocTest<OnboardingConnectCubit, OnboardingConnectState>(
       'navigateToHome marks onboarding complete before requesting navigation',
       setUp: () {
         when(() => mockCompleteOnboarding(any())).thenAnswer(
@@ -489,9 +405,8 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
-        completeOnboarding: mockCompleteOnboarding,
+        setUpLater: SetUpLaterUsecase(mockCompleteOnboarding),
       ),
       act: (cubit) => cubit.navigateToHome(),
       expect: () => [const OnboardingConnectState(canNavigateToHome: true)],
@@ -511,9 +426,8 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
-        completeOnboarding: mockCompleteOnboarding,
+        setUpLater: SetUpLaterUsecase(mockCompleteOnboarding),
       ),
       act: (cubit) => cubit.navigateToHome(),
       expect: () => [
@@ -528,7 +442,6 @@ void main() {
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
         mockSaveConnection,
-        mockTriggerTestAlarm,
         establishSession: mockEstablishSession,
       ),
       seed: () => const OnboardingConnectState(
@@ -563,7 +476,6 @@ void main() {
         OnboardingConnectCubit(
           mockGetServerInfo,
           mockSaveConnection,
-          mockTriggerTestAlarm,
           establishSession: mockEstablishSession,
           getConnection: getConnection,
           readDraft: ReadOnboardingDraftUsecase(progress),
@@ -663,7 +575,6 @@ void main() {
         OnboardingConnectCubit(
           mockGetServerInfo,
           mockSaveConnection,
-          mockTriggerTestAlarm,
           establishSession: mockEstablishSession,
           backgroundConnect: background,
           isOnline: isOnline,
@@ -806,7 +717,6 @@ void main() {
         OnboardingConnectCubit(
           mockGetServerInfo,
           mockSaveConnection,
-          mockTriggerTestAlarm,
           establishSession: mockEstablishSession,
           isOnline: isOnline ?? () async => true,
         );
@@ -920,7 +830,6 @@ void main() {
     OnboardingConnectCubit build() => OnboardingConnectCubit(
       mockGetServerInfo,
       mockSaveConnection,
-      mockTriggerTestAlarm,
       establishSession: mockEstablishSession,
     );
 

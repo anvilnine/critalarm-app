@@ -38,11 +38,7 @@ void main() {
 
     test('nothing pending and no server saved: a step that needs the server '
         'shows the failed gate, as after a relaunch', () {
-      for (final path in [
-        '/onboarding/first-topic',
-        '/onboarding/real-ring',
-        '/onboarding/test',
-      ]) {
+      for (final path in ['/onboarding/first-topic', '/onboarding/test']) {
         expect(
           connectGateFor(
             state: const BackgroundConnectState(),
@@ -73,11 +69,7 @@ void main() {
 
     test('pending on a step that needs the server: the step waits', () {
       for (final status in pending) {
-        for (final path in [
-          '/onboarding/first-topic',
-          '/onboarding/real-ring',
-          '/onboarding/test',
-        ]) {
+        for (final path in ['/onboarding/first-topic', '/onboarding/test']) {
           expect(
             connectGateFor(
               state: _state(status),
@@ -114,11 +106,7 @@ void main() {
         BackgroundConnectStatus.failed,
         failure: BackgroundConnectFailure.refused,
       );
-      for (final path in [
-        '/onboarding',
-        '/onboarding/first-topic',
-        '/onboarding/real-ring',
-      ]) {
+      for (final path in ['/onboarding', '/onboarding/first-topic']) {
         expect(
           connectGateFor(
             state: failed,
@@ -127,6 +115,27 @@ void main() {
             hasConnection: false,
           ),
           ConnectGate.failed,
+        );
+      }
+    });
+
+    test('the real ring step is never covered: it says for itself that no '
+        'server is connected, and offers the test of this phone only', () {
+      for (final status in BackgroundConnectStatus.values) {
+        expect(
+          connectGateFor(
+            state: _state(
+              status,
+              failure: status == BackgroundConnectStatus.failed
+                  ? BackgroundConnectFailure.refused
+                  : null,
+            ),
+            path: '/onboarding/real-ring',
+            isReplay: false,
+            hasConnection: false,
+          ),
+          ConnectGate.none,
+          reason: '$status',
         );
       }
     });

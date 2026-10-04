@@ -1,9 +1,9 @@
 /// Holds back the In-App Notices, the asks and the Local Reminders until
 /// setup is done. The order after install is:
 ///
-/// 1. Onboarding, including the create-your-first-topic screens after the
-///    demo alarm. No Feature Guide, notice, ask or Local Reminder. No
-///    onboarding route has a guide.
+/// 1. Onboarding, including the create-your-first-topic step and the test
+///    alarm the server sends after it. No Feature Guide, notice, ask or
+///    Local Reminder. No onboarding route has a guide.
 /// 2. The Feature Guide offer, the first time the user reaches Topics.
 ///    Taking it plays the Topics guide.
 /// 3. After the offer is answered and its guide is seen or skipped: every

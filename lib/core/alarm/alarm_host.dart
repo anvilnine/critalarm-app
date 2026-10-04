@@ -205,6 +205,14 @@ final class AlarmHost {
   /// tell.
   Future<bool> isRinging() async => await _invoke<bool>('isRinging') ?? false;
 
+  /// Whether a push that rings reached this phone for [incidentId]. Android
+  /// answers from the record its push service keeps, with no network call.
+  /// iOS has no such record and answers false; the alarm it schedules is
+  /// reported on [alarmsScheduled] instead.
+  Future<bool> receivedAlarmFor(String incidentId) async =>
+      await _invoke<bool>('receivedAlarmFor', {'incident_id': incidentId}) ??
+      false;
+
   /// Raw native diagnostic state. Unsupported hosts return empty sections.
   Future<Map<String, Object?>> debugSnapshot() async =>
       (await _invoke<Map<Object?, Object?>>(

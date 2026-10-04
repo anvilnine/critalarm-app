@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
-import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
@@ -12,8 +11,7 @@ import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambi
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
-import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
-import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/local_test_alarm_views.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -31,7 +29,8 @@ enum OnboardingConnectPart {
 }
 
 /// Two setup steps, each on its own route: the server connection
-/// (/onboarding/connect) and the local test alarm.
+/// (/onboarding/connect) and the local test alarm of the first shipped
+/// order (/onboarding/test), which Health also opens on its own.
 class OnboardingConnectScreen extends StatelessWidget {
   const OnboardingConnectScreen({
     this.part = OnboardingConnectPart.connect,
@@ -176,81 +175,13 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     }
   }
 
-  /// Says why "Ring my phone" did nothing, and offers the one tap that fixes
-  /// it. Without this a refused alarm left the button looking dead.
-  Future<void> _explainTestAlarmFailure(OnboardingConnectState state) async {
-    final alarm = state.alarm;
-    if (alarm == AlarmAuthorization.notDetermined) {
-      final allow = await showAppDialog<bool>(
-        context: context,
-        title: LocaleKeys.onboarding_connect_hook_not_asked_title.tr(),
-        body: LocaleKeys.onboarding_connect_hook_not_asked_body.tr(),
-        actions: [
-          AppDialogAction(
-            label: LocaleKeys.common_not_now.tr(),
-            value: false,
-            variant: AppButtonVariant.ghost,
-          ),
-          AppDialogAction(
-            label: LocaleKeys.onboarding_connect_hook_not_asked_button.tr(),
-            value: true,
-          ),
-        ],
-      );
-      if (allow == true && mounted) {
-        await context.push('/permissions/ask');
-      }
-      return;
-    }
-    if (alarm == AlarmAuthorization.denied) {
-      final open = await showAppDialog<bool>(
-        context: context,
-        title: LocaleKeys.onboarding_connect_hook_alarms_off_title.tr(),
-        body: LocaleKeys.onboarding_connect_hook_alarms_off_body.tr(),
-        actions: [
-          AppDialogAction(
-            label: LocaleKeys.common_not_now.tr(),
-            value: false,
-            variant: AppButtonVariant.ghost,
-          ),
-          AppDialogAction(
-            label: LocaleKeys.onboarding_connect_hook_open_settings.tr(),
-            value: true,
-          ),
-        ],
-      );
-      if (open == true) {
-        await getIt<OpenPermissionSettingsUsecase>()(
-          DevicePermissionType.alarms,
-        );
-      }
-      return;
-    }
-    // An iPhone below iOS 26 has no alarm to set at all. Anything else is the
-    // phone refusing, which on Android means Alarms & reminders is off.
-    final oldIphone = RingClaim.forPhone(alarm) == RingClaim.timeSensitive;
-    await showAppDialog<void>(
-      context: context,
-      title: oldIphone
-          ? LocaleKeys.onboarding_connect_hook_no_alarm_title.tr()
-          : LocaleKeys.onboarding_connect_hook_failed_title.tr(),
-      body: oldIphone
-          ? LocaleKeys.onboarding_connect_hook_no_alarm_body.tr()
-          : LocaleKeys.onboarding_connect_hook_failed_body.tr(),
-      actions: [
-        AppDialogAction(
-          label: LocaleKeys.onboarding_connect_hook_ok.tr(),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocListener<OnboardingConnectCubit, OnboardingConnectState>(
       listenWhen: (prev, curr) =>
           prev.testAlarmStatus != curr.testAlarmStatus && curr.isAlarmFailure,
-      listener: (context, state) => unawaited(_explainTestAlarmFailure(state)),
+      listener: (context, state) =>
+          unawaited(explainLocalTestAlarmFailure(context, state.alarm)),
       child: _buildContent(context),
     );
   }
@@ -679,7 +610,9 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
     // No server has answered yet, so offer the way out. Without it a user who
     // is offline or has the address wrong has no forward exit and no back.
     final skipButton = TextButton(
-      onPressed: cubit.navigateToHome,
+      onPressed: () => unawaited(
+        cubit.navigateToHome(isReplay: widget.isReplay),
+      ),
       style: TextButton.styleFrom(
         minimumSize: const Size(double.infinity, 36),
         padding: EdgeInsets.zero,
@@ -792,45 +725,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         const SizedBox(height: Spacing.s5),
 
         if (state.isCountingDown) ...[
-          // Live Countdown Display
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-            decoration: BoxDecoration(
-              color: colors.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: colors.onCanvas, width: 2),
-              boxShadow: AppShadows.lightLg,
-            ),
-            child: Column(
-              children: [
-                Text(
-                  '${state.countdownSeconds}s',
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontDisplay,
-                    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 54,
-                    letterSpacing: -2,
-                    color: colors.crit,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  LocaleKeys.onboarding_connect_hook_countdown.tr(
-                    namedArgs: {'seconds': '${state.countdownSeconds}'},
-                  ),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: colors.ink,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          LocalTestCountdownCard(seconds: state.countdownSeconds),
         ] else ...[
           // 3-Step Challenge Box
           AppSheet(
@@ -897,7 +792,9 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           variant: AppButtonVariant.ghost,
           size: AppButtonSize.sm,
           isFullWidth: true,
-          onPressed: cubit.navigateToHome,
+          onPressed: () => unawaited(
+            cubit.navigateToHome(isReplay: widget.isReplay),
+          ),
         ),
         // 12px from the scaffold makes 24 above the home indicator.
         const SizedBox(height: 12),

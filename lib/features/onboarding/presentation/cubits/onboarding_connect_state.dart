@@ -1,18 +1,15 @@
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
+import 'package:critalarm/features/onboarding/presentation/model/local_test_alarm.dart';
 import 'package:flutter/foundation.dart';
+
+export 'package:critalarm/features/onboarding/presentation/model/local_test_alarm.dart'
+    show TestAlarmStatus;
 
 enum OnboardingConnectStatus {
   idle,
   connecting,
   connected,
-  failure,
-}
-
-enum TestAlarmStatus {
-  idle,
-  ringing,
-  success,
   failure,
 }
 

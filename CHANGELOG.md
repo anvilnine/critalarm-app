@@ -10,6 +10,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
 - Setup no longer waits on the connection. Continue with Crit Alarm Cloud moves on at once and the connection finishes while you answer the permission steps
+- The setup test alarm now comes from your server, so it tests the whole path.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said

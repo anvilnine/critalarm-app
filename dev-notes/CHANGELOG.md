@@ -15,6 +15,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - PermissionStepDots counts the steps a phone draws. OnboardingAmbientStep.battery is the canvas for the battery step.
 - Settings variant of the notification step for a spent prompt, with keys onboarding\_permissions.{ios,android}.notifications.settings\_\*. AndroidSdkReader reads the API level.
 - Topics: ToolTemplate enum, FirstTopicHandoff (in-memory token, name saved as onboarding\_first\_topic), ToolTemplateStore (topic\_tool\_template.<name>), isFirstTopicFor, AppTopicChip isSelected and hitSlop.
+- RealRingCubit and real\_ring\_screen.dart run the real\_ring step: the server sends the test alarm, AlarmArrivals says when it reached this phone, and LocalTestAlarm is the one copy of the phone-only fallback.
+- Prefs key onboarding\_real\_ring\_incident (SetupTestRing) holds the incident id of the setup test until setup completes.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -29,6 +31,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - PermissionDialogPreview is split into IosPermissionDialogPreview, AndroidPermissionDialogPreview and AndroidSettingsSwitchPreview inside a shared PermissionPreviewFrame. The full-screen step now draws a settings switch.
 - Permission steps hold still once drawn: freezePermissionSteps only appends. The status read times out after five seconds. The battery dialog's Deny moves on.
 - The connect step counts as done only while a connection is saved or a connect is pending, a 429 from device registration is a permanent device cap failure, and the privacy line needs relay\_content present in the answer (ServerInfo.statedRelayContent)
+- Setup completion moved: the acknowledged screen finishes the real\_ring step and the flow engine completes setup, legacy-1 keeps its own buttons, and every Set this up later exit calls SetUpLaterUsecase.
+- The onPushReceived channel call carries the incident id of an alarm push (PushHost.alarmPushes), and Android answers receivedAlarmFor on the alarm channel.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -38,6 +42,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
 - NotificationPermissionsState.activeSubstep, totalSteps, alarmSupported, fullScreenStep, fullScreenGranted, notificationsGranted and criticalAlertsGranted, replaced by steps, current and granted. The cubit's requestNotifications, requestCriticalAlerts and requestPermissions are one allowCurrentStep.
+- OnboardingPermissionsCubit and OnboardingConnectCubit.ringTestAlarm, both unused and holding hardcoded English.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added
