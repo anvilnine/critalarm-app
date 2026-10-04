@@ -1,68 +1,52 @@
-import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
-import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/open_notification_settings_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/read_permission_setup_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/request_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
-import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
+import 'package:critalarm/features/permissions/domain/entities/permission_setup_step.dart';
 import 'package:critalarm/features/permissions/domain/repositories/device_permissions_repository.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Cubit managing the Screen 1 Permissions step (Option B: 2-step stepper).
+/// Walks the permission steps of this phone, one at a time.
+///
+/// The steps come from `permissionSetupStepsFor` through [readSetup], which
+/// also reads each one's status. Nothing is drawn before that read: the
+/// state has no current step until the cubit knows which one the user still
+/// needs, so a granted step never shows.
 class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   NotificationPermissionsCubit(
     this._requestPermission,
     this._openSettings, {
+    required this.readSetup,
     this.alarm,
-    this.checkPermission,
     this.devicePermissions,
-    TargetPlatform? platform,
     this.replayForDemo = false,
     this.standalone = false,
+    this.readTimeout = const Duration(seconds: 5),
     NotificationPermissionStep initialStep = NotificationPermissionStep.initial,
-  }) : _platform = platform ?? defaultTargetPlatform,
-       super(NotificationPermissionsState(step: initialStep));
+  }) : super(NotificationPermissionsState(step: initialStep));
 
   final RequestNotificationPermissionUsecase _requestPermission;
   final OpenNotificationSettingsUsecase _openSettings;
 
-  /// Null off iOS, and in tests that only care about the notification step.
+  /// Reads the step list and every status. The flow engine asks the same
+  /// reader whether the permissions step is already satisfied.
+  final ReadPermissionSetupUsecase readSetup;
+
+  /// Asks for AlarmKit and starts the one local Live Activity. Null in tests
+  /// that never reach the alarm step.
   final AlarmHost? alarm;
 
-  /// Null in tests that do not exercise the skip-what-is-granted path.
-  final CheckNotificationPermissionUsecase? checkPermission;
-
-  /// Reads and opens the Android full-screen alarm permission. The same
-  /// repository Health uses, so there is one channel for it. Null in tests
-  /// and off Android.
+  /// Opens the settings page behind an Android step. The same repository
+  /// Health uses, so there is one channel for it.
   final DevicePermissionsRepository? devicePermissions;
-
-  final TargetPlatform _platform;
-
-  /// Android with a way to ask: step 2 is the full-screen alarm permission.
-  bool get _androidFullScreen =>
-      !kIsWeb &&
-      _platform == TargetPlatform.android &&
-      devicePermissions != null;
-
-  Future<bool> _readFullScreenGranted() async {
-    final repo = devicePermissions;
-    if (repo == null) return false;
-    final result = await repo.checkPermission(
-      DevicePermissionType.fullScreenIntent,
-    );
-    return result.fold(
-      (status) => status == DevicePermissionStatus.granted,
-      (_) => false,
-    );
-  }
 
   /// True when the developer menu opened onboarding to look at it. Then every
   /// step is shown even where the permission is already granted, because the
@@ -74,115 +58,165 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   /// system prompt earns a step, and the screen closes once none is left.
   final bool standalone;
 
-  /// Whether step 2 still has a prompt behind it. In onboarding it always
-  /// shows, even as an explanation. On its own it needs AlarmKit to be able
-  /// to ask, which it does only once.
-  bool _hasAlarmStep(AlarmAuthorization authorization, {bool? fullScreen}) {
-    if (_androidFullScreen) {
-      return !standalone || !(fullScreen ?? state.fullScreenGranted);
-    }
-    return !standalone || authorization == AlarmAuthorization.notDetermined;
-  }
+  /// How long a status read may take. A read that is still out after this
+  /// is given up on, so the screen is never left checking for good.
+  final Duration readTimeout;
+
+  /// The step whose system dialog is open. Its answer, yes or no, moves on.
+  PermissionSetupStep? _dialogOpenFor;
+
+  PermissionAskMode get _mode => replayForDemo
+      ? PermissionAskMode.replay
+      : standalone
+      ? PermissionAskMode.standalone
+      : PermissionAskMode.setup;
 
   /// The incident id the onboarding card uses. Not a real incident: it exists
   /// so the Allow prompt for Live Activities happens here rather than the
   /// first time the relay tries a remote start.
   static const onboardingIncidentId = 'inc_onboarding';
 
-  /// Reads the system state without prompting, and moves past anything the
-  /// user has already granted.
+  /// Reads the system state without prompting, and lands on the first step
+  /// that still needs an answer.
   ///
   /// Called when the screen opens and again every time the app comes back to
-  /// the front, so a permission granted over in Settings is picked up without
-  /// the user having to find a retry button.
+  /// the front. That is how a step behind a settings page finishes, and how a
+  /// permission granted over in Settings is picked up without the user
+  /// having to find a retry button. Nothing is assumed between reads.
   Future<void> refresh() async {
-    final check = checkPermission;
-    final alarmHost = alarm;
-    if (check == null && alarmHost == null) {
-      return;
-    }
     // A system dialog sends the app to the background and back, which lands
     // here. Leave a request that is still running alone.
-    if (state.isRequesting) return;
+    if (state.isRequesting || state.isGranted) return;
 
     emit(state.copyWith(isChecking: true));
-
-    var notificationsGranted = state.notificationsGranted;
-    if (check != null) {
-      final result = await check(const NoParams());
-      notificationsGranted = result.fold(
-        (status) => status == NotificationPermissionStatus.granted,
-        (_) => notificationsGranted,
-      );
+    PermissionSetupSnapshot? snapshot;
+    try {
+      // Null when the read timed out or failed. Nothing is known then, so
+      // nothing changes: "Not now" is on screen either way, and the next
+      // resume reads again.
+      snapshot = await _readWithinTimeout();
+    } finally {
+      if (!isClosed) emit(state.copyWith(isChecking: false));
     }
+    if (isClosed || snapshot == null) return;
+    // The user answered while the read was out. Their answer stands.
+    if (state.isRequesting || state.isGranted) return;
 
-    var authorization = state.alarm;
-    if (alarmHost != null) {
-      authorization = await alarmHost.authorizationStatus();
-    }
-    // Android, and iOS below 26, have no alarm permission to ask for. There is
-    // one step on those phones, not two.
-    final alarmSupported =
-        alarmHost != null && authorization != AlarmAuthorization.unsupported;
-    final androidStep = _androidFullScreen;
-    final fullScreenGranted = androidStep && await _readFullScreenGranted();
-    final alarmGranted = androidStep
-        ? fullScreenGranted
-        : authorization == AlarmAuthorization.authorized;
-
-    final hasStep2 =
-        (alarmSupported || androidStep) &&
-        _hasAlarmStep(authorization, fullScreen: fullScreenGranted);
-
-    if (isClosed) return;
-
-    if (replayForDemo) {
-      emit(
-        state.copyWith(
-          isChecking: false,
-          alarm: authorization,
-          alarmSupported: alarmSupported,
-          fullScreenStep: androidStep,
-          fullScreenGranted: fullScreenGranted,
-          notificationsGranted: notificationsGranted,
-        ),
-      );
-      return;
-    }
-
-    // Without an alarm permission to ask for, step 2 only explains what this
-    // phone does. There is nothing left to grant.
-    final step2Granted = !hasStep2 || alarmGranted;
-    final everythingGranted = notificationsGranted && step2Granted;
-
-    emit(
+    final read = _withSteps(
       state.copyWith(
-        isChecking: false,
-        alarm: authorization,
-        alarmSupported: alarmSupported,
-        fullScreenStep: androidStep,
-        fullScreenGranted: fullScreenGranted,
-        notificationsGranted: notificationsGranted,
-        criticalAlertsGranted:
-            alarmGranted || (!alarmSupported && !androidStep),
-        // A granted step is not worth a screen. Land on the first one that
-        // still needs an answer, but never send the user back a step they
-        // already answered or skipped.
-        activeSubstep: math.max(
-          state.activeSubstep,
-          notificationsGranted && hasStep2 ? 1 : 0,
-        ),
-        step: everythingGranted
-            ? NotificationPermissionStep.granted
-            : NotificationPermissionStep.initial,
-        canNavigate: everythingGranted,
+        available: snapshot.steps,
+        granted: snapshot.granted,
+        promptSpent: snapshot.promptSpent,
+        alarm: snapshot.alarm,
         clearError: true,
       ),
     );
+
+    // The denied screen stays until the user leaves it. It only closes
+    // itself when Settings fixed everything while the app was away.
+    if (state.isDenied) {
+      emit(snapshot.everyGranted ? _finished(read) : read);
+      return;
+    }
+
+    // A system dialog was open and the user is back. Yes or no, that was
+    // their answer, and a refusal moves on like a refused notification.
+    final answered = _dialogOpenFor;
+    _dialogOpenFor = null;
+
+    // A granted step is not worth a screen, the one on screen included: a
+    // switch turned on in Settings moves the user on when they come back. A
+    // replay stays put, because it is there to be looked at.
+    final current = state.current;
+    final stillNeeded =
+        current != null &&
+        current != answered &&
+        (replayForDemo || !snapshot.granted.contains(current));
+    if (stillNeeded) {
+      emit(read);
+      return;
+    }
+    _moveOn(read);
   }
 
-  /// Step 1: Requests system notification permission.
-  Future<void> requestNotifications() async {
+  /// The status read, given up on after [readTimeout]. A read that hangs
+  /// answers null rather than leaving the screen checking for good. The
+  /// timer is the cubit's own, so closing the screen stops it.
+  Future<PermissionSetupSnapshot?> _readWithinTimeout() {
+    final done = Completer<PermissionSetupSnapshot?>();
+    void finish(PermissionSetupSnapshot? snapshot) {
+      if (!done.isCompleted) done.complete(snapshot);
+    }
+
+    _readTimer?.cancel();
+    final timer = _readTimer = Timer(readTimeout, () => finish(null));
+    unawaited(
+      readSetup().then<void>(finish, onError: (Object _) => finish(null)),
+    );
+    return done.future.whenComplete(timer.cancel);
+  }
+
+  Timer? _readTimer;
+
+  @override
+  Future<void> close() {
+    _readTimer?.cancel();
+    return super.close();
+  }
+
+  /// Brings the list on screen up to date with what is granted now. The
+  /// first time, that is the list the dots are drawn from. After that it is
+  /// frozen: a step can only be added at its end.
+  NotificationPermissionsState _withSteps(NotificationPermissionsState from) {
+    final fresh = permissionStepsToRender(
+      from.available,
+      granted: from.granted,
+      mode: _mode,
+      alreadyShown: from.shown,
+      cannotAsk: from.promptSpent,
+    );
+    return from.copyWith(
+      steps: freezePermissionSteps(from.steps, fresh, order: from.available),
+    );
+  }
+
+  /// The main button of the step on screen.
+  Future<void> allowCurrentStep() async {
+    final current = state.current;
+    if (current == null || state.isRequesting) return;
+    switch (current) {
+      case PermissionSetupStep.iosNotifications:
+      case PermissionSetupStep.androidNotifications:
+        await _requestNotifications(current);
+      case PermissionSetupStep.iosAlarms:
+        await _requestAlarm(current);
+      case PermissionSetupStep.iosTimeSensitiveExplainer:
+        // Nothing to ask for. The button only reads "Continue".
+        skipStep();
+      case PermissionSetupStep.androidFullScreen:
+        await _openSettingsPage(DevicePermissionType.fullScreenIntent);
+      case PermissionSetupStep.androidBattery:
+        // Android asks for this one in a dialog. Coming back from it is an
+        // answer, whichever button was tapped.
+        _dialogOpenFor = current;
+        await _openSettingsPage(DevicePermissionType.batteryOptimization);
+    }
+  }
+
+  /// "Not now", and what a refused or failed prompt does too: move to the
+  /// next step without asking, or finish when there is none.
+  void skipStep() {
+    _dialogOpenFor = null;
+    _moveOn(state);
+  }
+
+  Future<void> _requestNotifications(PermissionSetupStep current) async {
+    // The system will not prompt again, so asking would do nothing. The
+    // switch is in Settings: open it and wait, as for any settings step.
+    if (state.promptSpent.contains(current)) {
+      await _openSettings(const NoParams());
+      return;
+    }
     emit(
       state.copyWith(
         step: NotificationPermissionStep.requesting,
@@ -194,89 +228,23 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     final result = await _requestPermission(const NoParams());
     if (isClosed) return;
 
-    result.fold(
-      (status) {
-        if (status == NotificationPermissionStatus.granted) {
-          _afterNotificationsGranted();
-        } else {
-          // A refusal moves on. Home's health banner keeps asking later.
-          skipStep();
-        }
-      },
-      (_) => skipStep(),
+    // A refusal moves on like a grant does. Home's health banner keeps
+    // asking later.
+    final granted = result.getOrNull() == NotificationPermissionStatus.granted;
+    _moveOn(
+      state.copyWith(granted: {...state.granted, if (granted) current}),
     );
   }
 
-  /// "Not now", and what a refused or failed prompt does too: move to the
-  /// next step without asking, or finish when there is none.
-  void skipStep() {
-    if (state.activeSubstep == 0 &&
-        alarm != null &&
-        _hasAlarmStep(state.alarm)) {
-      emit(
-        state.copyWith(
-          activeSubstep: 1,
-          step: NotificationPermissionStep.initial,
-          canNavigate: false,
-          clearError: true,
-        ),
-      );
-      return;
-    }
-    continueWithout();
-  }
-
-  void _afterNotificationsGranted() {
-    final alarmHost = alarm;
-    if (alarmHost == null || !_hasAlarmStep(state.alarm)) {
-      emit(
-        state.copyWith(
-          notificationsGranted: true,
-          criticalAlertsGranted:
-              alarmHost == null || state.criticalAlertsGranted,
-          alarmSupported: alarmHost != null && state.alarmSupported,
-          step: NotificationPermissionStep.granted,
-          canNavigate: true,
-          clearError: true,
-        ),
-      );
-      return;
-    }
-    emit(
-      state.copyWith(
-        notificationsGranted: true,
-        activeSubstep: 1,
-        step: NotificationPermissionStep.initial,
-        clearError: true,
-      ),
-    );
-  }
-
-  /// Step 2: the alarm permission (AlarmKit on iOS 26 and up).
+  /// The AlarmKit prompt, and with it the one local Live Activity.
   ///
-  /// A denial no longer stops onboarding. Apple's own guidance is that the app
+  /// A denial does not stop onboarding. Apple's own guidance is that the app
   /// must not hold the user hostage over a permission, and AlarmKit never
   /// prompts twice, so refusing to move on would strand them for good.
-  Future<void> requestCriticalAlerts() async {
+  Future<void> _requestAlarm(PermissionSetupStep current) async {
     final alarmHost = alarm;
-    if (_androidFullScreen) {
-      // Android has no prompt. The permission lives on a settings page, so
-      // open it and wait here. Coming back re-reads it through [refresh], and
-      // "Not now" is still on screen for a user who says no.
-      await devicePermissions!.openPermissionSettings(
-        DevicePermissionType.fullScreenIntent,
-      );
-      return;
-    }
     if (alarmHost == null) {
-      emit(
-        state.copyWith(
-          criticalAlertsGranted: true,
-          alarmSupported: false,
-          step: NotificationPermissionStep.granted,
-          canNavigate: true,
-        ),
-      );
+      skipStep();
       return;
     }
 
@@ -297,54 +265,61 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     );
     if (isClosed) return;
 
-    // `unsupported` is not a grant. It means this OS has no such permission,
-    // so the step is not a step here and the app must not claim the alarm
-    // will ring through silent mode.
-    final supported = authorization != AlarmAuthorization.unsupported;
-    emit(
+    _moveOn(
       state.copyWith(
         alarm: authorization,
-        alarmSupported: supported,
         liveActivityStarted: started,
-        criticalAlertsGranted:
-            authorization == AlarmAuthorization.authorized || !supported,
-        step: NotificationPermissionStep.granted,
-        canNavigate: true,
-        clearError: true,
+        granted: {
+          ...state.granted,
+          if (authorization == AlarmAuthorization.authorized) current,
+        },
       ),
     );
   }
+
+  /// Android has no prompt for these. The permission lives on a settings
+  /// page, so open it and wait here. Coming back re-reads it through
+  /// [refresh], and "Not now" is still on screen for a user who says no.
+  Future<void> _openSettingsPage(DevicePermissionType type) async {
+    final repo = devicePermissions;
+    if (repo == null) {
+      skipStep();
+      return;
+    }
+    await repo.openPermissionSettings(type);
+  }
+
+  void _moveOn(NotificationPermissionsState before) {
+    final from = _withSteps(before);
+    final next = nextPermissionStep(
+      from.steps,
+      alreadyShown: from.shown,
+      granted: from.granted,
+      showGranted: replayForDemo,
+    );
+    emit(
+      next == null
+          ? _finished(from)
+          : from.copyWith(
+              current: next,
+              step: NotificationPermissionStep.initial,
+              canNavigate: false,
+              clearError: true,
+            ),
+    );
+  }
+
+  NotificationPermissionsState _finished(NotificationPermissionsState from) =>
+      from.copyWith(
+        step: NotificationPermissionStep.granted,
+        canNavigate: true,
+        isChecking: false,
+        clearError: true,
+      );
 
   /// Leaves the permission unanswered and carries on. The app says what it
   /// cannot do rather than blocking, and the health banner keeps asking later.
-  void continueWithout() {
-    emit(
-      state.copyWith(
-        step: NotificationPermissionStep.granted,
-        canNavigate: true,
-        clearError: true,
-      ),
-    );
-  }
-
-  /// Backward-compatible combined request for tests or single-tap.
-  Future<void> requestPermissions() async {
-    if (state.activeSubstep == 0 && !state.notificationsGranted) {
-      await requestNotifications();
-    } else {
-      await requestCriticalAlerts();
-    }
-  }
-
-  /// The two iOS prompts that follow the notification one.
-  Future<void> requestAlarmAndActivity() => requestCriticalAlerts();
-
-  /// Reads the alarm state back without prompting, for the status row.
-  Future<void> refreshAlarmAuthorization() async {
-    final alarmHost = alarm;
-    if (alarmHost == null) return;
-    emit(state.copyWith(alarm: await alarmHost.authorizationStatus()));
-  }
+  void continueWithout() => emit(_finished(state));
 
   /// Opens the system app notification settings.
   Future<void> openSettings() async {
@@ -354,10 +329,5 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   /// Resets the navigation trigger once handled by the router.
   void navigationHandled() {
     emit(state.copyWith(canNavigate: false));
-  }
-
-  /// Resets to initial state.
-  void reset() {
-    emit(const NotificationPermissionsState());
   }
 }

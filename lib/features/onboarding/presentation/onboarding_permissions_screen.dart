@@ -7,12 +7,14 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
+import 'package:critalarm/features/onboarding/presentation/model/permission_step_view.dart';
+import 'package:critalarm/features/onboarding/presentation/model/permission_step_views.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
-import 'package:critalarm/features/onboarding/presentation/widgets/permission_dialog_preview.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/permission_preview_frame.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/permission_step_dots.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -20,10 +22,16 @@ import 'package:go_router/go_router.dart';
 /// The permissions step of setup (/onboarding).
 ///
 /// A stepper that only shows the steps this phone actually has, and only the
-/// ones the user has not already answered. Nothing here blocks: "Not now" or a
-/// refused prompt moves straight to the next step, because Apple's own
-/// guidance forbids holding the app hostage over one, and AlarmKit never
-/// prompts twice. Home's health banner asks again later.
+/// ones the user has not already answered. The cubit hands it one step at a
+/// time and a view says what that step looks like, so nothing in here knows
+/// which platform it is on. Until the cubit has read the statuses there is
+/// no step, and the screen shows the waiting face rather than a prompt it
+/// may be about to skip.
+///
+/// Nothing here blocks: "Not now" or a refused prompt moves straight to the
+/// next step, because Apple's own guidance forbids holding the app hostage
+/// over one, and AlarmKit never prompts twice. Home's health banner asks
+/// again later.
 class OnboardingPermissionsScreen extends StatelessWidget {
   const OnboardingPermissionsScreen({
     super.key,
@@ -70,27 +78,46 @@ class _OnboardingPermissionsView extends StatefulWidget {
 
 class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     with WidgetsBindingObserver {
+  /// The face every onboarding screen shares, so it flies between them.
+  static const _faceHeroTag = 'onboarding-face';
+  static const double _faceSize = 80;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _syncAmbientStep();
+      _syncAmbientStep(context.read<NotificationPermissionsCubit>().state);
     });
   }
 
-  void _syncAmbientStep() {
-    final cubit = context.read<NotificationPermissionsCubit>();
+  /// Tells the canvas which step is on screen. The steps only move forward,
+  /// so the shapes always drift the same way, however many steps this phone
+  /// has. With no step yet the canvas is left where the route put it.
+  void _syncAmbientStep(NotificationPermissionsState state) {
     final ambient = OnboardingAmbientScope.maybeOf(context);
     if (ambient == null) return;
-    if (cubit.state.isDenied) {
+    if (state.isDenied) {
       ambient.setStep(OnboardingAmbientStep.denied);
-    } else if (cubit.state.activeSubstep == 1) {
-      ambient.setStep(OnboardingAmbientStep.alarms, AmbientDirection.right);
-    } else {
-      ambient.setStep(OnboardingAmbientStep.notifications);
+      return;
     }
+    final view = _viewOf(state);
+    if (view == null) return;
+    ambient.setStep(view.ambient, AmbientDirection.right);
+  }
+
+  PermissionStepView? _viewOf(NotificationPermissionsState state) {
+    final step = state.current;
+    if (step == null) return null;
+    // An iPhone below iOS 26 must never be told it rings through silent
+    // mode. RingClaim says which words apply on this phone.
+    return permissionStepViewFor(
+      step,
+      claim: RingClaim.forPhone(state.alarm),
+      promptSpent: state.promptSpent.contains(step),
+      notificationsGranted: state.notificationsGranted,
+    );
   }
 
   @override
@@ -110,9 +137,6 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final isApple =
-        defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.macOS;
 
     return BlocConsumer<
       NotificationPermissionsCubit,
@@ -120,7 +144,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     >(
       listenWhen: (prev, curr) =>
           (!prev.canNavigate && curr.canNavigate) ||
-          prev.activeSubstep != curr.activeSubstep ||
+          prev.current != curr.current ||
           prev.isDenied != curr.isDenied,
       listener: (context, state) {
         if (state.canNavigate) {
@@ -134,45 +158,13 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
           }
           return;
         }
-        final ambient = OnboardingAmbientScope.maybeOf(context);
-        if (ambient != null) {
-          if (state.isDenied) {
-            ambient.setStep(OnboardingAmbientStep.denied);
-          } else if (state.activeSubstep == 1) {
-            ambient.setStep(
-              OnboardingAmbientStep.alarms,
-              AmbientDirection.right,
-            );
-          } else {
-            ambient.setStep(
-              OnboardingAmbientStep.notifications,
-              AmbientDirection.left,
-            );
-          }
-        }
+        _syncAmbientStep(state);
       },
       builder: (context, state) {
         final cubit = context.read<NotificationPermissionsCubit>();
-        final isStep2 = state.activeSubstep == 1;
-        // Only an iPhone below iOS 26 has no alarm to ask for. It gets an
-        // explainer instead of a ring promise. Android asks for the
-        // full-screen alarm permission, so RingClaim says which words apply.
-        final claim = RingClaim.forPhone(state.alarm);
-        final alarmless = isStep2 && claim == RingClaim.timeSensitive;
-        final android = !isApple;
-        final requestStep = isStep2
-            ? cubit.requestCriticalAlerts
-            : cubit.requestNotifications;
-
-        final previewTitle = _previewTitle(isApple, isStep2);
-        final previewMessage = _previewMessage(isApple, isStep2);
-        final summaryLabel = LocaleKeys
-            .onboarding_permissions_preview_allow_summary
-            .tr();
-        // Android step 2 opens a settings page with a switch, not a dialog.
-        final previewHint = isStep2 && !isApple
-            ? LocaleKeys.onboarding_permissions_preview_hint_android.tr()
-            : LocaleKeys.onboarding_permissions_preview_hint.tr();
+        final view = _viewOf(state);
+        final preview = view?.preview;
+        final badge = view?.badge;
 
         return AppScreenScaffold(
           // On its own the screen sits over Health, not over the onboarding
@@ -188,6 +180,15 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                     glyph: GlyphType.close,
                     ariaLabel: LocaleKeys.common_back.tr(),
                     onPressed: () => _close(context),
+                  )
+                : null,
+            // Counts the steps this phone draws, so it is right with two
+            // steps and with three. One step has nothing to count and
+            // draws no dots. Up here they never push the buttons around.
+            trailing: view != null && !state.isDenied && state.steps.length > 1
+                ? PermissionStepDots(
+                    count: state.steps.length,
+                    index: state.currentIndex,
                   )
                 : null,
           ),
@@ -210,28 +211,31 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                       label: LocaleKeys.onboarding_permissions_denied_skip.tr(),
                       variant: AppButtonVariant.paper,
                       isFullWidth: true,
-                      isLoading: state.isChecking,
                       onPressed: cubit.continueWithout,
                     ),
                   ]
                 : [
-                    AppButton(
-                      label: _primaryLabel(isStep2, alarmless, android),
-                      size: AppButtonSize.lg,
-                      isFullWidth: true,
-                      isLoading: state.isRequesting,
-                      onPressed: alarmless
-                          ? cubit.continueWithout
-                          : requestStep,
-                    ),
-                    // Nothing to skip when the step only explains.
-                    if (!alarmless) ...[
+                    if (view != null)
+                      AppButton(
+                        label: view.button,
+                        size: AppButtonSize.lg,
+                        isFullWidth: true,
+                        isLoading: state.isRequesting,
+                        onPressed: cubit.allowCurrentStep,
+                      ),
+                    // The way forward is there before the first step is: a
+                    // status read that hangs must not hold the user here.
+                    if (view == null || view.canSkip) ...[
                       const SizedBox(height: Spacing.s3),
                       AppButton(
                         label: LocaleKeys.onboarding_permissions_not_now.tr(),
                         variant: AppButtonVariant.paper,
                         isFullWidth: true,
-                        onPressed: state.isRequesting ? null : cubit.skipStep,
+                        onPressed: state.isRequesting
+                            ? null
+                            : view == null
+                            ? cubit.continueWithout
+                            : cubit.skipStep,
                       ),
                     ],
                   ],
@@ -254,38 +258,45 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                             .onboarding_permissions_denied_description
                             .tr(),
                       )
+                    : view == null
+                    // The statuses are still being read. The face sits
+                    // where a step's face will, so nothing jumps when the
+                    // first step arrives.
+                    ? Center(
+                        child: AppWaitingFace(
+                          message: LocaleKeys.onboarding_permissions_checking
+                              .tr(),
+                          faceSize: _faceSize,
+                          heroTag: _faceHeroTag,
+                        ),
+                      )
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Center(
                             child: Hero(
-                              tag: 'onboarding-face',
+                              tag: _faceHeroTag,
                               flightShuttleBuilder: faceFlightShuttleBuilder,
                               child: FaceWidget(
-                                state: isStep2
-                                    ? FaceState.watching
-                                    : FaceState.alarmed,
-                                size: 80,
+                                state: view.face,
+                                size: _faceSize,
                                 isLive: true,
                               ),
                             ),
                           ),
-                          const SizedBox(height: Spacing.s3),
-                          Center(
-                            child: AppBadge(
-                              text: isStep2
-                                  ? _step2Badge(alarmless)
-                                  : LocaleKeys.onboarding_permissions_badge
-                                        .tr(),
-                              faceState: isStep2
-                                  ? FaceState.watching
-                                  : FaceState.alarmed,
+                          if (badge != null) ...[
+                            const SizedBox(height: Spacing.s3),
+                            Center(
+                              child: AppBadge(
+                                text: badge,
+                                faceState: view.face,
+                              ),
                             ),
-                          ),
+                          ],
                           const SizedBox(height: Spacing.s4),
 
                           Text(
-                            _title(isStep2, alarmless, android),
+                            view.title,
                             style: AppTypography.display(
                               colors.onCanvas,
                               fontSize: 32,
@@ -293,37 +304,30 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                           ),
                           const SizedBox(height: Spacing.s2),
                           Text(
-                            _subtitle(isStep2, alarmless, android),
+                            view.subtitle,
                             style: AppTypography.lead(
                               colors.onCanvasMuted,
                               fontSize: 15,
                             ),
                           ),
 
-                          // No prompt is coming on this phone, so there is
-                          // no dialog to preview.
-                          if (!alarmless) ...[
+                          // A step with no prompt coming has no prompt to
+                          // draw.
+                          if (preview != null) ...[
                             const SizedBox(height: Spacing.s5),
-                            PermissionDialogPreview(
-                              title: previewTitle,
-                              message: previewMessage,
-                              allowLabel: LocaleKeys
-                                  .onboarding_permissions_preview_allow
-                                  .tr(),
-                              denyLabel: LocaleKeys
-                                  .onboarding_permissions_preview_dont_allow
-                                  .tr(),
-                              summaryLabel: isApple && !isStep2
-                                  ? summaryLabel
-                                  : null,
-                              isCritical: isStep2,
-                              semanticLabel: '$previewTitle. $previewHint',
-                              onTap: state.isRequesting ? null : requestStep,
+                            PermissionPreviewFrame(
+                              semanticLabel:
+                                  '${preview.title}. ${preview.hint}',
+                              onTap: state.isRequesting
+                                  ? null
+                                  : cubit.allowCurrentStep,
+                              child: preview.child,
                             ),
                             const SizedBox(height: 12),
                             Center(
                               child: Text(
-                                previewHint,
+                                preview.hint,
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontFamily: AppTypography.fontMono,
                                   fontFamilyFallback:
@@ -350,71 +354,5 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     } else {
       context.go('/settings/permissions');
     }
-  }
-
-  /// The chip over step 2 follows [RingClaim]: an iPhone below iOS 26 must
-  /// not be told it rings through silent mode.
-  String _step2Badge(bool alarmless) => alarmless
-      ? LocaleKeys.onboarding_permissions_badge_step2_time_sensitive.tr()
-      : LocaleKeys.onboarding_permissions_badge_step2.tr();
-
-  String _title(bool isStep2, bool alarmless, bool android) {
-    if (alarmless) {
-      return LocaleKeys.onboarding_permissions_step2_unsupported_title.tr();
-    }
-    if (isStep2 && android) {
-      return LocaleKeys.onboarding_permissions_step2_title_android.tr();
-    }
-    return isStep2
-        ? LocaleKeys.onboarding_permissions_step2_title.tr()
-        : LocaleKeys.onboarding_permissions_step1_title.tr();
-  }
-
-  String _subtitle(bool isStep2, bool alarmless, bool android) {
-    if (alarmless) {
-      return LocaleKeys.onboarding_permissions_step2_unsupported_subtitle.tr();
-    }
-    if (isStep2 && android) {
-      return LocaleKeys.onboarding_permissions_step2_subtitle_android.tr();
-    }
-    return isStep2
-        ? LocaleKeys.onboarding_permissions_step2_subtitle.tr()
-        : LocaleKeys.onboarding_permissions_step1_subtitle.tr();
-  }
-
-  String _primaryLabel(bool isStep2, bool alarmless, bool android) {
-    if (alarmless) {
-      return LocaleKeys.onboarding_permissions_step2_unsupported_button.tr();
-    }
-    if (isStep2 && android) {
-      return LocaleKeys.onboarding_permissions_step2_button_android.tr();
-    }
-    return isStep2
-        ? LocaleKeys.onboarding_permissions_step2_button.tr()
-        : LocaleKeys.onboarding_permissions_step1_button.tr();
-  }
-
-  /// The preview mirrors the prompt this platform will actually show, so
-  /// Android never sees Apple's wording for a dialog it will never open.
-  String _previewTitle(bool isApple, bool isStep2) {
-    if (isStep2) {
-      return isApple
-          ? LocaleKeys.onboarding_permissions_preview_crit_title.tr()
-          : LocaleKeys.onboarding_permissions_preview_crit_title_android.tr();
-    }
-    return isApple
-        ? LocaleKeys.onboarding_permissions_preview_notif_title.tr()
-        : LocaleKeys.onboarding_permissions_preview_notif_title_android.tr();
-  }
-
-  String _previewMessage(bool isApple, bool isStep2) {
-    if (isStep2) {
-      return isApple
-          ? LocaleKeys.onboarding_permissions_preview_crit_desc.tr()
-          : LocaleKeys.onboarding_permissions_preview_crit_desc_android.tr();
-    }
-    return isApple
-        ? LocaleKeys.onboarding_permissions_preview_notif_desc.tr()
-        : LocaleKeys.onboarding_permissions_preview_notif_desc_android.tr();
   }
 }

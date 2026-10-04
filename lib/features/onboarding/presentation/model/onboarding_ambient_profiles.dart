@@ -25,6 +25,9 @@ enum OnboardingAmbientStep {
   /// Step 1B: AlarmKit / Critical alerts permission prompt.
   alarms,
 
+  /// The battery permission prompt, on Android phones that get one.
+  battery,
+
   /// Step 1C: Permission denied guidance and skip.
   denied,
 
@@ -124,6 +127,20 @@ abstract final class OnboardingAmbientProfiles {
         ],
         scales: const [0.40, 0.42, 0.32],
         turns: const [0.10, 0.04, 0.22],
+        depths: const [0.35, 0.65, 0.85],
+      ),
+      OnboardingAmbientStep.battery: _profile(
+        canvas: colors.canvasAlt,
+        surfaceOpacity: 0.84,
+        colors: [colors.cobalt, colors.high, colors.crit],
+        opacities: const [0.20, 0.22, 0.12],
+        anchors: const [
+          Alignment(0.62, -0.74),
+          Alignment(-0.80, -0.10),
+          Alignment(0.40, 0.78),
+        ],
+        scales: const [0.36, 0.40, 0.30],
+        turns: const [0.14, -0.02, 0.26],
         depths: const [0.35, 0.65, 0.85],
       ),
       OnboardingAmbientStep.denied: _profile(

@@ -276,6 +276,64 @@ constant), so it ignores both keys even when they are set.
 A replay changes nothing real: no flow state, no topic on the first-topic
 step, and no connect form draft (`onboarding_replay_rules.dart`).
 
+**Permission steps.** The permissions screen is one setup step that walks a
+list of its own. `permissionSetupStepsFor`
+(`lib/features/permissions/domain/entities/permission_setup_step.dart`)
+returns the ordered list for a phone from values it is handed: the platform,
+whether AlarmKit exists, and the phone's maker.
+
+- iOS 26 or later: notifications, then AlarmKit.
+- iOS 16 to 25: notifications, then the Time-Sensitive explainer.
+- Android: notifications, then the full-screen alarm, then battery on a
+  listed maker.
+- Web and desktop: none.
+
+`ReadPermissionSetupUsecase` builds that list and reads every step's status.
+The flow engine's `permissions` check (`hasEveryPermission`) and the screen's
+cubit both call it, so "every permission granted" has one definition. Nothing
+is cached: the screen reads when it opens and every time the app comes back,
+because a store can grant a permission at install.
+
+A granted step is never drawn. The cubit has no current step until the
+statuses are read, and the screen shows the waiting face until then.
+`permissionStepsToRender` decides what one run draws: setup leaves out what is
+granted, the screen opened from Health keeps only steps with a prompt left,
+and a replay shows all of them.
+
+The list on screen holds still once drawn (`freezePermissionSteps`): a later
+read can pass over a step that became granted and can add a step at the end,
+but never removes a dot or puts one in before the step on screen. The read
+gives up after five seconds, so the screen never stays checking, and "Not now"
+is on screen from the first frame.
+
+A step never says more than is true. The Time-Sensitive explainer shows only
+once notifications are granted. The Android full-screen chip is left off while
+notifications are not granted. When the system will not show a notification
+prompt again (`notificationPromptSpent`), the step opens Settings and draws a
+switch instead of a prompt.
+
+iOS and Android stay apart. Each step is its own enum value
+(`iosNotifications`, `androidNotifications`), with its own view, strings
+(`onboarding_permissions.ios.*`, `onboarding_permissions.android.*`) and drawn
+prompt. To add a step for one platform:
+
+1. Add a value to `PermissionSetupStep` and list it under that platform in
+   `permissionSetupStepsFor`.
+2. Read its status in `ReadPermissionSetupUsecase` and act on its button in
+   `NotificationPermissionsCubit.allowCurrentStep`.
+3. Add its strings under that platform's object in `en.json` and a view in
+   `ios_permission_step_views.dart` or `android_permission_step_views.dart`.
+   `permissionStepViewFor` will not compile until the step has one.
+
+The battery step shows only on makers known to put background apps to sleep.
+The list is `backgroundKillerMakers` in
+`lib/features/permissions/domain/entities/background_killer_makers.dart`, the
+only copy. `makerKillsBackgroundApps` compares it with both names Android
+reports, through `DeviceMakerReader` (`lib/core/device/device_maker.dart`). To
+see the step on an emulator, run a debug build with
+`--dart-define=DEVICE_MAKER=samsung`. A release build ignores the flag.
+Settings > Health keeps its battery row for every phone.
+
 **Changelogs.** Two files, both written with cider, never by hand. The
 how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 
