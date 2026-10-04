@@ -443,10 +443,13 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent> {
               ? FirstTopicCriticalCard(
                   claim: claim,
                   isCritical: state.isCritical,
-                  // The limit is read once, from the plan, so the line stays
-                  // true if the cap changes.
-                  freePlanLimit: state.isFreeTier
-                      ? (state.criticalLimit ?? 2)
+                  // Both numbers come from the plan, so the line stays true if
+                  // the cap changes. This topic would be the next critical one.
+                  plan: state.isFreeTier
+                      ? (
+                          used: state.criticalUsed + 1,
+                          limit: state.criticalLimit ?? 2,
+                        )
                       : null,
                   onChanged: isSubmitting ? null : _onCriticalChanged,
                 )
