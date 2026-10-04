@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,8 @@ String english(String key) {
   }
   return node! as String;
 }
+
+const _absent = Object();
 
 void main() {
   group('connectPrivacyLine', () {
@@ -77,6 +80,62 @@ void main() {
     test('a mode that is neither Cloud nor an own server gives no line', () {
       expect(connectPrivacyLine(mode: 'relay', relayContent: 'none'), isNull);
       expect(connectPrivacyLine(mode: 'other', relayContent: 'full'), isNull);
+    });
+
+    test('no relay_content in the answer gives no line', () {
+      expect(connectPrivacyLine(mode: 'hosted', relayContent: null), isNull);
+      expect(
+        connectPrivacyLine(mode: 'selfhosted', relayContent: null),
+        isNull,
+      );
+    });
+
+    group('from the /v1/info answer as the server sent it', () {
+      Map<String, dynamic> answer([Object? relayContent = _absent]) => {
+        'version': '0.9.0',
+        'base_url': 'https://api.critalarm.app',
+        'relay_url': 'https://relay.critalarm.app',
+        'mode': 'hosted',
+        if (relayContent != _absent) 'relay_content': relayContent,
+      };
+
+      ConnectPrivacyLine? lineFor(ServerInfo info) => connectPrivacyLine(
+        mode: info.mode,
+        relayContent: info.statedRelayContent,
+      );
+
+      test(
+        'field absent: no line, and the rest of the app still reads none',
+        () {
+          final info = ServerInfo.fromJson(answer());
+          expect(info.statedRelayContent, isNull);
+          expect(info.relayContent, 'none');
+          expect(lineFor(info), isNull);
+        },
+      );
+
+      test('none: the never-the-text line', () {
+        final info = ServerInfo.fromJson(answer('none'));
+        expect(info.statedRelayContent, 'none');
+        expect(lineFor(info), ConnectPrivacyLine.cloudNone);
+      });
+
+      test('full: the carries-the-text line', () {
+        final info = ServerInfo.fromJson(answer('full'));
+        expect(info.relayContent, 'full');
+        expect(lineFor(info), ConnectPrivacyLine.cloudFull);
+      });
+
+      test('unknown value: no line', () {
+        final info = ServerInfo.fromJson(answer('summary'));
+        expect(lineFor(info), isNull);
+      });
+
+      test('the stated value is not written back out', () {
+        final json = ServerInfo.fromJson(answer('full')).toJson();
+        expect(json.containsKey('relay_content_stated'), isFalse);
+        expect(json['relay_content'], 'full');
+      });
     });
 
     test('every key is the one the generated keys file holds', () {
