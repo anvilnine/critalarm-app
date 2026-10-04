@@ -43,6 +43,10 @@ abstract interface class DeviceMakerReader {
 class FixedDeviceMakerReader implements DeviceMakerReader {
   const FixedDeviceMakerReader(this.maker);
 
+  /// A phone that reports [name] as both its manufacturer and its brand.
+  FixedDeviceMakerReader.named(String name)
+    : maker = DeviceMaker(manufacturer: name, brand: name);
+
   final DeviceMaker maker;
 
   @override

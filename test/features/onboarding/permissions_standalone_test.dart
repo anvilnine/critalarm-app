@@ -1,126 +1,93 @@
-import 'package:bloc_test/bloc_test.dart';
-import 'package:critalarm/core/result/result.dart';
-import 'package:critalarm/core/usecase/usecase.dart';
-import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
-import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
-import 'package:critalarm/features/onboarding/domain/usecases/open_notification_settings_usecase.dart';
-import 'package:critalarm/features/onboarding/domain/usecases/request_notification_permission_usecase.dart';
-import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
-import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
+import 'package:critalarm/features/permissions/domain/entities/permission_setup_step.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
 
-import '../../core/alarm/fake_alarm_host.dart';
-
-class MockRequestPermission extends Mock
-    implements RequestNotificationPermissionUsecase {}
-
-class MockCheckPermission extends Mock
-    implements CheckNotificationPermissionUsecase {}
-
-class MockOpenSettings extends Mock
-    implements OpenNotificationSettingsUsecase {}
+import 'support/permission_setup_fakes.dart';
 
 /// Health opens the prompt screen on its own for a permission the user was
 /// never asked. It asks only what can still be asked, then closes.
 void main() {
-  late MockRequestPermission request;
-  late MockCheckPermission check;
-  late MockOpenSettings openSettings;
-  late FakeAlarmHost fake;
+  test('lands on the alarm step when only alarms were never asked', () async {
+    final phone = PermissionPhone.ios26()..grantNotifications();
+    final cubit = phone.cubit(standalone: true);
 
-  setUpAll(() => registerFallbackValue(const NoParams()));
+    await cubit.refresh();
 
-  setUp(() {
-    request = MockRequestPermission();
-    check = MockCheckPermission();
-    openSettings = MockOpenSettings();
-    fake = FakeAlarmHost();
+    expect(cubit.state.current, PermissionSetupStep.iosAlarms);
+    expect(cubit.state.steps, const [PermissionSetupStep.iosAlarms]);
+    expect(cubit.state.canNavigate, isFalse);
+    await cubit.close();
   });
 
-  NotificationPermissionsCubit build() => NotificationPermissionsCubit(
-    request,
-    openSettings,
-    alarm: fake.host,
-    checkPermission: check,
-    standalone: true,
-  );
-
-  blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
-    'lands on the alarm step when only alarms were never asked',
-    setUp: () {
-      when(() => check(any())).thenAnswer(
-        (_) async => NotificationPermissionStatus.granted.toSuccess(),
-      );
-      fake.answers['authorizationStatus'] = 'notDetermined';
-    },
-    build: build,
-    act: (cubit) => cubit.refresh(),
-    verify: (cubit) {
-      expect(cubit.state.activeSubstep, 1);
-      expect(cubit.state.canNavigate, isFalse);
-    },
-  );
-
-  blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
+  test(
     'closes after notifications when alarms cannot be asked again',
-    setUp: () {
-      when(() => check(any())).thenAnswer(
-        (_) async => NotificationPermissionStatus.notDetermined.toSuccess(),
-      );
-      when(() => request(any())).thenAnswer(
-        (_) async => NotificationPermissionStatus.granted.toSuccess(),
-      );
-      fake.answers['authorizationStatus'] = 'denied';
-    },
-    build: build,
-    act: (cubit) async {
+    () async {
+      final phone = PermissionPhone.ios26(alarmStatus: 'denied');
+      final cubit = phone.cubit(standalone: true);
+
       await cubit.refresh();
-      await cubit.requestNotifications();
-    },
-    verify: (cubit) {
-      expect(cubit.state.activeSubstep, 0);
+      expect(cubit.state.steps, const [PermissionSetupStep.iosNotifications]);
+      await cubit.allowCurrentStep();
+
+      expect(phone.notifications.requests, 1);
       expect(cubit.state.canNavigate, isTrue);
+      expect(phone.alarm.callsTo('requestAuthorization'), isEmpty);
+      await cubit.close();
     },
   );
 
-  blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
-    '"Not now" closes when there is no alarm prompt left',
-    setUp: () {
-      when(() => check(any())).thenAnswer(
-        (_) async => NotificationPermissionStatus.notDetermined.toSuccess(),
-      );
-      fake.answers['authorizationStatus'] = 'unsupported';
-    },
-    build: build,
-    act: (cubit) async {
-      await cubit.refresh();
-      cubit.skipStep();
-    },
-    verify: (cubit) => expect(cubit.state.canNavigate, isTrue),
-  );
+  test('"Not now" closes when there is no alarm prompt left', () async {
+    final phone = PermissionPhone.iosOld();
+    final cubit = phone.cubit(standalone: true);
 
-  blocTest<NotificationPermissionsCubit, NotificationPermissionsState>(
-    'onboarding still shows the alarm step when it only explains',
-    setUp: () {
-      when(() => check(any())).thenAnswer(
-        (_) async => NotificationPermissionStatus.notDetermined.toSuccess(),
-      );
-      fake.answers['authorizationStatus'] = 'denied';
-    },
-    build: () => NotificationPermissionsCubit(
-      request,
-      openSettings,
-      alarm: fake.host,
-      checkPermission: check,
-    ),
-    act: (cubit) async {
-      await cubit.refresh();
-      cubit.skipStep();
-    },
-    verify: (cubit) {
-      expect(cubit.state.activeSubstep, 1);
-      expect(cubit.state.canNavigate, isFalse);
-    },
-  );
+    await cubit.refresh();
+    cubit.skipStep();
+
+    expect(cubit.state.canNavigate, isTrue);
+    await cubit.close();
+  });
+
+  test('closes at once, unseen, when nothing can be asked', () async {
+    final phone = PermissionPhone.ios26(alarmStatus: 'denied')
+      ..grantNotifications();
+    final cubit = phone.cubit(standalone: true);
+    final states = record(cubit);
+
+    await cubit.refresh();
+    await pumpEventQueue();
+
+    expect(states.every((state) => state.current == null), isTrue);
+    expect(cubit.state.canNavigate, isTrue);
+    await cubit.close();
+  });
+
+  test('onboarding still shows the alarm step after a refusal', () async {
+    final phone = PermissionPhone.ios26(alarmStatus: 'denied');
+    final cubit = phone.cubit();
+
+    await cubit.refresh();
+    cubit.skipStep();
+
+    expect(cubit.state.current, PermissionSetupStep.iosAlarms);
+    expect(cubit.state.canNavigate, isFalse);
+    await cubit.close();
+  });
+
+  test('onboarding shows the explainer, standalone does not', () async {
+    final setup = PermissionPhone.iosOld().cubit();
+    final alone = PermissionPhone.iosOld().cubit(standalone: true);
+
+    await setup.refresh();
+    await alone.refresh();
+
+    expect(
+      setup.state.steps,
+      contains(PermissionSetupStep.iosTimeSensitiveExplainer),
+    );
+    expect(
+      alone.state.steps,
+      isNot(contains(PermissionSetupStep.iosTimeSensitiveExplainer)),
+    );
+    await setup.close();
+    await alone.close();
+  });
 }
