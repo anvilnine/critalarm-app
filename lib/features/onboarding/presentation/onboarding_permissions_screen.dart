@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
@@ -38,7 +39,22 @@ class OnboardingPermissionsScreen extends StatelessWidget {
     this.initialStep = NotificationPermissionStep.initial,
     this.replayForDemo = false,
     this.standalone = false,
+    this.replaySkips = 0,
   });
+
+  /// The query parameter that opens a replay on a later step. Read in a
+  /// developer build only.
+  static const replaySkipParam = 'skip';
+
+  /// How many steps a replay passes over before it rests, from [uri]. Zero
+  /// in a store build, outside a replay and for anything but a small count.
+  static int replaySkipsFrom(Uri uri) {
+    if (!buildHasOnboardingDeveloperTools || !isOnboardingReplayUri(uri)) {
+      return 0;
+    }
+    final skips = int.tryParse(uri.queryParameters[replaySkipParam] ?? '');
+    return skips == null || skips < 0 || skips > 5 ? 0 : skips;
+  }
 
   final NotificationPermissionStep initialStep;
 
@@ -50,6 +66,10 @@ class OnboardingPermissionsScreen extends StatelessWidget {
   /// Not part of onboarding: it asks what is left, then closes.
   final bool standalone;
 
+  /// Steps a developer replay passes over, so a later step can be opened
+  /// directly. Nothing is asked for on the way.
+  final int replaySkips;
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
@@ -58,7 +78,16 @@ class OnboardingPermissionsScreen extends StatelessWidget {
           param1: initialStep,
           param2: (replayForDemo: replayForDemo, standalone: standalone),
         );
-        unawaited(cubit.refresh());
+        unawaited(
+          cubit.refresh().then((_) {
+            for (var i = 0; i < replaySkips && !cubit.isClosed; i++) {
+              if (cubit.state.steps.length - cubit.state.currentIndex <= 1) {
+                break;
+              }
+              cubit.skipStep();
+            }
+          }),
+        );
         return cubit;
       },
       child: _OnboardingPermissionsView(standalone: standalone),
@@ -120,8 +149,44 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     );
   }
 
+  /// The step the user has just allowed, held on screen for one beat with
+  /// its glad face before the next step draws. Null the rest of the time.
+  PermissionStepView? _allowedView;
+  Timer? _beatTimer;
+  NotificationPermissionsState? _previous;
+
+  /// The view of the step [next] has just moved on from because the user
+  /// allowed it, or null when nothing was allowed.
+  PermissionStepView? _justAllowed(NotificationPermissionsState next) {
+    final before = _previous;
+    final step = before?.current;
+    if (before == null || step == null) return null;
+    final movedOn = next.current != step || next.canNavigate;
+    final allowedNow =
+        next.granted.contains(step) && !before.granted.contains(step);
+    return movedOn && allowedNow ? _viewOf(before) : null;
+  }
+
+  /// Runs [then] after the glad beat for [allowed], or at once when there
+  /// is nothing to show or the phone asks for reduced motion.
+  void _afterBeat(PermissionStepView? allowed, VoidCallback then) {
+    final beat = context.motion(AppDurations.base);
+    if (allowed == null || beat == Duration.zero) {
+      then();
+      return;
+    }
+    _beatTimer?.cancel();
+    setState(() => _allowedView = allowed);
+    _beatTimer = Timer(beat, () {
+      if (!mounted) return;
+      setState(() => _allowedView = null);
+      then();
+    });
+  }
+
   @override
   void dispose() {
+    _beatTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -142,29 +207,43 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
       NotificationPermissionsCubit,
       NotificationPermissionsState
     >(
-      listenWhen: (prev, curr) =>
-          (!prev.canNavigate && curr.canNavigate) ||
-          prev.current != curr.current ||
-          prev.isDenied != curr.isDenied,
+      listenWhen: (prev, curr) {
+        final listens =
+            (!prev.canNavigate && curr.canNavigate) ||
+            prev.current != curr.current ||
+            prev.isDenied != curr.isDenied;
+        // Kept so the listener can tell a step that was allowed from one
+        // that was skipped.
+        if (listens) _previous = prev;
+        return listens;
+      },
       listener: (context, state) {
+        final allowed = _justAllowed(state);
         if (state.canNavigate) {
           context.read<NotificationPermissionsCubit>().navigationHandled();
-          if (widget.standalone) {
-            _close(context);
-          } else {
-            unawaited(
-              finishOnboardingStep(context, OnboardingStepId.permissions),
-            );
-          }
+          _afterBeat(allowed, () {
+            if (widget.standalone) {
+              _close(context);
+            } else {
+              unawaited(
+                finishOnboardingStep(context, OnboardingStepId.permissions),
+              );
+            }
+          });
           return;
         }
-        _syncAmbientStep(state);
+        _afterBeat(allowed, () => _syncAmbientStep(state));
       },
       builder: (context, state) {
         final cubit = context.read<NotificationPermissionsCubit>();
-        final view = _viewOf(state);
+        final allowedView = _allowedView;
+        final view = allowedView ?? _viewOf(state);
         final preview = view?.preview;
         final badge = view?.badge;
+        final hint = preview?.hint;
+        // While the connect running behind the user says something in the
+        // top corner, the dots give it the corner.
+        final cornerIsTaken = OnboardingAmbientScope.hasQuietLineOf(context);
 
         return AppScreenScaffold(
           // On its own the screen sits over Health, not over the onboarding
@@ -186,9 +265,18 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
             // steps and with three. One step has nothing to count and
             // draws no dots. Up here they never push the buttons around.
             trailing: view != null && !state.isDenied && state.steps.length > 1
-                ? PermissionStepDots(
-                    count: state.steps.length,
-                    index: state.currentIndex,
+                ? AnimatedOpacity(
+                    opacity: cornerIsTaken ? 0 : 1,
+                    duration: context.motion(AppDurations.base),
+                    child: PermissionStepDots(
+                      count: state.steps.length,
+                      // The dot stays on the allowed step for its beat.
+                      index: allowedView == null
+                          ? state.currentIndex
+                          : state.steps.indexOf(
+                              _previous?.current ?? state.steps.first,
+                            ),
+                    ),
                   )
                 : null,
           ),
@@ -221,7 +309,9 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                         size: AppButtonSize.lg,
                         isFullWidth: true,
                         isLoading: state.isRequesting,
-                        onPressed: cubit.allowCurrentStep,
+                        onPressed: allowedView != null
+                            ? null
+                            : cubit.allowCurrentStep,
                       ),
                     // The way forward is there before the first step is: a
                     // status read that hangs must not hold the user here.
@@ -231,7 +321,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                         label: LocaleKeys.onboarding_permissions_not_now.tr(),
                         variant: AppButtonVariant.paper,
                         isFullWidth: true,
-                        onPressed: state.isRequesting
+                        onPressed: state.isRequesting || allowedView != null
                             ? null
                             : view == null
                             ? cubit.continueWithout
@@ -251,7 +341,8 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
               sliver: SliverToBoxAdapter(
                 child: state.isDenied
                     ? AppEmptyState(
-                        faceState: FaceState.worried,
+                        // Softer than an error: nothing broke.
+                        faceState: FaceState.concerned,
                         title: LocaleKeys.onboarding_permissions_denied_title
                             .tr(),
                         description: LocaleKeys
@@ -271,44 +362,38 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                         ),
                       )
                     : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Center(
-                            child: Hero(
-                              tag: _faceHeroTag,
-                              flightShuttleBuilder: faceFlightShuttleBuilder,
-                              child: FaceWidget(
-                                state: view.face,
-                                size: _faceSize,
-                                isLive: true,
-                              ),
+                          Hero(
+                            tag: _faceHeroTag,
+                            flightShuttleBuilder: faceFlightShuttleBuilder,
+                            child: FaceWidget(
+                              // Glad for one beat after the user allows.
+                              state: allowedView != null
+                                  ? view.grantedFace
+                                  : view.face,
+                              size: _faceSize,
+                              isLive: true,
                             ),
                           ),
                           if (badge != null) ...[
                             const SizedBox(height: Spacing.s3),
-                            Center(
-                              child: AppBadge(
-                                text: badge,
-                                faceState: view.face,
-                              ),
-                            ),
+                            AppBadge(text: badge, faceState: view.face),
                           ],
                           const SizedBox(height: Spacing.s4),
-
+                          // One title style for every task screen in setup.
                           Text(
                             view.title,
-                            style: AppTypography.display(
+                            textAlign: TextAlign.center,
+                            style: AppTypography.headline(
                               colors.onCanvas,
-                              fontSize: 32,
+                              fontSize: 30,
                             ),
                           ),
                           const SizedBox(height: Spacing.s2),
                           Text(
                             view.subtitle,
-                            style: AppTypography.lead(
-                              colors.onCanvasMuted,
-                              fontSize: 15,
-                            ),
+                            textAlign: TextAlign.center,
+                            style: AppTypography.body(colors.onCanvasMuted),
                           ),
 
                           // A step with no prompt coming has no prompt to
@@ -316,27 +401,26 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                           if (preview != null) ...[
                             const SizedBox(height: Spacing.s5),
                             PermissionPreviewFrame(
-                              semanticLabel:
-                                  '${preview.title}. ${preview.hint}',
-                              onTap: state.isRequesting
+                              semanticLabel: hint == null
+                                  ? preview.title
+                                  : '${preview.title}. $hint',
+                              onTap: state.isRequesting || allowedView != null
                                   ? null
                                   : cubit.allowCurrentStep,
                               child: preview.child,
                             ),
-                            const SizedBox(height: 12),
-                            Center(
-                              child: Text(
-                                preview.hint,
+                            // Only a Settings switch needs telling what to
+                            // do. A drawn dialog shows its own Allow.
+                            if (hint != null) ...[
+                              const SizedBox(height: Spacing.s3),
+                              Text(
+                                hint,
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: AppTypography.fontMono,
-                                  fontFamilyFallback:
-                                      AppTypography.fontMonoFallbacks,
-                                  fontSize: 11,
-                                  color: colors.onCanvasMuted,
+                                style: AppTypography.small(
+                                  colors.onCanvasMuted,
                                 ),
                               ),
-                            ),
+                            ],
                           ],
                         ],
                       ),

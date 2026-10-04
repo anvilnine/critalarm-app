@@ -29,9 +29,6 @@ PermissionStepView permissionStepViewFor(
     promptSpent
         ? androidNotificationsSettingsStepView()
         : androidNotificationsStepView(),
-  PermissionSetupStep.androidFullScreen => androidFullScreenStepView(
-    claim,
-    notificationsGranted: notificationsGranted,
-  ),
+  PermissionSetupStep.androidFullScreen => androidFullScreenStepView(),
   PermissionSetupStep.androidBattery => androidBatteryStepView(),
 };

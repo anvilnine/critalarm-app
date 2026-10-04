@@ -55,10 +55,23 @@ class OnboardingAmbientScope extends InheritedWidget {
   const OnboardingAmbientScope({
     required this.controller,
     required super.child,
+    this.hasQuietLine = false,
     super.key,
   });
 
   final OnboardingAmbientController controller;
+
+  /// True while the shell is showing its short status in the top corner.
+  /// A step that draws something there of its own gives the corner up.
+  final bool hasQuietLine;
+
+  /// Whether the shell's status is in the top corner right now. False
+  /// outside the shell.
+  static bool hasQuietLineOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<OnboardingAmbientScope>()
+          ?.hasQuietLine ??
+      false;
 
   static OnboardingAmbientController? maybeOf(BuildContext context) {
     return context
@@ -68,7 +81,8 @@ class OnboardingAmbientScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(covariant OnboardingAmbientScope oldWidget) {
-    return controller != oldWidget.controller;
+    return controller != oldWidget.controller ||
+        hasQuietLine != oldWidget.hasQuietLine;
   }
 }
 
@@ -200,6 +214,7 @@ class _OnboardingShellState extends State<OnboardingShell> {
           child: AmbientScope(
             child: OnboardingAmbientScope(
               controller: _controller,
+              hasQuietLine: quietLine != null,
               child: widget.child,
             ),
           ),
@@ -376,7 +391,7 @@ class _OnboardingStepGateState extends State<OnboardingStepGate> {
         ConnectGate.waiting => _ConnectGateScreen(
           key: const ValueKey('connect-gate-waiting'),
           message: backgroundConnectLine(state) ?? '',
-          isFailure: false,
+          face: null,
           connect: connect,
         ),
         ConnectGate.failed => _ConnectGateScreen(
@@ -385,7 +400,10 @@ class _OnboardingStepGateState extends State<OnboardingStepGate> {
           message:
               backgroundConnectLine(state) ??
               LocaleKeys.onboarding_connect_background_no_server.tr(),
-          isFailure: true,
+          // Missing, not broken, when there is no failure to name.
+          face: backgroundConnectLine(state) == null
+              ? FaceState.sad
+              : FaceState.worried,
           connect: connect,
         ),
       };
@@ -403,13 +421,16 @@ class _OnboardingStepGateState extends State<OnboardingStepGate> {
 class _ConnectGateScreen extends StatelessWidget {
   const _ConnectGateScreen({
     required this.message,
-    required this.isFailure,
+    required this.face,
     required this.connect,
     super.key,
   });
 
   final String message;
-  final bool isFailure;
+
+  /// The face of a step that cannot go on. Null while the connect is still
+  /// on its way, which is a wait and gets the waiting face.
+  final FaceState? face;
   final BackgroundConnect connect;
 
   /// Leaves setup for Home. A connect still pending carries on from there.
@@ -430,86 +451,78 @@ class _ConnectGateScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Scaffold(
+    final face = this.face;
+    // The same scaffold as the steps it stands in for, so the face, the
+    // buttons and their insets sit where they do on every other step.
+    return AppScreenScaffold(
       backgroundColor: Colors.transparent,
-      body: SafeArea(
-        minimum: const EdgeInsets.only(bottom: Spacing.s3),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Spacing.s5),
-          child: Column(
-            children: [
-              Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    child: isFailure
-                        ? Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Hero(
-                                tag: 'onboarding-face',
-                                flightShuttleBuilder: faceFlightShuttleBuilder,
-                                child: FaceWidget(
-                                  state: FaceState.worried,
-                                  size: 96,
-                                  isLive: true,
-                                ),
-                              ),
-                              const SizedBox(height: Spacing.s3),
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 380,
-                                ),
-                                child: Semantics(
-                                  liveRegion: true,
-                                  child: Text(
-                                    message,
-                                    textAlign: TextAlign.center,
-                                    style: AppTypography.body(colors.onCanvas),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        : AppWaitingFace(
-                            message: message,
-                            heroTag: 'onboarding-face',
+      withGhosts: false,
+      withFades: false,
+      hasTabBar: false,
+      topBar: AppTopBar(title: LocaleKeys.app_title.tr()),
+      bottomBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (face != null) ...[
+            AppButton(
+              label: LocaleKeys.onboarding_connect_background_failed_button
+                  .tr(),
+              size: AppButtonSize.lg,
+              isFullWidth: true,
+              onPressed: () => context.go(OnboardingEntryPoint.connectServer),
+            ),
+            const SizedBox(height: Spacing.s3),
+          ],
+          AppButton(
+            label: LocaleKeys.onboarding_connect_skip_for_now.tr(),
+            variant: AppButtonVariant.paper,
+            isFullWidth: true,
+            onPressed: () => unawaited(_setUpLater(context)),
+          ),
+        ],
+      ),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.s5,
+            Spacing.s4,
+            Spacing.s5,
+            0,
+          ),
+          sliver: SliverToBoxAdapter(
+            child: face == null
+                ? Center(
+                    child: AppWaitingFace(
+                      message: message,
+                      faceSize: 80,
+                      heroTag: 'onboarding-face',
+                    ),
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Hero(
+                        tag: 'onboarding-face',
+                        flightShuttleBuilder: faceFlightShuttleBuilder,
+                        child: FaceWidget(state: face, size: 80, isLive: true),
+                      ),
+                      const SizedBox(height: Spacing.s3),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 380),
+                        child: Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            message,
+                            textAlign: TextAlign.center,
+                            style: AppTypography.body(colors.onCanvas),
                           ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              if (isFailure) ...[
-                AppButton(
-                  label: LocaleKeys.onboarding_connect_background_failed_button
-                      .tr(),
-                  size: AppButtonSize.lg,
-                  isFullWidth: true,
-                  onPressed: () =>
-                      context.go(OnboardingEntryPoint.connectServer),
-                ),
-                const SizedBox(height: Spacing.s3),
-              ],
-              TextButton(
-                onPressed: () => unawaited(_setUpLater(context)),
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 36),
-                  padding: EdgeInsets.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  LocaleKeys.onboarding_connect_skip_for_now.tr(),
-                  style: TextStyle(
-                    fontFamily: AppTypography.fontBody,
-                    fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: colors.onCanvas,
-                  ),
-                ),
-              ),
-            ],
           ),
         ),
-      ),
+      ],
     );
   }
 }
