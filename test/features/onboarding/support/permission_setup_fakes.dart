@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/device/device_maker.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/result/result.dart';
@@ -32,6 +34,9 @@ class FakeNotificationPermissions implements NotificationPermissionRepository {
   /// Makes the prompt fail outright, as a missing plugin does.
   bool requestFails = false;
 
+  /// Makes the status read never answer, as a stuck channel does.
+  bool checkHangs = false;
+
   int checks = 0;
   int requests = 0;
   int settingsOpened = 0;
@@ -39,6 +44,9 @@ class FakeNotificationPermissions implements NotificationPermissionRepository {
   @override
   Future<AppResult<NotificationPermissionStatus>> checkPermission() async {
     checks++;
+    if (checkHangs) {
+      return Completer<AppResult<NotificationPermissionStatus>>().future;
+    }
     return status.toSuccess();
   }
 
@@ -111,6 +119,15 @@ class CountingMakerReader implements DeviceMakerReader {
   }
 }
 
+class FixedSdkReader implements AndroidSdkReader {
+  const FixedSdkReader(this.sdk);
+
+  final int? sdk;
+
+  @override
+  Future<int?> sdkInt() async => sdk;
+}
+
 /// One phone: the real reader and the real cubit over fakes for everything
 /// that touches the system.
 class PermissionPhone {
@@ -119,6 +136,7 @@ class PermissionPhone {
     this.isWeb = false,
     DeviceMaker maker = DeviceMaker.unknown,
     String alarmStatus = 'unsupported',
+    this.androidSdk = 35,
   }) : maker = CountingMakerReader(maker) {
     alarm.answers['authorizationStatus'] = alarmStatus;
     alarm.answers['requestAuthorization'] = alarmStatus;
@@ -132,11 +150,12 @@ class PermissionPhone {
   PermissionPhone.iosOld() : this(TargetPlatform.iOS);
 
   /// An Android phone. [maker] decides whether it has a battery step.
-  PermissionPhone.android({DeviceMaker maker = pixel})
-    : this(TargetPlatform.android, maker: maker);
+  PermissionPhone.android({DeviceMaker maker = pixel, int? sdk = 35})
+    : this(TargetPlatform.android, maker: maker, androidSdk: sdk);
 
   final TargetPlatform platform;
   final bool isWeb;
+  final int? androidSdk;
   final CountingMakerReader maker;
   final FakeNotificationPermissions notifications =
       FakeNotificationPermissions();
@@ -146,6 +165,10 @@ class PermissionPhone {
   void grantNotifications() =>
       notifications.status = NotificationPermissionStatus.granted;
 
+  /// The app asked before and was told no.
+  void refuseNotifications() =>
+      notifications.status = NotificationPermissionStatus.denied;
+
   late final ReadPermissionSetupUsecase read = ReadPermissionSetupUsecase(
     platform: platform,
     isWeb: isWeb,
@@ -153,11 +176,13 @@ class PermissionPhone {
     alarm: alarm.host,
     devicePermissions: device,
     makerReader: maker,
+    sdkReader: FixedSdkReader(androidSdk),
   );
 
   NotificationPermissionsCubit cubit({
     bool replayForDemo = false,
     bool standalone = false,
+    Duration readTimeout = const Duration(seconds: 5),
     NotificationPermissionStep initialStep = NotificationPermissionStep.initial,
   }) => NotificationPermissionsCubit(
     RequestNotificationPermissionUsecase(notifications),
@@ -167,6 +192,7 @@ class PermissionPhone {
     devicePermissions: device,
     replayForDemo: replayForDemo,
     standalone: standalone,
+    readTimeout: readTimeout,
     initialStep: initialStep,
   );
 }

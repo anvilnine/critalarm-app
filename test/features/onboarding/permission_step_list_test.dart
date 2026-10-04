@@ -202,8 +202,21 @@ void main() {
       expect(permissionStepsToRender(ios26, granted: ios26.toSet()), isEmpty);
     });
 
-    test('setup: the explainer follows a step that was shown', () {
-      expect(permissionStepsToRender(iosOld, granted: const {}), iosOld);
+    test('setup: the explainer waits for notifications to be granted', () {
+      expect(permissionStepsToRender(iosOld, granted: const {}), const [
+        PermissionSetupStep.iosNotifications,
+      ]);
+    });
+
+    test('setup: the explainer is left out after a refusal or a skip', () {
+      expect(
+        permissionStepsToRender(
+          iosOld,
+          granted: const {},
+          alreadyShown: const {PermissionSetupStep.iosNotifications},
+        ),
+        const [PermissionSetupStep.iosNotifications],
+      );
     });
 
     test('setup: the explainer never shows on its own', () {
@@ -314,10 +327,9 @@ void main() {
         PermissionSetupStep.androidNotifications,
       );
       expect(
-        nextPermissionStep(
-          const [PermissionSetupStep.androidBattery],
-          alreadyShown: const {},
-        ),
+        nextPermissionStep(const [
+          PermissionSetupStep.androidBattery,
+        ], alreadyShown: const {}),
         PermissionSetupStep.androidBattery,
       );
     });
@@ -335,12 +347,143 @@ void main() {
       );
     });
 
+    test('passes over a step that was granted since', () {
+      expect(
+        nextPermissionStep(
+          android,
+          alreadyShown: const {PermissionSetupStep.androidNotifications},
+          granted: const {PermissionSetupStep.androidFullScreen},
+        ),
+        PermissionSetupStep.androidBattery,
+      );
+    });
+
+    test('never goes back to an earlier step that was revoked', () {
+      expect(
+        nextPermissionStep(
+          android,
+          alreadyShown: const {
+            PermissionSetupStep.androidNotifications,
+            PermissionSetupStep.androidFullScreen,
+          },
+          granted: const {PermissionSetupStep.androidBattery},
+        ),
+        isNull,
+      );
+    });
+
+    test('a replay shows a granted step like any other', () {
+      expect(
+        nextPermissionStep(
+          android,
+          alreadyShown: const {PermissionSetupStep.androidNotifications},
+          granted: android.toSet(),
+          showGranted: true,
+        ),
+        PermissionSetupStep.androidFullScreen,
+      );
+    });
+
     test('is null once every step was shown, or there is none', () {
       expect(
         nextPermissionStep(android, alreadyShown: android.toSet()),
         isNull,
       );
       expect(nextPermissionStep(const [], alreadyShown: const {}), isNull);
+    });
+  });
+
+  group('the list on screen holds still', () {
+    const android = [
+      PermissionSetupStep.androidNotifications,
+      PermissionSetupStep.androidFullScreen,
+      PermissionSetupStep.androidBattery,
+    ];
+
+    test('the first list is taken as it is', () {
+      expect(
+        freezePermissionSteps(const [], android, order: android),
+        android,
+      );
+    });
+
+    test('a step granted since is not taken out', () {
+      expect(
+        freezePermissionSteps(android, const [
+          PermissionSetupStep.androidNotifications,
+          PermissionSetupStep.androidBattery,
+        ], order: android),
+        android,
+      );
+    });
+
+    test('a step is never put in before the last one drawn', () {
+      expect(
+        freezePermissionSteps(
+          const [PermissionSetupStep.androidBattery],
+          android,
+          order: android,
+        ),
+        const [PermissionSetupStep.androidBattery],
+      );
+    });
+
+    test('a later step is appended', () {
+      expect(
+        freezePermissionSteps(
+          const [PermissionSetupStep.androidNotifications],
+          android,
+          order: android,
+        ),
+        android,
+      );
+    });
+  });
+
+  group('whether the notification prompt is spent', () {
+    bool spent(
+      TargetPlatform platform, {
+      bool granted = false,
+      bool refusedBefore = false,
+      int? sdk,
+    }) => notificationPromptSpent(
+      platform: platform,
+      granted: granted,
+      refusedBefore: refusedBefore,
+      androidSdk: sdk,
+    );
+
+    test('never while granted', () {
+      for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+        expect(
+          spent(platform, granted: true, refusedBefore: true, sdk: 30),
+          isFalse,
+        );
+      }
+    });
+
+    test('iOS: only after a refusal', () {
+      expect(spent(TargetPlatform.iOS), isFalse);
+      expect(spent(TargetPlatform.iOS, refusedBefore: true), isTrue);
+    });
+
+    test('Android 13 or later: only after a refusal', () {
+      expect(spent(TargetPlatform.android, sdk: 33), isFalse);
+      expect(spent(TargetPlatform.android, sdk: 35), isFalse);
+      expect(
+        spent(TargetPlatform.android, sdk: 33, refusedBefore: true),
+        isTrue,
+      );
+    });
+
+    test('Android below 13: there is no prompt at all', () {
+      expect(spent(TargetPlatform.android, sdk: 32), isTrue);
+      expect(spent(TargetPlatform.android, sdk: 26), isTrue);
+    });
+
+    test('Android with an unknown version: only after a refusal', () {
+      expect(spent(TargetPlatform.android), isFalse);
+      expect(spent(TargetPlatform.android, refusedBefore: true), isTrue);
     });
   });
 }

@@ -41,6 +41,36 @@ PermissionStepView iosNotificationsStepView() {
   );
 }
 
+/// The iOS notification step once iOS will not prompt again: it prompts
+/// once. The button opens the app's page in Settings, so a switch is drawn
+/// and nothing says a prompt is coming.
+PermissionStepView iosNotificationsSettingsStepView() {
+  final previewTitle = LocaleKeys
+      .onboarding_permissions_ios_notifications_settings_preview_title
+      .tr();
+  return PermissionStepView(
+    face: FaceState.alarmed,
+    ambient: OnboardingAmbientStep.notifications,
+    badge: LocaleKeys.onboarding_permissions_ios_notifications_badge.tr(),
+    title: LocaleKeys.onboarding_permissions_ios_notifications_title.tr(),
+    subtitle: LocaleKeys.onboarding_permissions_ios_notifications_subtitle.tr(),
+    button: LocaleKeys.onboarding_permissions_ios_notifications_settings_button
+        .tr(),
+    preview: PermissionStepPreview(
+      title: previewTitle,
+      hint: LocaleKeys
+          .onboarding_permissions_ios_notifications_settings_preview_hint
+          .tr(),
+      child: IosSettingsSwitchPreview(
+        title: previewTitle,
+        message: LocaleKeys
+            .onboarding_permissions_ios_notifications_settings_preview_desc
+            .tr(),
+      ),
+    ),
+  );
+}
+
 /// The AlarmKit step, iOS 26 or later.
 ///
 /// The chip follows [claim]. This step only exists on a phone that has

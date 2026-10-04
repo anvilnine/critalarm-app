@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
@@ -204,22 +206,161 @@ void main() {
   });
 
   group('unsupported is not a grant', () {
-    test('an iPhone with no alarm permission still has two steps', () async {
+    test(
+      'an iPhone with no alarm permission has nothing granted for it',
+      () async {
+        final phone = PermissionPhone.iosOld();
+        final cubit = phone.cubit();
+
+        await cubit.refresh();
+
+        expect(cubit.state.alarm, AlarmAuthorization.unsupported);
+        expect(
+          cubit.state.available,
+          contains(PermissionSetupStep.iosTimeSensitiveExplainer),
+        );
+        expect(
+          cubit.state.granted,
+          isNot(contains(PermissionSetupStep.iosTimeSensitiveExplainer)),
+        );
+        await cubit.close();
+      },
+    );
+  });
+
+  group('the explainer only says what is true', () {
+    test('granted notifications: it follows, as a second step', () async {
       final phone = PermissionPhone.iosOld();
       final cubit = phone.cubit();
+      await cubit.refresh();
+      expect(cubit.state.steps, const [PermissionSetupStep.iosNotifications]);
+
+      await cubit.allowCurrentStep();
+
+      expect(
+        cubit.state.current,
+        PermissionSetupStep.iosTimeSensitiveExplainer,
+      );
+      expect(cubit.state.steps, hasLength(2));
+      expect(cubit.state.currentIndex, 1);
+      expect(cubit.state.canNavigate, isFalse);
+      await cubit.close();
+    });
+
+    test('refused notifications: it never shows, and setup moves on', () async {
+      final phone = PermissionPhone.iosOld()
+        ..notifications.requestAnswer = NotificationPermissionStatus.denied;
+      final cubit = phone.cubit();
+      final states = record(cubit);
+      await cubit.refresh();
+
+      await cubit.allowCurrentStep();
+      await pumpEventQueue();
+
+      expect(
+        states.any(
+          (state) =>
+              state.current == PermissionSetupStep.iosTimeSensitiveExplainer,
+        ),
+        isFalse,
+      );
+      expect(cubit.state.canNavigate, isTrue);
+      await cubit.close();
+    });
+
+    test('skipped notifications: it never shows, and setup moves on', () async {
+      final phone = PermissionPhone.iosOld();
+      final cubit = phone.cubit();
+      final states = record(cubit);
+      await cubit.refresh();
+
+      cubit.skipStep();
+      await pumpEventQueue();
+
+      expect(
+        states.any(
+          (state) =>
+              state.current == PermissionSetupStep.iosTimeSensitiveExplainer,
+        ),
+        isFalse,
+      );
+      expect(cubit.state.canNavigate, isTrue);
+      await cubit.close();
+    });
+  });
+
+  group('a status read that never answers', () {
+    test('stops checking, shows no step, and "Not now" still works', () async {
+      final phone = PermissionPhone.android()..notifications.checkHangs = true;
+      final cubit = phone.cubit(
+        readTimeout: const Duration(milliseconds: 20),
+      );
 
       await cubit.refresh();
 
-      expect(cubit.state.alarm, AlarmAuthorization.unsupported);
-      expect(cubit.state.steps, const [
-        PermissionSetupStep.iosNotifications,
-        PermissionSetupStep.iosTimeSensitiveExplainer,
-      ]);
-      expect(
-        cubit.state.granted,
-        isNot(contains(PermissionSetupStep.iosTimeSensitiveExplainer)),
-      );
+      expect(cubit.state.isChecking, isFalse);
+      expect(cubit.state.current, isNull);
+      expect(cubit.state.canNavigate, isFalse);
+      cubit.continueWithout();
+      expect(cubit.state.canNavigate, isTrue);
       await cubit.close();
+    });
+
+    test('the denied screen stops checking and keeps its way out', () async {
+      final phone = PermissionPhone.ios26()..notifications.checkHangs = true;
+      final cubit = phone.cubit(
+        readTimeout: const Duration(milliseconds: 20),
+        initialStep: NotificationPermissionStep.denied,
+      );
+
+      await cubit.refresh();
+
+      expect(cubit.state.isChecking, isFalse);
+      expect(cubit.state.isDenied, isTrue);
+      cubit.continueWithout();
+      expect(cubit.state.canNavigate, isTrue);
+      await cubit.close();
+    });
+
+    test('a later read that answers picks up where it left off', () async {
+      final phone = PermissionPhone.android()..notifications.checkHangs = true;
+      final cubit = phone.cubit(
+        readTimeout: const Duration(milliseconds: 20),
+      );
+      await cubit.refresh();
+
+      phone.notifications.checkHangs = false;
+      await cubit.refresh();
+
+      expect(cubit.state.current, PermissionSetupStep.androidNotifications);
+      await cubit.close();
+    });
+
+    test('a step on screen stays on screen through a stuck read', () async {
+      final phone = PermissionPhone.android();
+      final cubit = phone.cubit(
+        readTimeout: const Duration(milliseconds: 20),
+      );
+      await cubit.refresh();
+
+      phone.notifications.checkHangs = true;
+      await cubit.refresh();
+
+      expect(cubit.state.isChecking, isFalse);
+      expect(cubit.state.current, PermissionSetupStep.androidNotifications);
+      await cubit.close();
+    });
+
+    test('closing the screen stops the timer', () async {
+      final phone = PermissionPhone.android()..notifications.checkHangs = true;
+      final cubit = phone.cubit(readTimeout: const Duration(minutes: 5));
+
+      final read = cubit.refresh();
+      await cubit.close();
+
+      // Nothing is left pending: the read is abandoned with the cubit.
+      expect(cubit.isClosed, isTrue);
+      unawaited(read);
     });
   });
 

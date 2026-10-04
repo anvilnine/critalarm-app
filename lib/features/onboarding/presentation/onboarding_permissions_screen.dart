@@ -115,6 +115,8 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     return permissionStepViewFor(
       step,
       claim: RingClaim.forPhone(state.alarm),
+      promptSpent: state.promptSpent.contains(step),
+      notificationsGranted: state.notificationsGranted,
     );
   }
 
@@ -162,6 +164,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         final cubit = context.read<NotificationPermissionsCubit>();
         final view = _viewOf(state);
         final preview = view?.preview;
+        final badge = view?.badge;
 
         return AppScreenScaffold(
           // On its own the screen sits over Health, not over the onboarding
@@ -208,7 +211,6 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                       label: LocaleKeys.onboarding_permissions_denied_skip.tr(),
                       variant: AppButtonVariant.paper,
                       isFullWidth: true,
-                      isLoading: state.isChecking,
                       onPressed: cubit.continueWithout,
                     ),
                   ]
@@ -282,13 +284,15 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                               ),
                             ),
                           ),
-                          const SizedBox(height: Spacing.s3),
-                          Center(
-                            child: AppBadge(
-                              text: view.badge,
-                              faceState: view.face,
+                          if (badge != null) ...[
+                            const SizedBox(height: Spacing.s3),
+                            Center(
+                              child: AppBadge(
+                                text: badge,
+                                faceState: view.face,
+                              ),
                             ),
-                          ),
+                          ],
                           const SizedBox(height: Spacing.s4),
 
                           Text(

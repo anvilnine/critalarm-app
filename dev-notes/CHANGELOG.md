@@ -11,6 +11,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Remote Config key onboarding\_flow (default an empty string) feeds the remote slot of the setup flow sources through TelemetryGate.onboardingFlowJson and RemoteOnboardingFlowSource. OnboardingFlowEngine.chooseFlowWithOrigin() says whether the developer override, the remote value or the bundled default won.
 - Android battery step in setup, shown only on makers listed in backgroundKillerMakers. DeviceMakerReader reads the maker, and a debug run takes --dart-define=DEVICE\_MAKER=<name> to fake it.
 - PermissionStepDots counts the steps a phone draws. OnboardingAmbientStep.battery is the canvas for the battery step.
+- Settings variant of the notification step for a spent prompt, with keys onboarding\_permissions.{ios,android}.notifications.settings\_\*. AndroidSdkReader reads the API level.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -22,10 +23,12 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The permissions screen walks a step list built per platform by permissionSetupStepsFor. ReadPermissionSetupUsecase reads every step's status before one is drawn, and the flow engine's permissions check uses the same read.
 - Permission copy keys split by platform: onboarding\_permissions.ios.{notifications,alarms,time\_sensitive}.\* and onboarding\_permissions.android.{notifications,full\_screen,battery}.*. The mixed step1\_*, step2\_*, preview\_* and badge\* keys are gone. New keys: checking, step\_progress.
 - PermissionDialogPreview is split into IosPermissionDialogPreview, AndroidPermissionDialogPreview and AndroidSettingsSwitchPreview inside a shared PermissionPreviewFrame. The full-screen step now draws a settings switch.
+- Permission steps hold still once drawn: freezePermissionSteps only appends. The status read times out after five seconds. The battery dialog's Deny moves on.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
 - The denied permissions screen stays on screen through a status read. It used to turn into the stepper as soon as the first read finished.
+- The Time-Sensitive explainer no longer shows after notifications were refused, and the Android full-screen step drops its ring chip while notifications are off. The Android notification mock says Don't allow.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.

@@ -153,7 +153,11 @@
         "preview_allow": "Allow",
         "preview_allow_summary": "Allow in Scheduled Summary",
         "preview_dont_allow": "Don't Allow",
-        "preview_hint": "Tap Allow when prompted"
+        "preview_hint": "Tap Allow when prompted",
+        "settings_button": "Open Settings",
+        "settings_preview_title": "Allow Notifications",
+        "settings_preview_desc": "Notifications are off for Crit Alarm. This is a switch in Settings, not a pop-up.",
+        "settings_preview_hint": "Settings opens. Turn it on, then come back."
       },
       "alarms": {
         "badge": "Rings through silent mode",
@@ -182,8 +186,12 @@
         "preview_title": "Allow Crit Alarm to send you notifications?",
         "preview_desc": "Pages, warnings and test alarms show up as notifications.",
         "preview_allow": "Allow",
-        "preview_dont_allow": "Don't Allow",
-        "preview_hint": "Tap Allow when prompted"
+        "preview_dont_allow": "Don't allow",
+        "preview_hint": "Tap Allow when prompted",
+        "settings_button": "Open notification settings",
+        "settings_preview_title": "All Crit Alarm notifications",
+        "settings_preview_desc": "Notifications are off for Crit Alarm. This is a switch in Settings, not a pop-up.",
+        "settings_preview_hint": "Settings opens. Turn it on, then come back."
       },
       "full_screen": {
         "badge": "Rings through silent mode",

@@ -123,6 +123,56 @@ void main() {
       await cubit.close();
     });
 
+    test('battery: Deny in the system dialog moves on', () async {
+      final phone = PermissionPhone.android(maker: samsung)
+        ..grantNotifications()
+        ..device.grant(DevicePermissionType.fullScreenIntent);
+      final cubit = phone.cubit();
+      await cubit.refresh();
+      await cubit.allowCurrentStep();
+      expect(cubit.state.canNavigate, isFalse);
+
+      // The dialog closes with nothing granted and the app comes back.
+      await cubit.refresh();
+
+      expect(cubit.state.canNavigate, isTrue);
+      expect(
+        cubit.state.granted,
+        isNot(contains(PermissionSetupStep.androidBattery)),
+      );
+      await cubit.close();
+    });
+
+    test(
+      'battery: coming back without having opened the dialog stays',
+      () async {
+        final phone = PermissionPhone.android(maker: samsung)
+          ..grantNotifications()
+          ..device.grant(DevicePermissionType.fullScreenIntent);
+        final cubit = phone.cubit();
+        await cubit.refresh();
+
+        await cubit.refresh();
+
+        expect(cubit.state.current, PermissionSetupStep.androidBattery);
+        expect(cubit.state.canNavigate, isFalse);
+        await cubit.close();
+      },
+    );
+
+    test('full-screen: coming back from Settings with it off stays', () async {
+      final phone = PermissionPhone.android()..grantNotifications();
+      final cubit = phone.cubit();
+      await cubit.refresh();
+      await cubit.allowCurrentStep();
+
+      await cubit.refresh();
+
+      expect(cubit.state.current, PermissionSetupStep.androidFullScreen);
+      expect(cubit.state.canNavigate, isFalse);
+      await cubit.close();
+    });
+
     test('the battery step opens the battery screen and waits', () async {
       final phone = PermissionPhone.android(maker: samsung)
         ..grantNotifications()
@@ -192,6 +242,120 @@ void main() {
         await cubit.close();
       },
     );
+  });
+
+  group('a notification prompt the system will not show again', () {
+    Future<void> opensSettings(
+      PermissionPhone phone,
+      PermissionSetupStep step,
+    ) async {
+      final cubit = phone.cubit();
+      await cubit.refresh();
+
+      expect(cubit.state.current, step);
+      expect(cubit.state.promptSpent, contains(step));
+
+      await cubit.allowCurrentStep();
+
+      // No prompt is asked for. Settings opens and the step waits.
+      expect(phone.notifications.requests, 0);
+      expect(phone.notifications.settingsOpened, 1);
+      expect(cubit.state.current, step);
+      expect(cubit.state.isRequesting, isFalse);
+
+      // Turned on over in Settings: the step is done.
+      phone.grantNotifications();
+      await cubit.refresh();
+      expect(cubit.state.current, isNot(step));
+      expect(cubit.state.granted, contains(step));
+      await cubit.close();
+    }
+
+    test('iOS, refused before: the step opens Settings', () async {
+      await opensSettings(
+        PermissionPhone.ios26()..refuseNotifications(),
+        PermissionSetupStep.iosNotifications,
+      );
+    });
+
+    test(
+      'Android 13 or later, refused before: the step opens Settings',
+      () async {
+        await opensSettings(
+          PermissionPhone.android()..refuseNotifications(),
+          PermissionSetupStep.androidNotifications,
+        );
+      },
+    );
+
+    test(
+      'Android below 13 with notifications off: the step opens Settings',
+      () async {
+        await opensSettings(
+          PermissionPhone.android(sdk: 31),
+          PermissionSetupStep.androidNotifications,
+        );
+      },
+    );
+
+    test('"Not now" still moves on', () async {
+      // Built one at a time: the fake alarm channel is shared.
+      for (final build in [PermissionPhone.ios26, PermissionPhone.android]) {
+        final phone = build()..refuseNotifications();
+        final cubit = phone.cubit();
+        await cubit.refresh();
+        final first = cubit.state.current;
+
+        cubit.skipStep();
+
+        expect(cubit.state.current, isNot(first));
+        expect(phone.notifications.settingsOpened, 0);
+        await cubit.close();
+      }
+    });
+
+    test('never asked: the prompt is not spent on either platform', () async {
+      for (final phone in [
+        PermissionPhone.ios26(),
+        PermissionPhone.android(),
+      ]) {
+        final cubit = phone.cubit();
+        await cubit.refresh();
+
+        expect(cubit.state.promptSpent, isEmpty);
+        await cubit.allowCurrentStep();
+        expect(phone.notifications.requests, 1);
+        expect(phone.notifications.settingsOpened, 0);
+        await cubit.close();
+      }
+    });
+  });
+
+  group('whether a page can reach the phone', () {
+    test('Android: not after a refusal, so no step promises a ring', () async {
+      final phone = PermissionPhone.android()
+        ..notifications.requestAnswer = NotificationPermissionStatus.denied;
+      final cubit = phone.cubit();
+      await cubit.refresh();
+
+      await cubit.allowCurrentStep();
+
+      expect(cubit.state.current, PermissionSetupStep.androidFullScreen);
+      expect(cubit.state.notificationsGranted, isFalse);
+      await cubit.close();
+    });
+
+    test('Android: yes once granted', () async {
+      final phone = PermissionPhone.android();
+      final cubit = phone.cubit();
+      await cubit.refresh();
+
+      await cubit.allowCurrentStep();
+
+      expect(cubit.state.current, PermissionSetupStep.androidFullScreen);
+      expect(cubit.state.notificationsGranted, isTrue);
+      await cubit.close();
+    });
   });
 
   group('the state', () {

@@ -785,6 +785,14 @@ Future<void> configureDependencies({
               isWeb: kIsWeb,
             ),
     )
+    // The Android version is always the real one, whatever the maker says.
+    ..registerLazySingleton<AndroidSdkReader>(
+      () => PlatformDeviceMakerReader(
+        DeviceInfoPlugin(),
+        platform: defaultTargetPlatform,
+        isWeb: kIsWeb,
+      ),
+    )
     // One reader for the permission steps and their statuses. The setup
     // flow and the permissions screen both ask it.
     ..registerLazySingleton(
@@ -795,6 +803,7 @@ Future<void> configureDependencies({
         alarm: getIt<AlarmHost>(),
         devicePermissions: getIt<DevicePermissionsRepository>(),
         makerReader: getIt<DeviceMakerReader>(),
+        sdkReader: getIt<AndroidSdkReader>(),
       ),
     )
     ..registerLazySingleton<OnboardingStepCatalog>(

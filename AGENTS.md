@@ -300,6 +300,18 @@ statuses are read, and the screen shows the waiting face until then.
 granted, the screen opened from Health keeps only steps with a prompt left,
 and a replay shows all of them.
 
+The list on screen holds still once drawn (`freezePermissionSteps`): a later
+read can pass over a step that became granted and can add a step at the end,
+but never removes a dot or puts one in before the step on screen. The read
+gives up after five seconds, so the screen never stays checking, and "Not now"
+is on screen from the first frame.
+
+A step never says more than is true. The Time-Sensitive explainer shows only
+once notifications are granted. The Android full-screen chip is left off while
+notifications are not granted. When the system will not show a notification
+prompt again (`notificationPromptSpent`), the step opens Settings and draws a
+switch instead of a prompt.
+
 iOS and Android stay apart. Each step is its own enum value
 (`iosNotifications`, `androidNotifications`), with its own view, strings
 (`onboarding_permissions.ios.*`, `onboarding_permissions.android.*`) and drawn

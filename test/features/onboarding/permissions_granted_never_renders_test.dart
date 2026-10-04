@@ -179,7 +179,7 @@ void main() {
 
   group('granted while the screen is open', () {
     test(
-      'a later step granted in Settings drops out before it shows',
+      'a later step granted in Settings is passed over, its dot kept',
       () async {
         final phone = PermissionPhone.android(maker: samsung);
         final cubit = phone.cubit();
@@ -191,6 +191,10 @@ void main() {
         // The user leaves, turns the full-screen switch on, and comes back.
         phone.device.grant(DevicePermissionType.fullScreenIntent);
         await cubit.refresh();
+        // Nothing on screen moved: same step, same three dots.
+        expect(cubit.state.current, PermissionSetupStep.androidNotifications);
+        expect(cubit.state.steps, hasLength(3));
+
         cubit.skipStep();
         await pumpEventQueue();
 
@@ -199,6 +203,57 @@ void main() {
           PermissionSetupStep.androidNotifications,
           PermissionSetupStep.androidBattery,
         ]);
+        expect(cubit.state.steps, hasLength(3));
+        expect(cubit.state.currentIndex, 2);
+        await cubit.close();
+      },
+    );
+
+    test('an earlier step revoked in Settings is not gone back to', () async {
+      // Notifications were granted when the screen opened, so the run
+      // starts on the full-screen step with two dots.
+      final phone = PermissionPhone.android(maker: samsung)
+        ..grantNotifications();
+      final cubit = phone.cubit();
+      await cubit.refresh();
+      const drawn = [
+        PermissionSetupStep.androidFullScreen,
+        PermissionSetupStep.androidBattery,
+      ];
+      expect(cubit.state.steps, drawn);
+
+      // The user turns notifications off in Settings and comes back.
+      phone.refuseNotifications();
+      await cubit.refresh();
+
+      // No dot is put in before the one they are on.
+      expect(cubit.state.steps, drawn);
+      expect(cubit.state.current, PermissionSetupStep.androidFullScreen);
+      expect(cubit.state.currentIndex, 0);
+
+      cubit
+        ..skipStep()
+        ..skipStep();
+      expect(cubit.state.steps, drawn);
+      expect(cubit.state.canNavigate, isTrue);
+      await cubit.close();
+    });
+
+    test(
+      'a step answered earlier and revoked since is not gone back to',
+      () async {
+        final phone = PermissionPhone.android(maker: samsung);
+        final cubit = phone.cubit();
+        await cubit.refresh();
+        await cubit.allowCurrentStep();
+        expect(cubit.state.current, PermissionSetupStep.androidFullScreen);
+
+        phone.refuseNotifications();
+        await cubit.refresh();
+
+        expect(cubit.state.current, PermissionSetupStep.androidFullScreen);
+        expect(cubit.state.steps, hasLength(3));
+        expect(cubit.state.currentIndex, 1);
         await cubit.close();
       },
     );

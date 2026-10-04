@@ -24,6 +24,8 @@ class NotificationPermissionsState {
     this.steps = const [],
     this.current,
     this.granted = const {},
+    this.available = const [],
+    this.promptSpent = const {},
     this.errorMessage,
     this.canNavigate = false,
     this.alarm = AlarmAuthorization.notDetermined,
@@ -34,8 +36,17 @@ class NotificationPermissionsState {
   final NotificationPermissionStep step;
 
   /// The steps this run of the screen draws on this phone, in order. A step
-  /// that was already granted when the screen read it is not in here.
+  /// that was already granted when the screen first read it is not in here.
+  /// Once drawn the list only grows at its end, so no dot the user has seen
+  /// moves or disappears.
   final List<PermissionSetupStep> steps;
+
+  /// Every step this phone has, drawn or not.
+  final List<PermissionSetupStep> available;
+
+  /// The steps whose system prompt will not come up again. Such a step sends
+  /// the user to Settings and never says a prompt is coming.
+  final Set<PermissionSetupStep> promptSpent;
 
   /// The step on screen. Null until the statuses have been read: the screen
   /// shows no prompt before it knows which one the user still needs.
@@ -60,6 +71,12 @@ class NotificationPermissionsState {
   bool get isGranted => step == NotificationPermissionStep.granted;
   bool get isDenied => step == NotificationPermissionStep.denied;
 
+  /// Whether a page can reach this phone as a notification at all. Without
+  /// it nothing on screen may promise a ring.
+  bool get notificationsGranted =>
+      granted.contains(PermissionSetupStep.iosNotifications) ||
+      granted.contains(PermissionSetupStep.androidNotifications);
+
   /// Where [current] sits in [steps], from zero. -1 with no step on screen.
   int get currentIndex {
     final on = current;
@@ -75,6 +92,8 @@ class NotificationPermissionsState {
     List<PermissionSetupStep>? steps,
     PermissionSetupStep? current,
     Set<PermissionSetupStep>? granted,
+    List<PermissionSetupStep>? available,
+    Set<PermissionSetupStep>? promptSpent,
     String? errorMessage,
     bool? canNavigate,
     AlarmAuthorization? alarm,
@@ -87,6 +106,8 @@ class NotificationPermissionsState {
       steps: steps ?? this.steps,
       current: current ?? this.current,
       granted: granted ?? this.granted,
+      available: available ?? this.available,
+      promptSpent: promptSpent ?? this.promptSpent,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       canNavigate: canNavigate ?? this.canNavigate,
       alarm: alarm ?? this.alarm,
@@ -104,6 +125,8 @@ class NotificationPermissionsState {
           listEquals(steps, other.steps) &&
           current == other.current &&
           setEquals(granted, other.granted) &&
+          listEquals(available, other.available) &&
+          setEquals(promptSpent, other.promptSpent) &&
           errorMessage == other.errorMessage &&
           canNavigate == other.canNavigate &&
           alarm == other.alarm &&
@@ -116,6 +139,8 @@ class NotificationPermissionsState {
     Object.hashAll(steps),
     current,
     Object.hashAllUnordered(granted),
+    Object.hashAll(available),
+    Object.hashAllUnordered(promptSpent),
     errorMessage,
     canNavigate,
     alarm,
