@@ -202,7 +202,7 @@ void main() {
         ),
         repository: FakeOnboardingFlowRepository(
           pinned: BundledOnboardingFlows.defaultFlow,
-          completed: {'welcome', 'how_it_rings', 'real_ring'},
+          completed: {'welcome', 'how_it_rings', 'real_ring', 'hook_up'},
         ),
       );
 

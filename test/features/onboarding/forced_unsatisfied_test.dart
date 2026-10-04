@@ -79,7 +79,7 @@ void main() {
       await resumePoint(
         BundledOnboardingFlows.defaultFlow,
         catalogFor(overrides),
-        completed: {'welcome', 'how_it_rings', 'real_ring'},
+        completed: {'welcome', 'how_it_rings', 'real_ring', 'hook_up'},
       ),
       isNull,
     );
@@ -97,7 +97,7 @@ void main() {
       await resumePoint(
         BundledOnboardingFlows.defaultFlow,
         catalog,
-        completed: {'welcome', 'how_it_rings', 'real_ring'},
+        completed: {'welcome', 'how_it_rings', 'real_ring', 'hook_up'},
       ),
       isNull,
     );

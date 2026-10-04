@@ -133,6 +133,7 @@ import 'package:critalarm/features/onboarding/domain/repositories/notification_p
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_flow_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/server_repository.dart';
+import 'package:critalarm/features/onboarding/domain/setup_stats_consent.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
@@ -149,6 +150,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/register_device_us
 import 'package:critalarm/features/onboarding/domain/usecases/request_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/save_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/set_up_later_usecase.dart';
+import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
@@ -211,10 +213,14 @@ import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.d
 import 'package:critalarm/features/settings/presentation/cubits/sound_crop_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_picker_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/features/topics/data/api_first_message_source.dart';
+import 'package:critalarm/features/topics/data/prefs_first_message_store.dart';
 import 'package:critalarm/features/topics/data/prefs_first_topic_handoff.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/data/repositories/shared_prefs_topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/data/shared_prefs_tool_template_store.dart';
+import 'package:critalarm/features/topics/domain/first_message/first_message_store.dart';
+import 'package:critalarm/features/topics/domain/first_message/first_message_watcher.dart';
 import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
 import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
@@ -798,6 +804,35 @@ Future<void> configureDependencies({
     ..registerLazySingleton<ToolTemplateStore>(
       () => SharedPrefsToolTemplateStore(getIt<SharedPreferences>()),
     )
+    // "A first message arrived", set once, and where each topic's watch
+    // for it starts from.
+    ..registerLazySingleton<FirstMessageStore>(
+      () => PrefsFirstMessageStore(getIt<SharedPreferences>()),
+    )
+    // One watcher per screen that waits for the first message. The screen
+    // starts it, pauses it in the background and disposes it on leaving.
+    ..registerFactory(
+      () => FirstMessageWatcher(
+        store: getIt<FirstMessageStore>(),
+        source: ApiFirstMessageSource(
+          api: getIt<ApiClient>(),
+          // A test whose close failed is still a test message to skip.
+          testIncidentIds: () => {
+            ...getIt<SetupTestRing>().incidentIds,
+            ...getIt<SetupTestRing>().unclosedIds,
+          },
+        ),
+      ),
+    )
+    // The analytics switch on the last setup step. Setup events that are
+    // held back until the user chooses hook in through `onAnswered`.
+    ..registerLazySingleton(
+      () => SetupStatsConsent(
+        privacy: getIt<PrivacyRepository>(),
+        telemetry: getIt<TelemetryGate>(),
+        notices: getIt<InAppNoticeRepository>(),
+      ),
+    )
     ..registerLazySingleton<OnboardingFlowRepository>(
       () => SharedPrefsOnboardingFlowRepository(getIt<SharedPreferences>()),
     )
@@ -870,6 +905,7 @@ Future<void> configureDependencies({
             getConnection: getIt<GetConnectionUsecase>(),
             readPermissionSetup: getIt<ReadPermissionSetupUsecase>(),
             notices: getIt<InAppNoticeRepository>(),
+            firstMessage: getIt<FirstMessageStore>(),
           ),
         );
         return buildHasOnboardingDeveloperTools
@@ -1131,7 +1167,10 @@ Future<void> configureDependencies({
       () => UpdateTopicUsecase(getIt<TopicRepository>()),
     )
     ..registerLazySingleton(
-      () => DeleteTopicUsecase(getIt<TopicRepository>()),
+      () => DeleteTopicUsecase(
+        getIt<TopicRepository>(),
+        getIt<FirstMessageStore>(),
+      ),
     )
     ..registerLazySingleton(
       () => GetTopicTokensUsecase(getIt<TopicRepository>()),
@@ -1272,6 +1311,31 @@ Future<void> configureDependencies({
         arrivals: getIt<AlarmArrivals>(),
         alarmHost: getIt<AlarmHost>(),
         onTopicUpdated: (topic) => getIt<TopicsCubit>().applyTopic(topic),
+        isReplay: isReplay ?? false,
+        on: OnboardingPlatform(platform: defaultTargetPlatform, isWeb: kIsWeb),
+      ),
+    )
+    ..registerFactoryParam<HookUpCubit, bool?, void>(
+      (isReplay, _) => HookUpCubit(
+        handoff: getIt<FirstTopicHandoff>(),
+        templates: getIt<ToolTemplateStore>(),
+        createToken: getIt<CreateTopicTokenUsecase>(),
+        readTopics: () async {
+          final topics = getIt<TopicsCubit>();
+          await topics.ensureLoaded();
+          return topics.state.topics;
+        },
+        refreshTopics: () async {
+          final topics = getIt<TopicsCubit>();
+          await topics.refresh();
+          return topics.state.topics;
+        },
+        readServerUrl: () async => (await getIt<GetConnectionUsecase>()(
+          const NoParams(),
+        )).getOrNull()?.serverUrl,
+        watcher: getIt<FirstMessageWatcher>(),
+        consent: getIt<SetupStatsConsent>(),
+        alarmHost: getIt<AlarmHost>(),
         isReplay: isReplay ?? false,
         on: OnboardingPlatform(platform: defaultTargetPlatform, isWeb: kIsWeb),
       ),
