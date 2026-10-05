@@ -1,6 +1,8 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/design/components/buttons.dart';
+import 'package:critalarm/design/faces/face_widget.dart';
+import 'package:critalarm/design/theme/severity.dart';
 import 'package:critalarm/design/theme/theme.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
@@ -210,6 +212,36 @@ void main() {
       final titleColor = tester.widget<Text>(title()).style!.color;
       final topicColor = tester.widget<Text>(find.text('prod-db')).style!.color;
       expect(titleColor, topicColor);
+    });
+
+    testWidgets('the face keeps its dark outline and features on the '
+        'acknowledged canvas', (tester) async {
+      for (final status in [
+        CriticalAlarmStatus.acknowledged,
+        CriticalAlarmStatus.closed,
+      ]) {
+        await tester.pumpWidget(
+          BlocProvider<TopicsCubit>.value(
+            value: getIt<TopicsCubit>(),
+            child: MaterialApp(
+              theme: buildLightTheme(),
+              home: SeverityScope(
+                mode: SeverityMode.ack,
+                child: Builder(
+                  builder: (context) => AcknowledgedScreen(
+                    state: stateFor(status),
+                    colors: context.appColors,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final face = tester.widget<FaceWidget>(find.byType(FaceWidget));
+        expect(face.overrideStrokeColor, AppColors.light.faceStroke);
+        expect(face.overrideInkColor, AppColors.light.faceInk);
+      }
     });
   });
 }

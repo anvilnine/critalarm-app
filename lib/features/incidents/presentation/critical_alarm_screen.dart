@@ -643,6 +643,11 @@ class AcknowledgedScreen extends StatelessWidget {
     // The demo welcomes: a ripple of happy faces, the title and one line,
     // with confetti on top.
     final faceState = state.faceState;
+    // The face keeps the outline and features it has everywhere else. The
+    // acknowledged palette turns both white for the text around it.
+    final facePalette = Theme.of(context).brightness == Brightness.dark
+        ? AppColors.dark
+        : AppColors.light;
 
     final size = AppSize.of(context);
     final isWide = size.isExpanded || size.isShort;
@@ -830,7 +835,12 @@ class AcknowledgedScreen extends StatelessWidget {
                 Hero(
                   tag: 'alarm-face-${state.incident?.id}',
                   flightShuttleBuilder: faceFlightShuttleBuilder,
-                  child: FaceWidget(state: faceState, size: 260),
+                  child: FaceWidget(
+                    state: faceState,
+                    size: 260,
+                    overrideStrokeColor: facePalette.faceStroke,
+                    overrideInkColor: facePalette.faceInk,
+                  ),
                 ),
                 const SizedBox(width: 40),
                 Expanded(
@@ -894,7 +904,12 @@ class AcknowledgedScreen extends StatelessWidget {
                 Hero(
                   tag: 'alarm-face-${state.incident?.id}',
                   flightShuttleBuilder: faceFlightShuttleBuilder,
-                  child: FaceWidget(state: faceState, size: faceSize),
+                  child: FaceWidget(
+                    state: faceState,
+                    size: faceSize,
+                    overrideStrokeColor: facePalette.faceStroke,
+                    overrideInkColor: facePalette.faceInk,
+                  ),
                 ),
                 const SizedBox(height: Spacing.s4),
                 _title(TextAlign.center),
