@@ -1362,6 +1362,9 @@ Future<void> configureDependencies({
         arrivals: getIt<AlarmArrivals>(),
         alarmHost: getIt<AlarmHost>(),
         onTopicUpdated: (topic) => getIt<TopicsCubit>().applyTopic(topic),
+        readServerUrl: () async => (await getIt<GetConnectionUsecase>()(
+          const NoParams(),
+        )).getOrNull()?.serverUrl,
         // The same reads the create-topic screen makes for its plan line: a
         // paid plan and a server of the user's own have no cap to state.
         readCriticalLimit: () async {

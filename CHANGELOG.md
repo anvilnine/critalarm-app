@@ -19,6 +19,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Setup problems are a short title and one line, and the test of this phone only is a plain button.
 - Hook up your tool shows your tool's own fields first when it has a form, in one tidy list.
 - The Finish setting up list on Home is lighter and shorter, and the widgets card leads with Hosted when widgets need it.
+- Ring me for real counts down 5 seconds before it sends, so there is time to lock the phone. Cancel stops it.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said

@@ -107,4 +107,30 @@ void main() {
       expect(CurlLine.shellQuote(''), "''");
     });
   });
+
+  group('the line a terminal shows', () {
+    test('names the server, the topic and the priority that rings', () {
+      final line = CurlLine.forTerminal(
+        serverUrl: 'https://alerts.example.com/',
+        topic: 'prod-db',
+        message: 'Test alarm',
+      );
+
+      expect(line, contains('curl https://alerts.example.com/prod-db'));
+      expect(line, contains('-H "Priority: urgent"'));
+      expect(line, contains("-d 'Test alarm'"));
+    });
+
+    test('shows a masked placeholder where a token would be', () {
+      final line = CurlLine.forTerminal(
+        serverUrl: 'https://api.critalarm.app',
+        topic: 'prod-db',
+        message: 'Test alarm',
+      );
+
+      expect(line, contains('Bearer tk_\u2026"'));
+      // Nothing after the prefix: there is no token behind it.
+      expect(RegExp('tk_[A-Za-z0-9]').hasMatch(line), isFalse);
+    });
+  });
 }

@@ -23,6 +23,27 @@ abstract final class CurlLine {
         '-d ${shellQuote(message)} ${shellQuote('$base/$topic')}';
   }
 
+  /// What stands where a token would be in a line that is only shown. No
+  /// token is behind it.
+  static const maskedToken = 'tk_\u2026';
+
+  /// The publish command as a terminal would show it, one flag to a line,
+  /// for a picture of the command and never for pasting.
+  ///
+  /// It takes no token and holds none: the header shows [maskedToken]. It
+  /// always carries the priority that rings a critical topic.
+  static String forTerminal({
+    required String serverUrl,
+    required String topic,
+    required String message,
+  }) {
+    final base = baseUrl(serverUrl);
+    return 'curl $base/$topic \\\n'
+        '  -H "Authorization: Bearer $maskedToken" \\\n'
+        '  -H "Priority: $urgent" \\\n'
+        '  -d ${shellQuote(message)}';
+  }
+
   /// [text] as one single-quoted shell word. A single quote inside it ends
   /// the quoting, adds an escaped quote and starts the quoting again.
   static String shellQuote(String text) {

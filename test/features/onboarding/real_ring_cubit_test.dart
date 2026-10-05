@@ -83,6 +83,28 @@ class _FakeTimer implements Timer {
   int get tick => 0;
 }
 
+/// A periodic timer the test ticks by hand.
+class _FakeTicker implements Timer {
+  _FakeTicker(this.period, this._onTick);
+
+  final Duration period;
+  final void Function(Timer timer) _onTick;
+  bool _active = true;
+
+  void fire() {
+    if (_active) _onTick(this);
+  }
+
+  @override
+  void cancel() => _active = false;
+
+  @override
+  bool get isActive => _active;
+
+  @override
+  int get tick => 0;
+}
+
 void main() {
   const critical = Topic(name: 'setup-test', critical: true);
   const quiet = Topic(name: 'setup-test');
@@ -98,6 +120,9 @@ void main() {
   late _FakeHandoff handoff;
   late FakeAlarmHost alarm;
   late List<_FakeTimer> timers;
+
+  /// Every one-second timer a cubit started, for the wait before the send.
+  late List<_FakeTicker> tickers;
   late List<Topic> topics;
   late bool hasConnection;
   late BackgroundConnectState connect;
@@ -120,6 +145,7 @@ void main() {
     handoff = _FakeHandoff(savedTopicName: 'setup-test');
     alarm = FakeAlarmHost();
     timers = [];
+    tickers = [];
     topics = [critical];
     hasConnection = true;
     connect = connected;
@@ -135,7 +161,20 @@ void main() {
     await connectChanges.close();
   });
 
-  RealRingCubit build({bool isReplay = false}) => RealRingCubit(
+  /// [sendDelay] defaults to none, so a tap sends at once and the tests of
+  /// the call itself stay about the call. The wait has its own group.
+  RealRingCubit build({
+    bool isReplay = false,
+    Duration sendDelay = Duration.zero,
+    Future<String?> Function()? readServerUrl,
+  }) => RealRingCubit(
+    sendDelay: sendDelay,
+    readServerUrl: readServerUrl,
+    periodic: (period, onTick) {
+      final ticker = _FakeTicker(period, onTick);
+      tickers.add(ticker);
+      return ticker;
+    },
     triggerTest: triggerTest,
     updateTopic: updateTopic,
     readTopics: () async => topics,
@@ -835,5 +874,253 @@ void main() {
       expect(cubit.state.phase, RealRingPhase.ready);
       await cubit.close();
     });
+  });
+
+  group('the wait before the send', () {
+    const wait = Duration(seconds: 5);
+
+    /// The one-second timer of the wait. The phone-only test has its own.
+    _FakeTicker sendTicker() => tickers.single;
+
+    test('a tap starts the count and asks the server nothing', () async {
+      serverAnswers('inc_1');
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+
+      await cubit.ringForReal();
+
+      expect(cubit.state.sendSecondsLeft, 5);
+      expect(cubit.state.isSendCountingDown, isTrue);
+      expect(cubit.state.phase, RealRingPhase.ready);
+      verifyNever(() => triggerTest(any()));
+      await cubit.close();
+    });
+
+    test('it counts down and sends once when it ends', () async {
+      serverAnswers('inc_1');
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+      await cubit.ringForReal();
+
+      for (var i = 0; i < 4; i++) {
+        sendTicker().fire();
+      }
+      expect(cubit.state.sendSecondsLeft, 1);
+      verifyNever(() => triggerTest(any()));
+
+      sendTicker().fire();
+      await settle();
+
+      verify(() => triggerTest('setup-test')).called(1);
+      expect(cubit.state.isSendCountingDown, isFalse);
+      // The states that followed the tap before follow the wait now.
+      expect(cubit.state.phase, RealRingPhase.waiting);
+      expect(cubit.state.incidentId, 'inc_1');
+      expect(ring.incidentIds, {'inc_1'});
+      await cubit.close();
+    });
+
+    test('Cancel goes back to ready and sends nothing, ever', () async {
+      serverAnswers('inc_1');
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+      await cubit.ringForReal();
+      sendTicker().fire();
+
+      cubit.cancelSend();
+      await settle();
+
+      expect(cubit.state.isSendCountingDown, isFalse);
+      expect(cubit.state.phase, RealRingPhase.ready);
+      // Not from the timer that was stopped, and not from leaving later.
+      sendTicker().fire();
+      cubit.appLeftFront();
+      await settle();
+      verifyNever(() => triggerTest(any()));
+      expect(ring.incidentIds, isEmpty);
+      await cubit.close();
+    });
+
+    test('the app going to the background mid-count sends at once', () async {
+      serverAnswers('inc_1');
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+      await cubit.ringForReal();
+      sendTicker().fire();
+      expect(cubit.state.sendSecondsLeft, 4);
+
+      cubit.appLeftFront();
+      await settle();
+
+      verify(() => triggerTest('setup-test')).called(1);
+      expect(cubit.state.isSendCountingDown, isFalse);
+      expect(cubit.state.phase, RealRingPhase.waiting);
+
+      // A second lifecycle event, and the timer that was stopped, send
+      // nothing more.
+      cubit.appLeftFront();
+      sendTicker().fire();
+      await settle();
+      verifyNever(() => triggerTest(any()));
+      await cubit.close();
+    });
+
+    test('the app going to the background with no count running sends '
+        'nothing', () async {
+      serverAnswers('inc_1');
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+
+      cubit.appLeftFront();
+      await settle();
+
+      verifyNever(() => triggerTest(any()));
+      await cubit.close();
+    });
+
+    test('a second tap while it counts changes nothing', () async {
+      serverAnswers('inc_1');
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+      await cubit.ringForReal();
+      sendTicker().fire();
+
+      await cubit.ringForReal();
+
+      expect(tickers, hasLength(1));
+      expect(cubit.state.sendSecondsLeft, 4);
+      verifyNever(() => triggerTest(any()));
+
+      // And the count still ends in exactly one call.
+      for (var i = 0; i < 4; i++) {
+        sendTicker().fire();
+      }
+      await settle();
+      verify(() => triggerTest('setup-test')).called(1);
+      await cubit.close();
+    });
+
+    test('a tap while the call is in flight starts nothing', () async {
+      final answer = Completer<AppResult<String>>();
+      when(() => triggerTest(any())).thenAnswer((_) => answer.future);
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+      await cubit.ringForReal();
+      cubit.appLeftFront();
+      await settle();
+      expect(cubit.state.phase, RealRingPhase.sending);
+
+      await cubit.ringForReal();
+
+      expect(cubit.state.isSendCountingDown, isFalse);
+      answer.complete('inc_1'.toSuccess());
+      await settle();
+      verify(() => triggerTest('setup-test')).called(1);
+      await cubit.close();
+    });
+
+    test('a replay counts nothing and sends nothing', () async {
+      serverAnswers('inc_1');
+      final cubit = build(isReplay: true, sendDelay: wait);
+      await cubit.load();
+
+      await cubit.ringForReal();
+      cubit.appLeftFront();
+      await settle();
+
+      expect(cubit.state.isSendCountingDown, isFalse);
+      expect(tickers, isEmpty);
+      verifyNever(() => triggerTest(any()));
+
+      // A developer's look at the count is a picture: nothing runs.
+      cubit
+        ..showForReplay(RealRingPhase.ready, isSendCountingDown: true)
+        ..appLeftFront()
+        ..cancelSend();
+      await settle();
+      expect(cubit.state.sendSecondsLeft, 5);
+      expect(tickers, isEmpty);
+      verifyNever(() => triggerTest(any()));
+      await cubit.close();
+    });
+
+    test('with no server the tap neither counts nor sends', () async {
+      hasConnection = false;
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+
+      await cubit.ringForReal();
+
+      expect(cubit.state.phase, RealRingPhase.noServer);
+      expect(cubit.state.isSendCountingDown, isFalse);
+      expect(tickers, isEmpty);
+      verifyNever(() => triggerTest(any()));
+      await cubit.close();
+    });
+
+    test(
+      'Critical off never counts: only the switch can change that',
+      () async {
+        topics = [quiet];
+        final cubit = build(sendDelay: wait);
+        await cubit.load();
+
+        await cubit.ringForReal();
+
+        expect(cubit.state.phase, RealRingPhase.criticalOff);
+        expect(tickers, isEmpty);
+        verifyNever(() => triggerTest(any()));
+        verifyNever(() => updateTopic(any()));
+        await cubit.close();
+      },
+    );
+
+    test('a server that goes away mid-count ends the count unsent', () async {
+      serverAnswers('inc_1');
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+      await cubit.ringForReal();
+
+      hasConnection = false;
+      connectChanges.add(const BackgroundConnectState());
+      await settle();
+      await settle();
+
+      expect(cubit.state.phase, RealRingPhase.noServer);
+      expect(cubit.state.isSendCountingDown, isFalse);
+      sendTicker().fire();
+      await settle();
+      verifyNever(() => triggerTest(any()));
+      await cubit.close();
+    });
+
+    test('closing the screen mid-count sends nothing', () async {
+      serverAnswers('inc_1');
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+      await cubit.ringForReal();
+      final ticker = sendTicker();
+
+      await cubit.close();
+      ticker.fire();
+      await settle();
+
+      verifyNever(() => triggerTest(any()));
+    });
+
+    test(
+      'the count shows the real server address and holds no token',
+      () async {
+        final cubit = build(
+          sendDelay: wait,
+          readServerUrl: () async => 'https://alerts.example.com',
+        );
+        await cubit.load();
+
+        expect(cubit.state.serverUrl, 'https://alerts.example.com');
+        expect(cubit.state.topic?.name, 'setup-test');
+        await cubit.close();
+      },
+    );
   });
 }

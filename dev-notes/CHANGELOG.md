@@ -29,6 +29,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - A replay of the permissions step takes ?skip=<n> to open on a later step in a developer build.
 - AckedExits.firstToolAlarm: the alarm the first hook-up message set off gets a setup acknowledged screen with one Finish button, which closes that incident through CriticalAlarmCubit.finishFirstToolAlarm. The id is saved as onboarding\_first\_tool\_incident (SetupTestRing.firstToolIncidentId). Developer options, Other setup states, opens it with made-up values.
 - SetupProblemCard: the one widget for a setup step that cannot go on or is waiting. The face, then a card with a title, one line and the action. The real ring problems, the hook-up problems and the setup gate use it.
+- Ring me for real waits realRingSendDelay (5 seconds, one constant, zero turns it off) before the server is asked. SendCountdown holds the rule: Cancel sends nothing, and the app leaving the front sends at once. The countdown shows CurlTerminalCard, the terminal from How it rings, typing CurlLine.forTerminal with a masked token. Developer options, Real ring states, has send\_countdown.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
