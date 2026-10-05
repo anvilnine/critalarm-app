@@ -494,7 +494,9 @@ rules are pure functions in
   the rule: the server is asked when the count ends, Cancel sends nothing,
   and the app leaving the front (`hidden` or `paused`) sends at once on
   both platforms, because a timer is not promised to run in the
-  background. The checks run before the count starts, and a server that
+  background. A tap whose checks finish with the app already hidden sends
+  with no count. `inactive` alone never sends
+  (`RealRingCubit.appLifecycleChanged`). The checks run before the count starts, and a server that
   goes away during it ends the count unsent.
 - While it counts the screen shows `TypedCurlTerminal`, the same
   `CurlTerminalCard` the How it rings story draws. It types
@@ -538,17 +540,28 @@ It is a real incident and rings with every control. Its acknowledged
 screen is the setup one: three ticks (`firstToolAlarmProof`) and one Finish
 button. Setup is already complete by then, so Finish only closes that one
 incident (`CriticalAlarmCubit.finishFirstToolAlarm`, through
-`EndSetupTestUsecase`) and goes Home. It is matched by the id the hook-up
-step saved (`SetupTestRing.firstToolIncidentId`,
-`onboarding_first_tool_incident`), which outlives `clear` and is forgotten
-once Finish ran. A user who left setup early never has that id, so they
-get the normal screen. If another alarm has the screen, Finish does
-nothing.
+`EndSetupTestUsecase`) and goes Home. If another alarm has the screen,
+Finish does nothing.
+
+The id alone never decides it. The server keeps one id for an incident's
+whole life: a later message joins it and its desk timer reopens it. So the
+phone keeps a record (`SetupTestRing.firstTool`, the
+`onboarding_first_tool_*` keys): the id, when hook up heard it, the
+`opened_at` and `last_message_at` the alarm screen first saw, and whether
+it was acknowledged. `firstToolVerdictFor` checks every incident the alarm
+screen shows against it, and the record is forgotten the moment the
+incident reopens, takes in another message or closes. It is also forgotten
+by Finish, by Done on the hook-up step, by Set this up later, and at the
+next launch after the first acknowledgement
+(`settleFirstToolAtLaunch`). Forgotten, the incident gets the normal
+screen with every control. When in doubt the answer is the normal screen.
 
 The normal acknowledged screen shows two buttons at most: At my desk while
-the desk timer runs, or the topic once the incident is closed, over a
-paper Back to topics. The topic name is a pill that opens the topic. The
-screen keeps the acknowledged colours after At my desk.
+the desk timer runs, over a paper Back to topics. The topic name under the
+title is a pill and the one way to the topic. The screen keeps the
+acknowledged colours after At my desk. Its face shrinks on a short phone
+so the details card sits above the pinned buttons, and at a large text
+size the hint moves into the list.
 
 Every "Set this up later" exit calls `SetUpLaterUsecase`, which completes
 setup, and completes nothing on a replay.

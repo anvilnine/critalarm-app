@@ -149,16 +149,19 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         // on this tab's own navigator, so the router's location is what
         // says an alarm, the new-topic screen, the plans or another tab
         // is on top.
-        isInFront:
-            !_isCovered &&
-            !_isRouteElsewhere &&
-            // A pinned notice holds the checklist's spot. Nothing ticks or
-            // celebrates behind it: that waits until the checklist is back.
-            !_isPinnedNotice(context.read<InAppNoticeCubit>().state) &&
-            isHomeFrontScreen(
-              location: _routerLocation(),
-              isAppResumed: _isResumed,
-            ),
+        isInFront: isSetupChecklistInFront(
+          isCovered: _isCovered,
+          isRouteElsewhere: _isRouteElsewhere,
+          // A pinned notice holds the checklist's spot. Nothing ticks or
+          // celebrates behind it: that waits until the checklist is back.
+          hasPinnedNotice: _isPinnedNotice(
+            context.read<InAppNoticeCubit>().state,
+          ),
+          isHomeFront: isHomeFrontScreen(
+            location: _routerLocation(),
+            isAppResumed: _isResumed,
+          ),
+        ),
         isGuideActive: _guides.state.isActive,
       ),
     );

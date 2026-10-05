@@ -61,6 +61,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The self-host form on the connect step holds its address and token fields, Paste and the helper line in one card.
 - The Home setup checklist is HomeSetupPill, a floating card above the tab bar that opens in place to its three rows. A pinned notice takes the spot first (setupPillHasTheSpot) and nothing ticks behind it. The empty Home shows its empty card again. Developer options, Other setup states, opens the pill closed or open with made-up rows.
 - AppButtonVariant.tinted is a wash of the surface colour, so ink on the washed critical red is 6.5:1. Read the full message uses it too, under Silence.
+- The acknowledged screen sizes its face from the room left, so the details card clears the pinned buttons on a 375 pt phone, moves the hint into the list at a large text size, and reaches the topic by the pill only. The send countdown sits on a card. The failed setup gate has a title. isSetupChecklistInFront holds the rule that nothing ticks behind a pinned notice.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

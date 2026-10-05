@@ -245,6 +245,22 @@ bool isHomeFrontScreen({
   return path.isEmpty || path == '/';
 }
 
+/// Whether the user is looking at the setup checklist, which is what lets
+/// it tick a row, celebrate and poll.
+///
+/// Home has to be the screen in front ([isHomeFront], from
+/// [isHomeFrontScreen]) with nothing pushed over it ([isCovered],
+/// [isRouteElsewhere]). And the checklist has to be drawn: a pinned notice
+/// holds its spot above the tab bar, so while one is up
+/// ([hasPinnedNotice]) the checklist is not on screen and nothing may play
+/// behind the notice.
+bool isSetupChecklistInFront({
+  required bool isHomeFront,
+  required bool isCovered,
+  required bool isRouteElsewhere,
+  required bool hasPinnedNotice,
+}) => isHomeFront && !isCovered && !isRouteElsewhere && !hasPinnedNotice;
+
 /// How long Home waits before it looks at this phone's data again after a
 /// look that failed: 15 seconds, doubling, at most 5 minutes.
 Duration setupSeedRetryDelay(int failures) {

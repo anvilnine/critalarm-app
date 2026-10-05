@@ -559,6 +559,9 @@ class _RealRingViewState extends State<_RealRingView>
   /// The wait between the tap and the call to the server: the seconds
   /// left, what to do with them, and a terminal typing the command a tool
   /// would send. One line under it says who sends this one.
+  ///
+  /// The words sit on a card, like every problem and wait in setup: the
+  /// canvas behind this state moves.
   Widget _sendCountdown(BuildContext context, RealRingState state) {
     final colors = context.appColors;
     final seconds = state.sendSecondsLeft ?? 0;
@@ -575,49 +578,59 @@ class _RealRingViewState extends State<_RealRingView>
           ),
         ),
         const SizedBox(height: Spacing.s4),
-        Semantics(
-          container: true,
-          liveRegion: true,
-          label: LocaleKeys.onboarding_real_ring_send_countdown_aria.tr(
-            namedArgs: args,
-          ),
-          excludeSemantics: true,
+        AppSheet(
+          padding: const EdgeInsets.fromLTRB(16, 22, 16, 18),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                LocaleKeys.onboarding_real_ring_send_countdown_title.tr(
+              Semantics(
+                container: true,
+                liveRegion: true,
+                label: LocaleKeys.onboarding_real_ring_send_countdown_aria.tr(
                   namedArgs: args,
                 ),
-                textAlign: TextAlign.center,
-                style: AppTypography.headline(colors.onCanvas, fontSize: 30),
+                excludeSemantics: true,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      LocaleKeys.onboarding_real_ring_send_countdown_title.tr(
+                        namedArgs: args,
+                      ),
+                      textAlign: TextAlign.center,
+                      style: AppTypography.headline(colors.ink, fontSize: 30),
+                    ),
+                    const SizedBox(height: Spacing.s2),
+                    Text(
+                      LocaleKeys.onboarding_real_ring_send_countdown_line.tr(),
+                      textAlign: TextAlign.center,
+                      style: AppTypography.body(colors.ink2),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: Spacing.s2),
+              const SizedBox(height: Spacing.s4),
+              // The user's own server and topic. No token is shown or held
+              // here.
+              TypedCurlTerminal(
+                command: CurlLine.forTerminal(
+                  serverUrl: state.serverUrl ?? RealRingCubit.exampleServerUrl,
+                  topic: topic,
+                  message: LocaleKeys.onboarding_real_ring_send_message.tr(),
+                ),
+                semanticLabel: LocaleKeys
+                    .onboarding_real_ring_send_terminal_aria
+                    .tr(namedArgs: {'topic': topic}),
+              ),
+              const SizedBox(height: Spacing.s3),
               Text(
-                LocaleKeys.onboarding_real_ring_send_countdown_line.tr(),
+                LocaleKeys.onboarding_real_ring_send_countdown_note.tr(),
                 textAlign: TextAlign.center,
-                style: AppTypography.body(colors.onCanvasMuted),
+                style: AppTypography.small(colors.ink2),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: Spacing.s5),
-        // The user's own server and topic. No token is shown or held here.
-        TypedCurlTerminal(
-          command: CurlLine.forTerminal(
-            serverUrl: state.serverUrl ?? RealRingCubit.exampleServerUrl,
-            topic: topic,
-            message: LocaleKeys.onboarding_real_ring_send_message.tr(),
-          ),
-          semanticLabel: LocaleKeys.onboarding_real_ring_send_terminal_aria.tr(
-            namedArgs: {'topic': topic},
-          ),
-        ),
-        const SizedBox(height: Spacing.s3),
-        Text(
-          LocaleKeys.onboarding_real_ring_send_countdown_note.tr(),
-          textAlign: TextAlign.center,
-          style: AppTypography.small(colors.onCanvasMuted),
         ),
       ],
     );
