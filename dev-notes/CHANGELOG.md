@@ -55,6 +55,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Home decides it is in front from the router's location (isHomeFrontScreen), backs off its first-message poll, sweeps topics beyond the polled three, and backs off a failed first look.
 - The acknowledged screen of a setup test lists what the alarm proved as ticks (ProofList). The phone-only test shows the server and the push as not tested. AppAnimatedTick takes optional colours for the acknowledged canvas.
 - The acknowledged screen shows two buttons at most: At my desk (or the topic once the incident is closed) over a paper Back to topics. Its title scales to fit one line (AppFittedTitle), the topic is a tappable pill, and it keeps the acknowledged colours after At my desk.
+- The self-host form on the connect step holds its address and token fields, Paste and the helper line in one card.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
