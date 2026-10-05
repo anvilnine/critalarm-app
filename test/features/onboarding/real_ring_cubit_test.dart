@@ -12,6 +12,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_stat
 import 'package:critalarm/features/onboarding/presentation/model/local_test_alarm.dart';
 import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -1016,6 +1017,83 @@ void main() {
       answer.complete('inc_1'.toSuccess());
       await settle();
       verify(() => triggerTest('setup-test')).called(1);
+      await cubit.close();
+    });
+
+    test('hidden while the checks run: the tap sends at once, with no '
+        'count left to freeze in the background', () async {
+      serverAnswers('inc_1');
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+
+      // The tap, and the phone locked before the checks have answered.
+      final tapped = cubit.ringForReal();
+      cubit
+        ..appLifecycleChanged(AppLifecycleState.inactive)
+        ..appLifecycleChanged(AppLifecycleState.hidden)
+        ..appLifecycleChanged(AppLifecycleState.paused);
+      await tapped;
+      await settle();
+
+      verify(() => triggerTest('setup-test')).called(1);
+      expect(tickers, isEmpty);
+      expect(cubit.state.isSendCountingDown, isFalse);
+      expect(cubit.state.phase, RealRingPhase.waiting);
+      await cubit.close();
+    });
+
+    test('hidden before the first tick sends at once', () async {
+      serverAnswers('inc_1');
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+      await cubit.ringForReal();
+      expect(cubit.state.sendSecondsLeft, 5);
+
+      cubit.appLifecycleChanged(AppLifecycleState.hidden);
+      await settle();
+
+      verify(() => triggerTest('setup-test')).called(1);
+      // The paused that follows hidden sends nothing more.
+      cubit.appLifecycleChanged(AppLifecycleState.paused);
+      await settle();
+      verifyNever(() => triggerTest(any()));
+      await cubit.close();
+    });
+
+    test('inactive alone does not send: a shade or the app switcher is not '
+        'the phone being put away', () async {
+      serverAnswers('inc_1');
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+      await cubit.ringForReal();
+
+      cubit.appLifecycleChanged(AppLifecycleState.inactive);
+      await settle();
+
+      verifyNever(() => triggerTest(any()));
+      expect(cubit.state.sendSecondsLeft, 5);
+
+      // Nor does it make the next tap skip the count.
+      cubit.cancelSend();
+      await cubit.ringForReal();
+      expect(cubit.state.sendSecondsLeft, 5);
+      verifyNever(() => triggerTest(any()));
+      await cubit.close();
+    });
+
+    test('back in front, the next tap counts again', () async {
+      serverAnswers('inc_1');
+      final cubit = build(sendDelay: wait);
+      await cubit.load();
+      cubit
+        ..appLifecycleChanged(AppLifecycleState.paused)
+        ..appLifecycleChanged(AppLifecycleState.resumed);
+      await settle();
+
+      await cubit.ringForReal();
+
+      expect(cubit.state.sendSecondsLeft, 5);
+      verifyNever(() => triggerTest(any()));
       await cubit.close();
     });
 
