@@ -11,6 +11,7 @@ import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecas
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -43,6 +44,8 @@ void main() {
     id: id,
     topic: id == toolId ? 'setup-topic' : 'prod-db',
     openedAt: at ?? openedAt,
+    // The server stamps every incident with its newest message.
+    lastMessageAt: at ?? openedAt,
     state: state,
   );
 
@@ -102,8 +105,7 @@ void main() {
       () => ring.incidentIds,
       () => true,
       EndSetupTestUsecase(ring, ack, close),
-      () => ring.firstToolIncidentId,
-      ring.forgetFirstTool,
+      ring,
     );
   });
 
@@ -277,7 +279,7 @@ void main() {
     verifyNever(() => close(any()));
   });
 
-  test('a throw in the read still loads the alarm', () async {
+  test('a store that throws still loads the alarm, as a normal one', () async {
     final throwing = CriticalAlarmCubit(
       getIncident,
       getIncidents,
@@ -292,14 +294,173 @@ void main() {
       null,
       null,
       null,
-      () => throw StateError('prefs'),
+      _ThrowingRing(),
     );
     addTearDown(throwing.close);
 
-    await throwing.load(incidentId: realId);
-
+    await throwing.load(incidentId: toolId);
     expect(throwing.state.status, CriticalAlarmStatus.ringing);
-    expect(throwing.state.incident?.id, realId);
+    expect(throwing.state.incident?.id, toolId);
+
+    await throwing.acknowledge();
+    expect(throwing.state.ackedExits, AckedExits.incident);
+  });
+
+  /// Everything a real alarm's acknowledged screen has: the normal exits,
+  /// At my desk still to tap, and nothing of the setup screen.
+  void expectNormalAckedScreen() {
+    expect(cubit.state.isAcknowledged, isTrue);
+    expect(cubit.state.status, CriticalAlarmStatus.acknowledged);
+    expect(cubit.state.isFirstToolAlarm, isFalse);
+    expect(cubit.state.ackedExits, AckedExits.incident);
+    expect(cubit.state.ackedExits.isSetupTest, isFalse);
+  }
+
+  group('the same incident id later is a real alarm', () {
+    /// The first ring was acknowledged and the user left without Finish.
+    Future<void> ackAndLeave() async {
+      await ackTheToolAlarm();
+      expect(cubit.state.ackedExits, AckedExits.firstToolAlarm);
+      expect(ring.firstTool?.wasAcked, isTrue);
+      expect(ring.firstTool?.openedAt, openedAt);
+    }
+
+    test('a real alert joins it and the desk timer reopens it', () async {
+      await ackAndLeave();
+      // Ten minutes on the server reopened it under the same id, with a
+      // new opened_at and the message that joined.
+      final reopenedAt = openedAt.add(const Duration(minutes: 10));
+      when(() => getIncident(toolId)).thenAnswer(
+        (_) async => incident(
+          toolId,
+          at: reopenedAt,
+        ).copyWith(lastMessageAt: reopenedAt).toSuccess(),
+      );
+      when(() => ack(toolId)).thenAnswer(
+        (_) async => incident(
+          toolId,
+          state: IncidentStates.acked,
+          at: reopenedAt,
+        ).copyWith(lastMessageAt: reopenedAt).toSuccess(),
+      );
+
+      await cubit.load(incidentId: toolId);
+
+      // It rings as a real alarm, and the record is gone for good.
+      expect(cubit.state.status, CriticalAlarmStatus.ringing);
+      expect(cubit.state.isLive, isTrue);
+      expect(cubit.state.isFirstToolAlarm, isFalse);
+      expect(ring.firstTool, isNull);
+
+      await cubit.acknowledge();
+
+      expectNormalAckedScreen();
+      expect(await cubit.finishFirstToolAlarm(toolId), isFalse);
+      verifyNever(() => close(any()));
+    });
+
+    test('the desk timer reopens it with nothing else changed', () async {
+      await ackAndLeave();
+      // Same opened_at, same messages: only "open again after the first
+      // acknowledgement" tells it apart.
+
+      await cubit.load(incidentId: toolId);
+
+      expect(cubit.state.status, CriticalAlarmStatus.ringing);
+      expect(ring.firstTool, isNull);
+      await cubit.acknowledge();
+      expectNormalAckedScreen();
+    });
+
+    test('a message joins it while it is still acknowledged', () async {
+      await ackAndLeave();
+      final joinedAt = openedAt.add(const Duration(minutes: 3));
+      when(() => getIncident(toolId)).thenAnswer(
+        (_) async => incident(
+          toolId,
+          state: IncidentStates.acked,
+        ).copyWith(lastMessageAt: joinedAt).toSuccess(),
+      );
+
+      await cubit.load(incidentId: toolId);
+
+      expectNormalAckedScreen();
+      expect(ring.firstTool, isNull);
+    });
+
+    test('a reopen that reaches the screen through the shared list', () async {
+      await ackAndLeave();
+
+      incidents.applyIncident(
+        incident(toolId, at: openedAt.add(const Duration(minutes: 10))),
+      );
+      await settle();
+
+      expect(cubit.state.status, CriticalAlarmStatus.ringing);
+      expect(cubit.state.isFirstToolAlarm, isFalse);
+      expect(ring.firstTool, isNull);
+    });
+
+    test('the app was opened again after the first acknowledgement', () async {
+      await ackAndLeave();
+
+      // What main() does on launch, before any screen.
+      await ring.settleFirstToolAtLaunch();
+      expect(ring.firstTool, isNull);
+      // Still acknowledged on the server, exactly as it was left.
+      when(() => getIncident(toolId)).thenAnswer(
+        (_) async => incident(toolId, state: IncidentStates.acked).toSuccess(),
+      );
+      await cubit.load(incidentId: toolId);
+
+      expectNormalAckedScreen();
+      expect(await cubit.finishFirstToolAlarm(toolId), isFalse);
+      verifyNever(() => close(any()));
+    });
+
+    test('an opened_at later than the hook-up step heard it', () async {
+      // Acknowledged from the notification, so the alarm screen never saw
+      // the first ring. The reopen is still told apart by its time.
+      when(() => getIncident(toolId)).thenAnswer(
+        (_) async => incident(
+          toolId,
+          at: ring.heldAt.add(const Duration(minutes: 10)),
+        ).toSuccess(),
+      );
+
+      await cubit.load(incidentId: toolId);
+      await cubit.acknowledge();
+
+      expectNormalAckedScreen();
+      expect(ring.firstTool, isNull);
+    });
+  });
+
+  test(
+    'the alarm starting the app from cold is still the first ring',
+    () async {
+      // Not acknowledged yet, so launch keeps the record.
+      await ring.settleFirstToolAtLaunch();
+
+      await cubit.load(incidentId: toolId);
+      await cubit.acknowledge();
+
+      expect(cubit.state.ackedExits, AckedExits.firstToolAlarm);
+    },
+  );
+
+  test('when the phone no longer holds the record, Finish gives way to the '
+      'normal screen instead of doing nothing forever', () async {
+    await ackTheToolAlarm();
+    expect(cubit.state.ackedExits, AckedExits.firstToolAlarm);
+    // Gone from the phone behind the screen's back.
+    ring.firstTool = null;
+
+    expect(await cubit.finishFirstToolAlarm(toolId), isFalse);
+
+    expectNormalAckedScreen();
+    verifyNever(() => close(any()));
+    expect(cancelledIds(), isEmpty);
   });
 
   test('a look at the screen sends and saves nothing', () async {
@@ -314,4 +475,12 @@ void main() {
     expect(cancelledIds(), isEmpty);
     expect(ring.firstToolIncidentId, toolId);
   });
+}
+
+class _ThrowingRing extends FakeSetupTestRing {
+  @override
+  FirstToolAlarm? get firstTool => throw StateError('prefs');
+
+  @override
+  String? get firstToolIncidentId => throw StateError('prefs');
 }

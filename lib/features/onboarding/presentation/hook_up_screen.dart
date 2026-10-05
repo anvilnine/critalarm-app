@@ -8,6 +8,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
+import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/hook_up_leaving.dart';
@@ -116,6 +117,11 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
     isStillHere: () =>
         mounted &&
         _router.routerDelegate.currentConfiguration.uri.path == _path,
+    // A replay saves nothing, so it has nothing to take back either.
+    forgetFirstTool: () {
+      if (isOnboardingReplay(context)) return;
+      unawaited(getIt<SetupTestRing>().forgetFirstTool());
+    },
   );
 
   late GoRouter _router;

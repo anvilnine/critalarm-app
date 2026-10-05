@@ -7,9 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// `onboarding_real_ring_unclosed`, and the alarm of the first hook-up
 /// message under `onboarding_first_tool_incident`.
 class PrefsSetupTestRing implements SetupTestRing {
-  PrefsSetupTestRing(this._prefs);
+  PrefsSetupTestRing(this._prefs, {DateTime Function()? now})
+    : _now = now ?? DateTime.now;
 
   final SharedPreferences _prefs;
+  final DateTime Function() _now;
 
   static const incidentIdKey = 'onboarding_real_ring_incident';
   static const incidentIdsKey = 'onboarding_real_ring_incidents';
@@ -17,6 +19,11 @@ class PrefsSetupTestRing implements SetupTestRing {
 
   /// Outlives [clear]: the alarm is answered after setup completes.
   static const firstToolIncidentKey = 'onboarding_first_tool_incident';
+  static const firstToolHeldAtKey = 'onboarding_first_tool_held_at';
+  static const firstToolOpenedAtKey = 'onboarding_first_tool_opened_at';
+  static const firstToolLastMessageAtKey =
+      'onboarding_first_tool_last_message_at';
+  static const firstToolAckedKey = 'onboarding_first_tool_acked';
 
   /// Outlives [clear]. A handful of ids per setup run, capped.
   static const setupIncidentIdsKey = 'onboarding_setup_incidents';
@@ -61,7 +68,10 @@ class PrefsSetupTestRing implements SetupTestRing {
   @override
   Future<void> holdFirstMessage(String incidentId) async {
     if (incidentId.isEmpty) return;
+    // A new record: nothing an earlier alarm left may describe this one.
+    await forgetFirstTool();
     await _prefs.setString(firstToolIncidentKey, incidentId);
+    await _prefs.setInt(firstToolHeldAtKey, _now().millisecondsSinceEpoch);
     await _remember(incidentId);
   }
 
@@ -71,8 +81,66 @@ class PrefsSetupTestRing implements SetupTestRing {
     return id == null || id.isEmpty ? null : id;
   }
 
+  DateTime? _time(String key) {
+    final ms = _prefs.getInt(key);
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
   @override
-  Future<void> forgetFirstTool() => _prefs.remove(firstToolIncidentKey);
+  FirstToolAlarm? get firstTool {
+    final id = firstToolIncidentId;
+    if (id == null) return null;
+    return FirstToolAlarm(
+      incidentId: id,
+      // A record with no time is from a build that saved only the id. It
+      // counts as held long ago, so only a ring it can prove is its first.
+      heldAt:
+          _time(firstToolHeldAtKey) ?? DateTime.fromMillisecondsSinceEpoch(0),
+      openedAt: _time(firstToolOpenedAtKey),
+      lastMessageAt: _time(firstToolLastMessageAtKey),
+      wasAcked: _prefs.getBool(firstToolAckedKey) ?? false,
+    );
+  }
+
+  @override
+  Future<void> noteFirstToolSeen({
+    required DateTime? openedAt,
+    required DateTime? lastMessageAt,
+  }) async {
+    if (firstToolIncidentId == null) return;
+    if (openedAt != null) {
+      await _prefs.setInt(
+        firstToolOpenedAtKey,
+        openedAt.millisecondsSinceEpoch,
+      );
+    }
+    if (lastMessageAt != null) {
+      await _prefs.setInt(
+        firstToolLastMessageAtKey,
+        lastMessageAt.millisecondsSinceEpoch,
+      );
+    }
+  }
+
+  @override
+  Future<void> noteFirstToolAcked() async {
+    if (firstToolIncidentId == null) return;
+    await _prefs.setBool(firstToolAckedKey, true);
+  }
+
+  @override
+  Future<void> forgetFirstTool() async {
+    await _prefs.remove(firstToolIncidentKey);
+    await _prefs.remove(firstToolHeldAtKey);
+    await _prefs.remove(firstToolOpenedAtKey);
+    await _prefs.remove(firstToolLastMessageAtKey);
+    await _prefs.remove(firstToolAckedKey);
+  }
+
+  @override
+  Future<void> settleFirstToolAtLaunch() async {
+    if (firstTool?.wasAcked ?? false) await forgetFirstTool();
+  }
 
   Future<void> _remember(String incidentId) async {
     final ids = [

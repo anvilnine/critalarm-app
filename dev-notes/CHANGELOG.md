@@ -68,6 +68,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Setup never closes or leaves a real alarm: CriticalAlarmCubit.closeSetupTests acts only on the stored setup test on screen, a server push cancels a running phone-only countdown, and iOS names an incident to Dart only for a push that rings (AlarmScheduleRule.ringingIncidentId).
 - The Feature Guide offer is raised after the route change has settled, so it is no longer swept away and counted as declined when setup ends.
 - A token made in setup and never shown is taken back if the app is killed before the hook-up step: its id is saved with the handoff.
+- The first tool alarm is matched by more than its incident id: SetupTestRing.firstTool keeps what the first ring looked like, and firstToolVerdictFor forgets it when the incident reopens, takes in another message or closes. It is also forgotten on Done, on Set this up later and at the next launch after the first acknowledgement. A Finish button whose record is gone gives way to the normal acknowledged screen.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.

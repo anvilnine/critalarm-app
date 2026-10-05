@@ -20,6 +20,7 @@ class HookUpLeaving {
     required this.openAlarm,
     required this.wait,
     required this.isStillHere,
+    this.forgetFirstTool,
   });
 
   /// Finishes the step and navigates to whatever follows it.
@@ -36,7 +37,14 @@ class HookUpLeaving {
   /// such as a tap on the alarm's notification.
   final bool Function() isStillHere;
 
+  /// Drops the record of the alarm this step heard. Done is the user
+  /// ending setup themselves, so an alarm that rings around that moment is
+  /// not owed the setup acknowledged screen. Null in tests that do not
+  /// look at it.
+  final void Function()? forgetFirstTool;
+
   bool _hasLeft = false;
+  bool _leftByDone = false;
 
   /// Whether a way out has been taken.
   bool get hasLeft => _hasLeft;
@@ -44,11 +52,19 @@ class HookUpLeaving {
   void done() {
     if (_hasLeft) return;
     _hasLeft = true;
+    _leftByDone = true;
+    forgetFirstTool?.call();
     finishAndGoNext();
   }
 
   Future<void> alarm(String incidentId) async {
-    if (_hasLeft) return;
+    if (_hasLeft) {
+      // Done won. The cubit recorded this alarm a moment ago: take it
+      // back. A second alarm after the first one took over changes
+      // nothing: that record is in use.
+      if (_leftByDone) forgetFirstTool?.call();
+      return;
+    }
     _hasLeft = true;
     await wait();
     // The message arrived either way, so the step is over. Only the move
