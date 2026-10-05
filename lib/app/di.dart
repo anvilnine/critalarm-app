@@ -816,7 +816,10 @@ Future<void> configureDependencies({
     )
     // The one exit every "Set this up later" button takes.
     ..registerLazySingleton(
-      () => SetUpLaterUsecase(getIt<CompleteOnboardingUsecase>()),
+      () => SetUpLaterUsecase(
+        getIt<CompleteOnboardingUsecase>(),
+        getIt<SetupTestRing>(),
+      ),
     )
     // The incident of the test alarm setup sent, kept for the steps after
     // the ring and cleared when setup completes.
@@ -1362,6 +1365,9 @@ Future<void> configureDependencies({
         arrivals: getIt<AlarmArrivals>(),
         alarmHost: getIt<AlarmHost>(),
         onTopicUpdated: (topic) => getIt<TopicsCubit>().applyTopic(topic),
+        readServerUrl: () async => (await getIt<GetConnectionUsecase>()(
+          const NoParams(),
+        )).getOrNull()?.serverUrl,
         // The same reads the create-topic screen makes for its plan line: a
         // paid plan and a server of the user's own have no cap to state.
         readCriticalLimit: () async {
@@ -1535,6 +1541,7 @@ Future<void> configureDependencies({
           OnboardingStepId.realRing,
         ),
         getIt<EndSetupTestUsecase>(),
+        getIt<SetupTestRing>(),
       ),
     )
     ..registerFactory(

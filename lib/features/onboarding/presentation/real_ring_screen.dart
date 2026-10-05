@@ -16,7 +16,10 @@ import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambi
 import 'package:critalarm/features/onboarding/presentation/model/real_ring_copy.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/curl_terminal.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/local_test_alarm_views.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
+import 'package:critalarm/features/topics/domain/curl_line.dart';
 import 'package:critalarm/features/topics/presentation/widgets/first_topic_critical_card.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -38,27 +41,35 @@ class RealRingScreen extends StatelessWidget {
   static const replayStateParam = 'show';
 
   static const _countdownName = 'countdown';
+  static const _sendCountdownName = 'send_countdown';
 
   /// Every state a developer build can open a replay on: each phase the
   /// step can rest on, and the countdown of the phone-only test.
   static final List<String> replayStateNames = List.unmodifiable([
     for (final phase in RealRingPhase.values)
       if (phase != RealRingPhase.rang) phase.name,
+    _sendCountdownName,
     _countdownName,
   ]);
 
   /// The state a developer build shows on a replay, from the query
   /// parameter. Null in a store build and for a name that is not a state.
-  static ({RealRingPhase phase, bool isCountingDown})? _shown(Uri uri) {
+  static ({RealRingPhase phase, bool isCountingDown, bool isSendCountingDown})?
+  _shown(Uri uri) {
     if (!buildHasOnboardingDeveloperTools) return null;
     final name = uri.queryParameters[replayStateParam];
     if (name == null || !replayStateNames.contains(name)) return null;
-    if (name == _countdownName) {
-      return (phase: RealRingPhase.ready, isCountingDown: true);
+    if (name == _countdownName || name == _sendCountdownName) {
+      return (
+        phase: RealRingPhase.ready,
+        isCountingDown: name == _countdownName,
+        isSendCountingDown: name == _sendCountdownName,
+      );
     }
     return (
       phase: RealRingPhase.values.byName(name),
       isCountingDown: false,
+      isSendCountingDown: false,
     );
   }
 
@@ -76,6 +87,7 @@ class RealRingScreen extends StatelessWidget {
             cubit.showForReplay(
               shown.phase,
               isCountingDown: shown.isCountingDown,
+              isSendCountingDown: shown.isSendCountingDown,
             );
           }),
         );
@@ -109,12 +121,13 @@ class _RealRingViewState extends State<_RealRingView>
     super.dispose();
   }
 
-  /// Coming back to the app is when an alarm that rang on the lock screen
-  /// may have been missed, so the phone is asked again.
+  /// The cubit decides what each change means: coming back asks the phone
+  /// whether the alarm rang, and the app being put away ends the wait
+  /// before the send.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || !mounted) return;
-    unawaited(context.read<RealRingCubit>().appResumed());
+    if (!mounted) return;
+    context.read<RealRingCubit>().appLifecycleChanged(state);
   }
 
   bool _stepFinished = false;
@@ -161,11 +174,12 @@ class _RealRingViewState extends State<_RealRingView>
       _openAlarm(incidentId);
       return;
     }
+    final isCounting = state.local.isCountingDown || state.isSendCountingDown;
     OnboardingAmbientScope.maybeOf(context)?.setStep(
-      state.local.isCountingDown
+      isCounting
           ? OnboardingAmbientStep.countdown
           : OnboardingAmbientStep.connected,
-      state.local.isCountingDown ? AmbientDirection.push : null,
+      isCounting ? AmbientDirection.push : null,
     );
   }
 
@@ -181,7 +195,8 @@ class _RealRingViewState extends State<_RealRingView>
         listenWhen: (prev, curr) =>
             prev.phase != curr.phase ||
             prev.local.canLaunch != curr.local.canLaunch ||
-            prev.local.isCountingDown != curr.local.isCountingDown,
+            prev.local.isCountingDown != curr.local.isCountingDown ||
+            prev.isSendCountingDown != curr.isSendCountingDown,
         listener: _onChanged,
         builder: (context, state) {
           final cubit = context.read<RealRingCubit>();
@@ -240,12 +255,15 @@ class _RealRingViewState extends State<_RealRingView>
   /// never on a countdown tick or a switch flip.
   String _bodyKey(RealRingState state) => state.local.isCountingDown
       ? 'countdown'
+      : state.isSendCountingDown
+      ? 'send-countdown'
       : state.isWaiting || state.phase == RealRingPhase.rang
       ? 'wait'
       : state.phase.name;
 
   Widget _body(BuildContext context, RealRingState state, RealRingCubit cubit) {
     if (state.local.isCountingDown) return _countdown(context, state);
+    if (state.isSendCountingDown) return _sendCountdown(context, state);
     return switch (state.phase) {
       RealRingPhase.checking => _wait(
         LocaleKeys.onboarding_real_ring_checking.tr(),
@@ -266,17 +284,17 @@ class _RealRingViewState extends State<_RealRingView>
       RealRingPhase.noServer => _noServer(context, state, cubit),
       // Missing, not broken.
       RealRingPhase.noTopic => _problem(
-        context,
         cubit,
         face: FaceState.sad,
         reason: realRingNoTopicReason(),
       ),
       RealRingPhase.timedOut => _timedOut(context, state, cubit),
       RealRingPhase.failed => _problem(
-        context,
         cubit,
         face: FaceState.worried,
         reason: realRingFailureLine(state.failure ?? RealRingFailure.unknown),
+        actionLabel: LocaleKeys.onboarding_real_ring_try_again.tr(),
+        onAction: _tryAgain(cubit),
       ),
     };
   }
@@ -325,7 +343,10 @@ class _RealRingViewState extends State<_RealRingView>
   }
 
   Widget _ready(BuildContext context, RealRingState state) {
-    final copy = realRingCopyFor(state.platform);
+    final copy = realRingCopyFor(
+      state.platform,
+      waitSeconds: context.read<RealRingCubit>().sendDelay.inSeconds,
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -390,18 +411,27 @@ class _RealRingViewState extends State<_RealRingView>
     );
   }
 
+  /// Try again, or the next step on a replay, which sends nothing.
+  VoidCallback _tryAgain(RealRingCubit cubit) =>
+      widget.isReplay ? _finishStep : () => unawaited(cubit.ringForReal());
+
+  /// A problem: the face, then one card with what is wrong, the thing to
+  /// do about it, and the test of this phone only as the quiet way on.
   Widget _problem(
-    BuildContext context,
     RealRingCubit cubit, {
     required FaceState face,
     required RealRingReason reason,
-  }) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      _reason(context, reason, face: face),
-      const SizedBox(height: Spacing.s6),
-      _PhoneOnlyFallback(onPressed: cubit.startPhoneOnlyTest),
-    ],
+    String? actionLabel,
+    VoidCallback? onAction,
+    Widget? detail,
+  }) => SetupProblemCard(
+    face: face,
+    title: reason.title,
+    line: reason.line,
+    detail: detail,
+    actionLabel: actionLabel,
+    onAction: onAction,
+    footer: _PhoneOnlyFallback(onPressed: cubit.startPhoneOnlyTest),
   );
 
   Widget _noServer(
@@ -413,27 +443,39 @@ class _RealRingViewState extends State<_RealRingView>
     // that gave up is a failure with its reason. Anything else is a server
     // that is simply not there yet.
     final connect = state.connect;
+    final fallback = _PhoneOnlyFallback(onPressed: cubit.startPhoneOnlyTest);
+    if (connect.isPending) {
+      return SetupProblemCard(
+        face: FaceState.watching,
+        line: backgroundConnectLine(connect) ?? '',
+        footer: fallback,
+      );
+    }
+    // A server that is not there is fixed on the connect step.
+    final toConnect = widget.isReplay
+        ? _finishStep
+        : () => context.go(OnboardingEntryPoint.connectServer);
     final failedLine = connect.isFailed ? backgroundConnectLine(connect) : null;
-    final top = connect.isPending
-        ? _wait(backgroundConnectLine(connect) ?? '')
-        : failedLine != null
-        ? _reason(
-            context,
-            (
-              // The connect gave up, so no alarm was ever asked for.
-              title: LocaleKeys.onboarding_real_ring_connect_failed.tr(),
-              line: failedLine,
-            ),
-            face: FaceState.worried,
-          )
-        : _reason(context, realRingNoServerReason(), face: FaceState.sad);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        top,
-        const SizedBox(height: Spacing.s6),
-        _PhoneOnlyFallback(onPressed: cubit.startPhoneOnlyTest),
-      ],
+    if (failedLine != null) {
+      return _problem(
+        cubit,
+        face: FaceState.worried,
+        // The connect gave up, so no alarm was ever asked for.
+        reason: (
+          title: LocaleKeys.onboarding_real_ring_connect_failed.tr(),
+          line: failedLine,
+        ),
+        actionLabel: LocaleKeys.onboarding_connect_background_failed_button
+            .tr(),
+        onAction: toConnect,
+      );
+    }
+    return _problem(
+      cubit,
+      face: FaceState.sad,
+      reason: realRingNoServerReason(),
+      actionLabel: LocaleKeys.onboarding_real_ring_no_server_button.tr(),
+      onAction: toConnect,
     );
   }
 
@@ -473,8 +515,10 @@ class _RealRingViewState extends State<_RealRingView>
             message: failureMessage(failure),
           ),
         ],
-        const SizedBox(height: Spacing.s6),
-        _PhoneOnlyFallback(onPressed: cubit.startPhoneOnlyTest),
+        const SizedBox(height: Spacing.s5),
+        AppSheet(
+          child: _PhoneOnlyFallback(onPressed: cubit.startPhoneOnlyTest),
+        ),
       ],
     );
   }
@@ -485,33 +529,109 @@ class _RealRingViewState extends State<_RealRingView>
     RealRingCubit cubit,
   ) {
     final copy = realRingCopyFor(state.platform);
+    // Sent, and nothing happened.
+    return _problem(
+      cubit,
+      face: FaceState.confused,
+      reason: (
+        title: LocaleKeys.onboarding_real_ring_timed_out.tr(),
+        line: null,
+      ),
+      detail: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppSectionHeader(
+            LocaleKeys.onboarding_real_ring_check_header.tr(),
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+          ),
+          for (final (index, check) in copy.checks.indexed) ...[
+            if (index > 0) const SizedBox(height: 12),
+            AppStepBullet(number: index + 1, text: check),
+          ],
+        ],
+      ),
+      actionLabel: LocaleKeys.onboarding_real_ring_try_again.tr(),
+      onAction: _tryAgain(cubit),
+    );
+  }
+
+  /// The wait between the tap and the call to the server: the seconds
+  /// left, what to do with them, and a terminal typing the command a tool
+  /// would send. One line under it says who sends this one.
+  ///
+  /// The words sit on a card, like every problem and wait in setup: the
+  /// canvas behind this state moves.
+  Widget _sendCountdown(BuildContext context, RealRingState state) {
+    final colors = context.appColors;
+    final seconds = state.sendSecondsLeft ?? 0;
+    final topic = state.topic?.name ?? '';
+    final args = {'seconds': '$seconds'};
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Sent, and nothing happened.
-        _reason(
-          context,
-          (title: LocaleKeys.onboarding_real_ring_timed_out.tr(), line: null),
-          face: FaceState.confused,
+        // A breath before the yell.
+        Center(
+          child: _face(
+            seconds <= 1 ? FaceState.alarmed : FaceState.breatheIn,
+          ),
         ),
-        const SizedBox(height: Spacing.s5),
+        const SizedBox(height: Spacing.s4),
         AppSheet(
+          padding: const EdgeInsets.fromLTRB(16, 22, 16, 18),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              AppSectionHeader(
-                LocaleKeys.onboarding_real_ring_check_header.tr(),
+              Semantics(
+                container: true,
+                liveRegion: true,
+                label: LocaleKeys.onboarding_real_ring_send_countdown_aria.tr(
+                  namedArgs: args,
+                ),
+                excludeSemantics: true,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      LocaleKeys.onboarding_real_ring_send_countdown_title.tr(
+                        namedArgs: args,
+                      ),
+                      textAlign: TextAlign.center,
+                      style: AppTypography.headline(colors.ink, fontSize: 30),
+                    ),
+                    const SizedBox(height: Spacing.s2),
+                    Text(
+                      LocaleKeys.onboarding_real_ring_send_countdown_line.tr(),
+                      textAlign: TextAlign.center,
+                      style: AppTypography.body(colors.ink2),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
-              for (final (index, check) in copy.checks.indexed) ...[
-                if (index > 0) const SizedBox(height: 12),
-                AppStepBullet(number: index + 1, text: check),
-              ],
+              const SizedBox(height: Spacing.s4),
+              // The user's own server and topic. No token is shown or held
+              // here.
+              TypedCurlTerminal(
+                command: CurlLine.forTerminal(
+                  serverUrl: state.serverUrl ?? RealRingCubit.exampleServerUrl,
+                  topic: topic,
+                  message: LocaleKeys.onboarding_real_ring_send_message.tr(),
+                ),
+                semanticLabel: LocaleKeys
+                    .onboarding_real_ring_send_terminal_aria
+                    .tr(namedArgs: {'topic': topic}),
+              ),
+              const SizedBox(height: Spacing.s3),
+              Text(
+                LocaleKeys.onboarding_real_ring_send_countdown_note.tr(),
+                textAlign: TextAlign.center,
+                style: AppTypography.small(colors.ink2),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: Spacing.s5),
-        _PhoneOnlyFallback(onPressed: cubit.startPhoneOnlyTest),
       ],
     );
   }
@@ -567,6 +687,16 @@ class _RealRingViewState extends State<_RealRingView>
       );
     }
 
+    if (state.isSendCountingDown) {
+      return AppButton(
+        label: LocaleKeys.onboarding_real_ring_send_cancel.tr(),
+        variant: AppButtonVariant.paper,
+        isFullWidth: true,
+        // A look at the screen has no wait to cancel: it moves on.
+        onPressed: widget.isReplay ? _finishStep : cubit.cancelSend,
+      );
+    }
+
     final later = _SetUpLaterButton(onPressed: _setUpLater);
     final Widget? primary = switch (state.phase) {
       RealRingPhase.ready => AppButton(
@@ -577,26 +707,7 @@ class _RealRingViewState extends State<_RealRingView>
             ? _finishStep
             : () => unawaited(cubit.ringForReal()),
       ),
-      RealRingPhase.timedOut || RealRingPhase.failed => AppButton(
-        label: LocaleKeys.onboarding_real_ring_try_again.tr(),
-        size: AppButtonSize.lg,
-        isFullWidth: true,
-        onPressed: widget.isReplay
-            ? _finishStep
-            : () => unawaited(cubit.ringForReal()),
-      ),
-      // A server that is not there is fixed on the connect step. A connect
-      // still on its way needs nothing from the user.
-      RealRingPhase.noServer when !state.connect.isPending => AppButton(
-        label: state.connect.isFailed
-            ? LocaleKeys.onboarding_connect_background_failed_button.tr()
-            : LocaleKeys.onboarding_real_ring_no_server_button.tr(),
-        size: AppButtonSize.lg,
-        isFullWidth: true,
-        onPressed: widget.isReplay
-            ? _finishStep
-            : () => context.go(OnboardingEntryPoint.connectServer),
-      ),
+      // A problem has its action in its own card. The way out stays here.
       _ => null,
     };
 
@@ -613,8 +724,9 @@ class _RealRingViewState extends State<_RealRingView>
 /// The fallback: a test of this phone only, said in so many words. It runs
 /// only when the user taps it.
 ///
-/// A button straight on the canvas with its honest label under it, so it
-/// looks like a button and not like a settings row.
+/// A button with its honest label under it, so it looks like a button and
+/// not like a settings row. It sits on a card: under a problem as the quiet
+/// second way on, and on its own where Critical delivery is off.
 class _PhoneOnlyFallback extends StatelessWidget {
   const _PhoneOnlyFallback({required this.onPressed});
 
@@ -630,6 +742,8 @@ class _PhoneOnlyFallback extends StatelessWidget {
         AppButton(
           label: LocaleKeys.onboarding_real_ring_fallback_button.tr(),
           variant: AppButtonVariant.ghost,
+          // It sits on a card, so it takes the card's ink.
+          foregroundColor: colors.ink,
           isFullWidth: true,
           onPressed: () => unawaited(onPressed()),
         ),
@@ -637,7 +751,7 @@ class _PhoneOnlyFallback extends StatelessWidget {
         Text(
           LocaleKeys.onboarding_real_ring_fallback_line.tr(),
           textAlign: TextAlign.center,
-          style: AppTypography.small(colors.onCanvasMuted),
+          style: AppTypography.small(colors.ink2),
         ),
       ],
     );

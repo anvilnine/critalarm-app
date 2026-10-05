@@ -57,22 +57,159 @@ void main() {
       .toList();
 
   group('the acked screen bottom bar', () {
-    testWidgets('acked state renders At my desk first', (tester) async {
+    testWidgets('acked state renders At my desk over Back to topics', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildTestApp(CriticalAlarmStatus.acknowledged));
       await tester.pump();
 
-      expect(buttonLabels(tester), [
-        'At my desk',
-        'Open prod-db',
-        'Back to topics',
-      ]);
+      expect(buttonLabels(tester), ['At my desk', 'Back to topics']);
     });
 
-    testWidgets('closed state renders no At my desk', (tester) async {
+    testWidgets('closed state leaves the one way out', (tester) async {
       await tester.pumpWidget(buildTestApp(CriticalAlarmStatus.closed));
       await tester.pump();
 
       expect(buttonLabels(tester), ['Back to topics']);
+    });
+
+    testWidgets('Back to topics is the paper button in both states', (
+      tester,
+    ) async {
+      for (final status in [
+        CriticalAlarmStatus.acknowledged,
+        CriticalAlarmStatus.closed,
+      ]) {
+        await tester.pumpWidget(buildTestApp(status));
+        await tester.pump();
+
+        final buttons = tester
+            .widgetList<AppButton>(find.byType(AppButton))
+            .toList();
+        expect(buttons.length, lessThanOrEqualTo(2));
+        expect(buttons.last.label, 'Back to topics');
+        expect(buttons.last.variant, AppButtonVariant.paper);
+      }
+    });
+
+    testWidgets('the topic is reached by its pill, once, in both states', (
+      tester,
+    ) async {
+      for (final status in [
+        CriticalAlarmStatus.acknowledged,
+        CriticalAlarmStatus.closed,
+      ]) {
+        await tester.pumpWidget(buildTestApp(status));
+        await tester.pump();
+
+        expect(find.bySemanticsLabel('Open prod-db'), findsOneWidget);
+        expect(find.text('prod-db'), findsOneWidget);
+      }
+    });
+  });
+
+  group('the acked screen layout', () {
+    /// Pumps the screen on a display of [size] logical pixels.
+    Future<void> pumpOn(
+      WidgetTester tester,
+      Size size, {
+      double textScale = 1,
+      CriticalAlarmStatus status = CriticalAlarmStatus.acknowledged,
+    }) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQueryData(
+            size: size,
+            textScaler: TextScaler.linear(textScale),
+          ),
+          child: buildTestApp(status),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    // The title, not the row of the same name in the details card.
+    Finder title() => find.text('Acknowledged').first;
+
+    testWidgets('on a 375 pt phone the title is one line and the whole '
+        'details card is above the pinned hint, with nothing scrolled', (
+      tester,
+    ) async {
+      await pumpOn(tester, const Size(375, 667));
+
+      expect(tester.takeException(), isNull);
+      // One line: no taller than one line of the display type.
+      final titleStyle = tester.widget<Text>(title()).style!;
+      expect(
+        tester.getSize(title()).height,
+        lessThan(titleStyle.fontSize! * 1.3),
+      );
+      expect(tester.getSize(title()).width, lessThanOrEqualTo(375));
+
+      final card = tester.getRect(find.text('Source'));
+      final hint = tester.getRect(
+        find.text('Rings again in 10 min unless you tap At my desk.'),
+      );
+      expect(card.bottom, lessThan(hint.top));
+      // And the hint has its own space above the first button.
+      final desk = tester.getRect(find.widgetWithText(AppButton, 'At my desk'));
+      expect(hint.bottom, lessThanOrEqualTo(desk.top));
+    });
+
+    testWidgets('on a 360 dp phone the title still fits one line', (
+      tester,
+    ) async {
+      await pumpOn(tester, const Size(360, 780));
+
+      expect(tester.takeException(), isNull);
+      final titleStyle = tester.widget<Text>(title()).style!;
+      expect(
+        tester.getSize(title()).height,
+        lessThan(titleStyle.fontSize! * 1.3),
+      );
+      expect(tester.getSize(title()).width, lessThanOrEqualTo(360 - 40));
+    });
+
+    testWidgets('at a large text size nothing overflows and the details '
+        'scroll clear of the pinned buttons', (tester) async {
+      await pumpOn(tester, const Size(375, 667), textScale: 2);
+
+      expect(tester.takeException(), isNull);
+      expect(buttonLabels(tester), ['At my desk', 'Back to topics']);
+
+      // The hint is too long to pin at this size: it is in the list.
+      // Scrolled to the end, the card and the hint are both above the
+      // pinned buttons.
+      await tester.dragFrom(const Offset(187, 120), const Offset(0, -3000));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final card = tester.getRect(find.text('Source'));
+      final hint = tester.getRect(
+        find.text('Rings again in 10 min unless you tap At my desk.'),
+      );
+      final desk = tester.getRect(find.widgetWithText(AppButton, 'At my desk'));
+      expect(card.bottom, lessThan(hint.top));
+      expect(hint.bottom, lessThanOrEqualTo(desk.top));
+      // The pinned block leaves most of the screen to the list.
+      expect(desk.top, greaterThan(667 / 2));
+    });
+
+    testWidgets('the acknowledged colours stay after At my desk', (
+      tester,
+    ) async {
+      await pumpOn(
+        tester,
+        const Size(375, 667),
+        status: CriticalAlarmStatus.closed,
+      );
+
+      expect(tester.takeException(), isNull);
+      final titleColor = tester.widget<Text>(title()).style!.color;
+      final topicColor = tester.widget<Text>(find.text('prod-db')).style!.color;
+      expect(titleColor, topicColor);
     });
   });
 }

@@ -17,6 +17,7 @@ import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/features/incidents/presentation/widgets/proof_list.dart';
 import 'package:critalarm/features/local_reminders/domain/after_ack_decider.dart';
 import 'package:critalarm/features/local_reminders/domain/incident_kinds.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
@@ -36,16 +37,36 @@ import 'package:go_router/go_router.dart';
 
 /// Critical Alarm takeover screen matching docs/design-system/index.html.
 class CriticalAlarmScreen extends StatelessWidget {
-  const CriticalAlarmScreen({this.incidentId, super.key});
+  const CriticalAlarmScreen({
+    this.incidentId,
+    this.previewsFirstToolAcked = false,
+    super.key,
+  });
 
   final String? incidentId;
+
+  /// Opens on the acknowledged screen of a made-up first tool alarm. Only
+  /// the router of a developer build sets it. Nothing is loaded or sent.
+  final bool previewsFirstToolAcked;
+
+  /// The query parameter and value that ask for that look.
+  static const previewParam = 'show';
+  static const previewFirstToolAcked = 'first_tool_acked';
+
+  /// Where Developer options opens it.
+  static const previewFirstToolAckedLocation =
+      '/incidents/inc_preview?$previewParam=$previewFirstToolAcked';
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) {
         final cubit = getIt<CriticalAlarmCubit>();
-        unawaited(cubit.load(incidentId: incidentId));
+        if (previewsFirstToolAcked) {
+          cubit.previewFirstToolAlarm();
+        } else {
+          unawaited(cubit.load(incidentId: incidentId));
+        }
         return cubit;
       },
       child: const _CriticalAlarmView(),
@@ -214,7 +235,10 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
           );
         } else {
           content = SeverityScope(
-            mode: state.severityMode,
+            // The acknowledged screen stays on the acknowledged canvas after
+            // At my desk closes the incident, so its text keeps the colours
+            // that read on it.
+            mode: state.isAcknowledged ? SeverityMode.ack : state.severityMode,
             child: Builder(
               builder: (context) {
                 final colors = context.appColors;
@@ -285,9 +309,11 @@ class _RingingScreen extends StatelessWidget {
         const SizedBox(height: 8),
         // Silence is not an acknowledge. The noise stops, the incident stays
         // open, and the phone sets its own next ring for the same id.
+        // No stroke: I'm up is the answer and this is the quiet one. It is
+        // still a full-size pill, in a tint of the canvas.
         AppButton(
           label: LocaleKeys.critical_alarm_silence_ringing_button.tr(),
-          variant: AppButtonVariant.ghost,
+          variant: AppButtonVariant.tinted,
           isFullWidth: true,
           onPressed: () {
             AppHaptics.selection();
@@ -299,10 +325,12 @@ class _RingingScreen extends StatelessWidget {
         // by a topic name. The phone-only test's topic is on no server, and
         // the server-sent test rings halfway through setup, where a topic
         // screen would be a detour out of it.
-        if (state.ackedExits == AckedExits.incident)
+        // The same quiet pill as Silence. With a stroke it would outrank
+        // it, and the order of weight is I'm up, Silence, then this.
+        if (!state.ackedExits.isSetupTest)
           AppButton(
             label: LocaleKeys.critical_alarm_read_message_button.tr(),
-            variant: AppButtonVariant.ghost,
+            variant: AppButtonVariant.tinted,
             isFullWidth: true,
             // Reading is not acknowledging, so this leaves the alarm ringing
             // and takes the user to the messages on the topic.
@@ -392,7 +420,7 @@ class _RingingScreen extends StatelessWidget {
 
   Widget _face(double faceSize) {
     // A setup test takes the face over from the setup screen it came from.
-    final isDemo = state.ackedExits != AckedExits.incident;
+    final isDemo = state.ackedExits.isSetupTest;
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: SizedBox(
@@ -619,6 +647,11 @@ class AcknowledgedScreen extends StatelessWidget {
     final size = AppSize.of(context);
     final isWide = size.isExpanded || size.isShort;
     final isClosed = state.status == CriticalAlarmStatus.closed;
+    // The hint is pinned over At my desk. At a large text size it runs to
+    // several lines and the pinned block would take half a small screen,
+    // so it goes into the list, under the details card.
+    final pinsHint = MediaQuery.textScalerOf(context).scale(1) <= 1.3;
+    final hintInList = !isClosed && !pinsHint;
 
     final bottomBar = Column(
       mainAxisSize: MainAxisSize.min,
@@ -632,6 +665,11 @@ class AcknowledgedScreen extends StatelessWidget {
                     setupTest: setupTest,
                     incidentId: incident?.id ?? '',
                   ),
+                ],
+                // The user's own tool rang the phone: setup is proved. One
+                // button, which ends that one incident and goes Home.
+                AckedExits.firstToolAlarm => [
+                  _FinishFirstToolButton(incidentId: incident?.id ?? ''),
                 ],
                 // Onboarding is done, so the only thing left is the way out.
                 AckedExits.retest => [
@@ -708,46 +746,32 @@ class AcknowledgedScreen extends StatelessWidget {
               // 12px from the scaffold makes 24 above the home indicator.
               const SizedBox(height: 12),
             ]
-          : isClosed
-          ? [
-              AppButton(
-                label: LocaleKeys.critical_alarm_back_to_topics_button.tr(),
-                variant: AppButtonVariant.ghost,
-                isFullWidth: true,
-                onPressed: () {
-                  AppHaptics.capture();
-                  context.go('/');
-                },
-              ),
-            ]
           : [
-              _sub(TextAlign.center, _deskTimerHint(context)),
-              const SizedBox(height: Spacing.s3),
-              AppButton(
-                label: LocaleKeys.critical_alarm_at_my_desk_button.tr(),
-                variant: AppButtonVariant.paper,
-                isFullWidth: true,
-                onPressed: () {
-                  AppHaptics.capture();
-                  unawaited(context.read<CriticalAlarmCubit>().closeIncident());
-                },
-              ),
-              const SizedBox(height: 8),
-              AppButton(
-                label: LocaleKeys.critical_alarm_open_topic_button.tr(
-                  namedArgs: {'topic': state.topic},
+              // At most two buttons. Back to topics is the way out and is
+              // always the paper one at the bottom. Above it, while the
+              // desk timer runs, sits At my desk. The way to the topic is
+              // the pill under the title, in both states and only there.
+              if (!isClosed) ...[
+                if (pinsHint) ...[
+                  _sub(TextAlign.center, _deskTimerHint(context)),
+                  const SizedBox(height: Spacing.s3),
+                ],
+                AppButton(
+                  label: LocaleKeys.critical_alarm_at_my_desk_button.tr(),
+                  variant: AppButtonVariant.ghost,
+                  isFullWidth: true,
+                  onPressed: () {
+                    AppHaptics.capture();
+                    unawaited(
+                      context.read<CriticalAlarmCubit>().closeIncident(),
+                    );
+                  },
                 ),
-                variant: AppButtonVariant.ghost,
-                isFullWidth: true,
-                onPressed: () {
-                  AppHaptics.capture();
-                  context.go('/topics/${state.topic}');
-                },
-              ),
-              const SizedBox(height: 8),
+                const SizedBox(height: Spacing.s2),
+              ],
               AppButton(
                 label: LocaleKeys.critical_alarm_back_to_topics_button.tr(),
-                variant: AppButtonVariant.ghost,
+                variant: AppButtonVariant.paper,
                 isFullWidth: true,
                 onPressed: () {
                   AppHaptics.capture();
@@ -757,27 +781,34 @@ class AcknowledgedScreen extends StatelessWidget {
             ],
     );
 
+    // Setup going on, and the alarm the user's own tool set off, both say
+    // what the ring proved.
+    final provesSetup =
+        exits == AckedExits.continueSetup || exits == AckedExits.firstToolAlarm;
+
     if (isDemo) {
       return _demoBody(
         context,
         isWide,
         bottomBar,
-        // Setup going on says what the ring proved, in one line. The other
-        // exits keep the welcome they always had.
-        title: exits == AckedExits.continueSetup
-            ? switch (setupTest) {
-                SetupTestKind.serverSent =>
-                  LocaleKeys.onboarding_real_ring_works_server_title.tr(),
-                _ => LocaleKeys.onboarding_real_ring_works_phone_title.tr(),
-              }
+        // Setup going on says what the ring proved, as a short list of
+        // ticks. The other exits keep the welcome they always had.
+        title: provesSetup
+            ? LocaleKeys.onboarding_real_ring_works_title.tr()
             : LocaleKeys.onboarding_connect_welcome_title.tr(),
-        line: exits == AckedExits.continueSetup
-            ? switch (setupTest) {
-                SetupTestKind.serverSent =>
-                  LocaleKeys.onboarding_real_ring_works_server_line.tr(),
-                _ => LocaleKeys.onboarding_real_ring_works_phone_line.tr(),
-              }
-            : LocaleKeys.onboarding_connect_welcome_body.tr(),
+        detail: provesSetup
+            ? ProofList(
+                lines: _proofLines(
+                  exits == AckedExits.firstToolAlarm
+                      ? firstToolAlarmProof
+                      : setupProofFor(setupTest),
+                ),
+              )
+            : Text(
+                LocaleKeys.onboarding_connect_welcome_body.tr(),
+                textAlign: isWide ? TextAlign.left : TextAlign.center,
+                style: _bodyStyle(18, FontWeight.w500, colors.onCanvas),
+              ),
         // A partial proof gets a calmer wall than the full one, so the two
         // differ in feel as well as in words.
         restFaces:
@@ -811,11 +842,15 @@ class AcknowledgedScreen extends StatelessWidget {
                       children: [
                         _title(TextAlign.left),
                         const SizedBox(height: Spacing.s2),
-                        _topic(TextAlign.left),
+                        _topic(context),
                         const SizedBox(height: Spacing.s2),
                         _sub(TextAlign.left, ackedSub),
                         const SizedBox(height: Spacing.s4),
                         _detailSheet(startedLabel, ackedLabel),
+                        if (hintInList) ...[
+                          const SizedBox(height: Spacing.s4),
+                          _sub(TextAlign.left, _deskTimerHint(context)),
+                        ],
                       ],
                     ),
                   ),
@@ -825,27 +860,46 @@ class AcknowledgedScreen extends StatelessWidget {
           ),
         ],
         bottomBar: bottomBar,
+        barBacking: colors.canvas,
       );
     }
 
+    // The face takes what the rest leaves. Everything else on the screen
+    // has a size of its own (title, pill, line, the three-row card, the
+    // hint and the two buttons, about [_restHeight] at the default text
+    // size), so on a short phone the face shrinks until the whole card
+    // sits above the pinned buttons with nothing hidden at rest. At a large
+    // text size the list scrolls, and the room the scaffold leaves under
+    // it is the height of the backing, so the card always scrolls clear.
+    final media = MediaQuery.of(context);
+    final faceSize = (media.size.height - media.padding.vertical - _restHeight)
+        .clamp(
+          _minFace,
+          224.0,
+        );
+
     return AppScreenScaffold(
       hasTabBar: false,
+      // The list scrolls under the pinned hint and buttons at a large text
+      // size or on a short phone. A solid backing in the canvas colour
+      // keeps the card from showing through them.
+      barBacking: colors.canvas,
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, Spacing.s6, 16, 0),
+            padding: const EdgeInsets.fromLTRB(20, Spacing.s5, 20, 0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Hero(
                   tag: 'alarm-face-${state.incident?.id}',
                   flightShuttleBuilder: faceFlightShuttleBuilder,
-                  child: FaceWidget(state: faceState, size: 224),
+                  child: FaceWidget(state: faceState, size: faceSize),
                 ),
                 const SizedBox(height: Spacing.s4),
                 _title(TextAlign.center),
                 const SizedBox(height: Spacing.s2),
-                _topic(TextAlign.center),
+                _topic(context),
                 const SizedBox(height: Spacing.s2),
                 _sub(TextAlign.center, ackedSub),
               ],
@@ -858,6 +912,13 @@ class AcknowledgedScreen extends StatelessWidget {
             child: _detailSheet(startedLabel, ackedLabel),
           ),
         ),
+        if (hintInList)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, Spacing.s4, 20, 0),
+              child: _sub(TextAlign.center, _deskTimerHint(context)),
+            ),
+          ),
       ],
       bottomBar: bottomBar,
     );
@@ -872,7 +933,7 @@ class AcknowledgedScreen extends StatelessWidget {
     bool isWide,
     Widget bottomBar, {
     required String title,
-    required String line,
+    required Widget detail,
     required List<FaceState> restFaces,
   }) {
     final ripple = ExcludeSemantics(
@@ -896,12 +957,8 @@ class AcknowledgedScreen extends StatelessWidget {
             textAlign: align,
             style: AppTypography.display(colors.onCanvas),
           ),
-          const SizedBox(height: Spacing.s3),
-          Text(
-            line,
-            textAlign: align,
-            style: _bodyStyle(18, FontWeight.w500, colors.onCanvas),
-          ),
+          const SizedBox(height: Spacing.s4),
+          detail,
         ],
       ),
     );
@@ -950,7 +1007,7 @@ class AcknowledgedScreen extends StatelessWidget {
                       Expanded(child: ripple),
                       const SizedBox(height: Spacing.s5),
                       copy(TextAlign.center, CrossAxisAlignment.center),
-                      const SizedBox(height: Spacing.s5),
+                      const SizedBox(height: Spacing.s6),
                       bottomBar,
                     ],
                   ),
@@ -966,6 +1023,37 @@ class AcknowledgedScreen extends StatelessWidget {
     );
   }
 
+  /// The words for each line of the proof list. What a test did not prove
+  /// says so in its own words, never with a tick left empty.
+  static List<ProofListLine> _proofLines(List<ProofLine> proof) {
+    // With nothing else proved, the phone line is the whole claim.
+    final isPhoneOnly = proof.where((line) => line.isProved).length == 1;
+    return [
+      for (final line in proof)
+        (
+          isProved: line.isProved,
+          text: switch (line.point) {
+            ProofPoint.toolSent =>
+              LocaleKeys.onboarding_real_ring_proof_tool_sent.tr(),
+            ProofPoint.delivered =>
+              LocaleKeys.onboarding_real_ring_proof_delivered.tr(),
+            ProofPoint.serverSent =>
+              line.isProved
+                  ? LocaleKeys.onboarding_real_ring_proof_server_sent.tr()
+                  : LocaleKeys.onboarding_real_ring_proof_server_untested.tr(),
+            ProofPoint.pushArrived =>
+              line.isProved
+                  ? LocaleKeys.onboarding_real_ring_proof_push_arrived.tr()
+                  : LocaleKeys.onboarding_real_ring_proof_push_untested.tr(),
+            ProofPoint.phoneRang =>
+              isPhoneOnly
+                  ? LocaleKeys.onboarding_real_ring_proof_phone_rings.tr()
+                  : LocaleKeys.onboarding_real_ring_proof_phone_rang.tr(),
+          },
+        ),
+    ];
+  }
+
   static TextStyle _bodyStyle(double size, FontWeight weight, Color color) =>
       TextStyle(
         fontFamily: AppTypography.fontBody,
@@ -976,24 +1064,76 @@ class AcknowledgedScreen extends StatelessWidget {
         color: color,
       );
 
+  /// What the acknowledged screen needs besides its face, at the default
+  /// text size, and the smallest face that still reads as the face.
+  static const double _restHeight = 556;
+  static const double _minFace = 88;
+
+  /// One line on any phone at the default text size: the type scales down
+  /// until the word fits, and it never breaks inside a word.
   Widget _title(TextAlign align) {
-    return Text(
+    return AppFittedTitle(
       LocaleKeys.critical_alarm_acked_title.tr(),
       textAlign: align,
       style: AppTypography.display(colors.onCanvas),
     );
   }
 
-  Widget _topic(TextAlign align) {
-    return Text(
-      state.topic,
-      textAlign: align,
-      style: TextStyle(
-        fontFamily: AppTypography.fontMono,
-        fontFamilyFallback: AppTypography.fontMonoFallbacks,
-        fontWeight: FontWeight.w700,
-        fontSize: 17,
-        color: colors.onCanvas,
+  void _openTopic(BuildContext context) {
+    AppHaptics.capture();
+    context.go('/topics/${state.topic}');
+  }
+
+  /// The topic, as the way to its page: the name in a quiet pill with an
+  /// arrow. It is there in both states, so the message is one tap away
+  /// while At my desk holds the button slot.
+  Widget _topic(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: LocaleKeys.critical_alarm_open_topic_button.tr(
+        namedArgs: {'topic': state.topic},
+      ),
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _openTopic(context),
+        child: ConstrainedBox(
+          // A full-size target around a small pill.
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Center(
+            widthFactor: 1,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.canvasGhostStrong,
+                borderRadius: Radii.fullAll,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 6, 10, 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        state.topic,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.monoBold(
+                          colors.onCanvas,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    AppGlyph(
+                      GlyphType.arrow,
+                      color: colors.onCanvas,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1103,6 +1243,55 @@ class _ContinueSetupButtonState extends State<_ContinueSetupButton> {
       isFullWidth: true,
       isLoading: _isBusy,
       onPressed: _continue,
+    );
+  }
+}
+
+/// The one button on the acknowledged screen of the alarm the user's own
+/// tool set off from the last setup step.
+///
+/// Setup is already complete by then: the hook-up step finished it before
+/// it handed over to the alarm. So this ends that one incident, which would
+/// otherwise ring again from its desk timer, and goes Home.
+class _FinishFirstToolButton extends StatefulWidget {
+  const _FinishFirstToolButton({required this.incidentId});
+
+  /// The alarm this button was drawn for.
+  final String incidentId;
+
+  @override
+  State<_FinishFirstToolButton> createState() => _FinishFirstToolButtonState();
+}
+
+class _FinishFirstToolButtonState extends State<_FinishFirstToolButton> {
+  bool _isBusy = false;
+
+  Future<void> _finish() async {
+    if (_isBusy) return;
+    setState(() => _isBusy = true);
+    AppHaptics.capture();
+    final router = GoRouter.of(context);
+    final cubit = context.read<CriticalAlarmCubit>();
+    try {
+      final mayLeave = await cubit.finishFirstToolAlarm(widget.incidentId);
+      // Another alarm took the screen over, or this stopped being the
+      // first tool alarm. The screen stays and shows what it now is.
+      if (mayLeave) router.go('/');
+    } finally {
+      // Whatever happened, the one button is never left spinning.
+      if (mounted) setState(() => _isBusy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppButton(
+      label: LocaleKeys.onboarding_connect_celebration_finish.tr(),
+      variant: AppButtonVariant.cream,
+      size: AppButtonSize.lg,
+      isFullWidth: true,
+      isLoading: _isBusy,
+      onPressed: _finish,
     );
   }
 }

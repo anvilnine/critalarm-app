@@ -8,12 +8,14 @@ import 'package:critalarm/features/onboarding/domain/connect/background_connect.
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/alarm_arrivals.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/real_ring_rules.dart';
+import 'package:critalarm/features/onboarding/domain/real_ring/send_countdown.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/real_ring_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/local_test_alarm.dart';
 import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 typedef OneShotTimerFactory =
@@ -22,8 +24,12 @@ typedef OneShotTimerFactory =
 /// The real ring step: the server sends the test alarm, the push carries it
 /// here, and the phone rings.
 ///
-/// Three rules it keeps:
+/// Four rules it keeps:
 ///
+/// - The tap does not send at once. It starts a short wait
+///   ([realRingSendDelay]) so the user can lock the phone, and the server is
+///   asked when the wait ends, or the moment the app leaves the front.
+///   Cancel sends nothing.
 /// - The server is only asked when it can say yes. No server and Critical
 ///   off are both known before the call, so neither makes one.
 /// - Critical delivery is the user's to turn on. Only [setCritical] changes
@@ -45,6 +51,8 @@ class RealRingCubit extends Cubit<RealRingState> {
     this.alarmHost,
     this.onTopicUpdated,
     this.readCriticalLimit,
+    this.readServerUrl,
+    this.sendDelay = realRingSendDelay,
     this.isReplay = false,
     this.on = const OnboardingPlatform(
       platform: TargetPlatform.android,
@@ -54,6 +62,20 @@ class RealRingCubit extends Cubit<RealRingState> {
     PeriodicTimerFactory? periodic,
   }) : _timer = timer ?? Timer.new,
        super(const RealRingState()) {
+    _sendCountdown = SendCountdown(
+      delay: sendDelay,
+      ticker: periodic,
+      onChanged: (seconds) {
+        if (isClosed) return;
+        emit(
+          state.copyWith(
+            sendSecondsLeft: seconds,
+            clearSendCountdown: seconds == null,
+          ),
+        );
+      },
+      onSend: () => unawaited(_send()),
+    );
     _local = LocalTestAlarm(
       host: alarmHost,
       periodic: periodic,
@@ -95,6 +117,14 @@ class RealRingCubit extends Cubit<RealRingState> {
   final Future<int?> Function()? readCriticalLimit;
   final OneShotTimerFactory _timer;
 
+  /// The address of the connected server, or null when none is saved. Only
+  /// shown, in the command the countdown types. Null in tests that do not
+  /// look at it.
+  final Future<String?> Function()? readServerUrl;
+
+  /// How long the tap waits before the server is asked. Zero sends at once.
+  final Duration sendDelay;
+
   /// The phone the step runs on, handed in as values.
   final OnboardingPlatform on;
 
@@ -107,6 +137,10 @@ class RealRingCubit extends Cubit<RealRingState> {
   static const fallbackServer = 'https://api.critalarm.app';
 
   late final LocalTestAlarm _local;
+  late final SendCountdown _sendCountdown;
+
+  /// What a replay shows in place of a real address.
+  static const exampleServerUrl = 'https://api.critalarm.app';
 
   Timer? _pushWait;
   StreamSubscription<String>? _arrivalsSub;
@@ -220,8 +254,17 @@ class RealRingCubit extends Cubit<RealRingState> {
       topic: topic,
       limit: await readCriticalLimit?.call(),
     );
+    String? serverUrl;
+    try {
+      serverUrl = isConnected ? await readServerUrl?.call() : null;
+    } on Object catch (_) {
+      // Only shown. The step works without it.
+      serverUrl = null;
+    }
     if (isClosed) return gate;
     if (!force && !_gatePhases.contains(state.phase)) return gate;
+    // Whatever the wait was counting towards can no longer be sent.
+    if (gate != RealRingGate.ready) _sendCountdown.cancel();
     emit(
       state.copyWith(
         plan: plan,
@@ -235,6 +278,7 @@ class RealRingCubit extends Cubit<RealRingState> {
         topic: topic,
         clearTopic: topic == null,
         connect: connect,
+        serverUrl: serverUrl ?? connect.serverUrl,
         clearFailure: true,
       ),
     );
@@ -251,17 +295,80 @@ class RealRingCubit extends Cubit<RealRingState> {
   /// switch on since.
   bool _criticalKnownOff = false;
 
-  /// Ring me for real, and Try again. Asks the server to send the test
-  /// alarm, when the checks say it can.
+  /// Ring me for real, and Try again. Runs the checks and, when they say
+  /// the server can be asked, starts the wait that ends in the call.
+  ///
+  /// Nothing is sent here. A second tap while the checks, the wait or the
+  /// call are running does nothing.
   Future<void> ringForReal() async {
-    if (isReplay || _isSending) return;
-    _isSending = true;
+    if (isReplay || _isSending || _isStarting || _sendCountdown.isRunning) {
+      return;
+    }
+    _isStarting = true;
     try {
       _pushWait?.cancel();
       final gate = await _recheck(force: true);
       if (isClosed || gate != RealRingGate.ready) return;
+      if (state.topic == null) return;
+      // With the wait switched off the tap sends, as it always did. And
+      // when the user locked the phone while the checks ran, the wait has
+      // nothing left to wait for: a count started now would sit frozen
+      // with the app in the background and fire after they came back.
+      if (sendDelay <= Duration.zero || _isHidden) {
+        await _send();
+        return;
+      }
+      _sendCountdown.start();
+    } finally {
+      _isStarting = false;
+    }
+  }
+
+  bool _isStarting = false;
+
+  /// Cancel, during the wait. Back to the ready state with nothing sent.
+  void cancelSend() => _sendCountdown.cancel();
+
+  /// The app left the front. A timer is not promised to run in the
+  /// background on either platform, and the user leaving is the sign they
+  /// are ready, so a running wait ends now and the server is asked at once.
+  void appLeftFront() {
+    _isHidden = true;
+    if (isReplay) return;
+    _sendCountdown.leftFront();
+  }
+
+  /// The app is not in front, from the last lifecycle change heard. A tap
+  /// whose checks finish while it is true sends without a count.
+  bool _isHidden = false;
+
+  /// Every lifecycle change of the app while the step is open.
+  ///
+  /// `hidden` and `paused` are the phone being put away: a running count
+  /// ends and sends. `inactive` is not. A pulled-down shade, the app
+  /// switcher or a system dialog leave the app on screen, and none of them
+  /// is the user saying they are ready. `resumed` asks the phone whether
+  /// the alarm rang while the app was away.
+  void appLifecycleChanged(AppLifecycleState lifecycle) {
+    switch (lifecycle) {
+      case AppLifecycleState.resumed:
+        _isHidden = false;
+        unawaited(appResumed());
+      case AppLifecycleState.hidden || AppLifecycleState.paused:
+        appLeftFront();
+      case AppLifecycleState.inactive || AppLifecycleState.detached:
+        break;
+    }
+  }
+
+  /// Asks the server to send the test alarm. Only the wait calls it.
+  Future<void> _send() async {
+    if (isReplay || isClosed || _isSending) return;
+    _isSending = true;
+    try {
       final topic = state.topic;
-      if (topic == null) return;
+      // The checks moved on while the wait ran.
+      if (topic == null || state.phase != RealRingPhase.ready) return;
 
       _arrived.clear();
       emit(state.copyWith(phase: RealRingPhase.sending, clearFailure: true));
@@ -337,6 +444,7 @@ class RealRingCubit extends Cubit<RealRingState> {
   /// The app came back to the front. An alarm that started while it was
   /// away may have been missed, so the phone is asked. The server is not.
   Future<void> appResumed() async {
+    _isHidden = false;
     if (isReplay) return;
     final awaited =
         state.phase == RealRingPhase.waiting ||
@@ -404,7 +512,11 @@ class RealRingCubit extends Cubit<RealRingState> {
   /// Puts a replay on [phase], so a developer can look at a state without
   /// making it happen. Does nothing outside a replay, and nothing is sent,
   /// set or saved.
-  void showForReplay(RealRingPhase phase, {bool isCountingDown = false}) {
+  void showForReplay(
+    RealRingPhase phase, {
+    bool isCountingDown = false,
+    bool isSendCountingDown = false,
+  }) {
     if (!isReplay) return;
     const sample = Topic(name: 'setup-test');
     emit(
@@ -418,6 +530,9 @@ class RealRingCubit extends Cubit<RealRingState> {
         // Made-up numbers, like the topic: the card with its plan line.
         plan: phase == RealRingPhase.criticalOff ? (used: 1, limit: 2) : null,
         clearPlan: phase != RealRingPhase.criticalOff,
+        serverUrl: exampleServerUrl,
+        sendSecondsLeft: isSendCountingDown ? sendDelay.inSeconds : null,
+        clearSendCountdown: !isSendCountingDown,
         local: isCountingDown
             ? const LocalTestAlarmState(
                 status: TestAlarmStatus.ringing,
@@ -432,6 +547,7 @@ class RealRingCubit extends Cubit<RealRingState> {
   @override
   Future<void> close() {
     _pushWait?.cancel();
+    _sendCountdown.dispose();
     unawaited(_arrivalsSub?.cancel());
     unawaited(_connectSub?.cancel());
     _local.dispose();

@@ -5,14 +5,13 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_state.dart';
-import 'package:critalarm/features/topics/presentation/widgets/first_message_row.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-/// The setup content at the top of Home's list sheet: the checklist, the
-/// line that says it is finished, or the widgets card. One of them or
-/// nothing.
+/// The setup content at the top of Home's list sheet: the widgets card, or
+/// nothing. The checklist and its finished line float above the tab bar
+/// instead (`HomeSetupPill`).
 ///
 /// Home content. It draws what [state] says and reports taps. It holds no
 /// state of its own and opens nothing by itself.
@@ -20,8 +19,6 @@ class HomeSetupSection extends StatelessWidget {
   const HomeSetupSection({
     required this.state,
     required this.hasRowsBelow,
-    required this.onRowTap,
-    required this.onDismissChecklist,
     required this.onShowWidgetsHowTo,
     required this.onSeeHosted,
     required this.onDismissWidgetsCard,
@@ -34,12 +31,6 @@ class HomeSetupSection extends StatelessWidget {
   /// from them.
   final bool hasRowsBelow;
 
-  /// A tap on an open row, with the screen it opens.
-  final void Function(String route) onRowTap;
-
-  /// The user closed the checklist for good.
-  final VoidCallback onDismissChecklist;
-
   final VoidCallback onShowWidgetsHowTo;
   final VoidCallback onSeeHosted;
   final VoidCallback onDismissWidgetsCard;
@@ -47,18 +38,12 @@ class HomeSetupSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final child = switch (state.phase) {
-      HomeSetupPhase.none => const SizedBox(
+      // The checklist and its finished line are not drawn in the list.
+      HomeSetupPhase.none ||
+      HomeSetupPhase.checklist ||
+      HomeSetupPhase.celebration => const SizedBox(
         key: ValueKey('setup_none'),
         width: double.infinity,
-      ),
-      HomeSetupPhase.checklist => _Checklist(
-        key: const ValueKey('setup_checklist'),
-        state: state,
-        onRowTap: onRowTap,
-        onDismiss: onDismissChecklist,
-      ),
-      HomeSetupPhase.celebration => const _FinishedLine(
-        key: ValueKey('setup_finished'),
       ),
       HomeSetupPhase.widgetsCard => _WidgetsCard(
         key: const ValueKey('setup_widgets'),
@@ -69,7 +54,7 @@ class HomeSetupSection extends StatelessWidget {
       ),
     };
 
-    final isShown = state.phase != HomeSetupPhase.none;
+    final isShown = state.phase == HomeSetupPhase.widgetsCard;
     return _OnSurface(
       // The block grows and shrinks with the list around it. Under reduce
       // motion it cuts.
@@ -125,23 +110,15 @@ class _OnSurface extends StatelessWidget {
   }
 }
 
-/// The face each piece of setup content wears. One per surface, and a
-/// different one for each moment, so the three never read as the same card.
+/// The face the widgets card wears: showing something off. The checklist
+/// pill has its own two, so the three never read as the same card.
 abstract final class _SetupFaces {
-  /// Something is still to come: eyes up, one brow lifted, a soft smile.
-  static const FaceState checklist = FaceState.curious;
-
-  /// The last row landed.
-  static const FaceState finished = FaceState.happy;
-
-  /// Showing something off.
   static const FaceState widgets = FaceState.proud;
 }
 
-/// The one surface the checklist and the widgets card sit on: a cream
-/// block with no stroke. The topic rows around it have no stroke either, so
-/// a tint sets the block apart without making it the heaviest thing in the
-/// list.
+/// The surface the widgets card sits on: a cream block with no stroke.
+/// The topic rows around it have no stroke either, so a tint sets the
+/// block apart without making it the heaviest thing in the list.
 class _SetupBlock extends StatelessWidget {
   const _SetupBlock({required this.child, this.padding});
 
@@ -158,290 +135,6 @@ class _SetupBlock extends StatelessWidget {
       child: Padding(
         padding: padding ?? const EdgeInsets.fromLTRB(14, 12, 14, 6),
         child: child,
-      ),
-    );
-  }
-}
-
-class _Checklist extends StatelessWidget {
-  const _Checklist({
-    required this.state,
-    required this.onRowTap,
-    required this.onDismiss,
-    super.key,
-  });
-
-  final HomeSetupState state;
-  final void Function(String route) onRowTap;
-  final VoidCallback onDismiss;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final checklist = state.checklist;
-    final progress = {
-      'done': '${checklist.tickedCount}',
-      'count': '${SetupChecklistRow.values.length}',
-    };
-    final criticalRoute = state.routeFor(SetupChecklistRow.criticalTopic);
-    final messageRoute = state.routeFor(SetupChecklistRow.firstMessage);
-
-    return _SetupBlock(
-      padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const ExcludeSemantics(
-                child: FaceWidget(state: _SetupFaces.checklist, size: 32),
-              ),
-              const SizedBox(width: Spacing.s3),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    LocaleKeys.home_setup_title.tr(),
-                    style: AppTypography.body(
-                      colors.ink,
-                    ).copyWith(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-              const SizedBox(width: Spacing.s3),
-              Semantics(
-                label: LocaleKeys.home_setup_progress_aria_label.tr(
-                  namedArgs: progress,
-                ),
-                child: ExcludeSemantics(
-                  child: Text(
-                    LocaleKeys.home_setup_progress.tr(namedArgs: progress),
-                    style: AppTypography.mono(colors.ink3, fontSize: 12),
-                  ),
-                ),
-              ),
-              // The quiet way out, for a list that will never finish on
-              // this phone. Never the loud thing.
-              _QuietClose(
-                label: LocaleKeys.home_setup_dismiss_button.tr(),
-                onPressed: onDismiss,
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _ChecklistRow(
-                  title: LocaleKeys.home_setup_server_title.tr(),
-                  isDone: checklist.hasServer,
-                ),
-                _ChecklistRow(
-                  title: LocaleKeys.home_setup_critical_title.tr(),
-                  // The label alone is wrong once a topic exists: nothing
-                  // is left to create, only a switch to turn on.
-                  line: checklist.hasTopics
-                      ? LocaleKeys.home_setup_critical_line_off.tr()
-                      : null,
-                  isDone: checklist.hasCriticalTopic,
-                  onTap: criticalRoute == null
-                      ? null
-                      : () => onRowTap(criticalRoute),
-                ),
-                _Tappable(
-                  onTap: messageRoute == null
-                      ? null
-                      : () => onRowTap(messageRoute),
-                  // The waiting row from the last setup step: a label and its
-                  // tick. The checklist has its one face in the header.
-                  child: FirstMessageRow(
-                    isReceived: checklist.hasFirstMessage,
-                    isCompact: true,
-                    showsFace: false,
-                    isBare: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A bare close glyph in a full-size tap target: no ring, no fill. The
-/// way out of the checklist is there for whoever wants it and never
-/// competes with the rows.
-class _QuietClose extends StatelessWidget {
-  const _QuietClose({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          AppHaptics.selection();
-          onPressed();
-        },
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Center(
-            child: AppGlyph(
-              GlyphType.close,
-              color: context.appColors.ink3,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// One row of the checklist, laid out like the first-message row so the
-/// three read as one list: a label, then the ring that fills when the row
-/// is true. A finished row goes quiet, so the eye lands on what is left.
-class _ChecklistRow extends StatelessWidget {
-  const _ChecklistRow({
-    required this.title,
-    required this.isDone,
-    this.line,
-    this.onTap,
-  });
-
-  final String title;
-
-  /// What is left to do, for the one case the label does not say it. Drawn
-  /// only while the row is open.
-  final String? line;
-  final bool isDone;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final line = isDone ? null : this.line;
-    final status = isDone
-        ? LocaleKeys.home_setup_row_done.tr()
-        : LocaleKeys.home_setup_row_open.tr();
-
-    return _Tappable(
-      onTap: onTap,
-      child: Semantics(
-        container: true,
-        label: [title, status, ?line].join('. '),
-        child: ExcludeSemantics(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: Spacing.s2),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        style: AppTypography.small(
-                          isDone ? colors.onCanvasMuted : colors.onCanvas,
-                        ).copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      if (line != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          line,
-                          style: AppTypography.small(
-                            colors.onCanvasMuted,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: Spacing.s3),
-                AppAnimatedTick(done: isDone),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Makes a row a button when it has somewhere to go.
-///
-/// The same widgets are built either way. A row loses its tap the moment
-/// it is ticked, and a wrapper that came and went would rebuild the tick
-/// under it already finished, with nothing played.
-class _Tappable extends StatelessWidget {
-  const _Tappable({required this.child, this.onTap});
-
-  final Widget child;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final onTap = this.onTap;
-    return Semantics(
-      button: onTap != null,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap == null
-            ? null
-            : () {
-                AppHaptics.selection();
-                onTap();
-              },
-        child: child,
-      ),
-    );
-  }
-}
-
-/// What the checklist turns into when the last row lands: one line, which
-/// then goes for good.
-class _FinishedLine extends StatelessWidget {
-  const _FinishedLine({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-
-    return Semantics(
-      container: true,
-      liveRegion: true,
-      // The one settled card on Home: everything in the list is done.
-      child: AppHighlightCard(
-        tone: AppHighlightTone.calm,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            const ExcludeSemantics(
-              child: FaceWidget(state: _SetupFaces.finished, size: 40),
-            ),
-            const SizedBox(width: Spacing.s3),
-            Expanded(
-              child: Text(
-                LocaleKeys.home_setup_done_title.tr(),
-                style: AppTypography.body(
-                  colors.onCanvas,
-                ).copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/incidents/presentation/critical_alarm_screen.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_step_list_parser.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
@@ -11,6 +12,7 @@ import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_
 import 'package:critalarm/features/onboarding/presentation/hook_up_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/real_ring_screen.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
+import 'package:critalarm/features/topics/presentation/widgets/home_setup_preview.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -110,6 +112,12 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
                     .tr(),
               ),
               _hookUpStateRows(context),
+              const SizedBox(height: 14),
+              _Heading(
+                title: LocaleKeys.developer_setup_more_states_title.tr(),
+                subtitle: LocaleKeys.developer_setup_more_states_subtitle.tr(),
+              ),
+              _moreStateRows(context),
               const SizedBox(height: 14),
               _Heading(
                 title: LocaleKeys.developer_setup_force_title.tr(),
@@ -323,6 +331,55 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
         tool.id: '${HookUpScreen.replayToolParam}=${tool.id}',
     },
   );
+
+  /// Screens around setup that no step route reaches, each opened with
+  /// made-up values. Nothing is sent or saved.
+  Widget _moreStateRows(BuildContext context) {
+    const locations = {
+      'first_tool_acknowledged':
+          CriticalAlarmScreen.previewFirstToolAckedLocation,
+    };
+    const pills = {
+      'checklist_closed': HomeSetupPreview.closed,
+      'checklist_open': HomeSetupPreview.open,
+    };
+    return Column(
+      children: [
+        // The setup pill on Home, with made-up rows. Its way out clears it.
+        for (final entry in pills.entries) ...[
+          AppListRow(
+            name: entry.key,
+            meta: '/',
+            faceState: null,
+            trailing: AppGlyph(
+              GlyphType.arrow,
+              color: context.appColors.ink3,
+              size: 16,
+            ),
+            onTap: () {
+              homeSetupPreview.value = entry.value;
+              context.go('/');
+            },
+          ),
+          const SizedBox(height: 4),
+        ],
+        for (final (index, entry) in locations.entries.indexed) ...[
+          if (index > 0) const SizedBox(height: 4),
+          AppListRow(
+            name: entry.key,
+            meta: entry.value,
+            faceState: null,
+            trailing: AppGlyph(
+              GlyphType.arrow,
+              color: context.appColors.ink3,
+              size: 16,
+            ),
+            onTap: () => unawaited(context.push(entry.value)),
+          ),
+        ],
+      ],
+    );
+  }
 
   /// Rows that open the step [stepId] as a replay, one per entry of
   /// [queries]: the row's name and the query that puts the step on it.

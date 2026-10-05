@@ -12,6 +12,7 @@ import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_
 import 'package:critalarm/features/onboarding/presentation/model/background_connect_copy.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -396,7 +397,11 @@ class _OnboardingStepGateState extends State<OnboardingStepGate> {
         ),
         ConnectGate.failed => _ConnectGateScreen(
           key: const ValueKey('connect-gate-failed'),
-          // With no failure to name, the step is simply missing its server.
+          // A failure has its reason under "Could not connect". With no
+          // failure to name, the step is simply missing its server.
+          title: backgroundConnectLine(state) == null
+              ? LocaleKeys.onboarding_connect_background_no_server_title.tr()
+              : LocaleKeys.onboarding_connect_background_failed_title.tr(),
           message:
               backgroundConnectLine(state) ??
               LocaleKeys.onboarding_connect_background_no_server.tr(),
@@ -417,15 +422,19 @@ class _OnboardingStepGateState extends State<OnboardingStepGate> {
   }
 }
 
-/// What stands in for a step: the face, one line, and the ways on.
+/// What stands in for a step: the face, one card with the line and the way
+/// back to the connect step, and the way out.
 class _ConnectGateScreen extends StatelessWidget {
   const _ConnectGateScreen({
     required this.message,
     required this.face,
     required this.connect,
+    this.title,
     super.key,
   });
 
+  /// What is wrong, in a few words. Null for a wait, which is one line.
+  final String? title;
   final String message;
 
   /// The face of a step that cannot go on. Null while the connect is still
@@ -450,7 +459,6 @@ class _ConnectGateScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final face = this.face;
     // The same scaffold as the steps it stands in for, so the face, the
     // buttons and their insets sit where they do on every other step.
@@ -463,16 +471,6 @@ class _ConnectGateScreen extends StatelessWidget {
       bottomBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (face != null) ...[
-            AppButton(
-              label: LocaleKeys.onboarding_connect_background_failed_button
-                  .tr(),
-              size: AppButtonSize.lg,
-              isFullWidth: true,
-              onPressed: () => context.go(OnboardingEntryPoint.connectServer),
-            ),
-            const SizedBox(height: Spacing.s3),
-          ],
           AppButton(
             label: LocaleKeys.onboarding_connect_skip_for_now.tr(),
             variant: AppButtonVariant.paper,
@@ -490,35 +488,19 @@ class _ConnectGateScreen extends StatelessWidget {
             0,
           ),
           sliver: SliverToBoxAdapter(
+            // One card either way: the wait and its line, or the reason
+            // and the one button back to the connect step.
             child: face == null
-                ? Center(
-                    child: AppWaitingFace(
-                      message: message,
-                      faceSize: 80,
-                      heroTag: 'onboarding-face',
-                    ),
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Hero(
-                        tag: 'onboarding-face',
-                        flightShuttleBuilder: faceFlightShuttleBuilder,
-                        child: FaceWidget(state: face, size: 80, isLive: true),
-                      ),
-                      const SizedBox(height: Spacing.s3),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 380),
-                        child: Semantics(
-                          liveRegion: true,
-                          child: Text(
-                            message,
-                            textAlign: TextAlign.center,
-                            style: AppTypography.body(colors.onCanvas),
-                          ),
-                        ),
-                      ),
-                    ],
+                ? SetupProblemCard.waiting(message: message)
+                : SetupProblemCard(
+                    face: face,
+                    title: title,
+                    line: message,
+                    actionLabel: LocaleKeys
+                        .onboarding_connect_background_failed_button
+                        .tr(),
+                    onAction: () =>
+                        context.go(OnboardingEntryPoint.connectServer),
                   ),
           ),
         ),

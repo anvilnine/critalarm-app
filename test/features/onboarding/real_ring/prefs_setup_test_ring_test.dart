@@ -62,4 +62,94 @@ void main() {
       expect(ring.unclosedIds, isEmpty);
     },
   );
+
+  group('the first tool alarm', () {
+    test('is on record once the hook-up step heard it', () async {
+      expect(ring.firstToolIncidentId, isNull);
+
+      await ring.holdFirstMessage('inc_tool');
+
+      expect(ring.firstToolIncidentId, 'inc_tool');
+      expect(ring.setupIncidentIds, contains('inc_tool'));
+      // It is not a test.
+      expect(ring.incidentIds, isEmpty);
+    });
+
+    test('outlives setup completing, and a cold start', () async {
+      await ring.holdFirstMessage('inc_tool');
+
+      await ring.clear();
+
+      final again = PrefsSetupTestRing(await SharedPreferences.getInstance());
+      expect(again.firstToolIncidentId, 'inc_tool');
+    });
+
+    test('is forgotten once its screen is done with', () async {
+      await ring.holdFirstMessage('inc_tool');
+      await ring.noteFirstToolSeen(
+        openedAt: DateTime(2026, 10, 4),
+        lastMessageAt: DateTime(2026, 10, 4),
+      );
+      await ring.noteFirstToolAcked();
+
+      await ring.forgetFirstTool();
+
+      expect(ring.firstToolIncidentId, isNull);
+      expect(ring.firstTool, isNull);
+      // Its acknowledgement still never counts as real use.
+      expect(ring.setupIncidentIds, contains('inc_tool'));
+      // Nothing is left to describe the next one.
+      await ring.holdFirstMessage('inc_next');
+      expect(ring.firstTool?.wasSeen, isFalse);
+      expect(ring.firstTool?.wasAcked, isFalse);
+    });
+
+    test(
+      'keeps what the first ring looked like, across a cold start',
+      () async {
+        final openedAt = DateTime(2026, 10, 4, 21, 45);
+        await ring.holdFirstMessage('inc_tool');
+        await ring.noteFirstToolSeen(
+          openedAt: openedAt,
+          lastMessageAt: openedAt,
+        );
+        await ring.noteFirstToolAcked();
+
+        final again = PrefsSetupTestRing(await SharedPreferences.getInstance());
+
+        expect(again.firstTool?.incidentId, 'inc_tool');
+        expect(again.firstTool?.openedAt, openedAt);
+        expect(again.firstTool?.lastMessageAt, openedAt);
+        expect(again.firstTool?.wasAcked, isTrue);
+      },
+    );
+
+    test('notes with nothing on record write nothing', () async {
+      await ring.noteFirstToolSeen(
+        openedAt: DateTime(2026, 10, 4),
+        lastMessageAt: null,
+      );
+      await ring.noteFirstToolAcked();
+
+      expect(ring.firstTool, isNull);
+    });
+
+    test('a launch forgets one acknowledged in an earlier run', () async {
+      await ring.holdFirstMessage('inc_tool');
+      await ring.noteFirstToolAcked();
+
+      await ring.settleFirstToolAtLaunch();
+
+      expect(ring.firstTool, isNull);
+    });
+
+    test('a launch keeps one not acknowledged yet: the alarm may be what '
+        'opened the app', () async {
+      await ring.holdFirstMessage('inc_tool');
+
+      await ring.settleFirstToolAtLaunch();
+
+      expect(ring.firstTool?.incidentId, 'inc_tool');
+    });
+  });
 }

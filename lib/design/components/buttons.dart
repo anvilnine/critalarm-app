@@ -21,6 +21,15 @@ enum AppButtonVariant {
   /// Transparent background with 2px stroke. Secondary actions.
   ghost,
 
+  /// A soft wash of the surface colour over the canvas with no stroke, and
+  /// the canvas text colour. A quiet action on a coloured canvas: still a
+  /// pill with a full tap target, lighter than ghost.
+  ///
+  /// The wash lightens a light canvas, so the label keeps its contrast: ink
+  /// on the washed critical red is 6.5:1, against 5.1:1 on the red itself.
+  /// A tint of the ink would darken it and drop the label to 4.2:1.
+  tinted,
+
   /// Paper white/cream surface with ink text and subtle shadow.
   paper,
 
@@ -123,6 +132,12 @@ class _AppButtonState extends State<AppButton> {
         bg = _isHovered ? colors.canvasGhost : Colors.transparent;
         fg = colors.onCanvas;
         border = BorderSide(color: fg, width: 2);
+      case AppButtonVariant.tinted:
+        // Pressed or hovered, the wash deepens: there is no stroke to react.
+        bg = colors.surface.withValues(
+          alpha: _isHovered || _isActive ? 0.36 : 0.22,
+        );
+        fg = colors.onCanvas;
       case AppButtonVariant.paper:
         bg = _isHovered ? colors.cream : colors.surface;
         fg = colors.ink;
@@ -164,6 +179,9 @@ class _AppButtonState extends State<AppButton> {
           fg = colors.ink3;
           border = BorderSide(color: fg, width: 2);
         case AppButtonVariant.dangerText:
+          fg = colors.ink3;
+        case AppButtonVariant.tinted:
+          // The tint stays, so it is still a shape. Only the label quiets.
           fg = colors.ink3;
         case AppButtonVariant.cream:
         case AppButtonVariant.destructive:

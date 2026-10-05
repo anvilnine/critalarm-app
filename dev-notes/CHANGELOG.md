@@ -27,6 +27,10 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - AppHighlightTone.choice: cream with the ink stroke, for the one choice on a screen before it is made. The first-topic Critical card uses it while off.
 - AppWaitingFace takes faceState, FaceRipple takes restFaces for a mixed wall, AppTextField takes scrollPadding.
 - A replay of the permissions step takes ?skip=<n> to open on a later step in a developer build.
+- AckedExits.firstToolAlarm: the alarm the first hook-up message set off gets a setup acknowledged screen with one Finish button, which closes that incident through CriticalAlarmCubit.finishFirstToolAlarm. The id is saved as onboarding\_first\_tool\_incident (SetupTestRing.firstToolIncidentId). Developer options, Other setup states, opens it with made-up values.
+- SetupProblemCard: the one widget for a setup step that cannot go on or is waiting. The face, then a card with a title, one line and the action. The real ring problems, the hook-up problems and the setup gate use it.
+- Ring me for real waits realRingSendDelay (5 seconds, one constant, zero turns it off) before the server is asked. SendCountdown holds the rule: Cancel sends nothing, and the app leaving the front sends at once. The countdown shows CurlTerminalCard, the terminal from How it rings, typing CurlLine.forTerminal with a masked token. Developer options, Real ring states, has send\_countdown.
+- AppButtonVariant.tinted: a soft tint of the canvas with no stroke, for a quiet action on a coloured canvas. Silence on the alarm screen uses it.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -52,6 +56,12 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Every setup step draws one 80 px hero face with the tag onboarding-face at the same top inset. watching is kept for waits, worried for failures.
 - CreateTopicCubit.isOneStep creates from the first step and names the token after the picked tool. Setup sets it; the Home screen keeps two steps.
 - Home decides it is in front from the router's location (isHomeFrontScreen), backs off its first-message poll, sweeps topics beyond the polled three, and backs off a failed first look.
+- The acknowledged screen of a setup test lists what the alarm proved as ticks (ProofList). The phone-only test shows the server and the push as not tested. AppAnimatedTick takes optional colours for the acknowledged canvas.
+- The acknowledged screen shows two buttons at most: At my desk (or the topic once the incident is closed) over a paper Back to topics. Its title scales to fit one line (AppFittedTitle), the topic is a tappable pill, and it keeps the acknowledged colours after At my desk.
+- The self-host form on the connect step holds its address and token fields, Paste and the helper line in one card.
+- The Home setup checklist is HomeSetupPill, a floating card above the tab bar that opens in place to its three rows. A pinned notice takes the spot first (setupPillHasTheSpot) and nothing ticks behind it. The empty Home shows its empty card again. Developer options, Other setup states, opens the pill closed or open with made-up rows.
+- AppButtonVariant.tinted is a wash of the surface colour, so ink on the washed critical red is 6.5:1. Read the full message uses it too, under Silence.
+- The acknowledged screen sizes its face from the room left, so the details card clears the pinned buttons on a 375 pt phone, moves the hint into the list at a large text size, and reaches the topic by the pill only. The send countdown sits on a card. The failed setup gate has a title. isSetupChecklistInFront holds the rule that nothing ticks behind a pinned notice.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -60,6 +70,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Setup never closes or leaves a real alarm: CriticalAlarmCubit.closeSetupTests acts only on the stored setup test on screen, a server push cancels a running phone-only countdown, and iOS names an incident to Dart only for a push that rings (AlarmScheduleRule.ringingIncidentId).
 - The Feature Guide offer is raised after the route change has settled, so it is no longer swept away and counted as declined when setup ends.
 - A token made in setup and never shown is taken back if the app is killed before the hook-up step: its id is saved with the handoff.
+- The first tool alarm is matched by more than its incident id: SetupTestRing.firstTool keeps what the first ring looked like, and firstToolVerdictFor forgets it when the incident reopens, takes in another message or closes. It is also forgotten on Done, on Set this up later and at the next launch after the first acknowledgement. A Finish button whose record is gone gives way to the normal acknowledged screen.
+- Ring me for real sends at once when the phone was locked while its checks ran, so no count starts with the app already in the background. RealRingCubit.appLifecycleChanged holds the rule; inactive alone never sends.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.

@@ -16,6 +16,7 @@ import 'package:critalarm/features/incidents/presentation/lock_screen.dart';
 import 'package:critalarm/features/local_reminders/presentation/confirm_ring_screen.dart';
 import 'package:critalarm/features/local_reminders/presentation/local_reminder_lab_screen.dart';
 import 'package:critalarm/features/local_reminders/presentation/local_reminder_settings_screen.dart';
+import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
@@ -648,7 +649,14 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         return AmbientPage(
           key: state.pageKey,
           opaque: true,
-          child: CriticalAlarmScreen(incidentId: id),
+          child: CriticalAlarmScreen(
+            incidentId: id,
+            // A developer build can look at one screen with made-up values.
+            previewsFirstToolAcked:
+                buildHasOnboardingDeveloperTools &&
+                state.uri.queryParameters[CriticalAlarmScreen.previewParam] ==
+                    CriticalAlarmScreen.previewFirstToolAcked,
+          ),
         );
       },
     ),
