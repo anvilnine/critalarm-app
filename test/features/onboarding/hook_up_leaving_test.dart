@@ -14,6 +14,7 @@ void main() {
     openAlarm: (id) => calls.add('alarm:$id'),
     wait: () => tick.future,
     isStillHere: () => isHere,
+    forgetFirstTool: () => calls.add('forget'),
   );
 
   setUp(() {
@@ -27,7 +28,7 @@ void main() {
       ..done()
       ..done();
 
-    expect(calls, ['next']);
+    expect(calls, ['forget', 'next']);
     expect(leaving.hasLeft, isTrue);
   });
 
@@ -72,13 +73,14 @@ void main() {
     },
   );
 
-  test('an alarm after Done does nothing', () async {
+  test('an alarm after Done opens nothing and finishes nothing', () async {
     final leaving = build()..done();
     tick.complete();
 
     await leaving.alarm('inc_1');
 
-    expect(calls, ['next']);
+    // Only the record of that alarm is taken back.
+    expect(calls, ['forget', 'next', 'forget']);
   });
 
   test(
@@ -95,4 +97,23 @@ void main() {
       expect(calls, ['finish'], reason: 'no second move on top of theirs');
     },
   );
+
+  test('an alarm that rings after Done is not owed the setup screen', () async {
+    final leaving = build()..done();
+    calls.clear();
+
+    await leaving.alarm('inc_1');
+
+    expect(calls, ['forget']);
+  });
+
+  test('the alarm path keeps the record it is about to use', () async {
+    final leaving = build();
+
+    final handover = leaving.alarm('inc_1');
+    tick.complete();
+    await handover;
+
+    expect(calls, isNot(contains('forget')));
+  });
 }

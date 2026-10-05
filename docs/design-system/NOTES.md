@@ -67,6 +67,7 @@ Appearance: Crowned, Shades, and Shades and crown. They change nothing else abou
 ## Setup components
 
 Three components in `lib/design/components/`, each in the gallery at `/gallery`.
+Two more came later and are listed after them.
 
 - `AppHighlightCard`: use it to mark the one choice on a screen that matters, or one row in a short
   checklist. It draws a tinted, stroked surface and nothing else, so a toggle row or a checklist
@@ -89,6 +90,13 @@ Three components in `lib/design/components/`, each in the gallery at `/gallery`.
   so a screen reader hears it change. `faceState` swaps the face for the moment the wait ends on
   the same screen, such as a phone that is now ringing.
 
+- `AppFittedTitle`: use it for a display title that may be one long word. It scales the type down
+  until the longest word fits the line, so a title never breaks inside a word. Between words it
+  wraps like any text.
+- `AppButtonVariant.tinted`: a soft tint of the canvas with no stroke. Use it for the quiet action
+  on a coloured canvas, such as Silence on the alarm screen. It keeps the size and tap target of
+  every other button.
+
 ## Faces in setup
 
 One face per setup screen: 80 px, in a `Hero` with the tag `onboarding-face`, at the same top inset
@@ -99,8 +107,9 @@ a screen swaps the `FaceState` on that widget.
   user to do something gets another face.
 - `worried` means something failed. A state that is only missing a step (no server yet, Critical
   delivery off, a test that timed out) gets its own face: `sad`, `skeptical`, `confused`.
-- Titles of setup task screens are `AppTypography.headline` at 30, centred. Problem titles are
-  headline 22, centred, with at most one `body` line in `onCanvasMuted` under them.
+- Titles of setup task screens are `AppTypography.headline` at 30, centred. A problem or a wait
+  goes on a card under the face (`SetupProblemCard`): a headline 22 title, at most one `body`
+  line, and its action. Words never sit straight on the moving canvas there.
 
 All three stop moving when the phone asks for reduced motion.
 

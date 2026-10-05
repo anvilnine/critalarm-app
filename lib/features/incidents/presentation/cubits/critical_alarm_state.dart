@@ -37,6 +37,8 @@ class CriticalAlarmState {
     this.hasOwnedTopic = false,
     this.setupTestIncidentIds = const <String>{},
     this.setupFlowHasRealRing = false,
+    this.firstToolIncidentId,
+    this.isPreview = false,
   });
 
   final CriticalAlarmStatus status;
@@ -76,6 +78,21 @@ class CriticalAlarmState {
   /// first shipped order does not, and keeps its own exits.
   final bool setupFlowHasRealRing;
 
+  /// The incident the user's first hook-up message set off, while its own
+  /// acknowledged screen is still owed. Null for everyone who left setup
+  /// early or finished it before, and once that screen's button was used.
+  final String? firstToolIncidentId;
+
+  /// A developer's look at a screen: nothing on it reaches the server.
+  final bool isPreview;
+
+  /// Whether the alarm on screen is the first tool alarm of a setup run.
+  /// Matched by incident id and nothing else.
+  bool get isFirstToolAlarm {
+    final id = incident?.id;
+    return id != null && id.isNotEmpty && id == firstToolIncidentId;
+  }
+
   /// Which setup test the alarm on screen was, if any.
   SetupTestKind get setupTest => setupTestKind(
     incidentId: incident?.id,
@@ -88,6 +105,7 @@ class CriticalAlarmState {
     isOnboardingDone: isOnboardingDone,
     flowHasRealRing: setupFlowHasRealRing,
     hasOwnedTopic: hasOwnedTopic,
+    isFirstToolAlarm: isFirstToolAlarm,
   );
 
   CriticalAlarmState copyWith({
@@ -111,6 +129,9 @@ class CriticalAlarmState {
     bool? hasOwnedTopic,
     Set<String>? setupTestIncidentIds,
     bool? setupFlowHasRealRing,
+    String? firstToolIncidentId,
+    bool? isPreview,
+    bool clearFirstTool = false,
     bool clearError = false,
     bool clearFeedback = false,
   }) {
@@ -137,6 +158,10 @@ class CriticalAlarmState {
       hasOwnedTopic: hasOwnedTopic ?? this.hasOwnedTopic,
       setupTestIncidentIds: setupTestIncidentIds ?? this.setupTestIncidentIds,
       setupFlowHasRealRing: setupFlowHasRealRing ?? this.setupFlowHasRealRing,
+      firstToolIncidentId: clearFirstTool
+          ? null
+          : (firstToolIncidentId ?? this.firstToolIncidentId),
+      isPreview: isPreview ?? this.isPreview,
     );
   }
 
@@ -164,7 +189,9 @@ class CriticalAlarmState {
           isOnboardingDone == other.isOnboardingDone &&
           hasOwnedTopic == other.hasOwnedTopic &&
           setEquals(setupTestIncidentIds, other.setupTestIncidentIds) &&
-          setupFlowHasRealRing == other.setupFlowHasRealRing;
+          setupFlowHasRealRing == other.setupFlowHasRealRing &&
+          firstToolIncidentId == other.firstToolIncidentId &&
+          isPreview == other.isPreview;
 
   @override
   int get hashCode => Object.hash(
@@ -187,6 +214,6 @@ class CriticalAlarmState {
     isOnboardingDone,
     hasOwnedTopic,
     Object.hashAllUnordered(setupTestIncidentIds),
-    setupFlowHasRealRing,
+    Object.hash(setupFlowHasRealRing, firstToolIncidentId, isPreview),
   );
 }

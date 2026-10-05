@@ -16,7 +16,19 @@ enum SetupChecklistRow {
   firstMessage,
 }
 
-/// The setup checklist Home draws at the top of its list sheet.
+/// Whether the setup checklist may take the spot above the tab bar.
+///
+/// That spot holds one floating card. A pinned In-App Notice (the sign-up
+/// reminder, battery, the plan ending) wins it, and the checklist waits
+/// until the notice is gone, so two cards never stack. A running Feature
+/// Guide has the screen to itself. The guide offer is a sheet, not a guide
+/// yet, so the checklist stays put under it.
+bool setupPillHasTheSpot({
+  required bool hasPinnedNotice,
+  required bool isGuideRunning,
+}) => !hasPinnedNotice && !isGuideRunning;
+
+/// The setup checklist Home floats above its tab bar.
 ///
 /// Home content: it is not an In-App Notice and not an ask, and it never
 /// opens anything on its own.
@@ -232,6 +244,22 @@ bool isHomeFrontScreen({
   final path = Uri.tryParse(location)?.path ?? location;
   return path.isEmpty || path == '/';
 }
+
+/// Whether the user is looking at the setup checklist, which is what lets
+/// it tick a row, celebrate and poll.
+///
+/// Home has to be the screen in front ([isHomeFront], from
+/// [isHomeFrontScreen]) with nothing pushed over it ([isCovered],
+/// [isRouteElsewhere]). And the checklist has to be drawn: a pinned notice
+/// holds its spot above the tab bar, so while one is up
+/// ([hasPinnedNotice]) the checklist is not on screen and nothing may play
+/// behind the notice.
+bool isSetupChecklistInFront({
+  required bool isHomeFront,
+  required bool isCovered,
+  required bool isRouteElsewhere,
+  required bool hasPinnedNotice,
+}) => isHomeFront && !isCovered && !isRouteElsewhere && !hasPinnedNotice;
 
 /// How long Home waits before it looks at this phone's data again after a
 /// look that failed: 15 seconds, doubling, at most 5 minutes.

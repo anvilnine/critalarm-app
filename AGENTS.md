@@ -124,9 +124,10 @@ names in code, strings, comments and PRs, and never one for another.
   notice. Formerly "home prompts"; the `home_prompt_*` prefs keys and the
   `pro_prompt_answered` analytics event keep their names.
   The setup checklist and the widgets card are neither: they are Home
-  content, drawn at the top of the list sheet by `HomeSetupSection` from
-  `HomeSetupCubit`, and they do not go through the notice slot or
-  `SetupGate`. See "Home setup content" below.
+  content, drawn from `HomeSetupCubit`, and they do not go through the
+  notice slot or `SetupGate`. The checklist floats above the tab bar
+  (`HomeSetupPill`) and the widgets card sits at the top of the list sheet
+  (`HomeSetupSection`). See "Home setup content" below.
 - **Local Reminders** (`lib/features/local_reminders/`): notifications the app
   schedules for itself on the device: fire drill, silent topic, backup, plan
   heads-up, review and feedback asks, Pro later. Method channel
@@ -326,6 +327,12 @@ Developer settings: a build made with `--dart-define=SKIP_PAYWALL=true` or
   on this phone, or has no screen yet, is listed greyed with the reason. A
   replay of the permissions step takes `?skip=<n>` to open on a later step
   (`OnboardingPermissionsScreen.replaySkipParam`).
+- Other setup states: screens around setup that no step route reaches,
+  with made-up values. `first_tool_acknowledged` opens the setup
+  acknowledged screen (`CriticalAlarmScreen.previewFirstToolAckedLocation`),
+  and `checklist_closed` / `checklist_open` put the setup pill on Home
+  (`homeSetupPreview`). Nothing is sent or saved. Real ring states also
+  has `send_countdown`.
 - Count as not done: one switch per step that has an `isSatisfied` check
   (`forceableOnboardingSteps`), saved in `dev.onboarding_forced_unsatisfied`.
   A forced step is the resume point even when its check says it is done, and
@@ -480,8 +487,26 @@ rules are pure functions in
   `onboarding_real_ring.ios_time_sensitive.*` and
   `onboarding_real_ring.android.*`. Words about silent mode come from
   `RingClaim`.
-- A problem is a short title and at most one plain line (`RealRingReason`),
-  under a face that fits it: `sad` for a server or topic that is not there
+- The tap does not send at once. It starts a count of `realRingSendDelay`
+  (5 seconds, the one constant, and zero turns the wait off) so the user
+  can lock the phone. `SendCountdown`
+  (`lib/features/onboarding/domain/real_ring/send_countdown.dart`) holds
+  the rule: the server is asked when the count ends, Cancel sends nothing,
+  and the app leaving the front (`hidden` or `paused`) sends at once on
+  both platforms, because a timer is not promised to run in the
+  background. A tap whose checks finish with the app already hidden sends
+  with no count. `inactive` alone never sends
+  (`RealRingCubit.appLifecycleChanged`). The checks run before the count starts, and a server that
+  goes away during it ends the count unsent.
+- While it counts the screen shows `TypedCurlTerminal`, the same
+  `CurlTerminalCard` the How it rings story draws. It types
+  `CurlLine.forTerminal`: the user's server and topic, `Priority: urgent`
+  and a masked `tk_…`. That function takes no token. One line under it
+  says the server sends this test for them.
+- A problem is a short title and at most one plain line (`RealRingReason`)
+  on a `SetupProblemCard`, the one widget every problem and wait in setup
+  uses (real ring, hook up, the setup gate). Its action is in the card.
+  The face over it fits the problem: `sad` for a server or topic that is not there
   yet, `skeptical` for Critical delivery off, `confused` for a test that
   timed out, `worried` for a failure.
 - The Critical card on this step carries the same free-plan line as on the
@@ -489,8 +514,10 @@ rules are pure functions in
 - A replay sends nothing: the button moves on to the next step.
 
 **After the ring.** The acknowledged screen says what the alarm proved
-(`setupTestKind`: server-sent, phone-only, or not a test) and picks its
-buttons with `ackedExitsFor`. A test is matched by incident id only, never
+(`setupTestKind`: server-sent, phone-only, or not a test) as a list of
+ticks (`setupProofFor`, drawn by `ProofList`): three for a server-sent
+test, and one for the phone-only test with the server and the push shown
+as not tested. It picks its buttons with `ackedExitsFor`. A test is matched by incident id only, never
 by a topic name. In a setup run on a flow that has `real_ring`
 it shows one Continue button, which calls `finishOnboardingStep` and never
 completes setup itself: the engine does, when no step is left. `legacy-1`
@@ -507,6 +534,34 @@ left acknowledged would ring again from its desk timer as a real alarm, so
 a close that still fails moves the id to `unclosedIds`
 (`onboarding_real_ring_unclosed`): it stops counting as a setup test, and
 `closeLeftovers` closes it the next time the app opens.
+
+The alarm the first hook-up message sets off is `AckedExits.firstToolAlarm`.
+It is a real incident and rings with every control. Its acknowledged
+screen is the setup one: three ticks (`firstToolAlarmProof`) and one Finish
+button. Setup is already complete by then, so Finish only closes that one
+incident (`CriticalAlarmCubit.finishFirstToolAlarm`, through
+`EndSetupTestUsecase`) and goes Home. If another alarm has the screen,
+Finish does nothing.
+
+The id alone never decides it. The server keeps one id for an incident's
+whole life: a later message joins it and its desk timer reopens it. So the
+phone keeps a record (`SetupTestRing.firstTool`, the
+`onboarding_first_tool_*` keys): the id, when hook up heard it, the
+`opened_at` and `last_message_at` the alarm screen first saw, and whether
+it was acknowledged. `firstToolVerdictFor` checks every incident the alarm
+screen shows against it, and the record is forgotten the moment the
+incident reopens, takes in another message or closes. It is also forgotten
+by Finish, by Done on the hook-up step, by Set this up later, and at the
+next launch after the first acknowledgement
+(`settleFirstToolAtLaunch`). Forgotten, the incident gets the normal
+screen with every control. When in doubt the answer is the normal screen.
+
+The normal acknowledged screen shows two buttons at most: At my desk while
+the desk timer runs, over a paper Back to topics. The topic name under the
+title is a pill and the one way to the topic. The screen keeps the
+acknowledged colours after At my desk. Its face shrinks on a short phone
+so the details card sits above the pinned buttons, and at a large text
+size the hint moves into the list.
 
 Every "Set this up later" exit calls `SetUpLaterUsecase`, which completes
 setup, and completes nothing on a replay.
@@ -622,19 +677,23 @@ because the acknowledgement often comes later. Three places read it:
 incident that now holds a message of the user's own. It drops it from the
 list and leaves it for them to answer.
 
-**Home setup content.** A user who left setup early gets a checklist at
-the top of the Topics list sheet. The rules are pure functions in
+**Home setup content.** A user who left setup early gets a checklist as a
+floating card above the tab bar (`HomeSetupPill`), drawn like the pinned
+notice bar. Closed it is one line with the count; a tap opens it in place
+to the three rows. The rules are pure functions in
 `lib/features/topics/domain/setup_checklist.dart`, and `HomeSetupCubit`
 runs them from the list Home drew.
 
 - Three rows: a server is connected, a topic has Critical delivery on, a
   first message arrived (`FirstMessageStore.isReceived`). The third row is
   `FirstMessageRow`, the same one the last setup step uses, drawn bare. The
-  rows have no stroke of their own: the checklist is one cream block, so it
-  is no heavier than the topic rows under it.
+  rows sit on the card with no surface of their own.
 - It shows only over a list that loaded, and stays until all three are
   true. With no server nothing is drawn: the no-server card has that row.
-  With no topics it stands in for the empty card.
+  An empty Home shows its empty card under it.
+- A pinned notice has the spot above the tab bar first
+  (`setupPillHasTheSpot`). While one is up the checklist is not drawn and
+  counts as not in front, so no row ticks behind it.
 - A row only opens a screen (`setupChecklistRoute`). Nothing here turns
   Critical delivery on.
 - The first look at a phone (`seedSetupChecklist`, once, saved as
@@ -662,8 +721,8 @@ runs them from the list Home drew.
   minutes (`setupSeedRetryDelay`). Nothing is drawn until it succeeds.
 - An install that owns a topic and finished setup before the checklist
   existed (`SetupChecklistStore.wasSetUpHere` is false) never sees it.
-- The close control on the checklist retires it for good with no
-  celebration (`checklistDismissed`).
+- Hide the setup list, the last line of the open card, retires it for
+  good with no celebration (`checklistDismissed`).
 - A row that turns true while Home is covered is held until Home is back,
   so the tick plays in view. When the last one turns in view,
   `setup_checklist_done` is saved first, the tick plays, then the rows

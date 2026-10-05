@@ -13,6 +13,7 @@ import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design_system/widgets/progressive_blur.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 
 /// The standard Crit Alarm screen: one scroll view that runs from the very top
 /// of the display to the very bottom of it.
@@ -139,9 +140,34 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _bottomBarHeight.dispose();
     _scrolledUnderTop.dispose();
     super.dispose();
+  }
+
+  bool _isDisposed = false;
+
+  /// Moves [_scrolledUnderTop], which rebuilds the top backing.
+  ///
+  /// A scroll notification can be dispatched while the frame is being built
+  /// or laid out: the list's extent changing (a bottom bar that just
+  /// measured itself, a keyboard) corrects the scroll position mid-layout.
+  /// Writing a notifier then asks for a rebuild during build, which Flutter
+  /// refuses. So inside a frame the write waits for the frame to end.
+  void _setScrolledUnderTop(double value) {
+    if (_isDisposed || _scrolledUnderTop.value == value) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    final isInFrame =
+        phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks;
+    if (!isInFrame) {
+      _scrolledUnderTop.value = value;
+      return;
+    }
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!_isDisposed) _scrolledUnderTop.value = value;
+    });
   }
 
   @override
@@ -251,10 +277,11 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                 : NotificationListener<ScrollNotification>(
                     onNotification: (notification) {
                       if (notification.depth == 0) {
-                        _scrolledUnderTop.value =
-                            (notification.metrics.pixels /
-                                    AppScreenScaffold._backingEdge)
-                                .clamp(0.0, 1.0);
+                        _setScrolledUnderTop(
+                          (notification.metrics.pixels /
+                                  AppScreenScaffold._backingEdge)
+                              .clamp(0.0, 1.0),
+                        );
                       }
                       return false;
                     },

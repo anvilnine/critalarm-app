@@ -1,4 +1,7 @@
+import 'package:critalarm/core/models/incident.dart';
+import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
+import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -143,6 +146,251 @@ void main() {
       expect(AckedExits.incident.completesSetup, isFalse);
       expect(AckedExits.legacyCreateTopicOrFinish.completesSetup, isTrue);
       expect(AckedExits.legacyFinish.completesSetup, isTrue);
+    });
+  });
+
+  group('setupProofFor', () {
+    test('a server-sent test proves the server, the push and the phone', () {
+      expect(setupProofFor(SetupTestKind.serverSent), const [
+        (point: ProofPoint.serverSent, isProved: true),
+        (point: ProofPoint.pushArrived, isProved: true),
+        (point: ProofPoint.phoneRang, isProved: true),
+      ]);
+    });
+
+    test('a phone-only test proves the phone and nothing else', () {
+      final proof = setupProofFor(SetupTestKind.phoneOnly);
+
+      expect(proof.first, (point: ProofPoint.phoneRang, isProved: true));
+      expect(proof.where((line) => line.isProved), hasLength(1));
+      expect(
+        {
+          for (final line in proof)
+            if (!line.isProved) line.point,
+        },
+        {ProofPoint.serverSent, ProofPoint.pushArrived},
+      );
+    });
+
+    test('an alarm that is not a test proves nothing here', () {
+      expect(setupProofFor(SetupTestKind.none), isEmpty);
+    });
+  });
+
+  group('which acknowledged screen', () {
+    AckedExits exits({
+      required SetupTestKind kind,
+      required bool isOnboardingDone,
+      bool flowHasRealRing = true,
+      bool isFirstToolAlarm = false,
+    }) => ackedExitsFor(
+      kind: kind,
+      isOnboardingDone: isOnboardingDone,
+      flowHasRealRing: flowHasRealRing,
+      hasOwnedTopic: true,
+      isFirstToolAlarm: isFirstToolAlarm,
+    );
+
+    test('a setup test during setup continues setup', () {
+      for (final kind in [SetupTestKind.serverSent, SetupTestKind.phoneOnly]) {
+        expect(
+          exits(kind: kind, isOnboardingDone: false),
+          AckedExits.continueSetup,
+        );
+      }
+    });
+
+    test('the first tool alarm of a setup run gets the setup screen', () {
+      // Setup is complete by then: the hook-up step finished it before it
+      // handed over to the alarm.
+      expect(
+        exits(
+          kind: SetupTestKind.none,
+          isOnboardingDone: true,
+          isFirstToolAlarm: true,
+        ),
+        AckedExits.firstToolAlarm,
+      );
+      // And if the step had not been finished yet, still that screen.
+      expect(
+        exits(
+          kind: SetupTestKind.none,
+          isOnboardingDone: false,
+          isFirstToolAlarm: true,
+        ),
+        AckedExits.firstToolAlarm,
+      );
+    });
+
+    test('a real alarm during setup from another topic is a real alarm', () {
+      expect(
+        exits(kind: SetupTestKind.none, isOnboardingDone: false),
+        AckedExits.incident,
+      );
+    });
+
+    test('an alarm after setup is a real alarm', () {
+      expect(
+        exits(kind: SetupTestKind.none, isOnboardingDone: true),
+        AckedExits.incident,
+      );
+      // A server-sent test met after setup is one to answer too.
+      expect(
+        exits(kind: SetupTestKind.serverSent, isOnboardingDone: true),
+        AckedExits.incident,
+      );
+    });
+
+    test('with setup skipped, no alarm gets the setup screen', () {
+      // Set this up later completes setup and the hook-up step never
+      // records an alarm, so nothing is ever the first tool alarm.
+      expect(
+        exits(kind: SetupTestKind.none, isOnboardingDone: true),
+        AckedExits.incident,
+      );
+    });
+
+    test('a setup test is never taken for the first tool alarm', () {
+      expect(
+        exits(
+          kind: SetupTestKind.serverSent,
+          isOnboardingDone: false,
+          isFirstToolAlarm: true,
+        ),
+        AckedExits.continueSetup,
+      );
+    });
+
+    test('only the real alarm and the first tool alarm are not tests', () {
+      for (final value in AckedExits.values) {
+        expect(
+          value.isSetupTest,
+          value != AckedExits.incident && value != AckedExits.firstToolAlarm,
+        );
+      }
+      expect(AckedExits.firstToolAlarm.completesSetup, isFalse);
+    });
+
+    test('the first tool alarm proves the whole chain', () {
+      expect(firstToolAlarmProof.every((line) => line.isProved), isTrue);
+      expect(firstToolAlarmProof.first.point, ProofPoint.toolSent);
+      expect(firstToolAlarmProof.last.point, ProofPoint.phoneRang);
+    });
+  });
+
+  group('is it still the first ring of the first tool alarm', () {
+    final heldAt = DateTime(2026, 10, 4, 21, 45, 5);
+    final openedAt = DateTime(2026, 10, 4, 21, 45);
+
+    FirstToolAlarm held({bool seen = true, bool wasAcked = false}) =>
+        FirstToolAlarm(
+          incidentId: 'inc_tool',
+          heldAt: heldAt,
+          openedAt: seen ? openedAt : null,
+          lastMessageAt: seen ? openedAt : null,
+          wasAcked: wasAcked,
+        );
+
+    Incident incident({
+      String id = 'inc_tool',
+      String state = IncidentStates.open,
+      DateTime? opened,
+      DateTime? lastMessage,
+      int messages = 1,
+    }) => Incident(
+      id: id,
+      topic: 'setup-topic',
+      state: state,
+      openedAt: opened ?? openedAt,
+      lastMessageAt: lastMessage ?? openedAt,
+      messages: [
+        for (var i = 0; i < messages; i++)
+          Message(id: 'msg_$i', topic: 'setup-topic', message: 'm'),
+      ],
+    );
+
+    FirstToolVerdict verdict(FirstToolAlarm? record, Incident incident) =>
+        firstToolVerdictFor(held: record, incident: incident);
+
+    test('nothing on record, or another incident, is not it', () {
+      expect(verdict(null, incident()), FirstToolVerdict.notIt);
+      expect(
+        verdict(held(), incident(id: 'inc_real')),
+        FirstToolVerdict.notIt,
+      );
+    });
+
+    test('ringing for the first time is the first ring', () {
+      expect(
+        verdict(held(seen: false), incident()),
+        FirstToolVerdict.firstRing,
+      );
+      expect(verdict(held(), incident()), FirstToolVerdict.firstRing);
+    });
+
+    test('acknowledged once and unchanged is still the first ring', () {
+      expect(
+        verdict(
+          held(wasAcked: true),
+          incident(state: IncidentStates.acked),
+        ),
+        FirstToolVerdict.firstRing,
+      );
+    });
+
+    test('open again after the first acknowledgement is over', () {
+      // The desk timer, with every time left as it was.
+      expect(
+        verdict(held(wasAcked: true), incident()),
+        FirstToolVerdict.over,
+      );
+    });
+
+    test('a reopen, which moves opened_at, is over', () {
+      final reopened = openedAt.add(const Duration(minutes: 10));
+      expect(
+        verdict(held(), incident(opened: reopened)),
+        FirstToolVerdict.over,
+      );
+      // Even when the alarm screen never saw the first ring.
+      expect(
+        verdict(held(seen: false), incident(opened: reopened)),
+        FirstToolVerdict.over,
+      );
+    });
+
+    test('a message that joined is over', () {
+      expect(
+        verdict(
+          held(),
+          incident(lastMessage: openedAt.add(const Duration(minutes: 2))),
+        ),
+        FirstToolVerdict.over,
+      );
+      expect(
+        verdict(held(seen: false), incident(messages: 2)),
+        FirstToolVerdict.over,
+      );
+    });
+
+    test('a closed or expired incident is over', () {
+      for (final state in [IncidentStates.closed, IncidentStates.expired]) {
+        expect(
+          verdict(held(), incident(state: state)),
+          FirstToolVerdict.over,
+        );
+      }
+    });
+
+    test('an opened_at a little after the hook-up step heard it is the '
+        'same ring: clocks differ', () {
+      expect(
+        verdict(
+          held(seen: false),
+          incident(opened: heldAt.add(const Duration(seconds: 20))),
+        ),
+        FirstToolVerdict.firstRing,
+      );
     });
   });
 }

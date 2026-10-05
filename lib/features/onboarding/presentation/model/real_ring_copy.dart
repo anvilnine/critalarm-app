@@ -21,18 +21,39 @@ class RealRingCopy {
   final List<String> checks;
 }
 
-RealRingCopy realRingCopyFor(RealRingPlatform platform) => switch (platform) {
-  RealRingPlatform.iosAlarm => _iosAlarm(),
-  RealRingPlatform.iosTimeSensitive => _iosTimeSensitive(),
-  RealRingPlatform.android => _android(),
+/// [waitSeconds] is how long the tap waits before the server is asked. The
+/// last instruction line names it, so "lock your screen" comes with the
+/// time there is to do it. Zero means the tap sends at once, and the line
+/// says to lock right away.
+RealRingCopy realRingCopyFor(
+  RealRingPlatform platform, {
+  int waitSeconds = 0,
+}) => switch (platform) {
+  RealRingPlatform.iosAlarm => _iosAlarm(waitSeconds),
+  RealRingPlatform.iosTimeSensitive => _iosTimeSensitive(waitSeconds),
+  RealRingPlatform.android => _android(waitSeconds),
 };
 
+/// The lock line: [now] when the tap sends at once, [wait] with the seconds
+/// when it waits first.
+String _lockStep(
+  int waitSeconds, {
+  required String now,
+  required String wait,
+}) => waitSeconds > 0
+    ? wait.tr(namedArgs: {'seconds': '$waitSeconds'})
+    : now.tr();
+
 /// iOS 26 or later. The push becomes an AlarmKit alarm.
-RealRingCopy _iosAlarm() => RealRingCopy(
+RealRingCopy _iosAlarm(int waitSeconds) => RealRingCopy(
   steps: [
     LocaleKeys.onboarding_real_ring_ios_step_silence.tr(),
     LocaleKeys.onboarding_real_ring_ios_step_tap.tr(),
-    LocaleKeys.onboarding_real_ring_ios_step_lock.tr(),
+    _lockStep(
+      waitSeconds,
+      now: LocaleKeys.onboarding_real_ring_ios_step_lock,
+      wait: LocaleKeys.onboarding_real_ring_ios_step_lock_wait,
+    ),
   ],
   checks: [
     LocaleKeys.onboarding_real_ring_ios_check_notifications.tr(),
@@ -43,11 +64,15 @@ RealRingCopy _iosAlarm() => RealRingCopy(
 
 /// iOS 16 to 25. A Time-Sensitive notification with sound, which the silent
 /// switch mutes. No line here promises a ring through silent mode.
-RealRingCopy _iosTimeSensitive() => RealRingCopy(
+RealRingCopy _iosTimeSensitive(int waitSeconds) => RealRingCopy(
   steps: [
     LocaleKeys.onboarding_real_ring_ios_time_sensitive_step_ringer.tr(),
     LocaleKeys.onboarding_real_ring_ios_time_sensitive_step_tap.tr(),
-    LocaleKeys.onboarding_real_ring_ios_time_sensitive_step_lock.tr(),
+    _lockStep(
+      waitSeconds,
+      now: LocaleKeys.onboarding_real_ring_ios_time_sensitive_step_lock,
+      wait: LocaleKeys.onboarding_real_ring_ios_time_sensitive_step_lock_wait,
+    ),
   ],
   checks: [
     LocaleKeys.onboarding_real_ring_ios_time_sensitive_check_notifications.tr(),
@@ -59,11 +84,15 @@ RealRingCopy _iosTimeSensitive() => RealRingCopy(
 );
 
 /// Android. The push arrives over FCM and opens the full-screen alarm.
-RealRingCopy _android() => RealRingCopy(
+RealRingCopy _android(int waitSeconds) => RealRingCopy(
   steps: [
     LocaleKeys.onboarding_real_ring_android_step_silence.tr(),
     LocaleKeys.onboarding_real_ring_android_step_tap.tr(),
-    LocaleKeys.onboarding_real_ring_android_step_lock.tr(),
+    _lockStep(
+      waitSeconds,
+      now: LocaleKeys.onboarding_real_ring_android_step_lock,
+      wait: LocaleKeys.onboarding_real_ring_android_step_lock_wait,
+    ),
   ],
   checks: [
     LocaleKeys.onboarding_real_ring_android_check_notifications.tr(),

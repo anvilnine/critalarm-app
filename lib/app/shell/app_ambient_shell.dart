@@ -2,6 +2,7 @@ import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/motion.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 
 /// Hosts a persistent, application-wide ambient canvas behind all visual
@@ -93,14 +94,30 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
     super.dispose();
   }
 
+  /// The override changed. A screen clears its override from `dispose`,
+  /// which runs while the tree is locked at the end of a frame, and a
+  /// `setState` there throws. So inside a frame it waits for the frame to
+  /// end.
   void _handleOverrideChanged() {
-    if (mounted) {
-      setState(() {
-        if (_controller.overrideDirection != null) {
-          _direction = _controller.overrideDirection!;
-        }
-      });
+    if (!mounted) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      SchedulerBinding.instance.addPostFrameCallback(
+        (_) => _applyOverride(),
+      );
+      return;
     }
+    _applyOverride();
+  }
+
+  void _applyOverride() {
+    if (!mounted) return;
+    setState(() {
+      if (_controller.overrideDirection != null) {
+        _direction = _controller.overrideDirection!;
+      }
+    });
   }
 
   String _resolvePath() {

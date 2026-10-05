@@ -883,4 +883,109 @@ void main() {
       expect(h.timers.where((t) => t.isActive), isEmpty);
     });
   });
+
+  group('is the checklist in front', () {
+    bool inFront({
+      bool isHomeFront = true,
+      bool isCovered = false,
+      bool isRouteElsewhere = false,
+      bool hasPinnedNotice = false,
+    }) => isSetupChecklistInFront(
+      isHomeFront: isHomeFront,
+      isCovered: isCovered,
+      isRouteElsewhere: isRouteElsewhere,
+      hasPinnedNotice: hasPinnedNotice,
+    );
+
+    test('Home in front with nothing over it', () {
+      expect(inFront(), isTrue);
+    });
+
+    test('not under a pinned notice: the notice has its spot', () {
+      expect(inFront(hasPinnedNotice: true), isFalse);
+    });
+
+    test('not when Home is covered, elsewhere, or not the front screen', () {
+      expect(inFront(isCovered: true), isFalse);
+      expect(inFront(isRouteElsewhere: true), isFalse);
+      expect(inFront(isHomeFront: false), isFalse);
+    });
+  });
+
+  group('HomeSetupCubit, under a pinned notice', () {
+    late HomeSetupHarness h;
+
+    setUp(() => h = HomeSetupHarness());
+    tearDown(() => h.dispose());
+
+    /// What Home tells the cubit, with everything else in its favour.
+    Future<void> tell({required bool hasPinnedNotice}) => h.cubit.screenChanged(
+      isInFront: isSetupChecklistInFront(
+        isHomeFront: true,
+        isCovered: false,
+        isRouteElsewhere: false,
+        hasPinnedNotice: hasPinnedNotice,
+      ),
+      isGuideActive: false,
+    );
+
+    test('a row that turns behind the notice waits until the notice is '
+        'gone, so its tick plays in view', () async {
+      await h.open(loadedHome([topicItem('prod')]));
+      await tell(hasPinnedNotice: true);
+
+      await h.cubit.homeChanged(
+        loadedHome([topicItem('prod', isCritical: true)]),
+      );
+      await h.settle();
+      expect(h.cubit.state.checklist.hasCriticalTopic, isFalse);
+
+      await tell(hasPinnedNotice: false);
+      await h.settle();
+      expect(h.cubit.state.checklist.hasCriticalTopic, isTrue);
+    });
+
+    test('the last row landing behind the notice is not marked done or '
+        'celebrated until the notice is gone', () async {
+      await h.open(loadedHome([topicItem('prod')]));
+      h.firstMessage.isReceived = true;
+      await tell(hasPinnedNotice: true);
+      await h.cubit.homeChanged(
+        loadedHome([topicItem('prod', isCritical: true)]),
+      );
+      await h.settle();
+
+      expect(h.store.isDone, isFalse);
+      expect(h.timers.where((t) => t.duration == h.cubit.tickHold), isEmpty);
+
+      await tell(hasPinnedNotice: false);
+      await h.settle();
+      expect(h.store.isDone, isTrue);
+      await h.fire(h.cubit.tickHold);
+      expect(h.cubit.state.phase, HomeSetupPhase.celebration);
+    });
+  });
+
+  group('the spot above the tab bar', () {
+    test('the checklist has it when nothing else does', () {
+      expect(
+        setupPillHasTheSpot(hasPinnedNotice: false, isGuideRunning: false),
+        isTrue,
+      );
+    });
+
+    test('a pinned notice wins it and the checklist waits', () {
+      expect(
+        setupPillHasTheSpot(hasPinnedNotice: true, isGuideRunning: false),
+        isFalse,
+      );
+    });
+
+    test('a running guide has the screen to itself', () {
+      expect(
+        setupPillHasTheSpot(hasPinnedNotice: false, isGuideRunning: true),
+        isFalse,
+      );
+    });
+  });
 }

@@ -1060,10 +1060,9 @@ class _CurlTerminal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final typed = (_window(t, 0.3, 1.9) * _curl.length).floor();
-    final caretOn = (t * 2).floor().isEven || typed < _curl.length;
-    final mono = AppTypography.mono(_white, fontSize: 12);
+    final length = CurlTerminalCard.lengthOf(_curl);
+    final typed = (_window(t, 0.3, 1.9) * length).floor();
+    final caretOn = (t * 2).floor().isEven || typed < length;
 
     return Positioned(
       left: 0,
@@ -1071,75 +1070,13 @@ class _CurlTerminal extends StatelessWidget {
       bottom: 24,
       child: _layer(
         1 - _window(t, hideAt, 0.4),
-        Container(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1C1917),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x40000000),
-                blurRadius: 24,
-                offset: Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  _Dot(Color(0xFF57534E)),
-                  _Dot(Color(0xFF57534E)),
-                  _Dot(Color(0xFF57534E)),
-                ],
-              ),
-              const SizedBox(height: 10),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text.rich(
-                  TextSpan(
-                    style: mono,
-                    children: [
-                      TextSpan(
-                        text: r'$ ',
-                        style: mono.copyWith(color: colors.yellow),
-                      ),
-                      TextSpan(text: _curl.substring(0, typed)),
-                      WidgetSpan(
-                        alignment: PlaceholderAlignment.middle,
-                        child: Container(
-                          width: 8,
-                          height: 15,
-                          color: caretOn ? colors.yellow : Colors.transparent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        // The one terminal in the app. The real ring step types its own
+        // command into the same card.
+        CurlTerminalCard(command: _curl, typed: typed, isCaretOn: caretOn),
         from: const Offset(0, 30),
       ),
     );
   }
-}
-
-class _Dot extends StatelessWidget {
-  const _Dot(this.color);
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 10,
-    height: 10,
-    margin: const EdgeInsets.only(right: 6),
-    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-  );
 }
 
 // ---------------------------------------------------------------------------
