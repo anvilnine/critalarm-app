@@ -28,12 +28,24 @@ abstract interface class SetupTestRing {
   /// must never count as real use (`countsAsRealUse`).
   Set<String> get setupIncidentIds;
 
+  /// The alarm the user's first hook-up message set off, while it still
+  /// has its own acknowledged screen to show: the one that ends setup. Null
+  /// before that alarm, and once that screen's button was used
+  /// ([forgetFirstTool]). Kept after [clear], because setup is already
+  /// complete when that alarm is answered.
+  String? get firstToolIncidentId;
+
   /// Saves the id of the incident the server just opened.
   Future<void> hold(String incidentId);
 
   /// The alarm the user's first hook-up message set off. Setup asked for
-  /// that message, so it joins [setupIncidentIds]. It is not a test.
+  /// that message, so it joins [setupIncidentIds] and becomes
+  /// [firstToolIncidentId]. It is not a test.
   Future<void> holdFirstMessage(String incidentId);
+
+  /// The first tool alarm's own acknowledged screen is done with. From now
+  /// on that incident is like any other.
+  Future<void> forgetFirstTool();
 
   /// The close of [incidentId] failed. It stops counting as a setup test
   /// and is kept to be closed later.

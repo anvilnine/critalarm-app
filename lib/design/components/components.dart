@@ -11,6 +11,7 @@ export 'code_block.dart';
 export 'crop_editor.dart';
 export 'dialogs.dart';
 export 'empty_state.dart';
+export 'fitted_title.dart';
 export 'floating_tab_bar.dart';
 export 'glyphs.dart';
 export 'highlight_card.dart';

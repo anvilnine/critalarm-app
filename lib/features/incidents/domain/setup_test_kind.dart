@@ -42,6 +42,12 @@ SetupTestKind setupTestKind({
 
 /// One link of the chain an alarm travels: the sender, the push, the phone.
 enum ProofPoint {
+  /// The user's own tool sent the message.
+  toolSent,
+
+  /// The server and the push carried it to this phone.
+  delivered,
+
   /// The server sent the alarm.
   serverSent,
 
@@ -76,6 +82,15 @@ List<ProofLine> setupProofFor(SetupTestKind kind) => switch (kind) {
   SetupTestKind.none => const [],
 };
 
+/// What the alarm of the user's first hook-up message proved: their own
+/// tool reached the server, the server and the push delivered it, and this
+/// phone rang. Nothing is left untested.
+const List<ProofLine> firstToolAlarmProof = [
+  (point: ProofPoint.toolSent, isProved: true),
+  (point: ProofPoint.delivered, isProved: true),
+  (point: ProofPoint.phoneRang, isProved: true),
+];
+
 /// The buttons under the acknowledged screen.
 enum AckedExits {
   /// A real incident: At my desk, open the topic, back to topics.
@@ -85,6 +100,11 @@ enum AckedExits {
   /// that finishes the step. The flow decides what comes next.
   continueSetup,
 
+  /// The alarm the user's own tool set off from the last setup step. Not a
+  /// test: a real incident, and the proof setup was after. One button that
+  /// ends that one incident and goes Home.
+  firstToolAlarm,
+
   /// A test run after setup was over. One button back out.
   retest,
 
@@ -93,6 +113,13 @@ enum AckedExits {
 
   /// The first shipped order, with a topic already made: finish.
   legacyFinish;
+
+  /// Whether the alarm is one of setup's own tests, sent by the server for
+  /// setup or set by the phone for itself. The ringing screen leaves out
+  /// the way to the topic for those. The first tool alarm is not one: it
+  /// rings with every control a real alarm has.
+  bool get isSetupTest =>
+      this != AckedExits.incident && this != AckedExits.firstToolAlarm;
 
   /// Whether a button on this screen ends setup itself. Everywhere else the
   /// flow engine does it, when no step is left.
@@ -105,13 +132,22 @@ enum AckedExits {
 ///
 /// [flowHasRealRing] is whether the flow the user is in lists the real ring
 /// step. The first shipped order does not, and keeps the exits it always had.
+///
+/// [isFirstToolAlarm] is whether this incident is the one the user's first
+/// hook-up message set off in a setup run, matched by its incident id. It
+/// is never true for a user who left setup early or had finished it before:
+/// the hook-up step is what records that id. Any other alarm, during setup
+/// or after it, from any topic, is an [AckedExits.incident].
 AckedExits ackedExitsFor({
   required SetupTestKind kind,
   required bool isOnboardingDone,
   required bool flowHasRealRing,
   required bool hasOwnedTopic,
+  bool isFirstToolAlarm = false,
 }) {
-  if (kind == SetupTestKind.none) return AckedExits.incident;
+  if (kind == SetupTestKind.none) {
+    return isFirstToolAlarm ? AckedExits.firstToolAlarm : AckedExits.incident;
+  }
   if (isOnboardingDone) {
     // A server-sent incident met after setup is a real one to answer.
     return kind == SetupTestKind.phoneOnly
