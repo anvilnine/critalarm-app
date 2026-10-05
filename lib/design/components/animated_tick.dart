@@ -55,10 +55,24 @@ class AppAnimatedTick extends StatefulWidget {
   const AppAnimatedTick({
     required this.done,
     this.size = 24,
+    this.fillColor,
+    this.tickColor,
+    this.ringColor,
     super.key,
   });
 
   final bool done;
+
+  /// The disc. Defaults to the highlight, which is right on a card and on
+  /// the plain canvas. On the acknowledged canvas the highlight is the
+  /// canvas itself, so a caller there passes its text colour.
+  final Color? fillColor;
+
+  /// The tick drawn on the disc. Defaults to the text colour on highlight.
+  final Color? tickColor;
+
+  /// The empty ring. Defaults to a quiet ink.
+  final Color? ringColor;
 
   /// Width and height.
   final double size;
@@ -117,9 +131,11 @@ class _AppAnimatedTickState extends State<AppAnimatedTick>
               painter: _TickPainter(
                 fill: fill,
                 draw: draw,
-                ringColor: colors.ink.withValues(alpha: radioRingAlpha),
-                fillColor: colors.highlight,
-                tickColor: colors.onHighlight,
+                ringColor:
+                    widget.ringColor ??
+                    colors.ink.withValues(alpha: radioRingAlpha),
+                fillColor: widget.fillColor ?? colors.highlight,
+                tickColor: widget.tickColor ?? colors.onHighlight,
               ),
             );
           },

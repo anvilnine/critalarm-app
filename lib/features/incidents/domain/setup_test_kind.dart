@@ -40,6 +40,42 @@ SetupTestKind setupTestKind({
   return SetupTestKind.none;
 }
 
+/// One link of the chain an alarm travels: the sender, the push, the phone.
+enum ProofPoint {
+  /// The server sent the alarm.
+  serverSent,
+
+  /// The push carried it to this phone.
+  pushArrived,
+
+  /// This phone rang.
+  phoneRang,
+}
+
+/// One line of the list the acknowledged screen shows after a setup test:
+/// a link of the chain, and whether this alarm proved it.
+typedef ProofLine = ({ProofPoint point, bool isProved});
+
+/// What an acknowledged setup test proved, in the order the screen lists
+/// it. What was proved comes first.
+///
+/// The test of this phone only proves the phone and nothing else, so the
+/// server and the push are listed as not proved. Nobody should take it for
+/// the full test.
+List<ProofLine> setupProofFor(SetupTestKind kind) => switch (kind) {
+  SetupTestKind.serverSent => const [
+    (point: ProofPoint.serverSent, isProved: true),
+    (point: ProofPoint.pushArrived, isProved: true),
+    (point: ProofPoint.phoneRang, isProved: true),
+  ],
+  SetupTestKind.phoneOnly => const [
+    (point: ProofPoint.phoneRang, isProved: true),
+    (point: ProofPoint.serverSent, isProved: false),
+    (point: ProofPoint.pushArrived, isProved: false),
+  ],
+  SetupTestKind.none => const [],
+};
+
 /// The buttons under the acknowledged screen.
 enum AckedExits {
   /// A real incident: At my desk, open the topic, back to topics.
