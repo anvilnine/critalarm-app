@@ -69,6 +69,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The Feature Guide offer is raised after the route change has settled, so it is no longer swept away and counted as declined when setup ends.
 - A token made in setup and never shown is taken back if the app is killed before the hook-up step: its id is saved with the handoff.
 - The first tool alarm is matched by more than its incident id: SetupTestRing.firstTool keeps what the first ring looked like, and firstToolVerdictFor forgets it when the incident reopens, takes in another message or closes. It is also forgotten on Done, on Set this up later and at the next launch after the first acknowledgement. A Finish button whose record is gone gives way to the normal acknowledged screen.
+- Ring me for real sends at once when the phone was locked while its checks ran, so no count starts with the app already in the background. RealRingCubit.appLifecycleChanged holds the rule; inactive alone never sends.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.

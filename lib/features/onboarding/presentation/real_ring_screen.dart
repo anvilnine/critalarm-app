@@ -121,25 +121,13 @@ class _RealRingViewState extends State<_RealRingView>
     super.dispose();
   }
 
-  /// Coming back to the app is when an alarm that rang on the lock screen
-  /// may have been missed, so the phone is asked again.
-  ///
-  /// Leaving it while the wait before the send runs is the user locking
-  /// the phone, which is what the wait is for. `hidden` and `paused` are a
-  /// real leave. `inactive` is not: a pulled-down shade or the app switcher
-  /// is not the phone being put away.
+  /// The cubit decides what each change means: coming back asks the phone
+  /// whether the alarm rang, and the app being put away ends the wait
+  /// before the send.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!mounted) return;
-    final cubit = context.read<RealRingCubit>();
-    switch (state) {
-      case AppLifecycleState.resumed:
-        unawaited(cubit.appResumed());
-      case AppLifecycleState.hidden || AppLifecycleState.paused:
-        cubit.appLeftFront();
-      case AppLifecycleState.inactive || AppLifecycleState.detached:
-        break;
-    }
+    context.read<RealRingCubit>().appLifecycleChanged(state);
   }
 
   bool _stepFinished = false;

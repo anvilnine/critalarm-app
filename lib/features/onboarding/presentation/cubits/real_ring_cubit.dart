@@ -15,6 +15,7 @@ import 'package:critalarm/features/onboarding/presentation/model/local_test_alar
 import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 typedef OneShotTimerFactory =
@@ -309,8 +310,11 @@ class RealRingCubit extends Cubit<RealRingState> {
       final gate = await _recheck(force: true);
       if (isClosed || gate != RealRingGate.ready) return;
       if (state.topic == null) return;
-      // With the wait switched off the tap sends, as it always did.
-      if (sendDelay <= Duration.zero) {
+      // With the wait switched off the tap sends, as it always did. And
+      // when the user locked the phone while the checks ran, the wait has
+      // nothing left to wait for: a count started now would sit frozen
+      // with the app in the background and fire after they came back.
+      if (sendDelay <= Duration.zero || _isHidden) {
         await _send();
         return;
       }
@@ -329,8 +333,32 @@ class RealRingCubit extends Cubit<RealRingState> {
   /// background on either platform, and the user leaving is the sign they
   /// are ready, so a running wait ends now and the server is asked at once.
   void appLeftFront() {
+    _isHidden = true;
     if (isReplay) return;
     _sendCountdown.leftFront();
+  }
+
+  /// The app is not in front, from the last lifecycle change heard. A tap
+  /// whose checks finish while it is true sends without a count.
+  bool _isHidden = false;
+
+  /// Every lifecycle change of the app while the step is open.
+  ///
+  /// `hidden` and `paused` are the phone being put away: a running count
+  /// ends and sends. `inactive` is not. A pulled-down shade, the app
+  /// switcher or a system dialog leave the app on screen, and none of them
+  /// is the user saying they are ready. `resumed` asks the phone whether
+  /// the alarm rang while the app was away.
+  void appLifecycleChanged(AppLifecycleState lifecycle) {
+    switch (lifecycle) {
+      case AppLifecycleState.resumed:
+        _isHidden = false;
+        unawaited(appResumed());
+      case AppLifecycleState.hidden || AppLifecycleState.paused:
+        appLeftFront();
+      case AppLifecycleState.inactive || AppLifecycleState.detached:
+        break;
+    }
   }
 
   /// Asks the server to send the test alarm. Only the wait calls it.
@@ -416,6 +444,7 @@ class RealRingCubit extends Cubit<RealRingState> {
   /// The app came back to the front. An alarm that started while it was
   /// away may have been missed, so the phone is asked. The server is not.
   Future<void> appResumed() async {
+    _isHidden = false;
     if (isReplay) return;
     final awaited =
         state.phase == RealRingPhase.waiting ||
