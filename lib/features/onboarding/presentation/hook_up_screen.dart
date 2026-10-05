@@ -12,6 +12,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_cubit.
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/hook_up_leaving.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
 import 'package:critalarm/features/topics/domain/curl_line.dart';
 import 'package:critalarm/features/topics/domain/tool_snippet.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
@@ -338,6 +339,8 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
     ),
   );
 
+  /// A problem: the face, then one card with what is wrong and, where
+  /// there is one, the thing to do about it.
   Widget _problem(
     BuildContext context, {
     required FaceState face,
@@ -345,45 +348,17 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
     required String line,
     String? reason,
     VoidCallback? onTryAgain,
-  }) {
-    final colors = context.appColors;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _face(face),
-        const SizedBox(height: Spacing.s4),
-        Semantics(
-          liveRegion: true,
-          child: Text(
-            title,
-            textAlign: TextAlign.center,
-            style: AppTypography.headline(colors.onCanvas, fontSize: 22),
-          ),
-        ),
-        const SizedBox(height: Spacing.s2),
-        Text(
-          line,
-          textAlign: TextAlign.center,
-          style: AppTypography.body(colors.onCanvasMuted),
-        ),
-        // The server's own reason, unless it only says the title again.
-        if (reason != null && reason != title) ...[
-          const SizedBox(height: Spacing.s4),
-          AppToast(faceState: FaceState.worried, message: reason),
-        ],
-        if (onTryAgain != null) ...[
-          const SizedBox(height: Spacing.s4),
-          AppButton(
-            label: LocaleKeys.onboarding_hook_up_try_again.tr(),
-            variant: AppButtonVariant.paper,
-            isFullWidth: true,
-            onPressed: onTryAgain,
-          ),
-        ],
-      ],
-    );
-  }
+  }) => SetupProblemCard(
+    face: face,
+    title: title,
+    line: line,
+    // The server's own reason, unless it only says the title again.
+    detail: reason != null && reason != title
+        ? AppToast(faceState: FaceState.worried, message: reason)
+        : null,
+    actionLabel: LocaleKeys.onboarding_hook_up_try_again.tr(),
+    onAction: onTryAgain,
+  );
 
   Widget _ready(BuildContext context, HookUpState state) {
     final colors = context.appColors;
