@@ -325,10 +325,12 @@ class _RingingScreen extends StatelessWidget {
         // by a topic name. The phone-only test's topic is on no server, and
         // the server-sent test rings halfway through setup, where a topic
         // screen would be a detour out of it.
+        // The same quiet pill as Silence. With a stroke it would outrank
+        // it, and the order of weight is I'm up, Silence, then this.
         if (!state.ackedExits.isSetupTest)
           AppButton(
             label: LocaleKeys.critical_alarm_read_message_button.tr(),
-            variant: AppButtonVariant.ghost,
+            variant: AppButtonVariant.tinted,
             isFullWidth: true,
             // Reading is not acknowledging, so this leaves the alarm ringing
             // and takes the user to the messages on the topic.
@@ -645,6 +647,11 @@ class AcknowledgedScreen extends StatelessWidget {
     final size = AppSize.of(context);
     final isWide = size.isExpanded || size.isShort;
     final isClosed = state.status == CriticalAlarmStatus.closed;
+    // The hint is pinned over At my desk. At a large text size it runs to
+    // several lines and the pinned block would take half a small screen,
+    // so it goes into the list, under the details card.
+    final pinsHint = MediaQuery.textScalerOf(context).scale(1) <= 1.3;
+    final hintInList = !isClosed && !pinsHint;
 
     final bottomBar = Column(
       mainAxisSize: MainAxisSize.min,
@@ -741,12 +748,14 @@ class AcknowledgedScreen extends StatelessWidget {
             ]
           : [
               // At most two buttons. Back to topics is the way out and is
-              // always the paper one at the bottom. Above it sits the one
-              // other thing to do: At my desk while the desk timer runs,
-              // the topic once it does not.
+              // always the paper one at the bottom. Above it, while the
+              // desk timer runs, sits At my desk. The way to the topic is
+              // the pill under the title, in both states and only there.
               if (!isClosed) ...[
-                _sub(TextAlign.center, _deskTimerHint(context)),
-                const SizedBox(height: Spacing.s3),
+                if (pinsHint) ...[
+                  _sub(TextAlign.center, _deskTimerHint(context)),
+                  const SizedBox(height: Spacing.s3),
+                ],
                 AppButton(
                   label: LocaleKeys.critical_alarm_at_my_desk_button.tr(),
                   variant: AppButtonVariant.ghost,
@@ -758,16 +767,8 @@ class AcknowledgedScreen extends StatelessWidget {
                     );
                   },
                 ),
-              ] else
-                AppButton(
-                  label: LocaleKeys.critical_alarm_open_topic_button.tr(
-                    namedArgs: {'topic': state.topic},
-                  ),
-                  variant: AppButtonVariant.ghost,
-                  isFullWidth: true,
-                  onPressed: () => _openTopic(context),
-                ),
-              const SizedBox(height: Spacing.s2),
+                const SizedBox(height: Spacing.s2),
+              ],
               AppButton(
                 label: LocaleKeys.critical_alarm_back_to_topics_button.tr(),
                 variant: AppButtonVariant.paper,
@@ -846,6 +847,10 @@ class AcknowledgedScreen extends StatelessWidget {
                         _sub(TextAlign.left, ackedSub),
                         const SizedBox(height: Spacing.s4),
                         _detailSheet(startedLabel, ackedLabel),
+                        if (hintInList) ...[
+                          const SizedBox(height: Spacing.s4),
+                          _sub(TextAlign.left, _deskTimerHint(context)),
+                        ],
                       ],
                     ),
                   ),
@@ -859,12 +864,19 @@ class AcknowledgedScreen extends StatelessWidget {
       );
     }
 
-    // A short phone gets a smaller face, so the details card is in view
-    // above the pinned buttons without scrolling.
-    final faceSize = (MediaQuery.sizeOf(context).height * 0.24).clamp(
-      120.0,
-      224.0,
-    );
+    // The face takes what the rest leaves. Everything else on the screen
+    // has a size of its own (title, pill, line, the three-row card, the
+    // hint and the two buttons, about [_restHeight] at the default text
+    // size), so on a short phone the face shrinks until the whole card
+    // sits above the pinned buttons with nothing hidden at rest. At a large
+    // text size the list scrolls, and the room the scaffold leaves under
+    // it is the height of the backing, so the card always scrolls clear.
+    final media = MediaQuery.of(context);
+    final faceSize = (media.size.height - media.padding.vertical - _restHeight)
+        .clamp(
+          _minFace,
+          224.0,
+        );
 
     return AppScreenScaffold(
       hasTabBar: false,
@@ -900,6 +912,13 @@ class AcknowledgedScreen extends StatelessWidget {
             child: _detailSheet(startedLabel, ackedLabel),
           ),
         ),
+        if (hintInList)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, Spacing.s4, 20, 0),
+              child: _sub(TextAlign.center, _deskTimerHint(context)),
+            ),
+          ),
       ],
       bottomBar: bottomBar,
     );
@@ -1044,6 +1063,11 @@ class AcknowledgedScreen extends StatelessWidget {
         height: 1.4,
         color: color,
       );
+
+  /// What the acknowledged screen needs besides its face, at the default
+  /// text size, and the smallest face that still reads as the face.
+  static const double _restHeight = 556;
+  static const double _minFace = 88;
 
   /// One line on any phone at the default text size: the type scales down
   /// until the word fits, and it never breaks inside a word.

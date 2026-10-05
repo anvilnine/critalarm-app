@@ -397,7 +397,11 @@ class _OnboardingStepGateState extends State<OnboardingStepGate> {
         ),
         ConnectGate.failed => _ConnectGateScreen(
           key: const ValueKey('connect-gate-failed'),
-          // With no failure to name, the step is simply missing its server.
+          // A failure has its reason under "Could not connect". With no
+          // failure to name, the step is simply missing its server.
+          title: backgroundConnectLine(state) == null
+              ? LocaleKeys.onboarding_connect_background_no_server_title.tr()
+              : LocaleKeys.onboarding_connect_background_failed_title.tr(),
           message:
               backgroundConnectLine(state) ??
               LocaleKeys.onboarding_connect_background_no_server.tr(),
@@ -425,9 +429,12 @@ class _ConnectGateScreen extends StatelessWidget {
     required this.message,
     required this.face,
     required this.connect,
+    this.title,
     super.key,
   });
 
+  /// What is wrong, in a few words. Null for a wait, which is one line.
+  final String? title;
   final String message;
 
   /// The face of a step that cannot go on. Null while the connect is still
@@ -487,6 +494,7 @@ class _ConnectGateScreen extends StatelessWidget {
                 ? SetupProblemCard.waiting(message: message)
                 : SetupProblemCard(
                     face: face,
+                    title: title,
                     line: message,
                     actionLabel: LocaleKeys
                         .onboarding_connect_background_failed_button
