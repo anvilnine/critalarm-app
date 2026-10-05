@@ -482,52 +482,50 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
             ),
           ),
         ] else ...[
-          // Advanced self-hosted form
-          AppTextField(
-            label: LocaleKeys.onboarding_connect_url_label.tr(),
-            controller: _urlController,
-            placeholder: 'https://api.critalarm.app',
-            errorText: state.serverUrlError,
-            // A long address wraps onto a second line rather than scrolling
-            // out of sight, so the user can check what they typed.
-            growToFit: true,
-            onChanged: cubit.serverUrlChanged,
-            onSubmitted: (_) =>
-                widget.isReplay ? _finishConnectStep() : cubit.connect(),
-          ),
-          const SizedBox(height: Spacing.s4),
-
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  LocaleKeys.onboarding_connect_admin_token_label.tr(),
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.small(colors.onCanvas).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+          // The address and the token in one card, like every other form
+          // in the app. Paste sits in the token field's own header.
+          AppSheet(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppTextField(
+                  label: LocaleKeys.onboarding_connect_url_label.tr(),
+                  controller: _urlController,
+                  placeholder: 'https://api.critalarm.app',
+                  errorText: state.serverUrlError,
+                  // A long address wraps onto a second line rather than
+                  // scrolling out of sight, so the user can check what they
+                  // typed.
+                  growToFit: true,
+                  onChanged: cubit.serverUrlChanged,
+                  onSubmitted: (_) =>
+                      widget.isReplay ? _finishConnectStep() : cubit.connect(),
                 ),
-              ),
-              AppButton(
-                label: LocaleKeys.onboarding_connect_paste_button.tr(),
-                size: AppButtonSize.sm,
-                variant: AppButtonVariant.paper,
-                icon: AppGlyph(GlyphType.copy, size: 13, color: colors.ink),
-                onPressed: _handlePaste,
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          AppTextField(
-            controller: _tokenController,
-            placeholder: LocaleKeys.onboarding_connect_admin_token_placeholder
-                .tr(),
-            helperText: LocaleKeys.onboarding_connect_admin_token_helper.tr(),
-            errorText: state.adminTokenError,
-            growToFit: true,
-            onChanged: cubit.adminTokenChanged,
-            onSubmitted: (_) =>
-                widget.isReplay ? _finishConnectStep() : cubit.connect(),
+                const SizedBox(height: Spacing.s4),
+                AppTextField(
+                  label: LocaleKeys.onboarding_connect_admin_token_label.tr(),
+                  headerTrailing: AppButton(
+                    label: LocaleKeys.onboarding_connect_paste_button.tr(),
+                    size: AppButtonSize.sm,
+                    variant: AppButtonVariant.ghost,
+                    icon: AppGlyph(GlyphType.copy, size: 13, color: colors.ink),
+                    onPressed: _handlePaste,
+                  ),
+                  controller: _tokenController,
+                  placeholder: LocaleKeys
+                      .onboarding_connect_admin_token_placeholder
+                      .tr(),
+                  helperText: LocaleKeys.onboarding_connect_admin_token_helper
+                      .tr(),
+                  errorText: state.adminTokenError,
+                  growToFit: true,
+                  onChanged: cubit.adminTokenChanged,
+                  onSubmitted: (_) =>
+                      widget.isReplay ? _finishConnectStep() : cubit.connect(),
+                ),
+              ],
+            ),
           ),
         ],
       ],
