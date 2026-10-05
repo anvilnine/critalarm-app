@@ -3,8 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// [SetupTestRing] on the phone: the newest id under
 /// `onboarding_real_ring_incident`, every id of the run under
-/// `onboarding_real_ring_incidents`, and the ones still to close under
-/// `onboarding_real_ring_unclosed`.
+/// `onboarding_real_ring_incidents`, the ones still to close under
+/// `onboarding_real_ring_unclosed`, and the alarm of the first hook-up
+/// message under `onboarding_first_tool_incident`.
 class PrefsSetupTestRing implements SetupTestRing {
   PrefsSetupTestRing(this._prefs);
 
@@ -13,6 +14,9 @@ class PrefsSetupTestRing implements SetupTestRing {
   static const incidentIdKey = 'onboarding_real_ring_incident';
   static const incidentIdsKey = 'onboarding_real_ring_incidents';
   static const unclosedIdsKey = 'onboarding_real_ring_unclosed';
+
+  /// Outlives [clear]: the alarm is answered after setup completes.
+  static const firstToolIncidentKey = 'onboarding_first_tool_incident';
 
   /// Outlives [clear]. A handful of ids per setup run, capped.
   static const setupIncidentIdsKey = 'onboarding_setup_incidents';
@@ -57,8 +61,18 @@ class PrefsSetupTestRing implements SetupTestRing {
   @override
   Future<void> holdFirstMessage(String incidentId) async {
     if (incidentId.isEmpty) return;
+    await _prefs.setString(firstToolIncidentKey, incidentId);
     await _remember(incidentId);
   }
+
+  @override
+  String? get firstToolIncidentId {
+    final id = _prefs.getString(firstToolIncidentKey);
+    return id == null || id.isEmpty ? null : id;
+  }
+
+  @override
+  Future<void> forgetFirstTool() => _prefs.remove(firstToolIncidentKey);
 
   Future<void> _remember(String incidentId) async {
     final ids = [

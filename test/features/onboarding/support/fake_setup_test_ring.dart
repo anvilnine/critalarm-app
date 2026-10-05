@@ -23,9 +23,16 @@ class FakeSetupTestRing implements SetupTestRing {
   final Set<String> setupIncidentIds = {};
 
   @override
+  String? firstToolIncidentId;
+
+  @override
   Future<void> holdFirstMessage(String incidentId) async {
+    firstToolIncidentId = incidentId;
     setupIncidentIds.add(incidentId);
   }
+
+  @override
+  Future<void> forgetFirstTool() async => firstToolIncidentId = null;
 
   @override
   Future<void> hold(String incidentId) async {

@@ -27,6 +27,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - AppHighlightTone.choice: cream with the ink stroke, for the one choice on a screen before it is made. The first-topic Critical card uses it while off.
 - AppWaitingFace takes faceState, FaceRipple takes restFaces for a mixed wall, AppTextField takes scrollPadding.
 - A replay of the permissions step takes ?skip=<n> to open on a later step in a developer build.
+- AckedExits.firstToolAlarm: the alarm the first hook-up message set off gets a setup acknowledged screen with one Finish button, which closes that incident through CriticalAlarmCubit.finishFirstToolAlarm. The id is saved as onboarding\_first\_tool\_incident (SetupTestRing.firstToolIncidentId). Developer options, Other setup states, opens it with made-up values.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -53,6 +54,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - CreateTopicCubit.isOneStep creates from the first step and names the token after the picked tool. Setup sets it; the Home screen keeps two steps.
 - Home decides it is in front from the router's location (isHomeFrontScreen), backs off its first-message poll, sweeps topics beyond the polled three, and backs off a failed first look.
 - The acknowledged screen of a setup test lists what the alarm proved as ticks (ProofList). The phone-only test shows the server and the push as not tested. AppAnimatedTick takes optional colours for the acknowledged canvas.
+- The acknowledged screen shows two buttons at most: At my desk (or the topic once the incident is closed) over a paper Back to topics. Its title scales to fit one line (AppFittedTitle), the topic is a tappable pill, and it keeps the acknowledged colours after At my desk.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

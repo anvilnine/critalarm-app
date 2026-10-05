@@ -1535,6 +1535,8 @@ Future<void> configureDependencies({
           OnboardingStepId.realRing,
         ),
         getIt<EndSetupTestUsecase>(),
+        () => getIt<SetupTestRing>().firstToolIncidentId,
+        () => getIt<SetupTestRing>().forgetFirstTool(),
       ),
     )
     ..registerFactory(

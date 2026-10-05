@@ -189,6 +189,8 @@
     "proof_phone_rings": "This phone rings",
     "proof_server_untested": "Server: not tested",
     "proof_push_untested": "Push: not tested",
+    "proof_tool_sent": "Your tool sent it",
+    "proof_delivered": "Server and push delivered it",
     "ios": {
       "step_silence": "Switch to silent or turn on a Focus.",
       "step_tap": "Tap Ring me for real.",
@@ -990,6 +992,8 @@
     "ring_states_subtitle": "Opens the real ring step as a replay, put on one state. Nothing is sent or saved.",
     "hook_up_states_title": "Hook-up states",
     "hook_up_states_subtitle": "Opens the hook-up step as a replay with example values, put on one state or one tool. Nothing is sent, made or saved.",
+    "more_states_title": "Other setup states",
+    "more_states_subtitle": "Screens around setup that no step opens, with made-up values. Nothing is sent or saved.",
     "force_title": "Count as not done",
     "force_subtitle": "Setup treats the step as unfinished even when it is already true on this phone."
   },

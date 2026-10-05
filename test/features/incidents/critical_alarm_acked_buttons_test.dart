@@ -57,22 +57,40 @@ void main() {
       .toList();
 
   group('the acked screen bottom bar', () {
-    testWidgets('acked state renders At my desk first', (tester) async {
+    testWidgets('acked state renders At my desk over Back to topics', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildTestApp(CriticalAlarmStatus.acknowledged));
       await tester.pump();
 
-      expect(buttonLabels(tester), [
-        'At my desk',
-        'Open prod-db',
-        'Back to topics',
-      ]);
+      expect(buttonLabels(tester), ['At my desk', 'Back to topics']);
     });
 
-    testWidgets('closed state renders no At my desk', (tester) async {
+    testWidgets('closed state swaps At my desk for the topic', (tester) async {
       await tester.pumpWidget(buildTestApp(CriticalAlarmStatus.closed));
       await tester.pump();
 
-      expect(buttonLabels(tester), ['Back to topics']);
+      expect(buttonLabels(tester), ['Open prod-db', 'Back to topics']);
+    });
+
+    testWidgets('Back to topics is the paper button in both states', (
+      tester,
+    ) async {
+      for (final status in [
+        CriticalAlarmStatus.acknowledged,
+        CriticalAlarmStatus.closed,
+      ]) {
+        await tester.pumpWidget(buildTestApp(status));
+        await tester.pump();
+
+        final buttons = tester
+            .widgetList<AppButton>(find.byType(AppButton))
+            .toList();
+        expect(buttons, hasLength(2));
+        expect(buttons.last.label, 'Back to topics');
+        expect(buttons.last.variant, AppButtonVariant.paper);
+        expect(buttons.first.variant, AppButtonVariant.ghost);
+      }
     });
   });
 }

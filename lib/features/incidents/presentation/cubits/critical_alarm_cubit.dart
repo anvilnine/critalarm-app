@@ -37,6 +37,8 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     this._setupTestIncidentIds,
     this._setupFlowHasRealRing,
     this._endSetupTest,
+    this._firstToolIncidentId,
+    this._forgetFirstTool,
   ]) : _now = now ?? DateTime.now,
        super(const CriticalAlarmState()) {
     current = this;
@@ -85,6 +87,13 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
 
   /// Ends one setup test on the server. Absent in tests that never do.
   final EndSetupTestUsecase? _endSetupTest;
+
+  /// The incident the user's first hook-up message set off, read from the
+  /// phone, while its own acknowledged screen is owed. Absent reads as none.
+  final String? Function()? _firstToolIncidentId;
+
+  /// Called once that screen's button has ended the incident.
+  final Future<void> Function()? _forgetFirstTool;
 
   final DateTime Function() _now;
 
@@ -239,6 +248,16 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       }
     } on Object catch (_) {
       if (isClosed) return;
+    }
+    // One local read, for the one alarm whose acknowledged screen ends
+    // setup. A read that throws is taken as "not that alarm".
+    try {
+      final firstTool = _firstToolIncidentId?.call();
+      if (firstTool != null) {
+        emit(state.copyWith(firstToolIncidentId: firstTool));
+      }
+    } on Object catch (_) {
+      // Nothing to do. The alarm loads all the same.
     }
     if (incidentId == 'inc_demo') {
       final now = DateTime.now();
@@ -581,6 +600,75 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       if (isClosed) return false;
     }
     return state.incident?.id == incidentId;
+  }
+
+  /// The one button on the acknowledged screen of the first tool alarm:
+  /// ends that incident, so its desk timer cannot ring the phone again ten
+  /// minutes after setup said it was done.
+  ///
+  /// [incidentId] is the alarm the button was drawn for. Nothing happens
+  /// unless it is still the incident on screen and is the first tool alarm
+  /// on record, so no other incident is ever silenced or closed here. A
+  /// real alarm that took the screen over a moment before the tap is left
+  /// exactly as it is.
+  ///
+  /// Answers whether the screen may leave for Home. False when it did
+  /// nothing, and false when another alarm took the screen over while the
+  /// server was being asked: the user stays with that alarm.
+  Future<bool> finishFirstToolAlarm(String incidentId) async {
+    if (state.incident?.id != incidentId || !state.isFirstToolAlarm) {
+      return false;
+    }
+    // A developer's look at the screen. Nothing is sent or saved.
+    if (state.isPreview) return true;
+    if (_firstToolIncidentId?.call() != incidentId) return false;
+    try {
+      await _alarm?.cancelAlarm(incidentId, handOverToStatusCard: false);
+    } on Object catch (_) {
+      // Nothing to do. The close below is what the server cares about.
+    }
+    await _endSetupTest?.call(
+      incidentId,
+      isAcknowledged: true,
+      onClosed: (closed) => _incidents?.applyIncident(closed),
+    );
+    // Done with, whether the server closed it or not: a close that failed
+    // leaves a real incident, which rings and is answered like any other.
+    try {
+      await _forgetFirstTool?.call();
+    } on Object catch (_) {
+      // The phone would not save it. Nothing more can be done here.
+    }
+    if (isClosed) return false;
+    return state.incident?.id == incidentId;
+  }
+
+  /// Puts the screen on the acknowledged state of a made-up first tool
+  /// alarm, so a developer can look at it. Nothing is sent or saved, and
+  /// its button reaches no server.
+  void previewFirstToolAlarm() {
+    const id = 'inc_preview';
+    final now = _now();
+    _stopRingTicker();
+    emit(
+      CriticalAlarmState(
+        status: CriticalAlarmStatus.acknowledged,
+        incident: Incident(
+          id: id,
+          topic: 'my-topic',
+          state: IncidentStates.acked,
+          openedAt: now.subtract(const Duration(seconds: 6)),
+          ackedAt: now,
+        ),
+        topic: 'my-topic',
+        isAcknowledged: true,
+        severityMode: SeverityMode.ack,
+        faceState: FaceState.acked,
+        isOnboardingDone: true,
+        firstToolIncidentId: id,
+        isPreview: true,
+      ),
+    );
   }
 
   void _applyIncident(Incident incident, {List<Incident>? openIncidents}) {

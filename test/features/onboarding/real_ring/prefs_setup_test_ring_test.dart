@@ -62,4 +62,36 @@ void main() {
       expect(ring.unclosedIds, isEmpty);
     },
   );
+
+  group('the first tool alarm', () {
+    test('is on record once the hook-up step heard it', () async {
+      expect(ring.firstToolIncidentId, isNull);
+
+      await ring.holdFirstMessage('inc_tool');
+
+      expect(ring.firstToolIncidentId, 'inc_tool');
+      expect(ring.setupIncidentIds, contains('inc_tool'));
+      // It is not a test.
+      expect(ring.incidentIds, isEmpty);
+    });
+
+    test('outlives setup completing, and a cold start', () async {
+      await ring.holdFirstMessage('inc_tool');
+
+      await ring.clear();
+
+      final again = PrefsSetupTestRing(await SharedPreferences.getInstance());
+      expect(again.firstToolIncidentId, 'inc_tool');
+    });
+
+    test('is forgotten once its screen is done with', () async {
+      await ring.holdFirstMessage('inc_tool');
+
+      await ring.forgetFirstTool();
+
+      expect(ring.firstToolIncidentId, isNull);
+      // Its acknowledgement still never counts as real use.
+      expect(ring.setupIncidentIds, contains('inc_tool'));
+    });
+  });
 }
