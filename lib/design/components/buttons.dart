@@ -21,6 +21,11 @@ enum AppButtonVariant {
   /// Transparent background with 2px stroke. Secondary actions.
   ghost,
 
+  /// A soft tint of the canvas with no stroke, and the canvas text colour.
+  /// A quiet action on a coloured canvas: still a pill with a full tap
+  /// target, lighter than ghost.
+  tinted,
+
   /// Paper white/cream surface with ink text and subtle shadow.
   paper,
 
@@ -123,6 +128,12 @@ class _AppButtonState extends State<AppButton> {
         bg = _isHovered ? colors.canvasGhost : Colors.transparent;
         fg = colors.onCanvas;
         border = BorderSide(color: fg, width: 2);
+      case AppButtonVariant.tinted:
+        // Pressed or hovered, the tint deepens: there is no stroke to react.
+        bg = _isHovered || _isActive
+            ? colors.onCanvas.withValues(alpha: 0.2)
+            : colors.canvasGhostStrong;
+        fg = colors.onCanvas;
       case AppButtonVariant.paper:
         bg = _isHovered ? colors.cream : colors.surface;
         fg = colors.ink;
@@ -164,6 +175,9 @@ class _AppButtonState extends State<AppButton> {
           fg = colors.ink3;
           border = BorderSide(color: fg, width: 2);
         case AppButtonVariant.dangerText:
+          fg = colors.ink3;
+        case AppButtonVariant.tinted:
+          // The tint stays, so it is still a shape. Only the label quiets.
           fg = colors.ink3;
         case AppButtonVariant.cream:
         case AppButtonVariant.destructive:

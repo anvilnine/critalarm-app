@@ -309,9 +309,11 @@ class _RingingScreen extends StatelessWidget {
         const SizedBox(height: 8),
         // Silence is not an acknowledge. The noise stops, the incident stays
         // open, and the phone sets its own next ring for the same id.
+        // No stroke: I'm up is the answer and this is the quiet one. It is
+        // still a full-size pill, in a tint of the canvas.
         AppButton(
           label: LocaleKeys.critical_alarm_silence_ringing_button.tr(),
-          variant: AppButtonVariant.ghost,
+          variant: AppButtonVariant.tinted,
           isFullWidth: true,
           onPressed: () {
             AppHaptics.selection();
