@@ -1247,12 +1247,16 @@ class _FinishFirstToolButtonState extends State<_FinishFirstToolButton> {
     setState(() => _isBusy = true);
     AppHaptics.capture();
     final router = GoRouter.of(context);
-    final mayLeave = await context
-        .read<CriticalAlarmCubit>()
-        .finishFirstToolAlarm(widget.incidentId);
-    // Another alarm took the screen over. It stays; nothing here leaves it.
-    if (mayLeave) router.go('/');
-    if (mounted) setState(() => _isBusy = false);
+    final cubit = context.read<CriticalAlarmCubit>();
+    try {
+      final mayLeave = await cubit.finishFirstToolAlarm(widget.incidentId);
+      // Another alarm took the screen over, or this stopped being the
+      // first tool alarm. The screen stays and shows what it now is.
+      if (mayLeave) router.go('/');
+    } finally {
+      // Whatever happened, the one button is never left spinning.
+      if (mounted) setState(() => _isBusy = false);
+    }
   }
 
   @override

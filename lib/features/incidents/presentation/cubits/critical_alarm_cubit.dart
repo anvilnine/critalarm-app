@@ -10,11 +10,13 @@ import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
+import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/close_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -37,8 +39,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     this._setupTestIncidentIds,
     this._setupFlowHasRealRing,
     this._endSetupTest,
-    this._firstToolIncidentId,
-    this._forgetFirstTool,
+    this._setupRing,
   ]) : _now = now ?? DateTime.now,
        super(const CriticalAlarmState()) {
     current = this;
@@ -88,12 +89,9 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// Ends one setup test on the server. Absent in tests that never do.
   final EndSetupTestUsecase? _endSetupTest;
 
-  /// The incident the user's first hook-up message set off, read from the
-  /// phone, while its own acknowledged screen is owed. Absent reads as none.
-  final String? Function()? _firstToolIncidentId;
-
-  /// Called once that screen's button has ended the incident.
-  final Future<void> Function()? _forgetFirstTool;
+  /// Where the phone keeps the alarm the user's first hook-up message set
+  /// off, while its own acknowledged screen is owed. Absent reads as none.
+  final SetupTestRing? _setupRing;
 
   final DateTime Function() _now;
 
@@ -248,16 +246,6 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       }
     } on Object catch (_) {
       if (isClosed) return;
-    }
-    // One local read, for the one alarm whose acknowledged screen ends
-    // setup. A read that throws is taken as "not that alarm".
-    try {
-      final firstTool = _firstToolIncidentId?.call();
-      if (firstTool != null) {
-        emit(state.copyWith(firstToolIncidentId: firstTool));
-      }
-    } on Object catch (_) {
-      // Nothing to do. The alarm loads all the same.
     }
     if (incidentId == 'inc_demo') {
       final now = DateTime.now();
@@ -452,6 +440,57 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     );
   }
 
+  /// Says whether [incident] is still the first ring of the alarm the
+  /// user's first hook-up message set off, and keeps the phone's record in
+  /// step: what the incident looked like is saved the first time, and the
+  /// record is forgotten the moment the incident is anything else (a
+  /// reopen, a joined message, a close).
+  ///
+  /// Returns the id the setup acknowledged screen applies to, or null.
+  /// Local reads and unawaited local writes only, and it never throws:
+  /// nothing here may slow an alarm down or stop it showing.
+  String? _firstToolIdFor(Incident incident) {
+    if (state.isPreview) return state.firstToolIncidentId;
+    final ring = _setupRing;
+    if (ring == null) return null;
+    try {
+      final held = ring.firstTool;
+      switch (firstToolVerdictFor(held: held, incident: incident)) {
+        case FirstToolVerdict.notIt:
+          return null;
+        case FirstToolVerdict.over:
+          unawaited(_quietly(ring.forgetFirstTool));
+          return null;
+        case FirstToolVerdict.firstRing:
+          if (held != null && !held.wasSeen) {
+            unawaited(
+              _quietly(
+                () => ring.noteFirstToolSeen(
+                  openedAt: incident.openedAt,
+                  lastMessageAt: incident.lastMessageAt,
+                ),
+              ),
+            );
+          }
+          if (incident.isAcked && !(held?.wasAcked ?? true)) {
+            unawaited(_quietly(ring.noteFirstToolAcked));
+          }
+          return incident.id;
+      }
+    } on Object catch (_) {
+      return null;
+    }
+  }
+
+  /// Runs a write to the phone that must never surface as an error.
+  static Future<void> _quietly(Future<void> Function() write) async {
+    try {
+      await write();
+    } on Object catch (_) {
+      // The phone would not save it. The alarm goes on regardless.
+    }
+  }
+
   /// The acknowledged screen, for a guess and for the server's answer alike.
   void _showAcknowledged(
     Incident incident, {
@@ -459,6 +498,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     List<Incident>? openIncidents,
   }) {
     _stopRingTicker();
+    final firstToolId = _firstToolIdFor(incident);
     final ackMsg = LocaleKeys.critical_alarm_acknowledged_message.tr(
       namedArgs: {'time': _formatTime(incident.ackedAt ?? _now())},
     );
@@ -476,6 +516,8 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
         subtext: ackMsg,
         feedbackMessage: ackMsg,
         clearError: true,
+        firstToolIncidentId: firstToolId,
+        clearFirstTool: firstToolId == null,
       ),
     );
   }
@@ -621,7 +663,20 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
     // A developer's look at the screen. Nothing is sent or saved.
     if (state.isPreview) return true;
-    if (_firstToolIncidentId?.call() != incidentId) return false;
+    final ring = _setupRing;
+    String? heldId;
+    try {
+      heldId = ring?.firstToolIncidentId;
+    } on Object catch (_) {
+      heldId = null;
+    }
+    if (heldId != incidentId) {
+      // The phone no longer holds it, so this is not that alarm any more.
+      // The setup screen has one button and it just did nothing: the
+      // normal acknowledged screen takes its place, with every control.
+      emit(state.copyWith(clearFirstTool: true));
+      return false;
+    }
     try {
       await _alarm?.cancelAlarm(incidentId, handOverToStatusCard: false);
     } on Object catch (_) {
@@ -634,11 +689,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     );
     // Done with, whether the server closed it or not: a close that failed
     // leaves a real incident, which rings and is answered like any other.
-    try {
-      await _forgetFirstTool?.call();
-    } on Object catch (_) {
-      // The phone would not save it. Nothing more can be done here.
-    }
+    if (ring != null) await _quietly(ring.forgetFirstTool);
     if (isClosed) return false;
     return state.incident?.id == incidentId;
   }
@@ -708,9 +759,15 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
       if (cached != null) unawaited(cached);
     }
 
+    // Read once, before anything is drawn: the same incident id can be a
+    // later ring, and then it is an alarm like any other.
+    final firstToolId = _firstToolIdFor(incident);
+
     emit(
       state.copyWith(
         openIncidents: open,
+        firstToolIncidentId: firstToolId,
+        clearFirstTool: firstToolId == null,
         meta: firstMsg == null
             ? ''
             : '${_formatTime(DateTime.fromMillisecondsSinceEpoch(firstMsg.time * 1000).toLocal())} / ${firstMsg.tags.join(', ')}',

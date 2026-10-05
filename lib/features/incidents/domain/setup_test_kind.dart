@@ -1,4 +1,6 @@
+import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/features/local_reminders/domain/incident_kinds.dart';
+import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 
 /// The id and topic of the alarm the phone sets for itself. Neither exists
 /// on a server.
@@ -81,6 +83,72 @@ List<ProofLine> setupProofFor(SetupTestKind kind) => switch (kind) {
   ],
   SetupTestKind.none => const [],
 };
+
+/// What an incident is to the first tool alarm on record.
+enum FirstToolVerdict {
+  /// Another incident, or nothing is on record.
+  notIt,
+
+  /// The alarm the first hook-up message set off, still in its first ring
+  /// or acknowledged once and not rung since. Its acknowledged screen is
+  /// the setup one.
+  firstRing,
+
+  /// The same id, but no longer that first ring: it reopened, took in
+  /// another message, or is finished. From here on it is an alarm like any
+  /// other, and the record is to be forgotten.
+  over,
+}
+
+/// How far past the moment the hook-up step heard the alarm an `opened_at`
+/// may be and still be the first ring. A reopen moves `opened_at` to the
+/// time of the reopen, which is a desk timer later.
+const Duration firstToolOpenedAtSlack = Duration(seconds: 30);
+
+/// Decides whether [incident] is still the first ring of the alarm the
+/// user's first hook-up message set off.
+///
+/// The server keeps one id for an incident's whole life, so the id is only
+/// the start. It is [FirstToolVerdict.over] as soon as anything says this
+/// is a later ring: the incident is closed or expired, it is open again
+/// after its first acknowledgement, its `opened_at` or `last_message_at`
+/// is not what the alarm screen first saw, or its `opened_at` is later
+/// than the hook-up step heard it.
+///
+/// When in doubt it answers over: the cost is the normal acknowledged
+/// screen, which has every control. The other mistake would put a
+/// celebration over a real alarm.
+FirstToolVerdict firstToolVerdictFor({
+  required FirstToolAlarm? held,
+  required Incident incident,
+}) {
+  if (held == null || held.incidentId != incident.id) {
+    return FirstToolVerdict.notIt;
+  }
+  if (!incident.isOpen && !incident.isAcked) return FirstToolVerdict.over;
+  if (held.wasAcked && incident.isOpen) return FirstToolVerdict.over;
+
+  final openedAt = incident.openedAt;
+  final seenOpenedAt = held.openedAt;
+  if (openedAt != null) {
+    if (seenOpenedAt != null && !openedAt.isAtSameMomentAs(seenOpenedAt)) {
+      return FirstToolVerdict.over;
+    }
+    if (openedAt.isAfter(held.heldAt.add(firstToolOpenedAtSlack))) {
+      return FirstToolVerdict.over;
+    }
+  }
+  final lastMessageAt = incident.lastMessageAt;
+  final seenLastMessageAt = held.lastMessageAt;
+  if (lastMessageAt != null &&
+      seenLastMessageAt != null &&
+      !lastMessageAt.isAtSameMomentAs(seenLastMessageAt)) {
+    return FirstToolVerdict.over;
+  }
+  // More than one message was never the first ring of one curl line.
+  if (incident.messages.length > 1) return FirstToolVerdict.over;
+  return FirstToolVerdict.firstRing;
+}
 
 /// What the alarm of the user's first hook-up message proved: their own
 /// tool reached the server, the server and the push delivered it, and this

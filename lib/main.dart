@@ -15,6 +15,7 @@ import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
+import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
@@ -106,6 +107,15 @@ Future<void> main() async {
 
   // Acks queued offline go out as soon as the network is back.
   unawaited(getIt<AckQueue>().start());
+
+  // The first tool alarm's own acknowledged screen is owed once. If it was
+  // acknowledged in an earlier run, that moment is over. Awaited, so no
+  // alarm screen of this run can read the old record.
+  try {
+    await getIt<SetupTestRing>().settleFirstToolAtLaunch();
+  } on Object catch (_) {
+    // The phone would not save it. The alarm screen checks again itself.
+  }
 
   // A setup test the server would not close last time would ring again as
   // a real alarm, so it is closed now that the app is open again.

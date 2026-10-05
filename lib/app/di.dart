@@ -816,7 +816,10 @@ Future<void> configureDependencies({
     )
     // The one exit every "Set this up later" button takes.
     ..registerLazySingleton(
-      () => SetUpLaterUsecase(getIt<CompleteOnboardingUsecase>()),
+      () => SetUpLaterUsecase(
+        getIt<CompleteOnboardingUsecase>(),
+        getIt<SetupTestRing>(),
+      ),
     )
     // The incident of the test alarm setup sent, kept for the steps after
     // the ring and cleared when setup completes.
@@ -1538,8 +1541,7 @@ Future<void> configureDependencies({
           OnboardingStepId.realRing,
         ),
         getIt<EndSetupTestUsecase>(),
-        () => getIt<SetupTestRing>().firstToolIncidentId,
-        () => getIt<SetupTestRing>().forgetFirstTool(),
+        getIt<SetupTestRing>(),
       ),
     )
     ..registerFactory(

@@ -1,4 +1,7 @@
+import 'package:critalarm/core/models/incident.dart';
+import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
+import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -272,6 +275,122 @@ void main() {
       expect(firstToolAlarmProof.every((line) => line.isProved), isTrue);
       expect(firstToolAlarmProof.first.point, ProofPoint.toolSent);
       expect(firstToolAlarmProof.last.point, ProofPoint.phoneRang);
+    });
+  });
+
+  group('is it still the first ring of the first tool alarm', () {
+    final heldAt = DateTime(2026, 10, 4, 21, 45, 5);
+    final openedAt = DateTime(2026, 10, 4, 21, 45);
+
+    FirstToolAlarm held({bool seen = true, bool wasAcked = false}) =>
+        FirstToolAlarm(
+          incidentId: 'inc_tool',
+          heldAt: heldAt,
+          openedAt: seen ? openedAt : null,
+          lastMessageAt: seen ? openedAt : null,
+          wasAcked: wasAcked,
+        );
+
+    Incident incident({
+      String id = 'inc_tool',
+      String state = IncidentStates.open,
+      DateTime? opened,
+      DateTime? lastMessage,
+      int messages = 1,
+    }) => Incident(
+      id: id,
+      topic: 'setup-topic',
+      state: state,
+      openedAt: opened ?? openedAt,
+      lastMessageAt: lastMessage ?? openedAt,
+      messages: [
+        for (var i = 0; i < messages; i++)
+          Message(id: 'msg_$i', topic: 'setup-topic', message: 'm'),
+      ],
+    );
+
+    FirstToolVerdict verdict(FirstToolAlarm? record, Incident incident) =>
+        firstToolVerdictFor(held: record, incident: incident);
+
+    test('nothing on record, or another incident, is not it', () {
+      expect(verdict(null, incident()), FirstToolVerdict.notIt);
+      expect(
+        verdict(held(), incident(id: 'inc_real')),
+        FirstToolVerdict.notIt,
+      );
+    });
+
+    test('ringing for the first time is the first ring', () {
+      expect(
+        verdict(held(seen: false), incident()),
+        FirstToolVerdict.firstRing,
+      );
+      expect(verdict(held(), incident()), FirstToolVerdict.firstRing);
+    });
+
+    test('acknowledged once and unchanged is still the first ring', () {
+      expect(
+        verdict(
+          held(wasAcked: true),
+          incident(state: IncidentStates.acked),
+        ),
+        FirstToolVerdict.firstRing,
+      );
+    });
+
+    test('open again after the first acknowledgement is over', () {
+      // The desk timer, with every time left as it was.
+      expect(
+        verdict(held(wasAcked: true), incident()),
+        FirstToolVerdict.over,
+      );
+    });
+
+    test('a reopen, which moves opened_at, is over', () {
+      final reopened = openedAt.add(const Duration(minutes: 10));
+      expect(
+        verdict(held(), incident(opened: reopened)),
+        FirstToolVerdict.over,
+      );
+      // Even when the alarm screen never saw the first ring.
+      expect(
+        verdict(held(seen: false), incident(opened: reopened)),
+        FirstToolVerdict.over,
+      );
+    });
+
+    test('a message that joined is over', () {
+      expect(
+        verdict(
+          held(),
+          incident(lastMessage: openedAt.add(const Duration(minutes: 2))),
+        ),
+        FirstToolVerdict.over,
+      );
+      expect(
+        verdict(held(seen: false), incident(messages: 2)),
+        FirstToolVerdict.over,
+      );
+    });
+
+    test('a closed or expired incident is over', () {
+      for (final state in [IncidentStates.closed, IncidentStates.expired]) {
+        expect(
+          verdict(held(), incident(state: state)),
+          FirstToolVerdict.over,
+        );
+      }
+    });
+
+    test('an opened_at a little after the hook-up step heard it is the '
+        'same ring: clocks differ', () {
+      expect(
+        verdict(
+          held(seen: false),
+          incident(opened: heldAt.add(const Duration(seconds: 20))),
+        ),
+        FirstToolVerdict.firstRing,
+      );
     });
   });
 }
