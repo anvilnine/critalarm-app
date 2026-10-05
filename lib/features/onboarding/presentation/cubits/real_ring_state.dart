@@ -54,6 +54,8 @@ class RealRingState {
     this.local = const LocalTestAlarmState(),
     this.platform = RealRingPlatform.android,
     this.plan,
+    this.sendSecondsLeft,
+    this.serverUrl,
   });
 
   final RealRingPhase phase;
@@ -92,6 +94,17 @@ class RealRingState {
   /// for the line on the Critical card. Null where there is no cap.
   final ({int used, int limit})? plan;
 
+  /// The whole seconds left before the server is asked, while the wait
+  /// after the tap runs. Null when it is not running.
+  final int? sendSecondsLeft;
+
+  /// The address of the connected server, for the command the countdown
+  /// shows. Null when none is saved.
+  final String? serverUrl;
+
+  /// The wait between the tap and the call to the server is running.
+  bool get isSendCountingDown => sendSecondsLeft != null;
+
   /// What this phone can promise for a ring.
   RingClaim get claim => platform == RealRingPlatform.iosTimeSensitive
       ? RingClaim.timeSensitive
@@ -115,6 +128,9 @@ class RealRingState {
     LocalTestAlarmState? local,
     RealRingPlatform? platform,
     ({int used, int limit})? plan,
+    int? sendSecondsLeft,
+    String? serverUrl,
+    bool clearSendCountdown = false,
     bool clearPlan = false,
     bool clearTopic = false,
     bool clearFailure = false,
@@ -133,6 +149,10 @@ class RealRingState {
     local: local ?? this.local,
     platform: platform ?? this.platform,
     plan: clearPlan ? null : (plan ?? this.plan),
+    sendSecondsLeft: clearSendCountdown
+        ? null
+        : (sendSecondsLeft ?? this.sendSecondsLeft),
+    serverUrl: serverUrl ?? this.serverUrl,
   );
 
   @override
@@ -148,7 +168,9 @@ class RealRingState {
       criticalFailure == other.criticalFailure &&
       local == other.local &&
       platform == other.platform &&
-      plan == other.plan;
+      plan == other.plan &&
+      sendSecondsLeft == other.sendSecondsLeft &&
+      serverUrl == other.serverUrl;
 
   @override
   int get hashCode => Object.hash(
@@ -163,5 +185,7 @@ class RealRingState {
     local,
     platform,
     plan,
+    sendSecondsLeft,
+    serverUrl,
   );
 }

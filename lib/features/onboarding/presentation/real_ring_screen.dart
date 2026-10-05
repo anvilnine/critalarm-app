@@ -16,8 +16,10 @@ import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambi
 import 'package:critalarm/features/onboarding/presentation/model/real_ring_copy.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/curl_terminal.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/local_test_alarm_views.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
+import 'package:critalarm/features/topics/domain/curl_line.dart';
 import 'package:critalarm/features/topics/presentation/widgets/first_topic_critical_card.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -39,27 +41,35 @@ class RealRingScreen extends StatelessWidget {
   static const replayStateParam = 'show';
 
   static const _countdownName = 'countdown';
+  static const _sendCountdownName = 'send_countdown';
 
   /// Every state a developer build can open a replay on: each phase the
   /// step can rest on, and the countdown of the phone-only test.
   static final List<String> replayStateNames = List.unmodifiable([
     for (final phase in RealRingPhase.values)
       if (phase != RealRingPhase.rang) phase.name,
+    _sendCountdownName,
     _countdownName,
   ]);
 
   /// The state a developer build shows on a replay, from the query
   /// parameter. Null in a store build and for a name that is not a state.
-  static ({RealRingPhase phase, bool isCountingDown})? _shown(Uri uri) {
+  static ({RealRingPhase phase, bool isCountingDown, bool isSendCountingDown})?
+  _shown(Uri uri) {
     if (!buildHasOnboardingDeveloperTools) return null;
     final name = uri.queryParameters[replayStateParam];
     if (name == null || !replayStateNames.contains(name)) return null;
-    if (name == _countdownName) {
-      return (phase: RealRingPhase.ready, isCountingDown: true);
+    if (name == _countdownName || name == _sendCountdownName) {
+      return (
+        phase: RealRingPhase.ready,
+        isCountingDown: name == _countdownName,
+        isSendCountingDown: name == _sendCountdownName,
+      );
     }
     return (
       phase: RealRingPhase.values.byName(name),
       isCountingDown: false,
+      isSendCountingDown: false,
     );
   }
 
@@ -77,6 +87,7 @@ class RealRingScreen extends StatelessWidget {
             cubit.showForReplay(
               shown.phase,
               isCountingDown: shown.isCountingDown,
+              isSendCountingDown: shown.isSendCountingDown,
             );
           }),
         );
@@ -112,10 +123,23 @@ class _RealRingViewState extends State<_RealRingView>
 
   /// Coming back to the app is when an alarm that rang on the lock screen
   /// may have been missed, so the phone is asked again.
+  ///
+  /// Leaving it while the wait before the send runs is the user locking
+  /// the phone, which is what the wait is for. `hidden` and `paused` are a
+  /// real leave. `inactive` is not: a pulled-down shade or the app switcher
+  /// is not the phone being put away.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || !mounted) return;
-    unawaited(context.read<RealRingCubit>().appResumed());
+    if (!mounted) return;
+    final cubit = context.read<RealRingCubit>();
+    switch (state) {
+      case AppLifecycleState.resumed:
+        unawaited(cubit.appResumed());
+      case AppLifecycleState.hidden || AppLifecycleState.paused:
+        cubit.appLeftFront();
+      case AppLifecycleState.inactive || AppLifecycleState.detached:
+        break;
+    }
   }
 
   bool _stepFinished = false;
@@ -162,11 +186,12 @@ class _RealRingViewState extends State<_RealRingView>
       _openAlarm(incidentId);
       return;
     }
+    final isCounting = state.local.isCountingDown || state.isSendCountingDown;
     OnboardingAmbientScope.maybeOf(context)?.setStep(
-      state.local.isCountingDown
+      isCounting
           ? OnboardingAmbientStep.countdown
           : OnboardingAmbientStep.connected,
-      state.local.isCountingDown ? AmbientDirection.push : null,
+      isCounting ? AmbientDirection.push : null,
     );
   }
 
@@ -182,7 +207,8 @@ class _RealRingViewState extends State<_RealRingView>
         listenWhen: (prev, curr) =>
             prev.phase != curr.phase ||
             prev.local.canLaunch != curr.local.canLaunch ||
-            prev.local.isCountingDown != curr.local.isCountingDown,
+            prev.local.isCountingDown != curr.local.isCountingDown ||
+            prev.isSendCountingDown != curr.isSendCountingDown,
         listener: _onChanged,
         builder: (context, state) {
           final cubit = context.read<RealRingCubit>();
@@ -241,12 +267,15 @@ class _RealRingViewState extends State<_RealRingView>
   /// never on a countdown tick or a switch flip.
   String _bodyKey(RealRingState state) => state.local.isCountingDown
       ? 'countdown'
+      : state.isSendCountingDown
+      ? 'send-countdown'
       : state.isWaiting || state.phase == RealRingPhase.rang
       ? 'wait'
       : state.phase.name;
 
   Widget _body(BuildContext context, RealRingState state, RealRingCubit cubit) {
     if (state.local.isCountingDown) return _countdown(context, state);
+    if (state.isSendCountingDown) return _sendCountdown(context, state);
     return switch (state.phase) {
       RealRingPhase.checking => _wait(
         LocaleKeys.onboarding_real_ring_checking.tr(),
@@ -326,7 +355,10 @@ class _RealRingViewState extends State<_RealRingView>
   }
 
   Widget _ready(BuildContext context, RealRingState state) {
-    final copy = realRingCopyFor(state.platform);
+    final copy = realRingCopyFor(
+      state.platform,
+      waitSeconds: context.read<RealRingCubit>().sendDelay.inSeconds,
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -536,6 +568,73 @@ class _RealRingViewState extends State<_RealRingView>
     );
   }
 
+  /// The wait between the tap and the call to the server: the seconds
+  /// left, what to do with them, and a terminal typing the command a tool
+  /// would send. One line under it says who sends this one.
+  Widget _sendCountdown(BuildContext context, RealRingState state) {
+    final colors = context.appColors;
+    final seconds = state.sendSecondsLeft ?? 0;
+    final topic = state.topic?.name ?? '';
+    final args = {'seconds': '$seconds'};
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // A breath before the yell.
+        Center(
+          child: _face(
+            seconds <= 1 ? FaceState.alarmed : FaceState.breatheIn,
+          ),
+        ),
+        const SizedBox(height: Spacing.s4),
+        Semantics(
+          container: true,
+          liveRegion: true,
+          label: LocaleKeys.onboarding_real_ring_send_countdown_aria.tr(
+            namedArgs: args,
+          ),
+          excludeSemantics: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                LocaleKeys.onboarding_real_ring_send_countdown_title.tr(
+                  namedArgs: args,
+                ),
+                textAlign: TextAlign.center,
+                style: AppTypography.headline(colors.onCanvas, fontSize: 30),
+              ),
+              const SizedBox(height: Spacing.s2),
+              Text(
+                LocaleKeys.onboarding_real_ring_send_countdown_line.tr(),
+                textAlign: TextAlign.center,
+                style: AppTypography.body(colors.onCanvasMuted),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: Spacing.s5),
+        // The user's own server and topic. No token is shown or held here.
+        TypedCurlTerminal(
+          command: CurlLine.forTerminal(
+            serverUrl: state.serverUrl ?? RealRingCubit.exampleServerUrl,
+            topic: topic,
+            message: LocaleKeys.onboarding_real_ring_send_message.tr(),
+          ),
+          semanticLabel: LocaleKeys.onboarding_real_ring_send_terminal_aria.tr(
+            namedArgs: {'topic': topic},
+          ),
+        ),
+        const SizedBox(height: Spacing.s3),
+        Text(
+          LocaleKeys.onboarding_real_ring_send_countdown_note.tr(),
+          textAlign: TextAlign.center,
+          style: AppTypography.small(colors.onCanvasMuted),
+        ),
+      ],
+    );
+  }
+
   Widget _countdown(BuildContext context, RealRingState state) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
@@ -584,6 +683,16 @@ class _RealRingViewState extends State<_RealRingView>
         variant: AppButtonVariant.paper,
         isFullWidth: true,
         onPressed: cubit.cancelPhoneOnlyTest,
+      );
+    }
+
+    if (state.isSendCountingDown) {
+      return AppButton(
+        label: LocaleKeys.onboarding_real_ring_send_cancel.tr(),
+        variant: AppButtonVariant.paper,
+        isFullWidth: true,
+        // A look at the screen has no wait to cancel: it moves on.
+        onPressed: widget.isReplay ? _finishStep : cubit.cancelSend,
       );
     }
 
