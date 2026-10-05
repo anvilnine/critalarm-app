@@ -13,27 +13,65 @@ class CurlTerminalCard extends StatelessWidget {
     required this.command,
     required this.typed,
     required this.isCaretOn,
+    this.wraps = false,
     super.key,
   });
 
   /// The whole command. Lines are broken by the caller.
   final String command;
 
-  /// How many characters of [command] are on screen.
+  /// How many characters of [command] are on screen. Characters as a
+  /// reader counts them, so a letter with an accent or an emoji in a topic
+  /// name is typed whole and never cut in half.
   final int typed;
   final bool isCaretOn;
+
+  /// False fits each line to the card by shrinking the type, for a command
+  /// whose length is known to fit: the story's. True keeps the type at its
+  /// size and wraps a long line, for a command built from the user's own
+  /// address, which can be any length and still has to be read.
+  final bool wraps;
 
   static const Color _panel = Color(0xFF1C1917);
   static const Color _dot = Color(0xFF57534E);
   static const Color _text = Color(0xFFFFFFFF);
 
+  /// The first [count] characters of [text], whole.
+  static String typedPart(String text, int count) {
+    if (count <= 0) return '';
+    return text.characters.take(count).toString();
+  }
+
+  /// How many characters [text] has, as [typedPart] counts them.
+  static int lengthOf(String text) => text.characters.length;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final mono = AppTypography.mono(_text, fontSize: 12);
-    final shown = typed.clamp(0, command.length);
+    final line = Text.rich(
+      TextSpan(
+        style: mono,
+        children: [
+          TextSpan(
+            text: r'$ ',
+            style: mono.copyWith(color: colors.yellow),
+          ),
+          TextSpan(text: typedPart(command, typed)),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Container(
+              width: 8,
+              height: 15,
+              color: isCaretOn ? colors.yellow : Colors.transparent,
+            ),
+          ),
+        ],
+      ),
+    );
 
     return Container(
+      width: wraps ? double.infinity : null,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
         color: _panel,
@@ -54,30 +92,14 @@ class CurlTerminalCard extends StatelessWidget {
             children: [_Dot(_dot), _Dot(_dot), _Dot(_dot)],
           ),
           const SizedBox(height: 10),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text.rich(
-              TextSpan(
-                style: mono,
-                children: [
-                  TextSpan(
-                    text: r'$ ',
-                    style: mono.copyWith(color: colors.yellow),
-                  ),
-                  TextSpan(text: command.substring(0, shown)),
-                  WidgetSpan(
-                    alignment: PlaceholderAlignment.middle,
-                    child: Container(
-                      width: 8,
-                      height: 15,
-                      color: isCaretOn ? colors.yellow : Colors.transparent,
-                    ),
-                  ),
-                ],
-              ),
+          if (wraps)
+            line
+          else
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: line,
             ),
-          ),
         ],
       ),
     );
@@ -127,6 +149,7 @@ class TypedCurlTerminal extends StatefulWidget {
 class _TypedCurlTerminalState extends State<TypedCurlTerminal>
     with SingleTickerProviderStateMixin {
   late final AnimationController _typing = AnimationController(vsync: this);
+  late final int _length = CurlTerminalCard.lengthOf(widget.command);
   bool _started = false;
 
   // Started here rather than in initState because it reads MediaQuery.
@@ -160,8 +183,10 @@ class _TypedCurlTerminalState extends State<TypedCurlTerminal>
         animation: _typing,
         builder: (context, _) => CurlTerminalCard(
           command: widget.command,
-          typed: (_typing.value * widget.command.length).floor(),
+          typed: (_typing.value * _length).floor(),
           isCaretOn: true,
+          // The user's own address: any length, and it has to be read.
+          wraps: true,
         ),
       ),
     );
