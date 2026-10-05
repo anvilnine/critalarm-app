@@ -1060,8 +1060,9 @@ class _CurlTerminal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final typed = (_window(t, 0.3, 1.9) * _curl.length).floor();
-    final caretOn = (t * 2).floor().isEven || typed < _curl.length;
+    final length = CurlTerminalCard.lengthOf(_curl);
+    final typed = (_window(t, 0.3, 1.9) * length).floor();
+    final caretOn = (t * 2).floor().isEven || typed < length;
 
     return Positioned(
       left: 0,
