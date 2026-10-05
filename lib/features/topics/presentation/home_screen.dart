@@ -20,6 +20,7 @@ import 'package:critalarm/features/in_app_notices/presentation/home_asks.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/in_app_notice_slot.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/notice_detail_sheet.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_plan_sheet.dart';
+import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/pro_status_badge.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
@@ -27,6 +28,8 @@ import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.d
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/home_setup_pill.dart';
+import 'package:critalarm/features/topics/presentation/widgets/home_setup_preview.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_setup_section.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_widgets_sheet.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -104,6 +107,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    homeSetupPreview.addListener(_onSetupPreview);
     // The FeatureGuideHost asks for this screen's guide on the first visit.
     // The notices and the asks hold off until no guide is running, and come
     // back once one ends.
@@ -129,6 +133,11 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     });
   }
 
+  /// A developer asked for a look at the setup pill, or closed it.
+  void _onSetupPreview() {
+    if (mounted) setState(() {});
+  }
+
   /// Tells the setup checklist whether the user is looking at Home. It
   /// ticks rows, celebrates and polls for the first message only while they
   /// are.
@@ -143,6 +152,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         isInFront:
             !_isCovered &&
             !_isRouteElsewhere &&
+            // A pinned notice holds the checklist's spot. Nothing ticks or
+            // celebrates behind it: that waits until the checklist is back.
+            !_isPinnedNotice(context.read<InAppNoticeCubit>().state) &&
             isHomeFrontScreen(
               location: _routerLocation(),
               isAppResumed: _isResumed,
@@ -225,6 +237,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    homeSetupPreview.removeListener(_onSetupPreview);
     unawaited(_guideSub?.cancel());
     unawaited(_guideSetupSub?.cancel());
     appRouteObserver.unsubscribe(this);
@@ -382,7 +395,10 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           BlocBuilder<FeatureGuideCubit, FeatureGuideState>(
             bloc: _guides,
             builder: (context, guide) =>
-                BlocBuilder<InAppNoticeCubit, InAppNoticeState>(
+                BlocConsumer<InAppNoticeCubit, InAppNoticeState>(
+                  listenWhen: (previous, current) =>
+                      _isPinnedNotice(previous) != _isPinnedNotice(current),
+                  listener: (context, notice) => _tellSetup(),
                   builder: (context, notice) =>
                       BlocBuilder<HomeSetupCubit, HomeSetupState>(
                         builder: (context, setup) => _build(
@@ -509,7 +525,39 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         !real.isStale &&
         (!guide.isActive || guide.status == FeatureGuideStatus.offering);
     final setupState = showsSetup ? setup : const HomeSetupState();
-    final checklistIsUp = setupState.phase == HomeSetupPhase.checklist;
+
+    // The one card floating above the tab bar. A pinned notice has it
+    // first; the setup checklist takes it when no notice does. Nothing but
+    // the guide while one is up: the card comes back after.
+    final noticeBar = guide.isActive ? null : _noticeBar(context, notice);
+    final preview = buildHasOnboardingDeveloperTools
+        ? homeSetupPreview.value
+        : null;
+    final pillState = preview != null ? homeSetupPreviewState : setupState;
+    final showsPill =
+        (pillState.phase == HomeSetupPhase.checklist ||
+            pillState.phase == HomeSetupPhase.celebration) &&
+        setupPillHasTheSpot(
+          hasPinnedNotice: noticeBar != null,
+          isGuideRunning:
+              guide.isActive && guide.status != FeatureGuideStatus.offering,
+        );
+    final setupPill = showsPill
+        ? HomeSetupPill(
+            // A preview is its own widget, so it opens the way it was asked.
+            key: ValueKey(preview),
+            state: pillState,
+            startsOpen: preview == HomeSetupPreview.open,
+            onRowTap: _openSetupRoute,
+            onDismiss: () {
+              if (preview != null) {
+                homeSetupPreview.value = null;
+                return;
+              }
+              unawaited(context.read<HomeSetupCubit>().checklistDismissed());
+            },
+          )
+        : null;
 
     final screen = SeverityScope(
       severity: state.severity,
@@ -530,10 +578,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             children: [ProStatusBadge(), RefreshActivityIndicator()],
           ),
         ),
-        // The one pill floating above the tab bar: Pro ending first, then the
-        // sign-in notice.
-        // Nothing but the guide while one is up: the pill comes back after.
-        bottomBar: guide.isActive ? null : _noticeBar(context, notice),
+        bottomBar: noticeBar ?? setupPill,
         detail: state.topicItems.isEmpty
             ? null
             : (selected == null
@@ -600,13 +645,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                       children: [
                         HomeSetupSection(
                           state: setupState,
-                          // With no topics the checklist stands in for the
-                          // empty card, so nothing follows it.
-                          hasRowsBelow: !(state.isEmpty && checklistIsUp),
-                          onRowTap: _openSetupRoute,
-                          onDismissChecklist: () => unawaited(
-                            context.read<HomeSetupCubit>().checklistDismissed(),
-                          ),
+                          hasRowsBelow: true,
                           onShowWidgetsHowTo: () =>
                               _showWidgetsHowTo(setupState.widgetsPlan),
                           onSeeHosted: _openWidgetsPaywall,
@@ -696,9 +735,6 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                             followsRefresh: true,
                             radius: Radii.md,
                           ),
-                        ] else if (state.isEmpty && checklistIsUp) ...[
-                          // The checklist's second row carries the create
-                          // action, so the empty card would say it twice.
                         ] else if (state.isEmpty) ...[
                           AppEmptyState(
                             title: LocaleKeys.home_stage_word_no_topics.tr(),
@@ -741,6 +777,18 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       ],
     );
   }
+
+  /// Whether [notice] is one of the notices [_noticeBar] pins above the tab
+  /// bar. The rest are cards in the list, or nothing.
+  static bool _isPinnedNotice(InAppNoticeState notice) =>
+      switch (notice.noticeType) {
+        InAppNoticeType.proEnding ||
+        InAppNoticeType.batteryOptimization ||
+        InAppNoticeType.accountBackup => true,
+        InAppNoticeType.none ||
+        InAppNoticeType.noServer ||
+        InAppNoticeType.criticalHealth => false,
+      };
 
   /// The one pill floating above the tab bar: battery first, then Pro ending,
   /// then the sign-in notice.

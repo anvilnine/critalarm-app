@@ -883,4 +883,27 @@ void main() {
       expect(h.timers.where((t) => t.isActive), isEmpty);
     });
   });
+
+  group('the spot above the tab bar', () {
+    test('the checklist has it when nothing else does', () {
+      expect(
+        setupPillHasTheSpot(hasPinnedNotice: false, isGuideRunning: false),
+        isTrue,
+      );
+    });
+
+    test('a pinned notice wins it and the checklist waits', () {
+      expect(
+        setupPillHasTheSpot(hasPinnedNotice: true, isGuideRunning: false),
+        isFalse,
+      );
+    });
+
+    test('a running guide has the screen to itself', () {
+      expect(
+        setupPillHasTheSpot(hasPinnedNotice: false, isGuideRunning: true),
+        isFalse,
+      );
+    });
+  });
 }
