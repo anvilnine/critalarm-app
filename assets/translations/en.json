@@ -24,7 +24,7 @@
     "needs_attention": "Needs attention"
   },
   "onboarding_welcome": {
-    "title": "Welcome to Crit\u00a0Alarm",
+    "title": "Welcome to Crit Alarm",
     "subtitle": "When something breaks, your phone rings until you answer.",
     "button": "Get started",
     "rings_title": "One curl, and your phone rings",
@@ -182,10 +182,13 @@
     "fallback_line": "Rings from this phone only. It does not test the server or the push.",
     "countdown_line": "Lock your screen now",
     "countdown_aria": "Ringing in {seconds} seconds. Lock your screen now.",
-    "works_server_title": "It works",
-    "works_server_line": "The server sent that alarm. Server, push and phone all work.",
-    "works_phone_title": "This phone rings",
-    "works_phone_line": "That alarm came from this phone only. The server and the push are not tested yet.",
+    "works_title": "It works",
+    "proof_server_sent": "The server sent it",
+    "proof_push_arrived": "The push arrived",
+    "proof_phone_rang": "This phone rang",
+    "proof_phone_rings": "This phone rings",
+    "proof_server_untested": "Server: not tested",
+    "proof_push_untested": "Push: not tested",
     "ios": {
       "step_silence": "Switch to silent or turn on a Focus.",
       "step_tap": "Tap Ring me for real.",

@@ -145,4 +145,32 @@ void main() {
       expect(AckedExits.legacyFinish.completesSetup, isTrue);
     });
   });
+
+  group('setupProofFor', () {
+    test('a server-sent test proves the server, the push and the phone', () {
+      expect(setupProofFor(SetupTestKind.serverSent), const [
+        (point: ProofPoint.serverSent, isProved: true),
+        (point: ProofPoint.pushArrived, isProved: true),
+        (point: ProofPoint.phoneRang, isProved: true),
+      ]);
+    });
+
+    test('a phone-only test proves the phone and nothing else', () {
+      final proof = setupProofFor(SetupTestKind.phoneOnly);
+
+      expect(proof.first, (point: ProofPoint.phoneRang, isProved: true));
+      expect(proof.where((line) => line.isProved), hasLength(1));
+      expect(
+        {
+          for (final line in proof)
+            if (!line.isProved) line.point,
+        },
+        {ProofPoint.serverSent, ProofPoint.pushArrived},
+      );
+    });
+
+    test('an alarm that is not a test proves nothing here', () {
+      expect(setupProofFor(SetupTestKind.none), isEmpty);
+    });
+  });
 }

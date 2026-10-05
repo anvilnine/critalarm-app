@@ -17,6 +17,7 @@ import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
+import 'package:critalarm/features/incidents/presentation/widgets/proof_list.dart';
 import 'package:critalarm/features/local_reminders/domain/after_ack_decider.dart';
 import 'package:critalarm/features/local_reminders/domain/incident_kinds.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
@@ -762,22 +763,18 @@ class AcknowledgedScreen extends StatelessWidget {
         context,
         isWide,
         bottomBar,
-        // Setup going on says what the ring proved, in one line. The other
-        // exits keep the welcome they always had.
+        // Setup going on says what the ring proved, as a short list of
+        // ticks. The other exits keep the welcome they always had.
         title: exits == AckedExits.continueSetup
-            ? switch (setupTest) {
-                SetupTestKind.serverSent =>
-                  LocaleKeys.onboarding_real_ring_works_server_title.tr(),
-                _ => LocaleKeys.onboarding_real_ring_works_phone_title.tr(),
-              }
+            ? LocaleKeys.onboarding_real_ring_works_title.tr()
             : LocaleKeys.onboarding_connect_welcome_title.tr(),
-        line: exits == AckedExits.continueSetup
-            ? switch (setupTest) {
-                SetupTestKind.serverSent =>
-                  LocaleKeys.onboarding_real_ring_works_server_line.tr(),
-                _ => LocaleKeys.onboarding_real_ring_works_phone_line.tr(),
-              }
-            : LocaleKeys.onboarding_connect_welcome_body.tr(),
+        detail: exits == AckedExits.continueSetup
+            ? ProofList(lines: _proofLines(setupProofFor(setupTest)))
+            : Text(
+                LocaleKeys.onboarding_connect_welcome_body.tr(),
+                textAlign: isWide ? TextAlign.left : TextAlign.center,
+                style: _bodyStyle(18, FontWeight.w500, colors.onCanvas),
+              ),
         // A partial proof gets a calmer wall than the full one, so the two
         // differ in feel as well as in words.
         restFaces:
@@ -872,7 +869,7 @@ class AcknowledgedScreen extends StatelessWidget {
     bool isWide,
     Widget bottomBar, {
     required String title,
-    required String line,
+    required Widget detail,
     required List<FaceState> restFaces,
   }) {
     final ripple = ExcludeSemantics(
@@ -896,12 +893,8 @@ class AcknowledgedScreen extends StatelessWidget {
             textAlign: align,
             style: AppTypography.display(colors.onCanvas),
           ),
-          const SizedBox(height: Spacing.s3),
-          Text(
-            line,
-            textAlign: align,
-            style: _bodyStyle(18, FontWeight.w500, colors.onCanvas),
-          ),
+          const SizedBox(height: Spacing.s4),
+          detail,
         ],
       ),
     );
@@ -950,7 +943,7 @@ class AcknowledgedScreen extends StatelessWidget {
                       Expanded(child: ripple),
                       const SizedBox(height: Spacing.s5),
                       copy(TextAlign.center, CrossAxisAlignment.center),
-                      const SizedBox(height: Spacing.s5),
+                      const SizedBox(height: Spacing.s6),
                       bottomBar,
                     ],
                   ),
@@ -964,6 +957,33 @@ class AcknowledgedScreen extends StatelessWidget {
         Positioned.fill(child: _AckConfetti(colors: colors)),
       ],
     );
+  }
+
+  /// The words for each line of the proof list. What a test did not prove
+  /// says so in its own words, never with a tick left empty.
+  static List<ProofListLine> _proofLines(List<ProofLine> proof) {
+    // With nothing else proved, the phone line is the whole claim.
+    final isPhoneOnly = proof.where((line) => line.isProved).length == 1;
+    return [
+      for (final line in proof)
+        (
+          isProved: line.isProved,
+          text: switch (line.point) {
+            ProofPoint.serverSent =>
+              line.isProved
+                  ? LocaleKeys.onboarding_real_ring_proof_server_sent.tr()
+                  : LocaleKeys.onboarding_real_ring_proof_server_untested.tr(),
+            ProofPoint.pushArrived =>
+              line.isProved
+                  ? LocaleKeys.onboarding_real_ring_proof_push_arrived.tr()
+                  : LocaleKeys.onboarding_real_ring_proof_push_untested.tr(),
+            ProofPoint.phoneRang =>
+              isPhoneOnly
+                  ? LocaleKeys.onboarding_real_ring_proof_phone_rings.tr()
+                  : LocaleKeys.onboarding_real_ring_proof_phone_rang.tr(),
+          },
+        ),
+    ];
   }
 
   static TextStyle _bodyStyle(double size, FontWeight weight, Color color) =>
