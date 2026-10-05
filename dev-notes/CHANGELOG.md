@@ -60,6 +60,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The acknowledged screen shows two buttons at most: At my desk (or the topic once the incident is closed) over a paper Back to topics. Its title scales to fit one line (AppFittedTitle), the topic is a tappable pill, and it keeps the acknowledged colours after At my desk.
 - The self-host form on the connect step holds its address and token fields, Paste and the helper line in one card.
 - The Home setup checklist is HomeSetupPill, a floating card above the tab bar that opens in place to its three rows. A pinned notice takes the spot first (setupPillHasTheSpot) and nothing ticks behind it. The empty Home shows its empty card again. Developer options, Other setup states, opens the pill closed or open with made-up rows.
+- AppButtonVariant.tinted is a wash of the surface colour, so ink on the washed critical red is 6.5:1. Read the full message uses it too, under Silence.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
