@@ -66,6 +66,13 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+            // Flutter's Gradle plugin switches R8 on for release builds, so
+            // isMinifyEnabled is not set here. proguard-rules.pro holds the
+            // keep rules R8 needs; without it the release app closes at launch.
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }

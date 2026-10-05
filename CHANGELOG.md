@@ -30,6 +30,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The Finish setting up list no longer finishes behind an alarm screen: its last tick and the celebration wait until you are looking at Home.
 - A first message sent from a topic page before going back to Home now ticks the list, and so does one on a fourth or later topic.
 - The acknowledged screen no longer breaks its title in the middle of a word, draws its hint over the details, or turns dark and muddy after At my desk.
+- The Android app no longer closes the moment you open it.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.
