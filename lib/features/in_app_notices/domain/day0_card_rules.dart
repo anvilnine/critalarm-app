@@ -11,6 +11,17 @@ import 'package:critalarm/features/topics/domain/first_message/first_message_sto
 /// it for good, and [none] shows nothing.
 enum Day0CardDecision { none, start, keep, end }
 
+/// Whether an app resume counts as a Home open for the day-0 card. It does
+/// only when Home is the screen in front: nothing pushed over it
+/// ([isCovered]), the router not showing another screen ([isRouteElsewhere])
+/// and Home's tab in view ([isTabShown]). Otherwise the card could use up its
+/// opens while the user looks at something else.
+bool countsAsHomeOpen({
+  required bool isCovered,
+  required bool isRouteElsewhere,
+  required bool isTabShown,
+}) => !isCovered && !isRouteElsewhere && isTabShown;
+
 /// Answers "should Home show the day-0 card now". The card is a quiet line
 /// in the Home list, shown once after the app has really worked: a message
 /// arrived and a real alarm was acknowledged. It says what the free plan
