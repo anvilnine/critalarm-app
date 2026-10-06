@@ -33,6 +33,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - AppButtonVariant.tinted: a soft tint of the canvas with no stroke, for a quiet action on a coloured canvas. Silence on the alarm screen uses it.
 - Every paywall entry point reports a source on paywall\_viewed, and the Hosted ask sheet logs hosted\_ask\_shown with its trigger
 - AppScreenScaffold.contentSortKey places the scrolling body in the screen reader order against sort keys on the pinned bar. AlarmHost.magicTaps and setMagicTapArmed carry the VoiceOver magic tap
+- Pure setup layout rules in setup\_layout\_rules.dart (setupFaceSizeFor, introHeroMinHeightFor, introHeroFits, setupButtonHeightFor, setupPinsFirstMessageRow) and SetupFace, the shared setup face that shrinks and goes away at large text sizes.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -65,6 +66,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - AppButtonVariant.tinted is a wash of the surface colour, so ink on the washed critical red is 6.5:1. Read the full message uses it too, under Silence.
 - The acknowledged screen sizes its face from the room left, so the details card clears the pinned buttons on a 375 pt phone, moves the hint into the list at a large text size, and reaches the topic by the pill only. The send countdown sits on a card. The failed setup gate has a title. isSetupChecklistInFront holds the rule that nothing ticks behind a pinned notice.
 - Feature code asks PlatformCapabilities (lib/core/platform/platform\_capabilities.dart, registered in get\_it) and no longer reads kIsWeb. HomeAskRules and LocalReminderPlanPass take isWeb as a required argument, and tool/check\_layers.sh fails on kIsWeb under lib/features.
+- The welcome heroes stop their ticker under reduced motion or once the user taps Stop animation, instead of ignoring it. OnboardingAnimationLoop takes isStopped and isOnItsOwn.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
