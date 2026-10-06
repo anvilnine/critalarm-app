@@ -25,6 +25,19 @@ bool countsAsRealUse({
   return !setupIncidentIds.contains(incidentId);
 }
 
+/// Whether an acknowledge is the kind that may set the first real
+/// acknowledge on record: real use (see [countsAsRealUse]) and not a test.
+/// [isTest] is true for a test alarm sent later from Settings or the
+/// onboarding demo, and for an incident that is not known, which counts as
+/// a test.
+bool countsAsFirstRealAck({
+  required String? incidentId,
+  required bool isTest,
+  required Set<String> setupIncidentIds,
+}) =>
+    !isTest &&
+    countsAsRealUse(incidentId: incidentId, setupIncidentIds: setupIncidentIds);
+
 /// The newest acknowledgement among [acks] that counts as real use, or
 /// null when none does. Each entry is an incident id and its `acked_at`.
 DateTime? newestRealAckedAt({

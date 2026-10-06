@@ -146,6 +146,45 @@ class FakeInAppNoticeRepository implements InAppNoticeRepository {
     lastAcknowledgedAt = now();
   }
 
+  DateTime? firstRealAcknowledgedAt;
+  DateTime? day0CardShownAt;
+  int day0CardOpenCount = 0;
+  DateTime? day0CardEndedAt;
+
+  @override
+  DateTime? getFirstRealAcknowledgedAt() => firstRealAcknowledgedAt;
+
+  @override
+  Future<void> markFirstRealAcknowledged() async {
+    firstRealAcknowledgedAt ??= now();
+  }
+
+  @override
+  DateTime? getDay0CardShownAt() => day0CardShownAt;
+
+  @override
+  Future<void> markDay0CardShown() async {
+    if (day0CardShownAt != null) return;
+    day0CardShownAt = now();
+    day0CardOpenCount = 1;
+  }
+
+  @override
+  int getDay0CardOpenCount() => day0CardOpenCount;
+
+  @override
+  Future<void> markDay0CardOpened() async {
+    day0CardOpenCount++;
+  }
+
+  @override
+  DateTime? getDay0CardEndedAt() => day0CardEndedAt;
+
+  @override
+  Future<void> endDay0Card() async {
+    day0CardEndedAt ??= now();
+  }
+
   DateTime? afterAckSheetShownAt;
 
   @override
