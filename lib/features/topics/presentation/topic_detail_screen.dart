@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/alarm/alarm_signals.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -550,6 +552,17 @@ class _TopicSheet extends StatelessWidget {
             isExample: isExample,
           ),
         ),
+        // Flash and strong vibration, added to the ring. Kept on the device
+        // only, like the sound.
+        if (!isExample)
+          _AlarmSignalRows(
+            state: state,
+            rows: alarmSignalRowsFor(
+              capabilities: getIt<PlatformCapabilities>(),
+              hasTorch: state.hasTorch,
+              critical: state.critical,
+            ),
+          ),
         // Last on the sheet, so nothing is reached past to get to it.
         FeatureGuideAnchor(
           id: FeatureGuideAnchorId.topicDelete,
@@ -812,6 +825,53 @@ class _AllMessagesLink extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The flash and strong vibration switches for one topic. Draws nothing when
+/// the phone or the topic has neither: see [alarmSignalRowsFor].
+class _AlarmSignalRows extends StatelessWidget {
+  const _AlarmSignalRows({required this.state, required this.rows});
+
+  final TopicDetailState state;
+  final AlarmSignalRows rows;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!rows.any) return const SizedBox.shrink();
+    final cubit = context.read<TopicDetailCubit>();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (rows.flash)
+            AppToggleRow(
+              title: LocaleKeys.topic_detail_flash_row_title.tr(),
+              subtitle: rows.flashNeedsAlarmScreen
+                  ? LocaleKeys.topic_detail_flash_row_subtitle_ios.tr()
+                  : LocaleKeys.topic_detail_flash_row_subtitle.tr(),
+              value: state.flashOn,
+              onChanged: (on) {
+                AppHaptics.selection();
+                unawaited(cubit.setFlash(on: on));
+              },
+            ),
+          if (rows.flash && rows.strongVibration) const SizedBox(height: 8),
+          if (rows.strongVibration)
+            AppToggleRow(
+              title: LocaleKeys.topic_detail_vibration_row_title.tr(),
+              subtitle: LocaleKeys.topic_detail_vibration_row_subtitle.tr(),
+              value: state.strongVibrationOn,
+              onChanged: (on) {
+                AppHaptics.selection();
+                unawaited(cubit.setStrongVibration(on: on));
+              },
+            ),
+        ],
       ),
     );
   }

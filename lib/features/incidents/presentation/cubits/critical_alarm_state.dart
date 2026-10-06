@@ -121,6 +121,20 @@ class CriticalAlarmState {
   /// acknowledge: it ends on [isHandledElsewhere] instead.
   final bool isAckPending;
 
+  /// The topic of every alarm ringing on this screen, the one shown first.
+  /// Empty unless the screen is ringing: an acknowledged alarm, a closed one
+  /// and a developer preview ring nothing.
+  List<String> get ringingTopics {
+    if (status != CriticalAlarmStatus.ringing || isPreview) {
+      return const <String>[];
+    }
+    return <String>{
+      if (topic.isNotEmpty) topic,
+      for (final open in openIncidents)
+        if (open.topic.isNotEmpty) open.topic,
+    }.toList();
+  }
+
   /// Whether the alarm on screen is the first tool alarm of a setup run.
   /// Matched by incident id and nothing else.
   bool get isFirstToolAlarm {
