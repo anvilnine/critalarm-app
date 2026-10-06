@@ -40,6 +40,15 @@ const String _curl =
 // ---------------------------------------------------------------------------
 // Phone parts.
 
+/// Whether a face drawn inside a mock-up moves.
+///
+/// It holds still when the phone asks for reduced motion and once the user
+/// has stopped the animation, like the story around it. A face that is told
+/// it is live keeps its ticker running even while it draws itself still, so
+/// the mock-ups tell it the truth.
+bool _mockFaceMoves(BuildContext context) =>
+    !context.reduceMotion && !_StillScope.of(context);
+
 /// A phone drawn at full size and scaled to whatever room it gets.
 class _MiniPhone extends StatelessWidget {
   const _MiniPhone({
@@ -373,7 +382,7 @@ class _LiveActivity extends StatelessWidget {
           FaceWidget(
             state: FaceState.alarmed,
             size: 64,
-            isLive: true,
+            isLive: _mockFaceMoves(context),
             overrideFillColor: crit,
             overrideStrokeColor: crit,
             overrideInkColor: _darkInk,
@@ -566,11 +575,11 @@ class _AppAlarm extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Center(
+            Center(
               child: FaceWidget(
                 state: FaceState.alarmed,
                 size: 210,
-                isLive: true,
+                isLive: _mockFaceMoves(context),
                 overrideFillColor: _yellow,
                 overrideStrokeColor: _yellow,
                 overrideInkColor: _darkInk,
@@ -1377,7 +1386,7 @@ class _LadderHeroState extends _ClockState<_LadderHero> {
                 FaceWidget(
                   state: face,
                   size: 48,
-                  isLive: face == FaceState.alarmed,
+                  isLive: face == FaceState.alarmed && _mockFaceMoves(context),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1756,7 +1765,7 @@ class _WidgetsHeroState extends _ClockState<_WidgetsHero> {
     Widget tile(FaceState state, Color fill, double size) => FaceWidget(
       state: state,
       size: size,
-      isLive: state == FaceState.alarmed,
+      isLive: state == FaceState.alarmed && _mockFaceMoves(context),
       overrideFillColor: fill,
       overrideStrokeColor: _darkInk,
       overrideInkColor: _darkInk,

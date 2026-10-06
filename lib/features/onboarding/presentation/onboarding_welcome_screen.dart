@@ -7,6 +7,7 @@ import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/curl_terminal.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_tap_room.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -120,14 +121,20 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
         _isPlaylist &&
         !_animationStopped &&
         !(MediaQuery.maybeOf(context)?.disableAnimations ?? false);
+    void stop() => setState(() => _animationStopped = true);
     return _IntroLayout(
       top: widget.isPreview ? _previewSwitch() : null,
       heroAction: canStop
-          ? AppButton(
-              label: LocaleKeys.onboarding_welcome_stop_animation.tr(),
-              size: AppButtonSize.sm,
-              variant: AppButtonVariant.tinted,
-              onPressed: () => setState(() => _animationStopped = true),
+          // A small chip, so its tap area runs a little above it, over the
+          // animation it stops.
+          ? SetupTapRoom(
+              onTap: stop,
+              child: AppButton(
+                label: LocaleKeys.onboarding_welcome_stop_animation.tr(),
+                size: AppButtonSize.sm,
+                variant: AppButtonVariant.tinted,
+                onPressed: stop,
+              ),
             )
           : null,
       // On first launch the opening face hands over to more animations for
@@ -358,6 +365,10 @@ class _IntroLayout extends StatelessWidget {
       // the animation had, and then the page scrolls instead of cutting them
       // off behind the button.
       physics: const ClampingScrollPhysics(),
+      // The column below fills the screen and keeps the button's room
+      // itself, so the list adds none: the page moves only once the words
+      // are taller than the screen.
+      bodyClearsBottomBar: true,
       bottomBar: AppButton(
         label: button,
         size: AppButtonSize.lg,

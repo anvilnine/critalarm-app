@@ -97,6 +97,18 @@ Two more came later and are listed after them.
   on a coloured canvas, such as Silence on the alarm screen. It keeps the size and tap target of
   every other button.
 
+- `AppBarBackingScope`: put it where a canvas is drawn behind screens that leave their own
+  background clear (the app shell, the setup shell, the ringing alarm). It tells every
+  `AppScreenScaffold` under it the canvas colour, and each one backs its top bar with that colour
+  while a row is scrolled under it, so a row never runs through the title. With `coversBottomBar`
+  the pinned bottom bar gets the same backing while a row is under it, so no text shows through a
+  button. A screen that fits looks the same with or without it. `topBarMaxTextScale` caps how far
+  the system text size grows what is in the top bar, which has one fixed height. A screen that
+  passes `barBacking` keeps its own, which is always there under the pinned bar.
+- `AppScreenScaffold.bodyClearsBottomBar`: turn it on for a body that fills the screen with a
+  `SliverFillRemaining` and keeps the pinned bar's room on its own child. The list then adds no
+  room of its own after it, and the page scrolls only once the body is taller than the screen.
+
 ## Faces in setup
 
 One face per setup screen: 80 px, in a `Hero` with the tag `onboarding-face`, at the same top inset
