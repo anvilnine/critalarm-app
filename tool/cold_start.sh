@@ -66,6 +66,11 @@ now_ms() {
   echo $((value / 1000000))
 }
 
+# Dumping to /dev/tty prints no XML on Android 15, so dump to a file and read it.
+ui_dump() {
+  adb_on_device shell 'uiautomator dump /sdcard/window_dump.xml >/dev/null 2>&1; cat /sdcard/window_dump.xml' 2>/dev/null || true
+}
+
 model=$(adb_on_device shell getprop ro.product.model) || exit 1
 android=$(adb_on_device shell getprop ro.build.version.release) || exit 1
 size=$(wc -c < "$apk" | tr -d ' ')
@@ -108,7 +113,7 @@ while [ "$run" -le "$runs" ]; do
     while :; do
       current_ms=$(now_ms) || exit 1
       [ $((current_ms - start_ms)) -lt 30000 ] || break
-      dump=$(adb_on_device shell uiautomator dump /dev/tty 2>&1) || dump=''
+      dump=$(ui_dump)
       if printf '%s\n' "$dump" | grep -Eq '(text|content-desc)="Get started"'; then
         current_ms=$(now_ms) || exit 1
         get_started=$((current_ms - start_ms))
@@ -119,7 +124,7 @@ while [ "$run" -le "$runs" ]; do
   else
     # A warm launch normally opens Home. Record the welcome label only if
     # it is already visible in the first dump.
-    dump=$(adb_on_device shell uiautomator dump /dev/tty 2>&1) || dump=''
+    dump=$(ui_dump)
     if printf '%s\n' "$dump" | grep -Eq '(text|content-desc)="Get started"'; then
       current_ms=$(now_ms) || exit 1
       get_started=$((current_ms - start_ms))
