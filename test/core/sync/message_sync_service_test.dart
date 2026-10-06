@@ -89,19 +89,21 @@ void main() {
     expect(await sync.syncTopic('prod'), hasLength(1));
   });
 
-  test('every topic is polled, and one failing does not stop the rest',
-      () async {
-    server
-      ..createTopic(name: 'staging')
-      ..publishMessage('prod', message: 'prod message')
-      ..publishMessage('staging', message: 'staging message', priority: 2);
+  test(
+    'every topic is polled, and one failing does not stop the rest',
+    () async {
+      server
+        ..createTopic(name: 'staging')
+        ..publishMessage('prod', message: 'prod message')
+        ..publishMessage('staging', message: 'staging message', priority: 2);
 
-    final result = await sync.syncAll(['prod', 'staging', 'missing']);
+      final result = await sync.syncAll(['prod', 'staging', 'missing']);
 
-    expect(result.keys, containsAll(['prod', 'staging']));
-    expect(result['prod']!.single.message, 'prod message');
-    expect(result['staging']!.single.message, 'staging message');
-  });
+      expect(result.keys, containsAll(['prod', 'staging']));
+      expect(result['prod']!.single.message, 'prod message');
+      expect(result['staging']!.single.message, 'staging message');
+    },
+  );
 
   test('a topic that throws is skipped and keeps its cursor', () async {
     final offline = MessageSyncService(prefs, _FailingApi());

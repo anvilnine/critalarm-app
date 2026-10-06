@@ -189,10 +189,7 @@ void main() {
           reason: 'the acknowledge belongs to the shared list',
         );
         expect(
-          history.state.entries
-              .firstWhere((e) => e.id == openId)
-              .state
-              .name,
+          history.state.entries.firstWhere((e) => e.id == openId).state.name,
           'acked',
           reason: 'History follows without being reopened',
         );

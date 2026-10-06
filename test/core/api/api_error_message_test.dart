@@ -34,7 +34,7 @@ void main() {
       expect(
         apiErrorMessage('invalid topic name'),
         'That name is not allowed. '
-            'Use 1 to 64 lowercase letters, digits and hyphens.',
+        'Use 1 to 64 lowercase letters, digits and hyphens.',
       );
       expect(
         apiErrorMessage('unauthorized'),

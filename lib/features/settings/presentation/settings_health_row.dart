@@ -56,8 +56,7 @@ class SettingsHealthRow {
       LocaleKeys.settings_health_issue_battery_optimization.tr(),
     DevicePermissionType.timeSensitive =>
       LocaleKeys.settings_health_issue_time_sensitive.tr(),
-    DevicePermissionType.alarms =>
-      LocaleKeys.settings_health_issue_alarms.tr(),
+    DevicePermissionType.alarms => LocaleKeys.settings_health_issue_alarms.tr(),
   };
 
   final bool isHealthy;

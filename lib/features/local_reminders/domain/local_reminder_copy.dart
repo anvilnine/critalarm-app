@@ -4,6 +4,7 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_candida
 import 'package:critalarm/features/local_reminders/domain/local_reminder_kind.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
 import 'package:critalarm/features/local_reminders/domain/rules/plan_heads_up_rule.dart';
+import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -122,7 +123,13 @@ final class LocalReminderCopy {
       ),
       LocalReminderKind.proLater => (
         LocaleKeys.local_reminders_pro_later_title.tr(),
-        LocaleKeys.local_reminders_pro_later_body.tr(),
+        LocaleKeys.local_reminders_pro_later_body.tr(
+          namedArgs: {
+            'benefits': hostedBenefitLines(
+              HostedSurface.proLaterReminder,
+            ).join(', '),
+          },
+        ),
         [
           _action(
             LocalReminderActionIds.seePro,
