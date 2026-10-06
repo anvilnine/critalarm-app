@@ -137,9 +137,7 @@ void main() {
     expect(r.title, 'Still thinking about Hosted?');
     expect(
       r.body,
-      'Hosted gives you unlimited critical topics, 1,000 high priority '
-      'pushes a day, 90 days of history, home screen widgets, three app '
-      'icons.',
+      'Hosted gives you unlimited critical topics and 90 days of history.',
     );
     expect(r.actions.map((a) => a.id), [LocalReminderActionIds.seePro]);
     expect(r.actions.single.title, 'See Hosted');

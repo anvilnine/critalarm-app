@@ -425,12 +425,11 @@
     "dismiss_button": "Hide the setup list"
   },
   "home_day0": {
-    "title": "Your alarms are working",
-    "free_line": "The free plan keeps these for good: alarms ring until you acknowledge them, with no limit.",
+    "title": "Your first alarm worked",
+    "free_line": "On Free, alarms ring until you acknowledge them. That does not change.",
     "hosted_line": "Hosted adds {list}.",
-    "self_host_line": "Running your own server has no limits.",
-    "plans_button": "See plans",
-    "dismiss_button": "Dismiss"
+    "plans_button": "See Hosted plans",
+    "dismiss_button": "Close card"
   },
   "home_widgets": {
     "needs_hosted": "Widgets come with Hosted.",
@@ -544,10 +543,9 @@
     "setup_health_button": "Fix this"
   },
   "asks": {
-    "pro_title": "Crit Alarm Hosted adds:",
-    "pro_cap_refused": "That topic was not created. Your name and settings are still on the form.",
+    "pro_title": "Hosted adds:",
+    "pro_cap_refused": "Free allows {free_critical_topics} critical topics. This one was not created. What you typed is still there.",
     "pro_free_keeps": "Alarms keep ringing on Free, with no limit.",
-    "pro_self_host": "Running your own server has no limits and no charge.",
     "pro_button": "See Hosted plans",
     "consent_title": "Help find bugs faster?",
     "consent_crash": "Crash reports",
@@ -880,8 +878,8 @@
     "upgrade_button": "Upgrade",
     "plan_manage_button": "Manage",
     "plan_selfhosted_title": "This phone uses your own server",
-    "plan_selfhosted_subtitle": "No limits and nothing to pay.",
-    "plan_selfhosted_cloud_note": "Prefer not to run a server? Crit Alarm Cloud is our hosted server, run for you.",
+    "plan_selfhosted_subtitle": "No limits, no charge.",
+    "plan_selfhosted_cloud_note": "Crit Alarm Cloud is the server we run, if you would rather not run one.",
     "stage_sub_connected": "Connected to {host} since {date}.",
     "developer_header": "Developer options",
     "developer_pro_title": "Hosted plan",
@@ -1114,6 +1112,7 @@
     "error_subscription_failed": "That did not go through. Try again."
   },
   "hosted_benefits": {
+    "and": "and",
     "topics": {
       "short": "Unlimited critical topics. Free stops at {free_critical_topics}.",
       "compare_label": "Critical topics",
@@ -1143,7 +1142,7 @@
       "compare_label": "Home screen widgets",
       "compare_free": "Locked",
       "compare_hosted": "Included",
-      "lose": "Home screen widgets: locked",
+      "lose": "Home screen widgets: stop showing alarms",
       "phrase": "home screen widgets"
     },
     "app_icons": {
@@ -1152,7 +1151,7 @@
       "compare_free": "Default",
       "compare_hosted": "Three extra",
       "lose": "App icons: back to the default",
-      "phrase": "three app icons"
+      "phrase": "three extra app icons"
     }
   },
   "purchase_errors": {

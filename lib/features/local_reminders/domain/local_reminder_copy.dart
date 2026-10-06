@@ -109,7 +109,7 @@ final class LocalReminderCopy {
           int.tryParse(args[LocalReminderArgs.seconds] ?? '') ?? 0,
           namedArgs: {
             'topic': args[LocalReminderArgs.topic] ?? '',
-            'benefits': morningBenefits(),
+            'benefits': reminderBenefits(),
           },
         ),
         [
@@ -128,9 +128,7 @@ final class LocalReminderCopy {
         LocaleKeys.local_reminders_pro_later_title.tr(),
         LocaleKeys.local_reminders_pro_later_body.tr(
           namedArgs: {
-            'benefits': hostedBenefitLines(
-              HostedSurface.proLaterReminder,
-            ).join(', '),
+            'benefits': reminderBenefits(),
           },
         ),
         [
@@ -164,13 +162,13 @@ final class LocalReminderCopy {
     );
   }
 
-  /// The two benefits the morning-after line names, as running text. Read
-  /// from the benefits list, so a benefit that leaves Hosted leaves the line.
-  static String morningBenefits() => [
-    for (final b in HostedBenefit.all)
-      if (b.id == HostedBenefitId.topics || b.id == HostedBenefitId.history)
-        b.phraseKey.tr(namedArgs: HostedBenefit.args),
-  ].join(' and ');
+  /// The two benefits both Hosted reminders name, critical topics and
+  /// history, joined as running text. Read from the benefits list, so a
+  /// benefit that leaves Hosted leaves the line.
+  static String reminderBenefits() => hostedBenefitSentence(
+    HostedSurface.proLaterReminder,
+    only: {HostedBenefitId.topics, HostedBenefitId.history},
+  );
 
   static int _pool(Map<String, String> args, int size) {
     final index = int.tryParse(args[LocalReminderArgs.pool] ?? '') ?? 0;
