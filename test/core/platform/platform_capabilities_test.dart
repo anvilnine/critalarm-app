@@ -53,6 +53,34 @@ void main() {
       expect(on.hasHaptics, isTrue);
     });
 
+    test('strong alarm vibration is Android only', () {
+      for (final platform in TargetPlatform.values) {
+        final native = PlatformCapabilities(isWeb: false, platform: platform);
+        final web = PlatformCapabilities(isWeb: true, platform: platform);
+
+        expect(
+          native.hasStrongAlarmVibration,
+          platform == TargetPlatform.android,
+          reason: platform.name,
+        );
+        expect(web.hasStrongAlarmVibration, isFalse, reason: platform.name);
+      }
+    });
+
+    test('the flash follows the alarm screen on the native iOS app only', () {
+      for (final platform in TargetPlatform.values) {
+        final native = PlatformCapabilities(isWeb: false, platform: platform);
+        final web = PlatformCapabilities(isWeb: true, platform: platform);
+
+        expect(
+          native.flashNeedsAlarmScreen,
+          platform == TargetPlatform.iOS,
+          reason: platform.name,
+        );
+        expect(web.flashNeedsAlarmScreen, isFalse, reason: platform.name);
+      }
+    });
+
     test('two with the same values are equal', () {
       const a = PlatformCapabilities(
         isWeb: false,

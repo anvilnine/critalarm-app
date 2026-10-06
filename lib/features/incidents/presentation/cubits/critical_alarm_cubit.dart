@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/alarm/alarm_signals.dart';
 import 'package:critalarm/core/alarm/handled_elsewhere_rule.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
@@ -58,6 +59,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     this._setupRing,
     this._proofLog,
     this._setupUse,
+    this._screenFlashSignals,
   ]) : _now = now ?? DateTime.now,
        super(const CriticalAlarmState()) {
     current = this;
@@ -129,6 +131,16 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// when the incident on screen is the setup test the server sent. Absent
   /// reads as no answer.
   final SetupUse? Function()? _setupUse;
+
+  /// Reads the per-topic flash switches kept on this phone, where the camera
+  /// flash follows this screen. That is the iPhone only: its alarm is rung
+  /// by the system, so the app can blink the flash only while this screen is
+  /// open. Null everywhere else, Android included, which blinks from its
+  /// alarm service, and then this screen never touches the flash.
+  final AlarmSignals Function()? _screenFlashSignals;
+
+  /// The topics the flash is blinking for right now. Empty when it is off.
+  List<String> _flashingTopics = const <String>[];
 
   final DateTime Function() _now;
 
@@ -982,8 +994,40 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     _ticker = null;
   }
 
+  /// Every state change passes through here, so the flash follows the screen
+  /// with no call at each emit: it starts when a topic with the flash on is
+  /// ringing and stops on acknowledge, on close and on anything else that
+  /// ends the ringing state.
+  @override
+  void onChange(Change<CriticalAlarmState> change) {
+    super.onChange(change);
+    _syncScreenFlash(change.nextState);
+  }
+
+  void _syncScreenFlash(CriticalAlarmState next) {
+    final read = _screenFlashSignals;
+    if (read == null) return;
+    final topics = flashingTopicsFor(
+      ringingTopics: next.ringingTopics,
+      signals: read(),
+    );
+    if (listEquals(topics, _flashingTopics)) return;
+    _flashingTopics = topics;
+    final sent = _alarm?.setScreenFlash(
+      on: topics.isNotEmpty,
+      topics: topics,
+    );
+    if (sent != null) unawaited(sent);
+  }
+
   @override
   Future<void> close() {
+    // The screen is leaving, so the flash stops with it whatever the state.
+    if (_flashingTopics.isNotEmpty) {
+      _flashingTopics = const <String>[];
+      final sent = _alarm?.setScreenFlash(on: false);
+      if (sent != null) unawaited(sent);
+    }
     _stopRingTicker();
     unawaited(_incidentsSub?.cancel());
     unawaited(_remoteSub?.cancel());

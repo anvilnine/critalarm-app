@@ -6,6 +6,7 @@ import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/alarm/alarm_signal_store.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/failures/cap_reached.dart';
 import 'package:critalarm/core/failures/failure.dart';
@@ -39,6 +40,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
     this.identityStore,
     this.featureAccess,
     this.glances,
+    this.signalStore,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
        super(const TopicDetailState());
@@ -69,6 +71,10 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
 
   Future<bool> _can(AppFeature feature) async =>
       await featureAccess?.usableOnceReady(feature) ?? false;
+
+  /// The flash and strong vibration switches, kept on this phone. Null in
+  /// tests that do not care, and then both read off and neither saves.
+  final AlarmSignalStore? signalStore;
 
   final DateTime Function() _now;
 
@@ -132,6 +138,19 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       emit(state.copyWith(alarm: authorization));
     }
 
+    // Set every time, so the switches of the topic shown before never carry
+    // over to this one.
+    final signals = signalStore?.read();
+    final hasTorch = await alarm?.hasTorch() ?? false;
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        flashOn: signals?.flashFor(topicName) ?? false,
+        strongVibrationOn: signals?.vibrationFor(topicName) ?? false,
+        hasTorch: hasTorch,
+      ),
+    );
+
     await Future.wait([_incidents.ensureLoaded(), _topics.ensureLoaded()]);
     await _rebuildIfChanged();
   }
@@ -169,6 +188,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       hasHighMessage: glance?.hasHighMessage ?? false,
     );
     final rows = glance?.messages;
+    final signals = signalStore?.read();
     return state.copyWith(
       status: authorization == null
           ? TopicDetailStatus.loading
@@ -186,8 +206,34 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       areMessageTimesKnown: glance != null,
       lastAlarmAt: _lastAlarmOf(topic.name),
       openIncidentIds: openIncidents.map((i) => i.id).toList(),
+      // Read here too, so a seed for another topic never shows the switches
+      // of the topic drawn before it.
+      flashOn: signals?.flashFor(topic.name) ?? false,
+      strongVibrationOn: signals?.vibrationFor(topic.name) ?? false,
       clearError: true,
     );
+  }
+
+  /// Turns the camera flash for this topic's ring on or off. Saved on this
+  /// phone only: the topic the server knows about does not change.
+  Future<void> setFlash({required bool on}) async {
+    final store = signalStore;
+    final topicName = state.topicName;
+    if (store == null || topicName.isEmpty) return;
+    final saved = await store.setFlash(topicName, on: on);
+    if (isClosed || !saved || state.topicName != topicName) return;
+    emit(state.copyWith(flashOn: on));
+  }
+
+  /// Turns the strong vibration for this topic's ring on or off. Saved on
+  /// this phone only.
+  Future<void> setStrongVibration({required bool on}) async {
+    final store = signalStore;
+    final topicName = state.topicName;
+    if (store == null || topicName.isEmpty) return;
+    final saved = await store.setStrongVibration(topicName, on: on);
+    if (isClosed || !saved || state.topicName != topicName) return;
+    emit(state.copyWith(strongVibrationOn: on));
   }
 
   /// Draws [example] and nothing else: no server, no updates. The guide uses
