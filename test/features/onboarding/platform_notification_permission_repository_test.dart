@@ -12,6 +12,9 @@ class MockPlugin extends Mock implements FlutterLocalNotificationsPlugin {}
 class MockAndroidPlugin extends Mock
     implements AndroidFlutterLocalNotificationsPlugin {}
 
+class MockIosPlugin extends Mock
+    implements IOSFlutterLocalNotificationsPlugin {}
+
 class MockPrefs extends Mock implements SharedPreferences {}
 
 const _askedKey = 'notifications_prompt_shown';
@@ -146,6 +149,52 @@ void main() {
       // Once when the plugin was resolved, once when it was asked.
       expect(flagWhenPluginReached, [true, true]);
       verify(android.requestNotificationsPermission).called(1);
+      expect(prefs.getBool(_askedKey), isTrue);
+    });
+
+    test('requestPermission sets the asked flag before it reaches the iOS '
+        'plugin', () async {
+      final ios = MockIosPlugin();
+      when(
+        () => plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >(),
+      ).thenReturn(null);
+      when(
+        () => plugin
+            .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin
+            >(),
+      ).thenAnswer((_) {
+        flagWhenPluginReached.add(prefs.getBool(_askedKey));
+        return ios;
+      });
+      when(
+        () => ios.requestPermissions(
+          alert: any(named: 'alert'),
+          badge: any(named: 'badge'),
+          sound: any(named: 'sound'),
+          critical: any(named: 'critical'),
+        ),
+      ).thenAnswer((_) async {
+        flagWhenPluginReached.add(prefs.getBool(_askedKey));
+        return true;
+      });
+
+      final result = await repositoryOn(TargetPlatform.iOS).requestPermission();
+
+      expect(result.getOrNull(), NotificationPermissionStatus.granted);
+      // Once when the plugin was resolved, once when it was asked.
+      expect(flagWhenPluginReached, [true, true]);
+      verify(
+        () => ios.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+          critical: true,
+        ),
+      ).called(1);
       expect(prefs.getBool(_askedKey), isTrue);
     });
 
