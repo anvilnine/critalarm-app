@@ -18,6 +18,7 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_navigation
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/curl_terminal.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/local_test_alarm_views.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
 import 'package:critalarm/features/topics/domain/curl_line.dart';
 import 'package:critalarm/features/topics/presentation/widgets/first_topic_critical_card.dart';
@@ -305,29 +306,23 @@ class _RealRingViewState extends State<_RealRingView>
     child: AppWaitingFace(
       message: message,
       faceState: face,
-      faceSize: _faceSize,
+      faceSize: SetupFace.waitingSizeOf(context),
       heroTag: _faceHeroTag,
     ),
   );
 
   /// The face every setup step shares.
   static const _faceHeroTag = 'onboarding-face';
-  static const double _faceSize = 80;
 
-  Widget _face(FaceState face) => Hero(
-    tag: _faceHeroTag,
-    flightShuttleBuilder: faceFlightShuttleBuilder,
-    child: FaceWidget(state: face, size: _faceSize, isLive: true),
-  );
+  Widget _face(FaceState face) => SetupFace(state: face);
 
   Widget _heading(BuildContext context, RealRingState state) {
     final colors = context.appColors;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
+        AppFittedTitle(
           LocaleKeys.onboarding_real_ring_title.tr(),
-          textAlign: TextAlign.center,
           style: AppTypography.headline(colors.onCanvas, fontSize: 30),
         ),
         const SizedBox(height: Spacing.s2),
@@ -594,11 +589,10 @@ class _RealRingViewState extends State<_RealRingView>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
+                    AppFittedTitle(
                       LocaleKeys.onboarding_real_ring_send_countdown_title.tr(
                         namedArgs: args,
                       ),
-                      textAlign: TextAlign.center,
                       style: AppTypography.headline(colors.ink, fontSize: 30),
                     ),
                     const SizedBox(height: Spacing.s2),
@@ -646,9 +640,8 @@ class _RealRingViewState extends State<_RealRingView>
             : FaceState.breatheIn,
       ),
       const SizedBox(height: Spacing.s4),
-      Text(
+      AppFittedTitle(
         LocaleKeys.onboarding_real_ring_fallback_button.tr(),
-        textAlign: TextAlign.center,
         style: AppTypography.headline(
           context.appColors.onCanvas,
           fontSize: 30,

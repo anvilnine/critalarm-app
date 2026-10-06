@@ -1,4 +1,5 @@
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:flutter/material.dart';
 
 /// A setup step that cannot go on, or is waiting on something: the face,
@@ -53,8 +54,6 @@ class SetupProblemCard extends StatelessWidget {
   final Widget? footer;
 
   /// The face every setup step shares.
-  static const heroTag = 'onboarding-face';
-  static const double faceSize = 80;
 
   /// Widest the card runs, so it stays a card on a tablet.
   static const double _maxWidth = 440;
@@ -77,13 +76,8 @@ class SetupProblemCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Center(
-              child: Hero(
-                tag: heroTag,
-                flightShuttleBuilder: faceFlightShuttleBuilder,
-                child: FaceWidget(state: face, size: faceSize, isLive: true),
-              ),
+              child: SetupFace(state: face, gap: Spacing.s4),
             ),
-            const SizedBox(height: Spacing.s4),
             AppSheet(
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
               child: Column(

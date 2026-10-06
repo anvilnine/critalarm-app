@@ -186,8 +186,7 @@ final class IncidentPush {
 
   /// `ring_until` is epoch seconds in UTC. Zero and anything unparseable read
   /// as absent, which stops the re-arm rather than ringing on a guess.
-  static DateTime? _epochSeconds(int? value) =>
-      (value == null || value <= 0)
+  static DateTime? _epochSeconds(int? value) => (value == null || value <= 0)
       ? null
       : DateTime.fromMillisecondsSinceEpoch(value * 1000, isUtc: true);
 }

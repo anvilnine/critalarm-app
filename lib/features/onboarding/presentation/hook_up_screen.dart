@@ -9,10 +9,13 @@ import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.d
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
+import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/hook_up_leaving.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
+import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
 import 'package:critalarm/features/topics/domain/curl_line.dart';
 import 'package:critalarm/features/topics/domain/tool_snippet.dart';
@@ -130,7 +133,6 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
 
   /// The face every setup step shares.
   static const _faceHeroTag = 'onboarding-face';
-  static const double _faceSize = 80;
 
   /// True for one beat after the first message lands, while the face
   /// realizes it, before it settles.
@@ -208,10 +210,10 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
                 state.phase != HookUpPhase.mintFailed &&
                 state.phase != HookUpPhase.noTopic &&
                 state.phase != HookUpPhase.noServer);
-        // At the largest accessibility sizes a pinned row would take a
-        // third of the screen, so it goes into the body, under the line.
-        final textScale = MediaQuery.textScalerOf(context).scale(1);
-        final pinsRow = textScale <= 2;
+        // At a large text size a pinned row would take a third of the
+        // screen, so it goes into the body, under the line.
+        final textScale = setupTextScaleOf(context);
+        final pinsRow = setupPinsFirstMessageRow(textScale);
         return AppScreenScaffold(
           backgroundColor: Colors.transparent,
           withGhosts: false,
@@ -332,18 +334,12 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
   Widget _wait(String message) => Center(
     child: AppWaitingFace(
       message: message,
-      faceSize: _faceSize,
+      faceSize: SetupFace.waitingSizeOf(context),
       heroTag: _faceHeroTag,
     ),
   );
 
-  Widget _face(FaceState face) => Center(
-    child: Hero(
-      tag: _faceHeroTag,
-      flightShuttleBuilder: faceFlightShuttleBuilder,
-      child: FaceWidget(state: face, size: _faceSize, isLive: true),
-    ),
-  );
+  Widget _face(FaceState face) => Center(child: SetupFace(state: face));
 
   /// A problem: the face, then one card with what is wrong and, where
   /// there is one, the thing to do about it.
@@ -461,9 +457,8 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
               : FaceState.love,
         ),
         const SizedBox(height: Spacing.s4),
-        Text(
+        AppFittedTitle(
           LocaleKeys.onboarding_hook_up_title.tr(),
-          textAlign: TextAlign.center,
           style: AppTypography.headline(colors.onCanvas, fontSize: 30),
         ),
         const SizedBox(height: Spacing.s2),
