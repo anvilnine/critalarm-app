@@ -3,7 +3,11 @@ import 'package:critalarm/features/permissions/data/repositories/platform_device
 import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class MockPlugin extends Mock implements FlutterLocalNotificationsPlugin {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -122,9 +126,14 @@ void main() {
     // A browser reports the platform of its device, so the web answer must
     // not depend on it.
     for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      late MockPlugin plugin;
+
+      setUp(() => plugin = MockPlugin());
+
       PlatformDevicePermissionsRepository webRepository() =>
           PlatformDevicePermissionsRepository(
             capabilities: PlatformCapabilities(isWeb: true, platform: platform),
+            plugin: plugin,
             channel: channel,
           );
 
@@ -141,6 +150,7 @@ void main() {
           );
         }
         expect(methodCalls, isEmpty);
+        verifyZeroInteractions(plugin);
       });
 
       test('the list is one granted notifications row '
@@ -153,6 +163,7 @@ void main() {
         expect(items.single.status, DevicePermissionStatus.granted);
         expect(items.single.canFix, isFalse);
         expect(methodCalls, isEmpty);
+        verifyZeroInteractions(plugin);
       });
     }
   });
