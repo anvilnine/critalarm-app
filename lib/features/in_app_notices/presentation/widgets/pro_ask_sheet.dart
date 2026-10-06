@@ -93,8 +93,15 @@ class ProAskSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Center(
-              child: FaceWidget(state: FaceState.laughing, size: 64),
+            // A refusal does not get a laughing face. The plan notices use
+            // the same neutral one.
+            Center(
+              child: FaceWidget(
+                state: trigger == HostedAskTrigger.capRefused
+                    ? FaceState.watching
+                    : FaceState.laughing,
+                size: 64,
+              ),
             ),
             const SizedBox(height: Spacing.s3),
             if (trigger == HostedAskTrigger.capRefused) ...[
@@ -123,11 +130,12 @@ class ProAskSheet extends StatelessWidget {
               style: AppTypography.small(colors.ink2),
             ),
             const SizedBox(height: 4),
-            Text(
-              LocaleKeys.paywall_self_hosted_note.tr(),
-              textAlign: TextAlign.center,
-              style: AppTypography.small(colors.ink3, fontSize: 12),
-            ),
+            if (HostedSurface.askSheet.ownServerLine case final line?)
+              Text(
+                line,
+                textAlign: TextAlign.center,
+                style: AppTypography.small(colors.ink3, fontSize: 12),
+              ),
             const SizedBox(height: 16),
             AppButton(
               label: LocaleKeys.asks_pro_button.tr(),

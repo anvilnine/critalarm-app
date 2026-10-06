@@ -722,10 +722,6 @@
     "confirm_dialog_title": "Create topic?",
     "confirm_dialog_message": "Create topic \"{name}\"?",
     "confirm_dialog_ask_again": "Ask again next time",
-    "free_tier_critical_remaining": "{remaining} of {limit} critical topics remaining",
-    "free_tier_critical_exhausted": "0 of {limit} critical topics remaining",
-    "free_tier_pro_hint": "Upgrade to Hosted for unlimited critical topics.",
-    "go_pro_button": "Go Hosted",
     "limit_review_plan_hint": "Review your plan to increase this limit.",
     "terms_link": "Terms",
     "privacy_link": "Privacy Policy"

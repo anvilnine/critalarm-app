@@ -86,6 +86,22 @@ void main() {
       );
     });
 
+    test('a phone on its own server cannot find the plan row', () {
+      final own = SettingsSearchIndex.forBuild(
+        includeDevOnly: false,
+        showsStorage: true,
+        isSelfHosted: true,
+      );
+      final hosted = SettingsSearchIndex.forBuild(
+        includeDevOnly: false,
+        showsStorage: true,
+      );
+
+      expect(own.map((d) => d.id), isNot(contains('plan')));
+      expect(own.any((d) => d.routePath.startsWith('/paywall')), isFalse);
+      expect(hosted.map((d) => d.id), contains('plan'));
+    });
+
     test('keywords are lowercase, because matching lowercases the query', () {
       for (final destination in SettingsSearchIndex.all) {
         for (final keyword in destination.keywords) {

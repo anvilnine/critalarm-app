@@ -76,10 +76,12 @@ class HomeDay0Card extends StatelessWidget {
                   style: small,
                 ),
                 const SizedBox(height: Spacing.s2),
-                Text(LocaleKeys.paywall_self_hosted_note.tr(), style: small),
+                if (HostedSurface.homeDay0Card.ownServerLine case final line?)
+                  Text(line, style: small),
                 const SizedBox(height: Spacing.s3),
                 AppButton(
                   label: LocaleKeys.home_day0_plans_button.tr(),
+                  variant: AppButtonVariant.ghost,
                   size: AppButtonSize.sm,
                   isFullWidth: true,
                   onPressed: onSeePlans,
