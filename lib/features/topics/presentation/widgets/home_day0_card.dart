@@ -25,9 +25,7 @@ class HomeDay0Card extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final small = AppTypography.small(colors.ink2);
-    final hostedList = hostedBenefitLines(
-      HostedSurface.homeDay0Card,
-    ).join(', ');
+    final hostedList = hostedBenefitSentence(HostedSurface.homeDay0Card);
 
     return SetupBlock(
       padding: const EdgeInsets.fromLTRB(14, 6, 6, 14),
@@ -78,7 +76,7 @@ class HomeDay0Card extends StatelessWidget {
                   style: small,
                 ),
                 const SizedBox(height: Spacing.s2),
-                Text(LocaleKeys.home_day0_self_host_line.tr(), style: small),
+                Text(LocaleKeys.paywall_self_hosted_note.tr(), style: small),
                 const SizedBox(height: Spacing.s3),
                 AppButton(
                   label: LocaleKeys.home_day0_plans_button.tr(),

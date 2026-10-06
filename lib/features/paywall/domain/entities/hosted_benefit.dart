@@ -169,6 +169,30 @@ List<String> hostedBenefitLines(HostedSurface surface) => [
       key.tr(namedArgs: HostedBenefit.args),
 ];
 
+/// Joins benefit phrases into running text: one item "a", two "a and b",
+/// three or more "a, b, c and d" (no comma before [and]). [and] is the
+/// translated word, so this stays pure.
+String joinBenefitPhrases(List<String> phrases, {required String and}) {
+  if (phrases.length < 2) return phrases.join();
+  final head = phrases.sublist(0, phrases.length - 1).join(', ');
+  return '$head $and ${phrases.last}';
+}
+
+/// [hostedBenefitLines] for [surface] as one running-text list. Pass [only]
+/// to name a subset of benefits, kept in list order.
+String hostedBenefitSentence(
+  HostedSurface surface, {
+  Set<HostedBenefitId>? only,
+}) => joinBenefitPhrases(
+  [
+    for (final b in HostedBenefit.all)
+      if (only == null || only.contains(b.id))
+        if (b.keyFor(surface) case final key?)
+          key.tr(namedArgs: HostedBenefit.args),
+  ],
+  and: LocaleKeys.hosted_benefits_and.tr(),
+);
+
 /// A bulleted block of [hostedBenefitLines], one "• line" per row.
 String hostedBenefitBullets(HostedSurface surface) =>
     hostedBenefitLines(surface).map((l) => '\u2022 $l').join('\n');
