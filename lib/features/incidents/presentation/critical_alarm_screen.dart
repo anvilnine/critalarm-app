@@ -731,7 +731,8 @@ class _RingingScreenReader extends StatefulWidget {
   State<_RingingScreenReader> createState() => _RingingScreenReaderState();
 }
 
-class _RingingScreenReaderState extends State<_RingingScreenReader> {
+class _RingingScreenReaderState extends State<_RingingScreenReader>
+    with WidgetsBindingObserver {
   /// Long enough for the reader to say "I'm up, button" first. An
   /// announcement made in the same moment as the focus move is cut off by it.
   static const _announceDelay = Duration(seconds: 1);
@@ -743,11 +744,15 @@ class _RingingScreenReaderState extends State<_RingingScreenReader> {
   late final AlarmHost _host = getIt<AlarmHost>();
   StreamSubscription<void>? _magicTaps;
   Timer? _announceTimer;
+  bool _isRouteCurrent = false;
+  AppLifecycleState? _lifecycle;
   bool _isInFront = false;
 
   @override
   void initState() {
     super.initState();
+    _lifecycle = WidgetsBinding.instance.lifecycleState;
+    WidgetsBinding.instance.addObserver(this);
     final cubit = context.read<CriticalAlarmCubit>();
     _magicTaps = _host.magicTaps.listen((_) {
       // The same path as the button. The cubit turns it down unless the
@@ -763,8 +768,26 @@ class _RingingScreenReaderState extends State<_RingingScreenReader> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // False while a sheet or another screen covers this one.
-    _setInFront(ModalRoute.isCurrentOf(context) ?? true);
+    _isRouteCurrent = ModalRoute.isCurrentOf(context) ?? true;
+    _updateInFront();
   }
+
+  /// Control Center, the notification shade, a call and the app switcher
+  /// leave the route current, so the route alone does not say the screen is
+  /// in front. Anything but resumed disarms the magic tap; resumed arms it
+  /// again when the route is still current.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycle = state;
+    _updateInFront();
+  }
+
+  void _updateInFront() => _setInFront(
+    isRingingScreenInFront(
+      isRouteCurrent: _isRouteCurrent,
+      lifecycle: _lifecycle,
+    ),
+  );
 
   void _setInFront(bool isInFront) {
     if (isInFront == _isInFront) return;
@@ -789,7 +812,9 @@ class _RingingScreenReaderState extends State<_RingingScreenReader> {
     final view = View.of(context);
     final direction = Directionality.of(context);
     _announceTimer = Timer(_announceDelay, () {
-      if (!mounted) return;
+      // A sheet that opened, or an app that left the front, inside the delay:
+      // the announcement is dropped, never said over something else or later.
+      if (!mounted || !_isInFront) return;
       final state = widget.state;
       unawaited(
         SemanticsService.sendAnnouncement(
@@ -807,6 +832,7 @@ class _RingingScreenReaderState extends State<_RingingScreenReader> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _announceTimer?.cancel();
     unawaited(_magicTaps?.cancel());
     _setInFront(false);
