@@ -33,6 +33,7 @@
     "widgets_subtitle": "See what is ringing and answer it without opening the app.",
     "widgets_pro": "Hosted feature",
     "continue": "Continue",
+    "stop_animation": "Stop animation",
     "story_critical": "CRITICAL",
     "story_alarm_title": "Primary database down",
     "story_alarm_body": "pg_isready failed 3 times in 90 s. Replica promoted to primary on db-2.",
