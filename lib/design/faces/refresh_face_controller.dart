@@ -134,4 +134,7 @@ double pullWobbleDegrees(double progress) =>
 /// The head angle in radians [turns] rocks into a pull that is [progress] of
 /// the way to refreshing.
 double pullWobbleAngle({required double progress, required double turns}) =>
-    pullWobbleDegrees(progress) * math.sin(2 * math.pi * turns) * math.pi / 180;
+    pullWobbleDegrees(progress) *
+    math.sin(2 * math.pi * turns) *
+    math.pi /
+    180;

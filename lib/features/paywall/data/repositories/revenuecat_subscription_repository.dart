@@ -97,7 +97,8 @@ class RevenueCatSubscriptionRepository implements SubscriptionRepository {
           );
         case PurchasesErrorCode.productAlreadyPurchasedError:
           return Failure.conflict(
-            message: LocaleKeys.purchase_errors_product_already_purchased.tr(),
+            message:
+                LocaleKeys.purchase_errors_product_already_purchased.tr(),
           );
         case PurchasesErrorCode.networkError:
           return Failure.unexpected(

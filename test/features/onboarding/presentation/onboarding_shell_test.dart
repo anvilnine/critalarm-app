@@ -26,12 +26,11 @@ void main() {
 
     test('updates step and infers pop direction when reversing', () {
       var notifications = 0;
-      final controller =
-          OnboardingAmbientController(
-              initialStep: OnboardingAmbientStep.connected,
-            )
-            ..addListener(() => notifications++)
-            ..setStep(OnboardingAmbientStep.notifications);
+      final controller = OnboardingAmbientController(
+        initialStep: OnboardingAmbientStep.connected,
+      )
+        ..addListener(() => notifications++)
+        ..setStep(OnboardingAmbientStep.notifications);
 
       expect(controller.step, OnboardingAmbientStep.notifications);
       expect(controller.direction, AmbientDirection.pop);

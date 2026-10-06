@@ -72,8 +72,7 @@ void main() {
   bool isGapDraw(int max) => max > 1000;
 
   /// Always picks the first beat in the table and the shortest gap.
-  int Function(int max) alwaysFirst() =>
-      (max) => 0;
+  int Function(int max) alwaysFirst() => (max) => 0;
 
   /// The beat draw is a roll across the weights, so landing on one beat means
   /// rolling into its band rather than naming its place in the list.
