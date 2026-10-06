@@ -4,6 +4,8 @@
 #   data    -> domain + core (never presentation)
 #   presentation -> domain + core (never data)
 #   core    -> nothing app-specific (never features/)
+#   features never read kIsWeb: they ask PlatformCapabilities
+#   (lib/core/platform/platform_capabilities.dart), built in lib/app/di.dart.
 # The app/ layer is the composition root and may import everything.
 set -eu
 
@@ -36,6 +38,10 @@ fi
 # lib/core/features/ package is not a false positive.
 check "import .*package:critalarm/features/" "core must not import features" \
   lib/core
+# No exception list. A comment that names the global counts too.
+check "kIsWeb" \
+  "features must ask PlatformCapabilities (lib/core/platform/platform_capabilities.dart), the capabilities service, and never read kIsWeb" \
+  lib/features
 
 if [ "$fail" -ne 0 ]; then
   echo "Dependency direction check FAILED."
