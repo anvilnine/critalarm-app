@@ -1,7 +1,59 @@
+import 'dart:ui' show AppLifecycleState;
+
 import 'package:critalarm/features/incidents/presentation/alarm_screen_reader.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('the ringing screen is in front', () {
+    test('when its route is current and the app is resumed', () {
+      expect(
+        isRingingScreenInFront(
+          isRouteCurrent: true,
+          lifecycle: AppLifecycleState.resumed,
+        ),
+        isTrue,
+      );
+    });
+
+    test('never while the app is anything but resumed', () {
+      final notResumed = AppLifecycleState.values.where(
+        (state) => state != AppLifecycleState.resumed,
+      );
+      expect(
+        notResumed,
+        containsAll([
+          AppLifecycleState.inactive,
+          AppLifecycleState.paused,
+          AppLifecycleState.hidden,
+        ]),
+      );
+      for (final state in notResumed) {
+        expect(
+          isRingingScreenInFront(isRouteCurrent: true, lifecycle: state),
+          isFalse,
+          reason: '$state',
+        );
+      }
+    });
+
+    test('never while a sheet or another screen covers its route', () {
+      for (final state in AppLifecycleState.values) {
+        expect(
+          isRingingScreenInFront(isRouteCurrent: false, lifecycle: state),
+          isFalse,
+          reason: '$state',
+        );
+      }
+    });
+
+    test('not before the app has reported a lifecycle', () {
+      expect(
+        isRingingScreenInFront(isRouteCurrent: true, lifecycle: null),
+        isFalse,
+      );
+    });
+  });
+
   group('the ring time a screen reader says', () {
     test('under a minute has no number in it', () {
       expect(spokenRingTime(Duration.zero), 'Ringing for less than a minute');
