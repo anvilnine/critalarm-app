@@ -67,6 +67,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The acknowledged screen sizes its face from the room left, so the details card clears the pinned buttons on a 375 pt phone, moves the hint into the list at a large text size, and reaches the topic by the pill only. The send countdown sits on a card. The failed setup gate has a title. isSetupChecklistInFront holds the rule that nothing ticks behind a pinned notice.
 - Feature code asks PlatformCapabilities (lib/core/platform/platform\_capabilities.dart, registered in get\_it) and no longer reads kIsWeb. HomeAskRules and LocalReminderPlanPass take isWeb as a required argument, and tool/check\_layers.sh fails on kIsWeb under lib/features.
 - The welcome heroes stop their ticker under reduced motion or once the user taps Stop animation, instead of ignoring it. OnboardingAnimationLoop takes isStopped and isOnItsOwn.
+- Local reminder morning-after and plan-ends bodies read their numbers and benefit phrases from HostedBenefit.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
