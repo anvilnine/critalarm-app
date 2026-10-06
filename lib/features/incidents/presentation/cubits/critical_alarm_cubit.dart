@@ -15,6 +15,7 @@ import 'package:critalarm/features/incidents/domain/usecases/acknowledge_inciden
 import 'package:critalarm/features/incidents/domain/usecases/close_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incident_usecase.dart';
 import 'package:critalarm/features/incidents/domain/usecases/get_incidents_usecase.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_screen_reader.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
@@ -538,6 +539,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
           subtext: LocaleKeys.critical_alarm_stage_sub_ringing.tr(
             namedArgs: {'duration': _ringingFor(incident)},
           ),
+          ringTimeSpoken: spokenRingTime(_ringingDuration(incident)),
         ),
       );
     });
@@ -559,10 +561,36 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   /// How long this incident has been ringing, right now. The string used to
   /// be the literal "Ringing 2 min 14 s.", a mockup value that shipped, so the
   /// screen claimed the same duration whatever was happening.
-  String _ringingFor(Incident incident) {
+  String _ringingFor(Incident incident) =>
+      formatRingDuration(_ringingDuration(incident));
+
+  /// The one source of the ring time: the server's `opened_at` against the
+  /// clock. The acknowledged screen counts from the same start.
+  Duration _ringingDuration(Incident incident) {
     final openedAt = incident.openedAt;
-    if (openedAt == null) return formatRingDuration(Duration.zero);
-    return formatRingDuration(_now().difference(openedAt));
+    if (openedAt == null) return Duration.zero;
+    return _now().difference(openedAt);
+  }
+
+  /// A VoiceOver magic tap, the two-finger double tap. It does what the
+  /// "I'm up" button does, through the same [acknowledge], and only while
+  /// the ringing screen is the one in front.
+  ///
+  /// Answers whether it acknowledged. Anything else is left alone: a screen
+  /// that is loading, already acknowledged, mid-acknowledge, or covered by
+  /// another screen or a sheet.
+  Future<bool> acknowledgeFromMagicTap({
+    required bool isRingingScreenInFront,
+  }) async {
+    if (!isRingingScreenInFront) return false;
+    if (state.status != CriticalAlarmStatus.ringing ||
+        state.isAcknowledged ||
+        state.isAcknowledging ||
+        state.incident == null) {
+      return false;
+    }
+    await acknowledge();
+    return true;
   }
 
   Future<void> closeIncident() async {
@@ -829,6 +857,7 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
           subtext: LocaleKeys.critical_alarm_stage_sub_ringing.tr(
             namedArgs: {'duration': _ringingFor(incident)},
           ),
+          ringTimeSpoken: spokenRingTime(_ringingDuration(incident)),
           severityMode: SeverityMode.crit,
           faceState: FaceState.alarmed,
           isLive: true,
