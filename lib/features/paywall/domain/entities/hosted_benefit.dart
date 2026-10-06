@@ -18,6 +18,7 @@ enum HostedSurface {
   endingNotice,
   endedNotice,
   proLaterReminder,
+  homeDay0Card,
 }
 
 enum HostedBenefitId { topics, pushes, history, widgets, appIcons }
@@ -133,7 +134,7 @@ class HostedBenefit {
     HostedSurface.askSheet => shortKey,
     HostedSurface.paywallCompare => compareLabelKey,
     HostedSurface.endingNotice || HostedSurface.endedNotice => loseKey,
-    HostedSurface.proLaterReminder => phraseKey,
+    HostedSurface.proLaterReminder || HostedSurface.homeDay0Card => phraseKey,
   };
 
   static String _thousands(int n) {

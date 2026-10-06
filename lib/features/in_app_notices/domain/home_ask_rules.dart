@@ -10,7 +10,8 @@ enum HomeAsk { none, consent, review }
 /// `now` it is given.
 ///
 /// The consent sheet goes first. Both wait 24 hours after any other ask,
-/// the Pro sheet and the day-0 card included, so the user never gets two in one sitting.
+/// the Pro sheet and the day-0 card included, so the user never gets two in
+/// one sitting.
 class HomeAskRules {
   HomeAskRules({
     required this.noticeRepository,

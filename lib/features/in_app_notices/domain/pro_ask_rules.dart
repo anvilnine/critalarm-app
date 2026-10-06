@@ -94,8 +94,8 @@ class ProAskRules {
   /// period starts the moment it opens.
   ///
   /// [otherAskedAt] holds the consent sheet, the review popup, the
-  /// feedback ask and the day-0 card. The Pro sheet waits out `HomeAskRules.gap` after any of
-  /// them.
+  /// feedback ask and the day-0 card. The Pro sheet waits out
+  /// `HomeAskRules.gap` after any of them.
   static bool decide({
     required bool isPaid,
     required bool isSelfHosted,
