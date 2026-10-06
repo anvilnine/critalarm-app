@@ -38,7 +38,6 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - A first message sent from a topic page before going back to Home now ticks the list, and so does one on a fourth or later topic.
 - The acknowledged screen no longer breaks its title in the middle of a word, draws its hint over the details, or turns dark and muddy after At my desk.
 - The Android app no longer closes the moment you open it.
-- Setup steps fit at the largest text size: the face shrinks first, titles keep whole words, and a page that still does not fit scrolls, including the server choice.
 - The critical topics count card on the new topic screen wraps cleanly at large text sizes, and no longer shows before you own a critical topic.
 
 ### Removed
