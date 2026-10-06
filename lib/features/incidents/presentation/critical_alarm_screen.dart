@@ -170,6 +170,14 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
         );
         if (!isRealUse) return;
         unawaited(getIt<InAppNoticeRepository>().markAcknowledged());
+        final incident = state.incident;
+        if (countsAsFirstRealAck(
+          incidentId: incident?.id,
+          isTest: incident == null || IncidentKinds.isTest(incident),
+          setupIncidentIds: getIt<SetupTestRing>().setupIncidentIds,
+        )) {
+          unawaited(getIt<InAppNoticeRepository>().markFirstRealAcknowledged());
+        }
         unawaited(_afterAck(state));
       },
       builder: (context, state) {

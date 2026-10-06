@@ -115,6 +115,7 @@ final class LocalReminderInputs {
     this.lastAcknowledgedAt,
     this.proAskedAt,
     this.feedbackAskedAt,
+    this.day0CardShownAt,
     this.appStoreId = '',
     this.feedbackFormUrl = '',
     this.budgetSpentAt,
@@ -186,6 +187,10 @@ final class LocalReminderInputs {
   final DateTime? lastAcknowledgedAt;
   final DateTime? proAskedAt;
   final DateTime? feedbackAskedAt;
+
+  /// `InAppNoticeRepository.getDay0CardShownAt()`. Counts as an ask for the
+  /// 24 hour gap.
+  final DateTime? day0CardShownAt;
 
   /// `FeedbackLinks.appStoreId`. Blank keeps idea 21 off on iOS.
   final String appStoreId;

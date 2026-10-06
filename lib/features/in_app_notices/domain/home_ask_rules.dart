@@ -10,7 +10,7 @@ enum HomeAsk { none, consent, review }
 /// `now` it is given.
 ///
 /// The consent sheet goes first. Both wait 24 hours after any other ask,
-/// the Pro sheet included, so the user never gets two in one sitting.
+/// the Pro sheet and the day-0 card included, so the user never gets two in one sitting.
 class HomeAskRules {
   HomeAskRules({
     required this.noticeRepository,
@@ -104,6 +104,7 @@ class HomeAskRules {
       isRinging: false,
       isWeb: _isWeb,
       feedbackAskedAt: noticeRepository.getFeedbackAskedAt(),
+      day0CardShownAt: noticeRepository.getDay0CardShownAt(),
     );
   }
 
@@ -126,12 +127,19 @@ class HomeAskRules {
     required bool isRinging,
     required bool isWeb,
     DateTime? feedbackAskedAt,
+    DateTime? day0CardShownAt,
   }) {
     if (!isSetupDone) return HomeAsk.none;
     if (isWeb || isRinging || firstSeenAt == null) return HomeAsk.none;
     if (isWithinGap(
       now: now,
-      askedAt: [proAskedAt, consentAskedAt, reviewAskedAt, feedbackAskedAt],
+      askedAt: [
+        proAskedAt,
+        consentAskedAt,
+        reviewAskedAt,
+        feedbackAskedAt,
+        day0CardShownAt,
+      ],
     )) {
       return HomeAsk.none;
     }
