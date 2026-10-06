@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/core/models/incident.dart';
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/components/pro_badge.dart';
 import 'package:critalarm/design/components/sheets.dart';
@@ -165,7 +166,7 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
     AppHaptics.selection();
     final router = GoRouter.of(context);
     Navigator.of(context).pop();
-    unawaited(router.push('/paywall?source=history'));
+    unawaited(router.push(paywallLocation(PaywallSource.history)));
   }
 
   void _set(HistoryFilter next) {

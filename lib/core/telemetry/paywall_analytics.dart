@@ -1,3 +1,4 @@
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
@@ -15,7 +16,7 @@ final class PaywallAnalytics {
   final TelemetryGate _gate;
 
   /// `source` for a paywall opened from inside the app.
-  static const String directSource = 'direct';
+  static const String directSource = directPaywallSource;
 
   /// [source] names what opened the paywall, for example
   /// `reminder_morning_after`.

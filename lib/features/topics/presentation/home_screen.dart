@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -292,7 +293,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
 
   void _openWidgetsPaywall() {
     unawaited(context.read<HomeSetupCubit>().widgetsPlansOpened());
-    unawaited(context.push('/paywall?source=$homeWidgetsPaywallSource'));
+    unawaited(context.push(paywallLocation(PaywallSource.homeWidgets)));
   }
 
   void _showWidgetsHowTo(HomeWidgetsPlan plan) {
@@ -305,7 +306,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         plan: plan,
         onSeeHosted: () {
           if (!mounted) return;
-          unawaited(context.push('/paywall?source=$homeWidgetsPaywallSource'));
+          unawaited(context.push(paywallLocation(PaywallSource.homeWidgets)));
         },
       ),
     );
