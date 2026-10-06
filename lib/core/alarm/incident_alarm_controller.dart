@@ -10,8 +10,6 @@ import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/net/launch_retry.dart';
 import 'package:critalarm/core/push/incident_push.dart';
-import 'package:critalarm/gen/locale_keys.g.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 
 /// Decides when an incident rings and when its card comes down.
@@ -132,7 +130,7 @@ final class IncidentAlarmController {
       incidentId: incidentId,
       topic: topic,
       server: push.server.toString(),
-      title: push.title ?? LocaleKeys.app_title.tr(),
+      title: push.title ?? 'Crit Alarm',
     );
     if (scheduled) _alarming.add(incidentId);
     return scheduled;
