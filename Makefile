@@ -1,4 +1,4 @@
-.PHONY: gen regen l10n test run analyze format quality check-layers doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry
+.PHONY: gen regen l10n test run analyze format quality check-layers check-l10n doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -53,19 +53,25 @@ quality: format analyze
 check-layers:
 	sh tool/check_layers.sh
 
+# Fail on an English string literal passed straight to Text, TextSpan or an
+# AppButton label. Mark text that must stay with `// l10n-ok: <reason>`.
+check-l10n:
+	sh tool/check_l10n.sh
+
 # Install the repo git hooks (pre-commit: format + analyze).
 hooks:
 	git config core.hooksPath tool/git-hooks
 	chmod +x tool/git-hooks/*
 	@echo "Git hooks installed (core.hooksPath -> tool/git-hooks)."
 
-# Verifies toolchain, regenerates codegen, analyzes and checks layering.
+# Verifies toolchain, regenerates codegen, analyzes and checks layering and localization.
 doctor:
 	@test "$$(fvm flutter --version | head -1 | awk '{print $$2}')" = "$$(grep -o '[0-9][0-9.]*' .fvmrc)" \
 		|| { echo "FVM version mismatch with .fvmrc"; exit 1; }
 	fvm dart run build_runner build
 	fvm flutter analyze
 	sh tool/check_layers.sh
+	sh tool/check_l10n.sh
 
 # Release build for UI work on a device. Skips RevenueCat, so the test API key
 # cannot pop the "Wrong API Key" dialog that closes the app.

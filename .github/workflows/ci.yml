@@ -76,6 +76,9 @@ jobs:
       - name: Layer check
         run: sh tool/check_layers.sh
 
+      - name: Localization check
+        run: sh tool/check_l10n.sh
+
       - name: Test
         run: flutter test
 
