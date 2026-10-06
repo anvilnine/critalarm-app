@@ -23,6 +23,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The Finish setting up list on Home is lighter and shorter, and the widgets card leads with Hosted when widgets need it.
 - Ring me for real counts down 5 seconds before it sends, so there is time to lock the phone. Cancel stops it.
 - The face on the acknowledged screen has its dark outline and features back.
+- The Hosted offer sheet now lists what Hosted adds, says alarms keep ringing on Free with no limit, and that running your own server costs nothing.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
@@ -35,6 +36,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The acknowledged screen no longer breaks its title in the middle of a word, draws its hint over the details, or turns dark and muddy after At my desk.
 - The Android app no longer closes the moment you open it.
 - Setup steps fit at the largest text size: the face shrinks first, titles keep whole words, and a page that still does not fit scrolls, including the server choice.
+- The critical topics count card on the new topic screen wraps cleanly at large text sizes, and no longer shows before you own a critical topic.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.

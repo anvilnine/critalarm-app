@@ -557,67 +557,83 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                 ),
         ),
         // On the first topic the card above carries the plan line and the
-        // Go Hosted button waits for the second topic.
-        if (state.isFreeTier && !isFirstTopic) ...[
+        // Go Hosted button waits until a critical topic exists.
+        if (state.showsCriticalCountCard) ...[
           const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 12,
-            ),
-            decoration: BoxDecoration(
-              color: colors.cream,
-              borderRadius: Radii.mdAll,
-              border: Border.all(color: colors.hairline),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _criticalRemainingText(state),
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontBody,
-                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: colors.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        LocaleKeys.create_topic_free_tier_pro_hint.tr(),
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontBody,
-                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                          fontSize: 12,
-                          color: colors.ink3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                AppButton(
-                  label: LocaleKeys.create_topic_go_pro_button.tr(),
-                  size: AppButtonSize.sm,
-                  onPressed: () {
-                    AppHaptics.capture();
-                    unawaited(
-                      context.push(
-                        paywallLocation(PaywallSource.createTopicCard),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
+          _criticalCountCard(context, state),
         ],
       ],
+    );
+  }
+
+  /// The plan count and the Go Hosted button. At a large text size the row
+  /// has no room for both, so the button moves under the text and the words
+  /// wrap between words.
+  Widget _criticalCountCard(BuildContext context, CreateTopicState state) {
+    final colors = context.appColors;
+    final isLarge = MediaQuery.textScalerOf(context).scale(13) / 13 >= 1.3;
+
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _criticalRemainingText(state),
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: colors.ink,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          LocaleKeys.create_topic_free_tier_pro_hint.tr(),
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 12,
+            color: colors.ink3,
+          ),
+        ),
+      ],
+    );
+    final button = AppButton(
+      label: LocaleKeys.create_topic_go_pro_button.tr(),
+      size: AppButtonSize.sm,
+      onPressed: () {
+        AppHaptics.capture();
+        unawaited(
+          context.push(paywallLocation(PaywallSource.createTopicCard)),
+        );
+      },
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.cream,
+        borderRadius: Radii.mdAll,
+        border: Border.all(color: colors.hairline),
+      ),
+      child: isLarge
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                text,
+                const SizedBox(height: 10),
+                button,
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: text),
+                const SizedBox(width: 12),
+                button,
+              ],
+            ),
     );
   }
 

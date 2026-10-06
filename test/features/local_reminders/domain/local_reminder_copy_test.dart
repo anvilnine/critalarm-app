@@ -1,3 +1,4 @@
+import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_args.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_candidate.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_copy.dart';
@@ -90,6 +91,11 @@ void main() {
       }),
     );
     expect(ends.title, 'Hosted ends Friday');
+    expect(
+      ends.body,
+      'Your alarms keep ringing. New critical topics past '
+      '${AccountCaps.free.criticalTopics} need Hosted.',
+    );
   });
 
   test('the morning after goes on the Offers channel', () {
@@ -107,6 +113,18 @@ void main() {
       'topics and 90 days of history.',
     );
     expect(r.channelId, 'offers_v1');
+    final one = ios.build(
+      candidate(LocalReminderKind.morningAfter, {
+        LocalReminderArgs.time: '03:12',
+        LocalReminderArgs.topic: 'db-2',
+        LocalReminderArgs.seconds: '1',
+      }),
+    );
+    expect(
+      one.body,
+      'db-2 rang and you were up in 1 s. Hosted gives you unlimited critical '
+      'topics and 90 days of history.',
+    );
     expect(r.actions.map((a) => a.id), [
       LocalReminderActionIds.seePro,
       LocalReminderActionIds.notNow,
