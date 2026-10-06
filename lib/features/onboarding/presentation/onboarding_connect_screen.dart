@@ -386,6 +386,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                 const SetupFace(state: FaceState.thinking, gap: Spacing.s4),
                 AppFittedTitle(
                   LocaleKeys.onboarding_connect_self_host_title.tr(),
+                  minFontSize: setupTitleMinFontSize,
                   style: AppTypography.headline(colors.onCanvas, fontSize: 30),
                 ),
               ],
@@ -578,6 +579,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
               children: [
                 AppFittedTitle(
                   connected,
+                  minFontSize: setupTitleMinFontSize,
                   style: AppTypography.headline(colors.onCanvas, fontSize: 30),
                 ),
                 const SizedBox(height: Spacing.s2),
@@ -715,6 +717,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
 
         AppFittedTitle(
           LocaleKeys.onboarding_connect_hook_title.tr(),
+          minFontSize: setupTitleMinFontSize,
           style: AppTypography.headline(colors.onCanvas, fontSize: 30),
         ),
         const SizedBox(height: Spacing.s2),

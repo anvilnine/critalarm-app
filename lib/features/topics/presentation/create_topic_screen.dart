@@ -14,6 +14,7 @@ import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_not
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_ask_sheet.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_settler.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rules.dart';
+import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
@@ -925,6 +926,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                                     child: AppFittedTitle(
                                       LocaleKeys.create_topic_first_topic_title
                                           .tr(),
+                                      minFontSize: setupTitleMinFontSize,
                                       style: AppTypography.headline(
                                         colors.onCanvas,
                                         fontSize: 30,

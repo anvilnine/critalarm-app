@@ -176,8 +176,9 @@ class AppStepBullet extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 24,
-          height: 24,
+          // The number grows with the system text, so the circle does too.
+          width: MediaQuery.textScalerOf(context).scale(24),
+          height: MediaQuery.textScalerOf(context).scale(24),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: colors.highlight.withValues(alpha: 0.18),

@@ -16,3 +16,8 @@ double setupFaceSizeOf(BuildContext context, {double base = 80}) =>
       viewportHeight: MediaQuery.sizeOf(context).height,
       base: base,
     );
+
+/// The smallest a setup title is scaled down to before one of its words may
+/// break. Lower than the default, because at the largest system sizes the
+/// scale brings it back up.
+const double setupTitleMinFontSize = 12;
