@@ -126,6 +126,22 @@ void main() {
       expect(alarm.callsTo('cancelAlarm'), isEmpty);
     });
 
+    test('a second tap right behind the first acknowledges once', () async {
+      await cubit.load(incidentId: 'inc_1');
+
+      // Neither is awaited before the other starts, so the second arrives
+      // while the first acknowledge is still on its way.
+      final first = cubit.acknowledgeFromMagicTap(isRingingScreenInFront: true);
+      final second = cubit.acknowledgeFromMagicTap(
+        isRingingScreenInFront: true,
+      );
+
+      expect(await first, isTrue);
+      expect(await second, isFalse);
+      expect(repository.sent, ['inc_1']);
+      expect(alarm.callsTo('cancelAlarm'), hasLength(1));
+    });
+
     test('does nothing when there is no alarm to show', () async {
       final empty = ScriptedIncidentRepository([]);
       final emptyCubit = CriticalAlarmCubit(
