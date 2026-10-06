@@ -1,8 +1,8 @@
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/notification_permission_repository.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,12 +13,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 class PlatformNotificationPermissionRepository
     implements NotificationPermissionRepository {
   PlatformNotificationPermissionRepository({
+    required PlatformCapabilities capabilities,
     FlutterLocalNotificationsPlugin? plugin,
     MethodChannel? channel,
     this.prefs,
-  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+    // The field is private and the parameter is public, so it cannot be an
+    // initializing formal.
+    // ignore: prefer_initializing_formals
+  }) : _capabilities = capabilities,
+       _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
        _channel = channel ?? const MethodChannel('app.critalarm/settings');
 
+  final PlatformCapabilities _capabilities;
   final FlutterLocalNotificationsPlugin _plugin;
   final MethodChannel _channel;
 
@@ -39,7 +45,7 @@ class PlatformNotificationPermissionRepository
   @override
   Future<AppResult<NotificationPermissionStatus>> checkPermission() async {
     try {
-      if (kIsWeb) {
+      if (_capabilities.isWeb) {
         return NotificationPermissionStatus.granted.toSuccess();
       }
 
@@ -78,7 +84,7 @@ class PlatformNotificationPermissionRepository
   @override
   Future<AppResult<NotificationPermissionStatus>> requestPermission() async {
     try {
-      if (kIsWeb) {
+      if (_capabilities.isWeb) {
         return NotificationPermissionStatus.granted.toSuccess();
       }
       await prefs?.setBool(_askedKey, true);

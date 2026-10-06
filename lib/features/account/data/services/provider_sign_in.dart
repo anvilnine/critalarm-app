@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:critalarm/core/env/env.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/features/account/domain/entities/account_identity.dart';
 import 'package:critalarm/features/account/domain/entities/identity_provider.dart';
 import 'package:crypto/crypto.dart';
@@ -42,17 +43,20 @@ abstract interface class ProviderSignIn {
 /// The real sheets: `sign_in_with_apple` on iOS, `google_sign_in` on both.
 final class NativeProviderSignIn implements ProviderSignIn {
   NativeProviderSignIn({
+    required PlatformCapabilities capabilities,
     GoogleSignIn? google,
-    TargetPlatform? platform,
     String? googleIosClientId,
     String? googleServerClientId,
-  }) : _google = google ?? GoogleSignIn.instance,
-       _platform = platform ?? defaultTargetPlatform,
+    // The field is private and the parameter is public, so it cannot be an
+    // initializing formal.
+    // ignore: prefer_initializing_formals
+  }) : _capabilities = capabilities,
+       _google = google ?? GoogleSignIn.instance,
        _iosClientId = googleIosClientId ?? Env.googleIosClientId,
        _serverClientId = googleServerClientId ?? Env.googleServerClientId;
 
   final GoogleSignIn _google;
-  final TargetPlatform _platform;
+  final PlatformCapabilities _capabilities;
   final String _iosClientId;
   final String _serverClientId;
 
@@ -60,7 +64,7 @@ final class NativeProviderSignIn implements ProviderSignIn {
 
   @override
   bool supports(IdentityProvider provider) => switch (provider) {
-    IdentityProvider.apple => !kIsWeb && _platform == TargetPlatform.iOS,
+    IdentityProvider.apple => _capabilities.isIos,
     IdentityProvider.google => true,
   };
 
@@ -115,7 +119,9 @@ final class NativeProviderSignIn implements ProviderSignIn {
       await _google.initialize(
         // The iOS client belongs to iOS alone. Android reads its client from
         // the platform config, so passing one there would be wrong.
-        clientId: _platform == TargetPlatform.iOS && _iosClientId.isNotEmpty
+        clientId:
+            _capabilities.platform == TargetPlatform.iOS &&
+                _iosClientId.isNotEmpty
             ? _iosClientId
             : null,
         serverClientId: _serverClientId.isNotEmpty ? _serverClientId : null,

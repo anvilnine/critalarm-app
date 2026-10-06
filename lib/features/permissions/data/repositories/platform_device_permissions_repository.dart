@@ -1,5 +1,6 @@
 import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
@@ -7,7 +8,6 @@ import 'package:critalarm/features/permissions/domain/entities/device_permission
 import 'package:critalarm/features/permissions/domain/repositories/device_permissions_repository.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -17,26 +17,31 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 class PlatformDevicePermissionsRepository
     implements DevicePermissionsRepository {
   PlatformDevicePermissionsRepository({
+    required PlatformCapabilities capabilities,
     AlarmHost? alarm,
     FlutterLocalNotificationsPlugin? plugin,
     MethodChannel? channel,
-    TargetPlatform? platform,
-    // The field is private and the parameter is public, so it cannot be an
-    // initializing formal.
+    // The fields are private and the parameters are public, so they cannot
+    // be initializing formals.
     // ignore: prefer_initializing_formals
-  }) : _alarm = alarm,
+  }) : _capabilities = capabilities,
+       // Same reason as above.
+       // ignore: prefer_initializing_formals
+       _alarm = alarm,
        _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
-       _channel = channel ?? const MethodChannel('app.critalarm/settings'),
-       _platform = platform ?? defaultTargetPlatform;
+       _channel = channel ?? const MethodChannel('app.critalarm/settings');
+
+  final PlatformCapabilities _capabilities;
 
   /// Null in tests and off iOS. Only the alarm row needs it.
   final AlarmHost? _alarm;
   final FlutterLocalNotificationsPlugin _plugin;
   final MethodChannel _channel;
-  final TargetPlatform _platform;
 
-  List<DevicePermissionType> get _typesForPlatform =>
-      devicePermissionTypesFor(_platform, isWeb: kIsWeb);
+  List<DevicePermissionType> get _typesForPlatform => devicePermissionTypesFor(
+    _capabilities.platform,
+    isWeb: _capabilities.isWeb,
+  );
 
   static String _titleFor(DevicePermissionType type) => switch (type) {
     DevicePermissionType.notifications =>
@@ -94,7 +99,7 @@ class PlatformDevicePermissionsRepository
     DevicePermissionType type,
   ) async {
     try {
-      if (kIsWeb) {
+      if (_capabilities.isWeb) {
         return DevicePermissionStatus.granted.toSuccess();
       }
 

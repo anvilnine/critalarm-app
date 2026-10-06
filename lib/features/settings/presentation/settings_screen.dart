@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
@@ -303,7 +304,8 @@ class _SettingsScreenContent extends StatelessWidget {
                         path: '/settings/appearance',
                       ),
                       // Web has no local notifications, so no reminders.
-                      if (!kIsWeb) ...[
+                      if (getIt<PlatformCapabilities>()
+                          .hasLocalNotifications) ...[
                         const SizedBox(height: 8),
                         _buildNavRow(
                           context,
