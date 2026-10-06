@@ -9,8 +9,11 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Setup ends with a ready curl line for your new topic and waits for your first message.
 - Home shows a short setup checklist until your first message arrives.
 - The Finish setting up list can be closed for good.
-- With VoiceOver or TalkBack on, the ringing alarm starts on I'm up, says which topic is ringing and for how long, and on iPhone a two-finger double tap acknowledges
-- The welcome screen has a Stop animation button, and it holds still when your phone asks for reduced motion.
+- VoiceOver and TalkBack start on I'm up and read the topic and ring time. On iPhone, a two-finger double tap acknowledges the alarm.
+- You can stop the welcome animation. It also holds still when reduced motion is on.
+- Setup works at the largest text sizes. The face shrinks first, and a step scrolls when it has to.
+- After your first real alarm, Home shows what Free keeps and what Hosted adds. Close the card and it stays closed.
+- On your own server, Settings says so: no limits, no charge.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
@@ -23,7 +26,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The Finish setting up list on Home is lighter and shorter, and the widgets card leads with Hosted when widgets need it.
 - Ring me for real counts down 5 seconds before it sends, so there is time to lock the phone. Cancel stops it.
 - The face on the acknowledged screen has its dark outline and features back.
-- The Hosted offer sheet now lists what Hosted adds, says alarms keep ringing on Free with no limit, and that running your own server costs nothing.
+- The Hosted sheet lists what the plan adds and what Free keeps.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
