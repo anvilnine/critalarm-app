@@ -536,11 +536,11 @@
     "setup_health_button": "Fix this"
   },
   "asks": {
-    "pro_title": "Support Crit Alarm Hosted",
-    "pro_subtitle": "Support solo development and remove limits:",
-    "pro_bullet_support": "Support independent development",
+    "pro_title": "Crit Alarm Hosted adds:",
+    "pro_cap_refused": "That topic was not created. Your name and settings are still on the form.",
+    "pro_free_keeps": "Alarms keep ringing on Free, with no limit.",
+    "pro_self_host": "Running your own server has no limits and no charge.",
     "pro_button": "See Hosted plans",
-    "pro_fed": "Hosted keeps a solo developer fed.",
     "consent_title": "Help find bugs faster?",
     "consent_crash": "Crash reports",
     "consent_analytics": "Usage analytics",
@@ -877,7 +877,7 @@
     "stage_sub_connected": "Connected to {host} since {date}.",
     "developer_header": "Developer options",
     "developer_pro_title": "Hosted plan",
-    "developer_pro_subtitle": "Unlock Hosted features",
+    "developer_pro_note": "Unlock Hosted features",
     "developer_dialog_sheet_title": "Dialogs & bottom sheets",
     "developer_dialog_sheet_subtitle": "Preview the dialog and sheet library",
     "developer_faces_title": "Face expressions",
@@ -1483,11 +1483,11 @@
     "plan_renew_title": "Hosted renews on {date} for {price}",
     "plan_renew_body": "Nothing to do if you're staying.",
     "plan_ends_title": "Hosted ends {weekday}",
-    "plan_ends_body": "Your alarms keep ringing. New critical topics past 2 need Hosted.",
+    "plan_ends_body": "Your alarms keep ringing. New critical topics past {free_critical_topics} need Hosted.",
     "morning_title": "Crit Alarm woke you at {time}",
     "morning_body": {
-      "one": "{topic} rang and you were up in 1 s. Hosted gives you unlimited critical topics and 90 days of history.",
-      "other": "{topic} rang and you were up in {} s. Hosted gives you unlimited critical topics and 90 days of history."
+      "one": "{topic} rang and you were up in 1 s. Hosted gives you {benefits}.",
+      "other": "{topic} rang and you were up in {} s. Hosted gives you {benefits}."
     },
     "pro_later_title": "Still thinking about Hosted?",
     "pro_later_body": "Hosted gives you {benefits}.",

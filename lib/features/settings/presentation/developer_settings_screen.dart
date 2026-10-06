@@ -55,8 +55,7 @@ class DeveloperSettingsScreen extends StatelessWidget {
                       valueListenable: getIt<DevProSwitch>(),
                       builder: (context, isPro, _) => AppToggleRow(
                         title: LocaleKeys.settings_developer_pro_title.tr(),
-                        subtitle: LocaleKeys.settings_developer_pro_subtitle
-                            .tr(),
+                        subtitle: LocaleKeys.settings_developer_pro_note.tr(),
                         value: isPro,
                         onChanged: (val) {
                           unawaited(getIt<DevProSwitch>().setPro(isPro: val));
