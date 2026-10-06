@@ -5,6 +5,7 @@ import 'package:confetti/confetti.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
+import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -127,7 +128,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
         await askLocalRemindersSheet(context);
       case AfterAck.proSheet:
         if (!mounted) return;
-        await askProSheet(context);
+        await askProSheet(context, trigger: HostedAskTrigger.afterAck);
       case AfterAck.planMorningAfter:
         unawaited(getIt<LocalReminderPlanTrigger>().run());
       case AfterAck.proSheetLater:
