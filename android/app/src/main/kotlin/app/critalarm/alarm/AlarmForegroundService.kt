@@ -3,21 +3,44 @@ package app.critalarm.alarm
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import app.critalarm.notifications.AlarmNotificationFactory
 import app.critalarm.notifications.IncidentCards
 import app.critalarm.notifications.IncidentPhoneState
 import app.critalarm.push.FcmIncidentPayload
+import app.critalarm.push.IncidentContentFetcher
+import app.critalarm.storage.IncidentDeliveryStore
 import android.util.Log
 
 class AlarmForegroundService : Service() {
     private lateinit var player: AlarmPlayer
+    private lateinit var signals: RingSignals
+    private val main = Handler(Looper.getMainLooper())
     private var wakeLock: PowerManager.WakeLock? = null
+
+    /**
+     * True once the ring stopped by itself, which only the quiet build's ring
+     * does. The flash and the vibration stay off from then until the next
+     * ring starts, even if a topic is learned in between.
+     */
+    private var ringTimedOut = false
+
+    /** Incidents whose topic is being asked for, so each is asked for once. */
+    private val learningTopicOf = mutableSetOf<String>()
+
+    @Volatile
+    private var destroyed = false
 
     override fun onCreate() {
         super.onCreate()
-        player = AlarmPlayer(this)
+        signals = RingSignals(this)
+        player = AlarmPlayer(this) {
+            ringTimedOut = true
+            signals.stop("ring_timed_out")
+        }
         instance = this
     }
 
@@ -57,6 +80,61 @@ class AlarmForegroundService : Service() {
         // the silenced one a re-arm fire is ringing over, or a handover.
         IncidentCards.show(this, next.incidentId, IncidentPhoneState.Ringing)
         player.start()
+        main.post {
+            ringTimedOut = false
+            refreshSignals()
+        }
+    }
+
+    /**
+     * Starts or stops the flash and the strong vibration to match what is
+     * ringing now. Runs on the main thread, after every start and every
+     * handover, and again when an incident's topic is learned.
+     *
+     * Both follow the topics of every incident the service holds, not only
+     * the one on the speaker: see [RingSignalRule.wanted].
+     */
+    private fun refreshSignals() {
+        if (destroyed || ringTimedOut) return
+        val ringing = synchronized(held) { held.toList() }
+        if (ringing.isEmpty()) {
+            signals.stop("nothing_ringing")
+            return
+        }
+        val saved = AlarmSignalStore.read(this)
+        val deliveries = IncidentDeliveryStore(this)
+        val topics = ringing.map { deliveries.topicOf(it.incidentId) }
+        val wanted = RingSignalRule.wanted(topics, saved)
+        Log.i(
+            TAG,
+            "alarm_signals flash=${wanted.flash} vibration=${wanted.vibration} " +
+                "ringing=${ringing.size} topics_known=${topics.count { it != null }}",
+        )
+        signals.update(flash = wanted.flash, vibration = wanted.vibration)
+        ringing.forEachIndexed { index, incident ->
+            if (RingSignalRule.shouldLearnTopic(topics[index], saved)) learnTopic(incident)
+        }
+    }
+
+    /**
+     * Asks the server which topic [incident] is on, then looks at the
+     * switches again. The push does not carry a topic (api.md §5.2), and the
+     * push path only fetches one when the relay stripped the text. The sound
+     * never waits on this: it is already playing.
+     */
+    private fun learnTopic(incident: Ringing) {
+        if (!learningTopicOf.add(incident.incidentId)) return
+        Thread {
+            val topic = runCatching {
+                IncidentContentFetcher.fetch(this, incident.payload.server, incident.incidentId)?.topic
+            }.getOrNull()
+            if (topic.isNullOrEmpty()) {
+                Log.i(TAG, "alarm_signals_topic_unknown incident_id=${incident.incidentId}")
+                return@Thread
+            }
+            IncidentDeliveryStore(this).rememberTopic(incident.incidentId, topic)
+            main.post { refreshSignals() }
+        }.start()
     }
 
     /**
@@ -80,7 +158,11 @@ class AlarmForegroundService : Service() {
     override fun onDestroy() {
         synchronized(held) { held.clear() }
         instance = null
+        destroyed = true
+        main.removeCallbacksAndMessages(null)
         player.stop()
+        // The one stop every way out of a ring passes through. See RingSignals.
+        signals.stop("service_destroyed")
         wakeLock?.takeIf { it.isHeld }?.release()
         wakeLock = null
         Log.i(TAG, "alarm_service_stopped")
