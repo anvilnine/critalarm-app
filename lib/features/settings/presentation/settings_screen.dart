@@ -124,21 +124,46 @@ class _SettingsScreenContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        AppListRow(
-          name: LocaleKeys.settings_plan_selfhosted_title.tr(),
-          meta: LocaleKeys.settings_plan_selfhosted_subtitle.tr(),
-          faceState: null,
+        // Prose, so the title is set in the body face and wraps. AppListRow
+        // sets every name in mono, which is for topic names and the like.
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: Radii.mdAll,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                LocaleKeys.settings_plan_selfhosted_title.tr(),
+                style: TextStyle(
+                  fontFamily: AppTypography.fontBody,
+                  fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: colors.ink,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                LocaleKeys.settings_plan_selfhosted_subtitle.tr(),
+                style: TextStyle(
+                  fontFamily: AppTypography.fontBody,
+                  fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                  fontSize: 12,
+                  color: colors.ink3,
+                ),
+              ),
+            ],
+          ),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
           child: Text(
             LocaleKeys.settings_plan_selfhosted_cloud_note.tr(),
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              fontFamilyFallback: AppTypography.fontBodyFallbacks,
-              fontSize: 12,
-              color: colors.ink3,
-            ),
+            style: AppTypography.small(colors.ink3, fontSize: 12),
           ),
         ),
       ],
