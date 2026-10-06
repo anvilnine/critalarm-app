@@ -101,7 +101,7 @@ void main() {
           hasCompletedOnboarding: true,
           deepLink: PushDeepLink.paywallLocation,
         ),
-        '/paywall',
+        '/paywall?source=widget_locked',
       );
     });
 
