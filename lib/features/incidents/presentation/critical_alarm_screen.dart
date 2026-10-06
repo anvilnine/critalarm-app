@@ -17,6 +17,7 @@ import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_not
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
+import 'package:critalarm/features/incidents/domain/ringing_layout_rules.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_screen_reader.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
@@ -411,74 +412,187 @@ class _RingingScreen extends StatelessWidget {
       ],
     );
 
-    if (isWide) {
-      return AppScreenScaffold(
-        hasTabBar: false,
-        contentSortKey: _orderContent,
-        slivers: [
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Row(
-              children: [
-                _face(300),
-                const SizedBox(width: 40),
-                Expanded(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 520),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _word(TextAlign.left),
-                        const SizedBox(height: Spacing.s2),
-                        _topic(TextAlign.left),
-                        _alarmCountPill(context),
-                        const SizedBox(height: Spacing.s2),
-                        _subtext(TextAlign.left),
-                        const SizedBox(height: Spacing.s4),
-                        _detailSheet(),
-                      ],
-                    ),
+    // The message scrolls under the pinned buttons when it is longer than
+    // the screen. While it does, the buttons get a backing in the canvas
+    // colour, so no line of it shows through a tinted button.
+    return AppBarBackingScope(
+      color: colors.canvas,
+      coversBottomBar: true,
+      child: isWide ? _wide(context, bottomBar) : _tall(bottomBar),
+    );
+  }
+
+  /// A tablet or a phone on its side: the face beside the words.
+  Widget _wide(BuildContext context, Widget bottomBar) {
+    return AppScreenScaffold(
+      hasTabBar: false,
+      contentSortKey: _orderContent,
+      slivers: [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Row(
+            children: [
+              _face(300),
+              const SizedBox(width: 40),
+              Expanded(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _word(TextAlign.left),
+                      const SizedBox(height: Spacing.s2),
+                      _topic(TextAlign.left),
+                      _alarmCountPill(context),
+                      const SizedBox(height: Spacing.s2),
+                      _subtext(TextAlign.left),
+                      const SizedBox(height: Spacing.s4),
+                      _detailSheet(),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-        bottomBar: bottomBar,
-      );
-    }
+        ),
+      ],
+      bottomBar: bottomBar,
+    );
+  }
 
+  /// The upright phone: everything in one column over the pinned buttons.
+  ///
+  /// The message wins the room. The face takes what is left once the whole
+  /// card sits above the buttons, and goes away when that is too little. If
+  /// the title still ends under the buttons, the lines above the card drop
+  /// to a smaller text size. The rules are in `ringing_layout_rules.dart`.
+  Widget _tall(Widget bottomBar) {
     return AppScreenScaffold(
       hasTabBar: false,
       contentSortKey: _orderContent,
       slivers: [
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, Spacing.s6, 16, 0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _face(264),
-                const SizedBox(height: Spacing.s4),
-                _word(TextAlign.center),
-                const SizedBox(height: Spacing.s2),
-                _topic(TextAlign.center),
-                _alarmCountPill(context),
-                const SizedBox(height: Spacing.s2),
-                _subtext(TextAlign.center),
-              ],
-            ),
+          // Built inside the page, where the width of the card and the text
+          // style its lines inherit are known.
+          child: LayoutBuilder(
+            builder: (context, box) {
+              final layout = _tallLayout(context, box.maxWidth);
+              final header = Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _word(TextAlign.center),
+                  const SizedBox(height: Spacing.s2),
+                  _topic(TextAlign.center),
+                  _alarmCountPill(context),
+                  const SizedBox(height: Spacing.s2),
+                  _subtext(TextAlign.center),
+                ],
+              );
+              return Padding(
+                padding: EdgeInsets.fromLTRB(
+                  _cardInset,
+                  layout.isCompact ? ringingCompactTopGap : ringingTopGap,
+                  _cardInset,
+                  0,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (layout.faceSize > 0) ...[
+                      _face(layout.faceSize),
+                      const SizedBox(height: ringingFaceGap),
+                    ],
+                    if (layout.isCompact)
+                      MediaQuery(
+                        data: MediaQuery.of(context).copyWith(
+                          textScaler: MediaQuery.textScalerOf(context).clamp(
+                            maxScaleFactor: ringingCompactTextScale,
+                          ),
+                        ),
+                        child: header,
+                      )
+                    else
+                      header,
+                  ],
+                ),
+              );
+            },
           ),
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, Spacing.s4, 16, 0),
+            padding: const EdgeInsets.fromLTRB(
+              _cardInset,
+              Spacing.s4,
+              _cardInset,
+              0,
+            ),
             child: _detailSheet(),
           ),
         ),
       ],
       bottomBar: bottomBar,
+    );
+  }
+
+  /// The room on each side of the card, and the padding inside it, which
+  /// is the sheet's own.
+  static const double _cardInset = 16;
+  static const EdgeInsets _cardPadding = EdgeInsets.fromLTRB(16, 18, 16, 16);
+
+  /// The size of the face and whether the header is compact, for a page
+  /// [width] wide. The card is measured with the message it holds, because
+  /// the length of the message is what decides the room.
+  ({double faceSize, bool isCompact}) _tallLayout(
+    BuildContext context,
+    double width,
+  ) {
+    final media = MediaQuery.of(context);
+    final textScale = media.textScaler.scale(16) / 16;
+    final textWidth = width - 2 * _cardInset - _cardPadding.horizontal;
+    double lines(String text, TextStyle style) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: DefaultTextStyle.of(context).style.merge(style),
+        ),
+        textDirection: Directionality.of(context),
+        textScaler: media.textScaler,
+        locale: Localizations.maybeLocaleOf(context),
+      )..layout(maxWidth: math.max(0, textWidth));
+      final height = painter.height;
+      painter.dispose();
+      return height;
+    }
+
+    final titleBottom = _cardPadding.top + lines(state.title, _titleStyle);
+    final cardHeight =
+        titleBottom +
+        _titleGap +
+        lines(state.body, _bodyStyle) +
+        _bodyGap +
+        lines(state.meta, _metaStyle) +
+        _cardPadding.bottom;
+    final viewportHeight = media.size.height - media.padding.vertical;
+    // A setup test has no Read the full message button.
+    final pinnedButtons = state.ackedExits.isSetupTest ? 2 : 3;
+    final openAlarms = state.openIncidents.length;
+    return (
+      faceSize: ringingFaceSizeFor(
+        viewportHeight: viewportHeight,
+        textScale: textScale,
+        openAlarms: openAlarms,
+        cardHeight: cardHeight,
+        pinnedButtons: pinnedButtons,
+      ),
+      isCompact: ringingHeaderIsCompact(
+        viewportHeight: viewportHeight,
+        textScale: textScale,
+        openAlarms: openAlarms,
+        titleBottom: titleBottom,
+        pinnedButtons: pinnedButtons,
+      ),
     );
   }
 
@@ -671,44 +785,46 @@ class _RingingScreen extends StatelessWidget {
     );
   }
 
+  // The card's three lines. The layout measures the same styles, so the
+  // face is sized for the card that is drawn.
+  TextStyle get _titleStyle => TextStyle(
+    fontFamily: AppTypography.fontDisplay,
+    fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+    fontWeight: FontWeight.w700,
+    fontSize: 22,
+    color: colors.ink,
+    height: 1.2,
+  );
+
+  TextStyle get _bodyStyle => TextStyle(
+    fontFamily: AppTypography.fontBody,
+    fontFamilyFallback: AppTypography.fontBodyFallbacks,
+    fontSize: 14,
+    color: colors.ink2,
+    height: 1.4,
+  );
+
+  TextStyle get _metaStyle => TextStyle(
+    fontFamily: AppTypography.fontMono,
+    fontFamilyFallback: AppTypography.fontMonoFallbacks,
+    fontSize: 12,
+    color: colors.ink3,
+  );
+
+  static const double _titleGap = 6;
+  static const double _bodyGap = 8;
+
   Widget _detailCard() {
     return AppSheet(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            state.title,
-            style: TextStyle(
-              fontFamily: AppTypography.fontDisplay,
-              fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-              fontWeight: FontWeight.w700,
-              fontSize: 22,
-              color: colors.ink,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            state.body,
-            style: TextStyle(
-              fontFamily: AppTypography.fontBody,
-              fontFamilyFallback: AppTypography.fontBodyFallbacks,
-              fontSize: 14,
-              color: colors.ink2,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            state.meta,
-            style: TextStyle(
-              fontFamily: AppTypography.fontMono,
-              fontFamilyFallback: AppTypography.fontMonoFallbacks,
-              fontSize: 12,
-              color: colors.ink3,
-            ),
-          ),
+          Text(state.title, style: _titleStyle),
+          const SizedBox(height: _titleGap),
+          Text(state.body, style: _bodyStyle),
+          const SizedBox(height: _bodyGap),
+          Text(state.meta, style: _metaStyle),
         ],
       ),
     );
