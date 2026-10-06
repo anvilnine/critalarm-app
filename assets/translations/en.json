@@ -741,6 +741,14 @@
     "stage_word_acknowledged": "ACKNOWLEDGED",
     "stage_word_closed": "CLOSED",
     "stage_sub_ringing": "Ringing {duration}.",
+    "ring_time_spoken_under_minute": "Ringing for less than a minute",
+    "ring_time_spoken": {
+      "one": "Ringing for 1 minute",
+      "other": "Ringing for {} minutes"
+    },
+    "topic_semantics": "{topic}, {word}",
+    "announcement": "{topic}. {ring_time}.",
+    "announcement_several": "{topic}. {ring_time}. {count} alarms open.",
     "acknowledged_message": "Acknowledged at {time}",
     "fallback_title": "Page from {topic}",
     "fallback_body": "This page arrived with no message.",
