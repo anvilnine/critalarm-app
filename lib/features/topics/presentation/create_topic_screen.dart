@@ -615,6 +615,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
     );
     final button = AppButton(
       label: LocaleKeys.asks_pro_button.tr(),
+      variant: AppButtonVariant.ghost,
       size: AppButtonSize.sm,
       onPressed: () {
         AppHaptics.capture();
