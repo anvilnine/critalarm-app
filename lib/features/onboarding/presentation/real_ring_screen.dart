@@ -16,6 +16,7 @@ import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambi
 import 'package:critalarm/features/onboarding/presentation/model/real_ring_copy.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
+import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/curl_terminal.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/local_test_alarm_views.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
@@ -323,6 +324,7 @@ class _RealRingViewState extends State<_RealRingView>
       children: [
         AppFittedTitle(
           LocaleKeys.onboarding_real_ring_title.tr(),
+          minFontSize: setupTitleMinFontSize,
           style: AppTypography.headline(colors.onCanvas, fontSize: 30),
         ),
         const SizedBox(height: Spacing.s2),
@@ -593,6 +595,7 @@ class _RealRingViewState extends State<_RealRingView>
                       LocaleKeys.onboarding_real_ring_send_countdown_title.tr(
                         namedArgs: args,
                       ),
+                      minFontSize: setupTitleMinFontSize,
                       style: AppTypography.headline(colors.ink, fontSize: 30),
                     ),
                     const SizedBox(height: Spacing.s2),
@@ -642,6 +645,7 @@ class _RealRingViewState extends State<_RealRingView>
       const SizedBox(height: Spacing.s4),
       AppFittedTitle(
         LocaleKeys.onboarding_real_ring_fallback_button.tr(),
+        minFontSize: setupTitleMinFontSize,
         style: AppTypography.headline(
           context.appColors.onCanvas,
           fontSize: 30,

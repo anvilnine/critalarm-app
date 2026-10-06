@@ -459,6 +459,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
         const SizedBox(height: Spacing.s4),
         AppFittedTitle(
           LocaleKeys.onboarding_hook_up_title.tr(),
+          minFontSize: setupTitleMinFontSize,
           style: AppTypography.headline(colors.onCanvas, fontSize: 30),
         ),
         const SizedBox(height: Spacing.s2),

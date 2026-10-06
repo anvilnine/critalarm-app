@@ -12,6 +12,7 @@ import 'package:critalarm/features/onboarding/presentation/model/permission_step
 import 'package:critalarm/features/onboarding/presentation/model/permission_step_views.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
+import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/permission_preview_frame.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/permission_step_dots.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
@@ -377,6 +378,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                           // One title style for every task screen in setup.
                           AppFittedTitle(
                             view.title,
+                            minFontSize: setupTitleMinFontSize,
                             style: AppTypography.headline(
                               colors.onCanvas,
                               fontSize: 30,
