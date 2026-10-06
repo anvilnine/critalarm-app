@@ -35,6 +35,7 @@ Future<void> showProAskSheet({
   return showAppSheet<void>(
     context: context,
     content: (sheetContext) => ProAskSheet(
+      trigger: trigger,
       onSeePlans: () {
         Navigator.of(sheetContext).pop();
         unawaited(
@@ -60,16 +61,21 @@ Future<void> showProAskSheet({
   );
 }
 
-/// The body of the Pro sheet: the happy face, what Pro gives, and the three
-/// ways out.
+/// The body of the Pro sheet: the face, what Hosted adds, what Free keeps,
+/// and the three ways out.
+///
+/// It scrolls once the text is too large for the screen, and sits at its own
+/// height before that.
 class ProAskSheet extends StatelessWidget {
   const ProAskSheet({
+    required this.trigger,
     this.onSeePlans,
     this.onRemindLater,
     this.onNotNow,
     super.key,
   });
 
+  final HostedAskTrigger trigger;
   final VoidCallback? onSeePlans;
   final VoidCallback? onRemindLater;
   final VoidCallback? onNotNow;
@@ -77,59 +83,68 @@ class ProAskSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.8;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Center(
-          child: FaceWidget(state: FaceState.laughing, size: 88),
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Center(
+              child: FaceWidget(state: FaceState.laughing, size: 64),
+            ),
+            const SizedBox(height: Spacing.s3),
+            if (trigger == HostedAskTrigger.capRefused) ...[
+              Text(
+                LocaleKeys.asks_pro_cap_refused.tr(),
+                textAlign: TextAlign.center,
+                style: AppTypography.small(colors.ink2),
+              ),
+              const SizedBox(height: Spacing.s3),
+            ],
+            AskSheetTitle(LocaleKeys.asks_pro_title.tr()),
+            const SizedBox(height: 12),
+            for (final line in hostedBenefitLines(HostedSurface.askSheet)) ...[
+              AskSheetBullet(line),
+              const SizedBox(height: 6),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              LocaleKeys.asks_pro_free_keeps.tr(),
+              textAlign: TextAlign.center,
+              style: AppTypography.small(colors.ink2),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              LocaleKeys.asks_pro_self_host.tr(),
+              textAlign: TextAlign.center,
+              style: AppTypography.small(colors.ink3, fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            AppButton(
+              label: LocaleKeys.asks_pro_button.tr(),
+              isFullWidth: true,
+              onPressed: onSeePlans,
+            ),
+            const SizedBox(height: 8),
+            AppButton(
+              label: LocaleKeys.asks_pro_later.tr(),
+              variant: AppButtonVariant.ghost,
+              isFullWidth: true,
+              onPressed: onRemindLater,
+            ),
+            const SizedBox(height: 8),
+            AppButton(
+              label: LocaleKeys.common_not_now.tr(),
+              variant: AppButtonVariant.ghost,
+              isFullWidth: true,
+              onPressed: onNotNow,
+            ),
+          ],
         ),
-        const SizedBox(height: Spacing.s3),
-        AskSheetTitle(LocaleKeys.asks_pro_title.tr()),
-        const SizedBox(height: 6),
-        Text(
-          LocaleKeys.asks_pro_subtitle.tr(),
-          textAlign: TextAlign.center,
-          style: AppTypography.small(colors.ink2),
-        ),
-        const SizedBox(height: 14),
-        for (final line in hostedBenefitLines(HostedSurface.askSheet)) ...[
-          AskSheetBullet(line),
-          const SizedBox(height: 6),
-        ],
-        AskSheetBullet(
-          LocaleKeys.asks_pro_bullet_support.tr(),
-        ),
-        const SizedBox(height: 16),
-        Container(height: 1, color: colors.hairline),
-        const SizedBox(height: 12),
-        Text(
-          LocaleKeys.asks_pro_fed.tr(),
-          textAlign: TextAlign.center,
-          style: AppTypography.small(colors.ink3, fontSize: 12),
-        ),
-        const SizedBox(height: 16),
-        AppButton(
-          label: LocaleKeys.asks_pro_button.tr(),
-          isFullWidth: true,
-          onPressed: onSeePlans,
-        ),
-        const SizedBox(height: 8),
-        AppButton(
-          label: LocaleKeys.asks_pro_later.tr(),
-          variant: AppButtonVariant.ghost,
-          isFullWidth: true,
-          onPressed: onRemindLater,
-        ),
-        const SizedBox(height: 8),
-        AppButton(
-          label: LocaleKeys.common_not_now.tr(),
-          variant: AppButtonVariant.ghost,
-          isFullWidth: true,
-          onPressed: onNotNow,
-        ),
-      ],
+      ),
     );
   }
 }
