@@ -27,6 +27,7 @@ void main() {
     bool isNewOpen = true,
     bool isWeb = false,
     bool isRinging = false,
+    bool isAskDue = false,
     List<DateTime?> otherAskedAt = const [],
   }) => Day0CardRules.decide(
     isHosted: isHosted,
@@ -43,6 +44,7 @@ void main() {
     now: now,
     isWeb: isWeb,
     isRinging: isRinging,
+    isAskDue: isAskDue,
     otherAskedAt: otherAskedAt,
   );
 
@@ -77,6 +79,10 @@ void main() {
 
     test('a ringing alarm keeps it away', () {
       expect(decide(isRinging: true), Day0CardDecision.none);
+    });
+
+    test('a sheet due in the same visit keeps it away', () {
+      expect(decide(isAskDue: true), Day0CardDecision.none);
     });
 
     test('a card that ended never comes back', () {

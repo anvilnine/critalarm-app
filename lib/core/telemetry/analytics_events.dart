@@ -16,6 +16,8 @@ abstract final class AnalyticsEvents {
   static const paywallPurchaseFailed = 'paywall_purchase_failed';
   static const onboardingStepViewed = 'onboarding_step_viewed';
   static const onboardingStepCompleted = 'onboarding_step_completed';
+  static const homeDay0CardShown = 'home_day0_card_shown';
+  static const homeDay0CardDismissed = 'home_day0_card_dismissed';
 }
 
 /// Thin wrapper so callers name an event instead of building a params map.
@@ -84,4 +86,18 @@ final class OnboardingAnalytics {
     String flowId,
     int msSincePrevious,
   ) => {'step': step, 'flow_id': flowId, 'ms_since_previous': msSincePrevious};
+}
+
+/// The two events of the day-0 card on Home. They carry no parameters. The
+/// paywall opened from the card names `PaywallSource.homeDay0Card` on
+/// `paywall_viewed`.
+final class Day0CardAnalytics {
+  const Day0CardAnalytics(this._gate);
+
+  final TelemetryGate _gate;
+
+  Future<void> shown() => _gate.logEvent(AnalyticsEvents.homeDay0CardShown);
+
+  Future<void> dismissed() =>
+      _gate.logEvent(AnalyticsEvents.homeDay0CardDismissed);
 }

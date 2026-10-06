@@ -35,7 +35,10 @@ class Day0CardRules {
     DateTime Function()? now,
     Future<bool> Function()? isSetupDone,
     bool Function()? isRinging,
-  }) : _isWeb = isWeb,
+  }) : // The field is private and the parameter is public, so it cannot be
+       // an initializing formal.
+       // ignore: prefer_initializing_formals
+       _isWeb = isWeb,
        _proOverride = proOverride ?? appProOverride,
        _now = now ?? DateTime.now,
        // The field is private and the parameter is public, so it cannot be
@@ -66,8 +69,13 @@ class Day0CardRules {
 
   /// Reads what is stored and answers. [isNewOpen] is true for a Home open
   /// and false for any other look at the same screen, such as a guide
-  /// ending, so only an open uses up one of the [maxOpens].
-  Future<Day0CardDecision> next({required bool isNewOpen}) async {
+  /// ending, so only an open uses up one of the [maxOpens]. [isAskDue] is
+  /// true when a sheet or popup was due in this same visit: the card does
+  /// not start beside one.
+  Future<Day0CardDecision> next({
+    required bool isNewOpen,
+    bool isAskDue = false,
+  }) async {
     final isPaid = (await _readIsPaid()) || _proOverride.isForcingPro;
     final serverMode = await accountRepository.readServerMode();
     final isSetupDone =
@@ -83,6 +91,7 @@ class Day0CardRules {
       endedAt: noticeRepository.getDay0CardEndedAt(),
       openCount: noticeRepository.getDay0CardOpenCount(),
       isNewOpen: isNewOpen,
+      isAskDue: isAskDue,
       otherAskedAt: [
         noticeRepository.getProAskedAt(),
         noticeRepository.getConsentAskedAt(),
@@ -109,8 +118,8 @@ class Day0CardRules {
   ///
   /// To start, every one of these holds: hosted server mode, not paid, setup
   /// done, a first message received, a first real acknowledge stored, the
-  /// card never shown before, no other ask inside the gap, not on web, and
-  /// no alarm ringing.
+  /// card never shown before, no other ask inside the gap, no sheet or popup
+  /// due in the same visit ([isAskDue]), not on web, and no alarm ringing.
   ///
   /// Once started, the card stays while the user is still on the hosted plan
   /// without paying, not on web and not in an alarm. The gap does not apply
@@ -129,6 +138,7 @@ class Day0CardRules {
     required DateTime now,
     required bool isWeb,
     required bool isRinging,
+    bool isAskDue = false,
     List<DateTime?> otherAskedAt = const [],
   }) {
     if (endedAt != null) return Day0CardDecision.none;
@@ -140,6 +150,7 @@ class Day0CardRules {
       return Day0CardDecision.keep;
     }
 
+    if (isAskDue) return Day0CardDecision.none;
     if (!isFirstMessageReceived || firstRealAckAt == null) {
       return Day0CardDecision.none;
     }
