@@ -69,7 +69,17 @@ class NoticeDetailSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    // The sheet sits at its own height until the text is too large for the
+    // screen, then the whole body scrolls and both buttons stay reachable.
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.8;
 
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: SingleChildScrollView(child: _content(colors)),
+    );
+  }
+
+  Widget _content(AppColors colors) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,

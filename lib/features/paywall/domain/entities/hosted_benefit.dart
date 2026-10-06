@@ -10,6 +10,11 @@ const int hostedP4Daily = 1000;
 const int hostedHistoryDays = 90;
 
 /// Where a benefit is written out.
+///
+/// Every surface that names Hosted also says "Running your own server? No
+/// limits, no charge." ([ownServerLine]). [hasOwnServerLine] is the switch:
+/// a surface draws the line when it is true, and a test fails for a surface
+/// where it is false without being on the list of known exceptions.
 enum HostedSurface {
   paywallStraight,
   paywallCompare,
@@ -17,8 +22,23 @@ enum HostedSurface {
   askSheet,
   endingNotice,
   endedNotice,
-  proLaterReminder,
+
+  /// The Hosted reminder is a notification with a title and one body line.
+  /// It has no room for the line and is the one known exception.
+  proLaterReminder(hasOwnServerLine: false),
   homeDay0Card,
+
+  /// The count card under the Critical switch on the new topic screen.
+  createTopicCard;
+
+  const HostedSurface({this.hasOwnServerLine = true});
+
+  /// Whether this surface draws the own-server line.
+  final bool hasOwnServerLine;
+
+  /// The own-server line for this surface, or null where it has none.
+  String? get ownServerLine =>
+      hasOwnServerLine ? LocaleKeys.paywall_self_hosted_note.tr() : null;
 }
 
 enum HostedBenefitId { topics, pushes, history, widgets, appIcons }
@@ -131,7 +151,8 @@ class HostedBenefit {
   String? keyFor(HostedSurface surface) => switch (surface) {
     HostedSurface.paywallStraight ||
     HostedSurface.paywallOneJob ||
-    HostedSurface.askSheet => shortKey,
+    HostedSurface.askSheet ||
+    HostedSurface.createTopicCard => shortKey,
     HostedSurface.paywallCompare => compareLabelKey,
     HostedSurface.endingNotice || HostedSurface.endedNotice => loseKey,
     HostedSurface.proLaterReminder || HostedSurface.homeDay0Card => phraseKey,
