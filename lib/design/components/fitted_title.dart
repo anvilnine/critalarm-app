@@ -27,6 +27,7 @@ class AppFittedTitle extends StatelessWidget {
     this.text, {
     required this.style,
     this.textAlign = TextAlign.center,
+    this.minFontSize = 20,
     super.key,
   });
 
@@ -35,6 +36,11 @@ class AppFittedTitle extends StatelessWidget {
   /// The style at full size. Its `fontSize` must be set.
   final TextStyle style;
   final TextAlign textAlign;
+
+  /// The smallest size the type is scaled down to before a long word is
+  /// allowed to break. At the largest system text sizes the size is scaled up
+  /// again, so a screen that must keep its words whole can lower this.
+  final double minFontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +67,7 @@ class AppFittedTitle extends StatelessWidget {
           // A hair of slack, so rounding never tips a word over the edge.
           longestWordWidth: longest + 1,
           maxWidth: constraints.maxWidth,
+          minFontSize: minFontSize,
         );
         final spacing = style.letterSpacing;
         return Text(
