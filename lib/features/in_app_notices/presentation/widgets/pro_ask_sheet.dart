@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
+import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/design.dart';
@@ -98,7 +99,12 @@ class ProAskSheet extends StatelessWidget {
             const SizedBox(height: Spacing.s3),
             if (trigger == HostedAskTrigger.capRefused) ...[
               Text(
-                LocaleKeys.asks_pro_cap_refused.tr(),
+                LocaleKeys.asks_pro_cap_refused.tr(
+                  namedArgs: {
+                    'free_critical_topics':
+                        '${AccountCaps.free.criticalTopics}',
+                  },
+                ),
                 textAlign: TextAlign.center,
                 style: AppTypography.small(colors.ink2),
               ),
@@ -118,7 +124,7 @@ class ProAskSheet extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              LocaleKeys.asks_pro_self_host.tr(),
+              LocaleKeys.paywall_self_hosted_note.tr(),
               textAlign: TextAlign.center,
               style: AppTypography.small(colors.ink3, fontSize: 12),
             ),
