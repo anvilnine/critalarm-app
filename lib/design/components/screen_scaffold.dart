@@ -39,6 +39,7 @@ class AppScreenScaffold extends StatefulWidget {
     this.ghostOpacity = 1,
     this.resizeForKeyboard = false,
     this.barBacking,
+    this.bodyClearsBottomBar = false,
     this.contentSortKey,
     super.key,
   }) : assert(
@@ -103,6 +104,20 @@ class AppScreenScaffold extends StatefulWidget {
   /// pinned controls read as a fault. Pass the canvas colour.
   final Color? barBacking;
 
+  /// True when the body leaves the room for the pinned bottom bar itself, so
+  /// the list adds none under its last row.
+  ///
+  /// For a body that fills the screen with a `SliverFillRemaining`. That
+  /// sliver measures itself against the whole viewport, so it has to carry
+  /// the bar's room on its own child, and the room the list would add after
+  /// it comes on top: the page then scrolls by that much with nothing more
+  /// to show. With this on, the page scrolls only once the body is taller
+  /// than the screen.
+  ///
+  /// The body keeps the bar's height, the [bottomBarGap] under it, the home
+  /// indicator and [bodyBarClearance] clear at its end.
+  final bool bodyClearsBottomBar;
+
   /// Where the scrolling body sits in the screen reader order, against the
   /// sort keys the caller put on the controls in [bottomBar]. Null leaves
   /// the usual order: the body, then the pinned bar.
@@ -114,6 +129,38 @@ class AppScreenScaffold extends StatefulWidget {
 
   /// How far the soft edge of [barBacking] runs past the bar.
   static const double _backingEdge = 16;
+
+  /// The room the list leaves between its last row and the pinned bottom
+  /// bar, once it is scrolled to its end.
+  static const double listBarClearance = 16;
+
+  /// The same room on a screen whose body leaves it itself. See
+  /// [bodyClearsBottomBar].
+  static const double bodyBarClearance = 12;
+
+  /// How far a row runs under the pinned bar before a backing from an
+  /// [AppBarBackingScope] is fully solid. Shorter than the room above a
+  /// button's label, so a label never has a row showing through it.
+  static const double _underBarRun = 8;
+
+  /// How much of the top backing shows, 0 to 1, with the list scrolled by
+  /// [pixels]. Nothing at rest: nothing is under the bar until the list has
+  /// moved, and a block there would cut the background shapes for no reason.
+  static double topBackingAmount(double pixels) =>
+      (pixels / _backingEdge).clamp(0.0, 1.0);
+
+  /// How much of the bottom backing shows, 0 to 1, on a screen that takes
+  /// its backing from an [AppBarBackingScope].
+  ///
+  /// [extentAfter] is how far the list can still scroll and [clearance] is
+  /// the room it leaves above the bar at its end, so the difference is how
+  /// far a row runs under the bar right now. Nothing shows while every row
+  /// is clear of the bar: a screen that fits looks the way it did without a
+  /// backing.
+  static double bottomBackingAmount({
+    required double extentAfter,
+    required double clearance,
+  }) => ((extentAfter - clearance) / _underBarRun).clamp(0.0, 1.0);
 
   /// Height of the top bar itself, before the status bar inset.
   static const double topBarHeight = 56;
@@ -146,6 +193,10 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
   /// read when the bars have a backing.
   final ValueNotifier<double> _scrolledUnderTop = ValueNotifier<double>(0);
 
+  /// How far the list runs under the pinned bottom bar, 0 for clear of it
+  /// to 1. Only read when the backing comes from an [AppBarBackingScope].
+  final ValueNotifier<double> _underBottomBar = ValueNotifier<double>(0);
+
   final ValueNotifier<double> _bottomBarHeight = ValueNotifier<double>(0);
 
   @override
@@ -153,31 +204,53 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     _isDisposed = true;
     _bottomBarHeight.dispose();
     _scrolledUnderTop.dispose();
+    _underBottomBar.dispose();
     super.dispose();
   }
 
   bool _isDisposed = false;
 
-  /// Moves [_scrolledUnderTop], which rebuilds the top backing.
+  /// Moves [_scrolledUnderTop] and [_underBottomBar], which rebuild the
+  /// backings.
   ///
   /// A scroll notification can be dispatched while the frame is being built
   /// or laid out: the list's extent changing (a bottom bar that just
   /// measured itself, a keyboard) corrects the scroll position mid-layout.
   /// Writing a notifier then asks for a rebuild during build, which Flutter
   /// refuses. So inside a frame the write waits for the frame to end.
-  void _setScrolledUnderTop(double value) {
-    if (_isDisposed || _scrolledUnderTop.value == value) return;
+  void _setBacking(ValueNotifier<double> backing, double value) {
+    if (_isDisposed || backing.value == value) return;
     final phase = SchedulerBinding.instance.schedulerPhase;
     final isInFrame =
         phase == SchedulerPhase.persistentCallbacks ||
         phase == SchedulerPhase.midFrameMicrotasks;
     if (!isInFrame) {
-      _scrolledUnderTop.value = value;
+      backing.value = value;
       return;
     }
     SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (!_isDisposed) _scrolledUnderTop.value = value;
+      if (!_isDisposed) backing.value = value;
     });
+  }
+
+  /// Reads where the list is. Called when it scrolls and when its length or
+  /// the room it has changes, which is how a list that never moves still
+  /// says a row sits under the pinned bar.
+  void _readScroll(ScrollMetrics metrics) {
+    if (metrics.axis != Axis.vertical) return;
+    _setBacking(
+      _scrolledUnderTop,
+      AppScreenScaffold.topBackingAmount(metrics.pixels),
+    );
+    _setBacking(
+      _underBottomBar,
+      AppScreenScaffold.bottomBackingAmount(
+        extentAfter: metrics.extentAfter,
+        clearance: widget.bodyClearsBottomBar
+            ? AppScreenScaffold.bodyBarClearance
+            : AppScreenScaffold.listBarClearance,
+      ),
+    );
   }
 
   @override
@@ -200,6 +273,19 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         (inAmbient ? Colors.transparent : colors.canvas);
     final size = AppSize.of(context);
     final twoPane = size.isExpanded && widget.detail != null;
+
+    // A backing the screen asked for is always there under the pinned bar.
+    // One from the scope around it shows only while a row is under a bar.
+    // A screen that paints its own background is backed with that, since
+    // the scope's canvas is not what shows behind it.
+    final scope = AppBarBackingScope.maybeOf(context);
+    final backing =
+        widget.barBacking ??
+        (scope == null ? null : (canvas.a == 0 ? scope.color : canvas));
+    final backsBottomAlways = widget.barBacking != null;
+    final backsBottomWhenUnder =
+        !backsBottomAlways && (scope?.coversBottomBar ?? false);
+    final topBarMaxTextScale = scope?.topBarMaxTextScale;
 
     // On its side, or wide enough for two panes, the tab bar stands up as a
     // rail down one edge, so the screen keeps clear of it sideways instead of
@@ -265,7 +351,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
             padding: EdgeInsets.symmetric(horizontal: gutter),
             sliver: SliverMainAxisGroup(slivers: widget.slivers),
           ),
-          SliverPadding(padding: EdgeInsets.only(top: bottomInset)),
+          if (!widget.bodyClearsBottomBar)
+            SliverPadding(padding: EdgeInsets.only(top: bottomInset)),
         ],
       );
 
@@ -290,20 +377,24 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       return Stack(
         children: [
           Positioned.fill(
-            child: widget.barBacking == null
+            child: backing == null
                 ? list
-                : NotificationListener<ScrollNotification>(
+                : NotificationListener<ScrollMetricsNotification>(
                     onNotification: (notification) {
                       if (notification.depth == 0) {
-                        _setScrolledUnderTop(
-                          (notification.metrics.pixels /
-                                  AppScreenScaffold._backingEdge)
-                              .clamp(0.0, 1.0),
-                        );
+                        _readScroll(notification.metrics);
                       }
                       return false;
                     },
-                    child: list,
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (notification.depth == 0) {
+                          _readScroll(notification.metrics);
+                        }
+                        return false;
+                      },
+                      child: list,
+                    ),
                   ),
           ),
           if (widget.withEdgeBlur) ...[
@@ -358,7 +449,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                 color: canvas,
               ),
             ),
-          if (widget.barBacking != null && widget.topBar != null)
+          if (backing != null && widget.topBar != null)
             Positioned(
               top: 0,
               left: 0,
@@ -370,7 +461,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                 builder: (context, amount, child) =>
                     Opacity(opacity: amount, child: child),
                 child: _BarBacking(
-                  color: widget.barBacking!,
+                  color: backing,
                   solid: topInset,
                   isTop: true,
                 ),
@@ -387,7 +478,18 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                   padding: EdgeInsets.symmetric(horizontal: gutter),
                   child: SizedBox(
                     height: AppScreenScaffold.topBarHeight,
-                    child: widget.topBar,
+                    // The bar has one fixed height, so past a point larger
+                    // text is cut by it.
+                    child: topBarMaxTextScale == null
+                        ? widget.topBar
+                        : MediaQuery(
+                            data: MediaQuery.of(context).copyWith(
+                              textScaler: MediaQuery.textScalerOf(
+                                context,
+                              ).clamp(maxScaleFactor: topBarMaxTextScale),
+                            ),
+                            child: widget.topBar!,
+                          ),
                   ),
                 ),
               ),
@@ -404,9 +506,9 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                   // A screen that draws an ambient canvas leaves this scaffold
                   // transparent, and that is exactly the screen where the
                   // button floats over a white card with nothing behind it.
-                  if (widget.barBacking != null)
+                  if (backsBottomAlways)
                     _BarBacking(
-                      color: widget.barBacking!,
+                      color: backing!,
                       solid:
                           padding.bottom +
                           tabBarRoom +
@@ -429,6 +531,23 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                       tint: canvas.a == 0
                           ? colors.canvas.withValues(alpha: 0.55)
                           : canvas,
+                    ),
+                  // Over the wash, and only while a row is under the bar:
+                  // then nothing may show through a button.
+                  if (backsBottomWhenUnder && backing != null)
+                    ValueListenableBuilder<double>(
+                      valueListenable: _underBottomBar,
+                      builder: (context, amount, child) =>
+                          Opacity(opacity: amount, child: child),
+                      child: _BarBacking(
+                        color: backing,
+                        solid:
+                            padding.bottom +
+                            tabBarRoom +
+                            barHeight +
+                            AppScreenScaffold.bottomBarGap,
+                        isTop: false,
+                      ),
                     ),
                   SafeArea(
                     top: false,
@@ -508,6 +627,47 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
       body: body,
     );
   }
+}
+
+/// Tells the screens under it what colour they sit on, so each can back its
+/// bars with it while a row is scrolled under them.
+///
+/// For screens that leave their own background clear and sit on a canvas
+/// drawn behind them. Such a screen cannot tell what colour that canvas is,
+/// and without one its rows show through the top bar's title and through
+/// the pinned buttons. Put this where the canvas is drawn. A screen at rest
+/// with every row clear of its bars looks the same with or without it.
+///
+/// A screen that passes [AppScreenScaffold.barBacking] keeps its own.
+class AppBarBackingScope extends InheritedWidget {
+  const AppBarBackingScope({
+    required this.color,
+    required super.child,
+    this.coversBottomBar = false,
+    this.topBarMaxTextScale,
+    super.key,
+  });
+
+  /// The colour of the canvas behind the screens.
+  final Color color;
+
+  /// Whether the pinned bottom bar gets the backing too, while a row is
+  /// under it. Off, only the top bar does: a pinned card that is meant to
+  /// float over the list keeps the list behind it.
+  final bool coversBottomBar;
+
+  /// The most the system text size may grow what is in the top bar. Null
+  /// leaves the top bar the full scale.
+  final double? topBarMaxTextScale;
+
+  static AppBarBackingScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppBarBackingScope>();
+
+  @override
+  bool updateShouldNotify(AppBarBackingScope oldWidget) =>
+      color != oldWidget.color ||
+      coversBottomBar != oldWidget.coversBottomBar ||
+      topBarMaxTextScale != oldWidget.topBarMaxTextScale;
 }
 
 /// Hands over how tall its child came out, once per change.
