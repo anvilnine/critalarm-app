@@ -63,6 +63,7 @@ state-management library.
 | Analyze | `make analyze` (`fvm flutter analyze`) |
 | Codegen | `make gen`, then `make l10n` |
 | Layer check | `make check-layers` |
+| Localization check | `make check-l10n` |
 | Refresh the contract | `make sync-contract` |
 | Run with a quiet alarm | `make run-quiet DEVICE=<id>` (dev only, never ships) |
 | New worktree | `make worktree-new NAME=<slug>` |
@@ -106,6 +107,12 @@ android/             full-screen intent channel config
 Each feature is `data/domain/presentation`, and `tool/check_layers.sh` enforces
 the direction: core must not import features, domain must not import data or
 presentation.
+
+`tool/check_l10n.sh` fails on an English string literal passed straight to
+`Text`, `TextSpan` or an `AppButton` label. Use `LocaleKeys.<key>.tr()`. Text
+that must stay as written (demo data, unit letters) ends its line with
+`// l10n-ok: <reason>`. The skip list (generated files, mock server, gallery and
+developer screens) sits at the top of the script.
 
 **Glossary.** Three features share a screen and used to share words. Use these
 names in code, strings, comments and PRs, and never one for another.
