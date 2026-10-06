@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
@@ -12,7 +13,6 @@ import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -177,7 +177,7 @@ class _MotionAndHaptics extends StatelessWidget {
             //         },
             // ),
             // Web has no haptics, so there is nothing to switch.
-            if (!kIsWeb) ...[
+            if (getIt<PlatformCapabilities>().hasHaptics) ...[
               // const SizedBox(height: 8),
               AppToggleRow(
                 title: LocaleKeys.settings_haptics_title.tr(),

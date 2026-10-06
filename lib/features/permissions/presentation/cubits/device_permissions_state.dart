@@ -1,3 +1,4 @@
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
@@ -11,6 +12,7 @@ enum DevicePermissionsCubitStatus { initial, loading, success, failure }
 @immutable
 class DevicePermissionsState {
   const DevicePermissionsState({
+    required this.capabilities,
     this.status = DevicePermissionsCubitStatus.initial,
     List<DevicePermissionItem>? permissions,
     this.errorMessage,
@@ -18,16 +20,18 @@ class DevicePermissionsState {
     // ignore: prefer_initializing_formals
   }) : _permissions = permissions;
 
+  /// The platform the rows are picked for.
+  final PlatformCapabilities capabilities;
   final DevicePermissionsCubitStatus status;
   final List<DevicePermissionItem>? _permissions;
   final String? errorMessage;
 
   /// What the screen shows before the first load answers. Only this
   /// platform's rows, so an iPhone never flashes Android's battery row.
-  static List<DevicePermissionItem> get defaultPermissions {
+  List<DevicePermissionItem> get defaultPermissions {
     final types = devicePermissionTypesFor(
-      defaultTargetPlatform,
-      isWeb: kIsWeb,
+      capabilities.platform,
+      isWeb: capabilities.isWeb,
     );
     return _allPermissions.where((p) => types.contains(p.type)).toList();
   }
@@ -111,6 +115,7 @@ class DevicePermissionsState {
     bool clearError = false,
   }) {
     return DevicePermissionsState(
+      capabilities: capabilities,
       status: status ?? this.status,
       permissions: permissions ?? this.permissions,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
@@ -122,12 +127,14 @@ class DevicePermissionsState {
       identical(this, other) ||
       other is DevicePermissionsState &&
           runtimeType == other.runtimeType &&
+          capabilities == other.capabilities &&
           status == other.status &&
           listEquals(permissions, other.permissions) &&
           errorMessage == other.errorMessage;
 
   @override
   int get hashCode => Object.hash(
+    capabilities,
     status,
     Object.hashAll(permissions),
     errorMessage,

@@ -1,4 +1,5 @@
 import 'package:critalarm/core/api/network_failure_message.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
@@ -13,8 +14,9 @@ class DevicePermissionsCubit extends Cubit<DevicePermissionsState> {
   DevicePermissionsCubit(
     this._getPermissions,
     this._openPermissionSettings, {
+    required PlatformCapabilities capabilities,
     this.checkNotifications,
-  }) : super(const DevicePermissionsState());
+  }) : super(DevicePermissionsState(capabilities: capabilities));
 
   final GetDevicePermissionsUsecase _getPermissions;
   final OpenPermissionSettingsUsecase _openPermissionSettings;

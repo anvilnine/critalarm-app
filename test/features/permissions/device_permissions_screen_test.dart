@@ -1,4 +1,5 @@
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/theme/theme.dart';
@@ -12,6 +13,11 @@ import 'package:critalarm/features/permissions/presentation/device_permissions_s
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+
+const android = PlatformCapabilities(
+  isWeb: false,
+  platform: TargetPlatform.android,
+);
 
 class MockGetDevicePermissionsUsecase extends Mock
     implements GetDevicePermissionsUsecase {}
@@ -80,6 +86,7 @@ void main() {
         () => DevicePermissionsCubit(
           getIt<GetDevicePermissionsUsecase>(),
           getIt<OpenPermissionSettingsUsecase>(),
+          capabilities: android,
         ),
       );
   });

@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/domain/repositories/device_report_repository.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:in_app_review/in_app_review.dart';
@@ -21,13 +21,14 @@ import 'package:url_launcher/url_launcher.dart';
 class HelpSection extends StatelessWidget {
   const HelpSection({super.key});
 
-  bool get _canRate =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
+  static bool _canRate(PlatformCapabilities on) =>
+      !on.isWeb &&
+      (on.platform == TargetPlatform.android ||
           FeedbackLinks.appStoreId.isNotEmpty);
 
   @override
   Widget build(BuildContext context) {
+    final on = getIt<PlatformCapabilities>();
     final rows = <Widget>[
       if (FeedbackLinks.feedbackFormUrl.isNotEmpty)
         _row(
@@ -47,14 +48,14 @@ class HelpSection extends StatelessWidget {
         () => _openReportMail(context),
         subtitle: LocaleKeys.settings_help_report_sub.tr(),
       ),
-      if (_canRate)
+      if (_canRate(on))
         _row(
           context,
           LocaleKeys.settings_help_rate_row.tr(),
           () => InAppReview.instance.openStoreListing(
             appStoreId: FeedbackLinks.appStoreId,
           ),
-          subtitle: defaultTargetPlatform == TargetPlatform.android
+          subtitle: on.platform == TargetPlatform.android
               ? LocaleKeys.settings_help_rate_sub_android.tr()
               : LocaleKeys.settings_help_rate_sub_ios.tr(),
         ),
