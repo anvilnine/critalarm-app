@@ -34,6 +34,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Every paywall entry point reports a source on paywall\_viewed, and the Hosted ask sheet logs hosted\_ask\_shown with its trigger
 - AppScreenScaffold.contentSortKey places the scrolling body in the screen reader order against sort keys on the pinned bar. AlarmHost.magicTaps and setMagicTapArmed carry the VoiceOver magic tap
 - Pure setup layout rules in setup\_layout\_rules.dart (setupFaceSizeFor, introHeroMinHeightFor, introHeroFits, setupButtonHeightFor, setupPinsFirstMessageRow) and SetupFace, the shared setup face that shrinks and goes away at large text sizes.
+- AppBarBackingScope tells the scaffolds under it the canvas colour. Each backs its top bar with it while a row is scrolled under, and its pinned bottom bar too with coversBottomBar. The app shell, the setup shell and the ringing alarm provide one. topBarMaxTextScale caps the text scale inside the top bar, 1.3 in setup.
+- AppScreenScaffold.bodyClearsBottomBar for a body that fills the screen and keeps the pinned bar's room itself. The welcome, how it rings and Pick a server steps use it, so they scroll only when the content is taller than the screen.
+- ringing\_layout\_rules.dart sizes the ringing alarm: ringingFaceSizeFor shrinks the face, down to hidden, until the measured message card is clear of the pinned buttons, and ringingHeaderIsCompact holds the word, topic and ring time at 1.3 times when the title still would not fit.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -68,6 +71,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Feature code asks PlatformCapabilities (lib/core/platform/platform\_capabilities.dart, registered in get\_it) and no longer reads kIsWeb. HomeAskRules and LocalReminderPlanPass take isWeb as a required argument, and tool/check\_layers.sh fails on kIsWeb under lib/features.
 - The welcome heroes stop their ticker under reduced motion or once the user taps Stop animation, instead of ignoring it. OnboardingAnimationLoop takes isStopped and isOnItsOwn.
 - Local reminder morning-after and plan-ends bodies read their numbers and benefit phrases from HostedBenefit.
+- SetupTapRoom gives the Stop animation chip and the two small pills on Pick a server a 44 point tap area. The pills look the same.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -79,6 +83,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The first tool alarm is matched by more than its incident id: SetupTestRing.firstTool keeps what the first ring looked like, and firstToolVerdictFor forgets it when the incident reopens, takes in another message or closes. It is also forgotten on Done, on Set this up later and at the next launch after the first acknowledgement. A Finish button whose record is gone gives way to the normal acknowledged screen.
 - Ring me for real sends at once when the phone was locked while its checks ran, so no count starts with the app already in the background. RealRingCubit.appLifecycleChanged holds the rule; inactive alone never sends.
 - android/app/proguard-rules.pro keeps the no-arg constructor of Room database classes. R8 removed it from WorkDatabase\_Impl (WorkManager, pulled in by Play asset-delivery), so every release build crashed in androidx.startup.InitializationProvider before Dart started. Debug builds skip R8 and never showed it.
+- Faces inside the setup mock-ups are no longer live under reduce motion or once the animation is stopped, so no ticker runs on How it rings.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.
