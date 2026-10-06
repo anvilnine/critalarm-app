@@ -145,6 +145,7 @@ Future<LocalReminderHomeAsk> _nextLocalReminderAsk() async {
       notices.getConsentAskedAt(),
       notices.getReviewAskedAt(),
       notices.getFeedbackAskedAt(),
+      notices.getDay0CardShownAt(),
     ],
   );
 }

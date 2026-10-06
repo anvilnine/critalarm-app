@@ -65,6 +65,7 @@ class ProAskRules {
         noticeRepository.getConsentAskedAt(),
         noticeRepository.getReviewAskedAt(),
         noticeRepository.getFeedbackAskedAt(),
+        noticeRepository.getDay0CardShownAt(),
       ],
       isHandedToNotification:
           (_offersOn?.call() ?? false) &&
@@ -92,8 +93,8 @@ class ProAskRules {
   /// turned down. Walking away from the sheet is an answer too, so the quiet
   /// period starts the moment it opens.
   ///
-  /// [otherAskedAt] holds the consent sheet, the review popup and the
-  /// feedback ask. The Pro sheet waits out `HomeAskRules.gap` after any of
+  /// [otherAskedAt] holds the consent sheet, the review popup, the
+  /// feedback ask and the day-0 card. The Pro sheet waits out `HomeAskRules.gap` after any of
   /// them.
   static bool decide({
     required bool isPaid,
