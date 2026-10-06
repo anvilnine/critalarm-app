@@ -34,7 +34,8 @@ final class FakeDeviceKeychain {
 
   static const String accountService =
       KeychainDeviceIdentityStore.accountService;
-  static const String deviceService = KeychainDeviceIdentityStore.deviceService;
+  static const String deviceService =
+      KeychainDeviceIdentityStore.deviceService;
 
   final Map<String, String> items = {};
   final List<KeychainCall> calls = [];

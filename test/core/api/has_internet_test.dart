@@ -62,23 +62,20 @@ void main() {
       );
     });
 
-    test(
-      'treats connection refused / reset as online (remote host reached)',
-      () {
-        expect(
-          isOnlineFromProbe(
-            error: const SocketException('Connection refused', port: 443),
-          ),
-          isTrue,
-        );
-        expect(
-          isOnlineFromProbe(
-            error: const SocketException('Connection reset by peer', port: 443),
-          ),
-          isTrue,
-        );
-      },
-    );
+    test('treats connection refused / reset as online (remote host reached)', () {
+      expect(
+        isOnlineFromProbe(
+          error: const SocketException('Connection refused', port: 443),
+        ),
+        isTrue,
+      );
+      expect(
+        isOnlineFromProbe(
+          error: const SocketException('Connection reset by peer', port: 443),
+        ),
+        isTrue,
+      );
+    });
 
     test('returns false on definitive network unreachable errors', () {
       expect(

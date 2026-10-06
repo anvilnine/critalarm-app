@@ -166,9 +166,8 @@ class _JumpingTextState extends State<JumpingText>
             mainAxisSize: MainAxisSize.min,
             children: [
               for (final letter
-                  in (w < words.length - 1 ? '${words[w]} ' : words[w]).split(
-                    '',
-                  ))
+                  in (w < words.length - 1 ? '${words[w]} ' : words[w])
+                      .split(''))
                 if (_outgoing != null && index < _leaving)
                   _leavingLetter(letter, index++, elapsed, resting, last)
                 else if (_outgoing != null)

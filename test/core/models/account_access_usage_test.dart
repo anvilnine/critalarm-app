@@ -59,7 +59,7 @@ void main() {
         '0 critical topics used · Unlimited',
       );
     });
-
+  
     test('a paid device never reads the Free limit', () {
       // The store says Pro, the server has not caught up: confirming.
       final plan = PlanChanges()..setStoreSaysPro(value: true);
