@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/design/design.dart';
@@ -114,7 +115,39 @@ class _SettingsScreenContent extends StatelessWidget {
     );
   }
 
+  /// A phone on a server of its own has no plan, so this says so and offers
+  /// nothing to buy. The second line is plain text, not a link.
+  Widget _buildSelfHostedPlanRow(BuildContext context) {
+    final colors = context.appColors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppListRow(
+          name: LocaleKeys.settings_plan_selfhosted_title.tr(),
+          meta: LocaleKeys.settings_plan_selfhosted_subtitle.tr(),
+          faceState: null,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+          child: Text(
+            LocaleKeys.settings_plan_selfhosted_cloud_note.tr(),
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontFamilyFallback: AppTypography.fontBodyFallbacks,
+              fontSize: 12,
+              color: colors.ink3,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPlanRow(BuildContext context, SettingsState state) {
+    if (state.serverMode == ServerMode.selfhosted) {
+      return _buildSelfHostedPlanRow(context);
+    }
     final colors = context.appColors;
     final isPro = state.access.isPaid;
     return Container(
