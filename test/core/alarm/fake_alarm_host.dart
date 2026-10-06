@@ -39,8 +39,7 @@ class FakeAlarmHost {
   /// The arguments of every call to [method], typed.
   List<Map<String, Object?>> argsTo(String method) => callsTo(method)
       .map(
-        (c) =>
-            (c.arguments as Map<Object?, Object?>).cast<String, Object?>(),
+        (c) => (c.arguments as Map<Object?, Object?>).cast<String, Object?>(),
       )
       .toList();
 
@@ -55,13 +54,23 @@ class FakeAlarmHost {
 
   /// Plays back what `AppDelegate` sends after it schedules an alarm itself.
   Future<void> emitAlarmScheduled(String incidentId) async {
-    await TestDefaultBinaryMessengerBinding
-        .instance
-        .defaultBinaryMessenger
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
           AlarmHost.channelName,
           const StandardMethodCodec().encodeMethodCall(
             MethodCall('onAlarmScheduled', incidentId),
+          ),
+          (_) {},
+        );
+  }
+
+  /// Plays back what `AppDelegate` sends for a VoiceOver magic tap.
+  Future<void> emitMagicTap() async {
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .handlePlatformMessage(
+          AlarmHost.channelName,
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('onMagicTap'),
           ),
           (_) {},
         );

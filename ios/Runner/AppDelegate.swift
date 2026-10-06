@@ -15,6 +15,11 @@ import AlarmKit
 
   private var pushChannel: FlutterMethodChannel?
   private var alarmChannel: FlutterMethodChannel?
+
+  /// True only while the ringing alarm screen is in front. Dart sets it over
+  /// the alarm channel, because the answer to a magic tap is due at once and
+  /// cannot wait for Dart to be asked.
+  private var magicTapArmed = false
   private var soundChannel: FlutterMethodChannel?
   private var soundPackChannel: FlutterMethodChannel?
   private var settingsChannel: FlutterMethodChannel?
@@ -393,6 +398,28 @@ import AlarmKit
     #endif
   }
 
+  /// VoiceOver's magic tap, a two-finger double tap on the glass. While the
+  /// ringing alarm screen is in front it does what the "I'm up" button does:
+  /// Dart is told, and acknowledges through the button's own path.
+  ///
+  /// It is received here because the app delegate is the end of the
+  /// responder chain. The system offers the tap to the focused element
+  /// first and walks up from there, and Flutter's view and view controller
+  /// do not take it, so it arrives here from wherever VoiceOver is on the
+  /// screen.
+  ///
+  /// Anywhere else this answers false and the system keeps its default. The
+  /// tap exists only with VoiceOver on and is a touch, never a spoken
+  /// command of the app's own: nothing here is an intent, a shortcut or a
+  /// named accessibility action.
+  override func accessibilityPerformMagicTap() -> Bool {
+    guard magicTapArmed, let channel = alarmChannel else {
+      return super.accessibilityPerformMagicTap()
+    }
+    channel.invokeMethod("onMagicTap", arguments: nil)
+    return true
+  }
+
   private func handleAlarmCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     let args = call.arguments as? [String: Any] ?? [:]
     switch call.method {
@@ -502,6 +529,10 @@ import AlarmKit
       }
       AckedIncidentStore.mark(incidentId: incidentId)
       Task { await IncidentRearm.cancel(incidentId: incidentId) }
+      result(nil)
+
+    case "setMagicTapArmed":
+      magicTapArmed = args["armed"] as? Bool ?? false
       result(nil)
 
     case "isRinging":

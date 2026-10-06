@@ -23,6 +23,7 @@ class CriticalAlarmState {
     this.topic = '',
     this.word = '',
     this.subtext = '',
+    this.ringTimeSpoken = '',
     this.title = '',
     this.body = '',
     this.meta = '',
@@ -49,6 +50,11 @@ class CriticalAlarmState {
   final String topic;
   final String word;
   final String subtext;
+
+  /// How long the alarm has been ringing, as a screen reader says it. Whole
+  /// minutes, so it changes once a minute while [subtext] counts seconds.
+  /// Empty when nothing is ringing.
+  final String ringTimeSpoken;
   final String title;
   final String body;
   final String meta;
@@ -115,6 +121,7 @@ class CriticalAlarmState {
     String? topic,
     String? word,
     String? subtext,
+    String? ringTimeSpoken,
     String? title,
     String? body,
     String? meta,
@@ -142,6 +149,7 @@ class CriticalAlarmState {
       topic: topic ?? this.topic,
       word: word ?? this.word,
       subtext: subtext ?? this.subtext,
+      ringTimeSpoken: ringTimeSpoken ?? this.ringTimeSpoken,
       title: title ?? this.title,
       body: body ?? this.body,
       meta: meta ?? this.meta,
@@ -176,6 +184,7 @@ class CriticalAlarmState {
           topic == other.topic &&
           word == other.word &&
           subtext == other.subtext &&
+          ringTimeSpoken == other.ringTimeSpoken &&
           title == other.title &&
           body == other.body &&
           meta == other.meta &&
@@ -214,6 +223,11 @@ class CriticalAlarmState {
     isOnboardingDone,
     hasOwnedTopic,
     Object.hashAllUnordered(setupTestIncidentIds),
-    Object.hash(setupFlowHasRealRing, firstToolIncidentId, isPreview),
+    Object.hash(
+      setupFlowHasRealRing,
+      firstToolIncidentId,
+      isPreview,
+      ringTimeSpoken,
+    ),
   );
 }
