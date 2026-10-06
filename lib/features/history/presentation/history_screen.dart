@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/components/jumping_text.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
@@ -258,7 +259,9 @@ class _OlderAlarmsFooter extends StatelessWidget {
         child: GestureDetector(
           onTap: () {
             AppHaptics.selection();
-            unawaited(context.push('/paywall?source=history_older'));
+            unawaited(
+              context.push(paywallLocation(PaywallSource.historyOlder)),
+            );
           },
           child: Text(
             LocaleKeys.history_older_notice.plural(count),

@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
@@ -12,6 +13,7 @@ bool isPushDeepLink(String? location) =>
     location != null &&
     (location == PushDeepLink.homeLocation ||
         location == PushDeepLink.paywallLocation ||
+        location == paywallPath ||
         location.startsWith('/incidents/') ||
         location.startsWith('/topics/'));
 
@@ -28,7 +30,9 @@ String initialLocationFor({
   String? deepLink,
 }) {
   // A tapped notification wins: the user asked for that screen by name.
-  if (hasCompletedOnboarding && isPushDeepLink(deepLink)) return deepLink!;
+  if (hasCompletedOnboarding && isPushDeepLink(deepLink)) {
+    return PushDeepLink.tagged(deepLink!);
+  }
   return hasCompletedOnboarding ? '/' : resumeRoute;
 }
 

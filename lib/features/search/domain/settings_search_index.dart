@@ -1,3 +1,4 @@
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter/foundation.dart';
 
@@ -45,9 +46,9 @@ class SettingsDestination {
 /// Add a row here when you add a row to a settings screen. Nothing generates
 /// this, so a new setting is unsearchable until it is listed.
 abstract final class SettingsSearchIndex {
-  static const List<SettingsDestination> all = <SettingsDestination>[
+  static final List<SettingsDestination> all = <SettingsDestination>[
     // The six top level screens.
-    SettingsDestination(
+    const SettingsDestination(
       id: 'health',
       routePath: '/settings/permissions',
       titleKey: LocaleKeys.settings_health_row_title,
@@ -60,7 +61,7 @@ abstract final class SettingsSearchIndex {
         'health',
       ],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'server',
       routePath: '/settings/server',
       titleKey: LocaleKeys.settings_server_row_title,
@@ -74,21 +75,21 @@ abstract final class SettingsSearchIndex {
         'self hosted',
       ],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'privacy',
       routePath: '/settings/privacy',
       titleKey: LocaleKeys.settings_privacy_row_title,
       parentTitleKey: LocaleKeys.nav_settings,
       keywords: <String>['privacy', 'analytics', 'crash', 'telemetry', 'data'],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'about',
       routePath: '/settings/about',
       titleKey: LocaleKeys.settings_about_row_title,
       parentTitleKey: LocaleKeys.nav_settings,
       keywords: <String>['about', 'version', 'licence', 'license', 'github'],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'developer',
       routePath: '/settings/developer',
       titleKey: LocaleKeys.settings_developer_row_title,
@@ -98,7 +99,7 @@ abstract final class SettingsSearchIndex {
     ),
 
     // Rows that live inside one of those screens.
-    SettingsDestination(
+    const SettingsDestination(
       id: 'alarm_sound',
       routePath: '/sounds',
       titleKey: LocaleKeys.settings_alarm_sound_row_title,
@@ -126,21 +127,21 @@ abstract final class SettingsSearchIndex {
     // 'quiet_hours', 'critical_rings' and 'escalation_call' are out while
     // their rows are off the alarm settings screen. Searching for them would
     // land on a screen that no longer shows them.
-    SettingsDestination(
+    const SettingsDestination(
       id: 'analytics',
       routePath: '/settings/privacy',
       titleKey: LocaleKeys.settings_analytics_title,
       parentTitleKey: LocaleKeys.settings_privacy_header,
       keywords: <String>['analytics', 'usage', 'tracking', 'opt out'],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'crash_reports',
       routePath: '/settings/privacy',
       titleKey: LocaleKeys.settings_crash_reports_title,
       parentTitleKey: LocaleKeys.settings_privacy_header,
       keywords: <String>['crash', 'bug', 'reporting', 'diagnostics'],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'theme',
       routePath: '/settings',
       titleKey: LocaleKeys.settings_theme_header,
@@ -155,7 +156,7 @@ abstract final class SettingsSearchIndex {
         'color',
       ],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'app-icon',
       routePath: '/settings/appearance',
       titleKey: LocaleKeys.settings_app_icon_row_title,
@@ -169,7 +170,7 @@ abstract final class SettingsSearchIndex {
         'hosted',
       ],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'storage-delete-after',
       routePath: '/settings/alarms',
       titleKey: LocaleKeys.settings_storage_delete_after_title,
@@ -184,7 +185,7 @@ abstract final class SettingsSearchIndex {
       ],
       needsStorageSection: true,
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'storage-keep-critical',
       routePath: '/settings/alarms',
       titleKey: LocaleKeys.settings_storage_keep_critical_title,
@@ -200,10 +201,10 @@ abstract final class SettingsSearchIndex {
     ),
     SettingsDestination(
       id: 'plan',
-      routePath: '/paywall',
+      routePath: paywallLocation(PaywallSource.settingsSearch),
       titleKey: LocaleKeys.settings_plan_header,
       parentTitleKey: LocaleKeys.nav_settings,
-      keywords: <String>[
+      keywords: const <String>[
         'plan',
         'hosted',
         'free',
@@ -213,42 +214,42 @@ abstract final class SettingsSearchIndex {
         'pay',
       ],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'version',
       routePath: '/settings/about',
       titleKey: LocaleKeys.settings_about_version_label,
       parentTitleKey: LocaleKeys.settings_about_header,
       keywords: <String>['version', 'build number'],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'licence',
       routePath: '/settings/about',
       titleKey: LocaleKeys.settings_about_license_label,
       parentTitleKey: LocaleKeys.settings_about_header,
       keywords: <String>['licence', 'license', 'gpl', 'open source'],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'docs_link',
       routePath: '/settings/about',
       titleKey: LocaleKeys.settings_about_docs_label,
       parentTitleKey: LocaleKeys.settings_about_header,
       keywords: <String>['docs', 'documentation', 'help', 'guide', 'manual'],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'github',
       routePath: '/settings/about',
       titleKey: LocaleKeys.settings_about_github_label,
       parentTitleKey: LocaleKeys.settings_about_header,
       keywords: <String>['github', 'source', 'code', 'repo'],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'issues',
       routePath: '/settings/about',
       titleKey: LocaleKeys.settings_about_issues_label,
       parentTitleKey: LocaleKeys.settings_about_header,
       keywords: <String>['issue', 'bug report', 'feedback', 'support'],
     ),
-    SettingsDestination(
+    const SettingsDestination(
       id: 'developer_pro',
       routePath: '/settings/developer',
       titleKey: LocaleKeys.settings_developer_pro_title,
