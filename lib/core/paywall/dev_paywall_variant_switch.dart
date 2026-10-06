@@ -8,7 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// [PaywallVariantOverride]. Null means "let Remote Config decide", which is
 /// what a store build always does.
 class DevPaywallVariantSwitch extends ValueNotifier<PaywallVariant?> {
-  DevPaywallVariantSwitch(this._prefs) : super(_read(_prefs.getString(_key)));
+  DevPaywallVariantSwitch(this._prefs)
+    : super(_read(_prefs.getString(_key)));
 
   static const _key = 'dev.paywall_variant';
 
