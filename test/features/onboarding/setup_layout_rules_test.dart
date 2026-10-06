@@ -87,4 +87,37 @@ void main() {
       expect(setupPinsFirstMessageRow(2), isFalse);
     });
   });
+
+  group('setupTapRoomFor', () {
+    test('a small button gets the 8 it is short of a full tap area', () {
+      expect(setupMinTapHeight, 44);
+      expect(setupTapRoomFor(36), 8);
+    });
+
+    test('a control that is tall enough gets nothing', () {
+      expect(setupTapRoomFor(44), 0);
+      expect(setupTapRoomFor(48), 0);
+      expect(setupTapRoomFor(60), 0);
+    });
+
+    test('shrinks as the text grows the button, and never goes negative', () {
+      double roomAt(double textScale) => setupTapRoomFor(
+        setupButtonHeightFor(
+          minHeight: 36,
+          fontSize: 14,
+          textScale: textScale,
+        ),
+      );
+      expect(roomAt(1), 8);
+      expect(roomAt(1.5), closeTo(7, 0.001));
+      expect(roomAt(2), 0);
+      expect(roomAt(3.1), 0);
+    });
+  });
+
+  test('the app name in the top bar grows to 1.3 times and no more', () {
+    expect(setupTopBarMaxTextScale, 1.3);
+    // The name is set at 18 in a bar 56 high with 12 above it.
+    expect(18 * setupTopBarMaxTextScale * 1.3, lessThan(56 - 12));
+  });
 }
