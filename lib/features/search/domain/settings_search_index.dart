@@ -16,6 +16,7 @@ class SettingsDestination {
     this.keywords = const <String>[],
     this.devOnly = false,
     this.needsStorageSection = false,
+    this.hiddenWhenSelfHosted = false,
   });
 
   final String id;
@@ -39,6 +40,10 @@ class SettingsDestination {
   /// Lives in the Storage section, which Settings only draws on a paid plan
   /// or a self-hosted server. Search must not find a row that is not there.
   final bool needsStorageSection;
+
+  /// Leads to a plan or a purchase. A self-hosted server has no plans, so
+  /// Settings does not draw the row and search must not find it.
+  final bool hiddenWhenSelfHosted;
 }
 
 /// Everything under Settings that search can reach.
@@ -213,6 +218,7 @@ abstract final class SettingsSearchIndex {
         'billing',
         'pay',
       ],
+      hiddenWhenSelfHosted: true,
     ),
     const SettingsDestination(
       id: 'version',
@@ -264,14 +270,17 @@ abstract final class SettingsSearchIndex {
   ///
   /// [showsStorage] matches `SettingsState.hasStorageSection`: true on a paid
   /// plan or a self-hosted server. Without it the Storage rows are left out.
+  /// [isSelfHosted] leaves out the rows that lead to a plan.
   static List<SettingsDestination> forBuild({
     required bool includeDevOnly,
     required bool showsStorage,
+    bool isSelfHosted = false,
   }) {
     return <SettingsDestination>[
       for (final destination in all)
         if ((includeDevOnly || !destination.devOnly) &&
-            (showsStorage || !destination.needsStorageSection))
+            (showsStorage || !destination.needsStorageSection) &&
+            !(isSelfHosted && destination.hiddenWhenSelfHosted))
           destination,
     ];
   }
