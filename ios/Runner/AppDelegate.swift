@@ -704,6 +704,22 @@ import AlarmKit
       magicTapArmed = args["armed"] as? Bool ?? false
       result(nil)
 
+    case "hasTorch":
+      // Whether the phone has a flash unit. Dart hides the flash switch on a
+      // device without one, such as most iPads.
+      result(AlarmScreenTorch.hasTorch)
+
+    case "setScreenFlash":
+      // The flash that goes with the Flutter alarm screen. Dart turns it on
+      // when the screen is ringing a topic with the flash switch on, and off
+      // when the alarm is acknowledged or the screen leaves.
+      if args["on"] as? Bool == true {
+        AlarmScreenTorch.shared.start(topics: args["topics"] as? [String] ?? [])
+      } else {
+        AlarmScreenTorch.shared.stop(reason: "dart")
+      }
+      result(nil)
+
     case "isRinging":
       // True while an AlarmKit alarm is going off. Dart holds a shared sound
       // file until this is false, so the cropper never covers an alarm.
@@ -2237,5 +2253,162 @@ final class LocalReminderNotifications {
       NSLog("CritAlarm: reminder_face_missing asset=%@", asset)
       return nil
     }
+  }
+}
+
+/// Reads the per-topic flash switch Dart wrote.
+///
+/// The `shared_preferences` plugin keeps its rows in the standard user
+/// defaults with a `flutter.` prefix. The row is a JSON list of topic names,
+/// and a topic that is not in it is off. The Dart side is
+/// `lib/core/alarm/alarm_signal_store.dart`; keep the key in step.
+///
+/// There is no vibration row here. An iPhone alarm is rung by the system and
+/// the app cannot add a vibration to it, so that switch is Android only.
+enum AlarmSignalStore {
+  static let flashKey = "flutter.alarm_flash_topics"
+
+  /// One row to a set of topic names. Anything that is not a JSON list of
+  /// names reads as empty, which is off.
+  static func parseTopics(_ raw: String?) -> Set<String> {
+    guard let raw, let data = raw.data(using: .utf8),
+      let list = try? JSONSerialization.jsonObject(with: data) as? [Any]
+    else { return [] }
+    return Set(list.compactMap { $0 as? String }.filter { !$0.isEmpty })
+  }
+
+  static func flashTopics(defaults: UserDefaults = .standard) -> Set<String> {
+    parseTopics(defaults.string(forKey: flashKey))
+  }
+}
+
+/// Blinks the camera flash while the Flutter alarm screen is ringing.
+///
+/// An iPhone alarm is rung by the system, and the app cannot add a flash to
+/// it from the background. So the flash follows the alarm screen: Dart starts
+/// it when that screen is ringing a topic with the flash switch on, and stops
+/// it on acknowledge and when the screen leaves. It also goes dark whenever
+/// the app is not in front, because the system takes the torch away then.
+///
+/// The torch needs no camera permission and no usage string. No capture
+/// session is made and the camera is never opened: only the torch mode of the
+/// device is set.
+final class AlarmScreenTorch {
+  static let shared = AlarmScreenTorch()
+
+  /// One flash a second: on for half a second, then off for half a second.
+  ///
+  /// The rate is fixed and is not a setting. Flashes at 3 a second or more
+  /// can set off a seizure in a person with photosensitive epilepsy, so the
+  /// flash stays at 1 a second, well under that limit. Do not make it faster.
+  static let halfCycleSeconds: TimeInterval = 0.5
+
+  private var timer: Timer?
+  private var wanted = false
+  private var lit = false
+  private var skipLogged = false
+  private var observers: [NSObjectProtocol] = []
+
+  private static var device: AVCaptureDevice? {
+    guard let device = AVCaptureDevice.default(for: .video), device.hasTorch else { return nil }
+    return device
+  }
+
+  /// Whether this device has a flash unit.
+  static var hasTorch: Bool { device != nil }
+
+  /// Starts blinking when at least one of [topics] has the flash switch on.
+  /// The switches are read again here, so a stale call from Dart can never
+  /// turn the light on for a topic that has it off.
+  func start(topics: [String]) {
+    let on = AlarmSignalStore.flashTopics()
+    guard topics.contains(where: on.contains) else {
+      stop(reason: "no_topic_has_flash_on")
+      return
+    }
+    guard Self.hasTorch else {
+      NSLog("CritAlarm: alarm_flash_skipped reason=no_flash_unit")
+      return
+    }
+    if wanted { return }
+    wanted = true
+    skipLogged = false
+    watchAppState()
+    NSLog("CritAlarm: alarm_flash_started flashes_per_second=1")
+    resume()
+  }
+
+  /// Turns the light off and stops the blink. Safe to call more than once.
+  func stop(reason: String) {
+    guard wanted else { return }
+    wanted = false
+    pause()
+    observers.forEach(NotificationCenter.default.removeObserver)
+    observers = []
+    NSLog("CritAlarm: alarm_flash_stopped reason=%@", reason)
+  }
+
+  private func resume() {
+    guard wanted, timer == nil else { return }
+    setTorch(true)
+    let blink = Timer(timeInterval: Self.halfCycleSeconds, repeats: true) { [weak self] _ in
+      guard let self else { return }
+      self.setTorch(!self.lit)
+    }
+    RunLoop.main.add(blink, forMode: .common)
+    timer = blink
+  }
+
+  private func pause() {
+    timer?.invalidate()
+    timer = nil
+    // Always asked for, whatever this class believes the light is doing, so
+    // no path can leave it on.
+    setTorch(false)
+  }
+
+  private func watchAppState() {
+    guard observers.isEmpty else { return }
+    let center = NotificationCenter.default
+    observers = [
+      center.addObserver(
+        forName: UIApplication.willResignActiveNotification, object: nil, queue: .main
+      ) { [weak self] _ in self?.pause() },
+      center.addObserver(
+        forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+      ) { [weak self] _ in self?.resume() },
+    ]
+  }
+
+  /// Sets the light. The torch can be unavailable (another app has the
+  /// camera, or the phone is too hot): that blink is skipped, logged once,
+  /// and tried again on the next one.
+  private func setTorch(_ on: Bool) {
+    guard let device = Self.device else { return }
+    do {
+      try device.lockForConfiguration()
+      defer { device.unlockForConfiguration() }
+      if on {
+        guard device.isTorchAvailable else {
+          lit = false
+          logSkip("torch_unavailable")
+          return
+        }
+        try device.setTorchModeOn(level: AVCaptureDevice.maxAvailableTorchLevel)
+      } else {
+        device.torchMode = .off
+      }
+      lit = on
+      skipLogged = false
+    } catch {
+      lit = false
+      logSkip(String(describing: type(of: error)))
+    }
+  }
+
+  private func logSkip(_ reason: String) {
+    guard !skipLogged else { return }
+    skipLogged = true
+    NSLog("CritAlarm: alarm_flash_skipped reason=%@", reason)
   }
 }

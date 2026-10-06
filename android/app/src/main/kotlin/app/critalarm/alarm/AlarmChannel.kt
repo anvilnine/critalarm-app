@@ -115,6 +115,10 @@ class AlarmChannel(
                 result.success(null)
             }
 
+            // Whether the phone has a flash unit. Dart hides the flash switch
+            // on a phone without one.
+            "hasTorch" -> result.success(RingSignals.hasTorch(context))
+
             "debugSnapshot" -> result.success(AlarmDebug.snapshot(context))
 
             "cancelAllRearms" -> {
