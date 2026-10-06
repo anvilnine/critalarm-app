@@ -9,6 +9,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Setup ends with a ready curl line for your new topic and waits for your first message.
 - Home shows a short setup checklist until your first message arrives.
 - The Finish setting up list can be closed for good.
+- The welcome screen has a Stop animation button, and it holds still when your phone asks for reduced motion.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
@@ -32,6 +33,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - A first message sent from a topic page before going back to Home now ticks the list, and so does one on a fourth or later topic.
 - The acknowledged screen no longer breaks its title in the middle of a word, draws its hint over the details, or turns dark and muddy after At my desk.
 - The Android app no longer closes the moment you open it.
+- Setup steps fit at the largest text size: the face shrinks first, titles keep whole words, and a page that still does not fit scrolls, including the server choice.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.
