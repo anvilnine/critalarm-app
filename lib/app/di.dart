@@ -39,6 +39,7 @@ import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/core/paywall/pro_override.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/apns_push_token_provider.dart';
 import 'package:critalarm/core/push/firebase_push_token_provider.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
@@ -391,7 +392,15 @@ Future<void> configureDependencies({
     applyEdgeOverride();
   }
 
+  // The one place that reads `kIsWeb` for feature code. Features ask
+  // `PlatformCapabilities` and never read the global themselves.
+  final capabilities = PlatformCapabilities(
+    isWeb: kIsWeb,
+    platform: defaultTargetPlatform,
+  );
+
   getIt
+    ..registerSingleton<PlatformCapabilities>(capabilities)
     ..registerSingleton<SharedPreferences>(prefs)
     ..registerSingleton<DeviceForm>(deviceForm)
     ..registerLazySingleton<TopicListPrefsRepository>(
@@ -497,11 +506,15 @@ Future<void> configureDependencies({
     ..registerLazySingleton<SoundFilePicker>(PlatformSoundFilePicker.new)
     ..registerLazySingleton<NotificationPermissionRepository>(
       () => PlatformNotificationPermissionRepository(
+        capabilities: getIt<PlatformCapabilities>(),
         prefs: getIt<SharedPreferences>(),
       ),
     )
     ..registerLazySingleton<DevicePermissionsRepository>(
-      () => PlatformDevicePermissionsRepository(alarm: getIt<AlarmHost>()),
+      () => PlatformDevicePermissionsRepository(
+        capabilities: getIt<PlatformCapabilities>(),
+        alarm: getIt<AlarmHost>(),
+      ),
     )
     ..registerLazySingleton<SubscriptionRepository>(
       () => buildSkipsPaywall
@@ -551,7 +564,9 @@ Future<void> configureDependencies({
         getIt<DeviceIdentityStore>(),
       ),
     )
-    ..registerLazySingleton<ProviderSignIn>(NativeProviderSignIn.new)
+    ..registerLazySingleton<ProviderSignIn>(
+      () => NativeProviderSignIn(capabilities: getIt<PlatformCapabilities>()),
+    )
     ..registerLazySingleton<IdentityRepository>(
       () => HttpIdentityRepository(
         httpClient: httpClient ?? http.Client(),
@@ -645,6 +660,7 @@ Future<void> configureDependencies({
         copy: LocalReminderCopy(
           isIos: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
         ),
+        isWeb: getIt<PlatformCapabilities>().isWeb,
         // Nothing is planned during onboarding or a Feature
         // Guide. The app plans again when the guide ends.
         isPaused: () async => !await getIt<SetupGate>().isDone(),
@@ -680,6 +696,7 @@ Future<void> configureDependencies({
       () => HomeAskRules(
         noticeRepository: getIt<InAppNoticeRepository>(),
         privacyRepository: getIt<PrivacyRepository>(),
+        isWeb: getIt<PlatformCapabilities>().isWeb,
         settle: () =>
             getIt<LocalReminderSettler>().settleAsks(now: DateTime.now()),
         isSetupDone: () => getIt<SetupGate>().isDone(),
@@ -1651,6 +1668,7 @@ Future<void> configureDependencies({
       () => DevicePermissionsCubit(
         getIt<GetDevicePermissionsUsecase>(),
         getIt<OpenPermissionSettingsUsecase>(),
+        capabilities: getIt<PlatformCapabilities>(),
         checkNotifications: getIt<CheckNotificationPermissionUsecase>(),
       ),
     )

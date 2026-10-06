@@ -1,3 +1,4 @@
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
@@ -8,8 +9,14 @@ import 'package:critalarm/features/permissions/domain/entities/device_permission
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+
+const android = PlatformCapabilities(
+  isWeb: false,
+  platform: TargetPlatform.android,
+);
 
 class MockGetPermissions extends Mock implements GetDevicePermissionsUsecase {}
 
@@ -44,6 +51,7 @@ void main() {
     cubit = DevicePermissionsCubit(
       getPermissions,
       MockOpenSettings(),
+      capabilities: android,
       checkNotifications: check,
     );
   });

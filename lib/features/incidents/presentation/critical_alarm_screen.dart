@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:confetti/confetti.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -30,7 +31,6 @@ import 'package:critalarm/features/onboarding/domain/usecases/complete_onboardin
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -108,7 +108,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
       ackedAt: now,
       isTestAck: incident == null || IncidentKinds.isTest(incident),
       isLocalRemindersSheetShown: store.readSheetShown(),
-      isWeb: kIsWeb,
+      isWeb: getIt<PlatformCapabilities>().isWeb,
       offersOn: store.readSwitches().offers,
       proShouldAsk: proShouldAsk,
       hasOtherOpenIncident: cubit.state.openIncidents.isNotEmpty,

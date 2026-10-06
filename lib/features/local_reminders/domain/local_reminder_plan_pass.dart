@@ -41,9 +41,9 @@ final class LocalReminderPlanPass implements LocalReminderPlanTrigger {
     required LocalReminderSettler settler,
     required Future<LocalReminderInputs?> Function() readInputs,
     required LocalReminderCopy copy,
+    required bool isWeb,
     Future<bool> Function()? isPaused,
     LocalReminderPlanner planner = const LocalReminderPlanner(),
-    bool isWeb = kIsWeb,
     DateTime Function()? clock,
   }) : // The fields are private and the parameters are public, so they
        // cannot be initializing formals.
