@@ -1,6 +1,7 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/core/models/device_registration.dart';
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/notice_detail_sheet.dart';
@@ -42,7 +43,10 @@ Future<void> showProPlanSheet(
         ),
         body: LocaleKeys.notices_pro_ending_body.tr(namedArgs: _freeCaps),
         actionLabel: LocaleKeys.notices_pro_ending_action.tr(),
-        onAction: () => openAppPath(context, '/paywall'),
+        onAction: () => openAppPath(
+          context,
+          paywallLocation(PaywallSource.planSheetEnding),
+        ),
         onDismiss: onDismiss ?? () {},
       );
     case ProPlanSheet.ended:
@@ -55,7 +59,10 @@ Future<void> showProPlanSheet(
         body: LocaleKeys.notices_pro_ended_body.tr(namedArgs: _freeCaps),
         actionLabel: LocaleKeys.notices_pro_ended_action.tr(),
         dismissLabel: LocaleKeys.notices_pro_ended_dismiss.tr(),
-        onAction: () => openAppPath(context, '/paywall'),
+        onAction: () => openAppPath(
+          context,
+          paywallLocation(PaywallSource.planSheetEnded),
+        ),
         onDismiss: onDismiss ?? () {},
       );
   }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
@@ -23,11 +24,13 @@ import 'package:flutter/material.dart';
 Future<void> showProAskSheet({
   required BuildContext context,
   required InAppNoticeRepository repository,
+  required HostedAskTrigger trigger,
 }) {
   final analytics = getIt.isRegistered<LocalReminderAnalytics>()
       ? getIt<LocalReminderAnalytics>()
       : null;
   unawaited(repository.markProAsked());
+  unawaited(analytics?.hostedAskShown(trigger: trigger));
   return showAppSheet<void>(
     context: context,
     content: (sheetContext) => ProAskSheet(
@@ -36,7 +39,7 @@ Future<void> showProAskSheet({
         unawaited(
           analytics?.proAskAnswered(answer: LocalReminderAnalytics.seePlans),
         );
-        openAppPath(context, '/paywall');
+        openAppPath(context, paywallLocation(PaywallSource.askSheet));
       },
       onRemindLater: () {
         Navigator.of(sheetContext).pop();
