@@ -4,6 +4,8 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
+import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
@@ -272,7 +274,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
   /// Asked once per refusal, and only if the rules say this user still wants
   /// to hear it. Somebody who already pays, or who has said no twice, never
   /// sees it.
-  Future<void> _askAboutPro(BuildContext context) async {
+  Future<void> _askAboutPro(
+    BuildContext context,
+    HostedAskTrigger trigger,
+  ) async {
     if (_hasAskedAboutPro) return;
     _hasAskedAboutPro = true;
     final rules = getIt<ProAskRules>();
@@ -282,7 +287,11 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
     await getIt<LocalReminderSettler>().settleAsks(now: DateTime.now());
     if (!await rules.shouldAsk()) return;
     if (!context.mounted) return;
-    await showProAskSheet(context: context, repository: repository);
+    await showProAskSheet(
+      context: context,
+      repository: repository,
+      trigger: trigger,
+    );
   }
 
   void _submit() {
@@ -595,7 +604,11 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                   size: AppButtonSize.sm,
                   onPressed: () {
                     AppHaptics.capture();
-                    unawaited(context.push('/paywall'));
+                    unawaited(
+                      context.push(
+                        paywallLocation(PaywallSource.createTopicCard),
+                      ),
+                    );
                   },
                 ),
               ],
@@ -704,7 +717,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
           // it, after the topic they came for is safely made. Never in
           // setup, which shows no ask.
           if (!_isSetup && state.isFreeTier && state.criticalRemaining == 1) {
-            unawaited(_askAboutPro(context));
+            unawaited(_askAboutPro(context, HostedAskTrigger.lastCriticalUsed));
           }
         }
         // Hitting the limit is the one moment the user is actually thinking
@@ -717,7 +730,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
           if (state.isProPending) {
             _showToast(LocaleKeys.create_topic_toast_pro_pending.tr());
           } else if (!_isSetup) {
-            unawaited(_askAboutPro(context));
+            unawaited(_askAboutPro(context, HostedAskTrigger.capRefused));
           }
         }
         if (state.status == CreateTopicStatus.failure) {

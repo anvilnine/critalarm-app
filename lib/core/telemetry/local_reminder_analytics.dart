@@ -6,8 +6,28 @@ abstract final class LocalReminderEvents {
   static const switchChanged = 'reminder_switch_changed';
   static const sheetAnswered = 'reminder_sheet_answered';
   static const proAskAnswered = 'pro_prompt_answered';
+  static const hostedAskShown = 'hosted_ask_shown';
   static const testRingSent = 'test_ring_sent';
   static const quickActionUsed = 'quick_action_used';
+}
+
+/// What put the Hosted ask on screen, for `hosted_ask_shown`.
+enum HostedAskTrigger {
+  /// The create-topic call was refused at the critical topic cap.
+  capRefused('cap_refused'),
+
+  /// A create left one critical topic on the free plan.
+  lastCriticalUsed('last_critical_used'),
+
+  /// After a real acknowledge.
+  afterAck('after_ack'),
+
+  /// Owed since a night acknowledge and shown on Home in the daytime.
+  owedAfterNightAck('owed_after_night_ack');
+
+  const HostedAskTrigger(this.wire);
+
+  final String wire;
 }
 
 /// Thin wrapper so callers name an event instead of building a params map.
@@ -40,6 +60,9 @@ final class LocalReminderAnalytics {
 
   Future<void> proAskAnswered({required String answer}) =>
       _gate.logEvent(LocalReminderEvents.proAskAnswered, {'answer': answer});
+
+  Future<void> hostedAskShown({required HostedAskTrigger trigger}) => _gate
+      .logEvent(LocalReminderEvents.hostedAskShown, {'trigger': trigger.wire});
 
   Future<void> testRingSent({required String result}) =>
       _gate.logEvent(LocalReminderEvents.testRingSent, {'result': result});

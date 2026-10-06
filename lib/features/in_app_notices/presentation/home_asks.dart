@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
+import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
@@ -159,7 +160,10 @@ Future<void> _showLocalReminderAsk(
     case LocalReminderHomeAsk.proSheet:
       await store.writeProSheetOwed(owed: false);
       if (!context.mounted) return;
-      await askProSheet(context);
+      await askProSheet(
+        context,
+        trigger: HostedAskTrigger.owedAfterNightAck,
+      );
     case LocalReminderHomeAsk.none:
       break;
   }

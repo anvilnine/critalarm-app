@@ -1,3 +1,4 @@
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_args.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_kind.dart';
@@ -37,8 +38,6 @@ final class OpenFeedbackFormAction extends LocalReminderTapAction {
 abstract final class LocalReminderTapRoute {
   static const String ringPath = '/ring';
   static const String signInPath = '/settings/account';
-  static const String morningAfterSource = 'reminder_morning_after';
-  static const String proLaterSource = 'reminder_pro_later';
 
   /// Home, for a Pro tap from someone who already pays.
   static const String homePath = '/';
@@ -58,11 +57,13 @@ abstract final class LocalReminderTapRoute {
     LocalReminderKind.morningAfter =>
       isPaid
           ? const OpenRouteAction(homePath)
-          : const OpenRouteAction('/paywall?source=$morningAfterSource'),
+          : OpenRouteAction(
+              paywallLocation(PaywallSource.reminderMorningAfter),
+            ),
     LocalReminderKind.proLater =>
       isPaid
           ? const OpenRouteAction(homePath)
-          : const OpenRouteAction('/paywall?source=$proLaterSource'),
+          : OpenRouteAction(paywallLocation(PaywallSource.reminderProLater)),
     LocalReminderKind.reviewAsk => const OpenStoreReviewAction(),
     LocalReminderKind.feedbackAsk => const OpenFeedbackFormAction(
       FeedbackLinks.localReminderSource,

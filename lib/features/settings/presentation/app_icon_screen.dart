@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:confetti/confetti.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/app_icon/app_icon.dart';
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/settings/presentation/app_icon_showcase_logic.dart';
@@ -14,9 +15,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-
-/// Where `?source=` says the paywall was opened from, for paywall_viewed.
-const appIconPaywallSource = 'app_icon';
 
 /// The four home screen icons as a showcase. Pro picks any of them; everyone
 /// else sees the three Pro icons tilting and glinting with a lock, and the
@@ -141,7 +139,7 @@ class _AppIconViewState extends State<_AppIconView>
         return;
       case IconAction.unlock:
         AppHaptics.selection();
-        unawaited(context.push('/paywall?source=$appIconPaywallSource'));
+        unawaited(context.push(paywallLocation(PaywallSource.appIcon)));
       case IconAction.use:
         final pick = await cubit.pick(icon);
         if (!mounted) return;
@@ -152,7 +150,7 @@ class _AppIconViewState extends State<_AppIconView>
             _confetti.play();
           }
         } else if (pick == AppIconPick.locked) {
-          unawaited(context.push('/paywall?source=$appIconPaywallSource'));
+          unawaited(context.push(paywallLocation(PaywallSource.appIcon)));
         }
     }
   }
