@@ -256,4 +256,50 @@ void main() {
       );
     });
   });
+
+  group('countsAsHomeOpen', () {
+    test('a resume with Home in front counts', () {
+      expect(
+        countsAsHomeOpen(
+          isCovered: false,
+          isRouteElsewhere: false,
+          isTabShown: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('a resume with another screen pushed over Home does not', () {
+      expect(
+        countsAsHomeOpen(
+          isCovered: true,
+          isRouteElsewhere: false,
+          isTabShown: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('a resume while the router shows another screen does not', () {
+      expect(
+        countsAsHomeOpen(
+          isCovered: false,
+          isRouteElsewhere: true,
+          isTabShown: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('a resume on another tab does not', () {
+      expect(
+        countsAsHomeOpen(
+          isCovered: false,
+          isRouteElsewhere: false,
+          isTabShown: false,
+        ),
+        isFalse,
+      );
+    });
+  });
 }

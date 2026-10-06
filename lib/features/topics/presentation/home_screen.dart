@@ -14,6 +14,7 @@ import 'package:critalarm/features/feature_guides/presentation/cubits/feature_gu
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_examples.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
+import 'package:critalarm/features/in_app_notices/domain/day0_card_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
@@ -262,7 +263,16 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     _tellSetup();
     if (state == AppLifecycleState.resumed && mounted) {
       unawaited(context.read<InAppNoticeCubit>().onAppResumed());
-      unawaited(_runHomeAsk(isNewOpen: true));
+      // Only a resume with Home in front counts as one of the card's opens.
+      unawaited(
+        _runHomeAsk(
+          isNewOpen: countsAsHomeOpen(
+            isCovered: _isCovered,
+            isRouteElsewhere: _isRouteElsewhere,
+            isTabShown: TickerMode.valuesOf(context).enabled,
+          ),
+        ),
+      );
     }
   }
 

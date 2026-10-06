@@ -18,6 +18,8 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_settler
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rules.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
+import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
+import 'package:critalarm/features/topics/domain/count_card_layout.dart';
 import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
@@ -319,16 +321,13 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
     }
   }
 
-  String _criticalRemainingText(CreateTopicState state) {
-    final limit = state.criticalLimit ?? 2;
-    final remaining = state.criticalRemaining;
-    if (remaining != null && remaining > 0) {
-      return LocaleKeys.create_topic_free_tier_critical_remaining.tr(
-        namedArgs: {'remaining': '$remaining', 'limit': '$limit'},
-      );
-    }
-    return LocaleKeys.create_topic_free_tier_critical_exhausted.tr(
-      namedArgs: {'limit': '$limit'},
+  /// "N of M critical topics used", the same line Settings shows.
+  String _criticalUsedText(CreateTopicState state) {
+    return LocaleKeys.account_critical_usage.tr(
+      namedArgs: {
+        'count': '${state.criticalUsed}',
+        'limit': '${state.criticalLimit ?? 2}',
+      },
     );
   }
 
@@ -557,7 +556,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                 ),
         ),
         // On the first topic the card above carries the plan line and the
-        // Go Hosted button waits until a critical topic exists.
+        // See Hosted plans button waits until a critical topic exists.
         if (state.showsCriticalCountCard) ...[
           const SizedBox(height: 10),
           _criticalCountCard(context, state),
@@ -566,19 +565,19 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
     );
   }
 
-  /// The plan count and the Go Hosted button. At a large text size the row
-  /// has no room for both, so the button moves under the text and the words
-  /// wrap between words.
+  /// The plan count, what Hosted adds, the own-server line and the See Hosted
+  /// plans button. At a large text size the row has no room for both, so the
+  /// button moves under the text and the words wrap between words.
   Widget _criticalCountCard(BuildContext context, CreateTopicState state) {
     final colors = context.appColors;
-    final isLarge = MediaQuery.textScalerOf(context).scale(13) / 13 >= 1.3;
+    final textScale = MediaQuery.textScalerOf(context).scale(13) / 13;
 
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          _criticalRemainingText(state),
+          _criticalUsedText(state),
           style: TextStyle(
             fontFamily: AppTypography.fontBody,
             fontFamilyFallback: AppTypography.fontBodyFallbacks,
@@ -589,7 +588,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
         ),
         const SizedBox(height: 2),
         Text(
-          LocaleKeys.create_topic_free_tier_pro_hint.tr(),
+          HostedBenefit.all
+              .firstWhere((b) => b.id == HostedBenefitId.topics)
+              .shortKey
+              .tr(namedArgs: HostedBenefit.args),
           style: TextStyle(
             fontFamily: AppTypography.fontBody,
             fontFamilyFallback: AppTypography.fontBodyFallbacks,
@@ -597,10 +599,22 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
             color: colors.ink3,
           ),
         ),
+        if (HostedSurface.createTopicCard.ownServerLine case final line?) ...[
+          const SizedBox(height: 2),
+          Text(
+            line,
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontFamilyFallback: AppTypography.fontBodyFallbacks,
+              fontSize: 12,
+              color: colors.ink3,
+            ),
+          ),
+        ],
       ],
     );
     final button = AppButton(
-      label: LocaleKeys.create_topic_go_pro_button.tr(),
+      label: LocaleKeys.asks_pro_button.tr(),
       size: AppButtonSize.sm,
       onPressed: () {
         AppHaptics.capture();
@@ -617,23 +631,26 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
         borderRadius: Radii.mdAll,
         border: Border.all(color: colors.hairline),
       ),
-      child: isLarge
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                text,
-                const SizedBox(height: 10),
-                button,
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(child: text),
-                const SizedBox(width: 12),
-                button,
-              ],
-            ),
+      child: LayoutBuilder(
+        builder: (context, box) =>
+            countCardStacks(innerWidth: box.maxWidth, textScale: textScale)
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  text,
+                  const SizedBox(height: 10),
+                  Align(alignment: Alignment.centerLeft, child: button),
+                ],
+              )
+            : Row(
+                children: [
+                  Expanded(child: text),
+                  const SizedBox(width: 12),
+                  button,
+                ],
+              ),
+      ),
     );
   }
 

@@ -52,6 +52,32 @@ void main() {
     }
   });
 
+  test('every surface that names Hosted also says the own-server line', () {
+    // The Hosted reminder is a one-line notification and is the one known
+    // exception. A new surface without the line fails here.
+    const exempt = {HostedSurface.proLaterReminder};
+    for (final surface in HostedSurface.values) {
+      if (exempt.contains(surface)) {
+        expect(surface.hasOwnServerLine, isFalse, reason: surface.name);
+        expect(surface.ownServerLine, isNull, reason: surface.name);
+        continue;
+      }
+      expect(surface.hasOwnServerLine, isTrue, reason: surface.name);
+    }
+  });
+
+  test('the own-server line is the paywall note and reads as written', () {
+    expect(
+      strings['paywall.self_hosted_note'],
+      'Running your own server? No limits, no charge.',
+    );
+    for (final surface in HostedSurface.values) {
+      if (surface.hasOwnServerLine) {
+        expect(surface.ownServerLine, isNotNull);
+      }
+    }
+  });
+
   test('every key of every benefit resolves to English', () {
     for (final b in HostedBenefit.all) {
       for (final key in [
