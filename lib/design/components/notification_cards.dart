@@ -5,6 +5,8 @@ import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design/tokens/typography.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// Notification card for lock screen and preview displays
@@ -86,7 +88,7 @@ class AppNotificationCard extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      'Crit Alarm',
+                      LocaleKeys.app_title.tr(),
                       style: TextStyle(
                         fontFamily: AppTypography.fontBody,
                         fontFamilyFallback: AppTypography.fontBodyFallbacks,
