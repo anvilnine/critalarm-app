@@ -52,7 +52,7 @@ class LocalTestCountdownCard extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            '${seconds}s',
+            '${seconds}s', // l10n-ok: unit letter after a number of seconds
             style: TextStyle(
               fontFamily: AppTypography.fontDisplay,
               fontFamilyFallback: AppTypography.fontDisplayFallbacks,
