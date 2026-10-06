@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:confetti/confetti.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
+import 'package:critalarm/core/alarm/alarm_host.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
@@ -16,6 +17,7 @@ import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_screen_reader.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_state.dart';
 import 'package:critalarm/features/incidents/presentation/widgets/proof_list.dart';
@@ -32,6 +34,7 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_navigation
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -83,6 +86,14 @@ class _CriticalAlarmView extends StatefulWidget {
 
 class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   AmbientDirection _direction = AmbientDirection.push;
+
+  /// The "I'm up" button, so a screen reader can be put on it.
+  final GlobalKey _ackButtonKey = GlobalKey();
+
+  /// The ringing announcement is made once for the life of this screen, even
+  /// when the ringing layout comes back after an acknowledge the server
+  /// refused.
+  bool _didAnnounceRinging = false;
 
   /// The alarm just stopped, which is the moment the app proved it works.
   /// Waits for the acknowledged screen to settle, then lets
@@ -258,7 +269,17 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
                     final router = GoRouter.of(context);
                     unawaited(cubit.silence().then((_) => router.go('/')));
                   },
-                  child: _RingingScreen(state: state, colors: colors),
+                  child: _RingingScreenReader(
+                    state: state,
+                    ackButtonKey: _ackButtonKey,
+                    announces: !_didAnnounceRinging,
+                    onAnnounced: () => _didAnnounceRinging = true,
+                    child: _RingingScreen(
+                      state: state,
+                      colors: colors,
+                      ackButtonKey: _ackButtonKey,
+                    ),
+                  ),
                 );
               },
             ),
@@ -278,10 +299,32 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
 /// The ringing takeover: pulse rings, face, incident detail, and the two
 /// pinned actions (acknowledge and snooze).
 class _RingingScreen extends StatelessWidget {
-  const _RingingScreen({required this.state, required this.colors});
+  const _RingingScreen({
+    required this.state,
+    required this.colors,
+    required this.ackButtonKey,
+  });
 
   final CriticalAlarmState state;
   final AppColors colors;
+  final GlobalKey ackButtonKey;
+
+  // The order a screen reader walks the ringing screen in. "I'm up" is in
+  // the pinned bar at the bottom and still comes first, because stopping the
+  // alarm must not take a hunt. Then what is ringing, then the two quiet
+  // buttons. Nothing moves on screen.
+  static const _orderAcknowledge = OrdinalSortKey(0);
+  static const _orderError = OrdinalSortKey(0.5);
+  static const _orderContent = OrdinalSortKey(1);
+  static const _orderSilence = OrdinalSortKey(2);
+  static const _orderReadMessage = OrdinalSortKey(3);
+
+  // Inside the content: the topic, how long it has rung, the pill when more
+  // than one alarm is open, then the message.
+  static const _orderTopic = OrdinalSortKey(0);
+  static const _orderRingTime = OrdinalSortKey(1);
+  static const _orderAlarmCount = OrdinalSortKey(2);
+  static const _orderMessage = OrdinalSortKey(3);
 
   @override
   Widget build(BuildContext context) {
@@ -292,33 +335,43 @@ class _RingingScreen extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (state.errorMessage != null) ...[
-          AppToast(
-            faceState: FaceState.worried,
-            message: state.errorMessage,
+          Semantics(
+            sortKey: _orderError,
+            child: AppToast(
+              faceState: FaceState.worried,
+              message: state.errorMessage,
+            ),
           ),
           const SizedBox(height: 8),
         ],
-        AppButton(
-          label: LocaleKeys.critical_alarm_acknowledge_button.tr(),
-          isFullWidth: true,
-          isLoading: state.isAcknowledging,
-          onPressed: () {
-            unawaited(context.read<CriticalAlarmCubit>().acknowledge());
-          },
+        Semantics(
+          key: ackButtonKey,
+          sortKey: _orderAcknowledge,
+          child: AppButton(
+            label: LocaleKeys.critical_alarm_acknowledge_button.tr(),
+            isFullWidth: true,
+            isLoading: state.isAcknowledging,
+            onPressed: () {
+              unawaited(context.read<CriticalAlarmCubit>().acknowledge());
+            },
+          ),
         ),
         const SizedBox(height: 8),
         // Silence is not an acknowledge. The noise stops, the incident stays
         // open, and the phone sets its own next ring for the same id.
         // No stroke: I'm up is the answer and this is the quiet one. It is
         // still a full-size pill, in a tint of the canvas.
-        AppButton(
-          label: LocaleKeys.critical_alarm_silence_ringing_button.tr(),
-          variant: AppButtonVariant.tinted,
-          isFullWidth: true,
-          onPressed: () {
-            AppHaptics.selection();
-            unawaited(context.read<CriticalAlarmCubit>().silence());
-          },
+        Semantics(
+          sortKey: _orderSilence,
+          child: AppButton(
+            label: LocaleKeys.critical_alarm_silence_ringing_button.tr(),
+            variant: AppButtonVariant.tinted,
+            isFullWidth: true,
+            onPressed: () {
+              AppHaptics.selection();
+              unawaited(context.read<CriticalAlarmCubit>().silence());
+            },
+          ),
         ),
         const SizedBox(height: 8),
         // Hidden for a setup test, which is known by its incident id and never
@@ -328,20 +381,23 @@ class _RingingScreen extends StatelessWidget {
         // The same quiet pill as Silence. With a stroke it would outrank
         // it, and the order of weight is I'm up, Silence, then this.
         if (!state.ackedExits.isSetupTest)
-          AppButton(
-            label: LocaleKeys.critical_alarm_read_message_button.tr(),
-            variant: AppButtonVariant.tinted,
-            isFullWidth: true,
-            // Reading is not acknowledging, so this leaves the alarm ringing
-            // and takes the user to the messages on the topic.
-            onPressed: state.incident == null
-                ? null
-                : () {
-                    AppHaptics.selection();
-                    unawaited(
-                      context.push('/topics/${state.incident!.topic}'),
-                    );
-                  },
+          Semantics(
+            sortKey: _orderReadMessage,
+            child: AppButton(
+              label: LocaleKeys.critical_alarm_read_message_button.tr(),
+              variant: AppButtonVariant.tinted,
+              isFullWidth: true,
+              // Reading is not acknowledging, so this leaves the alarm
+              // ringing and takes the user to the messages on the topic.
+              onPressed: state.incident == null
+                  ? null
+                  : () {
+                      AppHaptics.selection();
+                      unawaited(
+                        context.push('/topics/${state.incident!.topic}'),
+                      );
+                    },
+            ),
           ),
       ],
     );
@@ -349,6 +405,7 @@ class _RingingScreen extends StatelessWidget {
     if (isWide) {
       return AppScreenScaffold(
         hasTabBar: false,
+        contentSortKey: _orderContent,
         slivers: [
           SliverFillRemaining(
             hasScrollBody: false,
@@ -385,6 +442,7 @@ class _RingingScreen extends StatelessWidget {
 
     return AppScreenScaffold(
       hasTabBar: false,
+      contentSortKey: _orderContent,
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
@@ -421,6 +479,14 @@ class _RingingScreen extends StatelessWidget {
   Widget _face(double faceSize) {
     // A setup test takes the face over from the setup screen it came from.
     final isDemo = state.ackedExits.isSetupTest;
+    // The face and its pulse ring are a picture of the state. The words say
+    // the same thing, so a screen reader passes over both.
+    return ExcludeSemantics(
+      child: _faceStage(faceSize, isDemo: isDemo),
+    );
+  }
+
+  Widget _faceStage(double faceSize, {required bool isDemo}) {
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: SizedBox(
@@ -458,43 +524,61 @@ class _RingingScreen extends StatelessWidget {
   }
 
   Widget _word(TextAlign align) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Text(
-        state.word,
-        textAlign: align,
-        style: AppTypography.display(colors.onCanvas),
-      ),
-    );
-  }
-
-  Widget _topic(TextAlign align) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Text(
-        state.topic,
-        textAlign: align,
-        style: TextStyle(
-          fontFamily: AppTypography.fontMono,
-          fontFamilyFallback: AppTypography.fontMonoFallbacks,
-          fontWeight: FontWeight.w700,
-          fontSize: 17,
-          color: colors.onCanvas,
+    // Read together with the topic name, which comes first there.
+    return ExcludeSemantics(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          state.word,
+          textAlign: align,
+          style: AppTypography.display(colors.onCanvas),
         ),
       ),
     );
   }
 
+  Widget _topic(TextAlign align) {
+    return Semantics(
+      sortKey: _orderTopic,
+      label: spokenTopic(topic: state.topic, word: state.word),
+      excludeSemantics: true,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          state.topic,
+          textAlign: align,
+          style: TextStyle(
+            fontFamily: AppTypography.fontMono,
+            fontFamilyFallback: AppTypography.fontMonoFallbacks,
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
+            color: colors.onCanvas,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// How long the alarm has been ringing. The line counts seconds for the
+  /// eye. A screen reader gets whole minutes, so what it holds changes once a
+  /// minute, and it is not a live region: nothing is read out on its own.
   Widget _subtext(TextAlign align) {
-    return Text(
-      state.subtext,
-      textAlign: align,
-      style: TextStyle(
-        fontFamily: AppTypography.fontBody,
-        fontFamilyFallback: AppTypography.fontBodyFallbacks,
-        fontWeight: FontWeight.w600,
-        fontSize: 15,
-        color: colors.onCanvas,
+    return Semantics(
+      sortKey: _orderRingTime,
+      label: state.ringTimeSpoken.isEmpty
+          ? state.subtext
+          : state.ringTimeSpoken,
+      excludeSemantics: true,
+      child: Text(
+        state.subtext,
+        textAlign: align,
+        style: TextStyle(
+          fontFamily: AppTypography.fontBody,
+          fontFamilyFallback: AppTypography.fontBodyFallbacks,
+          fontWeight: FontWeight.w600,
+          fontSize: 15,
+          color: colors.onCanvas,
+        ),
       ),
     );
   }
@@ -508,6 +592,7 @@ class _RingingScreen extends StatelessWidget {
       padding: const EdgeInsets.only(top: Spacing.s2),
       child: Semantics(
         button: true,
+        sortKey: _orderAlarmCount,
         child: GestureDetector(
           onTap: () => unawaited(_showOtherAlarms(context)),
           child: Container(
@@ -562,6 +647,22 @@ class _RingingScreen extends StatelessWidget {
   }
 
   Widget _detailSheet() {
+    // One stop for the whole message, so it is one swipe to hear it and one
+    // more to reach Silence.
+    return Semantics(
+      container: true,
+      sortKey: _orderMessage,
+      label: spokenMessage(
+        title: state.title,
+        body: state.body,
+        meta: state.meta,
+      ),
+      excludeSemantics: true,
+      child: _detailCard(),
+    );
+  }
+
+  Widget _detailCard() {
     return AppSheet(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -603,6 +704,116 @@ class _RingingScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// What the ringing screen does for a screen reader, and nothing a sighted
+/// user can see: it puts the reader on "I'm up", says once which topic is
+/// ringing and for how long, and takes the VoiceOver magic tap.
+class _RingingScreenReader extends StatefulWidget {
+  const _RingingScreenReader({
+    required this.state,
+    required this.ackButtonKey,
+    required this.announces,
+    required this.onAnnounced,
+    required this.child,
+  });
+
+  final CriticalAlarmState state;
+  final GlobalKey ackButtonKey;
+
+  /// False once this screen has made its announcement.
+  final bool announces;
+  final VoidCallback onAnnounced;
+  final Widget child;
+
+  @override
+  State<_RingingScreenReader> createState() => _RingingScreenReaderState();
+}
+
+class _RingingScreenReaderState extends State<_RingingScreenReader> {
+  /// Long enough for the reader to say "I'm up, button" first. An
+  /// announcement made in the same moment as the focus move is cut off by it.
+  static const _announceDelay = Duration(seconds: 1);
+
+  /// The ringing screens in front right now. The magic tap stays armed on
+  /// the phone while there is one, whichever order two screens report in.
+  static final Set<Object> _inFrontScreens = <Object>{};
+
+  late final AlarmHost _host = getIt<AlarmHost>();
+  StreamSubscription<void>? _magicTaps;
+  Timer? _announceTimer;
+  bool _isInFront = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final cubit = context.read<CriticalAlarmCubit>();
+    _magicTaps = _host.magicTaps.listen((_) {
+      // The same path as the button. The cubit turns it down unless the
+      // alarm is ringing and this screen is the one in front.
+      unawaited(
+        cubit.acknowledgeFromMagicTap(isRingingScreenInFront: _isInFront),
+      );
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _greet());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // False while a sheet or another screen covers this one.
+    _setInFront(ModalRoute.isCurrentOf(context) ?? true);
+  }
+
+  void _setInFront(bool isInFront) {
+    if (isInFront == _isInFront) return;
+    _isInFront = isInFront;
+    if (isInFront) {
+      _inFrontScreens.add(this);
+    } else {
+      _inFrontScreens.remove(this);
+    }
+    unawaited(_host.setMagicTapArmed(isArmed: _inFrontScreens.isNotEmpty));
+  }
+
+  /// Runs once the first ringing frame is up. Does nothing without a screen
+  /// reader.
+  void _greet() {
+    if (!mounted || !MediaQuery.accessibleNavigationOf(context)) return;
+    widget.ackButtonKey.currentContext?.findRenderObject()?.sendSemanticsEvent(
+      const FocusSemanticEvent(),
+    );
+    if (!widget.announces) return;
+    widget.onAnnounced();
+    final view = View.of(context);
+    final direction = Directionality.of(context);
+    _announceTimer = Timer(_announceDelay, () {
+      if (!mounted) return;
+      final state = widget.state;
+      unawaited(
+        SemanticsService.sendAnnouncement(
+          view,
+          ringingAnnouncement(
+            topic: state.topic,
+            ringTime: state.ringTimeSpoken,
+            openAlarms: state.openIncidents.length,
+          ),
+          direction,
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _announceTimer?.cancel();
+    unawaited(_magicTaps?.cancel());
+    _setInFront(false);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// The acknowledged confirmation: how long it rang, when it started and was
