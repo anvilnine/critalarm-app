@@ -39,6 +39,7 @@ class AppScreenScaffold extends StatefulWidget {
     this.ghostOpacity = 1,
     this.resizeForKeyboard = false,
     this.barBacking,
+    this.contentSortKey,
     super.key,
   }) : assert(
          onRefresh == null || onFaceRefresh == null,
@@ -101,6 +102,15 @@ class AppScreenScaffold extends StatefulWidget {
   /// has no canvas colour to draw there, and half-seen rows between two
   /// pinned controls read as a fault. Pass the canvas colour.
   final Color? barBacking;
+
+  /// Where the scrolling body sits in the screen reader order, against the
+  /// sort keys the caller put on the controls in [bottomBar]. Null leaves
+  /// the usual order: the body, then the pinned bar.
+  ///
+  /// For a screen whose pinned action has to be reached before its content,
+  /// such as the ringing alarm. The body becomes one group with this key, so
+  /// a bar control with a lower key is read first. Nothing moves on screen.
+  final SemanticsSortKey? contentSortKey;
 
   /// How far the soft edge of [barBacking] runs past the bar.
   static const double _backingEdge = 16;
@@ -258,6 +268,14 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
           SliverPadding(padding: EdgeInsets.only(top: bottomInset)),
         ],
       );
+
+      if (widget.contentSortKey != null) {
+        list = Semantics(
+          container: true,
+          sortKey: widget.contentSortKey,
+          child: list,
+        );
+      }
 
       if (widget.onRefresh != null) {
         list = RefreshIndicator(
