@@ -85,7 +85,8 @@ void main() {
 
   group('OnboardingConnectScreen fixes', () {
     testWidgets(
-      'is not scrollable, Set this up later is TextButton, and plays the '
+      'scrolls only when the card does not fit, Set this up later is '
+      'TextButton, and plays the '
       'onboarding animations',
       (tester) async {
         tester.view.physicalSize = const Size(390 * 2, 844 * 2);
@@ -101,14 +102,16 @@ void main() {
 
         expect(find.byType(OnboardingConnectScreen), findsOneWidget);
 
-        // 1. Check screen is not scrollable (NeverScrollableScrollPhysics)
+        // 1. The page is still while the card fits and scrolls when it does
+        // not (ClampingScrollPhysics), so a large text size never puts the
+        // card out of reach.
         final scrollView = tester.widget<CustomScrollView>(
           find.descendant(
             of: find.byType(OnboardingConnectScreen),
             matching: find.byType(CustomScrollView),
           ),
         );
-        expect(scrollView.physics, isA<NeverScrollableScrollPhysics>());
+        expect(scrollView.physics, isA<ClampingScrollPhysics>());
 
         // 2. Check Set this up later is a TextButton
         final skipButtonFinder = find.widgetWithText(
