@@ -520,10 +520,11 @@
     "why": "Why?",
     "pro_ending_title": "Hosted ends {weekday}, {date}",
     "pro_ending_pill": "Hosted ends {weekday}",
-    "pro_ending_body": "After that:\n• Home screen widgets lock\n• History keeps {history_days} days\n• {p4_daily} low-priority pushes a day\n• No new critical topics past {critical_topics}\n\nYour alarms keep ringing.",
+    "pro_ending_intro": "After that:",
+    "pro_ending_outro": "Your alarms keep ringing.",
     "pro_ending_action": "Keep Hosted",
     "pro_ended_title": "Your Hosted plan ended",
-    "pro_ended_body": "Your alarms keep ringing.\n\nWhat changed:\n• Home screen widgets are locked\n• History keeps {history_days} days\n• {p4_daily} low-priority pushes a day\n• No new critical topics past {critical_topics}",
+    "pro_ended_intro": "Your alarms keep ringing.\n\nWhat changed:",
     "pro_ended_action": "See plans",
     "pro_ended_dismiss": "OK",
     "setup_health_title": "Crit Alarm cannot reach you yet",
@@ -536,7 +537,6 @@
   "asks": {
     "pro_title": "Support Crit Alarm Hosted",
     "pro_subtitle": "Support solo development and remove limits:",
-    "pro_bullet_topics": "Unlimited critical topics (raise your limits)",
     "pro_bullet_support": "Support independent development",
     "pro_button": "See Hosted plans",
     "pro_fed": "Hosted keeps a solo developer fed.",
@@ -1066,27 +1066,10 @@
     "stage_word": "Crit Alarm Hosted",
     "stage_sub_active": "Unlimited critical topics.",
     "stage_sub_one_job": "Add as many critical topics as you need.",
-    "feature_unlimited_topics": "Unlimited critical topics. Free stops at 2.",
-    "feature_push_limit": "1,000 high priority pushes a day, up from 50.",
-    "feature_history": "90 days of alarm history, up from 7.",
-    "feature_app_icons": "Three Hosted app icons: a crown, shades, or both.",
-    "feature_widgets": "Home screen widgets: see what is ringing without opening the app.",
     "self_hosted_note": "Running your own server? No limits, no charge.",
     "compare_header": "Free and Hosted",
     "compare_col_free": "Free",
     "compare_col_hosted": "Hosted",
-    "compare_row_topics": "Critical topics",
-    "compare_row_pushes": "High priority pushes a day",
-    "compare_row_history_days": "History kept",
-    "compare_free_topics": "2",
-    "compare_hosted_topics": "No limit",
-    "compare_free_pushes": "50",
-    "compare_hosted_pushes": "1,000",
-    "compare_free_history_days": "7 days",
-    "compare_hosted_history_days": "90 days",
-    "compare_row_widgets": "Home screen widgets",
-    "compare_free_widgets": "Locked",
-    "compare_hosted_widgets": "Included",
     "active_title": "Crit Alarm Hosted is active",
     "active_subtitle": "Thanks for paying for this.",
     "manage_subscription_button": "Manage subscription",
@@ -1112,6 +1095,48 @@
     "feedback_no_active_restored": "Nothing to restore on this account.",
     "feedback_purchases_restored": "Purchases restored.",
     "error_subscription_failed": "That did not go through. Try again."
+  },
+  "hosted_benefits": {
+    "topics": {
+      "short": "Unlimited critical topics. Free stops at {free_critical_topics}.",
+      "compare_label": "Critical topics",
+      "compare_free": "{free_critical_topics}",
+      "compare_hosted": "No limit",
+      "lose": "Critical topics: no new ones past {free_critical_topics}",
+      "phrase": "unlimited critical topics"
+    },
+    "pushes": {
+      "short": "{hosted_p4_daily} high priority pushes a day, up from {free_p4_daily}.",
+      "compare_label": "High priority pushes a day",
+      "compare_free": "{free_p4_daily}",
+      "compare_hosted": "{hosted_p4_daily}",
+      "lose": "High priority pushes: {free_p4_daily} a day",
+      "phrase": "{hosted_p4_daily} high priority pushes a day"
+    },
+    "history": {
+      "short": "{hosted_history_days} days of alarm history, up from {free_history_days}.",
+      "compare_label": "History kept",
+      "compare_free": "{free_history_days} days",
+      "compare_hosted": "{hosted_history_days} days",
+      "lose": "History: {free_history_days} days",
+      "phrase": "{hosted_history_days} days of history"
+    },
+    "widgets": {
+      "short": "Home screen widgets: see what is ringing without opening the app.",
+      "compare_label": "Home screen widgets",
+      "compare_free": "Locked",
+      "compare_hosted": "Included",
+      "lose": "Home screen widgets: locked",
+      "phrase": "home screen widgets"
+    },
+    "app_icons": {
+      "short": "Three Hosted app icons: a crown, shades, or both.",
+      "compare_label": "App icons",
+      "compare_free": "Default",
+      "compare_hosted": "Three extra",
+      "lose": "App icons: back to the default",
+      "phrase": "three app icons"
+    }
   },
   "purchase_errors": {
     "purchase_cancelled": "Purchase was cancelled.",
@@ -1456,7 +1481,7 @@
       "other": "{topic} rang and you were up in {} s. Hosted gives you unlimited critical topics and 90 days of history."
     },
     "pro_later_title": "Still thinking about Hosted?",
-    "pro_later_body": "Hosted gives you unlimited critical topics and 90 days of history.",
+    "pro_later_body": "Hosted gives you {benefits}.",
     "review_title_1": "Is Crit Alarm doing its job?",
     "review_body_1": "If it is, a short review on {store} helps other on-call people find it.",
     "review_title_2": "Got a minute for a rating?",

@@ -6,6 +6,7 @@ import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/ask_sheet_parts.dart';
+import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -90,8 +91,10 @@ class ProAskSheet extends StatelessWidget {
           style: AppTypography.small(colors.ink2),
         ),
         const SizedBox(height: 14),
-        AskSheetBullet(LocaleKeys.asks_pro_bullet_topics.tr()),
-        const SizedBox(height: 6),
+        for (final line in hostedBenefitLines(HostedSurface.askSheet)) ...[
+          AskSheetBullet(line),
+          const SizedBox(height: 6),
+        ],
         AskSheetBullet(
           LocaleKeys.asks_pro_bullet_support.tr(),
         ),
