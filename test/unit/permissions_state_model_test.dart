@@ -1,8 +1,15 @@
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_state.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+const android = PlatformCapabilities(
+  isWeb: false,
+  platform: TargetPlatform.android,
+);
 
 void main() {
   group('DevicePermissionType', () {
@@ -110,7 +117,7 @@ void main() {
 
   group('DevicePermissionsState', () {
     test('initial state defaults match specifications', () {
-      const state = DevicePermissionsState();
+      const state = DevicePermissionsState(capabilities: android);
 
       expect(state.status, DevicePermissionsCubitStatus.initial);
       expect(state.isLoading, isFalse);
@@ -126,6 +133,7 @@ void main() {
 
     test('status getters reflect cubit status', () {
       const loading = DevicePermissionsState(
+        capabilities: android,
         status: DevicePermissionsCubitStatus.loading,
       );
       expect(loading.isLoading, isTrue);
@@ -133,6 +141,7 @@ void main() {
       expect(loading.isFailure, isFalse);
 
       const success = DevicePermissionsState(
+        capabilities: android,
         status: DevicePermissionsCubitStatus.success,
       );
       expect(success.isSuccess, isTrue);
@@ -140,6 +149,7 @@ void main() {
       expect(success.isFailure, isFalse);
 
       const failure = DevicePermissionsState(
+        capabilities: android,
         status: DevicePermissionsCubitStatus.failure,
         errorMessage: 'Failed to query permissions',
       );
@@ -165,7 +175,10 @@ void main() {
         ),
       ];
 
-      final state = DevicePermissionsState(permissions: allGrantedItems);
+      final state = DevicePermissionsState(
+        capabilities: android,
+        permissions: allGrantedItems,
+      );
       expect(state.allGranted, isTrue);
       expect(state.hasIssues, isFalse);
       expect(state.hasDenied, isFalse);
@@ -189,14 +202,17 @@ void main() {
         ),
       ];
 
-      final state = DevicePermissionsState(permissions: itemsWithDenial);
+      final state = DevicePermissionsState(
+        capabilities: android,
+        permissions: itemsWithDenial,
+      );
       expect(state.allGranted, isFalse);
       expect(state.hasIssues, isTrue);
       expect(state.hasDenied, isTrue);
     });
 
     test('permissionByType locates correct item by type', () {
-      const state = DevicePermissionsState();
+      const state = DevicePermissionsState(capabilities: android);
       final notificationItem = state.permissionByType(
         DevicePermissionType.notifications,
       );
@@ -211,7 +227,10 @@ void main() {
     });
 
     test('empty permissions list edge cases', () {
-      const emptyState = DevicePermissionsState(permissions: []);
+      const emptyState = DevicePermissionsState(
+        capabilities: android,
+        permissions: [],
+      );
       expect(emptyState.allGranted, isFalse);
       expect(emptyState.hasIssues, isFalse);
       expect(emptyState.hasDenied, isFalse);
@@ -224,6 +243,7 @@ void main() {
 
     test('copyWith works correctly with overrides and clearError', () {
       const initial = DevicePermissionsState(
+        capabilities: android,
         status: DevicePermissionsCubitStatus.failure,
         errorMessage: 'Some error',
       );
@@ -245,8 +265,8 @@ void main() {
     test(
       'equality and hashCode compare all fields including permissions list',
       () {
-        const a = DevicePermissionsState();
-        const b = DevicePermissionsState();
+        const a = DevicePermissionsState(capabilities: android);
+        const b = DevicePermissionsState(capabilities: android);
         expect(a, equals(b));
         expect(a.hashCode, equals(b.hashCode));
 

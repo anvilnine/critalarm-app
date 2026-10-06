@@ -1,6 +1,5 @@
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
-import 'package:flutter/foundation.dart';
 
 /// What the home screen should ask for as it opens, if anything.
 enum HomeAsk { none, consent, review }
@@ -16,12 +15,15 @@ class HomeAskRules {
   HomeAskRules({
     required this.noticeRepository,
     required this.privacyRepository,
-    bool? isWeb,
+    required bool isWeb,
     DateTime Function()? now,
     Future<void> Function()? settle,
     Future<bool> Function()? isSetupDone,
     DateTime? Function()? newestAckedAt,
-  }) : _isWeb = isWeb ?? kIsWeb,
+    // The field is private and the parameter is public, so it cannot be an
+    // initializing formal.
+    // ignore: prefer_initializing_formals
+  }) : _isWeb = isWeb,
        _now = now ?? DateTime.now,
        // The field is private and the parameter is public, so it cannot be
        // an initializing formal.

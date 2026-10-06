@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
@@ -19,7 +20,6 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_settler
 import 'package:critalarm/features/local_reminders/domain/local_reminder_store.dart';
 import 'package:critalarm/features/local_reminders/presentation/widgets/local_reminder_ask_sheets.dart';
 import 'package:critalarm/features/settings/domain/repositories/privacy_repository.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:in_app_review/in_app_review.dart';
@@ -132,7 +132,7 @@ Future<LocalReminderHomeAsk> _nextLocalReminderAsk() async {
   return LocalReminderHomeAskRules.decide(
     isSetupDone: await getIt<SetupGate>().isDone(),
     now: DateTime.now(),
-    isWeb: kIsWeb,
+    isWeb: getIt<PlatformCapabilities>().isWeb,
     isRinging: false,
     isSheetShown: store.readSheetShown(),
     hasCriticalTopic: getIt<TopicsCubit>().state.topics.any((t) => t.critical),

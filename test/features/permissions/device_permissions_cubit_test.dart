@@ -1,5 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
@@ -9,8 +10,14 @@ import 'package:critalarm/features/permissions/domain/usecases/get_device_permis
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_state.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+
+const android = PlatformCapabilities(
+  isWeb: false,
+  platform: TargetPlatform.android,
+);
 
 class MockGetDevicePermissionsUsecase extends Mock
     implements GetDevicePermissionsUsecase {}
@@ -85,6 +92,7 @@ void main() {
       final cubit = DevicePermissionsCubit(
         mockGetPermissions,
         mockOpenSettings,
+        capabilities: android,
       );
 
       expect(cubit.state.status, DevicePermissionsCubitStatus.initial);
@@ -110,6 +118,7 @@ void main() {
       build: () => DevicePermissionsCubit(
         mockGetPermissions,
         mockOpenSettings,
+        capabilities: android,
       ),
       act: (cubit) => cubit.loadPermissions(),
       expect: () => [
@@ -145,6 +154,7 @@ void main() {
       build: () => DevicePermissionsCubit(
         mockGetPermissions,
         mockOpenSettings,
+        capabilities: android,
       ),
       act: (cubit) => cubit.loadPermissions(),
       expect: () => [
@@ -181,6 +191,7 @@ void main() {
       build: () => DevicePermissionsCubit(
         mockGetPermissions,
         mockOpenSettings,
+        capabilities: android,
       ),
       act: (cubit) => cubit.loadPermissions(),
       expect: () => [
@@ -211,6 +222,7 @@ void main() {
       final cubit = DevicePermissionsCubit(
         mockGetPermissions,
         mockOpenSettings,
+        capabilities: android,
       );
 
       await cubit.openSettings(DevicePermissionType.fullScreenIntent);
@@ -229,6 +241,7 @@ void main() {
       final cubit = DevicePermissionsCubit(
         mockGetPermissions,
         mockOpenSettings,
+        capabilities: android,
       );
 
       await cubit.refresh();

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/features/permissions/data/repositories/platform_device_permissions_repository.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
@@ -33,6 +34,10 @@ void main() {
         });
 
     repository = PlatformDevicePermissionsRepository(
+      capabilities: const PlatformCapabilities(
+        isWeb: false,
+        platform: TargetPlatform.android,
+      ),
       channel: channel,
     );
   });
@@ -113,11 +118,50 @@ void main() {
     );
   });
 
+  group('on web', () {
+    // A browser reports the platform of its device, so the web answer must
+    // not depend on it.
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      PlatformDevicePermissionsRepository webRepository() =>
+          PlatformDevicePermissionsRepository(
+            capabilities: PlatformCapabilities(isWeb: true, platform: platform),
+            channel: channel,
+          );
+
+      test('every permission checks as granted and asks nobody '
+          '(${platform.name})', () async {
+        final repo = webRepository();
+
+        for (final type in DevicePermissionType.values) {
+          final result = await repo.checkPermission(type);
+          expect(
+            result.getOrNull(),
+            DevicePermissionStatus.granted,
+            reason: type.name,
+          );
+        }
+        expect(methodCalls, isEmpty);
+      });
+
+      test('the list is one granted notifications row '
+          '(${platform.name})', () async {
+        final items = (await webRepository().getPermissions()).getOrNull()!;
+
+        expect(items.map((item) => item.type), [
+          DevicePermissionType.notifications,
+        ]);
+        expect(items.single.status, DevicePermissionStatus.granted);
+        expect(items.single.canFix, isFalse);
+        expect(methodCalls, isEmpty);
+      });
+    }
+  });
+
   group('rows per platform', () {
     Future<List<DevicePermissionType>> typesOn(TargetPlatform platform) async {
       final repo = PlatformDevicePermissionsRepository(
+        capabilities: PlatformCapabilities(isWeb: false, platform: platform),
         channel: channel,
-        platform: platform,
       );
       final result = await repo.getPermissions();
       return result.getOrNull()!.map((item) => item.type).toList();
@@ -157,8 +201,11 @@ void main() {
           });
 
       final repo = PlatformDevicePermissionsRepository(
+        capabilities: const PlatformCapabilities(
+          isWeb: false,
+          platform: TargetPlatform.iOS,
+        ),
         channel: channel,
-        platform: TargetPlatform.iOS,
       );
       final items = (await repo.getPermissions()).getOrNull()!;
       final row = items.firstWhere(
