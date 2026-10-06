@@ -78,11 +78,19 @@ class SearchCubit extends Cubit<SearchState> {
   /// `SettingsState.hasStorageSection`.
   bool _showsStorage = false;
 
-  Future<bool> _readShowsStorage() async {
+  /// Whether this phone is on its own server, which has no plans to search.
+  bool _isSelfHosted = false;
+
+  Future<({bool showsStorage, bool selfHosted})> _readPlanFlags() async {
     final identity = await identityStore?.readOrCreate();
     final session = await sessionStore?.read();
-    return AccountAccess(identity, planChanges: _planChanges).isPaid ||
-        session?.mode == ServerMode.selfhosted;
+    final selfHosted = session?.mode == ServerMode.selfhosted;
+    return (
+      showsStorage:
+          AccountAccess(identity, planChanges: _planChanges).isPaid ||
+          selfHosted,
+      selfHosted: selfHosted,
+    );
   }
 
   void _onPlanChanged() {
@@ -91,9 +99,14 @@ class SearchCubit extends Cubit<SearchState> {
   }
 
   Future<void> _refreshStorage() async {
-    final shows = await _readShowsStorage();
-    if (isClosed || shows == _showsStorage) return;
-    _showsStorage = shows;
+    final flags = await _readPlanFlags();
+    if (isClosed ||
+        (flags.showsStorage == _showsStorage &&
+            flags.selfHosted == _isSelfHosted)) {
+      return;
+    }
+    _showsStorage = flags.showsStorage;
+    _isSelfHosted = flags.selfHosted;
     _catalogue = _buildCatalogue();
     emit(state.copyWith(results: _rank(state.query)));
   }
@@ -136,7 +149,9 @@ class SearchCubit extends Cubit<SearchState> {
     await incidentsCall;
     _docs = (await docsCall).getOrNull() ?? const <DocsPage>[];
     final recent = (await recentCall).getOrNull() ?? const <String>[];
-    _showsStorage = await _readShowsStorage();
+    final flags = await _readPlanFlags();
+    _showsStorage = flags.showsStorage;
+    _isSelfHosted = flags.selfHosted;
 
     if (isClosed) return;
 
@@ -290,6 +305,7 @@ class SearchCubit extends Cubit<SearchState> {
     final destinations = SettingsSearchIndex.forBuild(
       includeDevOnly: _includeDevOnlySettings,
       showsStorage: _showsStorage,
+      isSelfHosted: _isSelfHosted,
     );
     return <SearchResult>[
       for (final destination in destinations)
