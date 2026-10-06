@@ -39,29 +39,27 @@ class _StraightPitch extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         ..._benefitBullets(HostedSurface.paywallStraight),
-        const SizedBox(height: 18),
-        AppNote(text: LocaleKeys.paywall_self_hosted_note.tr()),
+        ..._ownServerNote(HostedSurface.paywallStraight),
       ],
     );
   }
 }
 
-GlyphType _glyphFor(HostedBenefitId id) => switch (id) {
-  HostedBenefitId.topics => GlyphType.list,
-  HostedBenefitId.pushes => GlyphType.bell,
-  HostedBenefitId.history => GlyphType.clock,
-  HostedBenefitId.widgets => GlyphType.dot,
-  HostedBenefitId.appIcons => GlyphType.gear,
-};
+/// The own-server line under a pitch, with its gap, when [surface] has one.
+List<Widget> _ownServerNote(HostedSurface surface) {
+  final line = surface.ownServerLine;
+  if (line == null) return const [];
+  return [const SizedBox(height: 18), AppNote(text: line)];
+}
 
-/// One bullet per benefit in list order, with a gap between them.
+/// One bullet per benefit in list order, with a gap between them. Every line
+/// carries the same included mark.
 List<Widget> _benefitBullets(HostedSurface surface) {
   return [
     for (final b in HostedBenefit.all) ...[
       if (b != HostedBenefit.all.first) const SizedBox(height: 12),
       AppFeatureBullet(
         text: b.shortKey.tr(namedArgs: HostedBenefit.args),
-        glyph: _glyphFor(b.id),
       ),
     ],
   ];
@@ -101,8 +99,7 @@ class _ComparePitch extends StatelessWidget {
             hosted: b.compareHostedKey.tr(namedArgs: HostedBenefit.args),
             isLast: b == HostedBenefit.all.last,
           ),
-        const SizedBox(height: 18),
-        AppNote(text: LocaleKeys.paywall_self_hosted_note.tr()),
+        ..._ownServerNote(HostedSurface.paywallCompare),
       ],
     );
   }
@@ -187,7 +184,10 @@ class _OneJobPitch extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      children: _benefitBullets(HostedSurface.paywallOneJob),
+      children: [
+        ..._benefitBullets(HostedSurface.paywallOneJob),
+        ..._ownServerNote(HostedSurface.paywallOneJob),
+      ],
     );
   }
 }
