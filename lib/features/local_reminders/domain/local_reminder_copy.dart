@@ -107,7 +107,10 @@ final class LocalReminderCopy {
         ),
         LocaleKeys.local_reminders_morning_body.plural(
           int.tryParse(args[LocalReminderArgs.seconds] ?? '') ?? 0,
-          namedArgs: {'topic': args[LocalReminderArgs.topic] ?? ''},
+          namedArgs: {
+            'topic': args[LocalReminderArgs.topic] ?? '',
+            'benefits': morningBenefits(),
+          },
         ),
         [
           _action(
@@ -161,6 +164,14 @@ final class LocalReminderCopy {
     );
   }
 
+  /// The two benefits the morning-after line names, as running text. Read
+  /// from the benefits list, so a benefit that leaves Hosted leaves the line.
+  static String morningBenefits() => [
+    for (final b in HostedBenefit.all)
+      if (b.id == HostedBenefitId.topics || b.id == HostedBenefitId.history)
+        b.phraseKey.tr(namedArgs: HostedBenefit.args),
+  ].join(' and ');
+
   static int _pool(Map<String, String> args, int size) {
     final index = int.tryParse(args[LocalReminderArgs.pool] ?? '') ?? 0;
     return index < 0 || index >= size ? 0 : index;
@@ -208,7 +219,9 @@ final class LocalReminderCopy {
         LocaleKeys.local_reminders_plan_ends_title.tr(
           namedArgs: {'weekday': args[LocalReminderArgs.weekday] ?? ''},
         ),
-        LocaleKeys.local_reminders_plan_ends_body.tr(),
+        LocaleKeys.local_reminders_plan_ends_body.tr(
+          namedArgs: HostedBenefit.args,
+        ),
         const <LocalReminderAction>[],
       ),
       PlanHeadsUpKind.billing || null => (
