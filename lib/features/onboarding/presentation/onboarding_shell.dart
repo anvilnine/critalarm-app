@@ -5,6 +5,7 @@ import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/set_up_later_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/connect_gate.dart';
@@ -213,10 +214,20 @@ class _OnboardingShellState extends State<OnboardingShell> {
         ),
         Positioned.fill(
           child: AmbientScope(
-            child: OnboardingAmbientScope(
-              controller: _controller,
-              hasQuietLine: quietLine != null,
-              child: widget.child,
+            // Every step sits on this canvas with a clear background, so
+            // each one backs its bars with the canvas colour while a row is
+            // scrolled under them, and at rest when the text is too large
+            // for the step to fit. The app name keeps to the top bar's
+            // height.
+            child: AppBarBackingScope(
+              color: currentProfile.canvas,
+              coversBottomBar: true,
+              topBarMaxTextScale: setupTopBarMaxTextScale,
+              child: OnboardingAmbientScope(
+                controller: _controller,
+                hasQuietLine: quietLine != null,
+                child: widget.child,
+              ),
             ),
           ),
         ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
@@ -15,6 +16,7 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_sc
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/local_test_alarm_views.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_tap_room.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -291,6 +293,9 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           // size the card outgrows the room, and then the page scrolls
           // instead of putting the card out of reach.
           physics: bottomAligned ? const ClampingScrollPhysics() : null,
+          // The cloud card's column fills the screen and keeps the room for
+          // the buttons itself, so the list adds none on top of it.
+          bodyClearsBottomBar: bottomAligned,
           backgroundColor: Colors.transparent,
           withGhosts: false,
           withFades: false,
@@ -652,12 +657,16 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Spacing.s5),
-            child: AppButton(
-              label: LocaleKeys.onboarding_connect_self_host_toggle.tr(),
-              variant: AppButtonVariant.ghost,
-              size: AppButtonSize.sm,
-              isFullWidth: true,
-              onPressed: cubit.toggleSelfHosting,
+            // A small pill, so its tap area runs a little above it.
+            child: SetupTapRoom(
+              onTap: cubit.toggleSelfHosting,
+              child: AppButton(
+                label: LocaleKeys.onboarding_connect_self_host_toggle.tr(),
+                variant: AppButtonVariant.ghost,
+                size: AppButtonSize.sm,
+                isFullWidth: true,
+                onPressed: cubit.toggleSelfHosting,
+              ),
             ),
           ),
           const SizedBox(height: Spacing.s1),
@@ -679,13 +688,31 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           isFullWidth: true,
           onPressed: widget.isReplay ? _finishConnectStep : cubit.connect,
         ),
-        const SizedBox(height: Spacing.s3),
-        AppButton(
-          label: LocaleKeys.onboarding_connect_self_host_hide.tr(),
-          variant: AppButtonVariant.ghost,
-          size: AppButtonSize.sm,
-          isFullWidth: true,
-          onPressed: cubit.toggleSelfHosting,
+        // The small pill's tap area takes its extra room out of the gap
+        // above it, so the pill stays where it was.
+        SizedBox(
+          height:
+              Spacing.s3 -
+              math.min(
+                Spacing.s3,
+                setupTapRoomFor(
+                  setupButtonHeightFor(
+                    minHeight: 36,
+                    fontSize: 14,
+                    textScale: setupTextScaleOf(context),
+                  ),
+                ),
+              ),
+        ),
+        SetupTapRoom(
+          onTap: cubit.toggleSelfHosting,
+          child: AppButton(
+            label: LocaleKeys.onboarding_connect_self_host_hide.tr(),
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.sm,
+            isFullWidth: true,
+            onPressed: cubit.toggleSelfHosting,
+          ),
         ),
       ],
     );

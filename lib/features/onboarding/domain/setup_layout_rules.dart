@@ -70,3 +70,19 @@ double setupButtonHeightFor({
 /// is large it would take a third of the screen, so it moves into the page
 /// under the command, where it scrolls with the rest.
 bool setupPinsFirstMessageRow(double textScale) => textScale <= 1.5;
+
+/// The most the system text size may grow the app name in a setup step's
+/// top bar. The bar is 56 high and the name is set at 18, so past this it
+/// is cut by the bar.
+const double setupTopBarMaxTextScale = 1.3;
+
+/// The least height a control can be tapped on.
+const double setupMinTapHeight = 44;
+
+/// The room a control [height] tall is short of a full tap area, or 0 once
+/// it is tall enough on its own.
+///
+/// A small button is 36 high at the default text size and grows with its
+/// label, so the room it needs shrinks as the text grows.
+double setupTapRoomFor(double height) =>
+    height >= setupMinTapHeight ? 0 : setupMinTapHeight - height;
