@@ -66,9 +66,12 @@ state-management library.
 | Localization check | `make check-l10n` |
 | Refresh the contract | `make sync-contract` |
 | Run with a quiet alarm | `make run-quiet DEVICE=<id>` (dev only, never ships) |
+| Measure Android cold start | `sh tool/cold_start.sh --apk <path>` or `make cold-start APK=<path>` |
 | New worktree | `make worktree-new NAME=<slug>` |
 | Worktree status | `make worktree-list` |
 | Drop merged worktrees | `make worktree-clean` |
+
+Fresh cold-start mode wipes all app data on the selected device and requires `--yes-wipe`; the Makefile target never passes it.
 
 **Work in a worktree, one per task.** `make worktree-new NAME=search-overlay`
 creates `worktrees/search-overlay` on branch `task/search-overlay` off `main`, so

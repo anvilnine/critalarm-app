@@ -1,4 +1,4 @@
-.PHONY: gen regen l10n test run analyze format quality check-layers check-l10n doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry
+.PHONY: gen regen l10n test run analyze format quality check-layers check-l10n doctor hooks sync-contract run-release run-quiet build-quiet-apk build-release-apk build-release-ios cold-start worktree-new worktree-list worktree-clean log devlog changelog-release release-ios release-ios-dry release-android release-android-dry
 
 # One-shot codegen: freezed, json_serializable, flutter_gen.
 # Generated output is git-ignored, so run this after a clone and after pulls.
@@ -88,6 +88,10 @@ run-quiet: google-xcconfig
 # Same, as an installable artifact.
 build-quiet-apk:
 	fvm flutter build apk --release --dart-define=SKIP_PAYWALL=true --dart-define=QUIET_ALARM=true
+
+# Never passes --yes-wipe. Fresh runs require an explicit script invocation.
+cold-start:
+	sh tool/cold_start.sh --apk "$(APK)" $(if $(SERIAL),--serial "$(SERIAL)",) $(if $(RUNS),--runs "$(RUNS)",) $(if $(MODE),--mode "$(MODE)",) $(if $(LABEL),--label "$(LABEL)",)
 
 # Same flag, for an installable artifact instead of an attached run.
 build-release-apk:
