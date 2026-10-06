@@ -386,7 +386,7 @@ class _LiveActivity extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      'prod-db',
+                      'prod-db', // l10n-ok: demo service name in a story mock
                       style: AppTypography.mono(const Color(0xFF6E6E73)),
                     ),
                     const SizedBox(width: 8),
@@ -583,7 +583,7 @@ class _AppAlarm extends StatelessWidget {
               style: AppTypography.display(_darkInk, fontSize: 64),
             ),
             Text(
-              'prod-db',
+              'prod-db', // l10n-ok: demo service name in a story mock
               textAlign: TextAlign.center,
               style: AppTypography.monoBold(_darkInk, fontSize: 18),
             ),
@@ -622,7 +622,7 @@ class _AppAlarm extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'uptime-kuma / 03:12:04 / postgres, db-1',
+                    'uptime-kuma / 03:12:04 / postgres, db-1', // l10n-ok: demo monitor log line in a story mock
                     style: AppTypography.monoBold(
                       const Color(0xB31A140F),
                       fontSize: 12,
@@ -729,7 +729,7 @@ class _AckScreen extends StatelessWidget {
               ),
             ),
             Text(
-              'prod-db',
+              'prod-db', // l10n-ok: demo service name in a story mock
               textAlign: TextAlign.center,
               style: AppTypography.monoBold(_white, fontSize: 18),
             ),
@@ -870,7 +870,8 @@ class _AndroidNotice extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '${LocaleKeys.onboarding_welcome_story_critical.tr()} · prod-db',
+            '${LocaleKeys.onboarding_welcome_story_critical.tr()}'
+            ' · prod-db', // l10n-ok: demo service name in a story mock
             style: const TextStyle(
               color: _darkInk,
               fontSize: 18,
@@ -1829,7 +1830,8 @@ class _WidgetsHeroState extends _ClockState<_WidgetsHero> {
             style: AppTypography.display(_darkInk, fontSize: 48),
           ),
           Text(
-            '${LocaleKeys.onboarding_welcome_story_open_label.tr()} · prod',
+            '${LocaleKeys.onboarding_welcome_story_open_label.tr()}'
+            ' · prod', // l10n-ok: demo environment name in a story mock
             style: const TextStyle(
               color: _muted,
               fontSize: 14,
@@ -1867,7 +1869,7 @@ class _WidgetsHeroState extends _ClockState<_WidgetsHero> {
           const Row(
             children: [
               Text(
-                'prod',
+                'prod', // l10n-ok: demo environment name in a story mock
                 style: TextStyle(
                   color: _muted,
                   fontSize: 13,
