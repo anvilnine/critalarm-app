@@ -9,6 +9,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Setup ends with a ready curl line for your new topic and waits for your first message.
 - Home shows a short setup checklist until your first message arrives.
 - The Finish setting up list can be closed for good.
+- With VoiceOver or TalkBack on, the ringing alarm starts on I'm up, says which topic is ringing and for how long, and on iPhone a two-finger double tap acknowledges
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
