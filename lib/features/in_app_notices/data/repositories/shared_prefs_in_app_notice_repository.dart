@@ -20,6 +20,10 @@ class SharedPrefsInAppNoticeRepository implements InAppNoticeRepository {
   static const _feedbackAskedKey = 'home_prompt_feedback_asked_at';
   static const _proLaterKey = 'home_prompt_pro_later_at';
   static const _lastAcknowledgedKey = 'home_prompt_last_acknowledged_at';
+  static const _firstRealAckKey = 'home_prompt_first_real_ack_at';
+  static const _day0ShownKey = 'home_prompt_day0_shown_at';
+  static const _day0OpenCountKey = 'home_prompt_day0_open_count';
+  static const _day0EndedKey = 'home_prompt_day0_ended_at';
   static const _afterAckSheetKey = 'home_prompt_after_ack_sheet_at';
 
   DateTime? _readTime(String key) {
@@ -160,6 +164,41 @@ class SharedPrefsInAppNoticeRepository implements InAppNoticeRepository {
 
   @override
   Future<void> markAcknowledged() => _stampNow(_lastAcknowledgedKey);
+
+  @override
+  DateTime? getFirstRealAcknowledgedAt() => _readTime(_firstRealAckKey);
+
+  @override
+  Future<void> markFirstRealAcknowledged() async {
+    if (_prefs.containsKey(_firstRealAckKey)) return;
+    await _stampNow(_firstRealAckKey);
+  }
+
+  @override
+  DateTime? getDay0CardShownAt() => _readTime(_day0ShownKey);
+
+  @override
+  Future<void> markDay0CardShown() async {
+    if (_prefs.containsKey(_day0ShownKey)) return;
+    await _stampNow(_day0ShownKey);
+    await _prefs.setInt(_day0OpenCountKey, 1);
+  }
+
+  @override
+  int getDay0CardOpenCount() => _prefs.getInt(_day0OpenCountKey) ?? 0;
+
+  @override
+  Future<void> markDay0CardOpened() =>
+      _prefs.setInt(_day0OpenCountKey, getDay0CardOpenCount() + 1);
+
+  @override
+  DateTime? getDay0CardEndedAt() => _readTime(_day0EndedKey);
+
+  @override
+  Future<void> endDay0Card() async {
+    if (_prefs.containsKey(_day0EndedKey)) return;
+    await _stampNow(_day0EndedKey);
+  }
 
   @override
   DateTime? getAfterAckSheetShownAt() => _readTime(_afterAckSheetKey);

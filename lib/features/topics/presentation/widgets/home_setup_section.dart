@@ -118,9 +118,10 @@ abstract final class _SetupFaces {
 
 /// The surface the widgets card sits on: a cream block with no stroke.
 /// The topic rows around it have no stroke either, so a tint sets the
-/// block apart without making it the heaviest thing in the list.
-class _SetupBlock extends StatelessWidget {
-  const _SetupBlock({required this.child, this.padding});
+/// block apart without making it the heaviest thing in the list. The day-0
+/// card sits on it too.
+class SetupBlock extends StatelessWidget {
+  const SetupBlock({required this.child, this.padding, super.key});
 
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -179,7 +180,7 @@ class _WidgetsCard extends StatelessWidget {
       onPressed: onShowHowTo,
     );
 
-    return _SetupBlock(
+    return SetupBlock(
       padding: const EdgeInsets.fromLTRB(14, 6, 6, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

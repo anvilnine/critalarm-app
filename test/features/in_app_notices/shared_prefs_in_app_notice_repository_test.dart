@@ -106,4 +106,40 @@ void main() {
     await repository.clearProAskLater();
     expect(repository.getProAskLaterAt(), isNull);
   });
+
+  test(
+    'the first real acknowledge is written once and never overwritten',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final repo = SharedPrefsInAppNoticeRepository(prefs);
+      expect(repo.getFirstRealAcknowledgedAt(), isNull);
+      await repo.markFirstRealAcknowledged();
+      final first = repo.getFirstRealAcknowledgedAt();
+      expect(first, isNotNull);
+      await prefs.setInt('home_prompt_first_real_ack_at', 1000);
+      await repo.markFirstRealAcknowledged();
+      expect(
+        repo.getFirstRealAcknowledgedAt(),
+        DateTime.fromMillisecondsSinceEpoch(1000),
+      );
+    },
+  );
+
+  test('the day-0 card stamps once, counts opens and ends for good', () async {
+    expect(repository.getDay0CardShownAt(), isNull);
+    expect(repository.getDay0CardOpenCount(), 0);
+    await repository.markDay0CardShown();
+    final shown = repository.getDay0CardShownAt();
+    expect(shown, isNotNull);
+    expect(repository.getDay0CardOpenCount(), 1);
+    await repository.markDay0CardShown();
+    expect(repository.getDay0CardShownAt(), shown);
+    expect(repository.getDay0CardOpenCount(), 1);
+    await repository.markDay0CardOpened();
+    expect(repository.getDay0CardOpenCount(), 2);
+    expect(repository.getDay0CardEndedAt(), isNull);
+    await repository.endDay0Card();
+    expect(repository.getDay0CardEndedAt(), isNotNull);
+  });
 }

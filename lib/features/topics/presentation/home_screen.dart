@@ -15,6 +15,7 @@ import 'package:critalarm/features/feature_guides/presentation/feature_guide_anc
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_examples.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
+import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_state.dart';
 import 'package:critalarm/features/in_app_notices/presentation/home_asks.dart';
@@ -29,6 +30,7 @@ import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.d
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_state.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
+import 'package:critalarm/features/topics/presentation/widgets/home_day0_card.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_setup_pill.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_setup_preview.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_setup_section.dart';
@@ -68,6 +70,8 @@ class HomeScreen extends StatelessWidget {
         // The setup checklist and the widgets card. Home content: it is
         // fed by the list above and never by the notice slot.
         BlocProvider(create: (_) => getIt<HomeSetupCubit>()),
+        // The day-0 card. Decided after the asks, in `runHomeAsk`.
+        BlocProvider(create: (_) => getIt<Day0CardCubit>()),
       ],
       child: const _HomeScreenContent(),
     );
@@ -122,7 +126,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     _guideSetupSub = _guides.stream.listen((_) => _tellSetup());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(_runHomeAsk());
+      unawaited(_runHomeAsk(isNewOpen: true));
       final lifecycle = WidgetsBinding.instance.lifecycleState;
       _isResumed = lifecycle == null || lifecycle == AppLifecycleState.resumed;
       unawaited(
@@ -170,9 +174,12 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
 
   /// The Pro, Reminders and consent sheets and the review popup, when one is
   /// due. Never while a guide is up or about to be: they wait for it to end.
-  Future<void> _runHomeAsk() async {
+  ///
+  /// [isNewOpen] is true when Home just opened or came back to the front,
+  /// which is what counts toward the day-0 card's three opens.
+  Future<void> _runHomeAsk({bool isNewOpen = false}) async {
     if (!mounted || _guides.state.isActive) return;
-    await runHomeAsk(context);
+    await runHomeAsk(context, isNewOpen: isNewOpen);
   }
 
   GoRouter? _router;
@@ -255,7 +262,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     _tellSetup();
     if (state == AppLifecycleState.resumed && mounted) {
       unawaited(context.read<InAppNoticeCubit>().onAppResumed());
-      unawaited(_runHomeAsk());
+      unawaited(_runHomeAsk(isNewOpen: true));
     }
   }
 
@@ -294,6 +301,11 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   void _openWidgetsPaywall() {
     unawaited(context.read<HomeSetupCubit>().widgetsPlansOpened());
     unawaited(context.push(paywallLocation(PaywallSource.homeWidgets)));
+  }
+
+  void _openDay0Plans() {
+    unawaited(context.read<Day0CardCubit>().seePlans());
+    unawaited(context.push(paywallLocation(PaywallSource.homeDay0Card)));
   }
 
   void _showWidgetsHowTo(HomeWidgetsPlan plan) {
@@ -529,6 +541,8 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         !real.isStale &&
         (!guide.isActive || guide.status == FeatureGuideStatus.offering);
     final setupState = showsSetup ? setup : const HomeSetupState();
+    // The day-0 card, under the same conditions as the setup content.
+    final showsDay0Card = showsSetup && context.watch<Day0CardCubit>().state;
 
     // The one card floating above the tab bar. A pinned notice has it
     // first; the setup checklist takes it when no notice does. Nothing but
@@ -659,6 +673,18 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                                 .widgetsCardDismissed(),
                           ),
                         ),
+                        // One card at a time: the widgets card goes first.
+                        if (showsDay0Card &&
+                            setupState.phase != HomeSetupPhase.widgetsCard)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: Spacing.s4),
+                            child: HomeDay0Card(
+                              onSeePlans: _openDay0Plans,
+                              onDismiss: () => unawaited(
+                                context.read<Day0CardCubit>().dismiss(),
+                              ),
+                            ),
+                          ),
                         // Loading and failure both used to fall through to
                         // the empty state, so a slow network or a dead
                         // server told the user every topic they own was

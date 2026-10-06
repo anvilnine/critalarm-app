@@ -424,6 +424,14 @@
     "done_title": "All set",
     "dismiss_button": "Hide the setup list"
   },
+  "home_day0": {
+    "title": "Your alarms are working",
+    "free_line": "The free plan keeps these for good: alarms ring until you acknowledge them, with no limit.",
+    "hosted_line": "Hosted adds {list}.",
+    "self_host_line": "Running your own server has no limits.",
+    "plans_button": "See plans",
+    "dismiss_button": "Dismiss"
+  },
   "home_widgets": {
     "needs_hosted": "Widgets come with Hosted.",
     "how_button": "Show me how",

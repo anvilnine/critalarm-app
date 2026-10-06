@@ -80,6 +80,34 @@ abstract class InAppNoticeRepository {
   DateTime? getLastAcknowledgedAt();
   Future<void> markAcknowledged();
 
+  /// When the first real acknowledge happened on this install. Written once
+  /// and never overwritten. A setup ring and a test alarm do not set it.
+  DateTime? getFirstRealAcknowledgedAt();
+
+  /// Stamps the first real acknowledge. Does nothing after that.
+  Future<void> markFirstRealAcknowledged();
+
+  /// When the day-0 card was first shown on Home. It counts as an ask for the
+  /// 24 hour gap, so the other asks wait after it and it waits after them.
+  DateTime? getDay0CardShownAt();
+
+  /// Stamps the first time the card is shown and starts its open count at
+  /// one. Does nothing after the first call.
+  Future<void> markDay0CardShown();
+
+  /// How many separate Home opens the card has been on screen for.
+  int getDay0CardOpenCount();
+
+  /// Adds one to the open count.
+  Future<void> markDay0CardOpened();
+
+  /// When the card ended for good: dismissed, "See plans" tapped, or three
+  /// opens without a tap. Never cleared.
+  DateTime? getDay0CardEndedAt();
+
+  /// Ends the card for good. Does nothing after the first call.
+  Future<void> endDay0Card();
+
   /// When the after-ack reminder or Pro sheet last showed. Stamped as the
   /// sheet opens, so a second ack the same calendar day shows nothing.
   DateTime? getAfterAckSheetShownAt();

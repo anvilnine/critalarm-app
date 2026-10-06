@@ -81,11 +81,13 @@ import 'package:critalarm/features/feedback/data/platform_device_report_reposito
 import 'package:critalarm/features/feedback/domain/repositories/device_report_repository.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/in_app_notices/data/repositories/shared_prefs_in_app_notice_repository.dart';
+import 'package:critalarm/features/in_app_notices/domain/day0_card_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
+import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
@@ -710,6 +712,24 @@ Future<void> configureDependencies({
           ],
           setupIncidentIds: getIt<SetupTestRing>().setupIncidentIds,
         ),
+      ),
+    )
+    ..registerLazySingleton(() => Day0CardAnalytics(getIt<TelemetryGate>()))
+    ..registerLazySingleton<Day0CardRules>(
+      () => Day0CardRules(
+        noticeRepository: getIt<InAppNoticeRepository>(),
+        accountRepository: getIt<AccountRepository>(),
+        firstMessageStore: getIt<FirstMessageStore>(),
+        isWeb: getIt<PlatformCapabilities>().isWeb,
+        isSetupDone: () => getIt<SetupGate>().isDone(),
+        isRinging: () => getIt<AlarmFocus>().on,
+      ),
+    )
+    ..registerFactory(
+      () => Day0CardCubit(
+        rules: getIt<Day0CardRules>(),
+        noticeRepository: getIt<InAppNoticeRepository>(),
+        analytics: getIt<Day0CardAnalytics>(),
       ),
     )
     ..registerLazySingleton<DeviceReportRepository>(
