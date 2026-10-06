@@ -874,14 +874,17 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                   if (showsLegal)
                     Padding(
                       padding: const EdgeInsets.only(top: Spacing.s2),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      // A wrap, so the second link drops to its own line at a
+                      // large text size instead of running off the edge.
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 16,
                         children: [
                           _LegalLink(
                             label: LocaleKeys.create_topic_terms_link.tr(),
                             url: termsUrl,
                           ),
-                          const SizedBox(width: 16),
                           _LegalLink(
                             label: LocaleKeys.create_topic_privacy_link.tr(),
                             url: privacyUrl,
