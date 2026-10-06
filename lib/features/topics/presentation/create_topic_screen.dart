@@ -14,6 +14,7 @@ import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_not
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_ask_sheet.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_settler.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rules.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
@@ -913,24 +914,14 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   // The face every setup step shares, so
-                                  // it flies in from the step before.
-                                  Hero(
-                                    tag: 'onboarding-face',
-                                    flightShuttleBuilder:
-                                        faceFlightShuttleBuilder,
-                                    child: FaceWidget(
-                                      state: face,
-                                      size: 80,
-                                      isLive: true,
-                                    ),
-                                  ),
-                                  const SizedBox(height: Spacing.s4),
+                                  // it flies in from the step before. It
+                                  // shrinks and goes with a large text size.
+                                  SetupFace(state: face, gap: Spacing.s4),
                                   Semantics(
                                     header: true,
-                                    child: Text(
+                                    child: AppFittedTitle(
                                       LocaleKeys.create_topic_first_topic_title
                                           .tr(),
-                                      textAlign: TextAlign.center,
                                       style: AppTypography.headline(
                                         colors.onCanvas,
                                         fontSize: 30,

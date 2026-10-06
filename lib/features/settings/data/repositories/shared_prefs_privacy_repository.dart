@@ -54,8 +54,8 @@ class SharedPrefsPrivacyRepository implements PrivacyRepository {
       final saved = await _prefs.setBool(_keyCrashlytics, enabled);
       if (!saved) {
         return Failure.unexpected(
-          message:
-              LocaleKeys.storage_errors_save_crash_reporting_preference.tr(),
+          message: LocaleKeys.storage_errors_save_crash_reporting_preference
+              .tr(),
         ).toFailure();
       }
       return unit.toSuccess();
