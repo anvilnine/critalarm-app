@@ -1,5 +1,6 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
@@ -29,12 +30,16 @@ Future<void> askLocalRemindersSheet(BuildContext context) async {
 /// The Pro sheet as the alarm screen and home both ask it. Checks the rules
 /// once more right before showing, because the user may have bought Pro
 /// since the moment that decided to ask. Shows nothing if [context] is gone.
-Future<void> askProSheet(BuildContext context) async {
+Future<void> askProSheet(
+  BuildContext context, {
+  required HostedAskTrigger trigger,
+}) async {
   if (!await getIt<ProAskRules>().shouldAsk()) return;
   if (!context.mounted) return;
   await showProAskSheet(
     context: context,
     repository: getIt<InAppNoticeRepository>(),
+    trigger: trigger,
   );
 }
 

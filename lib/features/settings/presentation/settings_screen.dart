@@ -5,6 +5,7 @@ import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -205,7 +206,9 @@ class _SettingsScreenContent extends StatelessWidget {
               size: AppButtonSize.sm,
               onPressed: () {
                 AppHaptics.capture();
-                unawaited(context.push('/paywall'));
+                unawaited(
+                  context.push(paywallLocation(PaywallSource.settingsPlan)),
+                );
               },
             ),
           ] else if (!buildSkipsPaywall) ...[
