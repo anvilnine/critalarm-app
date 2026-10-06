@@ -198,8 +198,10 @@ void main() {
       expect(harness.deviceToken, isNot(oldToken));
       // Both saved records carry the new one, or everything answers 401 until
       // a restart and a re-onboard.
-      expect(harness.sessions.session?.managementCredential,
-          harness.deviceToken);
+      expect(
+        harness.sessions.session?.managementCredential,
+        harness.deviceToken,
+      );
       expect(harness.connections.connection?.adminToken, harness.deviceToken);
       // The store goes back to an anonymous user before anything else.
       expect(harness.billingLogOuts, 1);

@@ -292,17 +292,19 @@ void main() {
       expect(cubit.state.criticalRemaining, 1);
     });
 
-    test('making a topic that is not critical leaves the count alone',
-        () async {
-      final cubit = CreateTopicCubit(createTopicUsecase)
-        ..nameChanged('prod-api')
-        ..nextStep();
+    test(
+      'making a topic that is not critical leaves the count alone',
+      () async {
+        final cubit = CreateTopicCubit(createTopicUsecase)
+          ..nameChanged('prod-api')
+          ..nextStep();
 
-      await cubit.createTopic();
+        await cubit.createTopic();
 
-      expect(cubit.state.status, CreateTopicStatus.success);
-      expect(cubit.state.criticalUsed, 0);
-    });
+        expect(cubit.state.status, CreateTopicStatus.success);
+        expect(cubit.state.criticalUsed, 0);
+      },
+    );
 
     test('criticalRemaining helper computes correctly', () {
       const freeState = CreateTopicState(
