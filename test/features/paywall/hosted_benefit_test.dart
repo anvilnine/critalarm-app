@@ -133,4 +133,29 @@ void main() {
       }
     },
   );
+
+  group('joinBenefitPhrases', () {
+    test('one item stands alone', () {
+      expect(joinBenefitPhrases(['a'], and: 'and'), 'a');
+    });
+
+    test('two items join with and', () {
+      expect(joinBenefitPhrases(['a', 'b'], and: 'and'), 'a and b');
+    });
+
+    test('three items have no comma before and', () {
+      expect(joinBenefitPhrases(['a', 'b', 'c'], and: 'and'), 'a, b and c');
+    });
+
+    test('five items', () {
+      expect(
+        joinBenefitPhrases(['a', 'b', 'c', 'd', 'e'], and: 'and'),
+        'a, b, c, d and e',
+      );
+    });
+
+    test('the word comes from the strings', () {
+      expect(strings['hosted_benefits.and'], 'and');
+    });
+  });
 }
