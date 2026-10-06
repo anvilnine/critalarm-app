@@ -19,6 +19,7 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rule
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
+import 'package:critalarm/features/topics/domain/count_card_layout.dart';
 import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
@@ -569,7 +570,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
   /// button moves under the text and the words wrap between words.
   Widget _criticalCountCard(BuildContext context, CreateTopicState state) {
     final colors = context.appColors;
-    final isLarge = MediaQuery.textScalerOf(context).scale(13) / 13 >= 1.3;
+    final textScale = MediaQuery.textScalerOf(context).scale(13) / 13;
 
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -630,23 +631,26 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
         borderRadius: Radii.mdAll,
         border: Border.all(color: colors.hairline),
       ),
-      child: isLarge
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                text,
-                const SizedBox(height: 10),
-                button,
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(child: text),
-                const SizedBox(width: 12),
-                button,
-              ],
-            ),
+      child: LayoutBuilder(
+        builder: (context, box) =>
+            countCardStacks(innerWidth: box.maxWidth, textScale: textScale)
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  text,
+                  const SizedBox(height: 10),
+                  Align(alignment: Alignment.centerLeft, child: button),
+                ],
+              )
+            : Row(
+                children: [
+                  Expanded(child: text),
+                  const SizedBox(width: 12),
+                  button,
+                ],
+              ),
+      ),
     );
   }
 
