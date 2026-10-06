@@ -1,8 +1,25 @@
+import 'dart:ui' show AppLifecycleState;
+
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 /// What a screen reader says on the ringing alarm screen. Pure functions, so
 /// the words can be tested without a screen.
+
+/// Whether the ringing screen is the thing the user is looking at.
+///
+/// Its route has to be the current one ([isRouteCurrent]: no sheet and no
+/// other screen over it) and the app has to be resumed. Control Center, the
+/// notification shade, an incoming call and the app switcher all leave the
+/// route current and take the app out of `resumed`. A lifecycle nobody has
+/// reported yet counts as not resumed.
+///
+/// The magic tap is armed, and the delayed announcement is spoken, only
+/// while this is true.
+bool isRingingScreenInFront({
+  required bool isRouteCurrent,
+  required AppLifecycleState? lifecycle,
+}) => isRouteCurrent && lifecycle == AppLifecycleState.resumed;
 
 /// How long the alarm has been ringing, in whole minutes.
 ///
