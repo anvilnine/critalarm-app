@@ -55,10 +55,11 @@ String paywallProductName(PaywallProduct product) => switch (product) {
 /// the own-server promise, the legal line, and one line with Restore, Terms
 /// and Privacy. Every part keeps the same side inset.
 ///
-/// The button is the only filled shape in it. It reads the
-/// `PaywallBuyCubit` above it and makes every purchase call, so a layout
-/// holds no button, price or legal text of its own. Pro has no plan card:
-/// its price is on the button, and nothing says how Pro is paid.
+/// The button is the only cobalt thing in it. A plan card is cream when
+/// picked and a quiet tint when not, and the saving is a small ink badge.
+/// It reads the `PaywallBuyCubit` above it and makes every purchase call,
+/// so a layout holds no button, price or legal text of its own. Pro has no
+/// plan card: its price is on the button, and nothing says how Pro is paid.
 ///
 /// Its text stops growing at `paywallBuyMaxTextScale`. Nothing in it
 /// scrolls or is cut: at a large text size it is taller and the layout

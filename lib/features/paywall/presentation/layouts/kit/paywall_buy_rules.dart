@@ -120,17 +120,29 @@ String buyButtonLabel(PaywallBuyState state, {required String name}) {
         );
 }
 
-/// The second line of a plan card: a quiet part on the left and a stronger
-/// one on the right.
+/// The second line of a plan card, under the name and the billed amount
+/// and smaller than both: the per month figure where the plan has one,
+/// when it renews where it has none.
+String? planCardSecondLine(PaywallPlanOption option) =>
+    option.perPeriodLine ?? option.renewalLine;
+
+/// The small badge on a plan card: the saving, and only where the store
+/// prices show one. Null draws no badge.
+String? planCardBadge(PaywallPlanOption option) => option.savingLabel;
+
+/// Whether the picker keeps room above its cards for a badge, which sits
+/// half over a card's top edge.
 ///
-/// A plan with a per month figure shows it, with the saving beside it. Any
-/// other plan says when it renews. Both sit under the billed amount and are
-/// smaller than it.
-({String? left, String? right}) planCardSecondLine(PaywallPlanOption option) =>
-    (
-      left: option.perPeriodLine ?? option.renewalLine,
-      right: option.savingLabel,
-    );
+/// It does when a card has one. While the store is being asked it does for
+/// Hosted, whose yearly plan usually has one, so the cards do not move
+/// when the prices arrive.
+bool planPickerKeepsBadgeRoom(PaywallBuyState state) {
+  if (state.status == PaywallBuyStatus.loading) {
+    return state.product == PaywallProduct.hosted;
+  }
+  if (planCardCount(state) == 0) return false;
+  return state.options.any((option) => planCardBadge(option) != null);
+}
 
 /// The small print under the button, for the option that is picked.
 ///

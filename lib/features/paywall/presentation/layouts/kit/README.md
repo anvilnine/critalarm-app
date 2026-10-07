@@ -6,11 +6,12 @@ and nothing else: no button, price row, legal text, clock, benefit list or purch
 ## Add a layout
 
 1. Add one file, `layouts/<name>_paywall_layout.dart`. Start from
-   `plain_paywall_layout.dart`. The widget returns a `PaywallFrame`.
+   `plain_paywall_layout.dart`, the shortest one. `hero_paywall_layout.dart` is the one to read
+   for a stage that plays one benefit at a time. The widget returns a `PaywallFrame`.
 2. Register it in `kit/paywall_layout_registry.dart`:
    `PaywallLayoutId.proof: (_) => const ProofPaywallLayout(),`
 3. Open it at `/plans/<key>?product=hosted|pro`, or from Developer options, Paywall layouts.
-   An id with no line in the registry draws `plain`.
+   An id with no line in the registry draws `hero` (`paywallFallbackLayout`).
 
 Import `kit/paywall_frame.dart` (buy block, clock, scope, tones) and `kit/paywall_preview.dart`.
 
@@ -46,8 +47,12 @@ What it draws outside that body reads the kit too:
 
 Top to bottom, every part at the same 20 point side inset:
 
-1. The plans, Hosted only: two cards, 52 points tall. Each has the plan's name and the billed
-   amount, and under them the per month figure with the saving, or when the plan renews.
+1. The plans, Hosted only: two cards, 52 points tall. Each starts with a pick mark (a filled
+   circle with a check on the picked plan, an empty ring on the other), then the plan's name
+   and the billed amount, and under them the per month figure or when the plan renews. The
+   picked card is cream with an ink stroke. The other has a quiet fill and no stroke. A
+   saving is a small ink badge that stands 10 points above the top edge of its card, and the
+   picker keeps that room only when a card has one (`planPickerKeepsBadgeRoom`).
 2. The button, 48 points. "Get Hosted", because the picked card shows the price. Pro has no
    card, so its button carries the price after the name. `buyButtonLabel` is the one rule.
 3. The own-server line, Hosted only.
@@ -55,11 +60,11 @@ Top to bottom, every part at the same 20 point side inset:
 5. Restore, Terms and Privacy as one line of plain words. Each has a 44 point tap area that
    runs up over the legal line.
 
-It is about 192 points tall for Hosted and 98 for Pro at the default text size. Keep it that
-way:
+It is about 200 points tall for Hosted (192 when no plan shows a saving) and 98 for Pro at the
+default text size. Keep it that way:
 
-- The button is the only filled shape. Anything else in the block is type or a hairline. Do
-  not add a pill, a badge or a second colour.
+- The button is the only cobalt thing. The pick mark and the badge are ink. Do not add a
+  second badge, a second colour or a stroke to the card that is not picked.
 - The billed amount is the largest price in the block. Nothing else may outgrow it.
 - Its text stops growing at 1.3 times. Nothing in it scrolls and no sentence is cut: at a
   large text size the block is taller and your layout gets less room. Plan for that.
