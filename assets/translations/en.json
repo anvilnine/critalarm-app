@@ -1841,7 +1841,7 @@
     "kind_pro_later": "Hosted later",
     "kind_review_ask": "Review ask",
     "kind_feedback_ask": "Feedback ask"
-    },
+  },
   "paywall_proof": {
     "headline_hosted": "Free lets {free_critical_topics} topics ring. Hosted has no limit.",
     "headline_pro_one": "{benefit} is part of Pro.",
