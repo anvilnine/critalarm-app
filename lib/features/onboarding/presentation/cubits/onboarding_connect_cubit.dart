@@ -40,9 +40,11 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     this.readDraft,
     this.saveDraft,
     this.backgroundConnect,
+    ConnectToServerUsecase? connectToServer,
     Future<bool> Function()? isOnline,
     bool initialConnected = false,
-  }) : _isOnline = isOnline ?? hasInternet,
+  }) : _sharedConnect = connectToServer,
+       _isOnline = isOnline ?? hasInternet,
        super(
          OnboardingConnectState(
            status: initialConnected
@@ -210,13 +212,17 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   final GetServerInfoUsecase _getServerInfo;
   final SaveConnectionUsecase _saveConnection;
 
-  /// The one way a server is connected, shared with a connect link.
-  late final ConnectToServerUsecase _connectToServer = ConnectToServerUsecase(
-    _getServerInfo,
-    establishSession,
-    _saveConnection,
-    cancelPendingConnect: backgroundConnect?.cancel,
-  );
+  /// The one way a server is connected, shared with a connect link. Built
+  /// from the three parts when the app does not hand it over, as tests do.
+  final ConnectToServerUsecase? _sharedConnect;
+  late final ConnectToServerUsecase _connectToServer =
+      _sharedConnect ??
+      ConnectToServerUsecase(
+        _getServerInfo,
+        establishSession,
+        _saveConnection,
+        cancelPendingConnect: backgroundConnect?.cancel,
+      );
 
   /// The "Set this up later" exit. Null in tests that never leave.
   final SetUpLaterUsecase? setUpLater;
