@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
@@ -11,7 +13,8 @@ import 'package:flutter/material.dart';
 ///
 /// At the default text size the lead card takes whatever height is left,
 /// so the sheet is full with one benefit and with seven. Past it the lead
-/// keeps its short form and the whole part scrolls inside its own box.
+/// is at least as tall as the room left over, and when the words need more
+/// than the room the whole part scrolls inside its own box.
 class SheetContent extends StatelessWidget {
   const SheetContent({
     required this.headline,
@@ -31,18 +34,79 @@ class SheetContent extends StatelessWidget {
   /// Side inset, the same as the buy block's.
   static const double side = 20;
 
+  /// Square edge of one small tile.
+  double get _tile => isCompact ? 38 : 48;
+
+  TextStyle _headlineStyle(AppColors colors) =>
+      AppTypography.headline(colors.ink, fontSize: isCompact ? 22 : 27);
+
+  /// The close cross has the top right corner, so the headline stops
+  /// short of it.
+  static const double _headlineInset =
+      PaywallLayoutScope.closeCrossSize - Spacing.s2;
+
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final isScaled = MediaQuery.textScalerOf(context).scale(100) > 101;
-    final gap = isCompact ? 6.0 : Spacing.s3;
-    final lead = this.lead;
 
-    final column = Column(
-      mainAxisSize: isScaled ? MainAxisSize.min : MainAxisSize.max,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: side),
+      child: isScaled
+          ? LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: _column(
+                  context,
+                  leadRoom: _leadRoomWhenScaled(context, constraints),
+                ),
+              ),
+            )
+          : _column(context, leadRoom: null),
+    );
+  }
+
+  /// The height left for the lead card at a large text size, worked out
+  /// from the words around it. It only has to be close: the card grows
+  /// past it when its own words need more.
+  double _leadRoomWhenScaled(BuildContext context, BoxConstraints room) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final painter = TextPainter(
+      text: TextSpan(
+        text: headline,
+        style: _headlineStyle(context.appColors),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: scaler,
+    )..layout(maxWidth: math.max(0, room.maxWidth - _headlineInset));
+    final headlineHeight = painter.height;
+    painter.dispose();
+
+    final tiles = others.isEmpty
+        ? 0.0
+        : _gap + _tile + Spacing.s1 + scaler.scale(_captionSize) * 1.2 * 2;
+    final around = _aboveHandle + _handle + _underHandle + _gap + _bottom;
+    return math.max(0, room.maxHeight - around - headlineHeight - tiles);
+  }
+
+  static const double _handle = 5;
+  static const double _captionSize = 11;
+  double get _aboveHandle => isCompact ? 6 : 9;
+  double get _underHandle => isCompact ? 6 : Spacing.s3;
+  double get _gap => isCompact ? 6 : Spacing.s3;
+  double get _bottom => isCompact ? 6 : Spacing.s2;
+
+  /// The parts, top to bottom. A null [leadRoom] is the default text size:
+  /// the column fills its room and the lead takes what is left.
+  Widget _column(BuildContext context, {required double? leadRoom}) {
+    final colors = context.appColors;
+    final lead = this.lead;
+    final fills = leadRoom == null;
+
+    return Column(
+      mainAxisSize: fills ? MainAxisSize.max : MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(height: isCompact ? 6 : 9),
+        SizedBox(height: _aboveHandle),
         Center(
           child: ValueListenableBuilder<double>(
             valueListenable: clock,
@@ -52,7 +116,7 @@ class SheetContent extends StatelessWidget {
             ),
             child: Container(
               width: 38,
-              height: 5,
+              height: _handle,
               decoration: BoxDecoration(
                 color: colors.hairline,
                 borderRadius: Radii.fullAll,
@@ -60,27 +124,27 @@ class SheetContent extends StatelessWidget {
             ),
           ),
         ),
-        SizedBox(height: isCompact ? 6 : Spacing.s3),
+        SizedBox(height: _underHandle),
         Padding(
-          // The close cross has the top right corner.
-          padding: const EdgeInsets.only(
-            right: PaywallLayoutScope.closeCrossSize - Spacing.s2,
-          ),
+          padding: const EdgeInsets.only(right: _headlineInset),
           child: Semantics(
             header: true,
-            child: Text(
-              headline,
-              style: AppTypography.headline(
-                colors.ink,
-                fontSize: isCompact ? 22 : 27,
-              ),
-            ),
+            child: Text(headline, style: _headlineStyle(colors)),
           ),
         ),
         if (lead != null) ...[
-          SizedBox(height: gap),
-          if (isScaled)
-            _LeadCard(benefit: lead, isCompact: isCompact, height: null)
+          SizedBox(height: _gap),
+          if (leadRoom != null)
+            _LeadCard(
+              benefit: lead,
+              isCompact: isCompact,
+              // The stage needs an exact height. The words are larger
+              // here, so it needs more of it.
+              height: leadRoom >= _LeadCard.stageFromWhenScaled
+                  ? leadRoom
+                  : null,
+              minHeight: leadRoom,
+            )
           else
             Expanded(
               child: LayoutBuilder(
@@ -91,24 +155,18 @@ class SheetContent extends StatelessWidget {
                 ),
               ),
             ),
-        ] else if (!isScaled)
+        ] else if (fills)
           const Spacer(),
         if (others.isNotEmpty) ...[
-          SizedBox(height: gap),
-          _Tiles(benefits: others, isCompact: isCompact),
+          SizedBox(height: _gap),
+          _Tiles(
+            benefits: others,
+            tile: _tile,
+            captionSize: _captionSize,
+          ),
         ],
-        SizedBox(height: isCompact ? 6 : Spacing.s2),
+        SizedBox(height: _bottom),
       ],
-    );
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: side),
-      child: isScaled
-          ? SingleChildScrollView(
-              physics: const ClampingScrollPhysics(),
-              child: column,
-            )
-          : column,
     );
   }
 }
@@ -122,16 +180,23 @@ class _LeadCard extends StatelessWidget {
     required this.benefit,
     required this.isCompact,
     required this.height,
+    this.minHeight = 0,
   });
 
   /// From this height up the preview goes across the card.
   static const double _stageFrom = 136;
+
+  /// The same, at a large text size.
+  static const double stageFromWhenScaled = 200;
 
   final PaywallBenefit benefit;
   final bool isCompact;
 
   /// The height the card is given, or null to take what its words need.
   final double? height;
+
+  /// With no [height], the least the card is tall.
+  final double minHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -154,7 +219,7 @@ class _LeadCard extends StatelessWidget {
         ),
         Text(
           benefit.line,
-          maxLines: 2,
+          maxLines: height == null ? 4 : 2,
           overflow: TextOverflow.ellipsis,
           style: AppTypography.small(
             colors.ink3,
@@ -168,6 +233,7 @@ class _LeadCard extends StatelessWidget {
 
     return Container(
       height: height,
+      constraints: BoxConstraints(minHeight: height ?? minHeight),
       padding: EdgeInsets.symmetric(horizontal: Spacing.s3, vertical: pad),
       decoration: BoxDecoration(
         color: colors.cream,
@@ -205,10 +271,15 @@ class _LeadCard extends StatelessWidget {
 
 /// The other benefits: one small preview each, with its name under it.
 class _Tiles extends StatelessWidget {
-  const _Tiles({required this.benefits, required this.isCompact});
+  const _Tiles({
+    required this.benefits,
+    required this.tile,
+    required this.captionSize,
+  });
 
   final List<PaywallBenefit> benefits;
-  final bool isCompact;
+  final double tile;
+  final double captionSize;
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +296,7 @@ class _Tiles extends StatelessWidget {
                 children: [
                   PaywallPreview(
                     benefit.previewId,
-                    size: Size.square(isCompact ? 38 : 48),
+                    size: Size.square(tile),
                   ),
                   const SizedBox(height: Spacing.s1),
                   Text(
@@ -235,7 +306,7 @@ class _Tiles extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: AppTypography.small(
                       colors.ink3,
-                      fontSize: 11,
+                      fontSize: captionSize,
                     ).copyWith(fontWeight: FontWeight.w600, height: 1.2),
                   ),
                 ],
