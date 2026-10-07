@@ -230,11 +230,49 @@ void main() {
       expect(state.messageKey, isNull);
     });
 
-    test('every Pro store result has its match', () {
-      expect(
-        ProPackStoreResult.values.map(storeResultOfProPack),
-        PaywallStoreResult.values,
-      );
+    test('a payment the store is holding is a paused check, never a '
+        'failure and never a second purchase', () {
+      final state = afterStore(buying, PaywallStoreResult.pending);
+      expect(state.status, PaywallBuyStatus.checking);
+      expect(state.isPaused, isTrue);
+      expect(state.isBusy, isFalse);
+      expect(state.messageKey, LocaleKeys.purchase_errors_payment_pending);
+      expect(state.messageKey, isNot(LocaleKeys.paywall_kit_failed));
+      expect(state.canBuy, isFalse);
+      expect(state.canRestore, isTrue);
+      expect(state.selectedId, PaywallPlanOption.yearlyId);
+    });
+
+    test('every Pro store result has its match, and the Pro shop has no '
+        'word for a held payment', () {
+      expect(ProPackStoreResult.values.map(storeResultOfProPack), [
+        PaywallStoreResult.done,
+        PaywallStoreResult.cancelled,
+        PaywallStoreResult.problem,
+      ]);
+    });
+  });
+
+  group('a Hosted purchase that came back as a failure', () {
+    PaywallStoreResult result(String? message) => storeResultOfPurchaseFailure(
+      message,
+      cancelledText: 'Backed out.',
+      pendingText: 'Held.',
+    );
+
+    test('the cancel line is a cancel', () {
+      expect(result('Backed out.'), PaywallStoreResult.cancelled);
+    });
+
+    test('the pending line is a held payment', () {
+      expect(result('Held.'), PaywallStoreResult.pending);
+    });
+
+    test('any other line, or none, is a problem', () {
+      expect(result('Network error.'), PaywallStoreResult.problem);
+      expect(result('held.'), PaywallStoreResult.problem);
+      expect(result(''), PaywallStoreResult.problem);
+      expect(result(null), PaywallStoreResult.problem);
     });
   });
 

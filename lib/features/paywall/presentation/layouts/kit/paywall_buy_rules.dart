@@ -111,7 +111,37 @@ PaywallBuyState restingState(
 }
 
 /// How one trip to the store ended, as far as the store goes.
-enum PaywallStoreResult { done, cancelled, problem }
+enum PaywallStoreResult {
+  /// The store finished the purchase or the restore.
+  done,
+
+  /// The buyer backed out.
+  cancelled,
+
+  /// The store took the purchase and is holding the payment: it waits for
+  /// an approval or for the money. Nothing failed and nothing is held yet.
+  pending,
+
+  /// The store reported a problem of its own.
+  problem,
+}
+
+/// How a Hosted purchase that came back as a failure ended.
+///
+/// The repository says a cancel and a held payment with the same failure
+/// type as every other store error, so its own two lines are the only way
+/// to tell them apart. [cancelledText] and [pendingText] are those lines as
+/// the repository words them, and [message] is the failure's.
+PaywallStoreResult storeResultOfPurchaseFailure(
+  String? message, {
+  required String cancelledText,
+  required String pendingText,
+}) {
+  if (message == null) return PaywallStoreResult.problem;
+  if (message == cancelledText) return PaywallStoreResult.cancelled;
+  if (message == pendingText) return PaywallStoreResult.pending;
+  return PaywallStoreResult.problem;
+}
 
 PaywallStoreResult storeResultOfProPack(ProPackStoreResult result) =>
     switch (result) {
@@ -124,11 +154,19 @@ PaywallStoreResult storeResultOfProPack(ProPackStoreResult result) =>
 ///
 /// Backing out is not a failure and says nothing. A problem says so and
 /// leaves the options up to try again. A store that finished only starts
-/// the confirming: it never means the product is held.
+/// the confirming: it never means the product is held. A payment the store
+/// is holding is none of those: the block says so and rests as a check
+/// that paused, so the button asks again and never buys a second time.
 PaywallBuyState afterStore(PaywallBuyState state, PaywallStoreResult result) {
   switch (result) {
     case PaywallStoreResult.cancelled:
       return restingState(state);
+    case PaywallStoreResult.pending:
+      return state.copyWith(
+        status: PaywallBuyStatus.checking,
+        messageKey: LocaleKeys.purchase_errors_payment_pending,
+        isPaused: true,
+      );
     case PaywallStoreResult.problem:
       final rest = restingState(
         state,
