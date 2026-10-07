@@ -159,6 +159,63 @@ void main() {
       await subscription.cancel();
     });
 
+    test('a second connect link replaces the first', () async {
+      const second =
+          'https://critalarm.app/connect#url=https%3A%2F%2Fother.example.com&token=tk_second';
+      final seen = <ConnectLink>[];
+      final subscription = holder.links.listen(seen.add);
+      await tapFromPlatform({PushHost.linkKey: _https, 'tap_id': '1'});
+      await tapFromPlatform({PushHost.linkKey: second, 'tap_id': '2'});
+      await Future<void>.delayed(Duration.zero);
+      expect(seen, hasLength(2));
+      expect(holder.pending?.serverUrl.host, 'other.example.com');
+      expect(holder.pending?.token, 'tk_second');
+      expect(holder.take()?.token, 'tk_second');
+      expect(holder.take(), isNull);
+      await subscription.cancel();
+    });
+
+    test('an https connect link with the token in the query fills '
+        'nothing', () async {
+      final routes = <String>[];
+      final subscription = host.deepLinks.listen(routes.add);
+      await capturing(
+        () => tapFromPlatform({
+          PushHost.linkKey:
+              'https://critalarm.app/connect?url=https%3A%2F%2Falarm.example.com&token=$_token',
+          'tap_id': '1',
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(routes, ['/']);
+      expect(holder.pending, isNull);
+      expect(printed.join('\n'), isNot(contains(_token)));
+      await subscription.cancel();
+    });
+
+    test('a link written with a dot segment opens Home and fills '
+        'nothing', () async {
+      final routes = <String>[];
+      final subscription = host.deepLinks.listen(routes.add);
+      await tapFromPlatform({
+        PushHost.linkKey:
+            'https://critalarm.app/open/../connect#url=https%3A%2F%2Falarm.example.com&token=$_token',
+        'tap_id': '1',
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(routes, ['/']);
+      expect(holder.pending, isNull);
+      await subscription.cancel();
+    });
+
+    test('a link to the create-topic word opens Home', () async {
+      platformHolds({
+        PushHost.linkKey: 'https://critalarm.app/open/topics/new',
+        'tap_id': '1',
+      });
+      expect(await host.takePendingRoute(), '/');
+    });
+
     test('a refused connect link opens Home and fills nothing', () async {
       final routes = <String>[];
       final subscription = host.deepLinks.listen(routes.add);
