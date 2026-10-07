@@ -242,4 +242,13 @@ class FakeInAppNoticeRepository implements InAppNoticeRepository {
   @override
   Future<void> setProEndedSheetDueFor(String? accountId) async =>
       proEndedDueFor = accountId;
+
+  int? systemUpdateDismissedFor;
+
+  @override
+  int? getSystemUpdateNoticeDismissedFor() => systemUpdateDismissedFor;
+
+  @override
+  Future<void> dismissSystemUpdateNotice(int osMajor) async =>
+      systemUpdateDismissedFor = osMajor;
 }

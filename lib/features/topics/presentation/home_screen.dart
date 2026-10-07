@@ -827,6 +827,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         InAppNoticeType.accountBackup => true,
         InAppNoticeType.none ||
         InAppNoticeType.noServer ||
+        InAppNoticeType.systemUpdate ||
         InAppNoticeType.criticalHealth => false,
       };
 
@@ -893,6 +894,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         );
       case InAppNoticeType.none:
       case InAppNoticeType.noServer:
+      case InAppNoticeType.systemUpdate:
       case InAppNoticeType.criticalHealth:
         return null;
     }
