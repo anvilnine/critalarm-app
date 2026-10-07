@@ -3,29 +3,53 @@ import UIKit
 
 class SceneDelegate: FlutterSceneDelegate {
   /// A cold start. A file shared from Voice Memos or Files arrives here when
-  /// the app was not running.
+  /// the app was not running, and so does a link that started the app.
   override func scene(
     _ scene: UIScene,
     willConnectTo session: UISceneSession,
     options connectionOptions: UIScene.ConnectionOptions
   ) {
     IncomingAudioInbox.receive(connectionOptions.urlContexts)
-    openWidgetLinks(connectionOptions.urlContexts)
+    openLinks(connectionOptions.urlContexts)
+    for activity in connectionOptions.userActivities { openUniversalLink(activity) }
     super.scene(scene, willConnectTo: session, options: connectionOptions)
   }
 
   /// A warm open: the app was already running when the file was shared.
   override func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
     IncomingAudioInbox.receive(URLContexts)
-    openWidgetLinks(URLContexts)
+    openLinks(URLContexts)
     super.scene(scene, openURLContexts: URLContexts)
   }
 
-  /// A `critalarm://` link from a widget. Files keep going to the inbox above.
-  private func openWidgetLinks(_ contexts: Set<UIOpenURLContext>) {
+  /// A warm open from an `https://critalarm.app` universal link.
+  override func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    openUniversalLink(userActivity)
+    super.scene(scene, continue: userActivity)
+  }
+
+  /// A `critalarm://` link. One from a widget becomes a tap as before. One
+  /// that is the custom-scheme form of an app link goes to Dart whole. Files
+  /// keep going to the inbox above.
+  private func openLinks(_ contexts: Set<UIOpenURLContext>) {
     let links = contexts.map(\.url).filter { !$0.isFileURL && $0.scheme == WidgetLink.scheme }
     guard let app = UIApplication.shared.delegate as? AppDelegate else { return }
-    for url in links { app.openWidgetLink(url) }
+    for url in links {
+      if WidgetLink.tap(from: url) == nil, let tap = AppLinkRule.tap(from: url) {
+        app.openAppLink(tap)
+      } else {
+        app.openWidgetLink(url)
+      }
+    }
+  }
+
+  /// Flutter's deep linking is off, so a universal link becomes a tap and
+  /// Dart picks the screen. Any other activity is left to Flutter.
+  private func openUniversalLink(_ activity: NSUserActivity) {
+    guard let tap = AppLinkRule.tap(from: activity),
+          let app = UIApplication.shared.delegate as? AppDelegate
+    else { return }
+    app.openAppLink(tap)
   }
 }
 
