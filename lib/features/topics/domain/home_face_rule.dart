@@ -157,6 +157,16 @@ HomeFaceResult resolveHomeFace({
       if (handled.isNotEmpty) {
         handled.sort((a, b) => b.closedAt.compareTo(a.closedAt));
         final entry = handled.first;
+        // An alarm that ran out was not handled by anyone. The row says the
+        // plain fact with a resting face, and the missed alarm notice owns
+        // the rest.
+        if (entry.incident.state == IncidentStates.expired) {
+          return HomeTopicRow(
+            name: t.name,
+            faceState: FaceState.calm,
+            meta: LocaleKeys.notices_missed_alarm_reason_unanswered.tr(),
+          );
+        }
         final time = formatHm(entry.closedAt);
         return HomeTopicRow(
           name: t.name,
