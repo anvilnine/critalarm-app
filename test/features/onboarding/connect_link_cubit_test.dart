@@ -77,6 +77,7 @@ void main() {
       () => connect(
         serverUrl: any(named: 'serverUrl'),
         adminToken: any(named: 'adminToken'),
+        pinToAddress: any(named: 'pinToAddress'),
       ),
     ).thenAnswer((_) async => const Connected(_info));
   });
@@ -149,6 +150,7 @@ void main() {
         () => connect(
           serverUrl: any(named: 'serverUrl'),
           adminToken: any(named: 'adminToken'),
+          pinToAddress: any(named: 'pinToAddress'),
         ),
       );
       expect(cubit.state.phase, ConnectLinkPhase.ready);
@@ -160,8 +162,11 @@ void main() {
       final cubit = build();
       await cubit.connect();
       verify(
-        () =>
-            connect(serverUrl: 'https://alarm.example.com', adminToken: _token),
+        () => connect(
+          serverUrl: 'https://alarm.example.com',
+          adminToken: _token,
+          pinToAddress: true,
+        ),
       ).called(1);
       expect(cubit.state.phase, ConnectLinkPhase.connected);
       expect(connectedCalls, 1);
@@ -176,6 +181,7 @@ void main() {
           () => connect(
             serverUrl: any(named: 'serverUrl'),
             adminToken: any(named: 'adminToken'),
+            pinToAddress: any(named: 'pinToAddress'),
           ),
         ).thenAnswer((_) => answer.future);
         final cubit = build();
@@ -200,6 +206,7 @@ void main() {
         () => connect(
           serverUrl: any(named: 'serverUrl'),
           adminToken: any(named: 'adminToken'),
+          pinToAddress: any(named: 'pinToAddress'),
         ),
       ).thenAnswer((_) => answer.future);
       final cubit = build();
@@ -211,6 +218,7 @@ void main() {
         () => connect(
           serverUrl: any(named: 'serverUrl'),
           adminToken: any(named: 'adminToken'),
+          pinToAddress: any(named: 'pinToAddress'),
         ),
       ).called(1);
       await cubit.close();
@@ -222,6 +230,7 @@ void main() {
         () => connect(
           serverUrl: any(named: 'serverUrl'),
           adminToken: any(named: 'adminToken'),
+          pinToAddress: any(named: 'pinToAddress'),
         ),
       ).thenAnswer(
         (_) async => ++calls == 1
@@ -245,6 +254,7 @@ void main() {
         () => connect(
           serverUrl: any(named: 'serverUrl'),
           adminToken: any(named: 'adminToken'),
+          pinToAddress: any(named: 'pinToAddress'),
         ),
       ).called(1);
       await cubit.close();
@@ -255,6 +265,7 @@ void main() {
         () => connect(
           serverUrl: any(named: 'serverUrl'),
           adminToken: any(named: 'adminToken'),
+          pinToAddress: any(named: 'pinToAddress'),
         ),
       ).thenAnswer(
         (_) async => ConnectTransportError(StateError('bad $_token')),
@@ -272,12 +283,64 @@ void main() {
         () => connect(
           serverUrl: any(named: 'serverUrl'),
           adminToken: any(named: 'adminToken'),
+          pinToAddress: any(named: 'pinToAddress'),
         ),
       ).thenThrow(StateError('boom $_token'));
       final cubit = build();
       await cubit.connect();
       expect(cubit.state.isFailed, isTrue);
       expect(cubit.state.errorMessage, isNot(contains(_token)));
+      await cubit.close();
+    });
+  });
+
+  group('an answer that names another address', () {
+    Future<ConnectLinkCubit> failWith(ConnectOutcome outcome) async {
+      when(
+        () => connect(
+          serverUrl: any(named: 'serverUrl'),
+          adminToken: any(named: 'adminToken'),
+          pinToAddress: any(named: 'pinToAddress'),
+        ),
+      ).thenAnswer((_) async => outcome);
+      final cubit = build();
+      await cubit.connect();
+      return cubit;
+    }
+
+    test('says which host the server reported, and offers no retry', () async {
+      final cubit = await failWith(
+        const ServerAddressDiffers('other.example.com'),
+      );
+      expect(cubit.state.isFailed, isTrue);
+      expect(cubit.state.errorMessage, contains('other.example.com'));
+      expect(cubit.state.canRetry, isFalse);
+      expect(connectedCalls, 0);
+      await cubit.connect();
+      verify(
+        () => connect(
+          serverUrl: any(named: 'serverUrl'),
+          adminToken: any(named: 'adminToken'),
+          pinToAddress: any(named: 'pinToAddress'),
+        ),
+      ).called(1);
+      await cubit.close();
+    });
+
+    test('a downgrade to http is refused in words', () async {
+      final cubit = await failWith(const ServerDowngrade());
+      expect(cubit.state.isFailed, isTrue);
+      expect(cubit.state.errorMessage, isNotEmpty);
+      expect(cubit.state.errorMessage, isNot(contains('onboarding_connect')));
+      expect(cubit.state.canRetry, isFalse);
+      await cubit.close();
+    });
+
+    test('an ordinary failure can be retried', () async {
+      final cubit = await failWith(
+        const ServerUnreachable(Failure.unexpected()),
+      );
+      expect(cubit.state.canRetry, isTrue);
       await cubit.close();
     });
   });
@@ -297,6 +360,7 @@ void main() {
           () => connect(
             serverUrl: any(named: 'serverUrl'),
             adminToken: any(named: 'adminToken'),
+            pinToAddress: any(named: 'pinToAddress'),
           ),
         ).thenAnswer((_) async => outcome);
         printed.clear();
@@ -321,6 +385,47 @@ void main() {
           isNot(contains(_token)),
           reason: '$outcome',
         );
+      }
+    });
+
+    test('an error that echoes the trimmed token is scrubbed, for a token '
+        'with spaces around it', () async {
+      const spaced = '  tk/a b+c  ';
+      const trimmed = 'tk/a b+c';
+      for (final echoed in <String>[
+        trimmed,
+        spaced,
+        Uri.encodeComponent(trimmed),
+        Uri.encodeQueryComponent(trimmed),
+        'x ${Uri.encodeComponent(spaced)} y',
+      ]) {
+        when(
+          () => connect(
+            serverUrl: any(named: 'serverUrl'),
+            adminToken: any(named: 'adminToken'),
+            pinToAddress: any(named: 'pinToAddress'),
+          ),
+        ).thenAnswer(
+          (_) async => ConnectTransportError(StateError('bad $echoed')),
+        );
+        final cubit = build(
+          ConnectLink(
+            serverUrl: Uri.parse('https://alarm.example.com'),
+            token: spaced,
+          ),
+        );
+        await cubit.connect();
+        final shown = cubit.state.errorMessage ?? '';
+        expect(shown, isNotEmpty, reason: echoed);
+        for (final form in [
+          spaced,
+          trimmed,
+          Uri.encodeComponent(trimmed),
+          Uri.encodeQueryComponent(trimmed),
+        ]) {
+          expect(shown, isNot(contains(form)), reason: echoed);
+        }
+        await cubit.close();
       }
     });
 
@@ -364,6 +469,7 @@ void main() {
         () => connect(
           serverUrl: any(named: 'serverUrl'),
           adminToken: any(named: 'adminToken'),
+          pinToAddress: any(named: 'pinToAddress'),
         ),
       ).thenAnswer((_) async => const ServerUnreachable(Failure.unexpected()));
       final cubit = build();
