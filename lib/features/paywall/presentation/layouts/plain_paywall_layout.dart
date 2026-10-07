@@ -32,69 +32,66 @@ class PlainPaywallLayout extends StatelessWidget {
       ),
       builder: (context, scope) {
         final colors = context.appColors;
-        final faceSize = scope.isCompact ? 64.0 : 104.0;
+        final gap = scope.isCompact ? Spacing.s2 : Spacing.s4;
 
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            Spacing.s5,
-            scope.isCompact ? Spacing.s2 : Spacing.s5,
-            Spacing.s5,
-            Spacing.s3,
-          ),
-          child: Column(
-            children: [
-              // Upright at rest, as every face is.
-              ExcludeSemantics(
-                child: FaceWidget(state: FaceState.happy, size: faceSize),
-              ),
-              SizedBox(height: scope.isCompact ? Spacing.s2 : Spacing.s4),
-              Semantics(
-                header: true,
-                child: Text(
-                  scope.isHosted
-                      ? LocaleKeys.paywall_kit_plain_headline_hosted.tr()
-                      : LocaleKeys.paywall_kit_plain_headline_pro.tr(),
-                  textAlign: TextAlign.center,
-                  style: AppTypography.headline(
-                    colors.onCanvas,
-                    fontSize: scope.isCompact ? 26 : 32,
+        // The whole composition sits in the middle of the room it has. At
+        // the default text size it fits. At a large one it scrolls in its
+        // own box, and the frame still does not.
+        return Center(
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.s5,
+              vertical: Spacing.s2,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Upright at rest, as every face is.
+                ExcludeSemantics(
+                  child: FaceWidget(
+                    state: FaceState.happy,
+                    size: scope.isCompact ? 64 : 96,
                   ),
                 ),
-              ),
-              SizedBox(height: scope.isCompact ? Spacing.s3 : Spacing.s5),
-              // At the default text size the rows fit. At a large one they
-              // scroll in their own box and the frame still does not.
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const ClampingScrollPhysics(),
-                  child: Column(
-                    children: [
-                      for (final (i, benefit) in scope.benefits.indexed)
-                        PaywallClockBuilder(
-                          clock: scope.clock,
-                          // Each row fades and rises in, one after another.
-                          builder: (context, t, child) {
-                            final p = AppCurves.easeOut.transform(
-                              phase(stagger(i, t, each: 0.09), 0.1, 0.5),
-                            );
-                            return Opacity(
-                              opacity: p,
-                              child: Transform.translate(
-                                offset: Offset(0, 12 * (1 - p)),
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: _BenefitRow(
-                            benefit: benefit,
-                            isCompact: scope.isCompact,
-                          ),
+                SizedBox(height: gap),
+                Semantics(
+                  header: true,
+                  child: Text(
+                    scope.isHosted
+                        ? LocaleKeys.paywall_kit_plain_headline_hosted.tr()
+                        : LocaleKeys.paywall_kit_plain_headline_pro.tr(),
+                    textAlign: TextAlign.center,
+                    style: AppTypography.headline(
+                      colors.onCanvas,
+                      fontSize: scope.isCompact ? 26 : 32,
+                    ),
+                  ),
+                ),
+                SizedBox(height: gap),
+                for (final (i, benefit) in scope.benefits.indexed)
+                  PaywallClockBuilder(
+                    clock: scope.clock,
+                    // Each row fades and rises in, one after another.
+                    builder: (context, t, child) {
+                      final p = AppCurves.easeOut.transform(
+                        phase(stagger(i, t, each: 0.09), 0.1, 0.5),
+                      );
+                      return Opacity(
+                        opacity: p,
+                        child: Transform.translate(
+                          offset: Offset(0, 12 * (1 - p)),
+                          child: child,
                         ),
-                    ],
+                      );
+                    },
+                    child: _BenefitRow(
+                      benefit: benefit,
+                      isCompact: scope.isCompact,
+                    ),
                   ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -113,7 +110,7 @@ class _BenefitRow extends StatelessWidget {
     final colors = context.appColors;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: isCompact ? Spacing.s2 : Spacing.s3),
+      padding: EdgeInsets.only(top: isCompact ? Spacing.s2 : Spacing.s3),
       child: Row(
         children: [
           PaywallPreview(

@@ -290,15 +290,19 @@ class _LegalLines extends StatelessWidget {
         ? LocaleKeys.paywall_renewal_disclosure.tr(namedArgs: {'store': store})
         : LocaleKeys.paywall_kit_legal_pro.tr(namedArgs: {'store': store});
     final scale = MediaQuery.textScalerOf(context).scale(1);
-    final boxScale = math.min(scale, paywallBuyMaxTextScale);
+    final line = _fontSize * _lineHeight * scale;
+    // Three lines until the text outgrows the block's own limit, then as
+    // many whole lines as that room holds, and never under two.
+    final lines = math.max(
+      2,
+      (_lines * math.min(scale, paywallBuyMaxTextScale) / scale).floor(),
+    );
 
     return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: _fontSize * _lineHeight * _lines * boxScale + 1,
-      ),
+      constraints: BoxConstraints(maxHeight: line * lines + 1),
       child: SingleChildScrollView(
         physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.s3),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         child: Text(
           text,
           textAlign: TextAlign.center,
