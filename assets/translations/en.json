@@ -1928,5 +1928,20 @@
       "custom_sounds": "Upload/Record your alarm",
       "custom_alarm_screens": "Customize the Alarm Screen"
     }
+  },
+  "paywall_reel": {
+    "eyebrow": "With {name}",
+    "position": "{current} of {total}",
+    "headlines": {
+      "topics": "Unlimited critical topics",
+      "pushes": "{hosted_p4_daily} high priority pushes a day",
+      "history": "{hosted_history_days} days of alarm history",
+      "widgets": "Widgets on your Home screen",
+      "app_icons": "Three extra app icons",
+      "wake_up_challenges": "Wake-up challenges",
+      "reliability_checks": "Weekly reliability checks",
+      "custom_sounds": "Your own alarm sound",
+      "custom_alarm_screens": "Your own alarm screen"
+    }
   }
 }

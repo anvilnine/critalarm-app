@@ -9,6 +9,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/plain_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/proof_paywall_layout.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/reel_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet_paywall_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,6 +24,7 @@ final Map<PaywallLayoutId, PaywallLayoutBuilder> paywallLayoutBuilders = {
   PaywallLayoutId.hero: (_) => const HeroPaywallLayout(),
   PaywallLayoutId.plain: (_) => const PlainPaywallLayout(),
   PaywallLayoutId.proof: (_) => const ProofPaywallLayout(),
+  PaywallLayoutId.reel: (_) => const ReelPaywallLayout(),
   PaywallLayoutId.sheet: (_) => const SheetPaywallLayout(),
 };
 
