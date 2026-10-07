@@ -788,8 +788,8 @@ how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 - Real: the design system in `lib/design/`, with its palette, fonts and
   component names. The `AppColors` `ThemeExtension` with `copyWith` and `lerp`,
   the single `ThemeData` construction point in `lib/design/theme/theme.dart`,
-  the theme preference round-trip, `go_router` wiring (`lib/app/router.dart`, 51
-  routes today: `GoRoute(` appears 43 times, and one of those is a loop that
+  the theme preference round-trip, `go_router` wiring (`lib/app/router.dart`, 52
+  routes today: `GoRoute(` appears 44 times, and one of those is a loop that
   builds the 9 setup step routes), the `AppResult` and `Failure` types, `tool/check_layers.sh`, CI.
 - Placeholder: nothing in `lib/design/`. The widgets left in
   `lib/design_system/widgets/` predate it. Do not build new screens from them.
