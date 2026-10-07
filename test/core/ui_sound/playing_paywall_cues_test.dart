@@ -7,7 +7,6 @@ import 'package:critalarm/core/ui_sound/interface_sounds_setting.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/core/ui_sound/playing_paywall_cues.dart';
 import 'package:critalarm/core/ui_sound/ui_sound_host.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
