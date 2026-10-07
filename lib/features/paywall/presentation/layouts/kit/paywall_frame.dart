@@ -22,6 +22,8 @@ export 'package:critalarm/core/ui_sound/paywall_cues.dart'
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
+export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_measure.dart';
+export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_one_benefit.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 
 /// Draws a layout's own part in the room the frame has left.

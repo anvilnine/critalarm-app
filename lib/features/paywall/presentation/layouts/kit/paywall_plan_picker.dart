@@ -156,27 +156,14 @@ class _PlanCard extends StatelessWidget {
     final fine = AppTypography.small(soft, fontSize: 11).copyWith(height: 1.25);
     final strongFine = fine.copyWith(color: ink, fontWeight: FontWeight.w700);
 
-    // The store's own strings and the plan words, as they come. Each side
-    // may take what it needs and shrinks its text past the room it has.
+    // The store's own strings and the plan words, as they come, each on
+    // one line. Text that is too wide for its side is drawn smaller.
     Widget oneLine(String text, TextStyle style, Alignment alignment) =>
-        Flexible(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: alignment,
-            child: Text(text, style: style, maxLines: 1),
-          ),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: alignment,
+          child: Text(text, style: style, maxLines: 1),
         );
-
-    Widget twoSides(Widget? left, Widget? right) => Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        ?left,
-        if (left != null && right != null) const SizedBox(width: Spacing.s2),
-        ?right,
-      ],
-    );
 
     final Widget content;
     if (option == null) {
@@ -187,19 +174,47 @@ class _PlanCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          twoSides(
-            oneLine(option.title, title, Alignment.centerLeft),
-            oneLine(option.price, price, Alignment.centerRight),
+          // The billed amount takes the width it needs, up to most of the
+          // line, and keeps its size. The plan's name gives way first.
+          LayoutBuilder(
+            builder: (context, box) => Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Expanded(
+                  child: oneLine(option.title, title, Alignment.centerLeft),
+                ),
+                const SizedBox(width: Spacing.s2),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: box.maxWidth * 0.7),
+                  child: oneLine(option.price, price, Alignment.centerRight),
+                ),
+              ],
+            ),
           ),
           if (second.left != null || second.right != null) ...[
             const SizedBox(height: 2),
-            twoSides(
-              second.left == null
-                  ? null
-                  : oneLine(second.left!, fine, Alignment.centerLeft),
-              second.right == null
-                  ? null
-                  : oneLine(second.right!, strongFine, Alignment.centerRight),
+            // The two fine parts are one line: short of room, both get
+            // smaller together.
+            LayoutBuilder(
+              builder: (context, box) => FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: box.maxWidth),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (second.left case final left?)
+                        Text(left, style: fine, maxLines: 1),
+                      if (second.left != null && second.right != null)
+                        const SizedBox(width: Spacing.s2),
+                      if (second.right case final right?)
+                        Text(right, style: strongFine, maxLines: 1),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ],
