@@ -1954,5 +1954,19 @@
       "custom_sounds": "Your own alarm sound",
       "custom_alarm_screens": "Your own alarm screen"
     }
+  },
+  "paywall_receipt": {
+    "headline": "What {name} gets you",
+    "lines": {
+      "topics": "Unlimited critical topics",
+      "pushes": "{hosted_p4_daily} high priority a day",
+      "history": "{hosted_history_days} days of history",
+      "widgets": "Home screen widgets",
+      "app_icons": "Three extra app icons",
+      "wake_up_challenges": "Wake-up challenges",
+      "reliability_checks": "Reliability checks",
+      "custom_sounds": "Your own alarm sound",
+      "custom_alarm_screens": "Your own alarm screen"
+    }
   }
 }
