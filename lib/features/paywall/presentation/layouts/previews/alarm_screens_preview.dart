@@ -166,8 +166,10 @@ class _Screen extends StatelessWidget {
       decoration: BoxDecoration(
         color: _fillOf(look, colors),
         borderRadius: BorderRadius.circular(u * 0.085),
+        // The tile's own ink, so the black look still has an edge on a
+        // dark tile.
         border: Border.all(
-          color: colors.inkFixed,
+          color: colors.ink,
           width: math.max(1.5, u * 0.012),
         ),
       ),
@@ -362,7 +364,7 @@ class _Swatches extends StatelessWidget {
                   color: _fillOf(look, colors),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: colors.inkFixed.withValues(alpha: 0.18),
+                    color: colors.ink.withValues(alpha: 0.3),
                     width: math.max(1, u * 0.006),
                   ),
                 ),
