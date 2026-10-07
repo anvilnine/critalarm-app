@@ -4,6 +4,7 @@ import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
@@ -23,7 +24,11 @@ import 'package:critalarm/features/onboarding/presentation/cubits/notification_p
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layouts_dev_screen.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/pro_welcome_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
@@ -108,6 +113,8 @@ abstract final class AppRoute {
   static const ringingFaces = 'ringingFaces';
   static const localReminderLab = 'localReminderLab';
   static const paywall = 'paywall';
+  static const paywallLayout = 'paywallLayout';
+  static const paywallLayoutsDev = 'paywallLayoutsDev';
   static const String proPack = proPackSheetRouteName;
   static const proWelcome = 'proWelcome';
   static const alarm = 'alarm';
@@ -118,6 +125,12 @@ abstract final class AppRoute {
 }
 
 final _rootKey = GlobalKey<NavigatorState>();
+
+/// The paywall layouts have a route only where a developer can reach them:
+/// a debug build, or one with Developer options. Both dart-defines are
+/// compile-time constants, so a store build holds no such route.
+const bool _hasPaywallLayoutRoute =
+    kDebugMode || buildSkipsPaywall || buildHasPaywallLab;
 
 GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
   navigatorKey: _rootKey,
@@ -533,6 +546,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                       ),
                     ),
                     GoRoute(
+                      path: 'paywall-layouts',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.paywallLayoutsDev,
+                      pageBuilder: (context, state) => AmbientPage(
+                        key: state.pageKey,
+                        opaque: true,
+                        child: const PaywallLayoutsDevScreen(),
+                      ),
+                    ),
+                    GoRoute(
                       path: 'dialog-sheet',
                       parentNavigatorKey: _rootKey,
                       name: AppRoute.dialogSheetGallery,
@@ -622,6 +645,32 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         );
       },
     ),
+    // One paywall layout, selling Hosted or Pro. Only Developer options and
+    // the capture tool open it, so a store build has no such route: nothing
+    // a user can tap leads here yet.
+    if (_hasPaywallLayoutRoute)
+      GoRoute(
+        path: paywallLayoutPath,
+        name: AppRoute.paywallLayout,
+        parentNavigatorKey: _rootKey,
+        pageBuilder: (context, state) {
+          final query = state.uri.queryParameters;
+          return AmbientPage(
+            key: state.pageKey,
+            opaque: true,
+            child: PaywallLayoutScreen(
+              // An unknown key draws the reference layout.
+              layout:
+                  PaywallLayoutId.fromKey(state.pathParameters['layout']) ??
+                  PaywallLayoutId.plain,
+              product: PaywallProduct.parse(query['product']),
+              source: PaywallSource.parse(query['source']),
+              demoStatus: PaywallBuyStatus.values.asNameMap()[query['state']],
+              showsUnbuilt: query['benefits'] == 'all',
+            ),
+          );
+        },
+      ),
     // The Pro pack's sheet. It is a bottom sheet with its own route, over
     // whatever opened it, and has nothing to do with the paywall above.
     GoRoute(
