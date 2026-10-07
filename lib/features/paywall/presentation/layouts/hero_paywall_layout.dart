@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 /// or the previous one, a tap on a line puts that benefit on the stage,
 /// and a tap on the stage plays the current one again. The chosen benefit
 /// plays its turn, holds for a moment, and the loop goes on from there.
+/// While a finger is down on the stage the loop waits.
 ///
 /// An id with no layout of its own draws this one.
 class HeroPaywallLayout extends StatelessWidget {
@@ -172,6 +173,12 @@ class _HeroState extends State<_Hero> {
   /// What the hand last chose. Null while the loop runs untouched.
   HeroHand? _hand;
 
+  /// How far the loop is behind the clock: it waits under a finger.
+  HeroWait _wait = const HeroWait();
+
+  /// The fingers down on the stage.
+  final Set<int> _fingers = {};
+
   /// How far the finger has moved sideways in the drag under way.
   double _dragged = 0;
   bool _isDragging = false;
@@ -197,13 +204,27 @@ class _HeroState extends State<_Hero> {
             ));
   }
 
-  HeroFrame _frameAt(double t) =>
-      _loop.frameAt(t, isStill: _clock.isStill, hand: _hand);
+  /// The second the loop is at when the clock is at [t].
+  double _loopSeconds(double t) => _clock.isStill ? t : _wait.loopSeconds(t);
+
+  HeroFrame _frameAt(double t) => _loop
+      .frameAt(_loopSeconds(t), isStill: _clock.isStill, hand: _hand)
+      .behind(_clock.isStill ? 0 : _wait.behind(t));
+
+  void _fingerDown(PointerDownEvent event) {
+    _fingers.add(event.pointer);
+    _wait = _wait.down(_clock.value);
+  }
+
+  void _fingerUp(PointerEvent event) {
+    if (!_fingers.remove(event.pointer) || _fingers.isNotEmpty) return;
+    _wait = _wait.up(_clock.value);
+  }
 
   /// Takes a touch: a line by [index], a swipe by [step], or neither for a
   /// tap on the stage.
   void _touch({int? index, int step = 0, double pull = 0}) {
-    final t = _clock.value;
+    final t = _loopSeconds(_clock.value);
     final before = _loop.chosenAt(t, hand: _hand);
     final hand = _loop.touch(
       t,
@@ -347,46 +368,51 @@ class _HeroState extends State<_Hero> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          RawGestureDetector(
-            behavior: HitTestBehavior.opaque,
-            gestures: {
-              TapGestureRecognizer:
-                  GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
-                    TapGestureRecognizer.new,
-                    (tap) => tap.onTap = _touch,
-                  ),
-              _StageDragRecognizer:
-                  GestureRecognizerFactoryWithHandlers<_StageDragRecognizer>(
-                    () => _StageDragRecognizer(edge: _backEdge),
-                    (drag) => drag
-                      ..onStart = _onDragStart
-                      ..onUpdate = _onDragUpdate
-                      ..onEnd = _onDragEnd
-                      ..onCancel = _onDragCancel,
-                  ),
-            },
-            child: PaywallClockBuilder(
-              clock: scope.clock,
-              builder: (context, t, _) {
-                final isStill = scope.clock.isStill;
-                final frame = _frameAt(t);
-                return Semantics(
-                  container: true,
-                  image: true,
-                  label: lines.isEmpty
-                      ? null
-                      : LocaleKeys.paywall_hero_stage_label.tr(
-                          namedArgs: {'benefit': lines[frame.activeIndex]},
-                        ),
-                  child: HeroStage(
-                    size: Size(scope.size.width, stageHeight.floorToDouble()),
-                    frame: frame,
-                    seconds: isStill ? 0 : t,
-                    bleedTop: bleedTop,
-                    pull: _pullAt(t),
-                  ),
-                );
+          Listener(
+            onPointerDown: _fingerDown,
+            onPointerUp: _fingerUp,
+            onPointerCancel: _fingerUp,
+            child: RawGestureDetector(
+              behavior: HitTestBehavior.opaque,
+              gestures: {
+                TapGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+                      TapGestureRecognizer.new,
+                      (tap) => tap.onTap = _touch,
+                    ),
+                _StageDragRecognizer:
+                    GestureRecognizerFactoryWithHandlers<_StageDragRecognizer>(
+                      () => _StageDragRecognizer(edge: _backEdge),
+                      (drag) => drag
+                        ..onStart = _onDragStart
+                        ..onUpdate = _onDragUpdate
+                        ..onEnd = _onDragEnd
+                        ..onCancel = _onDragCancel,
+                    ),
               },
+              child: PaywallClockBuilder(
+                clock: scope.clock,
+                builder: (context, t, _) {
+                  final isStill = scope.clock.isStill;
+                  final frame = _frameAt(t);
+                  return Semantics(
+                    container: true,
+                    image: true,
+                    label: lines.isEmpty
+                        ? null
+                        : LocaleKeys.paywall_hero_stage_label.tr(
+                            namedArgs: {'benefit': lines[frame.activeIndex]},
+                          ),
+                    child: HeroStage(
+                      size: Size(scope.size.width, stageHeight.floorToDouble()),
+                      frame: frame,
+                      seconds: isStill ? 0 : t,
+                      bleedTop: bleedTop,
+                      pull: _pullAt(t),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
           SizedBox(

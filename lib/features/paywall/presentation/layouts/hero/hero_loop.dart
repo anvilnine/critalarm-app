@@ -322,6 +322,44 @@ class HeroHand {
   );
 }
 
+/// How far the loop is behind the clock, because it waits while a finger
+/// is down on the stage.
+///
+/// The loop reads [loopSeconds] in place of the clock. That second stands
+/// still for as long as the finger is down and goes on from there when it
+/// lifts, so a turn never ends under a finger. The entrance does not wait.
+class HeroWait {
+  const HeroWait({this.waited = 0, this.downAt});
+
+  /// The seconds waited under fingers that have lifted.
+  final double waited;
+
+  /// The clock second the finger now on the stage counts from. Null when
+  /// none is down.
+  final double? downAt;
+
+  /// A finger goes down at clock second [t]. One that lands during the
+  /// entrance counts from the entrance's end.
+  HeroWait down(double t) => downAt != null
+      ? this
+      : HeroWait(
+          waited: waited,
+          downAt: t < heroEntranceSeconds ? heroEntranceSeconds : t,
+        );
+
+  /// The finger lifts at clock second [t].
+  HeroWait up(double t) => downAt == null ? this : HeroWait(waited: behind(t));
+
+  /// How many seconds the loop is behind the clock at clock second [t].
+  double behind(double t) {
+    final since = downAt;
+    return waited + (since == null || t < since ? 0 : t - since);
+  }
+
+  /// The second the loop is at when the clock is at [t].
+  double loopSeconds(double t) => t - behind(t);
+}
+
 /// One turn as it falls on the clock: whose it is, when it began and
 /// whether the hand chose it.
 class _Turn {
@@ -700,6 +738,36 @@ class HeroFrame {
     direction: 0,
     pull: 0,
   );
+
+  /// This frame for a loop that is [seconds] behind the clock: the
+  /// previews are cued that much later, so they wait with the loop.
+  HeroFrame behind(double seconds) => seconds == 0
+      ? this
+      : HeroFrame(
+          scene: scene,
+          previous: previous,
+          sceneSeconds: sceneSeconds,
+          cardEnter: cardEnter,
+          playFrom: playFrom + seconds,
+          previousPlayFrom: switch (previousPlayFrom) {
+            final from? => from + seconds,
+            null => null,
+          },
+          turn: turn,
+          previousTurn: previousTurn,
+          fromFace: fromFace,
+          face: face,
+          faceBlend: faceBlend,
+          props: props,
+          hop: hop,
+          blink: blink,
+          entrance: entrance,
+          bob: bob,
+          progress: progress,
+          isHeld: isHeld,
+          direction: direction,
+          pull: pull,
+        );
 
   /// The benefit playing. Null only for a product with no benefit.
   final HeroScene? scene;
