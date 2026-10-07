@@ -4,7 +4,6 @@ import 'package:critalarm/features/reliability/domain/entities/reliability_check
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
-import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_rule.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_snapshot.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -388,90 +387,53 @@ ReliabilityRowTarget reliabilityRowTarget(ReliabilityCheckId id) {
   return ReliabilityRowTarget.none;
 }
 
-/// The face on a row. It comes from the check and how it stands, never from
-/// where the row sits, so a row keeps its face when the order changes.
+/// The face a state carries on this screen, or null for none.
 ///
-/// A fine row is calm: `calm` or `content` and nothing else. A row that is
-/// not fine gets the face of its moment. No row uses a face the header
-/// uses, or one that draws its outline in a colour (`worried`, `alarmed`,
-/// `acked`), so a column of rows has one outline.
+/// A face means one state, everywhere on the screen:
 ///
-/// A check from a source this file does not know gets a face by state.
-FaceState reliabilityRowFace(ReliabilityCheck check) {
-  final id = check.id.value;
-  switch (check.state) {
-    case ReliabilityState.fine:
-    case ReliabilityState.notOnThisPhone:
-      return _fineFaces[id] ?? FaceState.calm;
-    case ReliabilityState.needsLook:
-    case ReliabilityState.broken:
-      break;
-  }
-  final reason = check.reason;
-  if (id == ReliabilityCheckIds.missedAlarm.value) {
-    // The same face Home's notice shows for that reason.
-    for (final missed in MissedReason.values) {
-      if (reason == 'missed_${missed.code}' &&
-          missed != MissedReason.rangUnanswered) {
-        return missedAlarmFace(missed);
-      }
-    }
-  }
-  if (reason == 'notDetermined') {
-    final notAsked = _notAskedFaces[id];
-    if (notAsked != null) return notAsked;
-  }
-  if (reason == 'clock') return FaceState.confused;
-  return check.state == ReliabilityState.broken
-      ? _brokenFaces[id] ?? FaceState.concerned
-      : _lookFaces[id] ?? FaceState.thinking;
-}
-
-/// Calm faces only. The two alternate down the list a phone usually shows.
-const _fineFaces = <String, FaceState>{
-  'notifications': FaceState.calm,
-  'full_screen_alarm': FaceState.content,
-  'battery_optimization': FaceState.calm,
-  'alarms': FaceState.content,
-  'push_token_confirmed': FaceState.content,
-  'last_push_received': FaceState.calm,
-  'time_sensitive': FaceState.calm,
-  'system_update': FaceState.content,
-  'phone_maker': FaceState.calm,
-  'missed_alarm': FaceState.content,
+/// - Fine, or not on this phone: none. The row shows a tick.
+/// - Needs a look: the face the "Take a look" header uses.
+/// - Broken: the face the "Fix this" header uses.
+///
+/// The faces come from [reliabilityHeadlineView], so a row can never wear a
+/// face that its header does not.
+FaceState? reliabilityStateFace(ReliabilityState state) => switch (state) {
+  ReliabilityState.fine || ReliabilityState.notOnThisPhone => null,
+  ReliabilityState.needsLook =>
+    reliabilityHeadlineView(ReliabilityHeadline.needsLook).face,
+  ReliabilityState.broken =>
+    reliabilityHeadlineView(ReliabilityHeadline.broken).face,
 };
 
-/// Known not to work.
-const _brokenFaces = <String, FaceState>{
-  // Turned off: a plain no.
-  'notifications': FaceState.shakeHead,
-  'full_screen_alarm': FaceState.confused,
-  'alarms': FaceState.confused,
-  'time_sensitive': FaceState.concerned,
-  // The relay turned the phone down. Not `shocked`: its tongue is the one
-  // spot of red a row would have, and red is for a ringing alarm.
-  'push_token_confirmed': FaceState.dizzy,
-};
+/// The face on a row. It comes from how the check stands and from nothing
+/// else: not the check, not its reason, not where the row sits. A check from
+/// a source this file has never seen gets the same face as the rest.
+FaceState? reliabilityRowFace(ReliabilityCheck check) =>
+    reliabilityStateFace(check.state);
 
-/// Might not ring.
-const _lookFaces = <String, FaceState>{
-  // The phone may put the app to sleep.
-  'battery_optimization': FaceState.sleepy,
-  'phone_maker': FaceState.yawn,
-  // Alerts may be held back.
-  'time_sensitive': FaceState.thinking,
-  // Waiting to hear from the relay, or for a push.
-  'push_token_confirmed': FaceState.lookLeft,
-  'last_push_received': FaceState.lookRight,
-  // The phone changed under the app.
-  'system_update': FaceState.realization,
-};
+/// Whether a state asks the user to do something.
+bool reliabilityNeedsAction(ReliabilityState state) =>
+    state == ReliabilityState.needsLook || state == ReliabilityState.broken;
 
-/// Never asked: nothing is wrong yet, the question is still open.
-const _notAskedFaces = <String, FaceState>{
-  'notifications': FaceState.curious,
-  'alarms': FaceState.interested,
-};
+/// The rows of [rows] that need action and the rows that do not, each in
+/// the order it was given. The ones that need action share one card, and
+/// the rest are plain rows on the sheet.
+({List<ReliabilityListRow> attention, List<ReliabilityListRow> calm})
+splitReliabilityRows(List<ReliabilityListRow> rows) => (
+  attention: [
+    for (final row in rows)
+      if (reliabilityNeedsAction(row.check.state)) row,
+  ],
+  calm: [
+    for (final row in rows)
+      if (!reliabilityNeedsAction(row.check.state)) row,
+  ],
+);
+
+/// What a screen reader says for a button that acts on one check: the action
+/// and then the check, "Open settings, Notifications".
+String reliabilityActionAnnouncement(String action, String title) =>
+    '$action, $title';
 
 /// What the top of the screen shows.
 enum ReliabilityHeadline { loading, fine, needsLook, broken }

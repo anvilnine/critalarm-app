@@ -75,6 +75,8 @@ class _ReliabilityViewState extends State<_ReliabilityView>
   /// Checks whose entry is being closed.
   final Set<ReliabilityCheckId> _clearing = {};
 
+  final Map<int, GlobalKey> _groupKeys = {};
+
   @override
   void initState() {
     super.initState();
@@ -177,8 +179,20 @@ class _ReliabilityViewState extends State<_ReliabilityView>
           for (final group in widget.extraGroups) group.checkId,
         ]);
         final now = DateTime.now();
+        final split = splitReliabilityRows(layout.rows);
+        final plain = <Widget>[
+          if (!isLoading)
+            for (final row in split.calm) _row(context, snapshot, row, now),
+          ReliabilityTestRow(onTap: () => unawaited(_openTest())),
+          if (!isLoading)
+            for (final below in layout.below)
+              _group(context, snapshot, below.group, null),
+        ];
 
         return AppScreenScaffold(
+          // The bar's own backing, so a row scrolled under it never shows
+          // through the title.
+          barBacking: _barBacking(context),
           onRefresh: _refresh,
           // The bar has one fixed height, so its text stops growing at the
           // chrome limit instead of being cut off by it.
@@ -228,40 +242,23 @@ class _ReliabilityViewState extends State<_ReliabilityView>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (!isLoading)
-                        for (final row in layout.rows) ...[
-                          if (row.group case final group?)
-                            _group(context, snapshot, group, row)
-                          else
-                            ReliabilityRow(
-                              check: row.check,
-                              face: reliabilityRowFace(row.check),
-                              now: now,
-                              actionLabel: _actionLabel(row.check),
-                              // One primary button on the screen: the
-                              // first row with something to do.
-                              actionVariant: row.isPrimary
-                                  ? AppButtonVariant.primary
-                                  : AppButtonVariant.ghost,
-                              isBusy: _busy.contains(row.check.id),
-                              onAction: () => unawaited(_runFix(row.check)),
-                              clearLabel: reliabilityClearLabelKey(
-                                row.check.fix,
-                              )?.tr(),
-                              isClearing: _clearing.contains(row.check.id),
-                              onClear: () => unawaited(_clear(row.check)),
-                              onTap: _onRowTap(row.check),
-                            ),
-                          const SizedBox(height: 8),
-                        ],
-                      // The free test comes before anything that costs
-                      // money.
-                      ReliabilityTestRow(onTap: () => unawaited(_openTest())),
-                      if (!isLoading)
-                        for (final below in layout.below) ...[
-                          const SizedBox(height: 8),
-                          _group(context, snapshot, below.group, null),
-                        ],
+                      // Every row that needs action shares one card.
+                      if (!isLoading && split.attention.isNotEmpty) ...[
+                        ReliabilityAttentionCard(
+                          children: [
+                            for (final row in split.attention)
+                              _row(context, snapshot, row, now),
+                          ],
+                        ),
+                        const SizedBox(height: Spacing.s3),
+                      ],
+                      // The rest are plain rows on the sheet with a rule
+                      // between them. The free test comes before anything
+                      // that costs money.
+                      for (var i = 0; i < plain.length; i++) ...[
+                        if (i > 0) const ReliabilityRowDivider(),
+                        plain[i],
+                      ],
                     ],
                   ),
                 ),
@@ -273,15 +270,45 @@ class _ReliabilityViewState extends State<_ReliabilityView>
     );
   }
 
+  /// One row that needs action, or the group that draws its check.
+  Widget _row(
+    BuildContext context,
+    ReliabilitySnapshot snapshot,
+    ReliabilityListRow row,
+    DateTime now,
+  ) {
+    if (row.group case final group?) {
+      return _group(context, snapshot, group, row);
+    }
+    return ReliabilityRow(
+      check: row.check,
+      face: reliabilityRowFace(row.check),
+      now: now,
+      actionLabel: _actionLabel(row.check),
+      // One primary button on the screen: the first row with something to
+      // do.
+      actionVariant: row.isPrimary
+          ? AppButtonVariant.primary
+          : AppButtonVariant.ghost,
+      isBusy: _busy.contains(row.check.id),
+      onAction: () => unawaited(_runFix(row.check)),
+      clearLabel: reliabilityClearLabelKey(row.check.fix)?.tr(),
+      isClearing: _clearing.contains(row.check.id),
+      onClear: () => unawaited(_clear(row.check)),
+      onTap: _onRowTap(row.check),
+    );
+  }
+
   /// One group, keyed by its position so it keeps its state when it moves
-  /// between its place in the list and its place under the test row.
+  /// between the card of rows that need action and its place under the test
+  /// row. Those are two parents, so the key is a global one.
   Widget _group(
     BuildContext context,
     ReliabilitySnapshot snapshot,
     int index,
     ReliabilityListRow? row,
   ) => KeyedSubtree(
-    key: ValueKey('reliability_group_$index'),
+    key: _groupKeys.putIfAbsent(index, GlobalKey.new),
     child: widget.extraGroups[index].builder(
       context,
       snapshot,
@@ -289,6 +316,10 @@ class _ReliabilityViewState extends State<_ReliabilityView>
       isPrimary: row?.isPrimary ?? false,
     ),
   );
+
+  /// The colour the bar is backed with: the canvas the screen sits on.
+  Color _barBacking(BuildContext context) =>
+      AppBarBackingScope.maybeOf(context)?.color ?? context.appColors.canvas;
 
   String? _actionLabel(ReliabilityCheck check) {
     final fix = check.fix;

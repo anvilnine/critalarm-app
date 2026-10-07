@@ -693,7 +693,6 @@ void main() {
   });
 
   group('faces', () {
-    const notFine = [ReliabilityState.needsLook, ReliabilityState.broken];
     const reasons = [
       null,
       'denied',
@@ -717,130 +716,94 @@ void main() {
     ];
     final ids = [...sourceIds, const ReliabilityCheckId(laterId)];
 
-    /// Every face a row can show while it is not fine.
-    Set<FaceState> troubleFaces() => {
+    /// The face of every check of [state], whatever its id and reason.
+    Set<FaceState?> facesOf(ReliabilityState state) => {
       for (final id in ids)
-        for (final state in notFine)
-          for (final reason in reasons)
-            reliabilityRowFace(check(id.value, state, reason: reason)),
+        for (final reason in reasons)
+          reliabilityRowFace(check(id.value, state, reason: reason)),
     };
 
-    test('a fine row is calm, whatever the check', () {
-      for (final id in ids) {
-        for (final reason in reasons) {
-          expect(
-            reliabilityRowFace(
-              check(id.value, ReliabilityState.fine, reason: reason),
-            ),
-            anyOf(FaceState.calm, FaceState.content),
-            reason: '${id.value} $reason',
-          );
-        }
-      }
+    test('a fine row has no face, whatever the check', () {
+      expect(facesOf(ReliabilityState.fine), {null});
     });
 
-    test('a row keeps its face wherever it sits in the list', () {
-      final battery = check(
-        'battery_optimization',
-        ReliabilityState.needsLook,
-        reason: 'denied',
-      );
-      final fineBattery = check('battery_optimization', ReliabilityState.fine);
+    test('a check that is not on this phone has no face', () {
+      expect(facesOf(ReliabilityState.notOnThisPhone), {null});
+    });
+
+    test('a row that needs a look wears the face of the look header', () {
+      final header = reliabilityHeadlineView(ReliabilityHeadline.needsLook);
+      expect(header.face, FaceState.skeptical);
+      expect(facesOf(ReliabilityState.needsLook), {header.face});
+    });
+
+    test('a broken row wears the face of the broken header', () {
+      final header = reliabilityHeadlineView(ReliabilityHeadline.broken);
+      expect(header.face, FaceState.sad);
+      expect(facesOf(ReliabilityState.broken), {header.face});
+    });
+
+    test('the face never depends on the id, the reason or the position', () {
       final others = [
         check('notifications', ReliabilityState.broken, reason: 'denied'),
         check('push_token_confirmed', ReliabilityState.needsLook),
         check('last_push_received', ReliabilityState.fine),
       ];
-      for (final row in [battery, fineBattery]) {
-        final alone = reliabilityRowFace(row);
+      for (final state in ReliabilityState.values) {
+        final alone = reliabilityRowFace(check('battery_optimization', state));
         for (var at = 0; at <= others.length; at++) {
           final ordered = orderReliabilityChecks([
             ...others.take(at),
-            row,
+            check('battery_optimization', state),
             ...others.skip(at),
           ]);
-          expect(
-            reliabilityRowFace(ordered.firstWhere((c) => c.id == row.id)),
-            alone,
-            reason: '${row.state.name} at $at',
+          final row = ordered.where(
+            (c) => c.id.value == 'battery_optimization',
           );
+          // A check that is not on this phone is dropped from the list.
+          if (row.isEmpty) continue;
+          expect(reliabilityRowFace(row.single), alone, reason: '$state $at');
         }
       }
     });
 
-    test('a row that is not fine never looks calm', () {
-      expect(troubleFaces(), isNot(contains(FaceState.calm)));
-      expect(troubleFaces(), isNot(contains(FaceState.content)));
-    });
-
-    test('no row borrows a face from the header', () {
-      final headerFaces = {
-        for (final headline in ReliabilityHeadline.values)
-          reliabilityHeadlineView(headline).face,
-      };
-      expect(troubleFaces().intersection(headerFaces), isEmpty);
-    });
-
-    test('no row face draws its outline in a colour', () {
-      // `worried` is orange, `alarmed` red and `acked` cobalt. One of them
-      // in a column of rows is the one outline that does not match.
-      expect(
-        troubleFaces().intersection({
-          FaceState.worried,
-          FaceState.alarmed,
-          FaceState.acked,
-        }),
-        isEmpty,
-      );
-    });
-
-    test('three broken rows on one phone show three faces', () {
-      Set<FaceState> faces(List<String> broken) => {
-        for (final id in broken)
-          reliabilityRowFace(
-            check(id, ReliabilityState.broken, reason: 'denied'),
-          ),
-      };
-      expect(
-        faces(['notifications', 'full_screen_alarm', 'push_token_confirmed']),
-        hasLength(3),
-      );
-      expect(
-        faces(['time_sensitive', 'notifications', 'alarms']),
-        hasLength(3),
-      );
-    });
-
-    test('a permission that was never asked for is not a broken face', () {
-      for (final id in ['notifications', 'alarms']) {
+    test('a state that asks for nothing has no face and the rest do', () {
+      for (final state in ReliabilityState.values) {
         expect(
-          reliabilityRowFace(
-            check(id, ReliabilityState.broken, reason: 'notDetermined'),
-          ),
-          isNot(
-            reliabilityRowFace(
-              check(id, ReliabilityState.broken, reason: 'denied'),
-            ),
-          ),
-          reason: id,
+          reliabilityStateFace(state) == null,
+          !reliabilityNeedsAction(state),
+          reason: state.name,
         );
       }
     });
+  });
 
-    test('a check from a later source gets a face for its state', () {
-      expect(
-        reliabilityRowFace(check(laterId, ReliabilityState.fine)),
-        FaceState.calm,
-      );
-      expect(
-        reliabilityRowFace(check(laterId, ReliabilityState.needsLook)),
-        FaceState.thinking,
-      );
-      expect(
-        reliabilityRowFace(check(laterId, ReliabilityState.broken)),
-        FaceState.concerned,
-      );
+  group('splitReliabilityRows', () {
+    ReliabilityListRow row(String id, ReliabilityState state) =>
+        ReliabilityListRow(check: check(id, state), isPrimary: false);
+
+    test('puts the rows that need action in one list, in order', () {
+      final split = splitReliabilityRows([
+        row('a', ReliabilityState.broken),
+        row('b', ReliabilityState.needsLook),
+        row('c', ReliabilityState.fine),
+        row('d', ReliabilityState.fine),
+      ]);
+      expect(split.attention.map((r) => r.check.id.value), ['a', 'b']);
+      expect(split.calm.map((r) => r.check.id.value), ['c', 'd']);
     });
+
+    test('an all fine list has no card', () {
+      final split = splitReliabilityRows([row('a', ReliabilityState.fine)]);
+      expect(split.attention, isEmpty);
+    });
+  });
+
+  test('a fix button announces its check after its action', () {
+    expect(
+      reliabilityActionAnnouncement('Open settings', 'Notifications'),
+      'Open settings, Notifications',
+    );
   });
 
   group('headline', () {
