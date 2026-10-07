@@ -69,6 +69,57 @@ object CheckReceipt {
     const val CONNECT_TIMEOUT_MS = 8_000
     const val READ_TIMEOUT_MS = 8_000
 
+    /**
+     * Whether a receipt may go to [relay]. The receipt carries the device
+     * token, so it only ever goes out over https. [plainHttpHosts] is the one
+     * exception and comes from `PlainHttpRelays`, which is empty in every
+     * build but the debug one.
+     */
+    fun maySend(relay: URI, plainHttpHosts: Set<String>): Boolean = when (relay.scheme?.lowercase()) {
+        "https" -> true
+        "http" -> relay.host?.lowercase() in plainHttpHosts
+        else -> false
+    }
+
+    /** How one receipt ended. */
+    enum class Outcome { SENT, REFUSED, DROPPED, CANCELLED }
+
+    /**
+     * Sends one receipt: up to [TRY_DELAYS_MS] tries, then it is dropped.
+     *
+     * [post] makes the call and answers the status and the body, or a null
+     * status when nothing came back. [isCancelled] belongs to this one
+     * receipt and is asked before every try. [onAnswer] gets what a 200
+     * carried. Nothing here is shared between two receipts.
+     */
+    fun send(
+        request: CheckReceiptRequest,
+        post: (CheckReceiptRequest) -> Pair<Int?, String?>,
+        isCancelled: () -> Boolean,
+        sleep: (Long) -> Unit = { Thread.sleep(it) },
+        onTry: (index: Int, status: Int?) -> Unit = { _, _ -> },
+        onAnswer: (CheckReceiptAnswer?) -> Unit = {},
+    ): Outcome {
+        for ((index, delay) in TRY_DELAYS_MS.withIndex()) {
+            if (delay > 0) {
+                try {
+                    sleep(delay)
+                } catch (_: InterruptedException) {
+                    return Outcome.CANCELLED
+                }
+            }
+            if (isCancelled()) return Outcome.CANCELLED
+            val (status, body) = post(request)
+            onTry(index, status)
+            if (status == 200) {
+                onAnswer(parseAnswer(body))
+                return Outcome.SENT
+            }
+            if (!shouldRetry(status)) return Outcome.REFUSED
+        }
+        return Outcome.DROPPED
+    }
+
     fun request(device: RelayDevice, push: CheckPush, receivedAtSeconds: Long): CheckReceiptRequest {
         val base = device.relay.toString().trimEnd('/')
         val body = JSONObject()
