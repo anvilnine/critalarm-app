@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_content.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_lead_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_page.dart';
@@ -15,13 +15,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// The Sheet layout: a bottom sheet over the screen where the user hit a
-/// limit. The row they tapped stays lit above the scrim and the sheet
-/// answers that one limit first.
+/// limit. The row they tapped stays lit above the scrim, the mascot looks
+/// over the sheet's top edge at it, and the sheet answers that one limit
+/// first.
+///
+/// Inside the sheet it is the approved composition from the kit
+/// (`HeroComposition`): the lead benefit's preview playing large, the
+/// headline for the place the user came from, the benefits as plain lines
+/// with the lead first, and the buy block. The loop, the swipes and the
+/// taps are the kit's. Two things are this layout's own. The mascot stands
+/// behind the sheet, so only its eyes show over the edge. And when the
+/// lead benefit has done its job on the stage, the lit row above answers:
+/// the switch goes on, or the lock on its badge becomes a check.
 ///
 /// The screen behind is a picture, drawn from what opened the paywall. The
 /// sheet holds a `PaywallFrameBody`, which stays in its seat from the first
-/// frame so the close cross is always there. The white surface, the words
-/// and the face ride up over it.
+/// frame so the close cross is always there.
 class SheetPaywallLayout extends StatefulWidget {
   const SheetPaywallLayout({super.key});
 
@@ -37,8 +46,18 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
   /// How far below its own height the sheet starts.
   static const double _extraTravel = 46;
 
+  /// How far the drifting shapes keep from the sheet's top edge, from the
+  /// pips under the stage, and from the right edge, where the cross is.
+  static const double _airTop = 16;
+  static const double _airBottom = 14;
+  static const double _airRight = 30;
+
   late final _SheetClock _clock = _SheetClock(() => t);
   final PaywallFrameController _frame = PaywallFrameController();
+
+  /// Plays the loop for the sheet and for what is drawn above it. It needs
+  /// the frame's clock, so it is made when the frame first builds.
+  HeroPlayer? _player;
 
   /// True once the buy block may come in.
   bool _buyIn = false;
@@ -60,6 +79,17 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
   // layout only measures.
   void _onBuyBlockHeight() => setState(() {});
 
+  HeroPlayer _playerFor(PaywallLayoutScope scope) {
+    final existing = _player;
+    if (existing != null) return existing;
+    final made = _player = HeroPlayer(clock: scope.clock);
+    // The parts above the sheet are drawn from it on the next frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+    return made;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -76,12 +106,12 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
   void dispose() {
     _frame.buyBlockHeight.removeListener(_onBuyBlockHeight);
     _frame.dispose();
+    _player?.dispose();
     _clock.dispose();
     super.dispose();
   }
 
-  String _headline(PaywallOffer offer, PaywallBenefit? lead) {
-    final name = paywallProductName(offer.product);
+  String? _headline(PaywallBenefit? lead) {
     final key = switch (lead?.id) {
       PaywallBenefitId.topics => LocaleKeys.paywall_sheet_headline_topics,
       PaywallBenefitId.pushes => LocaleKeys.paywall_sheet_headline_pushes,
@@ -98,7 +128,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
         LocaleKeys.paywall_sheet_headline_custom_alarm_screens,
       null => null,
     };
-    return key == null ? name : key.tr(namedArgs: {'name': name});
+    return key?.tr();
   }
 
   @override
@@ -110,11 +140,14 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     // The screen behind is drawn outside the frame, from the same offer
     // the frame hands its builder.
     final offer = PaywallOffer.of(context);
-    final benefits = offer.benefits;
-    final lead = sheetLeadBenefit(offer.source, benefits);
-    final others = sheetOtherBenefits(lead, benefits);
+    // The benefit the user was reaching for leads: first line, first turn.
+    final benefits = sheetBenefitsLeadFirst(offer.source, offer.benefits);
+    final lead = benefits.firstOrNull;
     final kind = sheetPageKindFor(lead?.id);
-    final isSwitch = kind == SheetPageKind.newTopic;
+    final loop = HeroLoop([
+      for (final b in benefits) b.previewId,
+    ], prelude: SheetMotion.prelude);
+    final player = _player;
 
     // As the full-screen frame does: the links row may reach a little into
     // the home indicator's inset.
@@ -125,12 +158,22 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
       bottomInset: bottomInset.toDouble(),
       isCompact: isCompact,
       buyBlockHeight: _frame.buyBlockHeight.value,
-      isSwitch: isSwitch,
       benefitCount: benefits.length,
       textScale: media.textScaler.scale(100) / 100,
     );
+    final showsAir = media.textScaler.scale(100) / 100 <= 1.01;
     final travel = media.size.height - plan.sheetTop + _extraTravel;
     double drop(double t) => (1 - SheetMotion.rise(t)) * travel;
+
+    // The row the user tapped. It answers when the lead's turn has done
+    // its job on the stage.
+    Widget litRow(double proof) => SheetLitRow(
+      plan: plan,
+      kind: kind,
+      lead: lead,
+      badge: paywallProductName(offer.product),
+      proof: proof,
+    );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // The screen behind is under a scrim in both themes.
@@ -177,49 +220,59 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                 top: plan.litTop,
                 left: Spacing.s4,
                 right: Spacing.s4,
-                child: ExcludeSemantics(
-                  child: MediaQuery.withNoTextScaling(
-                    child: SheetLitRow(
-                      plan: plan,
-                      kind: kind,
-                      lead: lead,
-                      badge: paywallProductName(offer.product),
-                      clock: _clock,
+                child: IgnorePointer(
+                  child: ExcludeSemantics(
+                    child: MediaQuery.withNoTextScaling(
+                      child: player == null
+                          ? litRow(0)
+                          : ListenableBuilder(
+                              // A touch with nothing moving has no tick.
+                              listenable: Listenable.merge([
+                                player.clock,
+                                player,
+                              ]),
+                              builder: (context, _) => litRow(
+                                SheetMotion.proofFor(
+                                  loop,
+                                  player.frame,
+                                  isStill: player.isStill,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                 ),
               ),
-              // The face looks over the sheet's edge at the lit row. It is
-              // behind the sheet, so only its top half shows.
-              Positioned(
-                top: plan.sheetTop - plan.faceSize / 2,
-                left: isSwitch ? (media.size.width - plan.faceSize) / 2 : null,
-                right: isSwitch ? null : Spacing.s8,
-                child: ExcludeSemantics(
-                  child: ValueListenableBuilder<double>(
-                    valueListenable: _clock,
-                    builder: (context, t, _) {
-                      final peek = SheetMotion.peek(t);
-                      return Transform.translate(
-                        offset: Offset(
-                          0,
-                          drop(t) + (1 - peek) * SheetMotion.peekDrop,
-                        ),
-                        // Tilted only on the way in. Upright at rest.
-                        child: Transform.rotate(
-                          angle: (1 - peek) * SheetMotion.peekTilt,
-                          child: FaceWidget(
-                            state: isSwitch && SheetMotion.limitLifted(t)
-                                ? FaceState.happy
-                                : FaceState.curious,
-                            size: plan.faceSize,
+              // The mascot stands behind the sheet and looks over its edge
+              // at the lit row. It is the stage's own mascot, playing the
+              // same frame: only the sheet in front hides the rest of it.
+              if (player != null)
+                Positioned(
+                  top: plan.sheetTop - plan.faceAbove,
+                  left: heroSideInset,
+                  width: plan.faceSize,
+                  height: plan.faceSize,
+                  child: IgnorePointer(
+                    child: ExcludeSemantics(
+                      child: RepaintBoundary(
+                        child: ListenableBuilder(
+                          listenable: Listenable.merge([
+                            player.clock,
+                            player,
+                            _clock,
+                          ]),
+                          builder: (context, _) => Transform.translate(
+                            offset: Offset(0, drop(t)),
+                            child: HeroMascot.frame(
+                              player.frame,
+                              size: plan.faceSize,
+                            ),
                           ),
                         ),
-                      );
-                    },
+                      ),
+                    ),
                   ),
                 ),
-              ),
               Positioned(
                 top: plan.sheetTop,
                 left: 0,
@@ -269,30 +322,73 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                 bottom: 0,
                 child: Padding(
                   padding: EdgeInsets.only(bottom: bottomInset.toDouble()),
-                  child: PaywallFrameBody(
-                    controller: _frame,
-                    tone: PaywallTone.surface,
-                    closeOnLeft: false,
-                    // It comes in as the sheet lands. With nothing moving it
-                    // is there from the first frame.
-                    buyBlockVisible: isStill || _buyIn,
-                    restAt: restAt,
-                    buyStyle: const PaywallBuyBlockStyle(
+                  // The stage's air stops at the sheet's edge: there is no
+                  // status bar above it to run under.
+                  child: MediaQuery.removeViewPadding(
+                    context: context,
+                    removeTop: true,
+                    child: PaywallFrameBody(
+                      controller: _frame,
                       tone: PaywallTone.surface,
-                    ),
-                    builder: (context, scope) => ValueListenableBuilder<double>(
-                      valueListenable: _clock,
-                      builder: (context, t, child) => Transform.translate(
-                        offset: Offset(0, drop(t)),
-                        child: child,
+                      closeOnLeft: false,
+                      // It comes in as the sheet lands. With nothing moving
+                      // it is there from the first frame.
+                      buyBlockVisible: isStill || _buyIn,
+                      restAt: restAt,
+                      buyStyle: const PaywallBuyBlockStyle(
+                        tone: PaywallTone.surface,
                       ),
-                      child: SheetContent(
-                        headline: _headline(offer, lead),
-                        lead: lead,
-                        others: others,
-                        isCompact: scope.isCompact,
-                        clock: _clock,
-                      ),
+                      builder: (context, scope) =>
+                          ValueListenableBuilder<double>(
+                            valueListenable: _clock,
+                            builder: (context, t, child) => Transform.translate(
+                              offset: Offset(0, drop(t)),
+                              child: child,
+                            ),
+                            child: Stack(
+                              children: [
+                                // The drifting shapes, kept clear of the
+                                // cross. A large text size leaves the stage
+                                // no room, and then there is no air either.
+                                if (showsAir)
+                                  Positioned(
+                                    top: _airTop,
+                                    left: 0,
+                                    right: _airRight,
+                                    height: math.max(
+                                      0,
+                                      scope.size.height -
+                                          sheetWordsHeight(benefits.length) -
+                                          _airTop -
+                                          _airBottom,
+                                    ),
+                                    child: _SheetAir(player: _playerFor(scope)),
+                                  ),
+                                HeroComposition(
+                                  // The lead first, and the words at the
+                                  // kit's compact sizes on every phone: a
+                                  // sheet has less room than a screen, and
+                                  // the preview gets it.
+                                  scope: PaywallLayoutScope(
+                                    product: scope.product,
+                                    benefits: benefits,
+                                    size: scope.size,
+                                    isCompact: true,
+                                    source: scope.source,
+                                    clock: scope.clock,
+                                    closeOnLeft: scope.closeOnLeft,
+                                    close: scope.close,
+                                  ),
+                                  tone: PaywallTone.surface,
+                                  headline: _headline(lead),
+                                  loop: loop,
+                                  player: _playerFor(scope),
+                                  arrange: sheetStageArrangement,
+                                  showsShapes: false,
+                                ),
+                              ],
+                            ),
+                          ),
                     ),
                   ),
                 ),
@@ -303,6 +399,34 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
       ),
     );
   }
+}
+
+/// The kit's drifting shapes behind the stage, with no disc of their own:
+/// the stage draws that. They follow the same entrance and the same clock.
+class _SheetAir extends StatelessWidget {
+  const _SheetAir({required this.player});
+
+  final HeroPlayer player;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: ExcludeSemantics(
+      child: RepaintBoundary(
+        child: PaywallClockBuilder(
+          clock: player.clock,
+          builder: (context, t, _) => LayoutBuilder(
+            builder: (context, box) => HeroAtmosphere(
+              focus: box.biggest.center(Offset.zero),
+              radius: 0,
+              seconds: player.stageSeconds(t),
+              entrance: player.frameAt(t).entrance,
+              tone: PaywallTone.surface,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 /// This layout's clock, for the parts drawn outside the frame.
