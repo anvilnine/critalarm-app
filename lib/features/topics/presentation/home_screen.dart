@@ -609,6 +609,11 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     final screen = SeverityScope(
       severity: state.severity,
       child: AppScreenScaffold(
+        // The bar's own backing, so a row scrolled under it never shows
+        // through the title.
+        barBacking:
+            AppBarBackingScope.maybeOf(context)?.color ??
+            context.appColors.canvas,
         onFaceRefresh: () async {
           final noticeCubit = context.read<InAppNoticeCubit>();
           final homeCubit = context.read<HomeCubit>();
@@ -658,6 +663,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                     id: FeatureGuideAnchorId.homeStage,
                     child: AppStage(
                       faceState: state.faceState,
+                      faceSize: _stageFaceSize(context),
                       word: state.word,
                       sub: state.subText,
                       // Nothing is happening, so the face gets something to
@@ -835,6 +841,16 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           const Positioned.fill(child: HomeSetupConfetti()),
       ],
     );
+  }
+
+  /// The face on the stage. At the larger text sizes its words take more
+  /// room, so the face gives some back and the line under it stays clear of
+  /// the tab bar. The normal size is unchanged up to 1.3x.
+  static double _stageFaceSize(BuildContext context) {
+    const normal = 190.0;
+    final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
+    if (scale <= kChromeMaxTextScale) return normal;
+    return (normal * kChromeMaxTextScale / scale).clamp(96.0, normal);
   }
 
   /// True while a card that asks for a look is drawn in the notice slot. The
