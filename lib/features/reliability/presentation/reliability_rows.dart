@@ -399,10 +399,12 @@ ReliabilityRowTarget reliabilityRowTarget(ReliabilityCheckId id) {
 /// face that its header does not.
 FaceState? reliabilityStateFace(ReliabilityState state) => switch (state) {
   ReliabilityState.fine || ReliabilityState.notOnThisPhone => null,
-  ReliabilityState.needsLook =>
-    reliabilityHeadlineView(ReliabilityHeadline.needsLook).face,
-  ReliabilityState.broken =>
-    reliabilityHeadlineView(ReliabilityHeadline.broken).face,
+  ReliabilityState.needsLook => reliabilityHeadlineView(
+    ReliabilityHeadline.needsLook,
+  ).face,
+  ReliabilityState.broken => reliabilityHeadlineView(
+    ReliabilityHeadline.broken,
+  ).face,
 };
 
 /// The face on a row. It comes from how the check stands and from nothing

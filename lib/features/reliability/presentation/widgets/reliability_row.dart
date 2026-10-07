@@ -380,7 +380,11 @@ class ReliabilityRow extends StatelessWidget {
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
-            children: [faceWidget, const SizedBox(height: Spacing.s2), words],
+            children: [
+              Row(children: [faceWidget]),
+              const SizedBox(height: Spacing.s2),
+              words,
+            ],
           )
         : Row(
             crossAxisAlignment: isSingleLine
