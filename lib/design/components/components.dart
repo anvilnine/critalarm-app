@@ -22,6 +22,7 @@ export 'ladder_rows.dart';
 export 'list_rows.dart';
 export 'message_cards.dart';
 export 'nav_rail.dart';
+export 'notice_card.dart';
 export 'notification_cards.dart';
 export 'pinned_notice_bar.dart';
 export 'preview_button.dart';

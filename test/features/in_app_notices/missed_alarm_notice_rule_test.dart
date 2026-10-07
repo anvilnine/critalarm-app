@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/in_app_notices/presentation/missed_alarm_notice_view.dart';
@@ -166,15 +167,16 @@ void main() {
       return (strings[parts[0]] as Map<String, dynamic>)[parts[1]] as String;
     }
 
-    test('every reason has its own words and its own face', () {
+    test('every reason has its own words and the one look face', () {
       expect(
         MissedReason.values.map(missedAlarmReasonKey).toSet(),
         hasLength(MissedReason.values.length),
       );
-      expect(
-        MissedReason.values.map(missedAlarmFace).toSet(),
-        hasLength(MissedReason.values.length),
-      );
+      // The reason is in the words. A missed alarm needs a look, so the
+      // face is the same for all of them.
+      expect(MissedReason.values.map(missedAlarmFace).toSet(), {
+        needsLookFace,
+      });
       expect(
         missedAlarmReasonKey(MissedReason.unanswered),
         LocaleKeys.notices_missed_alarm_reason_unanswered,

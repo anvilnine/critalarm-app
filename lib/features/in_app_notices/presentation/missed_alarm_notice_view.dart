@@ -1,3 +1,4 @@
+import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_rule.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -51,14 +52,11 @@ String missedAlarmWhenKey({required int count}) => count > 1
     ? LocaleKeys.notices_missed_alarm_latest
     : LocaleKeys.notices_missed_alarm_when;
 
-/// One face per reason, so the card does not look the same for a phone that
-/// slept through a push and a phone that rang for nobody.
-FaceState missedAlarmFace(MissedReason reason) => switch (reason) {
-  MissedReason.noPushReached => FaceState.dozing,
-  MissedReason.pushButNoRing => FaceState.dizzy,
-  MissedReason.rangUnanswered => FaceState.sad,
-  MissedReason.unanswered => FaceState.concerned,
-};
+/// The face of a missed alarm notice. A missed alarm needs a look, so every
+/// reason wears the one look face (`face_meaning.dart`). The reason is in
+/// the words, never in the face. [reason] is kept so callers that hold one
+/// need not change.
+FaceState missedAlarmFace(MissedReason reason) => needsLookFace;
 
 /// When the alarm ran out, in the phone's own time: the hour alone for
 /// today, the weekday with it for any other day in the week it is shown.
