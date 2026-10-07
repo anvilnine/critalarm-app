@@ -13,6 +13,7 @@ class ConnectLinkState {
     this.replacingHost,
     this.phase = ConnectLinkPhase.ready,
     this.errorMessage,
+    this.canRetry = true,
   });
 
   /// The part of the address a person recognises: the host, and the port
@@ -34,6 +35,10 @@ class ConnectLinkState {
   /// The same line the manual connect screen shows for the failure.
   final String? errorMessage;
 
+  /// False once the failure is one that asking again cannot change, such as
+  /// a server that reports another address.
+  final bool canRetry;
+
   bool get isConnecting => phase == ConnectLinkPhase.connecting;
   bool get isFailed => phase == ConnectLinkPhase.failed;
   bool get isConnected => phase == ConnectLinkPhase.connected;
@@ -42,6 +47,7 @@ class ConnectLinkState {
     String? replacingHost,
     ConnectLinkPhase? phase,
     String? errorMessage,
+    bool? canRetry,
     bool clearErrorMessage = false,
   }) => ConnectLinkState(
     host: host,
@@ -50,6 +56,7 @@ class ConnectLinkState {
     replacingHost: replacingHost ?? this.replacingHost,
     phase: phase ?? this.phase,
     errorMessage: clearErrorMessage ? null : errorMessage ?? this.errorMessage,
+    canRetry: canRetry ?? this.canRetry,
   );
 
   @override
@@ -60,7 +67,8 @@ class ConnectLinkState {
       other.isPlainHttp == isPlainHttp &&
       other.replacingHost == replacingHost &&
       other.phase == phase &&
-      other.errorMessage == errorMessage;
+      other.errorMessage == errorMessage &&
+      other.canRetry == canRetry;
 
   @override
   int get hashCode => Object.hash(
@@ -70,6 +78,7 @@ class ConnectLinkState {
     replacingHost,
     phase,
     errorMessage,
+    canRetry,
   );
 
   @override

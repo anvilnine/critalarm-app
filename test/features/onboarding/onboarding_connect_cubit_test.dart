@@ -292,6 +292,68 @@ void main() {
     );
 
     blocTest<OnboardingConnectCubit, OnboardingConnectState>(
+      'connect never moves an https address to http: nothing is saved',
+      setUp: () {
+        const downgraded = ServerInfo(
+          version: '0.1.0',
+          baseUrl: 'http://api.critalarm.app',
+          relayUrl: 'https://relay.critalarm.app',
+        );
+        when(
+          () => mockGetServerInfo(any()),
+        ).thenAnswer((_) async => downgraded.toSuccess());
+      },
+      build: () => OnboardingConnectCubit(
+        mockGetServerInfo,
+        mockSaveConnection,
+        establishSession: mockEstablishSession,
+      ),
+      seed: () => const OnboardingConnectState(
+        serverUrl: 'https://api.critalarm.app',
+        adminToken: 'ad_12345',
+      ),
+      act: (cubit) => cubit.connect(),
+      verify: (cubit) {
+        expect(cubit.state.status, OnboardingConnectStatus.failure);
+        expect(cubit.state.errorMessage, contains('Not connected'));
+        verifyNever(() => mockSaveConnection(any()));
+        verifyNever(() => mockEstablishSession(any(), any()));
+      },
+    );
+
+    blocTest<OnboardingConnectCubit, OnboardingConnectState>(
+      'connect typed in setup still follows the base address the server '
+      'reports, on another host',
+      setUp: () {
+        const moved = ServerInfo(
+          version: '0.1.0',
+          baseUrl: 'https://alerts.example.com',
+          relayUrl: 'https://relay.critalarm.app',
+        );
+        when(
+          () => mockGetServerInfo(any()),
+        ).thenAnswer((_) async => moved.toSuccess());
+        when(
+          () => mockSaveConnection(any()),
+        ).thenAnswer((_) async => unit.toSuccess());
+      },
+      build: () => OnboardingConnectCubit(
+        mockGetServerInfo,
+        mockSaveConnection,
+        establishSession: mockEstablishSession,
+      ),
+      seed: () => const OnboardingConnectState(
+        serverUrl: 'https://api.critalarm.app',
+        adminToken: 'ad_12345',
+      ),
+      act: (cubit) => cubit.connect(),
+      verify: (cubit) {
+        expect(cubit.state.status, OnboardingConnectStatus.connected);
+        expect(cubit.state.serverUrl, 'https://alerts.example.com');
+      },
+    );
+
+    blocTest<OnboardingConnectCubit, OnboardingConnectState>(
       'connect when server version is unrecognized emits compatibility error',
       setUp: () {
         const unrecognizedInfo = ServerInfo(
