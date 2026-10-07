@@ -150,6 +150,53 @@ void main() {
       expect(result.hero.severity, SeverityMode.none);
     });
 
+    test('an expired incident is never the last alarm handled', () {
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.expired,
+            closedAt: now.subtract(const Duration(hours: 2)),
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      expect(result.hero.subText, 'Nothing is ringing.');
+    });
+
+    test('newest expired, older closed: the line names the closed one', () {
+      final closedAt = now.subtract(const Duration(days: 3));
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.expired,
+            closedAt: now.subtract(const Duration(hours: 2)),
+          ),
+          _incident(
+            'inc2',
+            'prod-db',
+            IncidentStates.closed,
+            closedAt: closedAt,
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      final local = closedAt.toLocal();
+      final time =
+          '${DateFormat.MMMd().format(local)}, ${DateFormat.Hm().format(local)}';
+      expect(
+        result.hero.subText,
+        'Nothing is ringing.\nLast alarm handled at $time.',
+      );
+    });
+
     test('calm hero shows the last handled time from any age', () {
       // Handled wins over calm for 30 seconds, so once an incident is old
       // enough to fall out of the handled window it still counts for the
@@ -559,7 +606,7 @@ void main() {
           _incident(
             'inc1',
             'prod-db',
-            IncidentStates.expired,
+            IncidentStates.closed,
             closedAt: now.subtract(const Duration(hours: 2)),
           ),
         ]),

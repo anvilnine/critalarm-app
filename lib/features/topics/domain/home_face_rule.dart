@@ -260,11 +260,10 @@ HomeFaceResult resolveHomeFace({
     );
   }
 
+  // Only a close counts as "handled". An alarm that ran out was not.
   DateTime? newestClosed;
   for (final inc in incidents) {
-    if ((inc.state == IncidentStates.closed ||
-            inc.state == IncidentStates.expired) &&
-        inc.closedAt != null) {
+    if (inc.state == IncidentStates.closed && inc.closedAt != null) {
       if (newestClosed == null || inc.closedAt!.isAfter(newestClosed)) {
         newestClosed = inc.closedAt;
       }
