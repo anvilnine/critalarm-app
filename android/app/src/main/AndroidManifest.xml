@@ -141,6 +141,31 @@
                 <data android:mimeType="audio/*"/>
             </intent-filter>
         </activity>
+        <!-- Links to https://critalarm.app/connect and /open/... open the
+             app. The filter is not on MainActivity or on a launcher alias:
+             a link there could start a second Flutter engine inside the app
+             that sent it, and would put a data URI on MainActivity's intent.
+             AppLinkActivity passes the link on as an extra and finishes.
+             Flutter's own deep linking stays off. autoVerify needs
+             https://critalarm.app/.well-known/assetlinks.json to list this
+             app's signing certificate. -->
+        <activity
+            android:name=".links.AppLinkActivity"
+            android:exported="true"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"/>
+                <data android:host="critalarm.app"/>
+                <data android:path="/connect"/>
+                <data android:pathPrefix="/open/"/>
+            </intent-filter>
+        </activity>
         <!-- flutter_local_notifications: fires scheduled notifications and
              reschedules them after a device reboot or an app update. -->
         <receiver
