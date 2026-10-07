@@ -24,6 +24,7 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/api/packs_api.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/device/dev_bar_backing_switch.dart';
@@ -191,6 +192,16 @@ import 'package:critalarm/features/permissions/domain/repositories/device_permis
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
+import 'package:critalarm/features/pro_pack/data/prefs_pro_pack_dev_switch.dart';
+import 'package:critalarm/features/pro_pack/data/revenuecat_pro_pack_shop.dart';
+import 'package:critalarm/features/pro_pack/data/shared_prefs_pro_pack_store.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_shop.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_store.dart';
+import 'package:critalarm/features/pro_pack/presentation/cubits/pro_pack_sheet_cubit.dart';
 import 'package:critalarm/features/reliability/data/platform_maker_settings_opener.dart';
 import 'package:critalarm/features/reliability/data/platform_phone_capture.dart';
 import 'package:critalarm/features/reliability/data/platform_scheduled_summary_reader.dart';
@@ -345,6 +356,13 @@ Future<void> configureDependencies({
     // The only place the switch is handed to the rest of the app. In a store
     // build appProOverride is a NoProOverride and this call does nothing.
     appProOverride.watch(getIt<DevProSwitch>());
+
+    // The same for the Pro pack: its own switch, its own override. A store
+    // build compiles appProPackOverride as a NoProPackOverride.
+    if (!getIt.isRegistered<ProPackDevSwitch>()) {
+      getIt.registerSingleton<ProPackDevSwitch>(PrefsProPackDevSwitch(prefs));
+    }
+    appProPackOverride.watch(getIt<ProPackDevSwitch>());
   }
 
   if (buildHasPaywallLab) {
@@ -494,7 +512,42 @@ Future<void> configureDependencies({
               // inside the closure, because the repository needs this client.
               onDeadCredential: () =>
                   getIt<AccountRepository>().recoverFromDeadCredential(),
+              readDeviceToken: () async =>
+                  (await getIt<DeviceIdentityStore>().readOrCreate())
+                      .deviceToken,
             ),
+    )
+    // The pack routes live on the same client. A client swapped in by a test
+    // that does not speak them gets the one that always fails.
+    ..registerLazySingleton<PacksApi>(() {
+      final Object api = getIt<ApiClient>();
+      return api is PacksApi ? api : const NoPacksApi();
+    })
+    ..registerLazySingleton<ProPackStore>(
+      () => SharedPrefsProPackStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<ProPackAccess>(
+      () => ProPackAccess(
+        api: getIt<PacksApi>(),
+        store: getIt<ProPackStore>(),
+        readAccountId: () async =>
+            (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
+      ),
+    )
+    // A build that skips the store has nothing on sale.
+    ..registerLazySingleton<ProPackShop>(
+      () => buildSkipsPaywall
+          ? const ClosedProPackShop()
+          : RevenueCatProPackShop(getIt<RevenueCatService>()),
+    )
+    ..registerFactory(
+      () => ProPackSheetCubit(
+        access: getIt<ProPackAccess>(),
+        shop: getIt<ProPackShop>(),
+        analytics: getIt.isRegistered<TelemetryGate>()
+            ? ProPackAnalytics(getIt<TelemetryGate>())
+            : null,
+      ),
     )
     ..registerLazySingleton<ThemePreferenceRepository>(
       () => SharedPrefsThemePreferenceRepository(getIt<SharedPreferences>()),
@@ -610,6 +663,11 @@ Future<void> configureDependencies({
         getIt<DeviceIdentityStore>(),
         getIt<PushTokenProvider>(),
         identifyAccount: getIt<RevenueCatService>().identifyAccount,
+        onPacks: (response) => getIt<ProPackAccess>().relayAnswered(
+          accountId: response.accountId,
+          packs: response.packs,
+          tier: response.tier,
+        ),
       ),
     )
     ..registerLazySingleton(
@@ -2029,6 +2087,25 @@ Future<void> configureDependencies({
         isSetupDone: () => getIt<SetupGate>().isDone(),
       ),
     );
+
+  if (buildSkipsPaywall && useMockApi) {
+    // In a mock build the developer switch also makes the mock relay hold
+    // the pack, so the read from it and the two pack routes answer the same
+    // as the switch.
+    final devSwitch = getIt<ProPackDevSwitch>();
+    void applyToMock() {
+      final granted = getIt<MockServer>().grantedPacks;
+      if (devSwitch.value) {
+        granted.add(proPackId);
+      } else {
+        granted.remove(proPackId);
+      }
+      unawaited(getIt<ProPackAccess>().refresh(force: true));
+    }
+
+    devSwitch.addListener(applyToMock);
+    applyToMock();
+  }
 }
 
 /// Fires when the set of expired incidents in the shared list changes, and
