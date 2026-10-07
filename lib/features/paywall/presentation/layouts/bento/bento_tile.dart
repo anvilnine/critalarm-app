@@ -86,15 +86,34 @@ class BentoTile extends StatelessWidget {
                   // before it is cut short.
                   var fittedTitle = titleStyle;
                   late BentoTileText text;
-                  for (final step in _titleSteps) {
+                  final titleWidth = _measure(
+                    title,
+                    inherited.merge(titleStyle),
+                    scaler,
+                    direction,
+                  ).size.width;
+                  final steps = bentoTitleSteps(
+                    titleWidth: titleWidth,
+                    innerWidth: inner.width,
+                    textScale:
+                        scaler.scale(titleStyle.fontSize!) /
+                        titleStyle.fontSize!,
+                  );
+                  var drawnTitle = inherited.merge(titleStyle);
+                  for (final (i, step) in steps.indexed) {
                     fittedTitle = titleStyle.copyWith(
                       fontSize: titleStyle.fontSize! * step,
                       letterSpacing: (titleStyle.letterSpacing ?? 0) * step,
+                      // A title set a little smaller keeps its line box,
+                      // so it lines up with the tile beside it.
+                      height: step >= _keepsLineBox
+                          ? titleStyle.height! / step
+                          : titleStyle.height,
                     );
-                    final drawn = inherited.merge(fittedTitle);
+                    drawnTitle = inherited.merge(fittedTitle);
                     final titleSize = _measure(
                       title,
-                      drawn,
+                      drawnTitle,
                       scaler,
                       direction,
                     ).size;
@@ -105,10 +124,13 @@ class BentoTile extends StatelessWidget {
                       lineWidth: lineSize.width,
                       lineLineHeight: lineSize.height,
                       isLead: isLead,
+                      // At the smallest size the whole title matters more
+                      // than the preview.
+                      wordsFirst: i == steps.length - 1,
                     );
                     final wrapped = _measure(
                       title,
-                      drawn,
+                      drawnTitle,
                       scaler,
                       direction,
                       maxLines: text.titleLines,
@@ -116,22 +138,52 @@ class BentoTile extends StatelessWidget {
                     );
                     if (!wrapped.didExceedMaxLines) break;
                   }
+
+                  // The rule allows for the most lines the words may take.
+                  // The preview gets back what they do not use.
+                  var wordsHeight = text.height;
+                  if (!text.previewBeside &&
+                      text.linePlace != BentoLinePlace.beside) {
+                    var used = _measure(
+                      title,
+                      drawnTitle,
+                      scaler,
+                      direction,
+                      maxLines: text.titleLines,
+                      maxWidth: inner.width,
+                    ).size.height;
+                    if (text.linePlace == BentoLinePlace.below) {
+                      used +=
+                          bentoLineGap +
+                          _measure(
+                            line,
+                            inherited.merge(lineStyle),
+                            scaler,
+                            direction,
+                            maxLines: text.lineLines,
+                            maxWidth: inner.width,
+                          ).size.height;
+                    }
+                    if (used < wordsHeight) wordsHeight = used;
+                  }
+
                   // Stacked, the preview is under the words. On a tile too
                   // short for that it is beside the title.
-                  final titleWidth = _measure(
-                    title,
-                    inherited.merge(fittedTitle),
-                    scaler,
-                    direction,
-                  ).size.width;
                   final previewSize = text.previewBeside
                       ? Size(
-                          inner.width - titleWidth - bentoBesideGap,
+                          inner.width -
+                              _measure(
+                                title,
+                                drawnTitle,
+                                scaler,
+                                direction,
+                              ).size.width -
+                              bentoBesideGap,
                           inner.height,
                         )
                       : Size(
                           inner.width,
-                          inner.height - text.height - bentoTextGap,
+                          inner.height - wordsHeight - bentoTextGap,
                         );
 
                   final titleText = Text(
@@ -151,11 +203,11 @@ class BentoTile extends StatelessWidget {
                     children: [
                       PositionedDirectional(
                         top: text.previewBeside
-                            ? (inner.height - text.height) / 2
+                            ? (inner.height - wordsHeight) / 2
                             : 0,
                         start: 0,
                         end: 0,
-                        height: text.height.clamp(0.0, inner.height),
+                        height: wordsHeight.clamp(0.0, inner.height),
                         // The words were measured, so they fit. The box
                         // only keeps a rounding point from being an error.
                         child: ClipRect(
@@ -214,8 +266,8 @@ class BentoTile extends StatelessWidget {
     );
   }
 
-  /// The sizes a title tries, as shares of its own, largest first.
-  static const List<double> _titleSteps = [1, 0.92, 0.85, 0.78];
+  /// A title at this share of its size or more keeps its full line box.
+  static const double _keepsLineBox = 0.85;
 
   static ({Size size, bool didExceedMaxLines}) _measure(
     String text,

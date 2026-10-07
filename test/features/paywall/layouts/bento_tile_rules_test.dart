@@ -68,6 +68,22 @@ void main() {
       expect(short.titleLines, 1);
     });
 
+    test('words first: the title keeps both lines and the preview goes', () {
+      const inner = Size(70, 40);
+      expect(text(inner: inner, lineWidth: 400).titleLines, 1);
+      final result = bentoTileText(
+        inner: inner,
+        titleWidth: 80,
+        titleLineHeight: 16,
+        lineWidth: 400,
+        lineLineHeight: 14,
+        isLead: false,
+        wordsFirst: true,
+      );
+      expect(result.titleLines, 2);
+      expect(result.height, 32);
+    });
+
     test('the words never take more than the tile has', () {
       for (final width in [60.0, 110.0, 200.0, 330.0]) {
         for (final height in [20.0, 40.0, 70.0, 120.0, 400.0]) {
@@ -99,6 +115,39 @@ void main() {
         isLead: true,
       );
       expect(result.previewBeside, isFalse);
+    });
+  });
+
+  group('bentoTitleSteps', () {
+    test('a title that fits starts at its own size', () {
+      expect(bentoTitleSteps(titleWidth: 80, innerWidth: 100).first, 1);
+    });
+
+    test('a title a little too wide is set smaller to stay on a line', () {
+      final steps = bentoTitleSteps(titleWidth: 110, innerWidth: 100);
+      expect(steps.first, lessThan(1));
+      expect(110 * steps.last, lessThanOrEqualTo(100));
+    });
+
+    test('a much longer title wraps at full size first', () {
+      final steps = bentoTitleSteps(titleWidth: 180, innerWidth: 100);
+      expect(steps.first, 1);
+      for (var i = 1; i < steps.length; i++) {
+        expect(steps[i], lessThan(steps[i - 1]));
+      }
+    });
+
+    test('enlarged text may step down further, the default may not', () {
+      double smallest(double scale) => bentoTitleSteps(
+        titleWidth: 300,
+        innerWidth: 100,
+        textScale: scale,
+      ).last;
+      expect(smallest(1), 0.78);
+      expect(smallest(1.5), lessThan(0.78));
+      // Never under nine tenths of the size at the default scale.
+      expect(smallest(1.5) * 1.5, greaterThanOrEqualTo(0.9));
+      expect(smallest(1.3) * 1.3, greaterThanOrEqualTo(0.9));
     });
   });
 
