@@ -1369,7 +1369,7 @@
       "row_title": "Paywall layouts",
       "row_subtitle": "Every layout, for Hosted and for Pro",
       "page_title": "Paywall layouts",
-      "note": "A layout that is not built yet opens the plain one.",
+      "note": "A layout that is not built yet opens the hero one.",
       "not_built": "not built"
     }
   },
@@ -1911,6 +1911,18 @@
       "quiet_hours": "Quiet hours",
       "notifications": "Notifications",
       "appearance": "Appearance"
+    }
+  },
+  "paywall_hero": {
+    "headline_hosted": "Hosted lifts every limit",
+    "headline_pro": "Pro keeps watch on delivery",
+    "lines": {
+      "topics": "Unlimited critical topics",
+      "pushes": "{hosted_p4_daily} high priority pushes a day",
+      "history": "{hosted_history_days} days of alarm history",
+      "widgets": "Home screen widgets",
+      "app_icons": "Three extra app icons",
+      "weekly_check": "A weekly delivery check"
     }
   }
 }

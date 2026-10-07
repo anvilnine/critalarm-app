@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
@@ -37,13 +39,17 @@ class PaywallPlanPicker extends StatelessWidget {
 
   final PaywallPlanPickerStyle style;
 
-  /// What the cards sit on. An unpicked card has no fill, so its text
-  /// takes this tone's colours.
+  /// What the cards sit on. An unpicked card has only a quiet fill, so
+  /// its text takes this tone's colours.
   final PaywallTone tone;
 
   /// One card, at the default text size.
   static const double cardHeight = 52;
   static const double _gap = Spacing.s2;
+
+  /// How far a badge stands above the top edge of its card. The picker
+  /// keeps this much room above the cards when a card has a badge.
+  static const double badgeRise = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -82,28 +88,43 @@ class PaywallPlanPicker extends StatelessWidget {
           }
 
           final height = cardHeight * scale;
+          final top = EdgeInsets.only(
+            top: planPickerKeepsBadgeRoom(state) ? badgeRise * scale : 0,
+          );
           if (count == 1 || style == PaywallPlanPickerStyle.rows) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = 0; i < count; i++) ...[
-                  if (i > 0) const SizedBox(height: _gap),
-                  SizedBox(height: height, child: card(i)),
+            return Padding(
+              padding: top,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < count; i++) ...[
+                    // A badge on a lower row stands in the gap above it.
+                    if (i > 0)
+                      SizedBox(
+                        height: planCardBadge(state.options[i]) == null
+                            ? _gap
+                            : math.max(_gap, badgeRise * scale + 2),
+                      ),
+                    SizedBox(height: height, child: card(i)),
+                  ],
                 ],
-              ],
+              ),
             );
           }
-          return SizedBox(
-            height: height,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = 0; i < count; i++) ...[
-                  if (i > 0) const SizedBox(width: _gap),
-                  Expanded(child: card(i)),
+          return Padding(
+            padding: top,
+            child: SizedBox(
+              height: height,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < count; i++) ...[
+                    if (i > 0) const SizedBox(width: _gap),
+                    Expanded(child: card(i)),
+                  ],
                 ],
-              ],
+              ),
             ),
           );
         },
@@ -112,9 +133,14 @@ class PaywallPlanPicker extends StatelessWidget {
   }
 }
 
-/// One plan, in two lines. The name and the billed amount, which is the
-/// largest thing on the card. Under them, smaller, the per month figure
-/// and the saving, or when the plan renews. Both stores ask for that order.
+/// One plan, as a thing to pick: a mark that says whether it is picked,
+/// then two lines. The name and the billed amount, which is the largest
+/// thing on the card. Under them, smaller, the per month figure or when
+/// the plan renews. Both stores ask for that order. A saving is a small
+/// badge that stands half over the top edge.
+///
+/// The picked card is filled and stroked. Any other has a quiet fill and
+/// no stroke, so the two never read as the same weight.
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.option,
@@ -137,12 +163,16 @@ class _PlanCard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onTap;
 
+  static const double _mark = 18;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final toneColors = PaywallToneColors.of(context, tone);
     final option = this.option;
-    // The picked card is a surface. Any other is an outline on the tone.
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    // The picked card is cream with ink on it. Any other is a tint of the
+    // tone it sits on, with that tone's own text colours.
     final ink = isSelected ? colors.ink : toneColors.ink;
     final soft = isSelected ? colors.ink2 : toneColors.note;
 
@@ -154,7 +184,6 @@ class _PlanCard extends StatelessWidget {
       fontSize: 18,
     ).copyWith(fontWeight: FontWeight.w800, height: 1.1);
     final fine = AppTypography.small(soft, fontSize: 11).copyWith(height: 1.25);
-    final strongFine = fine.copyWith(color: ink, fontWeight: FontWeight.w700);
 
     // The store's own strings and the plan words, as they come, each on
     // one line. Text that is too wide for its side is drawn smaller.
@@ -170,73 +199,91 @@ class _PlanCard extends StatelessWidget {
       content = const SizedBox.expand();
     } else {
       final second = planCardSecondLine(option);
-      content = Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      content = Row(
         children: [
-          // The billed amount takes the width it needs, up to most of the
-          // line, and keeps its size. The plan's name gives way first.
-          LayoutBuilder(
-            builder: (context, box) => Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Expanded(
-                  child: oneLine(option.title, title, Alignment.centerLeft),
-                ),
-                const SizedBox(width: Spacing.s2),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: box.maxWidth * 0.7),
-                  child: oneLine(option.price, price, Alignment.centerRight),
-                ),
-              ],
+          if (isChoice) ...[
+            _PickMark(
+              size: _mark,
+              isSelected: isSelected,
+              ink: ink,
+              on: isSelected ? colors.cream : toneColors.background,
             ),
-          ),
-          if (second.left != null || second.right != null) ...[
-            const SizedBox(height: 2),
-            // The two fine parts are one line: short of room, both get
-            // smaller together.
-            LayoutBuilder(
-              builder: (context, box) => FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: box.maxWidth),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            const SizedBox(width: Spacing.s2),
+          ],
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // The billed amount takes the width it needs, up to most
+                // of the line, and keeps its size. The plan's name gives
+                // way first.
+                LayoutBuilder(
+                  builder: (context, box) => Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
                     children: [
-                      if (second.left case final left?)
-                        Text(left, style: fine, maxLines: 1),
-                      if (second.left != null && second.right != null)
-                        const SizedBox(width: Spacing.s2),
-                      if (second.right case final right?)
-                        Text(right, style: strongFine, maxLines: 1),
+                      Expanded(
+                        child: oneLine(
+                          option.title,
+                          title,
+                          Alignment.centerLeft,
+                        ),
+                      ),
+                      const SizedBox(width: Spacing.s2),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: box.maxWidth * 0.7,
+                        ),
+                        child: oneLine(
+                          option.price,
+                          price,
+                          Alignment.centerRight,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
+                if (second != null) ...[
+                  const SizedBox(height: 2),
+                  oneLine(second, fine, Alignment.centerLeft),
+                ],
+              ],
             ),
-          ],
+          ),
         ],
       );
     }
 
-    final card = AnimatedContainer(
-      duration: context.motion(AppDurations.quick),
-      padding: EdgeInsets.symmetric(horizontal: isWide ? 14 : Spacing.s3),
-      decoration: BoxDecoration(
-        color: isSelected
-            ? colors.surface
-            : colors.surface.withValues(alpha: 0),
-        borderRadius: Radii.mdAll,
-        border: Border.all(
-          color: isSelected
-              ? colors.ink
-              : toneColors.ink.withValues(alpha: 0.3),
-          width: isSelected ? 2 : 1.5,
+    final badge = option == null ? null : planCardBadge(option);
+    final card = Stack(
+      clipBehavior: Clip.none,
+      fit: StackFit.expand,
+      children: [
+        AnimatedContainer(
+          duration: context.motion(AppDurations.quick),
+          padding: EdgeInsets.only(
+            left: isWide ? 14 : Spacing.s3,
+            right: isWide ? 14 : Spacing.s3,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected ? colors.cream : _quietFill(colors, toneColors),
+            borderRadius: Radii.mdAll,
+            // The same width either way, so picking moves nothing.
+            border: Border.all(
+              color: isSelected ? colors.ink : colors.ink.withValues(alpha: 0),
+              width: 2,
+            ),
+          ),
+          child: content,
         ),
-      ),
-      child: content,
+        if (badge != null)
+          Positioned(
+            top: -PaywallPlanPicker.badgeRise * scale,
+            right: 12,
+            child: _Badge(text: badge),
+          ),
+      ],
     );
 
     if (!isChoice) {
@@ -252,6 +299,92 @@ class _PlanCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: Radii.mdAll,
         child: card,
+      ),
+    );
+  }
+
+  /// What a card that is not picked is filled with: cream thinned over the
+  /// canvas or a sheet, a tint of the text colour on a dark or a coloured
+  /// tone, where cream would not hold the tone's light text.
+  Color _quietFill(AppColors colors, PaywallToneColors toneColors) =>
+      switch (tone) {
+        PaywallTone.canvas ||
+        PaywallTone.surface => colors.cream.withValues(alpha: 0.55),
+        PaywallTone.panel ||
+        PaywallTone.cobalt ||
+        PaywallTone.crit => toneColors.ink.withValues(alpha: 0.1),
+      };
+}
+
+/// The mark at the start of a plan card: a filled circle with a check on
+/// the picked plan, an empty ring on any other.
+class _PickMark extends StatelessWidget {
+  const _PickMark({
+    required this.size,
+    required this.isSelected,
+    required this.ink,
+    required this.on,
+  });
+
+  final double size;
+  final bool isSelected;
+  final Color ink;
+
+  /// The check's colour: what the card is filled with.
+  final Color on;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: context.motion(AppDurations.quick),
+      curve: AppCurves.easeSpring,
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isSelected ? ink : ink.withValues(alpha: 0),
+        border: Border.all(
+          color: isSelected ? ink : ink.withValues(alpha: 0.45),
+          width: 1.5,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: isSelected
+          ? AppGlyph(
+              GlyphType.check,
+              size: size * 0.56,
+              color: on,
+              strokeWidth: 3.4,
+            )
+          : null,
+    );
+  }
+}
+
+/// The saving, as a small ink pill. It is ink and never cobalt, so the
+/// button stays the one cobalt thing in the block.
+class _Badge extends StatelessWidget {
+  const _Badge({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(color: colors.ink, borderRadius: Radii.fullAll),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+        child: Text(
+          text,
+          maxLines: 1,
+          style: AppTypography.small(colors.surface, fontSize: 10).copyWith(
+            fontWeight: FontWeight.w800,
+            height: 1.1,
+            letterSpacing: 0.1,
+          ),
+        ),
       ),
     );
   }

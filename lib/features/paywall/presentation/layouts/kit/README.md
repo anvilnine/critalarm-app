@@ -10,7 +10,7 @@ and nothing else: no button, price row, legal text, clock, benefit list or purch
 2. Register it in `kit/paywall_layout_registry.dart`:
    `PaywallLayoutId.proof: (_) => const ProofPaywallLayout(),`
 3. Open it at `/plans/<key>?product=hosted|pro`, or from Developer options, Paywall layouts.
-   An id with no line in the registry draws `plain`.
+   An id with no line in the registry draws `hero` (`paywallFallbackLayout`).
 
 Import `kit/paywall_frame.dart` (buy block, clock, scope, tones) and `kit/paywall_preview.dart`.
 
