@@ -534,6 +534,11 @@ Future<void> configureDependencies({
         store: getIt<ProPackStore>(),
         readAccountId: () async =>
             (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
+        // The kept list is for one account on one relay. A sign-out, a
+        // sign-in or a new plan is a reason to look at who this phone is.
+        readRelay: () async =>
+            (await getIt<ApiSessionStore>().read())?.relayUri,
+        identityChanges: [appAccountIdentityChanges, appPlanChanges],
       ),
     )
     // A build that skips the store has nothing on sale.
@@ -665,11 +670,15 @@ Future<void> configureDependencies({
         getIt<DeviceIdentityStore>(),
         getIt<PushTokenProvider>(),
         identifyAccount: getIt<RevenueCatService>().identifyAccount,
-        onPacks: (response) => getIt<ProPackAccess>().relayAnswered(
-          accountId: response.accountId,
-          packs: response.packs,
-          tier: response.tier,
-        ),
+        beforePacksRequest: () => getIt<ProPackAccess>().beginRelayRequest(),
+        onPacks: (response, {relayUri, request}) =>
+            getIt<ProPackAccess>().relayAnswered(
+              accountId: response.accountId,
+              packs: response.packs,
+              tier: response.tier,
+              relay: relayUri,
+              request: request,
+            ),
       ),
     )
     ..registerLazySingleton(
