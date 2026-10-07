@@ -6,37 +6,26 @@ void main() {
   group('BarBackingConfig.defaults', () {
     const defaults = BarBackingConfig.defaults;
 
-    test('both bars are the progressive blur with nothing over it', () {
-      expect(defaults.top.mode, BarBackingMode.blur);
-      expect(defaults.bottom.mode, BarBackingMode.blur);
+    test('both bars are the blur with a fade of the canvas over it', () {
+      expect(defaults.top.mode, BarBackingMode.blurAndGradient);
+      expect(defaults.bottom.mode, BarBackingMode.blurAndGradient);
     });
 
-    test('neither bar has a flat part', () {
-      expect(defaults.top.plateau, 0);
-      expect(defaults.bottom.plateau, 0);
+    test('top bar', () {
+      expect(defaults.top.blurSigma, 40);
+      expect(defaults.top.fadeLength, 45);
+      expect(defaults.top.gradientPeak, 0.9);
+      expect(defaults.top.plateau, 0.1);
     });
 
-    test('the blur is moderately stronger than the quiet edge blur', () {
-      for (final style in [defaults.top, defaults.bottom]) {
-        expect(style.blurSigma, greaterThan(ProgressiveBlurEdge.quietSigma));
-        expect(
-          style.blurSigma,
-          lessThanOrEqualTo(2.5 * ProgressiveBlurEdge.quietSigma),
-        );
-      }
+    test('pinned bottom bar', () {
+      expect(defaults.bottom.blurSigma, 34.5);
+      expect(defaults.bottom.fadeLength, 38);
+      expect(defaults.bottom.gradientPeak, 0.15);
+      expect(defaults.bottom.plateau, 0.1);
     });
 
-    test('the ramp starts a comfortable way past the bar', () {
-      expect(defaults.top.fadeLength, greaterThanOrEqualTo(24));
-      expect(defaults.bottom.fadeLength, greaterThanOrEqualTo(24));
-    });
-
-    test('a gradient mode picked later starts from a light fade', () {
-      expect(defaults.top.gradientPeak, lessThanOrEqualTo(0.35));
-      expect(defaults.bottom.gradientPeak, lessThanOrEqualTo(0.35));
-    });
-
-    test('every default is inside its slider range', () {
+    test('every default is inside its range', () {
       for (final style in [defaults.top, defaults.bottom]) {
         expect(style, style.copyWith());
       }
@@ -97,72 +86,6 @@ void main() {
     });
   });
 
-  group('BarBackingConfig text', () {
-    test('reads back what it wrote', () {
-      final config = BarBackingConfig(
-        top: BarBackingStyle(
-          mode: BarBackingMode.gradient,
-          blurSigma: 7.5,
-          fadeLength: 40,
-          gradientPeak: 0.35,
-        ),
-        bottom: BarBackingStyle(
-          mode: BarBackingMode.solid,
-          blurSigma: 22,
-          fadeLength: 12,
-          gradientPeak: 0.9,
-          plateau: 0.25,
-        ),
-      );
-      expect(BarBackingConfig.decode(config.encode()), config);
-      expect(BarBackingConfig.decode(config.encode()).bottom.plateau, 0.25);
-    });
-
-    test('every mode has its own key and reads back', () {
-      final keys = BarBackingMode.values.map((mode) => mode.key).toSet();
-      expect(keys, hasLength(BarBackingMode.values.length));
-      for (final mode in BarBackingMode.values) {
-        expect(BarBackingMode.fromKey(mode.key), mode);
-      }
-      expect(BarBackingMode.fromKey('frosted'), isNull);
-      expect(BarBackingMode.fromKey(null), isNull);
-    });
-
-    test('nothing stored is the defaults', () {
-      expect(BarBackingConfig.decode(null), BarBackingConfig.defaults);
-      expect(BarBackingConfig.decode(''), BarBackingConfig.defaults);
-    });
-
-    test('text that is not a config is the defaults', () {
-      expect(BarBackingConfig.decode('{not json'), BarBackingConfig.defaults);
-      expect(BarBackingConfig.decode('[1, 2]'), BarBackingConfig.defaults);
-      expect(BarBackingConfig.decode('"blur"'), BarBackingConfig.defaults);
-    });
-
-    test('a missing or broken part takes its default', () {
-      final config = BarBackingConfig.decode(
-        '{"top": {"mode": "gradient", "blur": "strong", "peak": 0.2}}',
-      );
-      const defaults = BarBackingConfig.defaults;
-      expect(config.top.mode, BarBackingMode.gradient);
-      expect(config.top.gradientPeak, 0.2);
-      expect(config.top.blurSigma, defaults.top.blurSigma);
-      expect(config.top.fadeLength, defaults.top.fadeLength);
-      // Text saved before the plateau existed has none.
-      expect(config.top.plateau, 0);
-      expect(config.bottom, defaults.bottom);
-    });
-
-    test('numbers out of range are clamped on the way in', () {
-      final config = BarBackingConfig.decode(
-        '{"bottom": {"mode": "blur", "blur": 9000, "fade": -3, "peak": 2}}',
-      );
-      expect(config.bottom.blurSigma, BarBackingStyle.maxBlurSigma);
-      expect(config.bottom.fadeLength, 0);
-      expect(config.bottom.gradientPeak, 1);
-    });
-  });
-
   group('barBackingRamp', () {
     test('is nothing at the inner edge and full only at the screen edge', () {
       expect(barBackingRamp(0), 0);
@@ -201,32 +124,6 @@ void main() {
     test('never leaves 0 to 1', () {
       expect(barBackingRamp(-3), 0);
       expect(barBackingRamp(9), 1);
-    });
-  });
-
-  group('the default blur along its zone', () {
-    // Sigma from the inner edge (0) to the screen edge (1).
-    double sigmaAt(BarBackingStyle style, double position) =>
-        style.blurSigma * barBackingRamp(position, plateau: style.plateau);
-
-    test('top bar', () {
-      final top = BarBackingConfig.defaults.top;
-      expect(top.blurSigma, 8);
-      expect(sigmaAt(top, 0), 0);
-      expect(sigmaAt(top, 0.25), 1.25);
-      expect(sigmaAt(top, 0.5), 4);
-      expect(sigmaAt(top, 0.75), 6.75);
-      expect(sigmaAt(top, 1), 8);
-    });
-
-    test('pinned bottom bar', () {
-      final bottom = BarBackingConfig.defaults.bottom;
-      expect(bottom.blurSigma, 9);
-      expect(sigmaAt(bottom, 0), 0);
-      expect(sigmaAt(bottom, 0.25), closeTo(1.41, 0.01));
-      expect(sigmaAt(bottom, 0.5), 4.5);
-      expect(sigmaAt(bottom, 0.75), closeTo(7.59, 0.01));
-      expect(sigmaAt(bottom, 1), 9);
     });
   });
 

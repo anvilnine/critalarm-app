@@ -38,6 +38,7 @@ class _PrivacySettingsView extends StatelessWidget {
         final cubit = context.read<SettingsCubit>();
 
         return AppScreenScaffold(
+          hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.settings_privacy_header.tr(),
             leading: AppIconButton(

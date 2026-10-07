@@ -43,7 +43,6 @@ import 'package:critalarm/features/settings/presentation/alarm_debug_screen.dart
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/app_icon_screen.dart';
 import 'package:critalarm/features/settings/presentation/appearance_settings_screen.dart';
-import 'package:critalarm/features/settings/presentation/bar_backing_lab_screen.dart';
 import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubit.dart';
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/dialog_sheet_gallery_screen.dart';
@@ -107,7 +106,6 @@ abstract final class AppRoute {
   static const about = 'about';
   static const developerSettings = 'developerSettings';
   static const alarmDebug = 'alarmDebug';
-  static const barBackingLab = 'barBackingLab';
   static const dialogSheetGallery = 'dialogSheetGallery';
   static const faceGallery = 'faceGallery';
   static const ringingFaces = 'ringingFaces';
@@ -535,16 +533,6 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     child: const DeveloperSettingsScreen(),
                   ),
                   routes: [
-                    GoRoute(
-                      path: 'bar-backing',
-                      parentNavigatorKey: _rootKey,
-                      name: AppRoute.barBackingLab,
-                      pageBuilder: (context, state) => AmbientPage(
-                        key: state.pageKey,
-                        opaque: true,
-                        child: const BarBackingLabScreen(),
-                      ),
-                    ),
                     // The same condition as the layout routes it lists, so
                     // a store build holds neither.
                     if (_hasPaywallLayoutRoute)

@@ -39,6 +39,7 @@ class _RingingFacesScreenState extends State<RingingFacesScreen> {
     final colors = context.appColors;
 
     return AppScreenScaffold(
+      hasTabBar: false,
       topBar: AppTopBar(
         title: 'Ringing faces',
         leading: AppIconButton(

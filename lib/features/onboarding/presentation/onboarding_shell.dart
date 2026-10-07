@@ -221,7 +221,6 @@ class _OnboardingShellState extends State<OnboardingShell> {
             // height.
             child: AppBarBackingScope(
               color: currentProfile.canvas,
-              coversBottomBar: true,
               topBarMaxTextScale: setupTopBarMaxTextScale,
               child: OnboardingAmbientScope(
                 controller: _controller,

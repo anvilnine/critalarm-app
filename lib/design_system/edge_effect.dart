@@ -6,35 +6,23 @@ import 'package:flutter/foundation.dart';
 /// tab bar. Ordered from the most expensive to the cheapest.
 enum EdgeEffect {
   /// One pass of the edge blur shader. Needs Impeller.
-  shaderBlur('shader_blur'),
+  shaderBlur,
 
-  /// The older blur cut into 24 slices, one blur pass each. Kept so it can be
-  /// compared on a device from the developer options.
-  sliceBlur('slice_blur'),
+  /// The older blur cut into 24 slices, one blur pass each. Nothing picks it
+  /// on its own.
+  sliceBlur,
 
   /// No blur. The canvas colour fades over the edge.
-  fade('fade'),
+  fade,
 
   /// Nothing at all. Rows meet the bars with a hard edge.
-  none('none');
-
-  const EdgeEffect(this.key);
-
-  /// Stored in preferences by the developer override.
-  final String key;
-
-  static EdgeEffect? fromKey(String? key) {
-    for (final effect in values) {
-      if (effect.key == key) return effect;
-    }
-    return null;
-  }
+  none;
 
   bool get blurs => this == shaderBlur || this == sliceBlur;
   bool get fades => this != none;
 }
 
-/// The edge effect a device gets when nobody overrides it.
+/// The edge effect a device gets.
 ///
 /// Anything that can run the shader gets the shader blur, iOS and Android
 /// alike. A phone Android itself calls low on memory gets nothing. Anything
@@ -50,8 +38,7 @@ EdgeEffect autoEdgeEffect({
   return shaderSupported ? EdgeEffect.shaderBlur : EdgeEffect.fade;
 }
 
-/// The effect every screen draws. Set once at startup, and again whenever the
-/// developer override changes.
+/// The effect every screen draws. Set once at startup.
 final ValueNotifier<EdgeEffect> appEdgeEffect = ValueNotifier(EdgeEffect.fade);
 
 /// The compiled edge blur shader, or null until [loadEdgeBlurShader] has

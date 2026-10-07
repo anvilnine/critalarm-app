@@ -42,12 +42,10 @@ const String _curl =
 
 /// Whether a face drawn inside a mock-up moves.
 ///
-/// It holds still when the phone asks for reduced motion and once the user
-/// has stopped the animation, like the story around it. A face that is told
-/// it is live keeps its ticker running even while it draws itself still, so
-/// the mock-ups tell it the truth.
-bool _mockFaceMoves(BuildContext context) =>
-    !context.reduceMotion && !_StillScope.of(context);
+/// It holds still when the phone asks for reduced motion, like the story
+/// around it. A face that is told it is live keeps its ticker running even
+/// while it draws itself still, so the mock-ups tell it the truth.
+bool _mockFaceMoves(BuildContext context) => !context.reduceMotion;
 
 /// A phone drawn at full size and scaled to whatever room it gets.
 class _MiniPhone extends StatelessWidget {

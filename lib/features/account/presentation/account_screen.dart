@@ -56,6 +56,7 @@ class AccountView extends StatelessWidget {
       ),
       builder: (context, state) {
         return AppScreenScaffold(
+          hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.account_header.tr(),
             leading: AppIconButton(
