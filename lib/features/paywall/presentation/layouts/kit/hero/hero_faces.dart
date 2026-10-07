@@ -1,8 +1,8 @@
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:flutter/widgets.dart';
 
-// The shapes behind the Hero layout's faces. All but one are the face
+// The shapes behind the mascot's faces on a stage. All but one are the face
 // rig's own. The watching face is built here from the rig's parts, because
 // the mascot has to look at the card, which sits down and to its right.
 
@@ -47,13 +47,27 @@ FaceShape heroFaceShape(HeroFace face) => switch (face) {
 
 /// The shape on the mascot at [frame]: one face on its way to the next,
 /// with the eyes shut as far as the blink says.
-FaceShape heroShapeAt(HeroFrame frame) {
-  final blend = Curves.easeInOutCubic.transform(frame.faceBlend);
-  final to = heroFaceShape(frame.face);
-  final shape = blend >= 1
+FaceShape heroShapeAt(HeroFrame frame) => heroShapeFor(
+  face: frame.face,
+  fromFace: frame.fromFace,
+  faceBlend: frame.faceBlend,
+  blink: frame.blink,
+);
+
+/// The shape of a mascot that is [faceBlend] of the way from [fromFace] to
+/// [face], with the eyes shut as far as [blink] says.
+FaceShape heroShapeFor({
+  required HeroFace face,
+  HeroFace? fromFace,
+  double faceBlend = 1,
+  double blink = 0,
+}) {
+  final blend = Curves.easeInOutCubic.transform(faceBlend);
+  final to = heroFaceShape(face);
+  final shape = blend >= 1 || fromFace == null
       ? to
-      : FaceShape.lerp(heroFaceShape(frame.fromFace), to, blend);
-  // The stage holds the mascot upright: a face's own lean is left out.
+      : FaceShape.lerp(heroFaceShape(fromFace), to, blend);
+  // The mascot is held upright: a face's own lean is left out.
   final upright = FaceShape(
     leftEye: shape.leftEye,
     rightEye: shape.rightEye,
@@ -63,6 +77,6 @@ FaceShape heroShapeAt(HeroFrame frame) {
     head: shape.head,
     props: shape.props,
   );
-  if (frame.blink <= 0) return upright;
-  return FaceShape.lerp(upright, upright.blinking, frame.blink);
+  if (blink <= 0) return upright;
+  return FaceShape.lerp(upright, upright.blinking, blink);
 }

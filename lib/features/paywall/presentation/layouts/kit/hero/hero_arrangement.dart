@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
-// Where the mascot and the card stand on the Hero layout's stage. Numbers
-// only, so the rule that picks them has a test.
+// Where the mascot and the card stand on a stage, and how much height the
+// stage gets. Numbers only, so the rules that pick them have tests.
 
 /// What the stage holds.
 enum HeroStageKind {
@@ -56,6 +56,12 @@ const double heroSideRoom = 16;
 
 /// The smallest mascot drawn. Under it the stage is left empty.
 const double heroMascotMin = 56;
+
+/// Places the mascot and whatever stands beside it in a stage of the given
+/// size. [heroArrangementFor] is the approved rule. A layout with its own
+/// composition passes its own function to the stage: the mascot centred
+/// and alone, the card on the left, a card as wide as the stage.
+typedef HeroArranger = HeroArrangement Function(Size size);
 
 /// Places the mascot and the card in a stage of [size].
 ///
@@ -126,5 +132,54 @@ HeroArrangement _pair(
       card,
       card,
     ),
+  );
+}
+
+/// The stage stops growing at this height. Past it the mascot and the card
+/// are at their largest, and more height is only more air.
+const double heroStageMax = 380;
+
+/// How one column of height is shared between a stage and the words under
+/// it.
+class HeroStageRoom {
+  const HeroStageRoom({
+    required this.stage,
+    required this.gap,
+    required this.under,
+  });
+
+  /// The stage's height, in whole points.
+  final double stage;
+
+  /// Between the stage and the words. The pips sit in it.
+  final double gap;
+
+  /// What is left under the words, down to the buy block.
+  final double under;
+}
+
+/// Shares [height] between a stage and [words] points of text under it.
+///
+/// The stage takes what the words leave, with [gap] between them and
+/// [bottomGap] under the words. Past [stageMax] the spare height is shared
+/// out: most above and below the words, some to the stage. At a large text
+/// size the words may leave nothing, and the stage is zero: the stage's
+/// arrangement then drops the card, then the mascot.
+HeroStageRoom heroStageRoomFor({
+  required double height,
+  required double words,
+  required double gap,
+  required double bottomGap,
+  double stageMax = heroStageMax,
+}) {
+  final left = height - words - gap - bottomGap;
+  final spare = math.max(0, left - stageMax);
+  final stage = math.max(0, math.min(left, stageMax) + spare * 0.4);
+  final stageGap = gap + spare * 0.3;
+  final under = math.max(0, height - stage.floorToDouble() - stageGap - words);
+  return HeroStageRoom(
+    stage: stage.floorToDouble(),
+    gap: stageGap,
+    under: under.toDouble(),
   );
 }
