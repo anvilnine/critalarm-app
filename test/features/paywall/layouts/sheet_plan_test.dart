@@ -134,7 +134,7 @@ void main() {
     }
   });
 
-  test('no quiet row is kept until the buy block has a height', () {
+  test('a plan made before the buy block has a height is never drawn', () {
     for (final phone in _phones) {
       final plan = sheetPlanFor(
         screenHeight: phone.height,
@@ -145,6 +145,65 @@ void main() {
         isSwitch: false,
         benefitCount: 1,
       );
+      expect(plan.rowsAbove, 0);
+      expect(plan.isMeasured, isFalse);
+    }
+  });
+
+  test('the first plan drawn has the rows the settled plan has', () {
+    for (final phone in _phones) {
+      for (final isHosted in [true, false]) {
+        for (var count = 1; count <= 7; count++) {
+          // What the layout plans with as its frames go by: nothing on the
+          // first, then the height the kit measured.
+          final height = _buyBlock(isHosted: isHosted);
+          final frames = [
+            for (final measured in <double?>[null, height, height])
+              sheetPlanFor(
+                screenHeight: phone.height,
+                topInset: phone.top,
+                bottomInset: phone.bottom,
+                isCompact: phone.compact,
+                buyBlockHeight: measured,
+                isSwitch: isHosted,
+                benefitCount: count,
+              ),
+          ];
+          final drawn = frames.where((plan) => plan.isMeasured).toList();
+          expect(drawn, hasLength(2));
+          expect(drawn.first.rowsAbove, frames.last.rowsAbove);
+          expect(drawn.first.sheetTop, frames.last.sheetTop);
+        }
+      }
+    }
+  });
+
+  test('a guess would have moved: Pro on the tall phone keeps a quiet row '
+      'once measured', () {
+    final plan = _plan(
+      _phones.first,
+      isHosted: false,
+      isSwitch: false,
+      benefitCount: 1,
+    );
+    expect(plan.isMeasured, isTrue);
+    expect(plan.rowsAbove, greaterThan(0));
+  });
+
+  test('past the default text size the plan needs no height, so the first '
+      'frame is drawn', () {
+    for (final phone in _phones) {
+      final plan = sheetPlanFor(
+        screenHeight: phone.height,
+        topInset: phone.top,
+        bottomInset: phone.bottom,
+        isCompact: phone.compact,
+        buyBlockHeight: null,
+        isSwitch: false,
+        benefitCount: 1,
+        textScale: 1.3,
+      );
+      expect(plan.isMeasured, isTrue);
       expect(plan.rowsAbove, 0);
     }
   });
