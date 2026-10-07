@@ -7,6 +7,9 @@ enum HeroCue {
   /// A ladder card slid into place.
   cardLands,
 
+  /// An alert landed on the phone in the picture.
+  alertLands,
+
   /// The terminal typed a character.
   typeTick,
 
@@ -158,6 +161,20 @@ List<TimedCue> ringCues({
       (at: from + n * gap, cue: HeroCue.ringPulse),
   ];
 }
+
+/// The ring story: the alert landing on the lock screen, then the first
+/// pulses of the alarm. The hero leaves out the pulses that fall after the
+/// user stopped the ring.
+List<TimedCue> ringStoryCues() => [
+  (at: ringStoryAlertLandsAt, cue: HeroCue.alertLands),
+  ...ringCues(from: ringStoryRingStartsAt, to: ringStoryAutoStopAt),
+];
+
+/// The tools story: each tool's alert landing on the phone.
+List<TimedCue> toolsStoryCues() => [
+  for (var index = 0; index < toolsStoryToolCount; index++)
+    (at: toolsAlertLandsAt(index), cue: HeroCue.alertLands),
+];
 
 /// The priority ladder: each card landing, then the first pulses of the
 /// last card ringing.

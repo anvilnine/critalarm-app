@@ -196,6 +196,25 @@ PermissionSetupStep? nextPermissionStep(
   return null;
 }
 
+/// Whether the button of a not-allowed [step], on the list a user who came
+/// back to the permissions sees, opens Settings. Otherwise it asks the
+/// system, which can still show its prompt.
+///
+/// Only the two prompts that come up once can still be asked, and only
+/// until they have been ([promptSpent]). The full-screen switch lives on a
+/// settings page, and the battery dialog is not raised a second time.
+bool permissionAnswerOpensSettings(
+  PermissionSetupStep step, {
+  required bool promptSpent,
+}) => switch (step) {
+  PermissionSetupStep.iosNotifications ||
+  PermissionSetupStep.androidNotifications ||
+  PermissionSetupStep.iosAlarms => promptSpent,
+  PermissionSetupStep.iosTimeSensitiveExplainer ||
+  PermissionSetupStep.androidFullScreen ||
+  PermissionSetupStep.androidBattery => true,
+};
+
 /// Whether the system will show the notification prompt again.
 ///
 /// iOS prompts once. Android 13 or later stops prompting after a refusal,

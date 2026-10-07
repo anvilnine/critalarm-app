@@ -51,6 +51,8 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Home no longer says All clear while a notice about missed alarms, missed checks or a phone update is showing.
 - Home cards close with a plain x and share one look.
 - The keyboard stays up while you scroll search results and goes away when you drag the list down.
+- The welcome screen shows what the app does: a phone that rings until you tap I'm up, which alerts ring and which stay quiet, and your own tools sending to your phone. Tap I'm up in the picture to stop it yourself.
+- Pick a server draws the two ways an alert reaches your phone, through Crit Alarm Cloud or through your own server, and lights the one you pick.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said

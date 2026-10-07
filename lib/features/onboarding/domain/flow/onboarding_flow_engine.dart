@@ -86,6 +86,15 @@ class OnboardingFlowEngine {
   /// The one place a step is reported as entered or finished.
   final void Function(OnboardingStepEvent event)? onStepEvent;
 
+  /// The steps that were on screen in this run, in the order the user saw
+  /// them. Back walks this list. Held in memory only, so a restart begins
+  /// with none and Back comes back once the user moves forward again.
+  List<String> get shownSteps => List.unmodifiable(_shownSteps);
+  List<String> _shownSteps = [];
+
+  void _markShown(String stepId) =>
+      _shownSteps = onboardingShownStepsWith(_shownSteps, stepId);
+
   /// The flow a run starting now would get.
   OnboardingFlow chooseFlow() => chooseFlowWithOrigin().flow;
 
@@ -140,11 +149,17 @@ class OnboardingFlowEngine {
   /// Once setup is complete there is no run to move along. A setup screen
   /// opened then, to connect a server or test the alarm, saves nothing, pins
   /// nothing, and sends the user back to where they came from.
+  ///
+  /// [skippedItself] is for a step that opened and moved on with nothing for
+  /// the user to do, such as the permissions when every one turned out to be
+  /// granted. It is finished like any other, and Back never opens it.
   Future<OnboardingDestination> finishStep(
     String stepId, {
     bool isReplay = false,
+    bool skippedItself = false,
   }) async {
     if (isReplay) {
+      _markShown(stepId);
       final flow = chooseFlow();
       _report(OnboardingStepEventKind.finished, stepId, flow, isReplay: true);
       final next = nextReplayOnboardingStep(
@@ -152,13 +167,23 @@ class OnboardingFlowEngine {
         finished: stepId,
         isAvailable: catalog.isAvailable,
       );
-      if (next == null) return const OnboardingDestination.home();
+      if (next == null) {
+        _shownSteps = [];
+        return const OnboardingDestination.home();
+      }
       return _enter(next, flow, isReplay: true);
     }
 
     final isComplete =
         (await getOnboardingCompleted(const NoParams())).getOrNull() ?? false;
     if (isComplete) return const OnboardingDestination.back();
+
+    // A finished step was on screen, however the user got to it.
+    if (skippedItself) {
+      _shownSteps = [..._shownSteps]..remove(stepId);
+    } else {
+      _markShown(stepId);
+    }
 
     final progress = repository.read();
     var pinned = await _checkedPin(progress.pinned);
@@ -185,6 +210,8 @@ class OnboardingFlowEngine {
   /// The step Back goes to from [stepId], or null when Back is not offered
   /// there. `onboardingBackStepFor` holds the rule.
   ///
+  /// Back only opens a step that was on screen in this run ([shownSteps]).
+  ///
   /// Null once setup is complete: a setup screen opened then is not part of
   /// a run, and closes back to whatever opened it. On a replay no topic is
   /// ever made, so Back is offered wherever the rule allows it.
@@ -198,12 +225,10 @@ class OnboardingFlowEngine {
           repository.read().completed.contains(OnboardingStepId.firstTopic) ||
           await catalog.isSatisfied(OnboardingStepId.firstTopic);
     }
-    final flow = isReplay ? chooseFlow() : runningFlow();
     return onboardingBackStepFor(
       currentStep: stepId,
-      flowSteps: flow.steps,
+      shownSteps: _shownSteps,
       hasFirstTopic: hasFirstTopic,
-      isAvailable: catalog.isAvailable,
     );
   }
 
@@ -261,6 +286,7 @@ class OnboardingFlowEngine {
     );
     if (next == null) {
       await completeOnboarding(const NoParams());
+      _shownSteps = [];
       return const OnboardingDestination.home();
     }
     return _enter(next, flow, isReplay: false);
@@ -271,6 +297,7 @@ class OnboardingFlowEngine {
     OnboardingFlow flow, {
     required bool isReplay,
   }) {
+    _markShown(stepId);
     _report(OnboardingStepEventKind.entered, stepId, flow, isReplay: isReplay);
     return OnboardingDestination.step(stepId, catalog.routeOf(stepId)!);
   }

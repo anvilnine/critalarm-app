@@ -260,4 +260,47 @@ void main() {
       expect(pulses.last, lessThan(ladderRingEndsAt));
     });
   });
+
+  group('ringStoryCues', () {
+    test('a light tap when the alert lands, before any pulse', () {
+      final cues = ringStoryCues();
+      expect(cues.first, (at: ringStoryAlertLandsAt, cue: HeroCue.alertLands));
+      expect(
+        cues.where((timed) => timed.cue == HeroCue.alertLands),
+        hasLength(1),
+      );
+    });
+
+    test('four pulses from the ring starting, all before it stops', () {
+      final pulses = [
+        for (final timed in ringStoryCues())
+          if (timed.cue == HeroCue.ringPulse) timed.at,
+      ];
+      expect(pulses, hasLength(ringPulseMax));
+      expect(pulses.first, ringStoryRingStartsAt);
+      expect(pulses.last, lessThan(ringStoryAutoStopAt));
+    });
+
+    test('a pulse due after the user stopped the ring is not ringing', () {
+      final pulses = [
+        for (final timed in ringStoryCues())
+          if (timed.cue == HeroCue.ringPulse) timed.at,
+      ];
+      // Stopped between the second pulse and the third.
+      final tappedAt = (pulses[1] + pulses[2]) / 2;
+      expect(
+        [for (final at in pulses) ringStoryIsRinging(at, tappedAt: tappedAt)],
+        [true, true, false, false],
+      );
+    });
+  });
+
+  group('toolsStoryCues', () {
+    test("a light tap as each tool's alert lands", () {
+      expect(toolsStoryCues(), [
+        for (var index = 0; index < toolsStoryToolCount; index++)
+          (at: toolsAlertLandsAt(index), cue: HeroCue.alertLands),
+      ]);
+    });
+  });
 }

@@ -540,6 +540,24 @@ void main() {
       await cubit.loadConnection();
 
       expect(cubit.chosenHost, 'alerts.example.com');
+      // Their own server, so it is not named as Crit Alarm Cloud.
+      expect(cubit.choseCloud, isFalse);
+      await cubit.close();
+    });
+
+    test('a user who came back to Crit Alarm Cloud sees it named', () async {
+      when(() => getConnection(any())).thenAnswer(
+        (_) async => const ServerConnection(
+          serverUrl: OnboardingConnectCubit.cloudUrl,
+          adminToken: '',
+        ).toSuccess(),
+      );
+      final cubit = build();
+
+      await cubit.loadConnection();
+
+      expect(cubit.state.isConnected, isTrue);
+      expect(cubit.choseCloud, isTrue);
       await cubit.close();
     });
 

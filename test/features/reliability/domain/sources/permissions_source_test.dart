@@ -38,6 +38,9 @@ class _Permissions implements DevicePermissionsRepository {
   @override
   Future<AppResult<bool>> openPermissionSettings(DevicePermissionType type) =>
       throw UnimplementedError();
+
+  @override
+  Future<AppResult<bool>> openAppSettings() => throw UnimplementedError();
 }
 
 Map<ReliabilityCheckId, ReliabilityCheck> _byId(List<ReliabilityCheck> list) =>

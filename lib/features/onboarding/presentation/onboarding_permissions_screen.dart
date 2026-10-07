@@ -13,6 +13,7 @@ import 'package:critalarm/features/onboarding/presentation/model/permission_step
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/permission_answer_list.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/permission_preview_frame.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/permission_step_dots.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
@@ -69,8 +70,8 @@ class OnboardingPermissionsScreen extends StatelessWidget {
   /// Not part of onboarding: it asks what is left, then closes.
   final bool standalone;
 
-  /// Opened by Back from a later step. Every step shows again, and one the
-  /// user already allowed shows as allowed, with nothing asked twice.
+  /// Opened by Back from a later step. The screen lists every permission of
+  /// this phone with its answer, and asks for nothing by itself.
   final bool cameBack;
 
   /// Steps a developer replay passes over, so a later step can be opened
@@ -250,7 +251,12 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
               _close(context);
             } else {
               unawaited(
-                finishOnboardingStep(context, OnboardingStepId.permissions),
+                finishOnboardingStep(
+                  context,
+                  OnboardingStepId.permissions,
+                  // No step was drawn: everything was already answered.
+                  skippedItself: !widget.cameBack && state.steps.isEmpty,
+                ),
               );
             }
           });
@@ -260,18 +266,11 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
       },
       builder: (context, state) {
         final cubit = context.read<NotificationPermissionsCubit>();
+        if (widget.cameBack) return _buildCameBack(context, state, cubit);
         final allowedView = _allowedView;
         final view = allowedView ?? _viewOf(state);
-        // Came back to a step that is already allowed: it shows as allowed,
-        // with no prompt drawn and a button that only moves on.
-        final isAnswered =
-            widget.cameBack &&
-            allowedView == null &&
-            state.granted.contains(state.current);
-        final preview = isAnswered ? null : view?.preview;
-        final badge = isAnswered
-            ? LocaleKeys.onboarding_permissions_allowed_badge.tr()
-            : view?.badge;
+        final preview = view?.preview;
+        final badge = view?.badge;
         final hint = preview?.hint;
         // While the connect running behind the user says something in the
         // top corner, the dots give it the corner.
@@ -337,9 +336,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                 : [
                     if (view != null)
                       AppButton(
-                        label: isAnswered
-                            ? LocaleKeys.onboarding_welcome_continue.tr()
-                            : view.button,
+                        label: view.button,
                         size: AppButtonSize.lg,
                         isFullWidth: true,
                         isLoading: state.isRequesting,
@@ -349,9 +346,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                       ),
                     // The way forward is there before the first step is: a
                     // status read that hangs must not hold the user here.
-                    // An allowed step has the one button: it already only
-                    // moves on.
-                    if (view == null || (view.canSkip && !isAnswered)) ...[
+                    if (view == null || view.canSkip) ...[
                       const SizedBox(height: Spacing.s3),
                       AppButton(
                         label: LocaleKeys.onboarding_permissions_not_now.tr(),
@@ -401,18 +396,13 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                         children: [
                           // Glad for one beat after the user allows.
                           SetupFace(
-                            state: allowedView != null || isAnswered
+                            state: allowedView != null
                                 ? view.grantedFace
                                 : view.face,
                           ),
                           if (badge != null) ...[
                             const SizedBox(height: Spacing.s3),
-                            AppBadge(
-                              text: badge,
-                              faceState: isAnswered
-                                  ? view.grantedFace
-                                  : view.face,
-                            ),
+                            AppBadge(text: badge, faceState: view.face),
                           ],
                           const SizedBox(height: Spacing.s4),
                           // One title style for every task screen in setup.
@@ -464,6 +454,61 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
           ],
         );
       },
+    );
+  }
+
+  /// The screen of a user who came back from a later step: every permission
+  /// of this phone with its answer, and the one button that moves on. Until
+  /// the answers are read it shows the waiting face, never a bare title.
+  Widget _buildCameBack(
+    BuildContext context,
+    NotificationPermissionsState state,
+    NotificationPermissionsCubit cubit,
+  ) {
+    final permissions = [
+      for (final step in state.available)
+        if (step.permission != null) step,
+    ];
+    return AppScreenScaffold(
+      backgroundColor: Colors.transparent,
+      withGhosts: false,
+      withFades: false,
+      hasTabBar: false,
+      topBar: AppTopBar(title: setupTopBarTitle(context)),
+      bottomBar: AppButton(
+        label: LocaleKeys.onboarding_welcome_continue.tr(),
+        size: AppButtonSize.lg,
+        isFullWidth: true,
+        onPressed: state.isRequesting ? null : cubit.continueWithout,
+      ),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.s5,
+            Spacing.s4,
+            Spacing.s5,
+            0,
+          ),
+          sliver: SliverToBoxAdapter(
+            child: permissions.isEmpty
+                ? Center(
+                    child: AppWaitingFace(
+                      message: LocaleKeys.onboarding_permissions_checking.tr(),
+                      faceSize: SetupFace.waitingSizeOf(context),
+                      heroTag: _faceHeroTag,
+                    ),
+                  )
+                : PermissionAnswerList(
+                    permissions: permissions,
+                    granted: state.granted,
+                    promptSpent: state.promptSpent,
+                    onAllow: state.isRequesting
+                        ? null
+                        : (step) => unawaited(cubit.allowListed(step)),
+                  ),
+          ),
+        ),
+      ],
     );
   }
 

@@ -109,6 +109,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - BarBackingConfig.defaults is blur and gradient for both bars (top 40, 45, 0.9, 0.1 and bottom 34.5, 38, 0.15, 0.1), and AppScreenScaffold draws the bottom backing only behind a tab bar or a pinned bar.
 - HomeScreen takes its bar backing from AppBarBackingScope and insets its pinned notice by 6 on each side.
 - Settings sub screens on the root navigator pass hasTabBar: false, so they leave no tab bar room and draw no bottom blur.
+- Setup Back walks the steps shown in this run (OnboardingFlowEngine.shownSteps, in memory), so a step that was passed over is never opened. A screen that moves on by itself finishes with skippedItself. Came back, connect says which server it is connected to and the permissions list each answer (PermissionAnswerList, allowListed); the battery row opens the app's page in Settings through DevicePermissionsRepository.openAppSettings.
+- Welcome plays three product stories with a caption each (the ring story, the priority ladder, the tools story) in place of the face loop, and OnboardingAnimationLoop is gone. welcome\_timing.dart holds the story times. ConnectRoutesPicture draws the two routes on the connect step, with connectRoutesFor in connect\_routes.dart as the rule for which one is lit.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
