@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/extras_preview_stage.dart';
 import 'package:flutter/material.dart';
 
@@ -164,7 +165,7 @@ class WeeklyCheckPreview extends StatelessWidget {
     return ExtrasPreviewTile(
       size: size,
       color: colors.cream,
-      child: ExtrasPreviewClock(
+      child: PaywallPreviewClock.seconds(
         restAt: weeklyCheckPreviewRestAt,
         builder: (context, t) => CustomPaint(
           size: size,

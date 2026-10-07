@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/limits_preview_clock.dart';
 import 'package:flutter/material.dart';
 
@@ -302,7 +303,10 @@ class TopicsPreview extends StatelessWidget {
     return LimitsPreviewTile(
       size: size,
       color: colors.surface,
-      child: LimitsPreviewClock<TopicsPreviewFrame>(
+      child: PaywallPreviewClock<TopicsPreviewFrame>(
+        restAt: limitsPreviewRestAt,
+        // Told when to play, it starts on its own turn of the shared loop.
+        turnStart: TopicsPreviewTimes.reset,
         frameAt: topicsPreviewFrameAt,
         builder: (context, frame) => layout.isSwitchAlone
             ? Center(

@@ -2,11 +2,11 @@ import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:flutter/material.dart';
 
-// What the widgets, app icons and weekly check previews share: where their
-// clock comes from, the tile they sit on, and the press of a drawn finger.
+// What the widgets, app icons and weekly check previews share: the tile
+// they sit on and the press of a drawn finger. Their clock is the kit's
+// `PaywallPreviewClock`.
 
 /// A preview with a short side under this many points draws its simple
 /// scene: one object and the thing that changes on it.
@@ -32,56 +32,6 @@ double pressAt(double t, double at) {
   }
   final p = phase(t, at, at + 0.22);
   return (size: 1 - 0.2 * p, opacity: 1 - p);
-}
-
-/// Hands [builder] the second to draw.
-///
-/// Inside a paywall layout that is the layout's own clock, so every preview
-/// on the screen keeps one time. Anywhere else (the gallery) the preview
-/// runs a clock of its own. When nothing may move, the second is [restAt]:
-/// the layout rests on its own frame, and a preview rests on this one.
-class ExtrasPreviewClock extends StatelessWidget {
-  const ExtrasPreviewClock({
-    required this.restAt,
-    required this.builder,
-    super.key,
-  });
-
-  final double restAt;
-  final Widget Function(BuildContext context, double t) builder;
-
-  @override
-  Widget build(BuildContext context) {
-    final scope = context
-        .dependOnInheritedWidgetOfExactType<PaywallLayoutScopeProvider>()
-        ?.scope;
-    if (scope == null) return _OwnClock(restAt: restAt, builder: builder);
-
-    final isStill = context.reduceMotion || PaywallStill.of(context);
-    return PaywallClockBuilder(
-      clock: scope.clock,
-      builder: (context, t, _) =>
-          builder(context, isStill || scope.clock.isStill ? restAt : t),
-    );
-  }
-}
-
-class _OwnClock extends StatefulWidget {
-  const _OwnClock({required this.restAt, required this.builder});
-
-  final double restAt;
-  final Widget Function(BuildContext context, double t) builder;
-
-  @override
-  State<_OwnClock> createState() => _OwnClockState();
-}
-
-class _OwnClockState extends PaywallClockState<_OwnClock> {
-  @override
-  double get restAt => widget.restAt;
-
-  @override
-  Widget build(BuildContext context) => widget.builder(context, t);
 }
 
 /// The corner of a preview tile whose short side is [edge].

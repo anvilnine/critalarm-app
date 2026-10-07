@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/extras_preview_stage.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -134,7 +135,7 @@ class WidgetsPreview extends StatelessWidget {
     return ExtrasPreviewTile(
       size: size,
       color: context.appColors.cream,
-      child: ExtrasPreviewClock(
+      child: PaywallPreviewClock.seconds(
         restAt: widgetsPreviewRestAt,
         builder: (context, t) {
           final frame = widgetsPreviewFrameAt(t);
