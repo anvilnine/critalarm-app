@@ -3,7 +3,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/hero/hero_loop.d
 import 'package:flutter_test/flutter_test.dart';
 
 /// The Hosted benefits, in the order the product lists them.
-const _hosted = [
+const List<PaywallPreviewId> _hosted = [
   PaywallPreviewId.topics,
   PaywallPreviewId.pushes,
   PaywallPreviewId.history,
@@ -44,7 +44,7 @@ void main() {
       expect(loop.frameAt(_at(0, 0)).activeIndex, 0);
       expect(loop.frameAt(_at(2.4, -0.01)).activeIndex, 0);
       expect(loop.frameAt(_at(2.4, 0.01)).activeIndex, 1);
-      expect(loop.frameAt(_at(5.0, 0.01)).activeIndex, 2);
+      expect(loop.frameAt(_at(5, 0.01)).activeIndex, 2);
       expect(loop.frameAt(_at(7.4, 0.01)).activeIndex, 3);
       expect(loop.frameAt(_at(9.7, 0.01)).activeIndex, 4);
     });
@@ -116,8 +116,8 @@ void main() {
 
     test('topics: watching, doubtful at the refusal, glad when it goes on', () {
       expect(loop.frameAt(_at(0, 0.5)).face, HeroFace.watching);
-      expect(loop.frameAt(_at(0, 1.0)).face, HeroFace.doubtful);
-      final glad = loop.frameAt(_at(0, 2.0));
+      expect(loop.frameAt(_at(0, 1)).face, HeroFace.doubtful);
+      final glad = loop.frameAt(_at(0, 2));
       expect(glad.face, HeroFace.glad);
       expect(glad.fromFace, HeroFace.doubtful);
       expect(glad.hop, greaterThan(0));
@@ -152,7 +152,7 @@ void main() {
 
     test('it blinks for a moment every few seconds', () {
       expect(loop.frameAt(_at(0, 1)).blink, 0);
-      final mid = heroBlinkEvery - heroBlinkSeconds / 2;
+      const mid = heroBlinkEvery - heroBlinkSeconds / 2;
       expect(loop.frameAt(_at(0, mid)).blink, closeTo(1, 1e-9));
       expect(loop.frameAt(_at(0, heroBlinkEvery + 0.01)).blink, 0);
     });
@@ -216,7 +216,7 @@ void main() {
   group('a product with one benefit', () {
     final solo = HeroLoop(const [PaywallPreviewId.weeklyCheck]);
 
-    test('its turn is the preview\'s whole loop, so the picture never '
+    test('its turn is the whole loop of the preview, so the picture never '
         'jumps', () {
       expect(solo.period, 9);
       expect(solo.frameAt(_at(0, 4)).playFrom, heroEntranceSeconds);
