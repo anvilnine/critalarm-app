@@ -60,6 +60,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Removed `SettingsHealthRow`, `reliabilityRowFaces`, and 18 string keys nothing read.
 - AppDismissCross, the bare 44 pt close control, and AppNoticeCard with AppNoticeTone (cream, crit) in lib/design/components. Every dismissible Home card and the pinned bar use the cross.
 - lib/design/faces/face\_meaning.dart: needsLookFace and brokenFace. A face means one state. Fine rows and rows in the problem card carry none.
+- Paywall layout kit: a frame, one buy block for Hosted and Pro, a clock, benefits as data, six feature previews, a /plans route for developer builds and a capture tool. Nothing a user can open yet.
+- Paywall layouts sheet, proof and bento at /plans, developer builds only.
+- Design system: a lock glyph and AppCurves.easeBack, both in the gallery.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.

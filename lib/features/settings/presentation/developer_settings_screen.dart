@@ -89,6 +89,19 @@ class DeveloperSettingsScreen extends StatelessWidget {
                   ],
                   const DeveloperSetupSection(),
                   AppListRow(
+                    name: LocaleKeys.paywall_kit_dev_row_title.tr(),
+                    meta: LocaleKeys.paywall_kit_dev_row_subtitle.tr(),
+                    faceState: null,
+                    trailing: AppGlyph(
+                      GlyphType.arrow,
+                      color: context.appColors.ink3,
+                      size: 16,
+                    ),
+                    onTap: () =>
+                        context.push('/settings/developer/paywall-layouts'),
+                  ),
+                  const SizedBox(height: 8),
+                  AppListRow(
                     name: LocaleKeys.settings_developer_bar_backing_title.tr(),
                     meta: LocaleKeys.settings_developer_bar_backing_subtitle
                         .tr(),
