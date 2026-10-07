@@ -6,7 +6,8 @@ enum ProPackSheetStage {
   /// Asking the store what is on sale.
   loading,
 
-  /// Nothing to buy: no offering, or a build that skips the store.
+  /// Nothing to buy: no offering, or a build that skips the store. Restore
+  /// is still there.
   notOnSale,
 
   /// The store's packages, each one tappable, and Restore.
@@ -27,7 +28,7 @@ enum ProPackSheetStage {
   held,
 }
 
-/// A one-line note over the offers.
+/// A one-line note under the top of the sheet.
 enum ProPackSheetNote {
   /// The store reported a problem of its own.
   storeProblem,

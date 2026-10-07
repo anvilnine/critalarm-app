@@ -16,7 +16,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// store has on sale, and Restore.
 ///
 /// Every title and price on it is the store's own string. With nothing on
-/// sale it says so and offers nothing to tap. What to draw comes from
+/// sale it says so and offers nothing to buy. Restore stays, so a buyer on
+/// a second phone can still bring the pack over. What to draw comes from
 /// `ProPackSheetCubit`; the face and words for each stage come from
 /// `proPackSheetView`.
 class ProPackSheet extends StatelessWidget {
@@ -124,18 +125,18 @@ class _ProPackSheetBodyState extends State<_ProPackSheetBody> {
                     ).copyWith(fontWeight: FontWeight.w700),
                   ),
                 ],
-                if (showsOffers) ...[
-                  if (note != null) ...[
-                    const SizedBox(height: Spacing.s3),
-                    Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        proPackSheetNoteKey(note).tr(),
-                        textAlign: TextAlign.center,
-                        style: AppTypography.small(colors.ink, fontSize: 13),
-                      ),
+                if (note != null) ...[
+                  const SizedBox(height: Spacing.s3),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      proPackSheetNoteKey(note).tr(),
+                      textAlign: TextAlign.center,
+                      style: AppTypography.small(colors.ink, fontSize: 13),
                     ),
-                  ],
+                  ),
+                ],
+                if (showsOffers) ...[
                   const SizedBox(height: Spacing.s3),
                   for (final offer in state.offers) ...[
                     _OfferRow(
@@ -144,8 +145,20 @@ class _ProPackSheetBodyState extends State<_ProPackSheetBody> {
                     ),
                     const SizedBox(height: Spacing.s2),
                   ],
-                  // A row hands its child no width, so the button stays as
-                  // wide as its label.
+                ],
+                if (state.stage == ProPackSheetStage.checkingPaused) ...[
+                  const SizedBox(height: Spacing.s4),
+                  AppButton(
+                    label: LocaleKeys.pro_pack_sheet_check_again.tr(),
+                    isFullWidth: true,
+                    onPressed: () => unawaited(cubit.checkAgain()),
+                  ),
+                ],
+                // Restore sits under whatever the sheet rests on, with or
+                // without anything on sale. A row hands its child no width,
+                // so the button stays as wide as its label.
+                if (ProPackSheetCubit.canRestore(state.stage)) ...[
+                  if (!showsOffers) const SizedBox(height: Spacing.s3),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -156,14 +169,6 @@ class _ProPackSheetBodyState extends State<_ProPackSheetBody> {
                         onPressed: () => unawaited(cubit.restore()),
                       ),
                     ],
-                  ),
-                ],
-                if (state.stage == ProPackSheetStage.checkingPaused) ...[
-                  const SizedBox(height: Spacing.s4),
-                  AppButton(
-                    label: LocaleKeys.pro_pack_sheet_check_again.tr(),
-                    isFullWidth: true,
-                    onPressed: () => unawaited(cubit.checkAgain()),
                   ),
                 ],
                 if (state.stage == ProPackSheetStage.held) ...[
