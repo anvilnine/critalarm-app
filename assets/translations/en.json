@@ -1848,5 +1848,10 @@
     "widget_quiet": "Quiet",
     "widget_im_up": "I'm up",
     "widget_done": "Done"
+  },
+  "paywall_bento": {
+    "brand": "Crit Alarm {name}",
+    "headline_hosted": "Your limits, lifted.",
+    "headline_pro": "More for your alarm."
   }
 }
