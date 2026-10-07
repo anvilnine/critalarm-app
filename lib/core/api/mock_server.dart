@@ -1229,8 +1229,10 @@ class MockServer {
     weeklyCheckEnabled = state != WeeklyCheckState.off;
     weeklyCheckEnrolledAt = now - 30 * _checkDay;
 
+    // The newest round opened 26 hours ago, so one that was missed has
+    // closed, and the next is due in six days.
     WeeklyCheckRound closed(int weeksAgo, WeeklyCheckResult result) {
-      final opened = now - weeksAgo * _checkWeek - 2 * 60 * 60;
+      final opened = now - weeksAgo * _checkWeek - 26 * 60 * 60;
       final received = result == WeeklyCheckResult.received;
       return WeeklyCheckRound(
         id: _nextId('rnd'),
@@ -1263,18 +1265,18 @@ class MockServer {
         closed(3, missed),
         closed(4, received),
       ],
-      WeeklyCheckState.missedOnce => [closed(1, missed), closed(2, received)],
+      WeeklyCheckState.missedOnce => [closed(0, missed), closed(1, received)],
       WeeklyCheckState.missedRepeatedly => [
+        closed(0, missed),
         closed(1, missed),
-        closed(2, missed),
-        closed(3, received),
-      ],
-      WeeklyCheckState.tokenRefused => [
-        closed(1, refused),
         closed(2, received),
       ],
-      WeeklyCheckState.noToken => [closed(2, received)],
-      WeeklyCheckState.off => [closed(1, received), closed(2, received)],
+      WeeklyCheckState.tokenRefused => [
+        closed(0, refused),
+        closed(1, received),
+      ],
+      WeeklyCheckState.noToken => [closed(1, received)],
+      WeeklyCheckState.off => [closed(0, received), closed(1, received)],
     });
     if (state == WeeklyCheckState.waiting) weeklyCheckEnrolledAt = now - 60;
   }
