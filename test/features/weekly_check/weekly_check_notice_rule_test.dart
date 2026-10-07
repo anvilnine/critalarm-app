@@ -321,6 +321,65 @@ void main() {
     });
   });
 
+  group('two rounds missed, for the Reliability screen', () {
+    bool missed(WeeklyCheck check, {required int now, int? dismissedAt}) =>
+        WeeklyCheckNoticeRule.twoRoundsMissed(
+          now: now,
+          facts: WeeklyCheckNoticeFacts(
+            check: check,
+            checkSeenAt: _seenAt,
+            noticeAfter: check.noticeAfter,
+            noticeAfterSeenAt: _seenAt,
+            dismissedAt: dismissedAt,
+          ),
+        );
+
+    test('it is the notice without setup and without the close', () {
+      final twice = _check(state: WeeklyCheckState.missedRepeatedly, misses: 2);
+      expect(missed(twice, now: _seenAt + 60), isTrue);
+      // Closing the Home notice does not make the screen say all good.
+      expect(
+        missed(twice, now: _seenAt + 600, dismissedAt: _seenAt + 100),
+        isTrue,
+      );
+      expect(
+        _shows(twice, now: _seenAt + 600, dismissedAt: _seenAt + 100),
+        isFalse,
+      );
+    });
+
+    test('whenever the notice shows, this is true', () {
+      for (final (check, now) in [
+        (_check(), _noticeAfter),
+        (_check(state: WeeklyCheckState.missedRepeatedly, misses: 2), _seenAt),
+      ]) {
+        expect(_shows(check, now: now), isTrue);
+        expect(missed(check, now: now), isTrue);
+      }
+    });
+
+    test('one miss, off and nothing known are false', () {
+      expect(
+        missed(
+          _check(state: WeeklyCheckState.missedOnce, misses: 1),
+          now: _seenAt + 60,
+        ),
+        isFalse,
+      );
+      expect(
+        missed(
+          _check(state: WeeklyCheckState.off, enabled: false, misses: 2),
+          now: _noticeAfter + _day,
+        ),
+        isFalse,
+      );
+      expect(
+        WeeklyCheckNoticeRule.twoRoundsMissed(facts: null, now: _noticeAfter),
+        isFalse,
+      );
+    });
+  });
+
   group('never shows', () {
     final twice = _check(state: WeeklyCheckState.missedRepeatedly, misses: 2);
 

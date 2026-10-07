@@ -10,6 +10,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 final class WeeklyCheckRowState {
   const WeeklyCheckRowState({
     this.check,
+    this.missedByClock = false,
     this.isSelfHosted = false,
     this.isBusy = false,
     this.didFail = false,
@@ -17,6 +18,10 @@ final class WeeklyCheckRowState {
 
   /// The relay's last answer, or null when it never answered on this phone.
   final WeeklyCheck? check;
+
+  /// This phone's own clock says two rounds in a row were missed, the same
+  /// answer that raises the notice on Home.
+  final bool missedByClock;
 
   /// The phone is connected to a self-hosted server.
   final bool isSelfHosted;
@@ -29,11 +34,13 @@ final class WeeklyCheckRowState {
 
   WeeklyCheckRowState copyWith({
     WeeklyCheck? Function()? check,
+    bool? missedByClock,
     bool? isSelfHosted,
     bool? isBusy,
     bool? didFail,
   }) => WeeklyCheckRowState(
     check: check == null ? this.check : check(),
+    missedByClock: missedByClock ?? this.missedByClock,
     isSelfHosted: isSelfHosted ?? this.isSelfHosted,
     isBusy: isBusy ?? this.isBusy,
     didFail: didFail ?? this.didFail,
@@ -43,12 +50,14 @@ final class WeeklyCheckRowState {
   bool operator ==(Object other) =>
       other is WeeklyCheckRowState &&
       other.check == check &&
+      other.missedByClock == missedByClock &&
       other.isSelfHosted == isSelfHosted &&
       other.isBusy == isBusy &&
       other.didFail == didFail;
 
   @override
-  int get hashCode => Object.hash(check, isSelfHosted, isBusy, didFail);
+  int get hashCode =>
+      Object.hash(check, missedByClock, isSelfHosted, isBusy, didFail);
 }
 
 /// The weekly check row on the Reliability screen: what the relay last
@@ -58,20 +67,36 @@ class WeeklyCheckCubit extends Cubit<WeeklyCheckRowState> {
     required this._monitor,
     required this._readIsSelfHosted,
   }) : super(WeeklyCheckRowState(check: _monitor.check)) {
-    _changes = _monitor.changes.listen((_) => _show());
+    _changes = _monitor.changes.listen((_) => unawaited(_show()));
   }
 
   final WeeklyCheckMonitor _monitor;
   final Future<bool> Function() _readIsSelfHosted;
   late final StreamSubscription<void> _changes;
 
-  void _show() {
+  /// What the monitor holds now. An extra emit can change the outcome of
+  /// nothing: it is the same read every time.
+  Future<void> _show({bool? isBusy, bool? didFail}) async {
+    var missedByClock = false;
+    try {
+      missedByClock = await _monitor.twoRoundsMissed();
+    } on Object {
+      // Unknown reads as no.
+    }
     if (isClosed) return;
-    emit(state.copyWith(check: () => _monitor.check));
+    emit(
+      state.copyWith(
+        check: () => _monitor.check,
+        missedByClock: missedByClock,
+        isBusy: isBusy,
+        didFail: didFail,
+      ),
+    );
   }
 
-  /// Reads the check again. For when the row comes on screen.
-  Future<void> load() async {
+  /// Reads the check again. For when the row comes on screen. [force] reads
+  /// even inside the monitor's one-minute window, for after a fix.
+  Future<void> load({bool force = false}) async {
     var isSelfHosted = state.isSelfHosted;
     try {
       isSelfHosted = await _readIsSelfHosted();
@@ -80,8 +105,8 @@ class WeeklyCheckCubit extends Cubit<WeeklyCheckRowState> {
     }
     if (isClosed) return;
     emit(state.copyWith(isSelfHosted: isSelfHosted));
-    await _monitor.refresh();
-    _show();
+    await _monitor.refresh(force: force);
+    await _show();
   }
 
   /// The switch was tapped. One tap at a time.
@@ -89,13 +114,9 @@ class WeeklyCheckCubit extends Cubit<WeeklyCheckRowState> {
     if (state.isBusy) return null;
     emit(state.copyWith(isBusy: true, didFail: false));
     final outcome = await _monitor.setEnabled(enabled: enabled);
-    if (isClosed) return outcome;
-    emit(
-      state.copyWith(
-        check: () => _monitor.check,
-        isBusy: false,
-        didFail: outcome == WeeklyCheckSwitchOutcome.failed,
-      ),
+    await _show(
+      isBusy: false,
+      didFail: outcome == WeeklyCheckSwitchOutcome.failed,
     );
     return outcome;
   }

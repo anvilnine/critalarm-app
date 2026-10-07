@@ -1,5 +1,6 @@
 import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_standing.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
@@ -12,7 +13,7 @@ import 'package:intl/intl.dart';
 // Nothing here says a received check proves that alarms work. It proves a
 // push reached this phone and the phone reached the relay, and no more.
 
-/// What sits under the title of the unlocked weekly check row.
+/// What the unlocked weekly check row shows.
 @immutable
 final class WeeklyCheckBodyView {
   const WeeklyCheckBodyView({
@@ -20,28 +21,33 @@ final class WeeklyCheckBodyView {
     required this.lineKey,
     required this.isOn,
     this.lineWhen,
-    this.nextDueKey,
     this.nextDueWhen,
     this.showsSelfHostedLine = false,
+    this.showsRoundsLink = false,
   });
 
   /// One face per state, none of them used by another row on the screen.
   final FaceState face;
 
-  /// The one short line, and the time it names when it names one.
+  /// The one short line, and the time it names when it names one. While
+  /// the check is off it is the line that says what the check does.
   final String lineKey;
   final String? lineWhen;
 
   /// Where the switch stands.
   final bool isOn;
 
-  /// The line about the next check, or null when none is due.
-  final String? nextDueKey;
+  /// The day the next check is due, or null when none is due or the moment
+  /// has passed. A passed moment says nothing the user can use.
   final String? nextDueWhen;
 
-  /// On a phone connected to a self-hosted server: the check covers the
-  /// relay to this phone and says nothing about that server.
+  /// On a phone connected to a self-hosted server, in every state: the
+  /// check covers the relay to this phone and says nothing about that
+  /// server.
   final bool showsSelfHostedLine;
+
+  /// The way to the list of rounds, once the relay has sent one.
+  final bool showsRoundsLink;
 
   @override
   bool operator ==(Object other) =>
@@ -50,9 +56,9 @@ final class WeeklyCheckBodyView {
       other.lineKey == lineKey &&
       other.lineWhen == lineWhen &&
       other.isOn == isOn &&
-      other.nextDueKey == nextDueKey &&
       other.nextDueWhen == nextDueWhen &&
-      other.showsSelfHostedLine == showsSelfHostedLine;
+      other.showsSelfHostedLine == showsSelfHostedLine &&
+      other.showsRoundsLink == showsRoundsLink;
 
   @override
   int get hashCode => Object.hash(
@@ -60,9 +66,9 @@ final class WeeklyCheckBodyView {
     lineKey,
     lineWhen,
     isOn,
-    nextDueKey,
     nextDueWhen,
     showsSelfHostedLine,
+    showsRoundsLink,
   );
 }
 
@@ -85,129 +91,153 @@ String weeklyCheckMoment(int seconds, {required DateTime now}) {
 String weeklyCheckDay(int seconds) =>
     DateFormat('EEE d MMM').format(_at(seconds).toLocal());
 
-/// The unlocked row for what the relay last said. [check] is null until the
-/// relay has answered on this phone.
+/// The unlocked row for how the check stands. [check] is the relay's last
+/// answer, null until it has answered on this phone.
+///
+/// [standing] is never [WeeklyCheckStanding.locked] here: a locked row is
+/// the Pro pack's to draw. Handed one, this answers as for a check that was
+/// never on.
 WeeklyCheckBodyView weeklyCheckBodyView({
+  required WeeklyCheckStanding standing,
   required WeeklyCheck? check,
   required bool isSelfHosted,
   required DateTime now,
 }) {
-  if (check == null) {
-    return const WeeklyCheckBodyView(
-      face: FaceState.sleepy,
-      lineKey: LocaleKeys.pro_pack_weekly_ready_line,
-      isOn: false,
-    );
-  }
-  final state = check.state;
-  if (state == WeeklyCheckState.off) {
-    if (check.reason == WeeklyCheckOffReason.pack) {
-      return const WeeklyCheckBodyView(
-        face: FaceState.dozing,
-        lineKey: LocaleKeys.weekly_check_line_pack_lost,
-        isOn: false,
-      );
-    }
-    return WeeklyCheckBodyView(
-      face: FaceState.sleepy,
-      // A device that never had a round has nothing to call switched off.
-      lineKey: check.lastSentAt == null
-          ? LocaleKeys.pro_pack_weekly_ready_line
-          : LocaleKeys.weekly_check_line_off,
-      isOn: false,
-    );
-  }
-
-  final nowSeconds = now.millisecondsSinceEpoch ~/ 1000;
-  final due = check.nextDueAt;
-  final isOverdue = due != null && due <= nowSeconds;
-  final received = check.lastReceivedAt;
-  final (face, lineKey, lineWhen) = switch (state) {
-    WeeklyCheckState.waiting => (
+  final received = check?.lastReceivedAt;
+  final (face, lineKey, lineWhen) = switch (standing) {
+    // Off: the switch shows that. The line says what the check does.
+    WeeklyCheckStanding.locked ||
+    WeeklyCheckStanding.neverOn ||
+    WeeklyCheckStanding.off => (
+      FaceState.sleepy,
+      LocaleKeys.pro_pack_weekly_locked_line,
+      null,
+    ),
+    WeeklyCheckStanding.waiting => (
       FaceState.interested,
       LocaleKeys.weekly_check_line_waiting,
       null,
     ),
-    WeeklyCheckState.received when received != null => (
+    WeeklyCheckStanding.received when received != null => (
       FaceState.confident,
       LocaleKeys.weekly_check_line_received,
       weeklyCheckMoment(received, now: now),
     ),
-    WeeklyCheckState.received => (
+    WeeklyCheckStanding.received => (
       FaceState.confident,
       LocaleKeys.weekly_check_line_received_plain,
       null,
     ),
-    WeeklyCheckState.missedOnce => (
+    WeeklyCheckStanding.missedOnce => (
       FaceState.surprised,
       LocaleKeys.weekly_check_line_missed_once,
       null,
     ),
-    WeeklyCheckState.missedRepeatedly => (
+    WeeklyCheckStanding.missedRepeatedly => (
       FaceState.shakeHead,
       LocaleKeys.weekly_check_line_missed_repeatedly,
       null,
     ),
-    WeeklyCheckState.tokenRefused => (
+    WeeklyCheckStanding.tokenRefused => (
       FaceState.shocked,
       LocaleKeys.weekly_check_line_token_refused,
       null,
     ),
-    WeeklyCheckState.noToken => (
+    WeeklyCheckStanding.noToken => (
       FaceState.lookLeft,
       LocaleKeys.weekly_check_line_no_token,
       null,
     ),
     // A state a newer relay sends and this build has no words for.
-    WeeklyCheckState.off || null => (
+    WeeklyCheckStanding.on => (
       FaceState.blink,
-      LocaleKeys.weekly_check_line_on,
+      LocaleKeys.pro_pack_weekly_locked_line,
       null,
     ),
   };
+  final nowSeconds = now.millisecondsSinceEpoch ~/ 1000;
+  final due = check?.nextDueAt;
   return WeeklyCheckBodyView(
     face: face,
     lineKey: lineKey,
     lineWhen: lineWhen,
-    isOn: check.enabled,
-    nextDueKey: due == null
-        ? null
-        : isOverdue
-        ? LocaleKeys.weekly_check_next_due_now
-        : LocaleKeys.weekly_check_next_due,
-    nextDueWhen: due == null || isOverdue ? null : weeklyCheckDay(due),
+    isOn: standing.isOn,
+    nextDueWhen: standing.isOn && due != null && due > nowSeconds
+        ? weeklyCheckDay(due)
+        : null,
     showsSelfHostedLine: isSelfHosted,
+    showsRoundsLink: check?.lastSentAt != null,
   );
 }
 
-/// One round in the list: its result in a word, and its time.
+/// One round in the list: a face, its result in a few words, and its time.
 @immutable
 final class WeeklyCheckRoundView {
-  const WeeklyCheckRoundView({required this.wordKey, required this.when});
+  const WeeklyCheckRoundView({
+    required this.face,
+    required this.wordKey,
+    this.when,
+    this.wordTime,
+  });
 
+  /// The face the weekly row shows for the same outcome.
+  final FaceState face;
   final String wordKey;
-  final String when;
+
+  /// The time [wordKey] names, for a round still open: when it closes.
+  final String? wordTime;
+
+  /// When the round opened. Null for an open round that says when it is
+  /// due by: one time on the row is enough.
+  final String? when;
 
   @override
   bool operator ==(Object other) =>
       other is WeeklyCheckRoundView &&
+      other.face == face &&
       other.wordKey == wordKey &&
+      other.wordTime == wordTime &&
       other.when == when;
 
   @override
-  int get hashCode => Object.hash(wordKey, when);
+  int get hashCode => Object.hash(face, wordKey, wordTime, when);
 }
 
-/// The word for how a round ended.
+/// The words for how a round ended.
+///
+/// A round still open is "Due by" its closing time when the relay named
+/// one. A skipped round says why only when the reason is that the check
+/// was switched off: api.md §4.5 lists four more reasons (`pack`,
+/// `no_token`, `held`, `unsent`) and "switched off" is true of none of
+/// them, so those stay a plain "Skipped".
 String weeklyCheckResultKey(WeeklyCheckRound round) {
-  if (round.isOpen) return LocaleKeys.weekly_check_result_open;
+  if (round.isOpen) {
+    return round.closesAt == null
+        ? LocaleKeys.weekly_check_result_open
+        : LocaleKeys.weekly_check_result_open_due;
+  }
   return switch (round.result) {
     WeeklyCheckResult.received => LocaleKeys.weekly_check_result_received,
     WeeklyCheckResult.missed => LocaleKeys.weekly_check_result_missed,
     WeeklyCheckResult.refused => LocaleKeys.weekly_check_result_refused,
-    WeeklyCheckResult.skipped => LocaleKeys.weekly_check_result_skipped,
+    WeeklyCheckResult.skipped =>
+      round.reason == 'disabled'
+          ? LocaleKeys.weekly_check_result_skipped_off
+          : LocaleKeys.weekly_check_result_skipped,
     // Closed with a result this build has no word for.
     null => LocaleKeys.weekly_check_result_closed,
+  };
+}
+
+/// The face for a round: the one the weekly row shows for that outcome.
+FaceState weeklyCheckResultFace(WeeklyCheckRound round) {
+  if (round.isOpen) return FaceState.interested;
+  return switch (round.result) {
+    WeeklyCheckResult.received => FaceState.confident,
+    WeeklyCheckResult.missed => FaceState.surprised,
+    WeeklyCheckResult.refused => FaceState.shocked,
+    WeeklyCheckResult.skipped => FaceState.sleepy,
+    null => FaceState.blink,
   };
 }
 
@@ -216,7 +246,15 @@ String weeklyCheckResultKey(WeeklyCheckRound round) {
 WeeklyCheckRoundView weeklyCheckRoundView(
   WeeklyCheckRound round, {
   required DateTime now,
-}) => WeeklyCheckRoundView(
-  wordKey: weeklyCheckResultKey(round),
-  when: weeklyCheckMoment(round.openedAt, now: now),
-);
+}) {
+  final closesAt = round.closesAt;
+  final dueBy = round.isOpen && closesAt != null
+      ? weeklyCheckMoment(closesAt, now: now)
+      : null;
+  return WeeklyCheckRoundView(
+    face: weeklyCheckResultFace(round),
+    wordKey: weeklyCheckResultKey(round),
+    wordTime: dueBy,
+    when: dueBy == null ? weeklyCheckMoment(round.openedAt, now: now) : null,
+  );
+}

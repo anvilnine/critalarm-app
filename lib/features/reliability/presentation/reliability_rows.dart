@@ -7,6 +7,7 @@ import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_rule.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_snapshot.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 
 // Everything the Reliability screen decides without drawing: which rows, in
@@ -56,6 +57,9 @@ const _titleKeys = <String, String>{
   'system_update': LocaleKeys.reliability_check_system_update,
   'phone_maker': LocaleKeys.maker_guide_row_title,
   'missed_alarm': LocaleKeys.reliability_check_missed_alarm,
+  // Drawn by its own group on the screen. The words are here for any list
+  // that draws it as a plain row.
+  'weekly_check': LocaleKeys.pro_pack_weekly_title,
 };
 
 /// The title a row shows, as a `LocaleKeys` key, or null for an id this
@@ -152,6 +156,10 @@ const _lineKeys = <String, String>{
   'denied': LocaleKeys.reliability_line_denied,
   'restricted': LocaleKeys.reliability_line_restricted,
   'notDetermined': LocaleKeys.reliability_line_not_determined,
+  // The weekly check, by the reasons its source gives.
+  'weekly_missed': LocaleKeys.weekly_check_line_missed_repeatedly,
+  'weekly_token_refused': LocaleKeys.weekly_check_line_token_refused,
+  'weekly_no_token': LocaleKeys.weekly_check_line_no_token,
 };
 
 /// What a fine row shows where its tick would be, or null for the tick.
@@ -180,13 +188,28 @@ ReliabilityWords? reliabilityFineValue(
 }
 
 /// How long ago, in one unit: minutes under an hour, hours under a day,
-/// days after that. Rounded down, and never less than a minute.
-String reliabilityAgo(Duration since) {
+/// days after that. Rounded down, and never less than a minute. The unit
+/// is a string like any other, with the number in its `{n}` slot.
+ReliabilityWords reliabilityAgoWords(Duration since) {
   if (since.inMinutes < 60) {
-    return '${since.inMinutes < 1 ? 1 : since.inMinutes} min';
+    return (
+      key: LocaleKeys.reliability_ago_minutes,
+      args: {'n': '${since.inMinutes < 1 ? 1 : since.inMinutes}'},
+    );
   }
-  if (since.inHours < 24) return '${since.inHours} h';
-  return '${since.inDays} d';
+  if (since.inHours < 24) {
+    return (
+      key: LocaleKeys.reliability_ago_hours,
+      args: {'n': '${since.inHours}'},
+    );
+  }
+  return (key: LocaleKeys.reliability_ago_days, args: {'n': '${since.inDays}'});
+}
+
+/// [reliabilityAgoWords] as text, for the `{when}` slot of another string.
+String reliabilityAgo(Duration since) {
+  final words = reliabilityAgoWords(since);
+  return words.key.tr(namedArgs: words.args);
 }
 
 /// The state word on a row, as a `LocaleKeys` key. Fine, check or broken.
@@ -238,6 +261,97 @@ int? reliabilityPrimaryRow(List<ReliabilityCheck> ordered) {
     if (needsAction && check.fix != null) return i;
   }
   return null;
+}
+
+/// One row of the screen's list: a check, and whether its action is the
+/// screen's one primary button.
+@immutable
+final class ReliabilityListRow {
+  const ReliabilityListRow({
+    required this.check,
+    required this.isPrimary,
+    this.group,
+  });
+
+  final ReliabilityCheck check;
+  final bool isPrimary;
+
+  /// Null for a plain row. Else the index of the group that draws this
+  /// check, in place of a plain row.
+  final int? group;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ReliabilityListRow &&
+      other.check == check &&
+      other.isPrimary == isPrimary &&
+      other.group == group;
+
+  @override
+  int get hashCode => Object.hash(check, isPrimary, group);
+
+  @override
+  String toString() =>
+      'ReliabilityListRow(${check.id.value}, primary: $isPrimary, '
+      'group: $group)';
+}
+
+/// A group drawn in its usual place, under the test row, with its check
+/// when it has one that is fine.
+typedef ReliabilityGroupBelow = ({int group, ReliabilityCheck? check});
+
+/// What the screen draws and where.
+///
+/// A check that a group draws never gets a plain row as well: there would
+/// be two rows for one check. [groupCheckIds] names the check each group
+/// draws, by the group's position, or null for a group that draws none.
+///
+/// - A group whose check is not fine takes that check's place in [ordered],
+///   so it sorts above the fine rows like any row that needs attention.
+/// - A group whose check is fine, or that has no check in the list, stays
+///   under the test row, where it has always been.
+///
+/// The one primary button is decided once, by [reliabilityPrimaryRow] over
+/// the whole of [ordered], so a group's row follows the same rule as a
+/// plain one.
+({List<ReliabilityListRow> rows, List<ReliabilityGroupBelow> below})
+reliabilityScreenLayout(
+  List<ReliabilityCheck> ordered,
+  List<ReliabilityCheckId?> groupCheckIds,
+) {
+  final primary = reliabilityPrimaryRow(ordered);
+  final rows = <ReliabilityListRow>[];
+  final fineByGroup = <int, ReliabilityCheck>{};
+  final placed = <int>{};
+  for (var i = 0; i < ordered.length; i++) {
+    final check = ordered[i];
+    final group = groupCheckIds.indexOf(check.id);
+    if (group < 0) {
+      rows.add(ReliabilityListRow(check: check, isPrimary: i == primary));
+      continue;
+    }
+    final needsAttention =
+        check.state == ReliabilityState.needsLook ||
+        check.state == ReliabilityState.broken;
+    if (needsAttention && placed.add(group)) {
+      rows.add(
+        ReliabilityListRow(
+          check: check,
+          isPrimary: i == primary,
+          group: group,
+        ),
+      );
+    } else {
+      fineByGroup.putIfAbsent(group, () => check);
+    }
+  }
+  return (
+    rows: rows,
+    below: [
+      for (var group = 0; group < groupCheckIds.length; group++)
+        if (!placed.contains(group)) (group: group, check: fineByGroup[group]),
+    ],
+  );
 }
 
 /// Whether a row sits on the system permissions. Those rows also open the
