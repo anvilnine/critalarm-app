@@ -46,7 +46,6 @@ const _shapes = <_Shape>[
   _Shape(_Kind.spark, Offset(0.62, 0.22), 11, _Ink.light, every: 8, turn: 0.2),
   _Shape(_Kind.disc, Offset(0.95, 0.52), 20, _Ink.light, every: 12, turn: 0.9),
   _Shape(_Kind.ring, Offset(0.3, 0.93), 9, _Ink.strong, every: 8, turn: 0.3),
-  _Shape(_Kind.spark, Offset(0.06, 0.4), 8, _Ink.strong, every: 9, turn: 0.8),
 ];
 
 /// The air behind the mascot: one large disc it stands in front of and a
@@ -60,6 +59,7 @@ class HeroAtmospherePainter extends CustomPainter {
     required this.radius,
     required this.seconds,
     required this.entrance,
+    required this.showsShapes,
     required this.disc,
     required this.soft,
     required this.strong,
@@ -73,6 +73,10 @@ class HeroAtmospherePainter extends CustomPainter {
 
   /// How far through the entrance, 0 to 1.
   final double entrance;
+
+  /// False draws the disc alone, for a stage too short to keep the shapes
+  /// clear of the close cross.
+  final bool showsShapes;
   final Color disc;
   final Color soft;
   final Color strong;
@@ -90,6 +94,7 @@ class HeroAtmospherePainter extends CustomPainter {
       radius * (0.55 + 0.45 * grow) * (1 + breathe),
       Paint()..color = disc.withValues(alpha: disc.a * grow),
     );
+    if (!showsShapes) return;
     for (final (i, shape) in _shapes.indexed) {
       // Each one comes in from further out, one after another.
       final p = AppCurves.easeOut.transform(
@@ -155,6 +160,7 @@ class HeroAtmospherePainter extends CustomPainter {
   bool shouldRepaint(HeroAtmospherePainter old) =>
       seconds != old.seconds ||
       entrance != old.entrance ||
+      showsShapes != old.showsShapes ||
       focus != old.focus ||
       radius != old.radius ||
       disc != old.disc ||

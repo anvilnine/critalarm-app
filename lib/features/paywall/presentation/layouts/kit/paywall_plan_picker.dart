@@ -304,12 +304,13 @@ class _PlanCard extends StatelessWidget {
   }
 
   /// What a card that is not picked is filled with: cream thinned over the
-  /// canvas or a sheet, a tint of the text colour on a dark or a coloured
-  /// tone, where cream would not hold the tone's light text.
+  /// canvas, cream on a white sheet, where thinned it would not show, and
+  /// a tint of the text colour on a dark or a coloured tone, where cream
+  /// would not hold the tone's light text.
   Color _quietFill(AppColors colors, PaywallToneColors toneColors) =>
       switch (tone) {
-        PaywallTone.canvas ||
-        PaywallTone.surface => colors.cream.withValues(alpha: 0.55),
+        PaywallTone.canvas => colors.cream.withValues(alpha: 0.55),
+        PaywallTone.surface => colors.cream,
         PaywallTone.panel ||
         PaywallTone.cobalt ||
         PaywallTone.crit => toneColors.ink.withValues(alpha: 0.1),

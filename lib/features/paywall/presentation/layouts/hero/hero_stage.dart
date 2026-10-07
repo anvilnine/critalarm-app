@@ -84,10 +84,22 @@ class HeroStage extends StatelessWidget {
                   ),
                   seconds: seconds,
                   entrance: e,
-                  disc: colors.canvasAlt,
-                  soft: colors.canvasGhost,
-                  strong: colors.canvasGhostStrong,
-                  light: colors.surface.withValues(alpha: isDark ? 0.05 : 0.4),
+                  showsShapes: arrangement.kind == HeroStageKind.pair,
+                  // The dark canvas gets a little of the yellow back, or
+                  // the stage would be one flat black.
+                  disc: isDark
+                      ? Color.alphaBlend(
+                          colors.yellow.withValues(alpha: 0.07),
+                          colors.canvasAlt,
+                        )
+                      : colors.canvasAlt,
+                  soft: isDark
+                      ? colors.yellow.withValues(alpha: 0.07)
+                      : colors.canvasGhost,
+                  strong: isDark
+                      ? colors.yellow.withValues(alpha: 0.16)
+                      : colors.canvasGhostStrong,
+                  light: colors.surface.withValues(alpha: isDark ? 0.5 : 0.4),
                 ),
               ),
             ),
