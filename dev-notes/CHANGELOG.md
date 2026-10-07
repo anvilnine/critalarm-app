@@ -74,6 +74,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The welcome heroes stop their ticker under reduced motion or once the user taps Stop animation, instead of ignoring it. OnboardingAnimationLoop takes isStopped and isOnItsOwn.
 - Local reminder morning-after and plan-ends bodies read their numbers and benefit phrases from HostedBenefit.
 - SetupTapRoom gives the Stop animation chip and the two small pills on Pick a server a 44 point tap area. The pills look the same.
+- App links: an https link reads the connect address and token from the fragment only, never opens a fixed screen under /topics/ (AppLinkRoutes.reservedTopicNames, checked against the router in test/app/router\_test.dart), and opens Home for a double slash, a dot segment or a user name. iOS no longer passes an app link's user activity or URL context on to Flutter and its plugins.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

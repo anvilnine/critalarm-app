@@ -90,6 +90,40 @@ final class AppLinkRuleTests: XCTestCase {
         XCTAssertEqual(AppLinkRule.tap(from: activity), ["link": raw])
     }
 
+    func testOnlyALinkActivityCountsAsHoldingALink() {
+        XCTAssertFalse(AppLinkRule.holdsLink(nil))
+        let link = NSUserActivity(activityType: NSUserActivityTypeBrowsingWeb)
+        link.webpageURL = URL(
+            string: "https://critalarm.app/connect#url=https%3A%2F%2Fa.example&token=tk_x")
+        XCTAssertTrue(AppLinkRule.holdsLink(link))
+        let site = NSUserActivity(activityType: NSUserActivityTypeBrowsingWeb)
+        site.webpageURL = URL(string: "https://critalarm.app/pricing")
+        XCTAssertFalse(AppLinkRule.holdsLink(site))
+        XCTAssertFalse(AppLinkRule.holdsLink(NSUserActivity(activityType: "app.critalarm.restore")))
+    }
+
+    func testOddShapesAreNotForwardedOrAreLeftForDartToRefuse() {
+        // Not forwarded at all.
+        for raw in [
+            "https://critalarm.app./open/topics/prod",
+            "https://critalarm.app//open/topics/prod",
+            "https://critalarm.app@evil.example/open/topics/prod",
+            "https://critalarm.app:8443/connect#url=https%3A%2F%2Fa.example&token=tk_x",
+        ] {
+            XCTAssertNil(tap(raw), raw)
+        }
+        // Forwarded whole. The Dart parser opens Home for these.
+        for raw in [
+            "HTTPS://CritAlarm.APP/open/topics/prod",
+            "https://user:pw@critalarm.app/open/topics/prod",
+            "https://critalarm.app/open/../connect#url=https%3A%2F%2Fa.example&token=tk_x",
+            "https://critalarm.app/open/topics/new",
+            "https://critalarm.app/connect?url=https%3A%2F%2Fa.example&token=tk_x",
+        ] {
+            XCTAssertEqual(tap(raw), ["link": raw], raw)
+        }
+    }
+
     func testOtherActivitiesGiveNothing() {
         let handoff = NSUserActivity(activityType: "app.critalarm.something")
         XCTAssertNil(AppLinkRule.tap(from: handoff))
