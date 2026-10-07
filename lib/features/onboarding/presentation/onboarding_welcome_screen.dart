@@ -14,6 +14,7 @@ import 'package:critalarm/features/onboarding/presentation/onboarding_navigation
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/curl_terminal.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/pages_above.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -450,7 +451,7 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
     loopsEvery: loopTakes,
   );
 
-  ModalRoute<Object?>? _route;
+  List<ModalRoute<Object?>> _pagesAbove = const [];
 
   /// Whether this hero may play a haptic right now: it moves, its screen is
   /// the one on top, and the app is in front. A hero whose screen is covered
@@ -459,7 +460,7 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
     final lifecycle = SchedulerBinding.instance.lifecycleState;
     return mounted &&
         !_isStill &&
-        (_route?.isCurrent ?? true) &&
+        isOnTopOfAll(_pagesAbove) &&
         (lifecycle == null || lifecycle == AppLifecycleState.resumed);
   }
 
@@ -488,7 +489,7 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _isStill = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    _route = ModalRoute.of(context);
+    _pagesAbove = pagesAbove(context);
     // The ticker is stopped, not just ignored: a frame callback that
     // does nothing still wakes the engine every frame.
     if (_isStill && _ticker.isActive) {

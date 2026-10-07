@@ -10,14 +10,17 @@ import 'support/onboarding_flow_fakes.dart';
 void main() {
   final flow = BundledOnboardingFlows.defaultFlow.steps;
 
-  /// With no list given, every step of the default flow was on screen.
+  /// With no steps given, every step of the flow was on screen. With no
+  /// flow given, it is the default one.
   String? backFrom(
     String step, {
     List<String>? shown,
+    List<String>? inFlow,
     bool hasFirstTopic = false,
   }) => onboardingBackStepFor(
     currentStep: step,
-    shownSteps: shown ?? flow,
+    flowSteps: inFlow ?? flow,
+    shownSteps: (shown ?? inFlow ?? flow).toSet(),
     hasFirstTopic: hasFirstTopic,
   );
 
@@ -55,7 +58,7 @@ void main() {
     });
   });
 
-  group('the Back rule walks the steps that were shown', () {
+  group('the Back rule only opens steps that were shown', () {
     test('a step that was never shown is not a Back target', () {
       // The permissions were all granted, so the run passed them over.
       const shown = ['welcome', 'how_it_rings', 'connect', 'first_topic'];
@@ -72,42 +75,41 @@ void main() {
       expect(backFrom('permissions', shown: const []), isNull);
     });
 
-    test('a step that is not in the list has no Back', () {
+    test('a step that was not shown has no Back', () {
       expect(backFrom('connect', shown: ['welcome', 'how_it_rings']), isNull);
     });
 
-    test('a step outside the tracker is never landed on', () {
-      const shown = ['welcome', 'connect', 'widgets', 'first_topic'];
-      expect(backFrom('first_topic', shown: shown), 'connect');
-      expect(backFrom('widgets', shown: shown), isNull);
-    });
-
-    test('follows the order the steps were seen in', () {
-      final shown = BundledOnboardingFlows.legacy.steps;
-      expect(backFrom('permissions', shown: shown), 'how_it_rings');
-      // widgets sits between them and is outside the tracker.
-      expect(backFrom('connect', shown: shown), 'permissions');
+    test('a step that is not in the flow has no Back', () {
+      const shown = ['welcome', 'how_it_rings', 'legacy_test'];
       expect(backFrom('legacy_test', shown: shown), isNull);
     });
-  });
 
-  group('the list of shown steps', () {
-    test('a new step goes on the end', () {
-      expect(onboardingShownStepsWith(const [], 'welcome'), ['welcome']);
-      expect(
-        onboardingShownStepsWith(const ['welcome'], 'how_it_rings'),
-        ['welcome', 'how_it_rings'],
-      );
+    test('a step outside the tracker is never landed on', () {
+      final legacy = BundledOnboardingFlows.legacy.steps;
+      // widgets sits before connect there and is outside the tracker.
+      expect(legacy.indexOf('widgets'), legacy.indexOf('connect') - 1);
+      expect(backFrom('connect', inFlow: legacy), 'permissions');
+      expect(backFrom('widgets', inFlow: legacy), isNull);
     });
 
-    test('a step gone back to drops the steps after it', () {
+    test('follows the order of the flow, not the order of seeing', () {
+      final legacy = BundledOnboardingFlows.legacy.steps;
+      expect(backFrom('permissions', inFlow: legacy), 'how_it_rings');
       expect(
-        onboardingShownStepsWith(
-          const ['welcome', 'how_it_rings', 'connect'],
-          'how_it_rings',
+        backFrom(
+          'permissions',
+          shown: ['permissions', 'connect', 'how_it_rings', 'welcome'],
         ),
-        ['welcome', 'how_it_rings'],
+        'connect',
       );
+      expect(backFrom('legacy_test', inFlow: legacy), isNull);
+    });
+
+    test('a step seen once stays in reach after going back past it', () {
+      // Back from the permissions to connect, back again to how it rings,
+      // then forward: connect passes itself over, and is still shown.
+      const shown = ['welcome', 'how_it_rings', 'connect', 'permissions'];
+      expect(backFrom('permissions', shown: shown), 'connect');
     });
   });
 
@@ -145,7 +147,20 @@ void main() {
       });
       expect(h.events.last.kind, OnboardingStepEventKind.entered);
       expect(h.events.last.stepId, 'permissions');
-      expect(h.engine.shownSteps.last, 'permissions');
+      // Going back takes nothing out of the steps that were shown.
+      expect(h.engine.shownSteps, contains('first_topic'));
+    });
+
+    test('connect stays in reach after going back past it', () async {
+      final h = await runUpTo('permissions');
+
+      expect((await h.engine.goBack('permissions'))?.stepId, 'connect');
+      expect((await h.engine.goBack('connect'))?.stepId, 'how_it_rings');
+      // A server is saved, so going forward passes connect over.
+      expect((await h.engine.finishStep('how_it_rings')).stepId, 'permissions');
+
+      expect(await h.engine.backStepFrom('permissions'), 'connect');
+      expect((await h.engine.goBack('permissions'))?.stepId, 'connect');
     });
 
     test('going forward again opens the step that was left', () async {
@@ -267,7 +282,7 @@ void main() {
       expect(await h.engine.backStepFrom('first_topic'), 'connect');
     });
 
-    test('the list is empty again once setup ends', () async {
+    test('no step counts as shown once setup ends', () async {
       final h = await runUpTo('first_topic');
       h.facts
         ..ownsTopic = true

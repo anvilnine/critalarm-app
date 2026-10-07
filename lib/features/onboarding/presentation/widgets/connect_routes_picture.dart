@@ -8,6 +8,7 @@ import 'package:critalarm/features/onboarding/domain/connect/connect_routes.dart
 import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/pages_above.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -120,7 +121,7 @@ class _ConnectRoutesPictureState extends State<ConnectRoutesPicture>
   final ValueNotifier<double> _sinceLit = ValueNotifier(0);
 
   bool _isStill = false;
-  ModalRoute<Object?>? _route;
+  List<ModalRoute<Object?>> _pagesAbove = const [];
 
   bool get _hasDot => !_isStill && connectRouteHasDot(widget.view.status);
 
@@ -144,7 +145,7 @@ class _ConnectRoutesPictureState extends State<ConnectRoutesPicture>
       _owesTap = false;
       final lifecycle = SchedulerBinding.instance.lifecycleState;
       final isInFront =
-          (_route?.isCurrent ?? true) &&
+          isOnTopOfAll(_pagesAbove) &&
           (lifecycle == null || lifecycle == AppLifecycleState.resumed);
       if (isInFront) AppHaptics.lightTap();
     }
@@ -154,7 +155,7 @@ class _ConnectRoutesPictureState extends State<ConnectRoutesPicture>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _isStill = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    _route = ModalRoute.of(context);
+    _pagesAbove = pagesAbove(context);
     _syncTicker();
   }
 

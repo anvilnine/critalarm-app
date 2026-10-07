@@ -836,22 +836,26 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
           return AmbientOverride(
             profile: AmbientAppProfiles.createTopic(colors),
             direction: AmbientDirection.push,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              // A tap anywhere skips the picture.
-              onTap: _leaveSetup,
-              child: AppScreenScaffold(
-                hasTabBar: false,
-                topBar: AppTopBar(title: setupTopBarTitle(context)),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: TopicMadeBeat(
-                      topicName: madeTopic.name,
-                      ringsThroughSilent: madeTopic.critical,
-                      onDone: _leaveSetup,
+            child: Semantics(
+              button: true,
+              label: LocaleKeys.onboarding_welcome_continue.tr(),
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                // A tap anywhere skips the picture.
+                onTap: _leaveSetup,
+                child: AppScreenScaffold(
+                  hasTabBar: false,
+                  topBar: AppTopBar(title: setupTopBarTitle(context)),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: TopicMadeBeat(
+                        topicName: madeTopic.name,
+                        ringsThroughSilent: madeTopic.critical,
+                        onDone: _leaveSetup,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );
