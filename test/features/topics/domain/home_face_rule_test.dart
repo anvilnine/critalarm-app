@@ -331,25 +331,31 @@ void main() {
       expect(row.faceState, FaceState.calm);
     });
 
-    test('expired incident reads MISSED', () {
-      final closedAt = now.subtract(const Duration(minutes: 10));
-      final incidents = [
-        _incident(
-          'inc1',
-          'prod-db',
-          IncidentStates.expired,
-          closedAt: closedAt,
-        ),
-      ];
-      final result = resolveHomeFace(
-        topics: topics,
-        incidents: incidents,
-        warningTopics: const {},
-        now: now,
-      );
-      expect(result.hero.faceState, FaceState.success);
-      expect(result.hero.word, 'MISSED');
-      expect(result.hero.subText, 'prod-db was not answered.');
+    test('an expired incident is not a hero state', () {
+      // Home says a missed alarm in its notice only. The hero rests.
+      for (final age in [
+        const Duration(seconds: 5),
+        const Duration(minutes: 10),
+      ]) {
+        final result = resolveHomeFace(
+          topics: topics,
+          incidents: [
+            _incident(
+              'inc1',
+              'prod-db',
+              IncidentStates.expired,
+              closedAt: now.subtract(age),
+            ),
+          ],
+          warningTopics: const {},
+          now: now,
+        );
+        expect(result.hero.faceState, FaceState.calm);
+        expect(result.hero.word, 'All clear');
+        expect(result.hero.word, isNot('MISSED'));
+        expect(result.hero.word, isNot('HANDLED'));
+        expect(result.needsTick, isFalse);
+      }
     });
 
     test('P4 inside an acked incident does not make worried', () {
@@ -451,6 +457,103 @@ void main() {
         now: now,
       );
       expect(withDefault.hero.faceState, FaceState.acked);
+    });
+  });
+
+  group('heroWhileMissedNoticeShows', () {
+    HomeHero heroOf(HomeFaceResult r) => r.hero;
+
+    HomeFaceResult resolve(List<Incident> incidents, {Set<String>? warnings}) =>
+        resolveHomeFace(
+          topics: topics,
+          incidents: incidents,
+          warningTopics: warnings ?? const {},
+          now: now,
+        );
+
+    void expectQuiet(HomeHero hero) {
+      expect(hero.faceState, FaceState.calm);
+      expect(hero.word, isEmpty);
+      expect(hero.subText, 'Nothing is ringing.');
+      expect(hero.severity, SeverityMode.none);
+      expect(hero.ringingIncidentId, isNull);
+    }
+
+    test('the resting hero loses "All clear" and the glad face', () {
+      final rest = heroOf(resolve(const []));
+      expect(rest.word, 'All clear');
+      expectQuiet(heroWhileMissedNoticeShows(rest));
+    });
+
+    test('the last-alarm line goes too', () {
+      final withLast = heroOf(
+        resolve([
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.expired,
+            closedAt: now.subtract(const Duration(hours: 2)),
+          ),
+        ]),
+      );
+      expect(withLast.subText, contains('Last alarm'));
+      expectQuiet(heroWhileMissedNoticeShows(withLast));
+    });
+
+    test('the short HANDLED moment is quieted too', () {
+      final handled = heroOf(
+        resolve([
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.closed,
+            closedAt: now.subtract(const Duration(seconds: 5)),
+          ),
+        ]),
+      );
+      expect(handled.faceState, FaceState.success);
+      expectQuiet(heroWhileMissedNoticeShows(handled));
+    });
+
+    test('a ringing alarm keeps the hero', () {
+      final ringing = heroOf(
+        resolve([
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.open,
+            openedAt: now.subtract(const Duration(minutes: 1)),
+            messages: [_msg('m1', 'prod-db', priority: 5, incidentId: 'inc1')],
+          ),
+        ]),
+      );
+      final same = heroWhileMissedNoticeShows(ringing);
+      expect(same.faceState, FaceState.alarmed);
+      expect(same.word, 'CRITICAL');
+      expect(same.ringingIncidentId, 'inc1');
+    });
+
+    test('an acknowledged alarm keeps the hero', () {
+      final acked = heroOf(
+        resolve([
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.acked,
+            ackedAt: now.subtract(const Duration(minutes: 1)),
+          ),
+        ]),
+      );
+      final same = heroWhileMissedNoticeShows(acked);
+      expect(same.faceState, FaceState.acked);
+      expect(same.word, acked.word);
+    });
+
+    test('a warning keeps the hero', () {
+      final warning = heroOf(resolve(const [], warnings: {'nas-backup'}));
+      final same = heroWhileMissedNoticeShows(warning);
+      expect(same.faceState, FaceState.worried);
+      expect(same.word, warning.word);
     });
   });
 }

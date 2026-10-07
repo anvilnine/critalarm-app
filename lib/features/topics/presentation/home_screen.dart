@@ -25,6 +25,7 @@ import 'package:critalarm/features/in_app_notices/presentation/widgets/notice_de
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_plan_sheet.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/pro_status_badge.dart';
+import 'package:critalarm/features/topics/domain/home_face_rule.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.dart';
@@ -461,7 +462,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     final exampleStage = showExamples
         ? FeatureGuideExamples.troubleStage()
         : null;
-    final state = !showExamples
+    final staged = !showExamples
         ? real
         : real.isEmpty
         ? real.copyWith(
@@ -484,6 +485,13 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             subText: exampleStage.subText,
             severity: exampleStage.severity,
           );
+    // While the missed alarm notice is up, the stage does not say "All
+    // clear" over a glad face. A live alarm keeps the stage as it is.
+    final state =
+        _missedAlarmNoticeShows(notice, guide) &&
+            staged.status == HomeStatus.success
+        ? _quietStage(staged)
+        : staged;
     // A deleted topic leaves the pane pointing at a name the list no
     // longer has, so the selection is read back off the list every build
     // rather than trusted.
@@ -815,6 +823,36 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         if (setupState.phase == HomeSetupPhase.celebration)
           const Positioned.fill(child: HomeSetupConfetti()),
       ],
+    );
+  }
+
+  /// True while the missed alarm card is drawn in the notice slot. The slot
+  /// is hidden under a running guide and while a card is closing.
+  static bool _missedAlarmNoticeShows(
+    InAppNoticeState notice,
+    FeatureGuideState guide,
+  ) =>
+      !guide.isActive &&
+      !notice.isDismissing &&
+      notice.noticeType == InAppNoticeType.missedAlarm &&
+      notice.missedAlarm != null;
+
+  /// [home] with its stage changed by `heroWhileMissedNoticeShows`.
+  static HomeState _quietStage(HomeState home) {
+    final hero = heroWhileMissedNoticeShows(
+      HomeHero(
+        faceState: home.faceState,
+        word: home.word,
+        subText: home.subText,
+        severity: home.severity,
+        ringingIncidentId: home.ringingIncidentId,
+      ),
+    );
+    return home.copyWith(
+      faceState: hero.faceState,
+      word: hero.word,
+      subText: hero.subText,
+      severity: hero.severity,
     );
   }
 
