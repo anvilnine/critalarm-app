@@ -1841,5 +1841,10 @@
     "kind_pro_later": "Hosted later",
     "kind_review_ask": "Review ask",
     "kind_feedback_ask": "Feedback ask"
+  },
+  "paywall_bento": {
+    "brand": "Crit Alarm {name}",
+    "headline_hosted": "Your limits, lifted.",
+    "headline_pro": "More for your alarm."
   }
 }
