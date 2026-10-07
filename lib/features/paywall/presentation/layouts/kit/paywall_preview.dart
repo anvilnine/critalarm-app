@@ -2,6 +2,9 @@ import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/history_preview.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/pushes_preview.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/topics_preview.dart';
 import 'package:flutter/material.dart';
 
 export 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
@@ -12,7 +15,11 @@ typedef PaywallPreviewBuilder =
 
 /// The previews that exist, by id. Empty until a preview is built: add an
 /// entry here and every layout that shows that benefit draws it.
-final Map<PaywallPreviewId, PaywallPreviewBuilder> paywallPreviewBuilders = {};
+final Map<PaywallPreviewId, PaywallPreviewBuilder> paywallPreviewBuilders = {
+  PaywallPreviewId.topics: (_, size) => TopicsPreview(size: size),
+  PaywallPreviewId.pushes: (_, size) => PushesPreview(size: size),
+  PaywallPreviewId.history: (_, size) => HistoryPreview(size: size),
+};
 
 /// The stand-in glyph for a preview nobody has built yet.
 GlyphType paywallPreviewGlyph(PaywallPreviewId id) => switch (id) {
