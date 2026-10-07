@@ -38,6 +38,38 @@ final class MakerStep {
   final String? note;
 }
 
+/// A short line under the steps, for a version or sub-brand the steps do
+/// not cover. A note is not a step: it has no number, it is not done "once"
+/// with the others, and a screen reader does not call it a step. A family has
+/// no notes, or as many as it needs. Provenance is recorded as for a step.
+@immutable
+final class MakerNote {
+  const MakerNote({
+    required this.textKey,
+    required this.writtenFor,
+    required this.sources,
+    required this.isConfirmed,
+    this.note,
+  });
+
+  /// A `LocaleKeys` key.
+  final String textKey;
+
+  /// The Android or skin versions the words were written for. For whoever
+  /// edits the note, it is not drawn.
+  final String writtenFor;
+
+  /// Pages that state the note, as URLs.
+  final List<String> sources;
+
+  /// True only when a page named in [sources] was read and states the note.
+  final bool isConfirmed;
+
+  /// What is unconfirmed when [isConfirmed] is false, or what differs by
+  /// version when it is true.
+  final String? note;
+}
+
 const _appDetailsDoc =
     'https://developer.android.com/reference/android/provider/Settings'
     '#ACTION_APPLICATION_DETAILS_SETTINGS';
@@ -131,6 +163,7 @@ final class MakerGuide {
     required this.steps,
     required this.intents,
     required this.moreUrl,
+    this.notes = const [],
   });
 
   final MakerFamily family;
@@ -138,8 +171,11 @@ final class MakerGuide {
   /// A `LocaleKeys` key: the family's name, such as "Xiaomi, Redmi, Poco".
   final String nameKey;
 
-  /// Three to five, in the order to do them.
+  /// Three to five, in the order to do them. Only these are numbered.
   final List<MakerStep> steps;
+
+  /// Lines drawn under the steps, unnumbered. Empty for most families.
+  final List<MakerNote> notes;
 
   /// Settings pages to try, nearest first. The app's own page is added last
   /// by `makerIntentOrder`, so it is not listed here.

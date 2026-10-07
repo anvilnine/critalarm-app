@@ -48,17 +48,38 @@ const oppoGuide = MakerGuide(
           'The Realme page says Allow auto-launch. The Oppo page says '
           'Allow Auto Start-up for ColorOS 6 and up.',
     ),
-    MakerStep(
-      textKey: LocaleKeys.maker_guide_oppo_step_4,
-      writtenFor: 'Realme UI, OxygenOS 11 and older',
-      sources: [_realmePage, _oneplusPage],
+  ],
+  // Under the steps, not numbered. The old step 4 held the Realme and
+  // OxygenOS 11 routes in one step. `maker_guide.oppo.step_4` is no longer
+  // read.
+  notes: [
+    MakerNote(
+      textKey: LocaleKeys.maker_guide_oppo_note_versions,
+      writtenFor: 'ColorOS 11 to 14, OxygenOS 12 and up',
+      sources: [_oppoPage],
+      isConfirmed: false,
+      note:
+          'The versions step 1 was written for. No page that was read '
+          'gives the range.',
+    ),
+    MakerNote(
+      textKey: LocaleKeys.maker_guide_oppo_note_realme,
+      writtenFor: 'Realme UI',
+      sources: [_realmePage],
       isConfirmed: true,
       note:
           'Realme page: Settings, Battery, Power saving settings, App '
-          'battery management. OnePlus page: System settings, Battery, '
-          "Battery optimization, Don't optimize. The OnePlus page also "
-          'says OnePlus reverts these settings at random, so the user may '
-          'need to check again.',
+          'battery management.',
+    ),
+    MakerNote(
+      textKey: LocaleKeys.maker_guide_oppo_note_oxygen,
+      writtenFor: 'OxygenOS 11 and older',
+      sources: [_oneplusPage],
+      isConfirmed: true,
+      note:
+          'OnePlus page: System settings, Battery, Battery optimization, '
+          "Don't optimize. The page also says OnePlus reverts these "
+          'settings at random, so the user may need to check again.',
     ),
   ],
   intents: [

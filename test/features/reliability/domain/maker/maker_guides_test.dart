@@ -60,11 +60,75 @@ void main() {
           }
         });
 
+        test('every note has words in en.json and says where it came from', () {
+          for (final note in guide.notes) {
+            expect(hasString(en, note.textKey), isTrue, reason: note.textKey);
+            expect(note.writtenFor, isNotEmpty);
+            expect(note.sources, isNotEmpty);
+            if (!note.isConfirmed) expect(note.note, isNotEmpty);
+          }
+        });
+
         test('links to the maker page on dontkillmyapp.com', () {
           expect(guide.moreUrl, startsWith('https://dontkillmyapp.com/'));
         });
       });
     }
+
+    group('notes', () {
+      test('Oppo has three numbered steps and three notes under them', () {
+        final guide = makerGuideFor(MakerFamily.oppo);
+        expect(guide.steps.map((s) => s.textKey), [
+          'maker_guide.oppo.step_1',
+          'maker_guide.oppo.step_2',
+          'maker_guide.oppo.step_3',
+        ]);
+        expect(guide.notes.map((n) => n.textKey), [
+          'maker_guide.oppo.note_versions',
+          'maker_guide.oppo.note_realme',
+          'maker_guide.oppo.note_oxygen',
+        ]);
+      });
+
+      test('a note is not a step: no key is in both lists', () {
+        for (final family in MakerFamily.values) {
+          final guide = makerGuideFor(family);
+          final stepKeys = guide.steps.map((s) => s.textKey).toSet();
+          for (final note in guide.notes) {
+            expect(stepKeys, isNot(contains(note.textKey)), reason: '$family');
+          }
+        }
+      });
+
+      test('the retired Oppo step 4 is not read by any guide', () {
+        for (final family in MakerFamily.values) {
+          final guide = makerGuideFor(family);
+          expect(
+            guide.steps.map((s) => s.textKey),
+            isNot(contains('maker_guide.oppo.step_4')),
+            reason: '$family',
+          );
+        }
+      });
+
+      test('the other families have no notes', () {
+        for (final family in MakerFamily.values) {
+          if (family == MakerFamily.oppo) continue;
+          expect(makerGuideFor(family).notes, isEmpty, reason: '$family');
+        }
+      });
+
+      test('a guide built with no notes has none', () {
+        const bare = MakerGuide(
+          family: MakerFamily.samsung,
+          nameKey: 'x',
+          steps: [],
+          intents: [],
+          moreUrl: 'https://dontkillmyapp.com/samsung',
+        );
+        expect(bare.notes, isEmpty);
+      });
+    });
 
     test('the words in en.json have no em dash or en dash', () {
       final text = jsonEncode(en['maker_guide']);
