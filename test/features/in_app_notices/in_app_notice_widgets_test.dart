@@ -7,6 +7,7 @@ import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/components/buttons.dart';
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/theme/theme.dart';
@@ -108,7 +109,7 @@ void main() {
       expect(find.text('Connect server'), findsOneWidget);
 
       final face = tester.widget<FaceWidget>(find.byType(FaceWidget));
-      expect(face.state, FaceState.worried);
+      expect(face.state, brokenFace);
     });
   });
 
