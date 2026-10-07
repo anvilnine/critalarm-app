@@ -42,7 +42,7 @@ class HomeFaceResult {
   bool get hasAckedRow => rows.any((r) => r.faceState == FaceState.acked);
 
   /// True while the face changes on its own as time passes: a desk timer
-  /// counting down, or a HANDLED or MISSED face that only lasts a while.
+  /// counting down, or a HANDLED face that only lasts a while.
   bool get needsTick => hasAckedRow || hero.faceState == FaceState.success;
 }
 
@@ -224,32 +224,26 @@ HomeFaceResult resolveHomeFace({
     );
   }
   // A close is a moment, so the face only says HANDLED for a short while.
-  // A missed alarm is worth seeing for the whole hour.
+  // An alarm that ran out is not a close: Home says it in the missed alarm
+  // notice, which has the gates this rule lacks, and never in the hero.
   final heroEntries = handledEntries
       .where(
         (h) =>
-            h.incident.state == IncidentStates.expired ||
+            h.incident.state == IncidentStates.closed &&
             now.difference(h.closedAt) < handledFaceWindow,
       )
       .toList();
   if (heroEntries.isNotEmpty) {
     heroEntries.sort((a, b) => b.closedAt.compareTo(a.closedAt));
     final entry = heroEntries.first;
-    final isExpired = entry.incident.state == IncidentStates.expired;
     final time = formatHm(entry.closedAt);
     return HomeFaceResult(
       hero: HomeHero(
         faceState: FaceState.success,
-        word: isExpired
-            ? LocaleKeys.home_stage_word_missed.tr()
-            : LocaleKeys.home_stage_word_handled.tr(),
-        subText: isExpired
-            ? LocaleKeys.home_stage_sub_missed.tr(
-                namedArgs: {'topic': entry.topic},
-              )
-            : LocaleKeys.home_stage_sub_handled.tr(
-                namedArgs: {'topic': entry.topic, 'time': time},
-              ),
+        word: LocaleKeys.home_stage_word_handled.tr(),
+        subText: LocaleKeys.home_stage_sub_handled.tr(
+          namedArgs: {'topic': entry.topic, 'time': time},
+        ),
         severity: SeverityMode.none,
       ),
       rows: rows,
@@ -293,5 +287,24 @@ HomeFaceResult resolveHomeFace({
       severity: SeverityMode.none,
     ),
     rows: rows,
+  );
+}
+
+/// The hero while Home's missed alarm notice is in the slot.
+///
+/// The notice says an alarm was missed, so a glad face over "All clear"
+/// would contradict it. The resting hero (calm, or the short HANDLED
+/// moment) drops to a calm face and the one line that is still true.
+/// Anything live, a ringing, acknowledged or warning hero, is returned
+/// unchanged: a quiet hero never hides an alarm.
+HomeHero heroWhileMissedNoticeShows(HomeHero hero) {
+  final isResting =
+      hero.faceState == FaceState.calm || hero.faceState == FaceState.success;
+  if (!isResting || hero.ringingIncidentId != null) return hero;
+  return HomeHero(
+    faceState: FaceState.calm,
+    word: '',
+    subText: LocaleKeys.home_no_alarm_body.tr(),
+    severity: SeverityMode.none,
   );
 }
