@@ -172,11 +172,10 @@ void main() {
       verifyNever(() => save(any()));
     });
 
-    test('the same host with a path, a trailing slash or other letter '
-        'case is not a mismatch', () async {
+    test('the same address with a trailing slash, other letter case or the '
+        'usual port written out is not a mismatch', () async {
       for (final reported in [
         'https://alarm.example.com/',
-        'https://alarm.example.com/api/v1',
         'https://ALARM.example.com',
         'https://alarm.example.com:443',
       ]) {
@@ -186,6 +185,66 @@ void main() {
           pin: true,
         );
         expect(outcome, isA<Connected>(), reason: reported);
+      }
+      for (final reported in [
+        'https://alarm.example.com/one',
+        'https://alarm.example.com/one/',
+      ]) {
+        final outcome = await run(
+          asked: 'https://alarm.example.com/one',
+          reported: reported,
+          pin: true,
+        );
+        expect(outcome, isA<Connected>(), reason: reported);
+      }
+    });
+
+    test('a link that is pinned refuses another base path, and connects '
+        'nothing', () async {
+      final outcome = await run(
+        asked: 'https://alarm.example.com/one',
+        reported: 'https://alarm.example.com/two',
+        pin: true,
+      );
+      expect(outcome, isA<ServerAddressDiffers>());
+      expect(
+        (outcome as ServerAddressDiffers).host,
+        'https://alarm.example.com/two',
+      );
+      verifyNever(() => establish(any(), any()));
+      verifyNever(() => save(any()));
+    });
+
+    test('typed in setup, another base path is followed and saved', () async {
+      final outcome = await run(
+        asked: 'https://alarm.example.com/one',
+        reported: 'https://alarm.example.com/two',
+      );
+      expect(outcome, isA<Connected>());
+      final saved =
+          verify(() => save(captureAny())).captured.single as ServerConnection;
+      expect(saved.serverUrl, 'https://alarm.example.com/two');
+    });
+
+    test('a link that is pinned refuses anything looser than the address '
+        'it showed', () async {
+      for (final (asked, reported) in [
+        // A path the link did not carry, and a path it did that is gone.
+        ('https://alarm.example.com', 'https://alarm.example.com/api/v1'),
+        ('https://alarm.example.com/one', 'https://alarm.example.com'),
+        // Path letters are not host letters: case counts.
+        ('https://alarm.example.com/one', 'https://alarm.example.com/One'),
+        ('https://alarm.example.com/one', 'https://alarm.example.com/one//'),
+        ('https://alarm.example.com/one', 'https://alarm.example.com/one/x'),
+        // Another scheme, also upwards.
+        ('http://192.168.1.5:8080', 'https://192.168.1.5:8080'),
+        ('https://alarm.example.com', 'https://alarm.example.com?x=1'),
+        ('https://alarm.example.com', 'https://alarm.example.com#top'),
+        ('https://alarm.example.com', 'https://user@alarm.example.com'),
+      ]) {
+        final outcome = await run(asked: asked, reported: reported, pin: true);
+        expect(outcome, isA<ServerAddressDiffers>(), reason: reported);
+        verifyNever(() => save(any()));
       }
     });
 
