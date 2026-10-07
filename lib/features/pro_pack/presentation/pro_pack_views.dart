@@ -14,6 +14,7 @@ final class WeeklyCheckRowView {
     required this.isLocked,
     required this.face,
     required this.lineKey,
+    this.selfHostedLineKey,
   });
 
   /// Locked rows open the Pro sheet. An unlocked row draws its body.
@@ -24,29 +25,45 @@ final class WeeklyCheckRowView {
   /// check itself is built.
   final String lineKey;
 
+  /// A second line for a locked row on a phone with a server of its own:
+  /// the check covers the push relay, not that server. Said before anyone
+  /// pays. Null on any other phone, and on an unlocked row, whose body
+  /// says it itself.
+  final String? selfHostedLineKey;
+
   @override
   bool operator ==(Object other) =>
       other is WeeklyCheckRowView &&
       other.isLocked == isLocked &&
       other.face == face &&
-      other.lineKey == lineKey;
+      other.lineKey == lineKey &&
+      other.selfHostedLineKey == selfHostedLineKey;
 
   @override
-  int get hashCode => Object.hash(isLocked, face, lineKey);
+  int get hashCode => Object.hash(isLocked, face, lineKey, selfHostedLineKey);
 }
 
 /// The row for an install that holds the pack, or does not. The two faces
 /// are ones no other row or header on the Reliability screen uses.
-WeeklyCheckRowView weeklyCheckRowView({required bool isHeld}) => isHeld
+///
+/// [isSelfHosted] is the same fact the weekly check row has. The caller
+/// hands it in. Nothing here reads it.
+WeeklyCheckRowView weeklyCheckRowView({
+  required bool isHeld,
+  bool isSelfHosted = false,
+}) => isHeld
     ? const WeeklyCheckRowView(
         isLocked: false,
         face: FaceState.confident,
         lineKey: LocaleKeys.pro_pack_weekly_ready_line,
       )
-    : const WeeklyCheckRowView(
+    : WeeklyCheckRowView(
         isLocked: true,
         face: FaceState.dozing,
         lineKey: LocaleKeys.pro_pack_weekly_locked_line,
+        selfHostedLineKey: isSelfHosted
+            ? LocaleKeys.weekly_check_self_hosted_line
+            : null,
       );
 
 /// The top of the Pro sheet for one stage.
@@ -79,8 +96,14 @@ final class ProPackSheetView {
   int get hashCode => Object.hash(face, titleKey, lineKey, isWaiting);
 }
 
-/// A different face for each stage. No stage is worded as a failure: the
-/// two that wait on the relay say they are still checking.
+/// A different face for each stage. No stage is worded as a failure.
+///
+/// The two stages that wait on the store itself (`loading`, `atStore`) say
+/// they are asking or waiting for the store. The two that come after the
+/// store has finished (`checking`, `checkingPaused`) say the purchase is
+/// being confirmed, and only the paused one adds that the store is done.
+/// They share their words on purpose: the wait is one wait, and the paused
+/// stage only adds the line and a button.
 ProPackSheetView proPackSheetView(ProPackSheetStage stage) => switch (stage) {
   ProPackSheetStage.loading => const ProPackSheetView(
     face: FaceState.watching,
@@ -117,6 +140,25 @@ ProPackSheetView proPackSheetView(ProPackSheetStage stage) => switch (stage) {
     titleKey: LocaleKeys.pro_pack_sheet_held_title,
     lineKey: LocaleKeys.pro_pack_sheet_held_line,
   ),
+};
+
+/// The line under what Pro is, on a phone with a server of its own: the
+/// check covers the push relay to the phone and not that server. It shows
+/// on the stages that say what Pro is, which are the ones a person reads
+/// before paying. Null on every other stage and every other phone.
+///
+/// [isSelfHosted] is handed in by whoever opened the sheet.
+String? proPackSheetSelfHostedLineKey(
+  ProPackSheetStage stage, {
+  required bool isSelfHosted,
+}) => switch (stage) {
+  ProPackSheetStage.notOnSale || ProPackSheetStage.offers =>
+    isSelfHosted ? LocaleKeys.weekly_check_self_hosted_line : null,
+  ProPackSheetStage.loading ||
+  ProPackSheetStage.atStore ||
+  ProPackSheetStage.checking ||
+  ProPackSheetStage.checkingPaused ||
+  ProPackSheetStage.held => null,
 };
 
 /// The words for a note over the offers.
