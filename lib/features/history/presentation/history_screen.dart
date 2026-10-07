@@ -15,6 +15,7 @@ import 'package:critalarm/features/history/presentation/cubits/history_cubit.dar
 import 'package:critalarm/features/history/presentation/cubits/history_state.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
 import 'package:critalarm/features/history/presentation/widgets/history_filter_sheet.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -260,7 +261,7 @@ class _OlderAlarmsFooter extends StatelessWidget {
           onTap: () {
             AppHaptics.selection();
             unawaited(
-              context.push(paywallLocation(PaywallSource.historyOlder)),
+              context.push(hostedPaywallLocation(PaywallSource.historyOlder)),
             );
           },
           child: Text(

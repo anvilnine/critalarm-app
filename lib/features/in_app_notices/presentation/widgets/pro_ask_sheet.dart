@@ -9,6 +9,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/ask_sheet_parts.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -42,7 +43,7 @@ Future<void> showProAskSheet({
         unawaited(
           analytics?.proAskAnswered(answer: LocalReminderAnalytics.seePlans),
         );
-        openAppPath(context, paywallLocation(PaywallSource.askSheet));
+        openAppPath(context, hostedPaywallLocation(PaywallSource.askSheet));
       },
       onRemindLater: () {
         Navigator.of(sheetContext).pop();

@@ -131,6 +131,8 @@ void main() {
       for (final path in [
         '/paywall',
         '/paywall/success',
+        '/plans/hero',
+        '/plans/sheet',
         '/alarm',
         '/incidents/inc_9a8b7c',
         '/ring',
@@ -150,6 +152,7 @@ void main() {
         '/onboarding/connect',
         '/topics/prod',
         '/paywallish',
+        '/plans',
         '/incidents',
       ]) {
         expect(isConnectSheetBlockedPath(path), isFalse, reason: path);

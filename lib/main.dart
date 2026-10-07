@@ -18,6 +18,7 @@ import 'package:critalarm/features/onboarding/domain/connect/background_connect.
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
 import 'package:critalarm/features/reliability/domain/sources/system_update_source.dart';
@@ -96,8 +97,10 @@ Future<void> main() async {
   // A notification tapped while the app was closed opens its own screen. iOS
   // hands that route over on a channel; Android sets the platform route name.
   final tappedRoute = await pushHost.takePendingRoute();
-  final initialLocation = await getIt<InitialRouteResolver>()(
-    deepLink: tappedRoute,
+  // A locked widget tapped while the app was closed names the shipped
+  // paywall. This is where it learns what that paywall is set to open.
+  final initialLocation = resolvePaywallLocation(
+    await getIt<InitialRouteResolver>()(deepLink: tappedRoute),
   );
   // Crash reporting is put back here as well, so a crash on a launch where
   // Settings is never opened still gets reported.

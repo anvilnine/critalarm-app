@@ -18,6 +18,7 @@ import 'package:critalarm/features/feature_guides/presentation/cubits/feature_gu
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_state.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_steps.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/search/domain/entities/search_result.dart';
 import 'package:critalarm/features/search/domain/entities/search_scope.dart';
 import 'package:critalarm/features/search/presentation/cubits/search_cubit.dart';
@@ -239,8 +240,11 @@ class _AppShellContentState extends State<_AppShellContent>
       return;
     }
 
-    final path = result.routePath;
-    if (path == null) return;
+    final listed = result.routePath;
+    if (listed == null) return;
+    // The plan result lists the shipped paywall. This is where it learns
+    // what that paywall is set to open.
+    final path = resolvePaywallLocation(listed);
     _closeSearch();
 
     // Search opens from any tab, so a settings row can be tapped from
