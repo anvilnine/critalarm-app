@@ -850,6 +850,16 @@ native handlers.
 - `MockServer.seedWeeklyCheck(state)` puts the mock relay in one state, and
   `openWeeklyCheckRound()` returns the id a push would carry.
 
+**Motion.** One large living thing per screen, and everything under it quiet. A screen that
+persuades or welcomes (a setup step, a paywall, an empty state, a first success) gets a hero:
+Crit reacting, or a feature shown doing its job, driven from one clock with a pure, tested
+timeline. Lists, forms and settings get none. When a screen feels busy, remove the boxes around
+small things and keep the character. When it feels flat, add one hero, never several
+decorations. Nothing rests at an angle, the way out is on screen from the first frame, and
+reduce motion shows a complete resting frame. No Lottie, no Rive, no video. The full rules, the
+clock helpers and how to prove motion with captured frames are in the `motion` skill:
+`.claude/skills/motion/SKILL.md`. Read it before adding or changing an animation.
+
 **Changelogs.** Two files, both written with cider, never by hand. The
 how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 
