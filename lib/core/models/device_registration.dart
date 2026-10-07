@@ -1,3 +1,4 @@
+import 'package:critalarm/core/models/account_pack.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'device_registration.freezed.dart';
@@ -54,6 +55,11 @@ abstract class DeviceRegistrationResponse with _$DeviceRegistrationResponse {
     // answers without it, because the caller already holds one.
     @JsonKey(name: 'account_join_token') String? accountJoinToken,
     @Default('free') String tier,
+    // api.md §4.2: the packs the account holds when the relay answered. An
+    // older relay leaves the field out, which reads as none.
+    @JsonKey(fromJson: accountPacksFromJson, toJson: accountPacksToJson)
+    @Default(<AccountPack>[])
+    List<AccountPack> packs,
   }) = _DeviceRegistrationResponse;
 
   factory DeviceRegistrationResponse.fromJson(Map<String, dynamic> json) =>

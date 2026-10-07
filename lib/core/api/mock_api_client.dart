@@ -1,6 +1,8 @@
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/api/packs_api.dart';
+import 'package:critalarm/core/models/account_pack.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -10,7 +12,7 @@ import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/core/models/topic_token.dart';
 
 /// In-memory implementation of [ApiClient] backed by [MockServer].
-class MockApiClient implements ApiClient {
+class MockApiClient implements ApiClient, PacksApi {
   MockApiClient([MockServer? server]) : server = server ?? MockServer();
 
   final MockServer server;
@@ -291,4 +293,10 @@ class MockApiClient implements ApiClient {
     server.registerDevice(registration, deviceToken: deviceToken);
     return server.refreshDevice(registration.deviceId, deviceToken);
   }
+
+  @override
+  Future<PacksAnswer> getPacks() async => server.getPacks();
+
+  @override
+  Future<PacksRefreshAnswer> refreshPacks() async => server.refreshPacks();
 }

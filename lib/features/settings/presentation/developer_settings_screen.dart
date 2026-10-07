@@ -9,6 +9,7 @@ import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/edge_effect.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
 import 'package:critalarm/features/settings/presentation/developer_setup_section.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -62,6 +63,20 @@ class DeveloperSettingsScreen extends StatelessWidget {
                           // The widgets lock and unlock with Pro.
                           getIt<WidgetSync>().rewrite();
                         },
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    ValueListenableBuilder<bool>(
+                      valueListenable: getIt<ProPackDevSwitch>(),
+                      builder: (context, isHeld, _) => AppToggleRow(
+                        title: LocaleKeys.settings_developer_pro_pack_title
+                            .tr(),
+                        subtitle: LocaleKeys.settings_developer_pro_pack_note
+                            .tr(),
+                        value: isHeld,
+                        onChanged: (val) => unawaited(
+                          getIt<ProPackDevSwitch>().setHeld(isHeld: val),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
