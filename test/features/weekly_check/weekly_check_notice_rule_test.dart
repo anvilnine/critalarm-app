@@ -140,6 +140,102 @@ void main() {
     });
   });
 
+  group('a check that arrived and whose receipt never landed', () {
+    // The phone holds the relay's old answer and one arrival after it. No
+    // newer answer: the receipt failed, or the phone has been offline since.
+    const arrivedAt = _seenAt + 6 * _day;
+    final deadline = WeeklyCheckNoticeRule.deadlineAfterArrival(arrivedAt);
+
+    bool at(int now, {WeeklyCheck? check, int? dismissedAt}) => _shows(
+      check ?? _check(),
+      now: now,
+      lastArrivalAt: arrivedAt,
+      dismissedAt: dismissedAt,
+    );
+
+    test('the window is the longest gap the contract allows plus a round', () {
+      expect(WeeklyCheckNoticeRule.longestGapBetweenRounds, 10 * _day);
+      expect(WeeklyCheckNoticeRule.roundOpenFor, _day);
+      expect(WeeklyCheckNoticeRule.missWindow, 11 * _day);
+      expect(deadline, arrivedAt + 22 * _day);
+    });
+
+    test('it ends the window it fell in', () {
+      // The relay's notice_after has passed, and this arrival answers it.
+      expect(at(_noticeAfter + 60), isFalse);
+    });
+
+    test('one more window of silence is one miss and shows nothing', () {
+      expect(at(arrivedAt + 11 * _day + 60), isFalse);
+      expect(at(deadline - 1), isFalse);
+    });
+
+    test('two windows of silence offline show the notice', () {
+      expect(at(deadline), isTrue);
+      expect(at(deadline + 90 * _day), isTrue);
+    });
+
+    test('it does not hide later misses behind an old count either', () {
+      final twice = _check(
+        state: WeeklyCheckState.missedRepeatedly,
+        misses: 2,
+        noticeAfter: _seenAt - 3600,
+      );
+      expect(at(arrivedAt + 60, check: twice), isFalse);
+      expect(at(deadline, check: twice), isTrue);
+    });
+
+    test('a newer arrival moves the deadline on', () {
+      const later = arrivedAt + 7 * _day;
+      expect(
+        _shows(_check(), now: deadline, lastArrivalAt: later),
+        isFalse,
+      );
+      expect(
+        _shows(
+          _check(),
+          now: WeeklyCheckNoticeRule.deadlineAfterArrival(later),
+          lastArrivalAt: later,
+        ),
+        isTrue,
+      );
+    });
+
+    test('closed before the arrival, the later run still shows', () {
+      expect(at(deadline, dismissedAt: _seenAt + 100), isTrue);
+    });
+
+    test('closed after the arrival, it stays gone', () {
+      expect(at(deadline + _day, dismissedAt: deadline + 60), isFalse);
+    });
+  });
+
+  group('an arrival the phone cannot place', () {
+    test('with none known the relay answer stands', () {
+      expect(_shows(_check(), now: _noticeAfter - 1), isFalse);
+      expect(_shows(_check(), now: _noticeAfter), isTrue);
+    });
+
+    test('a time in the future neither hides nor raises', () {
+      const absurd = 4000000000;
+      expect(
+        _shows(_check(), now: _noticeAfter - 1, lastArrivalAt: absurd),
+        isFalse,
+      );
+      expect(
+        _shows(_check(), now: _noticeAfter, lastArrivalAt: absurd),
+        isTrue,
+      );
+      final twice = _check(state: WeeklyCheckState.missedRepeatedly, misses: 2);
+      expect(_shows(twice, now: _seenAt + 60, lastArrivalAt: absurd), isTrue);
+    });
+
+    test('zero or less is no arrival', () {
+      expect(_shows(_check(), now: _noticeAfter, lastArrivalAt: 0), isTrue);
+      expect(_shows(_check(), now: _noticeAfter, lastArrivalAt: -5), isTrue);
+    });
+  });
+
   test('a check arriving after two misses takes the notice away', () {
     final check = _check(state: WeeklyCheckState.missedRepeatedly, misses: 2);
     expect(

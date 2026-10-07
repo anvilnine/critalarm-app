@@ -5,6 +5,31 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'weekly_check_fakes.dart';
 
+/// A store whose native record throws when read.
+class _UnreadableArrival implements WeeklyCheckStore {
+  _UnreadableArrival(this._inner);
+  final MemoryWeeklyCheckStore _inner;
+
+  @override
+  Future<WeeklyCheckArrival?> readArrival() async =>
+      throw const FormatException('not a record');
+
+  @override
+  KeptWeeklyCheck? readCheck() => _inner.readCheck();
+
+  @override
+  Future<void> writeCheck(KeptWeeklyCheck kept) => _inner.writeCheck(kept);
+
+  @override
+  int? readDismissedAt() => _inner.readDismissedAt();
+
+  @override
+  Future<void> writeDismissedAt(int at) => _inner.writeDismissedAt(at);
+
+  @override
+  Future<void> clear() => _inner.clear();
+}
+
 void main() {
   late FakeWeeklyCheckApi api;
   late MemoryWeeklyCheckStore store;
@@ -214,6 +239,60 @@ void main() {
       now = now.add(const Duration(days: 2));
       expect(await subject.shouldShowNotice(isSetupDone: true), isFalse);
       now = now.add(const Duration(days: 7));
+      expect(await subject.shouldShowNotice(isSetupDone: true), isTrue);
+    });
+
+    test('an arrival with no receipt answer counts from the arrival', () async {
+      final noticeAfter = seconds() + 8 * day;
+      api.check = WeeklyCheck(
+        enabled: true,
+        state: WeeklyCheckState.received,
+        noticeAfter: noticeAfter,
+      );
+      final subject = monitor();
+      await subject.refresh();
+      // Offline from here. A check arrives and its receipt never lands, as
+      // on a phone before its first unlock.
+      api.isDown = true;
+      now = now.add(const Duration(days: 6));
+      final arrivedAt = seconds();
+      store.arrival = WeeklyCheckArrival(receivedAt: arrivedAt);
+
+      final facts = (await subject.noticeFacts())!;
+      expect(facts.lastArrivalAt, arrivedAt);
+      // Not a receipt: the relay's notice_after is still the one held.
+      expect(facts.noticeAfter, noticeAfter);
+
+      now = now.add(const Duration(days: 3));
+      expect(await subject.shouldShowNotice(isSetupDone: true), isFalse);
+      now = now.add(const Duration(days: 18));
+      expect(await subject.shouldShowNotice(isSetupDone: true), isFalse);
+      now = now.add(const Duration(days: 1, seconds: 1));
+      expect(await subject.shouldShowNotice(isSetupDone: true), isTrue);
+    });
+
+    test('a record that cannot be read is no arrival known', () async {
+      final noticeAfter = seconds() + 8 * day;
+      api.check = WeeklyCheck(
+        enabled: true,
+        state: WeeklyCheckState.received,
+        noticeAfter: noticeAfter,
+      );
+      final subject = WeeklyCheckMonitor(
+        api: api,
+        store: _UnreadableArrival(store),
+        readDeviceId: () async => deviceId,
+        onPackRefused: (pack) async => refusedPacks.add(pack),
+        now: () => now,
+      );
+      await subject.refresh();
+      final facts = (await subject.noticeFacts())!;
+      expect(facts.lastArrivalAt, isNull);
+      expect(facts.noticeAfter, noticeAfter);
+      // It does not raise the notice.
+      expect(await subject.shouldShowNotice(isSetupDone: true), isFalse);
+      // And it does not hide the misses the relay's answer leads to.
+      now = now.add(const Duration(days: 8, seconds: 1));
       expect(await subject.shouldShowNotice(isSetupDone: true), isTrue);
     });
 

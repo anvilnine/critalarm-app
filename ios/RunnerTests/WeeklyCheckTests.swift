@@ -111,19 +111,26 @@ final class WeeklyCheckTests: XCTestCase {
     private func answer(
         _ push: CheckPush,
         device: RelayDevice?,
-        timeout: TimeInterval = 5
+        timeout: TimeInterval = 5,
+        bound: TimeInterval = 20,
+        plainHttpHosts: Set<String> = [],
+        calls: ((Bool) -> Void)? = nil
     ) -> Bool {
         let done = expectation(description: "answered")
         var sent = false
+        let session = stubbedSession(timeout: timeout)
         WeeklyCheckResponder.answer(
             push,
-            device: device,
-            urlSession: stubbedSession(timeout: timeout),
+            readDevice: { device },
+            makeURLSession: { session },
             defaults: defaults,
             delays: [0, 0.05, 0.05],
+            bound: bound,
+            plainHttpHosts: plainHttpHosts,
             now: { Date(timeIntervalSince1970: 1_759_800_004) }
         ) { ok in
             sent = ok
+            calls?(ok)
             done.fulfill()
         }
         wait(for: [done], timeout: 3 * timeout + 5)
@@ -410,6 +417,148 @@ final class WeeklyCheckTests: XCTestCase {
         XCTAssertEqual(json?["received_at"] as? Int, 800)
         XCTAssertEqual(json?["notice_after"] as? Int, 900)
         XCTAssertEqual(json?["notice_after_seen_at"] as? Int, 101)
+    }
+
+    // MARK: - Only https carries the token
+
+    func testAReceiptGoesToAnHttpsRelay() {
+        XCTAssertTrue(
+            WeeklyCheckResponder.maySend(to: URL(string: "https://relay.example.test")!, plainHttpHosts: [])
+        )
+    }
+
+    /// A release build has no host it may reach over http.
+    func testAReleaseBuildSendsNothingOverHttp() {
+        for relay in [
+            "http://relay.example.test", "http://127.0.0.1:8793", "http://localhost:8793",
+            "http://10.0.2.2:8792", "ftp://relay.example.test",
+        ] {
+            XCTAssertFalse(
+                WeeklyCheckResponder.maySend(to: URL(string: relay)!, plainHttpHosts: []), relay
+            )
+        }
+    }
+
+    func testADebugBuildMayReachThisMachineOverHttpAndNoOther() {
+        let local = WeeklyCheckResponder.plainHttpHosts
+        XCTAssertEqual(local, ["127.0.0.1", "localhost", "10.0.2.2"], "these tests run a debug build")
+        XCTAssertTrue(
+            WeeklyCheckResponder.maySend(to: URL(string: "http://127.0.0.1:8793/base")!, plainHttpHosts: local)
+        )
+        XCTAssertTrue(
+            WeeklyCheckResponder.maySend(to: URL(string: "http://LOCALHOST:8793")!, plainHttpHosts: local)
+        )
+        for relay in [
+            "http://relay.example.test", "http://127.0.0.1.example.test", "http://192.168.1.10:8793",
+        ] {
+            XCTAssertFalse(
+                WeeklyCheckResponder.maySend(to: URL(string: relay)!, plainHttpHosts: local), relay
+            )
+        }
+    }
+
+    func testWithAnHttpRelayTheArrivalIsRecordedAndNoReceiptIsSent() throws {
+        let plain = RelayDevice(
+            relay: URL(string: "http://relay.example.test")!, deviceId: "dev_3f2a", deviceToken: "dv_test"
+        )
+        let push = try XCTUnwrap(CheckPush(payload: checkPayload))
+        XCTAssertFalse(answer(push, device: plain))
+        XCTAssertTrue(CheckRelayStub.requests.isEmpty)
+        let kept = try record()
+        XCTAssertEqual(kept["received_at"] as? Int, 1_759_800_004)
+        XCTAssertNil(kept["notice_after"])
+    }
+
+    // MARK: - Off the caller's thread, one writer, one callback
+
+    /// With no credential, which is also what a phone before its first
+    /// unlock looks like, the record holds the arrival and nothing that
+    /// reads as a receipt.
+    func testWithNoCredentialTheRecordIsAnArrivalAndNotAReceipt() throws {
+        let push = try XCTUnwrap(CheckPush(payload: checkPayload))
+        XCTAssertFalse(answer(push, device: nil))
+        XCTAssertEqual(Set(try record().keys), ["received_at"])
+    }
+
+    func testNothingIsReadOrWrittenOnTheCallersThread() throws {
+        let push = try XCTUnwrap(CheckPush(payload: checkPayload))
+        let done = expectation(description: "answered")
+        var readOnMain: Bool?
+        var calledBackOnMain: Bool?
+        let session = stubbedSession()
+        WeeklyCheckResponder.answer(
+            push,
+            readDevice: {
+                readOnMain = Thread.isMainThread
+                return self.device
+            },
+            makeURLSession: { session },
+            defaults: defaults,
+            delays: [0]
+        ) { _ in
+            calledBackOnMain = Thread.isMainThread
+            done.fulfill()
+        }
+        // The call has returned and this thread has not been asked to wait
+        // for the record: it is written on the responder's own queue.
+        XCTAssertTrue(Thread.isMainThread)
+        wait(for: [done], timeout: 10)
+        XCTAssertEqual(readOnMain, false)
+        XCTAssertEqual(calledBackOnMain, false)
+    }
+
+    func testTheCallbackComesExactlyOnceWhenTheReceiptLands() throws {
+        let push = try XCTUnwrap(CheckPush(payload: checkPayload))
+        var calls = 0
+        XCTAssertTrue(answer(push, device: device, bound: 0.4) { _ in calls += 1 })
+        // Past the bound: it must not call back a second time.
+        let later = expectation(description: "past the bound")
+        WeeklyCheckResponder.queue.asyncAfter(deadline: .now() + 0.8) { later.fulfill() }
+        wait(for: [later], timeout: 5)
+        XCTAssertEqual(calls, 1)
+    }
+
+    func testTheCallbackComesOnceAtTheBoundWhenTheRelayHangs() throws {
+        CheckRelayStub.statuses = [nil]
+        let push = try XCTUnwrap(CheckPush(payload: checkPayload))
+        var calls = 0
+        let started = Date()
+        // Each try hangs for a second. The bound is what answers.
+        XCTAssertFalse(answer(push, device: device, timeout: 1, bound: 0.3) { _ in calls += 1 })
+        XCTAssertLessThan(Date().timeIntervalSince(started), 0.9)
+        // The tries run out by themselves afterwards and call back nobody.
+        let drained = expectation(description: "tries ran out")
+        WeeklyCheckResponder.queue.asyncAfter(deadline: .now() + 4.5) { drained.fulfill() }
+        wait(for: [drained], timeout: 10)
+        XCTAssertEqual(CheckRelayStub.requests.count, 3)
+        XCTAssertEqual(calls, 1)
+    }
+
+    func testManyChecksAtOnceLeaveOneWholeRecord() throws {
+        let push = try XCTUnwrap(CheckPush(payload: checkPayload))
+        let all = expectation(description: "all answered")
+        all.expectedFulfillmentCount = 40
+        let session = stubbedSession()
+        for index in 0 ..< 40 {
+            DispatchQueue.global().async {
+                WeeklyCheckResponder.answer(
+                    push,
+                    readDevice: { self.device },
+                    makeURLSession: { session },
+                    defaults: self.defaults,
+                    delays: [0],
+                    now: { Date(timeIntervalSince1970: TimeInterval(1_759_800_000 + index)) }
+                ) { _ in all.fulfill() }
+            }
+        }
+        wait(for: [all], timeout: 30)
+        let kept = try record()
+        // Every writer went through the one queue, so no field of one was
+        // lost to another: the arrival and the answer are both there.
+        XCTAssertNotNil(kept["received_at"] as? Int)
+        XCTAssertEqual(kept["notice_after"] as? Int, 1_761_096_000)
+        XCTAssertNotNil(kept["notice_after_seen_at"] as? Int)
+        XCTAssertEqual(kept["next_due_at"] as? Int, 1_760_404_800)
     }
 
     // MARK: - What a check leaves alone
