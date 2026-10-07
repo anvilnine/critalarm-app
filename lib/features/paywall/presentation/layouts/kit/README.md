@@ -34,11 +34,10 @@ the close cross on screen from the first frame, and pins the buy block at the bo
 
 A sheet-style layout puts `PaywallFrameBody` (same options, no full screen) in its own sheet.
 What it draws outside that body reads the kit too:
-
 - `PaywallOffer.of(context)`: `product`, `benefits` and `source`, the same ones the scope has.
 - A `PaywallFrameController`, made and disposed in your `State` and passed as `controller`:
-  `close()` does what the cross does (for a scrim tap), and `buyBlockHeight` listens to the buy
-  block's measured height. It is null for the first frame, then follows the buy state.
+  `close()` does what the cross does, and `buyBlockHeight` is the buy block's measured height
+  as a listenable. It is null for the first frame, then follows the buy state.
 - `PaywallLayoutScope.closeCrossInset` and `closeCrossSize` place the cross.
 
 ## The scope
