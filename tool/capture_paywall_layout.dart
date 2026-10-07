@@ -15,12 +15,28 @@
 //   --dart-define=STATE=<status>   a buy state: notOnSale, failed, checking,
 //                                  purchasing, done (default ready)
 //   --dart-define=BENEFITS=all     also list the benefits not in this build
+//   --dart-define=SOURCE=<wire>    what opened the paywall, as a PaywallSource
+//                                  wire name such as history (default direct)
 //   --dart-define=T=<seconds>      let motion run and capture that second,
-//                                  to look at an entrance half way
+//                                  to look at an entrance half way. The clock
+//                                  is stepped a frame at a time, so every
+//                                  frame up to that second is laid out and an
+//                                  overflow on the way fails the capture.
 //
 // A capture fails when a layout overflows, when the close cross or the button
 // is off screen, or when anything scrolls at the default text size (the legal
 // lines scroll once they pass three lines).
+//
+// To capture the previews instead of a layout, as the gallery shows them:
+//
+//   fvm flutter test tool/capture_paywall_layout.dart --dart-define=PREVIEWS=gallery
+//
+// It writes four PNGs: the limits section and the extras section, light and
+// dark, each preview on its resting frame. LAYOUT, PRODUCT, STATE, BENEFITS
+// and SOURCE are not read. Optional:
+//   --dart-define=T=<seconds>      let the previews play and capture that
+//                                  second. A full loop is 12 seconds.
+//   --dart-define=SIZES=38,48      the tile edges to draw (default 56,120,240)
 //
 // Developer tool testing mock setup.
 // ignore_for_file: invalid_use_of_visible_for_testing_member
@@ -33,7 +49,10 @@ import 'dart:ui' as ui;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/gallery/paywall_extras_previews_section.dart';
+import 'package:critalarm/design/gallery/paywall_limits_previews_section.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
@@ -52,6 +71,41 @@ const _out = String.fromEnvironment('OUT', defaultValue: 'build/paywall_shots');
 const _state = String.fromEnvironment('STATE');
 const _benefits = String.fromEnvironment('BENEFITS');
 const _t = String.fromEnvironment('T');
+const _sourceKey = String.fromEnvironment('SOURCE');
+const _previews = String.fromEnvironment('PREVIEWS');
+const _sizes = String.fromEnvironment('SIZES');
+
+/// One frame of the stepped clock.
+const _frame = Duration(milliseconds: 16);
+
+/// Runs the clock to [second], a frame at a time. One long pump would draw
+/// an implicit animation that starts on the last frame at its first value.
+Future<void> _stepTo(WidgetTester tester, double second) async {
+  final end = Duration(microseconds: (second * 1e6).round());
+  var at = Duration.zero;
+  while (at < end) {
+    final step = end - at < _frame ? end - at : _frame;
+    await tester.pump(step);
+    at += step;
+  }
+}
+
+Future<void> _save(
+  WidgetTester tester,
+  GlobalKey boundaryKey,
+  String name, {
+  required double pixelRatio,
+  required bool isGood,
+}) => tester.runAsync(() async {
+  final boundary =
+      boundaryKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+  final image = await boundary.toImage(pixelRatio: pixelRatio);
+  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+  final file = File('$_out/$name.png');
+  await file.parent.create(recursive: true);
+  await file.writeAsBytes(bytes!.buffer.asUint8List());
+  print('${isGood ? 'FIT ' : 'BAD '} ${file.path}');
+});
 
 /// The largest text size captured.
 const double _largest = 2;
@@ -96,6 +150,113 @@ Future<void> _loadFonts() async {
   ]);
 }
 
+/// The two gallery sections of previews, light and dark.
+void _capturePreviews(double? second) {
+  test('PREVIEWS and SIZES are known', () {
+    expect(_previews, 'gallery', reason: 'PREVIEWS takes gallery only.');
+    expect(
+      _sizes.split(',').every((s) => s.isEmpty || double.tryParse(s) != null),
+      isTrue,
+      reason: 'SIZES is a comma separated list of tile edges.',
+    );
+  });
+  if (_previews != 'gallery') return;
+
+  final sizes = [
+    for (final s in _sizes.split(',')) ?double.tryParse(s),
+  ];
+  final sections = <(String, Widget)>[
+    (
+      'limits',
+      sizes.isEmpty
+          ? const PaywallLimitsPreviewsSection()
+          : PaywallLimitsPreviewsSection(edges: sizes),
+    ),
+    (
+      'extras',
+      sizes.isEmpty
+          ? const PaywallExtrasPreviewsSection()
+          : PaywallExtrasPreviewsSection(edges: sizes),
+    ),
+  ];
+
+  for (final (sectionName, section) in sections) {
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      final name = [
+        'previews',
+        sectionName,
+        mode.name,
+        if (_sizes.isNotEmpty) _sizes.replaceAll(',', '-'),
+        if (second != null) 't$_t',
+      ].join('_');
+
+      testWidgets('capture $name', (tester) async {
+        final errors = <String>[];
+        final oldHandler = FlutterError.onError;
+        FlutterError.onError = (details) =>
+            errors.add(details.exceptionAsString());
+
+        const dpr = 2.0;
+        // Wide enough for the three default sizes on one row.
+        tester.view.physicalSize = const Size(520, 1400) * dpr;
+        tester.view.devicePixelRatio = dpr;
+        addTearDown(tester.view.reset);
+        final boundaryKey = GlobalKey();
+
+        try {
+          await tester.pumpWidget(
+            MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: buildLightTheme(),
+              darkTheme: buildDarkTheme(),
+              themeMode: mode,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(disableAnimations: second == null),
+                child: child!,
+              ),
+              home: Builder(
+                builder: (context) => Scaffold(
+                  backgroundColor: context.appColors.canvas,
+                  body: SingleChildScrollView(
+                    child: RepaintBoundary(
+                      key: boundaryKey,
+                      child: ColoredBox(
+                        color: context.appColors.canvas,
+                        child: Padding(
+                          padding: const EdgeInsets.all(Spacing.s5),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: section,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+          if (second != null) await _stepTo(tester, second);
+
+          await _save(
+            tester,
+            boundaryKey,
+            name,
+            pixelRatio: dpr,
+            isGood: errors.isEmpty,
+          );
+          expect(errors, isEmpty, reason: errors.join('\n'));
+        } finally {
+          FlutterError.onError = oldHandler;
+        }
+      });
+    }
+  }
+}
+
 void main() {
   final layout = PaywallLayoutId.fromKey(_layoutKey);
   final product = PaywallProduct.parse(_productKey);
@@ -110,9 +271,20 @@ void main() {
     await _loadFonts();
   });
 
+  if (_previews.isNotEmpty) {
+    _capturePreviews(second);
+    return;
+  }
+
+  final source = PaywallSource.parse(_sourceKey);
   test('LAYOUT names a layout', () {
     expect(layout, isNotNull, reason: 'No layout has the key "$_layoutKey".');
     expect(product.key, _productKey, reason: 'PRODUCT is hosted or pro.');
+    expect(
+      _sourceKey.isEmpty || source.wire == _sourceKey,
+      isTrue,
+      reason: 'No paywall source has the wire name "$_sourceKey".',
+    );
   });
   if (layout == null) return;
 
@@ -127,6 +299,7 @@ void main() {
           '${scale.toStringAsFixed(1)}x',
           if (_state.isNotEmpty) _state,
           if (_benefits.isNotEmpty) 'benefits-$_benefits',
+          if (_sourceKey.isNotEmpty) 'source-$_sourceKey',
           if (second != null) 't$_t',
         ].join('_');
 
@@ -150,6 +323,7 @@ void main() {
               .replace(
                 queryParameters: {
                   'product': product.key,
+                  if (_sourceKey.isNotEmpty) 'source': source.wire,
                   if (_state.isNotEmpty) 'state': _state,
                   if (_benefits.isNotEmpty) 'benefits': _benefits,
                 },
@@ -182,9 +356,7 @@ void main() {
               await tester.pump(const Duration(milliseconds: 300));
               await tester.pump(const Duration(milliseconds: 300));
             } else {
-              await tester.pump(
-                Duration(microseconds: (second * 1e6).round()),
-              );
+              await _stepTo(tester, second);
             }
 
             final screen = Offset.zero & size;
@@ -206,19 +378,13 @@ void main() {
                   if (s.position.maxScrollExtent > 0.5) _scrolls(s),
             ];
 
-            await tester.runAsync(() async {
-              final boundary =
-                  boundaryKey.currentContext!.findRenderObject()!
-                      as RenderRepaintBoundary;
-              final image = await boundary.toImage(pixelRatio: dpr);
-              final bytes = await image.toByteData(
-                format: ui.ImageByteFormat.png,
-              );
-              final file = File('$_out/$name.png');
-              await file.parent.create(recursive: true);
-              await file.writeAsBytes(bytes!.buffer.asUint8List());
-              print('${problems.isEmpty ? 'FIT ' : 'BAD '} ${file.path}');
-            });
+            await _save(
+              tester,
+              boundaryKey,
+              name,
+              pixelRatio: dpr,
+              isGood: problems.isEmpty,
+            );
 
             expect(problems, isEmpty, reason: problems.join('\n'));
           } finally {
