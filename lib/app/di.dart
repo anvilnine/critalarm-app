@@ -25,6 +25,7 @@ import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/api/packs_api.dart';
+import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/device/dev_bar_backing_switch.dart';
@@ -297,6 +298,11 @@ import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
+import 'package:critalarm/features/weekly_check/data/shared_prefs_weekly_check_store.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_store.dart';
+import 'package:critalarm/features/weekly_check/presentation/cubits/weekly_check_cubit.dart';
+import 'package:critalarm/features/weekly_check/presentation/cubits/weekly_check_rounds_cubit.dart';
 import 'package:critalarm/firebase_options.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -518,8 +524,42 @@ Future<void> configureDependencies({
               readDeviceToken: () async =>
                   (await getIt<DeviceIdentityStore>().readOrCreate())
                       .deviceToken,
+              readDeviceId: () async =>
+                  (await getIt<DeviceIdentityStore>().readOrCreate()).deviceId,
             ),
     )
+    // The weekly check routes live on the same client too.
+    ..registerLazySingleton<WeeklyCheckApi>(() {
+      final Object api = getIt<ApiClient>();
+      return api is WeeklyCheckApi ? api : const NoWeeklyCheckApi();
+    })
+    ..registerLazySingleton<WeeklyCheckStore>(
+      () => SharedPrefsWeeklyCheckStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<WeeklyCheckMonitor>(() {
+      final monitor = WeeklyCheckMonitor(
+        api: getIt<WeeklyCheckApi>(),
+        store: getIt<WeeklyCheckStore>(),
+        readDeviceId: () async =>
+            (await getIt<DeviceIdentityStore>().readOrCreate()).deviceId,
+        onPackRefused: (packId) => getIt<ProPackAccess>().relayRefused(packId),
+      );
+      // Gaining or losing the pack changes what the relay answers for the
+      // weekly check, so it is read again at once.
+      getIt<ProPackAccess>().stream.listen(
+        (_) => unawaited(monitor.refresh(force: true)),
+      );
+      return monitor;
+    })
+    ..registerLazySingleton<WeeklyCheckCubit>(
+      () => WeeklyCheckCubit(
+        monitor: getIt<WeeklyCheckMonitor>(),
+        readIsSelfHosted: () async =>
+            (await getIt<ApiSessionStore>().read())?.mode ==
+            ServerMode.selfhosted,
+      ),
+    )
+    ..registerFactory(() => WeeklyCheckRoundsCubit(getIt<WeeklyCheckApi>()))
     // The pack routes live on the same client. A client swapped in by a test
     // that does not speak them gets the one that always fails.
     ..registerLazySingleton<PacksApi>(() {
@@ -2134,6 +2174,14 @@ Future<void> configureDependencies({
         // Asked again when an incident runs out, and only then: the list
         // changes far more often than that.
         missedAlarmChanges: _expiredIncidentChanges(getIt<IncidentsCubit>()),
+        // Two weekly check rounds missed in a row, by the relay's count or
+        // by this phone's own clock. A card on Home, never a notification.
+        readWeeklyCheckStopped: () async =>
+            getIt<WeeklyCheckMonitor>().shouldShowNotice(
+              isSetupDone: await getIt<SetupGate>().isDone(),
+            ),
+        dismissWeeklyCheck: getIt<WeeklyCheckMonitor>().dismissNotice,
+        weeklyCheckChanges: getIt<WeeklyCheckMonitor>().changes,
         identityChanges: appAccountIdentityChanges,
         isSetupDone: () => getIt<SetupGate>().isDone(),
       ),

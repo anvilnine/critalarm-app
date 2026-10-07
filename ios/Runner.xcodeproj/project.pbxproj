@@ -82,6 +82,11 @@
 		A84A00000000000000000011 /* AppLinkRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A84A00000000000000000001 /* AppLinkRule.swift */; };
 		A84A00000000000000000012 /* AppLinkRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A84A00000000000000000001 /* AppLinkRule.swift */; };
 		A84A00000000000000000021 /* AppLinkRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A84A00000000000000000002 /* AppLinkRuleTests.swift */; };
+		A92A00000000000000000011 /* CheckPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92A00000000000000000001 /* CheckPush.swift */; };
+		A92A00000000000000000012 /* CheckPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92A00000000000000000001 /* CheckPush.swift */; };
+		A92A00000000000000000021 /* WeeklyCheckResponder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92A00000000000000000002 /* WeeklyCheckResponder.swift */; };
+		A92A00000000000000000022 /* WeeklyCheckResponder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92A00000000000000000002 /* WeeklyCheckResponder.swift */; };
+		A92A00000000000000000031 /* WeeklyCheckTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92A00000000000000000003 /* WeeklyCheckTests.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
 		7B23EC697E2DF0158A56C801 /* IncidentActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */; };
 		7F680D71222AB12712DD1B2B /* IncidentContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F706A2A4516835A56FA2F295 /* IncidentContent.swift */; };
@@ -263,6 +268,9 @@
 		7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		A84A00000000000000000001 /* AppLinkRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppLinkRule.swift; sourceTree = "<group>"; };
 		A84A00000000000000000002 /* AppLinkRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppLinkRuleTests.swift; sourceTree = "<group>"; };
+		A92A00000000000000000001 /* CheckPush.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CheckPush.swift; sourceTree = "<group>"; };
+		A92A00000000000000000002 /* WeeklyCheckResponder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyCheckResponder.swift; sourceTree = "<group>"; };
+		A92A00000000000000000003 /* WeeklyCheckTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyCheckTests.swift; sourceTree = "<group>"; };
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
 		78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationServiceTests.swift; sourceTree = "<group>"; };
 		798CCEC30ED822B6D363FB7E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -413,6 +421,7 @@
 				A31000000000000000000004 /* WidgetSnapshotTests.swift */,
 				A31000000000000000000005 /* WidgetLinkTests.swift */,
 				A84A00000000000000000002 /* AppLinkRuleTests.swift */,
+				A92A00000000000000000003 /* WeeklyCheckTests.swift */,
 				A32000000000000000000002 /* LiveCardTextTests.swift */,
 				A31000000000000000000108 /* WidgetDisplayTests.swift */,
 				A24A00000000000000000006 /* NativeAckSenderTests.swift */,
@@ -538,6 +547,8 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				A84A00000000000000000001 /* AppLinkRule.swift */,
+				A92A00000000000000000001 /* CheckPush.swift */,
+				A92A00000000000000000002 /* WeeklyCheckResponder.swift */,
 				A53A00000000000000000001 /* GaplessCaf.swift */,
 				A54A00000000000000000001 /* SoundPackBridge.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
@@ -952,6 +963,9 @@
 				A31000000000000000000054 /* WidgetLinkTests.swift in Sources */,
 				A84A00000000000000000012 /* AppLinkRule.swift in Sources */,
 				A84A00000000000000000021 /* AppLinkRuleTests.swift in Sources */,
+				A92A00000000000000000012 /* CheckPush.swift in Sources */,
+				A92A00000000000000000022 /* WeeklyCheckResponder.swift in Sources */,
+				A92A00000000000000000031 /* WeeklyCheckTests.swift in Sources */,
 				A31000000000000000000118 /* WidgetDisplayTests.swift in Sources */,
 				A28A00000000000000000221 /* RearmRuleTests.swift in Sources */,
 				A19B00000000000000000011 /* DebugStateRule.swift in Sources */,
@@ -1014,6 +1028,8 @@
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				A84A00000000000000000011 /* AppLinkRule.swift in Sources */,
+				A92A00000000000000000011 /* CheckPush.swift in Sources */,
+				A92A00000000000000000021 /* WeeklyCheckResponder.swift in Sources */,
 				CF2A62EB3F4FB523CF9334A7 /* AckQueueStore.swift in Sources */,
 				FC678E988BB03EB22189B384 /* NseCredentials.swift in Sources */,
 				C680A45AFEDCDE12BB4C0417 /* NtfyEmoji.swift in Sources */,

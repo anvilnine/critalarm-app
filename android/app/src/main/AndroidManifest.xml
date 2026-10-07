@@ -189,6 +189,12 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+        <!-- Sends the receipt for a weekly check. Only the system can bind
+             a job service. It shows nothing. -->
+        <service
+            android:name=".check.CheckReceiptJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
         <service
             android:name=".alarm.AlarmForegroundService"
             android:exported="false"

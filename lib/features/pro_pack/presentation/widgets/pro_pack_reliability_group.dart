@@ -19,15 +19,21 @@ typedef WeeklyCheckBodyBuilder = Widget Function(BuildContext context);
 ///
 /// Without the pack the row is locked: one line on what it does, and a tap
 /// opens the Pro sheet. With the pack it draws [weeklyCheckBody], which
-/// today is one line saying it is ready to switch on. Pass another builder
-/// to put the real check there. The face, the title and the badge stay.
+/// by default is one line saying it is ready to switch on. The weekly check
+/// passes its own builder and, through [unlockedFace], the face for the
+/// state the check is in. The title and the badge stay.
 class ProPackReliabilityGroup extends StatelessWidget {
   const ProPackReliabilityGroup({
     this.weeklyCheckBody = weeklyCheckReadyBody,
+    this.unlockedFace,
     super.key,
   });
 
   final WeeklyCheckBodyBuilder weeklyCheckBody;
+
+  /// The face of the unlocked row. Null keeps the one `weeklyCheckRowView`
+  /// picks. A locked row never uses it.
+  final FaceState? unlockedFace;
 
   @override
   Widget build(BuildContext context) {
@@ -35,14 +41,24 @@ class ProPackReliabilityGroup extends StatelessWidget {
     return StreamBuilder<bool>(
       stream: access.stream,
       initialData: access.isHeld,
-      builder: (context, held) => WeeklyCheckRow(
+      builder: (context, held) {
         // The stream only carries changes, so the value is read each build.
-        view: weeklyCheckRowView(isHeld: access.isHeld),
-        body: weeklyCheckBody,
-        onOpenPro: () => unawaited(
-          openProPackSheet(context, ProPackSheetSource.reliability),
-        ),
-      ),
+        final view = weeklyCheckRowView(isHeld: access.isHeld);
+        final face = unlockedFace;
+        return WeeklyCheckRow(
+          view: face == null || view.isLocked
+              ? view
+              : WeeklyCheckRowView(
+                  isLocked: false,
+                  face: face,
+                  lineKey: view.lineKey,
+                ),
+          body: weeklyCheckBody,
+          onOpenPro: () => unawaited(
+            openProPackSheet(context, ProPackSheetSource.reliability),
+          ),
+        );
+      },
     );
   }
 }

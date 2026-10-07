@@ -798,6 +798,44 @@ offer whose screen went away under it is not counted as declined.
   `SKIP_PAYWALL` build only (`dev.pro_pack`). In a mock build it also makes
   the mock relay hold the pack (`MockServer.grantedPacks`).
 
+**Weekly check.** Once a week the relay sends an enrolled phone a push that
+shows nothing, and the phone answers with a receipt (api.md §4.5 and §5.4).
+It needs the Pro pack. The code is in `lib/features/weekly_check/`, plus the
+native handlers.
+
+- Native code answers the push, with no Dart running. Android:
+  `CheckPush.fromData` is the first thing `PushRouter.route` asks, and a check
+  goes to `WeeklyCheckResponder`, which schedules `CheckReceiptJobService`.
+  iPhone: `CheckPush(payload:)` is the first thing the background handler in
+  `AppDelegate.swift` asks, and a check goes to `WeeklyCheckResponder`.
+  Everything after that line is the incident path, and a check never reaches
+  it.
+- The check shows nothing: no notification, no sound, no Live Activity, no
+  alarm. It writes one preference, `weekly_check.native`, which the incident
+  path never reads. A receipt gets three tries and is then dropped.
+- `check_id` is in the push and nowhere else. It is never logged and never
+  written to disk.
+- The receipt goes to the relay in the saved session with the device's own
+  `dv_`. Android reads `flutter.api_session`, `flutter.device_id` and
+  `flutter.device_token` from the app's preferences. iPhone reads
+  `flutter.api_session` from the app's preferences and the unsynced Keychain
+  item `app.critalarm.device_identity`.
+- `WeeklyCheckMonitor` reads `GET .../check` on launch and resume, once a
+  minute at most, and keeps the answer on the phone. The switch calls
+  `PUT .../check`. A `403` pack error goes to `ProPackAccess.relayRefused`.
+- A received check is never shown as proof that alarms work. On a phone
+  connected to a self-hosted server the row adds that it checks the relay to
+  this phone, not that server.
+- One missed round changes the row and nothing else. Home shows one notice
+  at two misses in a row, or when the phone's own clock passes
+  `notice_after` with no check received since (`WeeklyCheckNoticeRule`). It
+  is `InAppNoticeType.weeklyCheck`, goes through `SetupGate`, and after it is
+  closed it comes back only for a later run of misses.
+- The list of rounds is its own page (`AppRoute.weeklyCheckRounds`) and
+  needs no pack.
+- `MockServer.seedWeeklyCheck(state)` puts the mock relay in one state, and
+  `openWeeklyCheckRound()` returns the id a push would carry.
+
 **Changelogs.** Two files, both written with cider, never by hand. The
 how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 
