@@ -62,24 +62,21 @@ double sheetLitHeight({required bool isCompact, required bool isSwitch}) =>
     isSwitch ? (isCompact ? 92 : 98) : (isCompact ? 74 : 80);
 
 /// The height the sheet would like at the default text size: its own part
-/// at a comfortable size, over the buy block.
+/// at a comfortable size, over the buy block as the kit laid it out.
 double sheetWantedHeight({
   required bool isCompact,
-  required bool isHosted,
+  required double buyBlockHeight,
   required int benefitCount,
   required double bottomInset,
 }) {
   final others = math.max(0, benefitCount - 1);
-  // The buy block's height is the kit's to decide. These are what it
-  // measures today, and being wrong only moves one quiet row.
-  final buyBlock = isHosted ? 262.0 : 180.0;
   final handleAndHeadline = isCompact ? 72.0 : 92.0;
   final lead = others == 0
       ? (isCompact ? 150.0 : 190.0)
       : (isCompact ? 64.0 : 96.0);
   final rest = others == 0 ? 0.0 : (isCompact ? 82.0 : 96.0);
   final gaps = isCompact ? 14.0 : 20.0;
-  return handleAndHeadline + lead + rest + gaps + buyBlock + bottomInset;
+  return handleAndHeadline + lead + rest + gaps + buyBlockHeight + bottomInset;
 }
 
 /// Lays the screen out for one phone.
@@ -87,13 +84,15 @@ double sheetWantedHeight({
 /// It keeps as many quiet rows above the lit row as leave the sheet the
 /// height it wants, so a short sheet shows more of the screen behind and a
 /// long one less. The lit row is always above the sheet. Past the default
-/// text size the sheet needs every point, so no quiet row is kept.
+/// text size the sheet needs every point, so no quiet row is kept. None is
+/// kept either while [buyBlockHeight] is null: the buy block has not been
+/// laid out yet, which is the one frame before anything is on screen.
 SheetPlan sheetPlanFor({
   required double screenHeight,
   required double topInset,
   required double bottomInset,
   required bool isCompact,
-  required bool isHosted,
+  required double? buyBlockHeight,
   required bool isSwitch,
   required int benefitCount,
   double textScale = 1,
@@ -105,11 +104,11 @@ SheetPlan sheetPlanFor({
     rowsAbove: rows,
     litHeight: litHeight,
   );
-  if (textScale > 1.01) return plan(0);
+  if (textScale > 1.01 || buyBlockHeight == null) return plan(0);
 
   final wanted = sheetWantedHeight(
     isCompact: isCompact,
-    isHosted: isHosted,
+    buyBlockHeight: buyBlockHeight,
     benefitCount: benefitCount,
     bottomInset: bottomInset,
   );

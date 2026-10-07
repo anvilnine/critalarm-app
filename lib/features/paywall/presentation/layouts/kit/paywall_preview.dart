@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/app_icons_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/history_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/pushes_preview.dart';
@@ -48,11 +49,18 @@ class PaywallPreview extends StatelessWidget {
   const PaywallPreview(
     this.id, {
     this.size = const Size.square(56),
+    this.playFrom,
     super.key,
   });
 
   final PaywallPreviewId id;
   final Size size;
+
+  /// The second on the layout's clock at which this preview's own loop
+  /// starts at zero, for a layout that shows one benefit per scene. Until
+  /// then the preview holds the first frame of its loop. Null follows the
+  /// clock as it is: a preview that shares a loop waits for its turn.
+  final double? playFrom;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +69,10 @@ class PaywallPreview extends StatelessWidget {
       child: SizedBox.fromSize(
         size: size,
         child: builder != null
-            ? builder(context, size)
+            ? PaywallPreviewPlay(
+                playFrom: playFrom,
+                child: builder(context, size),
+              )
             : _PlaceholderTile(id: id, size: size),
       ),
     );

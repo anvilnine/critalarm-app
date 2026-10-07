@@ -122,6 +122,23 @@ Two more came later and are listed after them.
   `SliverFillRemaining` and keeps the pinned bar's room on its own child. The list then adds no
   room of its own after it, and the page scrolls only once the body is taller than the screen.
 
+## Glyphs and motion curves
+
+Both are in the gallery at `/gallery`, under the scales.
+
+- `AppGlyph(GlyphType.x)` draws every small icon from one set on a 24 unit grid
+  (`lib/design/components/glyphs.dart`). A screen that needs a glyph the set lacks adds it to the
+  set. It does not paint its own.
+- `GlyphType.lock` is a padlock, for something a plan keeps shut. Draw it small, beside the name
+  of the plan that opens it, as the locked chip on a paywall row does.
+- `AppCurves` has three curves (`lib/design/tokens/curves.dart`):
+  - `easeOut`, `cubic-bezier(.16,1,.3,1)`: anything entering the frame.
+  - `easeSpring`, `cubic-bezier(.34,1.2,.64,1)`: a hover, a press, a landing. It passes its end
+    by about 1 percent.
+  - `easeBack`, `cubic-bezier(.34,1.56,.64,1)`: a pop, something small that lands past its size
+    and settles. It passes its end by about 10 percent, so use it on a scale or a short hop and
+    never on a fade, a colour or a long slide.
+
 ## Faces in setup
 
 One face per setup screen: 80 px, in a `Hero` with the tag `onboarding-face`, at the same top inset
