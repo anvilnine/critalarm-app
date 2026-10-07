@@ -8,17 +8,19 @@ import 'package:critalarm/features/paywall/presentation/layouts/previews/preview
 import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart';
 import 'package:flutter/material.dart';
 
-// Weekly delivery check: four weeks, one square each. The newest is this
-// week: a push travels from the relay to the phone and that week gets its
-// tick. Small, it is a calendar page with a tick on the shared tile.
+// Weekly delivery check: a test push leaves the relay, crosses to the
+// phone and lands. The phone lights and takes a tick, and so does this
+// week in the row of four under it. Small, it is a calendar page with a
+// tick on the shared tile.
 //
-// A week is the unit because the check runs once a week. Seven squares
+// A week is the unit because the check runs once a week. Seven marks
 // read as the days of one week, which is not what happens.
 
 /// The loop is this many seconds long.
 const double weeklyCheckPreviewLoop = 9;
 
-/// The second a still preview rests on: the four weeks, the newest ticked.
+/// The second a still preview rests on: the push landed, the phone and
+/// all four weeks ticked.
 const double weeklyCheckPreviewRestAt = 7;
 
 /// Weeks in the strip, oldest first. The last one is this week, the one
@@ -30,16 +32,16 @@ enum WeeklyCheckPreviewPhase {
   /// The strip fades out, to play again.
   clearing,
 
-  /// The earlier weeks pass, one at a time.
+  /// The earlier weeks get their ticks, one at a time.
   weeksBefore,
 
   /// The push leaves the relay and reaches the phone.
   pushTravels,
 
-  /// This week gets its tick.
+  /// The phone lights with its tick, then this week gets one.
   tick,
 
-  /// The full strip holds.
+  /// The finished picture holds.
   hold,
 }
 
@@ -56,6 +58,9 @@ const weeklyCheckPreviewPhases = <(WeeklyCheckPreviewPhase, double)>[
 double weeklyCheckPreviewStart(WeeklyCheckPreviewPhase phase) =>
     weeklyCheckPreviewPhases.firstWhere((entry) => entry.$1 == phase).$2;
 
+/// How long after the phone lights this week's tick starts.
+const double weeklyCheckPreviewWeekAfter = 0.25;
+
 /// One frame of the weekly check preview.
 @immutable
 class WeeklyCheckPreviewFrame {
@@ -64,6 +69,7 @@ class WeeklyCheckPreviewFrame {
     required this.weeks,
     required this.push,
     required this.pushOpacity,
+    required this.lit,
     required this.tickFill,
     required this.tickDraw,
     required this.opacity,
@@ -71,9 +77,9 @@ class WeeklyCheckPreviewFrame {
 
   final WeeklyCheckPreviewPhase phase;
 
-  /// How far each week has passed, 0 to 1, oldest first. The last number
-  /// is how far this week is marked as the current one, which comes before
-  /// its tick.
+  /// How far each earlier week's tick is on, 0 to 1, oldest first. The
+  /// last number is how far this week is marked as the current one, which
+  /// comes before its tick.
   final List<double> weeks;
 
   /// How far the push has travelled from the relay to the phone, 0 to 1.
@@ -82,13 +88,16 @@ class WeeklyCheckPreviewFrame {
   /// 0 whenever no push is on its way.
   final double pushOpacity;
 
-  /// How far this week's mark has filled, 0 to 1.
+  /// How far the phone has lit after the push landed, 0 to 1.
+  final double lit;
+
+  /// How far this week's mark has filled, 0 to 1. It follows the phone.
   final double tickFill;
 
   /// How much of the tick is drawn, 0 to 1.
   final double tickDraw;
 
-  /// How solid the marks are. It drops to 0 once, as the strip fades out,
+  /// How solid the marks are. It drops to 0 once, as the picture clears,
   /// and is 1 for everything after.
   final double opacity;
 }
@@ -112,6 +121,7 @@ WeeklyCheckPreviewFrame weeklyCheckPreviewFrameAt(double t) {
       weeks: List.filled(weeklyCheckPreviewWeeks, 1),
       push: 1,
       pushOpacity: 0,
+      lit: 1,
       tickFill: 1,
       tickDraw: 1,
       opacity: 1 - phase(local, 0, 0.35),
@@ -125,7 +135,10 @@ WeeklyCheckPreviewFrame weeklyCheckPreviewFrameAt(double t) {
   double pass(double start) =>
       AppCurves.easeOut.transform(phase(local, start, start + 0.3));
 
-  final tick = tickProgress(phase(local, lands, lands + 0.6));
+  // The phone answers first, and the week is marked a beat after it.
+  final tick = tickProgress(
+    phase(local, lands + weeklyCheckPreviewWeekAfter, lands + 0.85),
+  );
   return WeeklyCheckPreviewFrame(
     phase: current,
     weeks: [
@@ -138,21 +151,23 @@ WeeklyCheckPreviewFrame weeklyCheckPreviewFrameAt(double t) {
     pushOpacity:
         phase(local, leaves, leaves + 0.15) *
         (1 - phase(local, lands - 0.15, lands + 0.05)),
+    lit: phase(local, lands, lands + 0.3),
     tickFill: tick.fill,
     tickDraw: tick.draw,
     opacity: 1,
   );
 }
 
-/// Four weeks. A push travels to the phone in the newest one and that
-/// week gets its tick.
+/// A test push crosses from the relay to the phone, the phone lights with
+/// a tick, and this week is ticked in the row of four.
 ///
-/// The check shows nothing on the phone, so the drawn phone stays blank and
-/// nothing here rings, pulses or shakes. The tick is ink on the strip, not
-/// on the phone: it marks a week, and says nothing about an alarm.
+/// The real check shows nothing on the phone and makes no sound, so the
+/// drawn one only lights and takes a tick: nothing rings, pulses or
+/// shakes, and nothing is red. The tick says a push reached this phone
+/// this week. It says nothing about an alarm.
 ///
 /// Small, it is a calendar mark on the shared tile. As a scene it is the
-/// relay, the push on its way to the phone, and the strip.
+/// relay, the push on its way, the phone, and the four weeks.
 class WeeklyCheckPreview extends StatelessWidget {
   const WeeklyCheckPreview({required this.size, super.key});
 
@@ -175,6 +190,9 @@ class WeeklyCheckPreview extends StatelessWidget {
             frame: weeklyCheckPreviewFrameAt(t),
             ink: colors.ink,
             onInk: colors.cream,
+            paper: colors.surface,
+            warm: colors.yellow,
+            onWarm: colors.inkFixed,
           ),
         ),
       ),
@@ -187,151 +205,235 @@ class _WeeklyCheckPainter extends CustomPainter {
     required this.frame,
     required this.ink,
     required this.onInk,
+    required this.paper,
+    required this.warm,
+    required this.onWarm,
   });
 
   final WeeklyCheckPreviewFrame frame;
 
-  /// Every line, the push and the tick's disc.
+  /// Every line and every tick's disc.
   final Color ink;
 
-  /// The tick drawn on its disc.
+  /// A tick drawn on its disc.
   final Color onInk;
+
+  /// The panel of weeks, the relay and the phone's screen before it lights.
+  final Color paper;
+
+  /// The push, the lit screen and the edge of this week's mark.
+  final Color warm;
+
+  /// Lines on [warm], which is the same in both themes.
+  final Color onWarm;
 
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.shortestSide;
-    final pad = u * 0.12;
-    final width = math.min(size.width - pad * 2, u * 1.7);
+    final pad = u * 0.09;
+    final width = math.min(size.width - pad * 2, u * 1.5);
     final left = (size.width - width) / 2;
+    final stroke = math.max(1.5, u * 0.024);
+    final marks = frame.opacity;
 
-    // Four squares in the middle, the same size at every width.
-    final cell = u * 0.13;
-    final stripY = size.height - pad - cell * 0.75;
-    _paintStrip(canvas, Offset(size.width / 2, stripY), cell, cell * 0.42);
-    // The relay and the phone share the room above the strip.
+    // The four weeks, on a panel along the foot of the card.
+    final panel = Rect.fromLTWH(
+      left,
+      size.height - pad - u * 0.25,
+      width,
+      u * 0.25,
+    );
+    _paintWeeks(canvas, panel, u);
+
+    // The relay and the phone share the room above it.
     final top = pad;
-    final bottom = stripY - cell * 1.35;
+    final bottom = panel.top - u * 0.06;
     final midY = (top + bottom) / 2;
-    final stroke = math.max(1.5, u * 0.022);
     final line = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round
       ..color = ink;
 
-    final phoneH = math.min(bottom - top, u * 0.5);
-    final phoneW = phoneH * 0.56;
-    final phone = Rect.fromCenter(
-      center: Offset(left + width - phoneW / 2 - stroke, midY),
-      width: phoneW,
-      height: phoneH,
-    );
-    canvas
-      ..drawRRect(
-        RRect.fromRectAndRadius(phone, Radius.circular(phoneW * 0.24)),
-        line,
-      )
-      // The bar at the foot of the screen. The screen itself stays blank.
-      ..drawLine(
-        Offset(phone.center.dx - phoneW * 0.16, phone.bottom - phoneH * 0.1),
-        Offset(phone.center.dx + phoneW * 0.16, phone.bottom - phoneH * 0.1),
-        line..strokeCap = StrokeCap.round,
-      );
+    final phoneH = math.min(bottom - top, u * 0.52);
+    final phoneW = phoneH * 0.58;
+    final phoneAt = Offset(left + width - phoneW / 2 - u * 0.05, midY);
 
     // The relay: two stacked units, each with its light.
-    final unitW = u * 0.2;
-    final unitH = u * 0.085;
-    final unitGap = u * 0.03;
-    final relayLeft = left + stroke;
+    final unitW = u * 0.25;
+    final unitH = u * 0.11;
+    final unitGap = u * 0.035;
+    final relayLeft = left + stroke / 2;
     for (final dy in [-(unitH + unitGap) / 2, (unitH + unitGap) / 2]) {
-      final unit = Rect.fromCenter(
-        center: Offset(relayLeft + unitW / 2, midY + dy),
-        width: unitW,
-        height: unitH,
+      final unit = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(relayLeft + unitW / 2, midY + dy),
+          width: unitW,
+          height: unitH,
+        ),
+        Radius.circular(unitH * 0.34),
       );
       canvas
-        ..drawRRect(
-          RRect.fromRectAndRadius(unit, Radius.circular(unitH * 0.34)),
-          line,
-        )
+        ..drawRRect(unit, Paint()..color = paper)
+        ..drawRRect(unit, line)
         ..drawCircle(
           Offset(unit.left + unitH * 0.5, unit.center.dy),
-          stroke * 0.8,
+          stroke * 0.85,
           Paint()..color = ink,
+        )
+        ..drawLine(
+          Offset(unit.right - unitW * 0.38, unit.center.dy),
+          Offset(unit.right - unitH * 0.45, unit.center.dy),
+          line,
         );
     }
 
-    // The way between them, as a row of dots.
-    final from = Offset(relayLeft + unitW + u * 0.06, midY);
-    final to = Offset(phone.left - u * 0.06, midY);
+    // The way between them, as a row of dots. The ones the push has
+    // passed stay dark, so a finished check leaves the whole way drawn.
+    final from = Offset(relayLeft + unitW + u * 0.055, midY);
+    final to = Offset(phoneAt.dx - phoneW / 2 - u * 0.055, midY);
     final dots = math.max(2, ((to.dx - from.dx) / (u * 0.07)).floor());
+    final reach = frame.push * 1.25 * marks;
     for (var i = 0; i <= dots; i++) {
+      final passed = phase(reach, i / dots, i / dots + 0.08);
       canvas.drawCircle(
         Offset.lerp(from, to, i / dots)!,
-        stroke * 0.55,
-        Paint()..color = ink.withValues(alpha: 0.28),
+        stroke * (0.55 + 0.2 * passed),
+        Paint()..color = ink.withValues(alpha: 0.26 + 0.64 * passed),
+      );
+    }
+
+    // The phone gives a little as the push lands, and stays upright.
+    final lit = frame.lit * marks;
+    final give = 1 + 0.05 * math.sin(math.pi * frame.lit);
+    final phone = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: phoneAt,
+        width: phoneW * give,
+        height: phoneH * give,
+      ),
+      Radius.circular(phoneW * 0.24),
+    );
+    canvas
+      ..drawRRect(
+        phone,
+        Paint()
+          ..color = Color.lerp(
+            paper,
+            warm,
+            AppCurves.easeOut.transform(lit),
+          )!,
+      )
+      ..drawRRect(phone, line)
+      // The bar at the foot of the screen.
+      ..drawLine(
+        Offset(phoneAt.dx - phoneW * 0.15, phone.bottom - phoneH * 0.09),
+        Offset(phoneAt.dx + phoneW * 0.15, phone.bottom - phoneH * 0.09),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke
+          ..strokeCap = StrokeCap.round
+          ..color = Color.lerp(ink, onWarm, lit)!,
+      );
+    if (lit > 0) {
+      _paintTick(
+        canvas,
+        phoneAt.translate(0, -phoneH * 0.04),
+        phoneW * 0.3 * AppCurves.easeBack.transform(frame.lit),
+        disc: onWarm.withValues(alpha: marks),
+        tick: warm.withValues(alpha: marks),
+        draw: 1,
       );
     }
 
     // The push ends inside the phone, where it fades.
     if (frame.pushOpacity <= 0) return;
-    canvas.drawCircle(
-      Offset.lerp(Offset(from.dx - u * 0.04, midY), phone.center, frame.push)!,
-      u * 0.04,
-      Paint()..color = ink.withValues(alpha: frame.pushOpacity),
-    );
+    final at = Offset.lerp(
+      Offset(from.dx - u * 0.04, midY),
+      phoneAt,
+      frame.push,
+    )!;
+    canvas
+      ..drawCircle(
+        at,
+        u * 0.05,
+        Paint()..color = warm.withValues(alpha: frame.pushOpacity),
+      )
+      ..drawCircle(
+        at,
+        u * 0.05,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke
+          ..color = ink.withValues(alpha: frame.pushOpacity),
+      );
   }
 
-  /// The four weeks, centred on [centre]. A week that has passed is
-  /// filled, and the newest is a round mark that takes the tick.
-  void _paintStrip(Canvas canvas, Offset centre, double cell, double gap) {
+  /// The four weeks, spread across [panel]. A week that went through has
+  /// its tick. This week has a warm edge, and takes its tick last.
+  void _paintWeeks(Canvas canvas, Rect panel, double u) {
     const weeks = weeklyCheckPreviewWeeks;
-    final width = cell * weeks + gap * (weeks - 1);
-    final corner = Radius.circular(cell * 0.32);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(panel, Radius.circular(panel.height * 0.36)),
+      Paint()..color = paper,
+    );
+    final radius = panel.height * 0.29;
+    final step = panel.width / weeks;
     for (var week = 0; week < weeks; week++) {
-      final at = Offset(
-        centre.dx - width / 2 + cell / 2 + week * (cell + gap),
-        centre.dy,
-      );
+      final at = Offset(panel.left + step * (week + 0.5), panel.center.dy);
       final isThisWeek = week == weeks - 1;
-      final passed = frame.weeks[week] * frame.opacity;
-      // This week is a round mark, a size up from the weeks before it.
-      final edge = isThisWeek ? cell * 1.3 : cell;
-      final box = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: at, width: edge, height: edge),
-        isThisWeek ? Radius.circular(edge / 2) : corner,
-      );
+      final amount = frame.weeks[week] * frame.opacity;
 
-      // The empty week is always there, so the strip reads as four.
-      canvas.drawRRect(box, Paint()..color = ink.withValues(alpha: 0.1));
+      // The empty week is always there, so the row reads as four.
+      canvas.drawCircle(
+        at,
+        radius,
+        Paint()..color = ink.withValues(alpha: 0.1),
+      );
       if (!isThisWeek) {
-        canvas.drawRRect(
-          box,
-          Paint()..color = ink.withValues(alpha: 0.26 * passed),
+        _paintTick(
+          canvas,
+          at,
+          radius * amount,
+          disc: ink.withValues(alpha: frame.opacity),
+          tick: onInk.withValues(alpha: frame.opacity),
+          draw: phase(frame.weeks[week], 0.4, 1),
         );
         continue;
       }
-      // The mark gets an edge while the push is on its way.
-      canvas.drawRRect(
-        box.deflate(cell * 0.05),
+      // This week gets its edge just before the push leaves.
+      canvas.drawCircle(
+        at,
+        radius + u * 0.014,
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = math.max(1, cell * 0.1)
-          ..color = ink.withValues(alpha: 0.45 * passed),
+          ..strokeWidth = math.max(1.5, u * 0.026)
+          ..color = warm.withValues(alpha: amount),
       );
-      _paintTick(canvas, at, edge / 2);
+      _paintTick(
+        canvas,
+        at,
+        radius * frame.tickFill,
+        disc: ink.withValues(alpha: frame.opacity),
+        tick: onInk.withValues(alpha: frame.opacity),
+        draw: frame.tickDraw,
+      );
     }
   }
 
-  /// The disc that fills, then the tick drawn on it.
-  void _paintTick(Canvas canvas, Offset centre, double radius) {
-    if (frame.tickFill <= 0) return;
-    canvas.drawCircle(
-      centre,
-      radius * frame.tickFill,
-      Paint()..color = ink.withValues(alpha: frame.opacity),
-    );
-    if (frame.tickDraw <= 0) return;
+  /// A filled disc of [radius] with [draw] of the tick's stroke on it.
+  void _paintTick(
+    Canvas canvas,
+    Offset centre,
+    double radius, {
+    required Color disc,
+    required Color tick,
+    required double draw,
+  }) {
+    if (radius <= 0) return;
+    canvas.drawCircle(centre, radius, Paint()..color = disc);
+    if (draw <= 0) return;
 
     // The design system's tick, on a 24 unit square.
     final unit = radius * 2 * 0.62 / 24;
@@ -342,17 +444,22 @@ class _WeeklyCheckPainter extends CustomPainter {
       ..lineTo(origin.dx + 20 * unit, origin.dy + 6 * unit);
     final metric = whole.computeMetrics().first;
     canvas.drawPath(
-      metric.extractPath(0, metric.length * frame.tickDraw),
+      metric.extractPath(0, metric.length * draw),
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = math.max(1.2, radius * 0.24)
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..color = onInk.withValues(alpha: frame.opacity),
+        ..color = tick,
     );
   }
 
   @override
   bool shouldRepaint(_WeeklyCheckPainter old) =>
-      frame != old.frame || ink != old.ink || onInk != old.onInk;
+      frame != old.frame ||
+      ink != old.ink ||
+      onInk != old.onInk ||
+      paper != old.paper ||
+      warm != old.warm ||
+      onWarm != old.onWarm;
 }

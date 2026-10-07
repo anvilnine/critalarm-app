@@ -154,14 +154,34 @@ void main() {
       );
     });
 
-    test('rests on the full strip with its tick, and no push in the air', () {
+    test('rests with the phone lit, every week ticked, no push in the air', () {
       final rest = weeklyCheckPreviewFrameAt(weeklyCheckPreviewRestAt);
       expect(rest.phase, WeeklyCheckPreviewPhase.hold);
       expect(rest.weeks, List<double>.filled(weeklyCheckPreviewWeeks, 1));
+      expect(rest.lit, 1);
       expect(rest.tickFill, 1);
       expect(rest.tickDraw, 1);
       expect(rest.pushOpacity, 0);
       expect(rest.opacity, 1);
+    });
+
+    test('the phone lights when the push lands, then the week is ticked', () {
+      final lands = weeklyCheckPreviewStart(WeeklyCheckPreviewPhase.tick);
+      for (final t in _seconds(weeklyCheckPreviewLoop)) {
+        final frame = weeklyCheckPreviewFrameAt(t);
+        if (frame.phase == WeeklyCheckPreviewPhase.clearing) continue;
+        if (t < lands) expect(frame.lit, 0, reason: 'lit early at $t');
+        if (frame.tickFill > 0) {
+          expect(frame.lit, greaterThan(0), reason: 'week first at $t');
+        }
+      }
+      final after = weeklyCheckPreviewFrameAt(
+        lands + weeklyCheckPreviewWeekAfter,
+      );
+      expect(after.lit, greaterThan(0.8));
+      expect(after.tickFill, 0);
+      final hold = weeklyCheckPreviewStart(WeeklyCheckPreviewPhase.hold);
+      expect(weeklyCheckPreviewFrameAt(hold).tickDraw, 1);
     });
 
     test('the weeks pass oldest first, and this week last', () {

@@ -188,7 +188,8 @@ const Map<PaywallPreviewId, HeroScript> _scripts = {
       HeroBeat(2.35, HeroFace.relieved, isReaction: true),
     ],
   ),
-  // A push leaves the relay, reaches the phone, and this week is ticked.
+  // A test push leaves the relay and lands on the phone, which lights with
+  // a tick. Then this week is ticked.
   PaywallPreviewId.weeklyCheck: HeroScript(
     seconds: 2.6,
     lead: 1.6,
@@ -228,7 +229,8 @@ const Map<PaywallPreviewId, HeroScript> _scripts = {
 /// The one benefit of a product that has only one: its turn is the
 /// preview's whole loop, so the picture never jumps.
 const Map<PaywallPreviewId, HeroScript> _soloScripts = {
-  // Earlier weeks pass, a push travels to the phone, this week is ticked.
+  // Earlier weeks are ticked, a test push lands on the phone, this week is
+  // ticked.
   PaywallPreviewId.weeklyCheck: HeroScript(
     seconds: 9,
     beats: [
