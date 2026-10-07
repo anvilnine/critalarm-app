@@ -1,5 +1,7 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
+import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
+import 'package:critalarm/features/topics/domain/setup_finish_glow.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -125,10 +127,7 @@ Future<void> finishOnboardingStepOn(
 }) async {
   Uri location() => router.routerDelegate.currentConfiguration.uri;
   final locationBefore = location();
-  final next = await getIt<OnboardingFlowEngine>().finishStep(
-    stepId,
-    isReplay: isReplay,
-  );
+  final next = await finishOnboardingStepInEngine(stepId, isReplay: isReplay);
   final move = onboardingMoveFor(
     next,
     isReplay: isReplay,
@@ -149,6 +148,33 @@ Future<void> finishOnboardingStepOn(
       }
       router.go(next);
   }
+}
+
+/// Finishes [stepId] in the flow engine and navigates nowhere.
+///
+/// When that was the last step of a real run, setup is over and Home opens
+/// next. Home is told which topic setup made, so it can point at it once
+/// (`setupFinishSignal`). The signal is held in memory only. A replay, a
+/// screen opened after setup, and a run that made no topic raise nothing.
+Future<OnboardingDestination> finishOnboardingStepInEngine(
+  String stepId, {
+  required bool isReplay,
+}) async {
+  // Read before the engine answers: completing setup forgets the name.
+  final firstTopicName = getIt.isRegistered<FirstTopicHandoff>()
+      ? getIt<FirstTopicHandoff>().savedTopicName
+      : null;
+  final next = await getIt<OnboardingFlowEngine>().finishStep(
+    stepId,
+    isReplay: isReplay,
+  );
+  final glowTopic = setupGlowTopicFor(
+    endedSetup: next.isHome,
+    isReplay: isReplay,
+    firstTopicName: firstTopicName,
+  );
+  if (glowTopic != null) setupFinishSignal.raise(glowTopic);
+  return next;
 }
 
 /// Back from the step [stepId]: opens the step the flow engine says Back

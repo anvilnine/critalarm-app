@@ -6,6 +6,7 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_facts.
 import 'package:critalarm/features/onboarding/presentation/cubits/notification_permissions_state.dart';
 import 'package:critalarm/features/onboarding/presentation/hook_up_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
+import 'package:critalarm/features/onboarding/presentation/offer_step_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_connect_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
@@ -185,6 +186,21 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       // of this phone only, so the shell does not stand in for it.
       handlesMissingServer: true,
       screen: (context, state) => const RealRingScreen(),
+    ),
+    OnboardingStepEntry(
+      id: OnboardingStepId.offer,
+      route: '/onboarding/offer',
+      routeName: 'onboardingOffer',
+      // The paywall layout covers the whole screen. The canvas under it
+      // only has to differ from the steps on either side.
+      ambientStep: OnboardingAmbientStep.firstTopic,
+      hasTopBar: false,
+      // The stores sell on a phone only.
+      isAvailable: _onMobileOnly,
+      // Switched off, or with nothing to offer this user, it counts as
+      // done and a run never opens it.
+      isSatisfied: (facts) => facts.hasNoOfferToShow(),
+      screen: (context, state) => const OfferStepScreen(),
     ),
     OnboardingStepEntry(
       id: OnboardingStepId.legacyTest,

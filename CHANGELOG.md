@@ -26,6 +26,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - A permission you were never asked for can be allowed from Will it wake me? without opening system settings.
 - On a phone that uses your own server, the Pro row and the Pro sheet say before you pay that the weekly check covers the push relay to the phone, and says nothing about your server.
 - Setup shows where you are with three bars, and Back takes you one step back until your first topic is made
+- Setup now shows your first topic landing on the Topics screen, then points at it once when setup ends.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.

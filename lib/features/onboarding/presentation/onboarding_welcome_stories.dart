@@ -984,8 +984,11 @@ class _CurlHeroState extends _ClockState<_CurlHero> {
   ];
 
   @override
+  double get loopTakes => 11;
+
+  @override
   Widget build(BuildContext context) {
-    final t = this.t % 11;
+    final t = this.t % loopTakes;
     final seconds = (t - 2.5).clamp(0, 99).floor() + 1;
 
     return Opacity(
@@ -1220,8 +1223,11 @@ class _AndroidHeroState extends _ClockState<_AndroidHero> {
   List<TimedCue> buildCues() => ringCues(from: _ringFrom, to: _ringTo);
 
   @override
+  double get loopTakes => 10;
+
+  @override
   Widget build(BuildContext context) {
-    final t = this.t % 10;
+    final t = this.t % loopTakes;
     final seconds = (t - 1).clamp(0, 99).floor() + 1;
 
     return Opacity(
@@ -1300,8 +1306,11 @@ class _AndroidCurlHeroState extends _ClockState<_AndroidCurlHero> {
   ];
 
   @override
+  double get loopTakes => 11.5;
+
+  @override
   Widget build(BuildContext context) {
-    final t = this.t % 11.5;
+    final t = this.t % loopTakes;
     final seconds = (t - 2.4).clamp(0, 99).floor() + 1;
 
     return Opacity(
@@ -1379,8 +1388,11 @@ class _LadderHeroState extends _ClockState<_LadderHero> {
   List<TimedCue> buildCues() => ladderCues();
 
   @override
+  double get loopTakes => 10;
+
+  @override
   Widget build(BuildContext context) {
-    final t = this.t % 10;
+    final t = this.t % loopTakes;
     final colors = context.appColors;
     final acked = t > ladderRingEndsAt;
     final ringing = t > ladderRingStartsAt && !acked;
@@ -1585,8 +1597,11 @@ class _PipelineHeroState extends _ClockState<_PipelineHero> {
   List<TimedCue> buildCues() => ringCues(from: _ringFrom, to: _ringTo);
 
   @override
+  double get loopTakes => 10;
+
+  @override
   Widget build(BuildContext context) {
-    final t = this.t % 10;
+    final t = this.t % loopTakes;
     final colors = context.appColors;
 
     final server = t < 0.4

@@ -36,8 +36,12 @@ const double _faceFloor = 32;
 /// when the words do not fit beside it. Once the text is larger the words
 /// come first, so the animation keeps no room of its own and takes what is
 /// left.
-double introHeroMinHeightFor(double textScale) =>
-    textScale <= 1 ? introHeroDefaultMinHeight : 0;
+///
+/// [roomAbove] is extra room the page keeps clear above the animation, for
+/// the setup tracker. It comes out of the animation's own room, so the page
+/// is no taller with the tracker than without it.
+double introHeroMinHeightFor(double textScale, {double roomAbove = 0}) =>
+    textScale <= 1 ? introHeroDefaultMinHeight - roomAbove : 0;
 
 /// The room an intro animation keeps at the default text size.
 const double introHeroDefaultMinHeight = 380;

@@ -410,7 +410,7 @@ class _OnboardingShellState extends State<OnboardingShell>
         before != null &&
         after != null &&
         after.position > before.position) {
-      AppHaptics.selection();
+      AppHaptics.tick();
     }
     _playEnter(isBack: isBack, reduceMotion: reduceMotion);
     unawaited(_refreshStanding());

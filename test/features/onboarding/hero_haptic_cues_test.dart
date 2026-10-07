@@ -84,13 +84,36 @@ void main() {
       expect(clock.advanceTo(1.58), [HeroCue.typeTick]);
     });
 
-    test('a schedule has nothing for a second pass', () {
+    test('a story that does not loop plays once', () {
       final clock = HeroCueClock(ladderCues())..advanceTo(10);
       final played = <HeroCue>[];
       for (var frame = 1; frame <= 600; frame++) {
         played.addAll(clock.advanceTo(10 + frame / 60));
       }
       expect(played, isEmpty);
+    });
+
+    test('a story that loops plays the same cues on every pass', () {
+      final clock = HeroCueClock(ladderCues(), loopsEvery: 10);
+      List<HeroCue> pass(int number) => [
+        for (var frame = 1; frame <= 600; frame++)
+          ...clock.advanceTo(number * 10 + frame / 60),
+      ];
+      final first = pass(0);
+      expect(first.where((cue) => cue == HeroCue.cardLands), hasLength(3));
+      expect(
+        first.where((cue) => cue == HeroCue.ringPulse),
+        hasLength(ringPulseMax),
+      );
+      expect(pass(1), first);
+      expect(pass(2), first);
+    });
+
+    test('a hero hidden across a loop plays nothing it missed', () {
+      final clock = HeroCueClock(schedule, loopsEvery: 10)..advanceTo(0.5);
+      // Hidden from 0.5 on the first pass to 1.95 on the second.
+      expect(clock.advanceTo(11.95), isEmpty);
+      expect(clock.advanceTo(12.01), [HeroCue.ringPulse]);
     });
   });
 
@@ -151,6 +174,26 @@ void main() {
       );
     });
 
+    test('a terminal with its own timing ticks on that timing', () {
+      final cues = typingCues(
+        length: 130,
+        isAndroid: false,
+        startsAt: 0,
+        takes: 2.6,
+      );
+      final ticks = ticksOf(cues);
+      // 130 characters in 2.6 s is 50 a second, so every other one ticks.
+      expect(ticks.first, closeTo(2.6 / 130, 1e-9));
+      for (var i = 1; i < ticks.length; i++) {
+        expect(
+          ticks[i] - ticks[i - 1],
+          greaterThanOrEqualTo(typeTickMinGap - 1e-9),
+        );
+      }
+      expect(cues.last.cue, HeroCue.commandSent);
+      expect(cues.last.at, closeTo(2.6, 1e-9));
+    });
+
     test('an empty command plays nothing', () {
       expect(typingCues(length: 0, isAndroid: false), isEmpty);
     });
@@ -165,10 +208,27 @@ void main() {
       expect(cues.every((timed) => timed.cue == HeroCue.ringPulse), isTrue);
     });
 
-    test('stops when the ringing stops', () {
+    test('a long ring pulses four times, all at its start', () {
       final cues = ringCues(from: 2.5, to: 8.8);
-      expect(cues.last.at, lessThan(8.8));
-      expect(cues, hasLength(13));
+      const gap = 4 * 2 * 3.141592653589793 / 50;
+      expect(cues, hasLength(ringPulseMax));
+      expect(ringPulseMax, 4);
+      expect(cues.last.at, closeTo(2.5 + 3 * gap, 1e-9));
+    });
+
+    test('every pulse lands on a whole number of shakes', () {
+      const rate = 60.0;
+      for (final timed in ringCues(from: 1.2, to: 6.6, shakeRate: rate)) {
+        final shakes = (timed.at - 1.2) * rate / (2 * 3.141592653589793);
+        expect(shakes, closeTo(shakes.roundToDouble(), 1e-9));
+        expect(shakes.round() % ringPulseEveryShakes, 0);
+      }
+    });
+
+    test('a ring shorter than four pulses stops when the ringing stops', () {
+      final cues = ringCues(from: 2.5, to: 3.2);
+      expect(cues, hasLength(2));
+      expect(cues.last.at, lessThan(3.2));
     });
 
     test('a phone that never rings has no pulses', () {
@@ -189,12 +249,14 @@ void main() {
       ]);
     });
 
-    test('the pulses run from the ring starting to the acknowledge', () {
+    test('four pulses from the ring starting, none near the acknowledge', () {
       final pulses = [
         for (final timed in ladderCues())
           if (timed.cue == HeroCue.ringPulse) timed.at,
       ];
+      expect(pulses, hasLength(4));
       expect(pulses.first, ladderRingStartsAt);
+      expect(pulses.last, lessThan(ladderRingStartsAt + 1.3));
       expect(pulses.last, lessThan(ladderRingEndsAt));
     });
   });

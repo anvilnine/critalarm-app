@@ -64,6 +64,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Paywall layouts sheet, proof and bento at /plans, developer builds only.
 - Design system: a lock glyph and AppCurves.easeBack, both in the gallery.
 - Setup chapters: bundled flow 2026-10-b is the default, SetupTracker and a small face in the setup shell, a Back rule with the system back gesture, and step changes that slide and fade from the shell
+- Setup step offer: a frame that hosts one paywall layout by id, between real\_ring and hook\_up in flow 2026-10-b. It ships switched off. Switches come from dev.onboarding\_offer, then the Remote Config key onboarding\_offer, then the bundled value.
+- Setup funnel events onboarding\_offer\_shown, onboarding\_offer\_closed and onboarding\_offer\_bought, each with product, layout and flow\_id. PaywallSource.onboardingOffer names the offer step. AfterAckDecider gives no follow-up while the offer step is still to come. Developer options, Setup flow, has the four offer switches.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.

@@ -164,7 +164,10 @@ void main() {
     });
 
     test('walks the default flow in order on a fresh phone', () async {
-      final h = EngineHarness();
+      // With the offer step switched on, which it is not as shipped.
+      final h = EngineHarness(
+        facts: FakeOnboardingStepFacts(offerSkips: false),
+      );
       final seen = <String>[(await h.engine.resume()).route!];
 
       for (final step in flow.steps.take(flow.steps.length - 1)) {
@@ -178,9 +181,30 @@ void main() {
         '/onboarding',
         '/onboarding/first-topic',
         '/onboarding/real-ring',
+        '/onboarding/offer',
         '/onboarding/hook-up',
       ]);
       expect(h.progress.completed, isFalse);
+    });
+
+    test('passes over the offer step while it has nothing to show', () async {
+      final h = EngineHarness(
+        repository: FakeOnboardingFlowRepository(
+          pinned: flow,
+          completed: {
+            'welcome',
+            'how_it_rings',
+            'connect',
+            'permissions',
+            'first_topic',
+          },
+        ),
+      );
+
+      final next = await h.engine.finishStep('real_ring');
+
+      expect(next.route, '/onboarding/hook-up');
+      expect(h.repository.completed, isNot(contains('offer')));
     });
 
     test('walks the legacy flow in its own order', () async {
@@ -261,6 +285,8 @@ void main() {
         '/onboarding',
         '/onboarding/first-topic',
         '/onboarding/real-ring',
+        // A replay opens the offer step too. Its screen moves on by itself.
+        '/onboarding/offer',
         '/onboarding/hook-up',
         'home',
       ]);
@@ -557,6 +583,7 @@ void main() {
       readPermissionSetup: phone.read,
       notices: _NoNotices(),
       firstMessage: _NoFirstMessage(),
+      offer: offerGateFor(),
     ).hasEveryPermission();
 
     test('never without notifications', () async {

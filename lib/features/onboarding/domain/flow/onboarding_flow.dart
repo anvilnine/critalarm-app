@@ -11,6 +11,10 @@ abstract final class OnboardingStepId {
   static const permissions = 'permissions';
   static const firstTopic = 'first_topic';
   static const realRing = 'real_ring';
+
+  /// A frame around one paywall layout. It shows only when its switches say
+  /// so (`OnboardingOfferConfig`), and skips itself otherwise.
+  static const offer = 'offer';
   static const hookUp = 'hook_up';
   static const widgets = 'widgets';
 
@@ -88,6 +92,7 @@ abstract final class BundledOnboardingFlows {
       OnboardingStepId.permissions,
       OnboardingStepId.firstTopic,
       OnboardingStepId.realRing,
+      OnboardingStepId.offer,
       OnboardingStepId.hookUp,
     ],
   );

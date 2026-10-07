@@ -28,6 +28,7 @@ import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.d
 import 'package:critalarm/features/paywall/presentation/widgets/pro_status_badge.dart';
 import 'package:critalarm/features/topics/domain/home_face_rule.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
+import 'package:critalarm/features/topics/domain/setup_finish_glow.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_state.dart';
@@ -38,6 +39,7 @@ import 'package:critalarm/features/topics/presentation/widgets/home_setup_pill.d
 import 'package:critalarm/features/topics/presentation/widgets/home_setup_preview.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_setup_section.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_widgets_sheet.dart';
+import 'package:critalarm/features/topics/presentation/widgets/setup_glow.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -111,9 +113,49 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   /// earlier pop is dropped.
   int _viewChange = 0;
 
+  /// The topic setup made, when setup ended a moment ago and handed over to
+  /// this screen. Its row glows once. Null on every other opening of Home.
+  String? _glowTopic;
+
+  /// The glow has started. It then runs to its end by itself.
+  bool _glowPlays = false;
+
+  /// Starts the glow once it can be seen, or lets it go. See
+  /// [setupGlowStepFor].
+  void _updateSetupGlow() {
+    final topic = _glowTopic;
+    if (!mounted || topic == null || _glowPlays) return;
+    final home = context.read<HomeCubit>().state;
+    final guide = _guides.state;
+    final isOffered = guide.status == FeatureGuideStatus.offering;
+    final step = setupGlowStepFor(
+      isHomeInFront:
+          !_isCovered &&
+          !_isRouteElsewhere &&
+          isHomeFrontScreen(
+            location: _routerLocation(),
+            isAppResumed: _isResumed,
+          ),
+      isGuideOffered: isOffered,
+      isGuideRunning: guide.isActive && !isOffered,
+      isListLoaded: home.status == HomeStatus.success && !home.isStale,
+      hasTopicRow: home.topicItems.any((item) => item.name == topic),
+    );
+    switch (step) {
+      case SetupGlowStep.wait:
+        break;
+      case SetupGlowStep.play:
+        setState(() => _glowPlays = true);
+      case SetupGlowStep.drop:
+        setState(() => _glowTopic = null);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    // Taken once: only the Home that setup hands over to finds a topic here.
+    _glowTopic = setupFinishSignal.take();
     WidgetsBinding.instance.addObserver(this);
     homeSetupPreview.addListener(_onSetupPreview);
     // The FeatureGuideHost asks for this screen's guide on the first visit.
@@ -151,6 +193,8 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   /// are.
   void _tellSetup() {
     if (!mounted) return;
+    // The same changes decide whether the glow from setup can be seen.
+    _updateSetupGlow();
     unawaited(
       context.read<HomeSetupCubit>().screenChanged(
         // Both have to agree. The route observer only hears about pages
@@ -361,6 +405,13 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     });
   }
 
+  /// [row] with the one-time glow over it when [topicName] is the topic
+  /// setup just made. Every other row is handed back as it is.
+  Widget _glowIfFromSetup(String topicName, Widget row) =>
+      topicName == _glowTopic
+      ? SetupGlow(isPlaying: _glowPlays, child: row)
+      : row;
+
   /// Pull a row right to mark it read, left to pin or mute it.
   Widget _swipe(
     HomeCubit home,
@@ -369,7 +420,8 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     required Widget child,
   }) {
     final key = ValueKey('topic_row_${topic.name}');
-    if (!enabled) return KeyedSubtree(key: key, child: child);
+    final row = _glowIfFromSetup(topic.name, child);
+    if (!enabled) return KeyedSubtree(key: key, child: row);
 
     final markRead = LocaleKeys.home_swipe_mark_read.tr();
     final pin = topic.isPinned
@@ -414,7 +466,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             onPressed: () => unawaited(home.toggleMute(topic.name)),
           ),
         ],
-        child: child,
+        child: row,
       ),
     );
   }
@@ -426,6 +478,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     return BlocConsumer<HomeCubit, HomeState>(
       listener: (context, state) {
         _handOverIfRinging(state);
+        _updateSetupGlow();
         unawaited(context.read<HomeSetupCubit>().homeChanged(state));
       },
       builder: (context, state) =>

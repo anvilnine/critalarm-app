@@ -32,6 +32,7 @@ void main() {
         PaywallSource.reminderMorningAfter: 'reminder_morning_after',
         PaywallSource.reminderProLater: 'reminder_pro_later',
         PaywallSource.homeDay0Card: 'home_day0_card',
+        PaywallSource.onboardingOffer: 'onboarding_offer',
         PaywallSource.direct: 'direct',
       };
       for (final source in PaywallSource.values) {

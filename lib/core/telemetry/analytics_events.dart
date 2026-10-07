@@ -16,6 +16,9 @@ abstract final class AnalyticsEvents {
   static const paywallPurchaseFailed = 'paywall_purchase_failed';
   static const onboardingStepViewed = 'onboarding_step_viewed';
   static const onboardingStepCompleted = 'onboarding_step_completed';
+  static const onboardingOfferShown = 'onboarding_offer_shown';
+  static const onboardingOfferClosed = 'onboarding_offer_closed';
+  static const onboardingOfferBought = 'onboarding_offer_bought';
   static const homeDay0CardShown = 'home_day0_card_shown';
   static const homeDay0CardDismissed = 'home_day0_card_dismissed';
   static const proPackSheetOpened = 'pro_pack_sheet_opened';
@@ -89,6 +92,41 @@ final class OnboardingAnalytics {
     String flowId,
     int msSincePrevious,
   ) => {'step': step, 'flow_id': flowId, 'ms_since_previous': msSincePrevious};
+
+  /// The three events of the offer step. Each carries the product on offer,
+  /// the layout that drew it and the flow id, and nothing else.
+  Future<void> offerShown({
+    required String product,
+    required String layout,
+    required String flowId,
+  }) => _gate.logEvent(
+    AnalyticsEvents.onboardingOfferShown,
+    _offerParams(product, layout, flowId),
+  );
+
+  Future<void> offerClosed({
+    required String product,
+    required String layout,
+    required String flowId,
+  }) => _gate.logEvent(
+    AnalyticsEvents.onboardingOfferClosed,
+    _offerParams(product, layout, flowId),
+  );
+
+  Future<void> offerBought({
+    required String product,
+    required String layout,
+    required String flowId,
+  }) => _gate.logEvent(
+    AnalyticsEvents.onboardingOfferBought,
+    _offerParams(product, layout, flowId),
+  );
+
+  static Map<String, Object?> _offerParams(
+    String product,
+    String layout,
+    String flowId,
+  ) => {'product': product, 'layout': layout, 'flow_id': flowId};
 }
 
 /// The two events of the day-0 card on Home. They carry no parameters. The
