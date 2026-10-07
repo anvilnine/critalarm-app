@@ -93,9 +93,24 @@ class _SettingsReliabilityEntryState extends State<SettingsReliabilityEntry>
           name: LocaleKeys.reliability_title.tr(),
           meta: row.subtitleKey.tr(),
           faceState: row.faceState,
-          trailing: row.hasIssues
-              ? _IssuesChip(count: row.issueCount)
-              : AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
+          // The title is the question this package answers, so it may take
+          // two lines instead of being cut at large text sizes.
+          nameMaxLines: 2,
+          // The chip and the arrow narrow the text column at large sizes, so
+          // the line under the title gets a third line rather than a cut.
+          metaMaxLines: 3,
+          // The count chip sits before the arrow, never in its place: the
+          // arrow is what says the row opens a screen.
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (row.hasIssues) ...[
+                _IssuesChip(count: row.issueCount),
+                const SizedBox(width: 8),
+              ],
+              AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
+            ],
+          ),
           onTap: () async {
             await context.push<void>('/settings/reliability');
             if (!_cubit.isClosed) await _cubit.refresh();
