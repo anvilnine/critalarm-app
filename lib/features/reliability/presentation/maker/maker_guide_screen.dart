@@ -237,7 +237,10 @@ class _NoteRow extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
       child: Text(
         text,
-        style: AppTypography.small(colors.ink2).copyWith(height: 1.35),
+        style: AppTypography.small(
+          colors.ink2,
+          fontSize: 13,
+        ).copyWith(height: 1.35),
       ),
     );
   }
