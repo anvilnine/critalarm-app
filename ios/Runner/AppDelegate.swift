@@ -716,6 +716,17 @@ import AlarmKit
     didReceiveRemoteNotification userInfo: [AnyHashable: Any],
     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
   ) {
+    // The weekly check (api.md §5.4) is not an incident push. It is answered
+    // and nothing else happens: no notification, no sound, no Live Activity,
+    // no alarm, and nothing below this line runs for it. Every other push is
+    // not a check and goes on exactly as before.
+    if let check = CheckPush(payload: userInfo) {
+      WeeklyCheckResponder.answer(check) { sent in
+        DispatchQueue.main.async { completionHandler(sent ? .newData : .noData) }
+      }
+      return
+    }
+
     guard let push = IncidentPush(payload: userInfo) else {
       completionHandler(.noData)
       return
