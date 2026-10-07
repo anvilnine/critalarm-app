@@ -114,6 +114,7 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
   Future<void> buy() async {
     final package = _packages[state.selectedId];
     if (!state.canBuy || package == null) return;
+    began(PaywallBuyAction.purchase);
     _pausedKey = _confirmingKey;
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
     final result = await _purchasePackage(package);
@@ -133,6 +134,7 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
   @override
   Future<void> restore() async {
     if (!state.canRestore) return;
+    began(PaywallBuyAction.restore);
     _pausedKey = _confirmingKey;
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
     final result = await _restorePurchases(const NoParams());

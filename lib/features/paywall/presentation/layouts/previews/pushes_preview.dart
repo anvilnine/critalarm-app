@@ -6,10 +6,14 @@ import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/limits_preview_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_glyph_tile.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart';
 import 'package:flutter/material.dart';
 
 // Pushes a day: a counter and a bar drawn to scale. The count fills the
 // free allowance and stops, then runs on to the Hosted one. It rests full.
+// Small, it is the Hosted number on the shared tile: the number is the
+// point, so it is what stays.
 
 /// Where the counter is in its loop, in the order it happens.
 enum PushesPreviewPhase {
@@ -157,9 +161,8 @@ String pushesPreviewNumber(int n) {
   return out.toString();
 }
 
-/// How the picture is laid out in a box: the bar alone when the box is
-/// small, the number over the bar when there is room, and the two
-/// allowances written under the bar when there is more.
+/// How the scene is laid out in a box: the number over the bar, and the
+/// two allowances written under the bar when there is room.
 @immutable
 class PushesPreviewLayout {
   const PushesPreviewLayout({
@@ -173,14 +176,13 @@ class PushesPreviewLayout {
   final double padding;
   final double barHeight;
 
-  /// Type size of the count. Zero leaves the bar alone.
+  /// Type size of the count.
   final double numberSize;
 
   /// Type size of the two allowances under the bar. Zero leaves them out.
   final double scaleSize;
   final double gap;
 
-  bool get isBarAlone => numberSize == 0;
   bool get showsScale => scaleSize > 0;
 }
 
@@ -190,16 +192,6 @@ PushesPreviewLayout pushesPreviewLayoutFor(
   Size size, {
   required double numberAspect,
 }) {
-  if (size.shortestSide < limitsPreviewSmallEdge) {
-    return PushesPreviewLayout(
-      padding: size.width * 0.12,
-      barHeight: math.min(size.height, size.width) * 0.22,
-      numberSize: 0,
-      scaleSize: 0,
-      gap: 0,
-    );
-  }
-
   final padding = size.shortestSide * 0.1;
   final w = size.width - 2 * padding;
   final h = size.height - 2 * padding;
@@ -228,9 +220,13 @@ class PushesPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const hosted = hostedP4Daily;
+    if (size.shortestSide < paywallPreviewSceneMinEdge) {
+      return PreviewGlyphTile.text(pushesPreviewNumber(hosted), size: size);
+    }
+
     final colors = context.appColors;
     final free = AccountCaps.free.p4Daily ?? 0;
-    const hosted = hostedP4Daily;
     final numberStyle = AppTypography.display(colors.yellow).copyWith(
       height: 1,
       fontFeatures: const [FontFeature.tabularFigures()],
@@ -272,8 +268,6 @@ class PushesPreview extends StatelessWidget {
                 markColor: Color.lerp(colors.crit, colors.critAlt, frame.stop)!,
               ),
             );
-            if (layout.isBarAlone) return Center(child: bar);
-
             return Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,

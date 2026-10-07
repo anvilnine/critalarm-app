@@ -63,6 +63,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Paywall layout kit: a frame, one buy block for Hosted and Pro, a clock, benefits as data, six feature previews, a /plans route for developer builds and a capture tool. Nothing a user can open yet.
 - Paywall layouts sheet, proof and bento at /plans, developer builds only.
 - Design system: a lock glyph and AppCurves.easeBack, both in the gallery.
+- Paywall layouts on one hero pattern: hero, false alarm, reel, sheet, proof, receipt, sentence, doors and wipe, each for Hosted and Pro, with swipe and tap, at /plans.
+- Paywall routing: remote values paywall\_layout and pro\_paywall\_layout pick a layout by entry point. Empty by default, so the shipped paywall and Pro sheet stay.
+- A motion skill and rule for custom animation: one living hero per screen.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -103,6 +106,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - App links: an https link reads the connect address and token from the fragment only, never opens a fixed screen under /topics/ (AppLinkRoutes.reservedTopicNames, checked against the router in test/app/router\_test.dart), and opens Home for a double slash, a dot segment or a user name. iOS no longer passes an app link's user activity or URL context on to Flutter and its plugins.
 - Reliability screen: fine rows are plain rows, rows needing action share one card (splitReliabilityRows), ReliabilityFixButton announces its check, reliabilityRowFace is gone, denied lines are picked per check.
 - A tinted button washes a light highlight card with ink. Home uses barBacking and shrinks the stage face above 1.3x text.
+- Paywall kit: smaller buy block, pickable plan cards, previews in three fixed sizes, five Pro benefits with previews.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

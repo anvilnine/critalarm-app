@@ -52,9 +52,9 @@ void main() {
       ]);
     });
 
-    test('rests on the quiet widget, whole and upright', () {
+    test('rests on the ringing widget, whole and upright', () {
       final rest = widgetsPreviewFrameAt(widgetsPreviewRestAt);
-      expect(rest.state, WidgetsPreviewState.quiet);
+      expect(rest.state, WidgetsPreviewState.ringing);
       expect(rest.enter, 1);
       expect(rest.tilt, 0);
       expect(rest.pulse, 0);
@@ -154,25 +154,45 @@ void main() {
       );
     });
 
-    test('rests on the full strip with its tick, and no push in the air', () {
+    test('rests with the phone lit, every week ticked, no push in the air', () {
       final rest = weeklyCheckPreviewFrameAt(weeklyCheckPreviewRestAt);
       expect(rest.phase, WeeklyCheckPreviewPhase.hold);
-      expect(rest.days, List<double>.filled(weeklyCheckPreviewDays, 1));
+      expect(rest.weeks, List<double>.filled(weeklyCheckPreviewWeeks, 1));
+      expect(rest.lit, 1);
       expect(rest.tickFill, 1);
       expect(rest.tickDraw, 1);
       expect(rest.pushOpacity, 0);
       expect(rest.opacity, 1);
     });
 
-    test('the days pass left to right', () {
+    test('the phone lights when the push lands, then the week is ticked', () {
+      final lands = weeklyCheckPreviewStart(WeeklyCheckPreviewPhase.tick);
       for (final t in _seconds(weeklyCheckPreviewLoop)) {
         final frame = weeklyCheckPreviewFrameAt(t);
         if (frame.phase == WeeklyCheckPreviewPhase.clearing) continue;
-        for (var day = 1; day < weeklyCheckPreviewDays; day++) {
+        if (t < lands) expect(frame.lit, 0, reason: 'lit early at $t');
+        if (frame.tickFill > 0) {
+          expect(frame.lit, greaterThan(0), reason: 'week first at $t');
+        }
+      }
+      final after = weeklyCheckPreviewFrameAt(
+        lands + weeklyCheckPreviewWeekAfter,
+      );
+      expect(after.lit, greaterThan(0.8));
+      expect(after.tickFill, 0);
+      final hold = weeklyCheckPreviewStart(WeeklyCheckPreviewPhase.hold);
+      expect(weeklyCheckPreviewFrameAt(hold).tickDraw, 1);
+    });
+
+    test('the weeks pass oldest first, and this week last', () {
+      for (final t in _seconds(weeklyCheckPreviewLoop)) {
+        final frame = weeklyCheckPreviewFrameAt(t);
+        if (frame.phase == WeeklyCheckPreviewPhase.clearing) continue;
+        for (var week = 1; week < weeklyCheckPreviewWeeks; week++) {
           expect(
-            frame.days[day],
-            lessThanOrEqualTo(frame.days[day - 1]),
-            reason: 'day $day ahead of day ${day - 1} at $t',
+            frame.weeks[week],
+            lessThanOrEqualTo(frame.weeks[week - 1]),
+            reason: 'week $week ahead of week ${week - 1} at $t',
           );
         }
       }
@@ -185,7 +205,6 @@ void main() {
         if (frame.phase == WeeklyCheckPreviewPhase.clearing) continue;
         if (t < lands) {
           expect(frame.tickFill, 0, reason: 'ticked early at $t');
-          expect(frame.days.skip(weeklyCheckPreviewCheckDay + 1), [0, 0, 0]);
         }
         if (frame.pushOpacity > 0) expect(frame.tickDraw, 0);
       }
@@ -193,9 +212,18 @@ void main() {
       expect(weeklyCheckPreviewFrameAt(lands).push, 1);
     });
 
-    test('there is one check in the week', () {
-      expect(weeklyCheckPreviewDays, 7);
-      expect(weeklyCheckPreviewCheckDay, inInclusiveRange(0, 6));
+    test('the strip is four weeks, never the seven days of one', () {
+      expect(weeklyCheckPreviewWeeks, 4);
+      expect(weeklyCheckPreviewFrameAt(0).weeks, hasLength(4));
+    });
+
+    test('only this week is checked: the earlier ones pass before it', () {
+      final leaves = weeklyCheckPreviewStart(
+        WeeklyCheckPreviewPhase.pushTravels,
+      );
+      final frame = weeklyCheckPreviewFrameAt(leaves);
+      expect(frame.weeks.take(weeklyCheckPreviewWeeks - 1), [1, 1, 1]);
+      expect(frame.tickFill, 0);
     });
   });
 }

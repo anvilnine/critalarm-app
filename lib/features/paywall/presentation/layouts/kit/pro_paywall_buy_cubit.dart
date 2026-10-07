@@ -68,6 +68,7 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
   Future<void> buy() async {
     final offer = _offers[state.selectedId];
     if (!state.canBuy || offer == null) return;
+    began(PaywallBuyAction.purchase);
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
     // Written down before the store is asked, so a purchase the app does
     // not live to see confirmed is asked about again on the next launch.
@@ -82,6 +83,7 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
   @override
   Future<void> restore() async {
     if (!state.canRestore) return;
+    began(PaywallBuyAction.restore);
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
     await _afterStore(await _shop.restore(), afterPurchase: false);
   }

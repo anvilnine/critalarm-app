@@ -29,6 +29,7 @@ import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.da
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layouts_dev_screen.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/pro_welcome_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
@@ -126,10 +127,11 @@ abstract final class AppRoute {
 
 final _rootKey = GlobalKey<NavigatorState>();
 
-/// The paywall layouts have a route only where a developer can reach them:
-/// a debug build, or one with Developer options. Both dart-defines are
-/// compile-time constants, so a store build holds no such route.
-const bool _hasPaywallLayoutRoute =
+/// Whether a developer can reach this build's paywall layouts: a debug
+/// build, or one with Developer options. Both dart-defines are compile-time
+/// constants, so a store build holds no developer page, and its layout
+/// route draws only what the remote values send a user to.
+const bool _isDeveloperPaywallBuild =
     kDebugMode || buildSkipsPaywall || buildHasPaywallLab;
 
 GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
@@ -545,9 +547,9 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                         child: const BarBackingLabScreen(),
                       ),
                     ),
-                    // The same condition as the layout routes it lists, so
-                    // a store build holds neither.
-                    if (_hasPaywallLayoutRoute)
+                    // The page that lists every layout. A store build holds
+                    // no such route.
+                    if (_isDeveloperPaywallBuild)
                       GoRoute(
                         path: 'paywall-layouts',
                         parentNavigatorKey: _rootKey,
@@ -648,32 +650,43 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
         );
       },
     ),
-    // One paywall layout, selling Hosted or Pro. Only Developer options and
-    // the capture tool open it, so a store build has no such route: nothing
-    // a user can tap leads here yet.
-    if (_hasPaywallLayoutRoute)
-      GoRoute(
-        path: paywallLayoutPath,
-        name: AppRoute.paywallLayout,
-        parentNavigatorKey: _rootKey,
-        pageBuilder: (context, state) {
-          final query = state.uri.queryParameters;
-          return AmbientPage(
-            key: state.pageKey,
-            opaque: true,
-            child: PaywallLayoutScreen(
-              // An unknown key draws the reference layout.
-              layout:
-                  PaywallLayoutId.fromKey(state.pathParameters['layout']) ??
-                  PaywallLayoutId.plain,
-              product: PaywallProduct.parse(query['product']),
-              source: PaywallSource.parse(query['source']),
-              demoStatus: PaywallBuyStatus.values.asNameMap()[query['state']],
-              showsUnbuilt: query['benefits'] == 'all',
-            ),
-          );
-        },
-      ),
+    // One paywall layout, selling Hosted or Pro. Every opener asks the
+    // paywall door, which sends a user here only when the product's remote
+    // value says so. In a store build the route checks that again: with the
+    // value at its default it opens the shipped surface in its place.
+    // Developer options and the capture tool open any layout.
+    GoRoute(
+      path: paywallLayoutPath,
+      name: AppRoute.paywallLayout,
+      parentNavigatorKey: _rootKey,
+      redirect: (context, state) =>
+          _isDeveloperPaywallBuild ? null : shippedPaywallInsteadOf(state.uri),
+      pageBuilder: (context, state) {
+        final query = state.uri.queryParameters;
+        return AmbientPage(
+          key: state.pageKey,
+          opaque: true,
+          child: PaywallLayoutScreen(
+            // An unknown key draws the reference layout.
+            layout:
+                PaywallLayoutId.fromKey(state.pathParameters['layout']) ??
+                PaywallLayoutId.plain,
+            product: PaywallProduct.parse(query['product']),
+            source: PaywallSource.parse(query['source']),
+            sourceWire: query['source'],
+            // The two developer views. A store build reads neither.
+            demoStatus: _isDeveloperPaywallBuild
+                ? PaywallBuyStatus.values.asNameMap()[query['state']]
+                : null,
+            // A user sees what this build has. Only the developer page and
+            // the capture tool ask for the list with what is not built yet.
+            showsUnbuilt:
+                _isDeveloperPaywallBuild &&
+                query['benefits'] == paywallAllBenefits,
+          ),
+        );
+      },
+    ),
     // The Pro pack's sheet. It is a bottom sheet with its own route, over
     // whatever opened it, and has nothing to do with the paywall above.
     GoRoute(

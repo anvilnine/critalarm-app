@@ -1,19 +1,25 @@
-import 'dart:math' as math;
-
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/alarm_screens_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/app_icons_preview.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/challenge_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/history_preview.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_glyph_tile.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/pushes_preview.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/sounds_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/topics_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/weekly_check_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/widgets_preview.dart';
 import 'package:flutter/material.dart';
 
 export 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+export 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart'
+    show PaywallPreviewClass;
 
-/// Draws one preview inside a box of [size].
+/// Draws one preview at [size], which is never past its class size. Under
+/// `paywallPreviewSceneMinEdge` it draws its mark on the shared glyph tile.
 typedef PaywallPreviewBuilder =
     Widget Function(BuildContext context, Size size);
 
@@ -26,6 +32,10 @@ final Map<PaywallPreviewId, PaywallPreviewBuilder> paywallPreviewBuilders = {
   PaywallPreviewId.widgets: (_, size) => WidgetsPreview(size: size),
   PaywallPreviewId.appIcons: (_, size) => AppIconsPreview(size: size),
   PaywallPreviewId.weeklyCheck: (_, size) => WeeklyCheckPreview(size: size),
+  PaywallPreviewId.wakeUpChallenges: (_, size) => ChallengePreview(size: size),
+  PaywallPreviewId.customSounds: (_, size) => SoundsPreview(size: size),
+  PaywallPreviewId.customAlarmScreens: (_, size) =>
+      AlarmScreensPreview(size: size),
 };
 
 /// The stand-in glyph for a preview nobody has built yet.
@@ -36,25 +46,38 @@ GlyphType paywallPreviewGlyph(PaywallPreviewId id) => switch (id) {
   PaywallPreviewId.widgets => GlyphType.list,
   PaywallPreviewId.appIcons => GlyphType.pencil,
   PaywallPreviewId.weeklyCheck => GlyphType.check,
-  PaywallPreviewId.fireDrills => GlyphType.play,
-  PaywallPreviewId.wakeUpChallenges => GlyphType.repeat,
+  PaywallPreviewId.wakeUpChallenges => GlyphType.lock,
+  PaywallPreviewId.customSounds => GlyphType.record,
   PaywallPreviewId.customAlarmScreens => GlyphType.filter,
-  PaywallPreviewId.morningSummary => GlyphType.info,
 };
 
-/// The small picture of one benefit. It draws the registered preview for
-/// [id], or a quiet tile with the benefit's glyph while none is registered.
-/// A layout uses this and never draws a benefit picture of its own.
+/// The picture of one benefit, at one of three designed sizes. It draws
+/// the registered preview for [id], or the shared tile with the benefit's
+/// glyph while none is registered. A layout uses this and never draws a
+/// benefit picture of its own.
+///
+/// A preview does not stretch. Pick a [sizeClass] and the widget is that
+/// size: 56, 120 or 200 points square. Give it a [size] as well and it
+/// takes that room and centres the drawing in it, no bigger than its class.
+/// A [size] too small for the class asked for gets the class that reads
+/// there: under 88 points that is always the glyph tile.
 class PaywallPreview extends StatelessWidget {
   const PaywallPreview(
     this.id, {
-    this.size = const Size.square(56),
+    this.sizeClass,
+    this.size,
     this.playFrom,
     super.key,
   });
 
   final PaywallPreviewId id;
-  final Size size;
+
+  /// The size the preview is drawn at. Null picks the biggest class that
+  /// reads in [size], or `small` when there is no [size] either.
+  final PaywallPreviewClass? sizeClass;
+
+  /// The room the widget takes. Null is the class size.
+  final Size? size;
 
   /// The second on the layout's clock at which this preview's own loop
   /// starts at zero, for a layout that shows one benefit per scene. Until
@@ -64,42 +87,24 @@ class PaywallPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fit = paywallPreviewFit(sizeClass: sizeClass, box: size);
     final builder = paywallPreviewBuilders[id];
     return ExcludeSemantics(
       child: SizedBox.fromSize(
-        size: size,
-        child: builder != null
-            ? PaywallPreviewPlay(
-                playFrom: playFrom,
-                child: builder(context, size),
-              )
-            : _PlaceholderTile(id: id, size: size),
-      ),
-    );
-  }
-}
-
-class _PlaceholderTile extends StatelessWidget {
-  const _PlaceholderTile({required this.id, required this.size});
-
-  final PaywallPreviewId id;
-  final Size size;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final edge = size.shortestSide;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.cream,
-        borderRadius: BorderRadius.circular(math.min(Radii.md, edge * 0.3)),
-      ),
-      child: Center(
-        child: AppGlyph(
-          paywallPreviewGlyph(id),
-          size: edge * 0.42,
-          color: colors.ink,
+        size: fit.box,
+        child: Center(
+          child: SizedBox.fromSize(
+            size: fit.drawn,
+            child: builder != null
+                ? PaywallPreviewPlay(
+                    playFrom: playFrom,
+                    child: builder(context, fit.drawn),
+                  )
+                : PreviewGlyphTile.glyph(
+                    paywallPreviewGlyph(id),
+                    size: fit.drawn,
+                  ),
+          ),
         ),
       ),
     );
