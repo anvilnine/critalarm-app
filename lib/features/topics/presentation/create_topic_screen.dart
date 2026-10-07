@@ -16,6 +16,7 @@ import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_not
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_ask_sheet.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_settler.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rules.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
@@ -731,6 +732,22 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
             selection: TextSelection.collapsed(offset: state.name.length),
           );
         }
+        if (_isSetup) {
+          // The small face beside the setup tracker is worried after a
+          // failed create. Back is held while the topic is being made and
+          // once it exists: there is no going back behind a topic.
+          OnboardingAmbientScope.maybeOf(context)
+            ?..setFaceMood(
+              state.status == CreateTopicStatus.failure
+                  ? TravellingFaceMood.worried
+                  : null,
+            )
+            ..holdBack(
+              isHeld:
+                  state.status == CreateTopicStatus.submitting ||
+                  state.status == CreateTopicStatus.success,
+            );
+        }
         if (state.status == CreateTopicStatus.success) {
           AppHaptics.success();
           final created = LocaleKeys.create_topic_toast_created.tr();
@@ -861,7 +878,9 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
         final content = PopScope(
           canPop: canPop,
           onPopInvokedWithResult: (didPop, result) {
-            if (didPop) return;
+            // Something else on the page can hold the pop too, such as Back
+            // in setup. This one only acts when it is the one holding it.
+            if (didPop || canPop) return;
             cubit.previousStep();
             _focusNameField();
           },
@@ -876,13 +895,17 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                 // In setup the top bar reads like every other step's, and
                 // the title sits under the face.
                 title: isSetup
-                    ? LocaleKeys.app_title.tr()
+                    ? setupTopBarTitle(context)
                     : LocaleKeys.create_topic_title.tr(),
                 // With the keyboard up the big face makes room for the form.
                 // It moves up here, smaller, so a worried face after a
                 // failed create and the glad one after a good one are
-                // still seen.
-                leading: isSetup && hasKeyboard
+                // still seen. While the setup tracker is up there, its own
+                // small face does that and no second one is drawn.
+                leading:
+                    isSetup &&
+                        hasKeyboard &&
+                        !OnboardingAmbientScope.showsTrackerOf(context)
                     ? ExcludeSemantics(
                         child: FaceWidget(state: face, size: 32, isLive: true),
                       )

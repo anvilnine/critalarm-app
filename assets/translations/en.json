@@ -33,6 +33,9 @@
     "widgets_subtitle": "See what is ringing and answer it without opening the app.",
     "widgets_pro": "Hosted feature",
     "continue": "Continue",
+    "hero_asleep": "The Crit Alarm face, asleep",
+    "hero_awake": "The Crit Alarm face, awake",
+    "hero_wake_hint": "Double tap to wake it",
     "story_critical": "CRITICAL",
     "story_alarm_title": "Primary database down",
     "story_alarm_body": "pg_isready failed 3 times in 90 s. Replica promoted to primary on db-2.",
@@ -150,7 +153,15 @@
     "background_failed_button": "Back to connect",
     "self_host_connecting": "Checking {host}",
     "self_host_connected_title": "Connected",
-    "self_host_continue": "Continue"
+    "self_host_continue": "Continue",
+    "change_server": "Use a different server"
+  },
+  "onboarding_tracker": {
+    "meet": "Meet",
+    "set_up": "Set up",
+    "hear_it": "Hear it",
+    "part": "{chapter}, part {part} of 3",
+    "all_done": "All 3 parts done"
   },
   "connect_link": {
     "what": "Connect this phone to this server for alarms?",
@@ -280,6 +291,7 @@
     "not_now": "Not now",
     "checking": "Checking this phone",
     "step_progress": "Step {step} of {count}",
+    "allowed_badge": "Allowed",
     "ios": {
       "notifications": {
         "title": "First, notifications",

@@ -80,6 +80,21 @@ class OnboardingFlow {
 abstract final class BundledOnboardingFlows {
   /// What a fresh install runs when no other source has a valid flow.
   static const defaultFlow = OnboardingFlow(
+    id: '2026-10-b',
+    steps: [
+      OnboardingStepId.welcome,
+      OnboardingStepId.howItRings,
+      OnboardingStepId.connect,
+      OnboardingStepId.permissions,
+      OnboardingStepId.firstTopic,
+      OnboardingStepId.realRing,
+      OnboardingStepId.hookUp,
+    ],
+  );
+
+  /// The default before `2026-10-b`. A phone that pinned it keeps running
+  /// it, and it stays here so the two can be compared.
+  static const october2026A = OnboardingFlow(
     id: '2026-10-a',
     steps: [
       OnboardingStepId.welcome,
@@ -105,5 +120,5 @@ abstract final class BundledOnboardingFlows {
     ],
   );
 
-  static const List<OnboardingFlow> all = [defaultFlow, legacy];
+  static const List<OnboardingFlow> all = [defaultFlow, october2026A, legacy];
 }

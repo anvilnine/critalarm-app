@@ -198,8 +198,11 @@ To add a step:
 3. When the user is done with the screen, call
    `finishOnboardingStep(context, OnboardingStepId.yourStep)`. A screen never
    names the step after it.
-4. List the id in a flow. `BundledOnboardingFlows` holds the two that ship:
-   `2026-10-a` (the default) and `legacy-1` (the first shipped order).
+4. List the id in a flow. `BundledOnboardingFlows` holds the three that
+   ship: `2026-10-b` (the default), `2026-10-a` (the default before it, kept
+   for phones that pinned it) and `legacy-1` (the first shipped order).
+5. Give it a chapter in `onboarding_chapters.dart` if the tracker should
+   count it. A step with no chapter sits outside the tracker.
 
 An entry with no route is known to the validator and never shown. None is
 like that today.
@@ -274,6 +277,43 @@ connected, never in setup.
 A pinned flow is checked again every time it is read. Unknown ids are
 dropped, and a list the validator rejects (empty, or nothing known left) is
 replaced by the bundled default with the completed steps kept.
+
+Chapters and the tracker: setup has three chapters (`OnboardingChapter`):
+Meet (`welcome`, `how_it_rings`), Set up (`connect`, `permissions`,
+`first_topic`) and Hear it (`real_ring`). The shell draws `SetupTracker`
+where a step's top bar has its title: one small face and three bars.
+`onboardingTrackerFillFor` holds the maths. Bars before the current chapter
+are full, and the current one is the chapter's steps listed before this one
+over all of the chapter's steps in the flow, so a step the run passed over
+counts as done. A step with no chapter (`hook_up`, `widgets`,
+`legacy_test`) shows what the next counted step would, and every bar full
+when none is left. A step's top bar takes its title from
+`setupTopBarTitle(context)`, which is null while the tracker is up.
+
+The small face: a step sets its mood with
+`OnboardingAmbientScope.maybeOf(context)?.setFaceMood(...)`, from a listener
+or a callback, and passes null to hand the choice back. `TravellingFaceMood`
+has the five it can be. A step never draws a face of its own in the top bar.
+
+Back: `onboardingBackStepFor` is the rule. Back is offered on
+`how_it_rings`, `connect`, `permissions` and `first_topic`, goes to the
+nearest earlier step of those two chapters that is on this phone, and is
+gone for good once the first topic exists. The shell draws the button only
+while it is offered, never greyed out, and `OnboardingStepFrame` makes the
+Android back button and an iPhone edge swipe follow the same rule.
+`OnboardingFlowEngine.goBack` takes the step that was left out of the
+completed steps, so going forward opens it again. Back opens the step with
+`?back=true` (`isOnboardingCameBack`): the connect step then shows the
+server that is saved, with a way to change it through the call Settings >
+Server makes, and the permissions show an allowed step as allowed and ask
+for nothing twice. A step that is busy holds Back with
+`holdBack(isHeld: true)`.
+
+Step changes: the shell slides and fades the old step out and the new one
+in (`AppDurations.slow` in all, none under reduce motion), the other way
+round for Back. `finishOnboardingStep` and `goBackInOnboarding` start it, so
+a step route has no page transition of its own. The canvas gets `pop` for
+Back, and `sweep` when the change crosses a chapter.
 
 Background connect: Continue with Crit Alarm Cloud finishes the `connect`
 step at once. `BackgroundConnect`

@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/domain/hero_haptic_cues.dart';
 import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
+import 'package:critalarm/features/onboarding/domain/welcome_timing.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/curl_terminal.dart';
@@ -75,8 +78,9 @@ enum WelcomeVariant {
 }
 
 /// Onboarding welcome screen (/onboarding/welcome), the first thing a new
-/// user sees. With no [variant] it opens on one of two faces at random, then
-/// keeps playing more animations for as long as the user stays. Developer
+/// user sees. With no [variant] it opens on the sleeping face, which wakes
+/// at a tap or by itself, then keeps playing more animations for as long as
+/// the user stays. Developer
 /// options opens it with a [variant] and [isPreview] to try each one.
 class OnboardingWelcomeScreen extends StatefulWidget {
   const OnboardingWelcomeScreen({
@@ -97,11 +101,7 @@ class OnboardingWelcomeScreen extends StatefulWidget {
 }
 
 class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
-  late WelcomeVariant _variant =
-      widget.variant ??
-      (math.Random().nextBool()
-          ? WelcomeVariant.wakeUp
-          : WelcomeVariant.peekaboo);
+  late WelcomeVariant _variant = widget.variant ?? WelcomeVariant.wakeUp;
 
   /// Bumped on every tap of the preview switch, so picking the one already
   /// showing plays it again from the start.
@@ -113,6 +113,7 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
   Widget build(BuildContext context) {
     return _IntroLayout(
       top: widget.isPreview ? _previewSwitch() : null,
+      isHeroSpoken: true,
       // On first launch the opening face hands over to more animations for
       // as long as the user stays.
       hero: _isPlaylist
@@ -126,7 +127,7 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
             )
           : KeyedSubtree(
               key: ValueKey((_variant, _replays)),
-              child: _heroFor(_variant),
+              child: _spokenHeroFor(_variant),
             ),
       title: LocaleKeys.onboarding_welcome_title.tr(),
       subtitle: LocaleKeys.onboarding_welcome_subtitle.tr(),
@@ -162,6 +163,38 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
     );
   }
 }
+
+/// The hero for [variant] as a screen reader meets it. Every hero but one is
+/// a mock-up of the app: its fake topic names and times mean nothing read
+/// aloud, and the title and text below say what it shows. The sleeping face
+/// answers a tap, so it labels itself.
+Widget _spokenHeroFor(WelcomeVariant variant, {VoidCallback? onAwake}) =>
+    variant == WelcomeVariant.wakeUp
+    ? _WakeUpHero(onAwake: onAwake)
+    : ExcludeSemantics(child: _heroFor(variant));
+
+/// Whether the heroes below may play their haptics. A loop of animations
+/// switches them off after its first pass. With none above, they are on.
+class _HeroHaptics extends InheritedWidget {
+  const _HeroHaptics({required this.isOn, required super.child});
+
+  final bool isOn;
+
+  static bool isOnFor(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_HeroHaptics>()?.isOn ?? true;
+
+  @override
+  bool updateShouldNotify(_HeroHaptics oldWidget) => oldWidget.isOn != isOn;
+}
+
+/// Plays one animation cue on the phone.
+void _playHeroCue(HeroCue cue) => switch (cue) {
+  HeroCue.typeTick => AppHaptics.tick(),
+  HeroCue.cardLands || HeroCue.commandSent => AppHaptics.lightTap(),
+  // The heavy thud. AppHaptics has no call named for a ring, and this is
+  // its strongest.
+  HeroCue.ringPulse => AppHaptics.success(),
+};
 
 Widget _heroFor(WelcomeVariant variant) => switch (variant) {
   WelcomeVariant.wakeUp => const _WakeUpHero(),
@@ -209,6 +242,13 @@ class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
   late WelcomeVariant _variant = widget.first ?? widget.loop.first;
   Timer? _next;
 
+  /// True until [OnboardingAnimationLoop.first] has handed over.
+  bool _isOpening = true;
+
+  /// True until every animation has played once. The haptics play on that
+  /// first pass only.
+  bool _isFirstPass = true;
+
   @override
   void initState() {
     super.initState();
@@ -235,10 +275,22 @@ class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
       // With animations off each face sits still, so there is nothing to
       // move on from.
       if (MediaQuery.of(context).disableAnimations) return;
-      final at = widget.loop.indexOf(_variant);
-      setState(() => _variant = widget.loop[(at + 1) % widget.loop.length]);
-      _scheduleNext();
+      _showNext();
     });
+  }
+
+  /// Moves on to the next animation now, and starts its timer.
+  void _showNext() {
+    if (!mounted) return;
+    _next?.cancel();
+    final at = widget.loop.indexOf(_variant);
+    setState(() {
+      // Leaving the last one means every animation has had its turn.
+      if (at == widget.loop.length - 1) _isFirstPass = false;
+      _isOpening = false;
+      _variant = widget.loop[(at + 1) % widget.loop.length];
+    });
+    _scheduleNext();
   }
 
   @override
@@ -248,15 +300,18 @@ class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
         if (widget.isOnItsOwn && !introHeroFits(box.maxHeight)) {
           return const SizedBox.shrink();
         }
-        // The heroes are mock-ups of the app. Their fake topic names and
-        // times mean nothing read aloud; the title and text below say what
-        // they show.
-        final hero = ExcludeSemantics(
+        final hero = _HeroHaptics(
+          isOn: _isFirstPass,
           child: AnimatedSwitcher(
             duration: context.motion(const Duration(milliseconds: 450)),
             child: KeyedSubtree(
               key: ValueKey(_variant),
-              child: _heroFor(_variant),
+              child: _spokenHeroFor(
+                _variant,
+                // The opening face does not wait for its timer: the next
+                // animation starts as soon as it is awake.
+                onAwake: _isOpening && widget.first != null ? _showNext : null,
+              ),
             ),
           ),
         );
@@ -282,9 +337,14 @@ class _IntroLayout extends StatelessWidget {
     required this.onPressed,
     this.top,
     this.badge,
+    this.isHeroSpoken = false,
   });
 
   final Widget hero;
+
+  /// True when [hero] gives a screen reader its own label. Otherwise it is
+  /// a mock-up and a screen reader skips it.
+  final bool isHeroSpoken;
   final String title;
   final String subtitle;
   final String button;
@@ -369,19 +429,20 @@ class _IntroLayout extends StatelessWidget {
                           if (!introHeroFits(box.maxHeight)) {
                             return const SizedBox.shrink();
                           }
-                          // A mock-up; the words below carry the meaning.
                           // It is a drawing, so it keeps its size when the
                           // system text grows.
-                          return ExcludeSemantics(
-                            child: MediaQuery.withNoTextScaling(
-                              child: AnimatedSwitcher(
-                                duration: context.motion(
-                                  const Duration(milliseconds: 450),
-                                ),
-                                child: hero,
+                          final drawing = MediaQuery.withNoTextScaling(
+                            child: AnimatedSwitcher(
+                              duration: context.motion(
+                                const Duration(milliseconds: 450),
                               ),
+                              child: hero,
                             ),
                           );
+                          // A mock-up; the words below carry the meaning.
+                          return isHeroSpoken
+                              ? drawing
+                              : ExcludeSemantics(child: drawing);
                         },
                       ),
                     ),
@@ -440,18 +501,50 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
   /// Seconds since the hero appeared.
   double get t => _isStill ? restAt : _seconds;
 
+  /// The haptic cues this hero plays, timed on its own clock. Most heroes
+  /// have none.
+  List<TimedCue> buildCues() => const [];
+
+  late final HeroCueClock _cueClock = HeroCueClock(buildCues());
+
+  bool _areHapticsOn = true;
+  ModalRoute<Object?>? _route;
+
+  /// Whether this hero may play a haptic right now: it moves, the loop
+  /// around it is on its first pass, its screen is the one on top, and the
+  /// app is in front. A hero whose screen is covered or gone stays silent.
+  bool get canPlayHaptics {
+    final lifecycle = SchedulerBinding.instance.lifecycleState;
+    return mounted &&
+        !_isStill &&
+        _areHapticsOn &&
+        (_route?.isCurrent ?? true) &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed);
+  }
+
+  /// Called on every frame, after the clock has moved to [seconds].
+  void onClock(double seconds) {}
+
   @override
   void initState() {
     super.initState();
-    _ticker = createTicker(
-      (elapsed) => setState(() => _seconds = elapsed.inMicroseconds / 1e6),
-    );
+    _ticker = createTicker((elapsed) {
+      final seconds = elapsed.inMicroseconds / 1e6;
+      setState(() => _seconds = seconds);
+      onClock(seconds);
+      // The cue clock moves on every frame, allowed to play or not, so a
+      // cue that was missed is never kept for later.
+      final cues = _cueClock.advanceTo(seconds);
+      if (canPlayHaptics) cues.forEach(_playHeroCue);
+    });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _isStill = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    _areHapticsOn = _HeroHaptics.isOnFor(context);
+    _route = ModalRoute.of(context);
     // The ticker is stopped, not just ignored: a frame callback that
     // does nothing still wakes the engine every frame.
     if (_isStill && _ticker.isActive) {
@@ -529,15 +622,43 @@ Widget _face(FaceShape shape, double size, {Color? fill}) => FaceWidget(
 // 1. Wake up.
 
 class _WakeUpHero extends StatefulWidget {
-  const _WakeUpHero();
+  const _WakeUpHero({this.onAwake});
+
+  /// Called once, when the face has finished waking.
+  final VoidCallback? onAwake;
 
   @override
   State<_WakeUpHero> createState() => _WakeUpHeroState();
 }
 
 class _WakeUpHeroState extends _ClockState<_WakeUpHero> {
+  /// A still hero rests this long after waking, on its first smile.
   @override
-  double get restAt => 3.2;
+  double get restAt => 1.6;
+
+  /// When the face woke, on the hero's clock. Null while it dozes.
+  double? _wokeAt;
+  bool _hasSaidAwake = false;
+
+  /// Wakes the face now. The hop starts on the next frame and the thump
+  /// plays here, so a tap feels answered at once.
+  void _wake() {
+    if (_isStill || _wokeAt != null) return;
+    setState(() => _wokeAt = _seconds);
+    if (canPlayHaptics) AppHaptics.capture();
+  }
+
+  @override
+  void onClock(double seconds) {
+    if (seconds >= welcomeAutoWakeAfter) _wake();
+    final wokeAt = _wokeAt;
+    if (wokeAt != null &&
+        !_hasSaidAwake &&
+        seconds >= wokeAt + welcomeWakeTakes) {
+      _hasSaidAwake = true;
+      widget.onAwake?.call();
+    }
+  }
 
   static const List<FaceState> _after = [
     FaceState.happy,
@@ -552,31 +673,58 @@ class _WakeUpHeroState extends _ClockState<_WakeUpHero> {
     final t = this.t;
     final enter = Curves.easeOutBack.transform(_window(t, 0, 0.9));
 
+    // A still hero has been awake all along.
+    final wokeAt = _isStill ? 0.0 : _wokeAt;
+    final isAwake = wokeAt != null;
+    // Seconds since it woke. Below zero while it dozes.
+    final awake = isAwake ? t - wokeAt : -1.0;
+
     final FaceShape face;
-    if (t < 1.6) {
+    if (awake < 0) {
       face = _shape(FaceState.dozing);
-    } else if (t < 1.95) {
-      face = _blend(FaceState.dozing, FaceState.wakesUp, _window(t, 1.6, 0.35));
-    } else if (t < 2.5) {
+    } else if (awake < 0.35) {
+      face = _blend(FaceState.dozing, FaceState.wakesUp, awake / 0.35);
+    } else if (awake < 0.9) {
       face = _shape(FaceState.wakesUp);
-    } else if (t < 2.9) {
-      face = _blend(FaceState.wakesUp, FaceState.happy, _window(t, 2.5, 0.4));
+    } else if (awake < 1.3) {
+      face = _blend(
+        FaceState.wakesUp,
+        FaceState.happy,
+        _window(awake, 0.9, 0.4),
+      );
     } else {
-      face = _withBlink(_cycle(_after, t - 2.9, hold: 2), t);
+      face = _withBlink(_cycle(_after, awake - 1.3, hold: 2), t);
     }
 
     // A startled hop as it wakes, then a slow breathing bob.
-    final hop = math.sin(_window(t, 1.6, 0.45) * math.pi) * -26;
-    final bob = t > 2.9 ? math.sin((t - 2.9) * 2.2) * 5 : 0.0;
+    final hop = isAwake
+        ? math.sin(_window(awake, 0, welcomeWakeHopTakes) * math.pi) * -26
+        : 0.0;
+    final bob = awake > 1.3 ? math.sin((awake - 1.3) * 2.2) * 5 : 0.0;
 
-    return Center(
-      child: Opacity(
-        opacity: _window(t, 0, 0.4),
-        child: Transform.translate(
-          offset: Offset(0, hop + bob),
-          child: Transform.scale(
-            scale: 0.6 + 0.4 * enter,
-            child: _face(face, 190),
+    return Semantics(
+      container: true,
+      image: true,
+      label: isAwake
+          ? LocaleKeys.onboarding_welcome_hero_awake.tr()
+          : LocaleKeys.onboarding_welcome_hero_asleep.tr(),
+      hint: isAwake ? null : LocaleKeys.onboarding_welcome_hero_wake_hint.tr(),
+      onTap: isAwake ? null : _wake,
+      child: Listener(
+        // A touch anywhere on the hero wakes it, on the way down: waiting
+        // for the finger to lift would make the face feel slow.
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (_) => _wake(),
+        child: Center(
+          child: Opacity(
+            opacity: _window(t, 0, 0.4),
+            child: Transform.translate(
+              offset: Offset(0, hop + bob),
+              child: Transform.scale(
+                scale: 0.6 + 0.4 * enter,
+                child: ExcludeSemantics(child: _face(face, 190)),
+              ),
+            ),
           ),
         ),
       ),

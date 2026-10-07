@@ -14,6 +14,8 @@ import 'package:flutter/services.dart';
 /// - [done] a run of work is finished: medium.
 /// - [selection] segmented and mode toggles, tab changes, accept and dismiss.
 /// - [failed] a refresh did not work: heavy, so it feels unlike [done].
+/// - [tick] one small step of something that moves by itself: ultra-light.
+/// - [lightTap] something small lands in place: light.
 ///
 /// A0 maps these onto Crit Alarm's own moments. The alarm screen and the two
 /// acknowledge stages are the ones that matter here.
@@ -56,5 +58,17 @@ abstract final class AppHaptics {
   /// A discrete choice: toggle, tab, accept/dismiss — the lightest tick.
   static void selection() {
     if (_enabled) unawaited(HapticFeedback.selectionClick());
+  }
+
+  /// One small step of something that moves by itself: a typed character, a
+  /// bar gaining a step. Ultra-light, the faintest the phone can make.
+  static void tick() {
+    if (_enabled) unawaited(HapticFeedback.selectionClick());
+  }
+
+  /// Something small lands in place: a card arrives, a command is sent.
+  /// Light.
+  static void lightTap() {
+    if (_enabled) unawaited(HapticFeedback.lightImpact());
   }
 }

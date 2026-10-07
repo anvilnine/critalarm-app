@@ -29,6 +29,7 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     this.devicePermissions,
     this.replayForDemo = false,
     this.standalone = false,
+    this.cameBack = false,
     this.readTimeout = const Duration(seconds: 5),
     NotificationPermissionStep initialStep = NotificationPermissionStep.initial,
   }) : super(NotificationPermissionsState(step: initialStep));
@@ -58,6 +59,15 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   /// system prompt earns a step, and the screen closes once none is left.
   final bool standalone;
 
+  /// True when the user came back to this step from a later one. Every step
+  /// shows again, the answered ones as answered, and none of those is asked
+  /// a second time: a granted step only moves on, and a refused one is
+  /// already in `promptSpent`, so it opens Settings instead of a prompt.
+  final bool cameBack;
+
+  /// Whether a step that is already granted is still put on screen.
+  bool get _showsGranted => replayForDemo || cameBack;
+
   /// How long a status read may take. A read that is still out after this
   /// is given up on, so the screen is never left checking for good.
   final Duration readTimeout;
@@ -65,7 +75,7 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   /// The step whose system dialog is open. Its answer, yes or no, moves on.
   PermissionSetupStep? _dialogOpenFor;
 
-  PermissionAskMode get _mode => replayForDemo
+  PermissionAskMode get _mode => _showsGranted
       ? PermissionAskMode.replay
       : standalone
       ? PermissionAskMode.standalone
@@ -131,7 +141,7 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
     final stillNeeded =
         current != null &&
         current != answered &&
-        (replayForDemo || !snapshot.granted.contains(current));
+        (_showsGranted || !snapshot.granted.contains(current));
     if (stillNeeded) {
       emit(read);
       return;
@@ -184,6 +194,12 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
   Future<void> allowCurrentStep() async {
     final current = state.current;
     if (current == null || state.isRequesting) return;
+    // Came back to a step that is already allowed: there is nothing to ask,
+    // so the button only moves on.
+    if (cameBack && state.granted.contains(current)) {
+      skipStep();
+      return;
+    }
     switch (current) {
       case PermissionSetupStep.iosNotifications:
       case PermissionSetupStep.androidNotifications:
@@ -295,7 +311,7 @@ class NotificationPermissionsCubit extends Cubit<NotificationPermissionsState> {
       from.steps,
       alreadyShown: from.shown,
       granted: from.granted,
-      showGranted: replayForDemo,
+      showGranted: _showsGranted,
     );
     emit(
       next == null

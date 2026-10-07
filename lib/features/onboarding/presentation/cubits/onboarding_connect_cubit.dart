@@ -40,6 +40,7 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     this.readDraft,
     this.saveDraft,
     this.backgroundConnect,
+    this.disconnect,
     ConnectToServerUsecase? connectToServer,
     Future<bool> Function()? isOnline,
     bool initialConnected = false,
@@ -64,6 +65,11 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   /// Runs the Crit Alarm Cloud connect behind the user. Null in tests that
   /// only exercise the form, where Cloud connects in the foreground.
   final BackgroundConnect? backgroundConnect;
+
+  /// Drops the server this phone is connected to, the way Settings > Server
+  /// does it. The app hands over that same call, so there is one way to
+  /// disconnect. Null in tests that never change server.
+  final Future<void> Function()? disconnect;
 
   /// Asked only when the Cloud did not answer, to tell "no network" from a
   /// server that is slow or down.
@@ -329,6 +335,42 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   }
 
   StreamSubscription<BackgroundConnectState>? _cloudConnectChanges;
+
+  /// For a user who came back to this step while the Cloud connect they
+  /// started is still running behind them: shows where it stands and keeps
+  /// showing it until it lands or gives up. Does nothing with no connect
+  /// pending.
+  Future<void> followPendingConnect() async {
+    final background = backgroundConnect;
+    if (background == null || !background.state.isPending || isClosed) return;
+    _showCloudConnect(background.state);
+    await _cloudConnectChanges?.cancel();
+    _cloudConnectChanges = background.stream.listen(_showCloudConnect);
+  }
+
+  /// The server the user picked, as a person reads it: the one connected,
+  /// or Crit Alarm Cloud while its connect is still on the way.
+  String get chosenHost =>
+      _hostOf(state.isConnected ? state.serverUrl : cloudUrl);
+
+  /// Use a different server, for a user who came back to this step. The
+  /// server is dropped through [disconnect], which also drops a connect
+  /// that has not landed, and the two choices show again.
+  Future<void> changeServer() async {
+    await _cloudConnectChanges?.cancel();
+    _cloudConnectChanges = null;
+    await disconnect?.call();
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        serverUrl: '',
+        status: OnboardingConnectStatus.idle,
+        clearConfirmation: true,
+        clearErrorMessage: true,
+        clearCloudWaitLine: true,
+      ),
+    );
+  }
 
   void _showCloudConnect(BackgroundConnectState connect) {
     if (isClosed) return;

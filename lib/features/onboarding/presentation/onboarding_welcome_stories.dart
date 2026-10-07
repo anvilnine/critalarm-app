@@ -973,6 +973,16 @@ class _CurlHeroState extends _ClockState<_CurlHero> {
   @override
   double get restAt => 4.5;
 
+  /// The phone rings, and shakes, between these two times.
+  static const double _ringFrom = 2.5;
+  static const double _ringTo = 8.8;
+
+  @override
+  List<TimedCue> buildCues() => [
+    ..._terminalCues(),
+    ...ringCues(from: _ringFrom, to: _ringTo),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final t = this.t % 11;
@@ -985,9 +995,12 @@ class _CurlHeroState extends _ClockState<_CurlHero> {
           Positioned.fill(
             child: Center(
               child: Transform.rotate(
-                angle: math.sin(t * 50) * 0.012 * _shown(t, 2.5, 8.8),
+                angle:
+                    math.sin(t * phoneShakeRate) *
+                    0.012 *
+                    _shown(t, _ringFrom, _ringTo),
                 child: _MiniPhone(
-                  island: _shown(t, 2.5, 8.8, fade: 0.25),
+                  island: _shown(t, _ringFrom, _ringTo, fade: 0.25),
                   screen: Stack(
                     children: [
                       Positioned.fill(
@@ -1058,6 +1071,12 @@ class _CurlHeroState extends _ClockState<_CurlHero> {
   }
 }
 
+/// The haptics for [_CurlTerminal]: a tick as it types, then the send.
+List<TimedCue> _terminalCues() => typingCues(
+  length: CurlTerminalCard.lengthOf(_curl),
+  isAndroid: defaultTargetPlatform == TargetPlatform.android,
+);
+
 /// The terminal from the site hero: types the curl, then slides away at
 /// [hideAt] once the phone has taken over.
 class _CurlTerminal extends StatelessWidget {
@@ -1069,7 +1088,9 @@ class _CurlTerminal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final length = CurlTerminalCard.lengthOf(_curl);
-    final typed = (_window(t, 0.3, 1.9) * length).floor();
+    final typed =
+        (_window(t, terminalTypingStartsAt, terminalTypingTakes) * length)
+            .floor();
     final caretOn = (t * 2).floor().isEven || typed < length;
 
     return Positioned(
@@ -1191,6 +1212,13 @@ class _AndroidHeroState extends _ClockState<_AndroidHero> {
   @override
   double get restAt => 4;
 
+  /// The phone rings, and shakes, between these two times.
+  static const double _ringFrom = 1;
+  static const double _ringTo = 6.6;
+
+  @override
+  List<TimedCue> buildCues() => ringCues(from: _ringFrom, to: _ringTo);
+
   @override
   Widget build(BuildContext context) {
     final t = this.t % 10;
@@ -1200,7 +1228,10 @@ class _AndroidHeroState extends _ClockState<_AndroidHero> {
       opacity: 1 - _window(t, 9.5, 0.4),
       child: Center(
         child: Transform.rotate(
-          angle: math.sin(t * 50) * 0.012 * _shown(t, 1, 6.6, fade: 0.1),
+          angle:
+              math.sin(t * phoneShakeRate) *
+              0.012 *
+              _shown(t, _ringFrom, _ringTo, fade: 0.1),
           child: _MiniPhone(
             isAndroid: true,
             screen: Stack(
@@ -1258,6 +1289,16 @@ class _AndroidCurlHeroState extends _ClockState<_AndroidCurlHero> {
   @override
   double get restAt => 5;
 
+  /// The phone rings, and shakes, between these two times.
+  static const double _ringFrom = 2.4;
+  static const double _ringTo = 8.1;
+
+  @override
+  List<TimedCue> buildCues() => [
+    ..._terminalCues(),
+    ...ringCues(from: _ringFrom, to: _ringTo),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final t = this.t % 11.5;
@@ -1271,7 +1312,9 @@ class _AndroidCurlHeroState extends _ClockState<_AndroidCurlHero> {
             child: Center(
               child: Transform.rotate(
                 angle:
-                    math.sin(t * 50) * 0.012 * _shown(t, 2.4, 8.1, fade: 0.1),
+                    math.sin(t * phoneShakeRate) *
+                    0.012 *
+                    _shown(t, _ringFrom, _ringTo, fade: 0.1),
                 child: _MiniPhone(
                   isAndroid: true,
                   screen: Stack(
@@ -1333,11 +1376,14 @@ class _LadderHeroState extends _ClockState<_LadderHero> {
   double get restAt => 4;
 
   @override
+  List<TimedCue> buildCues() => ladderCues();
+
+  @override
   Widget build(BuildContext context) {
     final t = this.t % 10;
     final colors = context.appColors;
-    final acked = t > 6.6;
-    final ringing = t > 2.6 && !acked;
+    final acked = t > ladderRingEndsAt;
+    final ringing = t > ladderRingStartsAt && !acked;
 
     Widget card({
       required int index,
@@ -1349,11 +1395,12 @@ class _LadderHeroState extends _ClockState<_LadderHero> {
       Color? tint,
       double shake = 0,
     }) {
+      final start = ladderCardStartsAt(index);
       final arrive = Curves.easeOutBack.transform(
-        _window(t, 0.3 + index * 1.1, 0.6),
+        _window(t, start, ladderCardTakes),
       );
       return Opacity(
-        opacity: _window(t, 0.3 + index * 1.1, 0.3),
+        opacity: _window(t, start, ladderCardTakes / 2),
         child: Transform.translate(
           offset: Offset((1 - arrive) * 260 + shake, 0),
           child: AnimatedContainer(
@@ -1436,7 +1483,11 @@ class _LadderHeroState extends _ClockState<_LadderHero> {
         );
 
     // The bell swings while the P3 notice lands.
-    final swing = math.sin(t * 30) * 0.4 * _shown(t, 1.4, 2.3, fade: 0.1);
+    final swingFrom = ladderCardStartsAt(1);
+    final swing =
+        math.sin(t * 30) *
+        0.4 *
+        _shown(t, swingFrom, swingFrom + 0.9, fade: 0.1);
 
     return Opacity(
       opacity: 1 - _window(t, 9.4, 0.5),
@@ -1489,7 +1540,7 @@ class _LadderHeroState extends _ClockState<_LadderHero> {
                 tint: acked
                     ? colors.cobaltTint
                     : (ringing ? colors.critTint : null),
-                shake: ringing ? math.sin(t * 60) * 3 : 0,
+                shake: ringing ? math.sin(t * ladderShakeRate) * 3 : 0,
                 outcome: acked
                     ? chip(
                         LocaleKeys.onboarding_welcome_story_acknowledged.tr(),
@@ -1526,6 +1577,13 @@ class _PipelineHeroState extends _ClockState<_PipelineHero> {
   @override
   double get restAt => 3.5;
 
+  /// The phone rings, and shakes, between these two times.
+  static const double _ringFrom = 2.4;
+  static const double _ringTo = 5.9;
+
+  @override
+  List<TimedCue> buildCues() => ringCues(from: _ringFrom, to: _ringTo);
+
   @override
   Widget build(BuildContext context) {
     final t = this.t % 10;
@@ -1545,8 +1603,8 @@ class _PipelineHeroState extends _ClockState<_PipelineHero> {
         : t < 6.8
         ? _blend(FaceState.calm, FaceState.determined, _window(t, 1.5, 0.3))
         : _blend(FaceState.determined, FaceState.happy, _window(t, 6.8, 0.3));
-    final ringing = t > 2.4 && t < 5.9;
-    final phoneState = t < 2.4
+    final ringing = t > _ringFrom && t < _ringTo;
+    final phoneState = t < _ringFrom
         ? FaceState.calm
         : ringing
         ? FaceState.alarmed
@@ -1622,7 +1680,7 @@ class _PipelineHeroState extends _ClockState<_PipelineHero> {
                     color: colors.crit,
                     isOn: ringing,
                     child: Transform.rotate(
-                      angle: ringing ? math.sin(t * 50) * 0.08 : 0,
+                      angle: ringing ? math.sin(t * phoneShakeRate) * 0.08 : 0,
                       child: FaceWidget(
                         state: phoneState,
                         size: face,

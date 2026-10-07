@@ -520,16 +520,44 @@ void main() {
       );
     });
 
-    OnboardingConnectCubit build({bool initialConnected = false}) =>
-        OnboardingConnectCubit(
-          mockGetServerInfo,
-          mockSaveConnection,
-          establishSession: mockEstablishSession,
-          getConnection: getConnection,
-          readDraft: ReadOnboardingDraftUsecase(progress),
-          saveDraft: SaveOnboardingDraftUsecase(progress),
-          initialConnected: initialConnected,
-        );
+    OnboardingConnectCubit build({
+      bool initialConnected = false,
+      Future<void> Function()? disconnect,
+    }) => OnboardingConnectCubit(
+      mockGetServerInfo,
+      mockSaveConnection,
+      establishSession: mockEstablishSession,
+      getConnection: getConnection,
+      readDraft: ReadOnboardingDraftUsecase(progress),
+      saveDraft: SaveOnboardingDraftUsecase(progress),
+      disconnect: disconnect,
+      initialConnected: initialConnected,
+    );
+
+    test('a user who came back sees the host of the saved server', () async {
+      final cubit = build();
+
+      await cubit.loadConnection();
+
+      expect(cubit.chosenHost, 'alerts.example.com');
+      await cubit.close();
+    });
+
+    test('use a different server disconnects once and shows the choices '
+        'again', () async {
+      var disconnects = 0;
+      final cubit = build(disconnect: () async => disconnects++);
+      await cubit.loadConnection();
+      expect(cubit.state.isConnected, isTrue);
+
+      await cubit.changeServer();
+
+      expect(disconnects, 1);
+      expect(cubit.state.isConnected, isFalse);
+      expect(cubit.state.status, OnboardingConnectStatus.idle);
+      expect(cubit.state.serverUrl, isEmpty);
+      await cubit.close();
+    });
 
     test('a saved server marks the connect step connected', () async {
       final cubit = build();
