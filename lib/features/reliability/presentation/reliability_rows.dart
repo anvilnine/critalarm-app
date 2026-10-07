@@ -106,6 +106,10 @@ String? reliabilityLineKey(ReliabilityCheck check) {
     final when = _missedLineKeys[check.reason];
     if (when != null) return when;
   }
+  if (check.reason == _denied) {
+    final denied = _deniedLineKeys[check.id.value];
+    if (denied != null) return denied;
+  }
   return _lineKeys[check.reason] ??
       (check.state == ReliabilityState.broken
           ? LocaleKeys.reliability_line_broken_generic
@@ -138,6 +142,20 @@ const _missedLineKeys = <String, String>{
   'missed_unanswered': LocaleKeys.reliability_line_missed_unanswered_when,
 };
 
+const _denied = 'denied';
+
+/// What a denied permission costs, by check. A check this map does not know
+/// falls back to the shared `line_denied`.
+final _deniedLineKeys = <String, String>{
+  ReliabilityCheckIds.notifications.value:
+      LocaleKeys.reliability_line_denied_notifications,
+  ReliabilityCheckIds.fullScreenAlarm.value:
+      LocaleKeys.reliability_line_denied_full_screen,
+  ReliabilityCheckIds.batteryOptimization.value:
+      LocaleKeys.reliability_line_denied_battery,
+  ReliabilityCheckIds.alarms.value: LocaleKeys.reliability_line_denied_alarms,
+};
+
 const _lineKeys = <String, String>{
   'refused': LocaleKeys.reliability_line_refused,
   'never': LocaleKeys.reliability_line_never,
@@ -152,7 +170,7 @@ const _lineKeys = <String, String>{
   'maker_os_changed': LocaleKeys.maker_guide_line_os_changed,
   _missedRang: LocaleKeys.reliability_line_missed_rang,
   // A permission's reason is its status name.
-  'denied': LocaleKeys.reliability_line_denied,
+  _denied: LocaleKeys.reliability_line_denied,
   'restricted': LocaleKeys.reliability_line_restricted,
   'notDetermined': LocaleKeys.reliability_line_not_determined,
   // The weekly check, by the reasons its source gives.
