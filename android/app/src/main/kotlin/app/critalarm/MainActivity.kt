@@ -371,7 +371,8 @@ class MainActivity : FlutterFragmentActivity() {
      * The tap a notification put on an intent, read once.
      *
      * The extras come off as they are read and the activity keeps the intent
-     * without them, so nothing reopens the same screen later. An intent the
+     * without them, so nothing reopens the same screen later. A link opened
+     * from outside the app arrives the same way, as [EXTRA_LINK]. An intent the
      * system replayed out of the recents list is ignored outright: the user
      * asked for the app, not for a notification they already dealt with.
      */
@@ -382,17 +383,15 @@ class MainActivity : FlutterFragmentActivity() {
             ?: intent.getStringExtra(EXTRA_INCIDENT_ID)
         val topic = intent.getStringExtra(EXTRA_TOPIC)
         val open = intent.getStringExtra(EXTRA_OPEN)
-        if (incidentId == null && topic == null && open == null) return null
+        val link = intent.getStringExtra(EXTRA_LINK)
+        if (incidentId == null && topic == null && open == null && link == null) return null
         intent.removeExtra(EXTRA_ALARM_INCIDENT_ID)
         intent.removeExtra(EXTRA_INCIDENT_ID)
         intent.removeExtra(EXTRA_TOPIC)
         intent.removeExtra(EXTRA_OPEN)
+        intent.removeExtra(EXTRA_LINK)
         tapSequence += 1
-        val tap = mutableMapOf(KEY_TAP_ID to tapSequence.toString())
-        if (incidentId != null) tap[EXTRA_INCIDENT_ID] = incidentId
-        if (topic != null) tap[EXTRA_TOPIC] = topic
-        if (open != null) tap[EXTRA_OPEN] = open
-        return tap
+        return TapRoute.tapFor(tapSequence, incidentId, topic, open, link)
     }
 
     companion object {
@@ -403,6 +402,13 @@ class MainActivity : FlutterFragmentActivity() {
         /** `open=home` comes from the open count widget and opens Home. */
         const val EXTRA_OPEN = "open"
         const val OPEN_HOME = "home"
+
+        /**
+         * A link AppLinkActivity handed over, whole. Dart parses it. A connect
+         * link carries a token, so the value is never logged here.
+         * Matches PushHost.linkKey in Dart.
+         */
+        const val EXTRA_LINK = "link"
 
         /** open=paywall comes from a locked widget. */
         const val OPEN_PAYWALL = "paywall"
