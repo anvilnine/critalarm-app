@@ -282,6 +282,141 @@ void main() {
     });
   });
 
+  group('a payment the store is holding', () {
+    setUp(() => shop.buyResult = ProPackStoreResult.pending);
+
+    test('shows as pending, never as a store problem', () async {
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      final seen = <ProPackSheetState>[];
+      final sub = cubit.stream.listen(seen.add);
+      await cubit.buy(_one);
+      await Future<void>.delayed(Duration.zero);
+      await sub.cancel();
+
+      expect(seen.map((s) => s.stage), [
+        ProPackSheetStage.atStore,
+        ProPackSheetStage.paymentPending,
+      ]);
+      for (final state in seen) {
+        expect(state.note, isNull, reason: '$state');
+      }
+      // Nothing was asked: the store has not taken the money yet.
+      expect(api.refreshCalls, 0);
+      // Not reported as a finished purchase.
+      expect(gate.events, hasLength(1));
+    });
+
+    test('a second tap does not go back to the store', () async {
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      await cubit.buy(_one);
+      await cubit.buy(_two);
+      expect(shop.bought, ['a']);
+      expect(cubit.state.stage, ProPackSheetStage.paymentPending);
+    });
+
+    test('the purchase stays written down', () async {
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      expect(store.pending?.scope.accountId, 'acc_1');
+    });
+
+    test('check again asks the relay, and still says pending while nobody '
+        'confirms it', () async {
+      api.refreshes = [_readEmpty];
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+
+      final seen = <ProPackSheetState>[];
+      final sub = cubit.stream.listen(seen.add);
+      await cubit.checkAgain();
+      await Future<void>.delayed(Duration.zero);
+      await sub.cancel();
+
+      expect(seen.map((s) => s.stage), [
+        ProPackSheetStage.checking,
+        ProPackSheetStage.paymentPending,
+      ]);
+      for (final state in seen) {
+        expect(state.note, isNull, reason: '$state');
+      }
+      // A store read with nothing on it is not a no while a payment is held.
+      expect(api.refreshCalls, ProPackSheetCubit.confirmWaits.length);
+      expect(shop.bought, ['a']);
+      expect(store.pending, isNotNull);
+      // Check again is not reported as a purchase.
+      expect(gate.events, hasLength(1));
+    });
+
+    test('check again ends held once the payment goes through', () async {
+      api.refreshes = [_unknown, _held];
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      await cubit.checkAgain();
+      expect(cubit.state.stage, ProPackSheetStage.held);
+      expect(store.pending, isNull, reason: 'the relay listed the pack');
+    });
+
+    test('the relay answering through another door ends the wait', () async {
+      final a = access();
+      final cubit = build(a);
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      await a.relayAnswered(accountId: 'acc_1', packs: const [proPack]);
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.stage, ProPackSheetStage.held);
+    });
+
+    test('the next launch asks about it and unlocks', () async {
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      await cubit.close();
+
+      now = now.add(const Duration(hours: 2));
+      api.refreshes = [_held];
+      final relaunched = access();
+      await relaunched.ready;
+      expect(relaunched.isHeld, isFalse);
+      await relaunched.refresh();
+      expect(relaunched.isHeld, isTrue);
+      expect(api.refreshCalls, 1);
+      expect(store.pending, isNull);
+    });
+
+    test('a restore from there is a restore, with its own ending', () async {
+      api.refreshes = [_readEmpty];
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      await cubit.restore();
+      expect(shop.restores, 1);
+      expect(cubit.state.stage, ProPackSheetStage.offers);
+      expect(cubit.state.note, ProPackSheetNote.nothingToRestore);
+    });
+
+    test('a purchase after a held one pauses on its own line again', () async {
+      api.refreshes = [_readEmpty];
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      await cubit.restore();
+
+      now = now.add(ProPackAccess.refreshWindow);
+      shop.buyResult = ProPackStoreResult.done;
+      api
+        ..refreshCalls = 0
+        ..refreshes = [_unknown];
+      await cubit.buy(_one);
+      expect(cubit.state.stage, ProPackSheetStage.checkingPaused);
+    });
+  });
+
   group('a restore', () {
     test('finds the pack: held', () async {
       api.refreshes = [_held];
@@ -393,6 +528,7 @@ void main() {
           ProPackSheetStage.atStore: false,
           ProPackSheetStage.checking: false,
           ProPackSheetStage.checkingPaused: true,
+          ProPackSheetStage.paymentPending: true,
           ProPackSheetStage.held: false,
         },
       );

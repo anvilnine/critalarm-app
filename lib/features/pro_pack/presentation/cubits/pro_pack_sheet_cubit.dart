@@ -16,7 +16,9 @@ Future<void> _realWait(Duration d) => Future<void>.delayed(d);
 /// [ProPackAccess]. The store finishing a purchase only starts the asking.
 /// An answer that says nothing (`confirmed: false` with no pack listed, a
 /// call that failed, the local limit) is a reason to ask again and never a
-/// reason to say the purchase failed or the pack is missing.
+/// reason to say the purchase failed or the pack is missing. A payment the
+/// store is holding is not a failure either: the sheet says it is pending
+/// and offers to ask again, never to buy again.
 class ProPackSheetCubit extends Cubit<ProPackSheetState> {
   ProPackSheetCubit({
     required this._access,
@@ -51,6 +53,11 @@ class ProPackSheetCubit extends Cubit<ProPackSheetState> {
 
   /// Whether the last trip to the store was a purchase, for the retry.
   bool _afterPurchase = false;
+
+  /// Whether the last purchase ended with the store holding the payment.
+  /// A check that runs out then rests on the pending stage again, because
+  /// no payment went through.
+  bool _isPaymentPending = false;
 
   void _show(
     ProPackSheetStage stage, {
@@ -87,7 +94,8 @@ class ProPackSheetCubit extends Cubit<ProPackSheetState> {
   static bool canRestore(ProPackSheetStage stage) => switch (stage) {
     ProPackSheetStage.notOnSale ||
     ProPackSheetStage.offers ||
-    ProPackSheetStage.checkingPaused => true,
+    ProPackSheetStage.checkingPaused ||
+    ProPackSheetStage.paymentPending => true,
     ProPackSheetStage.loading ||
     ProPackSheetStage.atStore ||
     ProPackSheetStage.checking ||
@@ -96,6 +104,7 @@ class ProPackSheetCubit extends Cubit<ProPackSheetState> {
 
   Future<void> buy(ProPackOffer offer) async {
     if (state.stage != ProPackSheetStage.offers) return;
+    _isPaymentPending = false;
     _show(ProPackSheetStage.atStore);
     // Written down before the store is asked, so a purchase the app does
     // not live to see confirmed is asked about again on the next launch.
@@ -109,14 +118,19 @@ class ProPackSheetCubit extends Cubit<ProPackSheetState> {
 
   Future<void> restore() async {
     if (!canRestore(state.stage)) return;
+    _isPaymentPending = false;
     _show(ProPackSheetStage.atStore);
     final result = await _shop.restore();
     await _afterStore(result, afterPurchase: false);
   }
 
-  /// The button on the paused state. Runs the same asks again.
+  /// The button on the paused and pending stages. Runs the same asks
+  /// again, and never goes to the store.
   Future<void> checkAgain() async {
-    if (state.stage != ProPackSheetStage.checkingPaused) return;
+    if (state.stage != ProPackSheetStage.checkingPaused &&
+        state.stage != ProPackSheetStage.paymentPending) {
+      return;
+    }
     await _confirm(afterPurchase: _afterPurchase, report: false);
   }
 
@@ -133,6 +147,12 @@ class ProPackSheetCubit extends Cubit<ProPackSheetState> {
           _restingStage(state.offers),
           note: ProPackSheetNote.storeProblem,
         );
+      case ProPackStoreResult.pending:
+        // The pending-confirm record stays, so launch and resume keep
+        // asking. Check again asks as it does after any purchase.
+        _afterPurchase = afterPurchase;
+        _isPaymentPending = true;
+        _show(ProPackSheetStage.paymentPending);
       case ProPackStoreResult.done:
         await _confirm(afterPurchase: afterPurchase, report: true);
     }
@@ -185,7 +205,11 @@ class ProPackSheetCubit extends Cubit<ProPackSheetState> {
           note: ProPackSheetNote.nothingToRestore,
         );
       default:
-        _show(ProPackSheetStage.checkingPaused);
+        _show(
+          _isPaymentPending
+              ? ProPackSheetStage.paymentPending
+              : ProPackSheetStage.checkingPaused,
+        );
     }
   }
 

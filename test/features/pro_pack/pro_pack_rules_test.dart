@@ -215,6 +215,16 @@ void main() {
       );
     });
 
+    test('a held payment says pending, and never that the store is done', () {
+      final view = proPackSheetView(ProPackSheetStage.paymentPending);
+      expect(view.lineKey, LocaleKeys.purchase_errors_payment_pending);
+      expect(view.isWaiting, isFalse);
+      expect(
+        ProPackSheetNote.values.map(proPackSheetNoteKey),
+        isNot(contains(view.lineKey)),
+      );
+    });
+
     test('a stage that still waits on the store never says it is done', () {
       final words =
           (jsonDecode(File('assets/translations/en.json').readAsStringSync())
@@ -272,6 +282,7 @@ void main() {
           ProPackSheetStage.atStore: null,
           ProPackSheetStage.checking: null,
           ProPackSheetStage.checkingPaused: null,
+          ProPackSheetStage.paymentPending: null,
           ProPackSheetStage.held: null,
         },
       );
@@ -310,6 +321,7 @@ void main() {
           ProPackSheetStage.notOnSale,
           ProPackSheetStage.offers,
           ProPackSheetStage.checkingPaused,
+          ProPackSheetStage.paymentPending,
           ProPackSheetStage.held,
         ])
           proPackSheetView(stage).face,

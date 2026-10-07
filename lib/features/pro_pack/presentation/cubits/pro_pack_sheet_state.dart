@@ -24,6 +24,12 @@ enum ProPackSheetStage {
   /// one button to ask again. Never worded as a failure.
   checkingPaused,
 
+  /// The store is holding the payment: it waits for an approval or for the
+  /// money. Nothing failed and nothing is held yet. The sheet offers one
+  /// button to ask again and nothing to buy, so a tap never goes back to
+  /// the store.
+  paymentPending,
+
   /// The install holds the pack.
   held,
 }

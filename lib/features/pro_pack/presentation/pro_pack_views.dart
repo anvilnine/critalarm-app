@@ -98,7 +98,9 @@ final class ProPackSheetView {
 /// store has finished (`checking`, `checkingPaused`) say the purchase is
 /// being confirmed, and only the paused one adds that the store is done.
 /// They share their words on purpose: the wait is one wait, and the paused
-/// stage only adds the line and a button.
+/// stage only adds the line and a button. A payment the store is holding
+/// (`paymentPending`) rests like the paused stage with the pending line,
+/// because the store is not done.
 ProPackSheetView proPackSheetView(ProPackSheetStage stage) => switch (stage) {
   ProPackSheetStage.loading => const ProPackSheetView(
     face: FaceState.watching,
@@ -130,6 +132,11 @@ ProPackSheetView proPackSheetView(ProPackSheetStage stage) => switch (stage) {
     titleKey: LocaleKeys.pro_pack_sheet_paused_title,
     lineKey: LocaleKeys.pro_pack_sheet_paused_line,
   ),
+  ProPackSheetStage.paymentPending => const ProPackSheetView(
+    face: FaceState.calm,
+    titleKey: LocaleKeys.pro_pack_sheet_paused_title,
+    lineKey: LocaleKeys.purchase_errors_payment_pending,
+  ),
   ProPackSheetStage.held => const ProPackSheetView(
     face: FaceState.success,
     titleKey: LocaleKeys.pro_pack_sheet_held_title,
@@ -153,6 +160,7 @@ String? proPackSheetSelfHostedLineKey(
   ProPackSheetStage.atStore ||
   ProPackSheetStage.checking ||
   ProPackSheetStage.checkingPaused ||
+  ProPackSheetStage.paymentPending ||
   ProPackSheetStage.held => null,
 };
 

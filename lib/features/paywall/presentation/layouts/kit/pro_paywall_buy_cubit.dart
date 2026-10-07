@@ -49,6 +49,12 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
   final Map<String, ProPackOffer> _offers = {};
   bool _afterPurchase = false;
 
+  static const String _confirmingKey = LocaleKeys.paywall_kit_paused;
+
+  /// The line a paused check shows. After a payment the store is holding
+  /// it stays the pending line, because the store is not done.
+  String _pausedKey = _confirmingKey;
+
   bool get _isDone => state.status == PaywallBuyStatus.done;
 
   @override
@@ -68,6 +74,7 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
   Future<void> buy() async {
     final offer = _offers[state.selectedId];
     if (!state.canBuy || offer == null) return;
+    _pausedKey = _confirmingKey;
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
     // Written down before the store is asked, so a purchase the app does
     // not live to see confirmed is asked about again on the next launch.
@@ -82,6 +89,7 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
   @override
   Future<void> restore() async {
     if (!state.canRestore) return;
+    _pausedKey = _confirmingKey;
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
     await _afterStore(await _shop.restore(), afterPurchase: false);
   }
@@ -97,6 +105,11 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
     required bool afterPurchase,
   }) async {
     if (isClosed || _isDone) return;
+    if (result == ProPackStoreResult.pending) {
+      // Check again asks the relay as it does after any purchase.
+      _afterPurchase = afterPurchase;
+      _pausedKey = LocaleKeys.purchase_errors_payment_pending;
+    }
     show(afterStore(state, storeResultOfProPack(result)));
     if (result == ProPackStoreResult.done) {
       await _confirm(afterPurchase: afterPurchase);
@@ -124,13 +137,7 @@ class ProPaywallBuyCubit extends PaywallBuyCubit {
     }
     // The relay can answer through another door while the last ask is out.
     if (_access.isHeld) step = PaywallConfirmStep.done;
-    show(
-      afterConfirmStep(
-        state,
-        step,
-        pausedKey: LocaleKeys.paywall_kit_paused,
-      ),
-    );
+    show(afterConfirmStep(state, step, pausedKey: _pausedKey));
   }
 
   @override
