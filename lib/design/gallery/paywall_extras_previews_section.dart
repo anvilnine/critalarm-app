@@ -5,14 +5,14 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_prev
 import 'package:flutter/material.dart';
 
 /// The paywall previews for widgets, app icons and the weekly check, each
-/// at the three sizes a layout is most likely to ask for.
+/// at the three size classes.
 class PaywallExtrasPreviewsSection extends StatelessWidget {
   const PaywallExtrasPreviewsSection({this.edges = _sizes, super.key});
 
   /// The tile edges drawn. The capture tool passes its own.
   final List<double> edges;
 
-  static const _sizes = <double>[56, 120, 240];
+  static const _sizes = <double>[56, 120, 200];
 
   static const _previews = <(String, PaywallPreviewId)>[
     ('Home screen widgets', PaywallPreviewId.widgets),
@@ -33,7 +33,7 @@ class PaywallExtrasPreviewsSection extends StatelessWidget {
         const SizedBox(height: Spacing.s2),
         Text(
           'Each one loops on its own clock here. With reduce motion on it '
-          'holds its resting frame.',
+          'holds its resting frame. The small size does not move.',
           style: AppTypography.body(colors.onCanvasMuted),
         ),
         for (final (name, id) in _previews) ...[

@@ -4,37 +4,40 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/extras_preview_stage.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_glyph_tile.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart';
 import 'package:flutter/material.dart';
+
+// Weekly delivery check: four weeks, one square each. The newest is this
+// week: a push travels from the relay to the phone and that week gets its
+// tick. Small, it is a calendar page with a tick on the shared tile.
+//
+// A week is the unit because the check runs once a week. Seven squares
+// read as the days of one week, which is not what happens.
 
 /// The loop is this many seconds long.
 const double weeklyCheckPreviewLoop = 9;
 
-/// The second a still preview rests on: the whole week, with its tick.
+/// The second a still preview rests on: the four weeks, the newest ticked.
 const double weeklyCheckPreviewRestAt = 7;
 
-/// Days in the strip.
-const int weeklyCheckPreviewDays = 7;
-
-/// The day the check falls on, counted from 0. There is one check a week,
-/// so one day gets a tick and the others only pass.
-const int weeklyCheckPreviewCheckDay = 3;
+/// Weeks in the strip, oldest first. The last one is this week, the one
+/// the loop checks.
+const int weeklyCheckPreviewWeeks = 4;
 
 /// The steps of the loop, in order.
 enum WeeklyCheckPreviewPhase {
-  /// Last week's strip fades out.
+  /// The strip fades out, to play again.
   clearing,
 
-  /// The days before the check pass, one at a time.
-  daysBefore,
+  /// The earlier weeks pass, one at a time.
+  weeksBefore,
 
   /// The push leaves the relay and reaches the phone.
   pushTravels,
 
-  /// The day gets its tick.
+  /// This week gets its tick.
   tick,
-
-  /// The rest of the week passes.
-  daysAfter,
 
   /// The full strip holds.
   hold,
@@ -43,11 +46,10 @@ enum WeeklyCheckPreviewPhase {
 /// When each step starts, in seconds into the loop.
 const weeklyCheckPreviewPhases = <(WeeklyCheckPreviewPhase, double)>[
   (WeeklyCheckPreviewPhase.clearing, 0),
-  (WeeklyCheckPreviewPhase.daysBefore, 0.5),
+  (WeeklyCheckPreviewPhase.weeksBefore, 0.5),
   (WeeklyCheckPreviewPhase.pushTravels, 1.9),
   (WeeklyCheckPreviewPhase.tick, 3.1),
-  (WeeklyCheckPreviewPhase.daysAfter, 4),
-  (WeeklyCheckPreviewPhase.hold, 5.1),
+  (WeeklyCheckPreviewPhase.hold, 4),
 ];
 
 /// The second [phase] starts.
@@ -59,7 +61,7 @@ double weeklyCheckPreviewStart(WeeklyCheckPreviewPhase phase) =>
 class WeeklyCheckPreviewFrame {
   const WeeklyCheckPreviewFrame({
     required this.phase,
-    required this.days,
+    required this.weeks,
     required this.push,
     required this.pushOpacity,
     required this.tickFill,
@@ -69,9 +71,10 @@ class WeeklyCheckPreviewFrame {
 
   final WeeklyCheckPreviewPhase phase;
 
-  /// How far each day has passed, 0 to 1. The check day's number is how
-  /// far it is marked as today, which comes before its tick.
-  final List<double> days;
+  /// How far each week has passed, 0 to 1, oldest first. The last number
+  /// is how far this week is marked as the current one, which comes before
+  /// its tick.
+  final List<double> weeks;
 
   /// How far the push has travelled from the relay to the phone, 0 to 1.
   final double push;
@@ -79,14 +82,14 @@ class WeeklyCheckPreviewFrame {
   /// 0 whenever no push is on its way.
   final double pushOpacity;
 
-  /// How far the check day's mark has filled, 0 to 1.
+  /// How far this week's mark has filled, 0 to 1.
   final double tickFill;
 
   /// How much of the tick is drawn, 0 to 1.
   final double tickDraw;
 
-  /// How solid the week's marks are. It drops to 0 once, as last week's
-  /// strip fades out, and is 1 for everything after.
+  /// How solid the marks are. It drops to 0 once, as the strip fades out,
+  /// and is 1 for everything after.
   final double opacity;
 }
 
@@ -106,7 +109,7 @@ WeeklyCheckPreviewFrame weeklyCheckPreviewFrameAt(double t) {
     // The frame the loop ended on, on its way out.
     return WeeklyCheckPreviewFrame(
       phase: current,
-      days: List.filled(weeklyCheckPreviewDays, 1),
+      weeks: List.filled(weeklyCheckPreviewWeeks, 1),
       push: 1,
       pushOpacity: 0,
       tickFill: 1,
@@ -115,10 +118,9 @@ WeeklyCheckPreviewFrame weeklyCheckPreviewFrameAt(double t) {
     );
   }
 
-  final before = weeklyCheckPreviewStart(WeeklyCheckPreviewPhase.daysBefore);
+  final before = weeklyCheckPreviewStart(WeeklyCheckPreviewPhase.weeksBefore);
   final leaves = weeklyCheckPreviewStart(WeeklyCheckPreviewPhase.pushTravels);
   final lands = weeklyCheckPreviewStart(WeeklyCheckPreviewPhase.tick);
-  final after = weeklyCheckPreviewStart(WeeklyCheckPreviewPhase.daysAfter);
 
   double pass(double start) =>
       AppCurves.easeOut.transform(phase(local, start, start + 0.3));
@@ -126,15 +128,11 @@ WeeklyCheckPreviewFrame weeklyCheckPreviewFrameAt(double t) {
   final tick = tickProgress(phase(local, lands, lands + 0.6));
   return WeeklyCheckPreviewFrame(
     phase: current,
-    days: [
-      for (var day = 0; day < weeklyCheckPreviewDays; day++)
-        if (day < weeklyCheckPreviewCheckDay)
-          pass(before + day * 0.4)
-        else if (day == weeklyCheckPreviewCheckDay)
-          // Marked as today just before the push leaves.
-          pass(leaves - 0.2)
-        else
-          pass(after + (day - weeklyCheckPreviewCheckDay - 1) * 0.4),
+    weeks: [
+      for (var week = 0; week < weeklyCheckPreviewWeeks - 1; week++)
+        pass(before + week * 0.4),
+      // Marked as this week just before the push leaves.
+      pass(leaves - 0.2),
     ],
     push: _glide(phase(local, leaves, lands)),
     pushOpacity:
@@ -146,14 +144,15 @@ WeeklyCheckPreviewFrame weeklyCheckPreviewFrameAt(double t) {
   );
 }
 
-/// A week of seven days. A push travels to the phone on one of them, that
-/// day gets its tick, and the rest of the week passes.
+/// Four weeks. A push travels to the phone in the newest one and that
+/// week gets its tick.
 ///
 /// The check shows nothing on the phone, so the drawn phone stays blank and
-/// nothing here rings, pulses or shakes.
+/// nothing here rings, pulses or shakes. The tick is ink on the strip, not
+/// on the phone: it marks a week, and says nothing about an alarm.
 ///
-/// Small, it is the tick over the strip. From [extrasPreviewFullEdge] up it
-/// is the relay, the push on its way to the phone, and the strip.
+/// Small, it is a calendar mark on the shared tile. As a scene it is the
+/// relay, the push on its way to the phone, and the strip.
 class WeeklyCheckPreview extends StatelessWidget {
   const WeeklyCheckPreview({required this.size, super.key});
 
@@ -161,6 +160,9 @@ class WeeklyCheckPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (size.shortestSide < paywallPreviewSceneMinEdge) {
+      return PreviewGlyphTile.mark(PreviewMark.weeklyCheck, size: size);
+    }
     final colors = context.appColors;
     return ExtrasPreviewTile(
       size: size,
@@ -172,9 +174,7 @@ class WeeklyCheckPreview extends StatelessWidget {
           painter: _WeeklyCheckPainter(
             frame: weeklyCheckPreviewFrameAt(t),
             ink: colors.ink,
-            accent: colors.highlight,
-            onAccent: colors.onHighlight,
-            dot: colors.cobalt,
+            onInk: colors.cream,
           ),
         ),
       ),
@@ -186,71 +186,28 @@ class _WeeklyCheckPainter extends CustomPainter {
   const _WeeklyCheckPainter({
     required this.frame,
     required this.ink,
-    required this.accent,
-    required this.onAccent,
-    required this.dot,
+    required this.onInk,
   });
 
   final WeeklyCheckPreviewFrame frame;
+
+  /// Every line, the push and the tick's disc.
   final Color ink;
 
-  /// The tick's disc, and the colour drawn on it.
-  final Color accent;
-  final Color onAccent;
-
-  /// The push on its way.
-  final Color dot;
+  /// The tick drawn on its disc.
+  final Color onInk;
 
   @override
   void paint(Canvas canvas, Size size) {
     final u = size.shortestSide;
-    if (u < extrasPreviewFullEdge) {
-      _paintGlance(canvas, size, u);
-    } else {
-      _paintFull(canvas, size, u);
-    }
-  }
-
-  /// The tick over the strip.
-  void _paintGlance(Canvas canvas, Size size, double u) {
-    final centre = size.center(Offset.zero);
-    final cell = u * 0.085;
-    final strip = Offset(centre.dx, centre.dy + u * 0.29);
-    _paintStrip(canvas, strip, cell, cell * 0.45, showsTick: false);
-
-    final disc = Offset(centre.dx, centre.dy - u * 0.1);
-    final radius = u * 0.21;
-    canvas.drawCircle(
-      disc,
-      radius,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = math.max(1, u * 0.03)
-        ..color = ink.withValues(alpha: 0.22),
-    );
-    _paintTick(canvas, disc, radius);
-
-    final from = Offset(centre.dx - u * 0.6, disc.dy);
-    _paintPush(canvas, Offset.lerp(from, disc, frame.push)!, u * 0.05);
-  }
-
-  /// The relay, the push on its way to the phone, and the strip.
-  void _paintFull(Canvas canvas, Size size, double u) {
     final pad = u * 0.12;
     final width = math.min(size.width - pad * 2, u * 1.7);
     final left = (size.width - width) / 2;
 
-    // Seven cells and six gaps of 0.3 of a cell fill the width.
-    final cell = math.min(u * 0.12, width / (7 + 6 * 0.3));
+    // Four squares in the middle, the same size at every width.
+    final cell = u * 0.13;
     final stripY = size.height - pad - cell * 0.75;
-    _paintStrip(
-      canvas,
-      Offset(size.width / 2, stripY),
-      cell,
-      (width - cell * 7) / 6,
-      showsTick: true,
-    );
-
+    _paintStrip(canvas, Offset(size.width / 2, stripY), cell, cell * 0.42);
     // The relay and the phone share the room above the strip.
     final top = pad;
     final bottom = stripY - cell * 1.35;
@@ -317,57 +274,44 @@ class _WeeklyCheckPainter extends CustomPainter {
     }
 
     // The push ends inside the phone, where it fades.
-    _paintPush(
-      canvas,
-      Offset.lerp(Offset(from.dx - u * 0.04, midY), phone.center, frame.push)!,
-      u * 0.04,
-    );
-  }
-
-  void _paintPush(Canvas canvas, Offset at, double radius) {
     if (frame.pushOpacity <= 0) return;
     canvas.drawCircle(
-      at,
-      radius,
-      Paint()..color = dot.withValues(alpha: frame.pushOpacity),
+      Offset.lerp(Offset(from.dx - u * 0.04, midY), phone.center, frame.push)!,
+      u * 0.04,
+      Paint()..color = ink.withValues(alpha: frame.pushOpacity),
     );
   }
 
-  /// The seven days, centred on [centre]. A day that has passed is filled.
-  void _paintStrip(
-    Canvas canvas,
-    Offset centre,
-    double cell,
-    double gap, {
-    required bool showsTick,
-  }) {
-    const days = weeklyCheckPreviewDays;
-    final width = cell * days + gap * (days - 1);
+  /// The four weeks, centred on [centre]. A week that has passed is
+  /// filled, and the newest is a round mark that takes the tick.
+  void _paintStrip(Canvas canvas, Offset centre, double cell, double gap) {
+    const weeks = weeklyCheckPreviewWeeks;
+    final width = cell * weeks + gap * (weeks - 1);
     final corner = Radius.circular(cell * 0.32);
-    for (var day = 0; day < days; day++) {
+    for (var week = 0; week < weeks; week++) {
       final at = Offset(
-        centre.dx - width / 2 + cell / 2 + day * (cell + gap),
+        centre.dx - width / 2 + cell / 2 + week * (cell + gap),
         centre.dy,
       );
-      final isCheckDay = day == weeklyCheckPreviewCheckDay;
-      final passed = frame.days[day] * frame.opacity;
-      // The check day is a round mark, a size up from the days around it.
-      final edge = isCheckDay ? cell * 1.3 : cell;
+      final isThisWeek = week == weeks - 1;
+      final passed = frame.weeks[week] * frame.opacity;
+      // This week is a round mark, a size up from the weeks before it.
+      final edge = isThisWeek ? cell * 1.3 : cell;
       final box = RRect.fromRectAndRadius(
         Rect.fromCenter(center: at, width: edge, height: edge),
-        isCheckDay ? Radius.circular(edge / 2) : corner,
+        isThisWeek ? Radius.circular(edge / 2) : corner,
       );
 
-      // The empty day is always there, so the week reads as seven.
+      // The empty week is always there, so the strip reads as four.
       canvas.drawRRect(box, Paint()..color = ink.withValues(alpha: 0.1));
-      if (!isCheckDay) {
+      if (!isThisWeek) {
         canvas.drawRRect(
           box,
           Paint()..color = ink.withValues(alpha: 0.26 * passed),
         );
         continue;
       }
-      // Today: the mark gets an edge while the push is on its way.
+      // The mark gets an edge while the push is on its way.
       canvas.drawRRect(
         box.deflate(cell * 0.05),
         Paint()
@@ -375,16 +319,7 @@ class _WeeklyCheckPainter extends CustomPainter {
           ..strokeWidth = math.max(1, cell * 0.1)
           ..color = ink.withValues(alpha: 0.45 * passed),
       );
-      if (showsTick) {
-        _paintTick(canvas, at, edge / 2);
-      } else {
-        // Too small for a tick: the day takes the tick's colour.
-        canvas.drawRRect(
-          box,
-          Paint()
-            ..color = accent.withValues(alpha: frame.tickFill * frame.opacity),
-        );
-      }
+      _paintTick(canvas, at, edge / 2);
     }
   }
 
@@ -394,7 +329,7 @@ class _WeeklyCheckPainter extends CustomPainter {
     canvas.drawCircle(
       centre,
       radius * frame.tickFill,
-      Paint()..color = accent.withValues(alpha: frame.opacity),
+      Paint()..color = ink.withValues(alpha: frame.opacity),
     );
     if (frame.tickDraw <= 0) return;
 
@@ -413,15 +348,11 @@ class _WeeklyCheckPainter extends CustomPainter {
         ..strokeWidth = math.max(1.2, radius * 0.24)
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..color = onAccent.withValues(alpha: frame.opacity),
+        ..color = onInk.withValues(alpha: frame.opacity),
     );
   }
 
   @override
   bool shouldRepaint(_WeeklyCheckPainter old) =>
-      frame != old.frame ||
-      ink != old.ink ||
-      accent != old.accent ||
-      onAccent != old.onAccent ||
-      dot != old.dot;
+      frame != old.frame || ink != old.ink || onInk != old.onInk;
 }

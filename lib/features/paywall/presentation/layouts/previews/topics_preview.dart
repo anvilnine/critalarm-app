@@ -4,10 +4,15 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/limits_preview_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_glyph_tile.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart';
 import 'package:flutter/material.dart';
 
 // Critical topics: a Critical switch is tapped, will not go on, and then
-// does. It rests switched on.
+// does. It rests switched on. Small, it is a bell on the shared tile.
+//
+// The switches are the one place a preview is cobalt: a switch that is on
+// is that colour in the app.
 
 /// Where the switch is in its loop, in the order it happens.
 enum TopicsPreviewPhase {
@@ -203,9 +208,8 @@ TopicsPreviewFrame topicsPreviewFrameAt(double t) {
   );
 }
 
-/// How the picture is laid out in a box: the switch alone when the box is
-/// small, and a short list of topics with the switch on one of them when
-/// there is room.
+/// How the scene is laid out in a box: a short list of topics with the
+/// switch on one of them.
 @immutable
 class TopicsPreviewLayout {
   const TopicsPreviewLayout({
@@ -219,7 +223,7 @@ class TopicsPreviewLayout {
   /// Width over height of the switch, as the app's own switch has it.
   static const double switchAspect = 48 / 28;
 
-  /// Topics listed. Zero is the switch alone.
+  /// Topics listed.
   final int rows;
   final double rowHeight;
   final double padding;
@@ -228,7 +232,6 @@ class TopicsPreviewLayout {
   /// Type size of a topic name. Zero draws a bar in its place.
   final double nameSize;
 
-  bool get isSwitchAlone => rows == 0;
   bool get showsNames => nameSize > 0;
   double get switchWidth => switchHeight * switchAspect;
   double get faceSize => rowHeight * 0.62;
@@ -244,20 +247,6 @@ const double _nameChars = 6.7;
 TopicsPreviewLayout topicsPreviewLayoutFor(Size size) {
   final w = size.width;
   final h = size.height;
-
-  if (size.shortestSide < limitsPreviewSmallEdge) {
-    final switchWidth = math.min(
-      w * 0.62,
-      h * 0.62 * TopicsPreviewLayout.switchAspect,
-    );
-    return TopicsPreviewLayout(
-      rows: 0,
-      rowHeight: h,
-      padding: 0,
-      switchHeight: switchWidth / TopicsPreviewLayout.switchAspect,
-      nameSize: 0,
-    );
-  }
 
   final padding = size.shortestSide * 0.08;
   final ideal = (w * 0.26).clamp(30.0, 64.0);
@@ -297,6 +286,10 @@ class TopicsPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (size.shortestSide < paywallPreviewSceneMinEdge) {
+      return PreviewGlyphTile.glyph(GlyphType.bell, size: size);
+    }
+
     final colors = context.appColors;
     final layout = topicsPreviewLayoutFor(size);
 
@@ -308,16 +301,7 @@ class TopicsPreview extends StatelessWidget {
         // Told when to play, it starts on its own turn of the shared loop.
         turnStart: TopicsPreviewTimes.reset,
         frameAt: topicsPreviewFrameAt,
-        builder: (context, frame) => layout.isSwitchAlone
-            ? Center(
-                child: _Switch(
-                  layout: layout,
-                  knob: frame.knob,
-                  track: frame.track,
-                  frame: frame,
-                ),
-              )
-            : _TopicList(layout: layout, frame: frame),
+        builder: (context, frame) => _TopicList(layout: layout, frame: frame),
       ),
     );
   }

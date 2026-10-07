@@ -131,22 +131,15 @@ void main() {
       );
     });
 
-    test('a small box gets the switch alone', () {
-      final small = topicsPreviewLayoutFor(const Size.square(56));
-      expect(small.isSwitchAlone, isTrue);
-      expect(small.switchWidth, lessThan(56));
-      expect(small.switchHeight, lessThan(56));
-    });
-
-    test('a larger box lists topics, with names once they fit', () {
+    test('a scene lists topics, with names once they fit', () {
       final medium = topicsPreviewLayoutFor(const Size.square(120));
       expect(medium.rows, 3);
       expect(medium.showsNames, isFalse);
 
-      final large = topicsPreviewLayoutFor(const Size.square(240));
+      final large = topicsPreviewLayoutFor(const Size.square(200));
       expect(large.rows, 3);
       expect(large.showsNames, isTrue);
-      expect(large.rows * large.rowHeight, lessThanOrEqualTo(240));
+      expect(large.rows * large.rowHeight, lessThanOrEqualTo(200));
 
       expect(topicsPreviewLayoutFor(const Size(350, 110)).rows, 1);
       expect(topicsPreviewLayoutFor(const Size(170, 230)).rows, 4);
@@ -159,7 +152,8 @@ void main() {
       expect(topicsPreviewNames(4)[2], 'nas-backup');
       for (final size in const [
         Size(350, 110),
-        Size.square(240),
+        Size.square(120),
+        Size.square(200),
         Size(170, 230),
       ]) {
         final layout = topicsPreviewLayoutFor(size);
@@ -227,23 +221,16 @@ void main() {
       expect(pushesPreviewNumber(1234567), '1,234,567');
     });
 
-    test('a small box gets the bar alone, a large one everything', () {
-      final small = pushesPreviewLayoutFor(
-        const Size.square(56),
-        numberAspect: 2.4,
-      );
-      expect(small.isBarAlone, isTrue);
-      expect(small.showsScale, isFalse);
-
+    test('every scene has the number, a large one the scale too', () {
       final medium = pushesPreviewLayoutFor(
         const Size.square(120),
         numberAspect: 2.4,
       );
-      expect(medium.isBarAlone, isFalse);
+      expect(medium.numberSize, greaterThan(0));
       expect(medium.showsScale, isFalse);
 
       for (final size in const [
-        Size.square(240),
+        Size.square(200),
         Size(350, 110),
         Size(350, 300),
       ]) {
@@ -338,9 +325,8 @@ void main() {
 
     test('at rest there are rows on both sides of the line', () {
       for (final size in const [
-        Size.square(56),
         Size.square(120),
-        Size.square(240),
+        Size.square(200),
         Size(350, 110),
         Size(350, 300),
       ]) {
@@ -369,18 +355,12 @@ void main() {
       }
     });
 
-    test('a small box draws bars, a large one names and ages', () {
-      final small = historyPreviewLayoutFor(const Size.square(56));
-      expect(small.showsText, isFalse);
-      expect(small.showsTags, isFalse);
-      expect(small.showsFaces, isFalse);
-
+    test('a medium scene draws bars, a large one names and ages', () {
       final medium = historyPreviewLayoutFor(const Size.square(120));
-      expect(medium.showsFaces, isTrue);
       expect(medium.showsTags, isTrue);
       expect(medium.showsText, isFalse);
 
-      final large = historyPreviewLayoutFor(const Size.square(240));
+      final large = historyPreviewLayoutFor(const Size.square(200));
       expect(large.showsText, isTrue);
       expect(large.showsTags, isTrue);
     });
