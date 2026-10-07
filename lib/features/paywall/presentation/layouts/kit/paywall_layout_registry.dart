@@ -4,7 +4,6 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/bento_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/plain_paywall_layout.dart';
@@ -20,7 +19,6 @@ typedef PaywallLayoutBuilder = Widget Function(BuildContext context);
 /// Every layout that is built, by id. To add one, add its line here. An id
 /// with no line draws `plain`.
 final Map<PaywallLayoutId, PaywallLayoutBuilder> paywallLayoutBuilders = {
-  PaywallLayoutId.bento: (_) => const BentoPaywallLayout(),
   PaywallLayoutId.plain: (_) => const PlainPaywallLayout(),
   PaywallLayoutId.proof: (_) => const ProofPaywallLayout(),
   PaywallLayoutId.sheet: (_) => const SheetPaywallLayout(),

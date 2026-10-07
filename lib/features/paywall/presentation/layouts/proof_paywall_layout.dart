@@ -64,10 +64,6 @@ class ProofPaywallLayout extends StatelessWidget {
     return PaywallFrame(
       // The end of the replay: every switch on.
       restAt: proofRestAt,
-      // The plans side by side, so the list keeps the height.
-      buyStyle: const PaywallBuyBlockStyle(
-        pickerStyle: PaywallPlanPickerStyle.segments,
-      ),
       builder: (context, scope) {
         final colors = context.appColors;
         final scale = MediaQuery.textScalerOf(context).scale(100) / 100;

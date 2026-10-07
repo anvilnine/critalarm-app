@@ -22,6 +22,8 @@ export 'package:critalarm/core/ui_sound/paywall_cues.dart'
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
+export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_measure.dart';
+export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_one_benefit.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 
 /// Draws a layout's own part in the room the frame has left.
@@ -29,8 +31,9 @@ typedef PaywallLayoutContentBuilder =
     Widget Function(BuildContext context, PaywallLayoutScope scope);
 
 /// The text scale a layout's own part stops growing at. A one screen
-/// composition cannot hold text of any size, so past this only the legal
-/// lines keep growing, inside their own box.
+/// composition cannot hold text of any size. The buy block stops sooner,
+/// at `paywallBuyMaxTextScale`, and takes the height it needs: the layout
+/// gets what is left.
 const double paywallLayoutMaxTextScale = 1.5;
 
 /// A handle on the frame for a layout that also draws outside it: a sheet

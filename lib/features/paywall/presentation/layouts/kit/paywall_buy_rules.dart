@@ -1,3 +1,4 @@
+import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/entities/plan_saving.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
@@ -63,14 +64,14 @@ List<PaywallPlanOption> hostedPlanOptions({
           monthlyPrice: monthly?.price,
           yearlyPrice: yearly.price,
         ),
-        renewalLine: SubscriptionTier.yearly.durationName,
+        renewalLine: LocaleKeys.paywall_kit_renews_yearly.tr(),
       ),
     if (monthly != null)
       PaywallPlanOption(
         id: PaywallPlanOption.monthlyId,
         title: SubscriptionTier.monthly.displayName,
         price: monthly.priceString,
-        renewalLine: SubscriptionTier.monthly.durationName,
+        renewalLine: LocaleKeys.paywall_kit_renews_monthly.tr(),
       ),
   ];
 }
@@ -85,6 +86,70 @@ List<PaywallPlanOption> proPlanOptions(List<ProPackOffer> offers) => [
       price: offer.price,
     ),
 ];
+
+/// How many plan cards the block draws. None for Pro with one offer: there
+/// is nothing to pick, so its price goes on the button. While the store is
+/// being asked, Hosted holds room for the two plans it usually has.
+int planCardCount(PaywallBuyState state) {
+  final isHosted = state.product == PaywallProduct.hosted;
+  if (state.status == PaywallBuyStatus.loading) return isHosted ? 2 : 0;
+  if (!isHosted && state.options.length == 1) return 0;
+  return state.options.length;
+}
+
+/// The price the button carries, or null when a plan card shows it. One
+/// rule for every layout, so the billed amount is on screen exactly once
+/// per plan.
+String? priceOnButton(PaywallBuyState state) {
+  if (state.status == PaywallBuyStatus.loading) return null;
+  return planCardCount(state) == 0 ? state.selected?.price : null;
+}
+
+/// What the buy button says: "Check again" over a check that paused, the
+/// product and its price where no card shows the price, the product alone
+/// everywhere else.
+String buyButtonLabel(PaywallBuyState state, {required String name}) {
+  if (state.status == PaywallBuyStatus.checking && state.isPaused) {
+    return LocaleKeys.paywall_kit_button_check_again.tr();
+  }
+  final price = priceOnButton(state);
+  return price == null
+      ? LocaleKeys.paywall_kit_button_get.tr(namedArgs: {'name': name})
+      : LocaleKeys.paywall_kit_button_get_price.tr(
+          namedArgs: {'name': name, 'price': price},
+        );
+}
+
+/// The second line of a plan card: a quiet part on the left and a stronger
+/// one on the right.
+///
+/// A plan with a per month figure shows it, with the saving beside it. Any
+/// other plan says when it renews. Both sit under the billed amount and are
+/// smaller than it.
+({String? left, String? right}) planCardSecondLine(PaywallPlanOption option) =>
+    (
+      left: option.perPeriodLine ?? option.renewalLine,
+      right: option.savingLabel,
+    );
+
+/// The small print under the button, for the option that is picked.
+///
+/// Hosted renews, so its line says at what price, how often, that it goes
+/// on until cancelled and where to cancel. [store] is the account the store
+/// charges, as that store names it. Pro is bought once and only says who
+/// charges.
+String legalLine(PaywallBuyState state, {required String store}) {
+  if (state.product == PaywallProduct.pro) {
+    return LocaleKeys.paywall_kit_legal_pro.tr(namedArgs: {'store': store});
+  }
+  final picked = state.selected;
+  final key = switch (picked?.id) {
+    PaywallPlanOption.yearlyId => LocaleKeys.paywall_kit_legal_hosted_yearly,
+    PaywallPlanOption.monthlyId => LocaleKeys.paywall_kit_legal_hosted_monthly,
+    _ => LocaleKeys.paywall_kit_legal_hosted,
+  };
+  return key.tr(namedArgs: {'store': store, 'price': picked?.price ?? ''});
+}
 
 /// The option picked when the paywall opens: the first one, which for
 /// Hosted is yearly.

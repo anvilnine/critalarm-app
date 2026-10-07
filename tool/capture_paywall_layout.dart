@@ -8,7 +8,7 @@
 // It writes eight PNGs: 390 by 844 and 375 by 667, light and dark, at the
 // default text size and at the largest (2.0), with motion still. Each file is
 // named <layout>_<product>_<size>_<theme>_<scale>x.png and its path is
-// printed.
+// printed, with the height the buy block was laid out at.
 //
 // LAYOUT is a PaywallLayoutId key and PRODUCT is `hosted` or `pro`. Optional:
 //   --dart-define=OUT=<folder>     where the PNGs go (default build/paywall_shots)
@@ -24,8 +24,7 @@
 //                                  overflow on the way fails the capture.
 //
 // A capture fails when a layout overflows, when the close cross or the button
-// is off screen, or when anything scrolls at the default text size (the legal
-// lines scroll once they pass three lines).
+// is off screen, or when anything scrolls at the default text size.
 //
 // To capture the previews instead of a layout, as the gallery shows them:
 //
@@ -54,6 +53,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/gallery/paywall_extras_previews_section.dart';
 import 'package:critalarm/design/gallery/paywall_limits_previews_section.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:flutter/material.dart';
@@ -385,6 +385,11 @@ void main() {
               pixelRatio: dpr,
               isGood: problems.isEmpty,
             );
+            final block = find.byType(PaywallBuyBlock);
+            if (block.evaluate().isNotEmpty) {
+              final height = tester.getSize(block.first).height;
+              print('     buy block ${height.toStringAsFixed(1)} points');
+            }
 
             expect(problems, isEmpty, reason: problems.join('\n'));
           } finally {
