@@ -25,13 +25,12 @@ SheetPageKind sheetPageKindFor(PaywallBenefitId? benefit) => switch (benefit) {
   PaywallBenefitId.topics => SheetPageKind.newTopic,
   PaywallBenefitId.history => SheetPageKind.history,
   PaywallBenefitId.widgets => SheetPageKind.widgets,
-  PaywallBenefitId.weeklyCheck => SheetPageKind.reliability,
+  PaywallBenefitId.reliabilityChecks => SheetPageKind.reliability,
   PaywallBenefitId.pushes ||
   PaywallBenefitId.appIcons ||
-  PaywallBenefitId.fireDrills ||
   PaywallBenefitId.wakeUpChallenges ||
+  PaywallBenefitId.customSounds ||
   PaywallBenefitId.customAlarmScreens ||
-  PaywallBenefitId.morningSummary ||
   null => SheetPageKind.settings,
 };
 

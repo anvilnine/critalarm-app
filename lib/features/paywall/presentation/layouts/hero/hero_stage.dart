@@ -20,21 +20,23 @@ import 'package:flutter/material.dart';
 class HeroStage extends StatelessWidget {
   const HeroStage({
     required this.size,
-    required this.loop,
     required this.frame,
     required this.seconds,
     required this.bleedTop,
+    this.pull = 0,
     super.key,
   });
 
   final Size size;
-  final HeroLoop loop;
   final HeroFrame frame;
 
   /// The clock, for the drift of the shapes and the cue of a preview on
   /// its way out. Zero when nothing may move.
   final double seconds;
   final double bleedTop;
+
+  /// How far the finger holds the card off its place, in points.
+  final double pull;
 
   @override
   Widget build(BuildContext context) {
@@ -109,14 +111,12 @@ class HeroStage extends StatelessWidget {
                 child: Opacity(
                   opacity: cardIn,
                   child: Transform.translate(
-                    offset: Offset(28 * (1 - cardArrive), 0),
+                    offset: Offset(28 * (1 - cardArrive) + pull, 0),
                     child: Transform.scale(
                       scale: 0.82 + 0.18 * cardArrive,
                       child: _Card(
                         edge: arrangement.card.width,
-                        loop: loop,
                         frame: frame,
-                        seconds: seconds,
                         isDark: isDark,
                       ),
                     ),
@@ -148,6 +148,7 @@ class HeroStage extends StatelessWidget {
                                 stroke: colors.faceStroke,
                                 lens: colors.inkFixed,
                                 glint: colors.onHighlight,
+                                bow: colors.highlight,
                               ),
                             ),
                           ),
@@ -163,21 +164,23 @@ class HeroStage extends StatelessWidget {
   }
 }
 
+/// How far a preview travels sideways as a swipe brings it in or sends it
+/// out, in points.
+const double heroCardSlide = 30;
+
 /// The preview of the benefit playing, lifted off the stage. The one on
-/// its way out fades under the one coming in.
+/// its way out fades under the one coming in. After a swipe the new one
+/// comes in from the side the finger pulled it from, and the old one
+/// leaves from where the finger let it go.
 class _Card extends StatelessWidget {
   const _Card({
     required this.edge,
-    required this.loop,
     required this.frame,
-    required this.seconds,
     required this.isDark,
   });
 
   final double edge;
-  final HeroLoop loop;
   final HeroFrame frame;
-  final double seconds;
   final bool isDark;
 
   @override
@@ -186,40 +189,56 @@ class _Card extends StatelessWidget {
     final previous = frame.previous;
     final enter = frame.cardEnter;
     final size = Size.square(edge);
+    final decoration = BoxDecoration(
+      borderRadius: BorderRadius.circular(extrasPreviewRadius(edge)),
+      boxShadow: AppShadows.shadowLg(isDark: isDark),
+    );
+    final side = frame.direction * heroCardSlide;
+    // The finger's pull is handed over: the stage lets go of it as the
+    // old preview takes it away.
+    final out = frame.pull - side * AppCurves.easeOut.transform(enter);
+    final into = side * (1 - AppCurves.easeSpring.transform(enter));
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(extrasPreviewRadius(edge)),
-        boxShadow: AppShadows.shadowLg(isDark: isDark),
-      ),
-      child: Stack(
-        children: [
-          if (previous != null && enter < 1)
-            Opacity(
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        if (previous != null && enter < 1)
+          Transform.translate(
+            key: ValueKey(frame.previousTurn),
+            offset: Offset(out, 0),
+            child: Opacity(
               opacity: 1 - enter,
-              child: PaywallPreview(
-                previous.preview,
-                key: ValueKey(previous.index),
-                sizeClass: PaywallPreviewClass.large,
-                size: size,
-                playFrom: loop.previousPlayFrom(seconds, frame),
-              ),
-            ),
-          Opacity(
-            opacity: enter,
-            child: Transform.scale(
-              scale: 0.94 + 0.06 * AppCurves.easeBack.transform(enter),
-              child: PaywallPreview(
-                scene.preview,
-                key: ValueKey(scene.index),
-                sizeClass: PaywallPreviewClass.large,
-                size: size,
-                playFrom: frame.playFrom,
+              child: DecoratedBox(
+                decoration: decoration,
+                child: PaywallPreview(
+                  previous.preview,
+                  sizeClass: PaywallPreviewClass.large,
+                  size: size,
+                  playFrom: frame.previousPlayFrom,
+                ),
               ),
             ),
           ),
-        ],
-      ),
+        Transform.translate(
+          key: ValueKey(frame.turn),
+          offset: Offset(into, 0),
+          child: Opacity(
+            opacity: enter,
+            child: Transform.scale(
+              scale: 0.94 + 0.06 * AppCurves.easeBack.transform(enter),
+              child: DecoratedBox(
+                decoration: decoration,
+                child: PaywallPreview(
+                  scene.preview,
+                  sizeClass: PaywallPreviewClass.large,
+                  size: size,
+                  playFrom: frame.playFrom,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
