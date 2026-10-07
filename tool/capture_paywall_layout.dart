@@ -1,0 +1,231 @@
+// Captures one paywall layout for one product, off the device, with the mock
+// API and made-up plans.
+//
+//   fvm flutter test tool/capture_paywall_layout.dart \
+//     --dart-define=MOCK=true --dart-define=SKIP_PAYWALL=true \
+//     --dart-define=LAYOUT=plain --dart-define=PRODUCT=hosted
+//
+// It writes eight PNGs: 390 by 844 and 375 by 667, light and dark, at the
+// default text size and at the largest (2.0), with motion still. Each file is
+// named <layout>_<product>_<size>_<theme>_<scale>x.png and its path is
+// printed.
+//
+// LAYOUT is a PaywallLayoutId key and PRODUCT is `hosted` or `pro`. Optional:
+//   --dart-define=OUT=<folder>     where the PNGs go (default build/paywall_shots)
+//   --dart-define=STATE=<status>   a buy state: notOnSale, failed, checking,
+//                                  purchasing, done (default ready)
+//   --dart-define=BENEFITS=all     also list the benefits not in this build
+//   --dart-define=T=<seconds>      let motion run and capture that second,
+//                                  to look at an entrance half way
+//
+// A capture fails when a layout overflows, when the close cross or the button
+// is off screen, or when anything scrolls at the default text size (the legal
+// lines scroll once they pass three lines).
+//
+// Developer tool testing mock setup.
+// ignore_for_file: invalid_use_of_visible_for_testing_member
+// Tool prints progress to stdout.
+// ignore_for_file: avoid_print
+
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/router.dart';
+import 'package:critalarm/core/paywall/paywall_layout.dart';
+import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../test/helpers/load_translations.dart';
+
+const _layoutKey = String.fromEnvironment('LAYOUT', defaultValue: 'plain');
+const _productKey = String.fromEnvironment('PRODUCT', defaultValue: 'hosted');
+const _out = String.fromEnvironment('OUT', defaultValue: 'build/paywall_shots');
+const _state = String.fromEnvironment('STATE');
+const _benefits = String.fromEnvironment('BENEFITS');
+const _t = String.fromEnvironment('T');
+
+/// The largest text size captured.
+const double _largest = 2;
+
+/// The two phones, with the insets each one really has.
+const _phones = <(String, Size, double, double)>[
+  ('390x844', Size(390, 844), 47, 34),
+  ('375x667', Size(375, 667), 20, 0),
+];
+
+String _scrolls(ScrollableState s) =>
+    'Something scrolls at the default text size, by '
+    '${s.position.maxScrollExtent.toStringAsFixed(1)} points.';
+
+Future<void> _loadFonts() async {
+  Future<void> family(String name, List<String> files) async {
+    final loader = FontLoader(name);
+    for (final file in files) {
+      loader.addFont(
+        File('assets/fonts/$file').readAsBytes().then(
+          (bytes) => ByteData.view(bytes.buffer),
+        ),
+      );
+    }
+    await loader.load();
+  }
+
+  await family('Bricolage Grotesque', [
+    'BricolageGrotesque-Bold.ttf',
+    'BricolageGrotesque-ExtraBold.ttf',
+  ]);
+  await family('Instrument Sans', [
+    'InstrumentSans-Regular.ttf',
+    'InstrumentSans-Medium.ttf',
+    'InstrumentSans-SemiBold.ttf',
+    'InstrumentSans-Bold.ttf',
+  ]);
+  await family('JetBrains Mono', [
+    'JetBrainsMono-Medium.ttf',
+    'JetBrainsMono-SemiBold.ttf',
+    'JetBrainsMono-Bold.ttf',
+  ]);
+}
+
+void main() {
+  final layout = PaywallLayoutId.fromKey(_layoutKey);
+  final product = PaywallProduct.parse(_productKey);
+  final second = double.tryParse(_t);
+
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    // `test/flutter_test_config.dart` only runs for files under test/, so
+    // this tool loads the strings itself or every label renders as its key.
+    await loadTestTranslations();
+    await configureDependencies();
+    await _loadFonts();
+  });
+
+  test('LAYOUT names a layout', () {
+    expect(layout, isNotNull, reason: 'No layout has the key "$_layoutKey".');
+    expect(product.key, _productKey, reason: 'PRODUCT is hosted or pro.');
+  });
+  if (layout == null) return;
+
+  for (final (sizeName, size, topInset, bottomInset) in _phones) {
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      for (final scale in [1.0, _largest]) {
+        final name = [
+          layout.key,
+          product.key,
+          sizeName,
+          mode.name,
+          '${scale.toStringAsFixed(1)}x',
+          if (_state.isNotEmpty) _state,
+          if (_benefits.isNotEmpty) 'benefits-$_benefits',
+          if (second != null) 't$_t',
+        ].join('_');
+
+        testWidgets('capture $name', (tester) async {
+          final errors = <String>[];
+          final oldHandler = FlutterError.onError;
+          FlutterError.onError = (details) =>
+              errors.add(details.exceptionAsString());
+
+          const dpr = 2.0;
+          tester.view.physicalSize = size * dpr;
+          tester.view.devicePixelRatio = dpr;
+          tester.view.padding = FakeViewPadding(
+            top: topInset * dpr,
+            bottom: bottomInset * dpr,
+          );
+          tester.view.viewPadding = tester.view.padding;
+          addTearDown(tester.view.reset);
+
+          final location = Uri.parse(paywallLayoutLocation(layout, product))
+              .replace(
+                queryParameters: {
+                  'product': product.key,
+                  if (_state.isNotEmpty) 'state': _state,
+                  if (_benefits.isNotEmpty) 'benefits': _benefits,
+                },
+              )
+              .toString();
+          final boundaryKey = GlobalKey();
+
+          try {
+            await tester.pumpWidget(
+              BlocProvider<ThemeCubit>.value(
+                value: getIt<ThemeCubit>(),
+                child: MaterialApp.router(
+                  theme: buildLightTheme(),
+                  darkTheme: buildDarkTheme(),
+                  themeMode: mode,
+                  routerConfig: buildRouter(initialLocation: location),
+                  builder: (context, child) => MediaQuery(
+                    data: MediaQuery.of(context).copyWith(
+                      textScaler: TextScaler.linear(scale),
+                      // Still unless a second was asked for.
+                      disableAnimations: second == null,
+                    ),
+                    child: RepaintBoundary(key: boundaryKey, child: child),
+                  ),
+                ),
+              ),
+            );
+            await tester.pump();
+            if (second == null) {
+              await tester.pump(const Duration(milliseconds: 300));
+              await tester.pump(const Duration(milliseconds: 300));
+            } else {
+              await tester.pump(
+                Duration(microseconds: (second * 1e6).round()),
+              );
+            }
+
+            final screen = Offset.zero & size;
+            bool onScreen(Finder finder) =>
+                finder.evaluate().isNotEmpty &&
+                screen.contains(tester.getRect(finder.first).topLeft) &&
+                screen.contains(tester.getRect(finder.first).bottomRight);
+
+            final problems = <String>[
+              ...errors,
+              if (!onScreen(find.byType(AppDismissCross)))
+                'The close cross is not on screen.',
+              if (_state.isEmpty && !onScreen(find.byType(AppButton)))
+                'The button is not on screen.',
+              if (scale == 1.0)
+                for (final s in tester.stateList<ScrollableState>(
+                  find.byType(Scrollable),
+                ))
+                  if (s.position.maxScrollExtent > 0.5) _scrolls(s),
+            ];
+
+            await tester.runAsync(() async {
+              final boundary =
+                  boundaryKey.currentContext!.findRenderObject()!
+                      as RenderRepaintBoundary;
+              final image = await boundary.toImage(pixelRatio: dpr);
+              final bytes = await image.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              final file = File('$_out/$name.png');
+              await file.parent.create(recursive: true);
+              await file.writeAsBytes(bytes!.buffer.asUint8List());
+              print('${problems.isEmpty ? 'FIT ' : 'BAD '} ${file.path}');
+            });
+
+            expect(problems, isEmpty, reason: problems.join('\n'));
+          } finally {
+            FlutterError.onError = oldHandler;
+          }
+        });
+      }
+    }
+  }
+}
