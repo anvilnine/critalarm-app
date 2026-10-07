@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
@@ -8,6 +7,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/entities/store_account_label.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_plan_picker.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -18,25 +18,15 @@ import 'package:url_launcher/url_launcher.dart';
 
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_plan_picker.dart';
 
-/// What the button says.
-enum PaywallBuyLabel {
-  /// "Get Hosted".
-  name,
-
-  /// "Get Hosted for" and the picked option's price.
-  nameAndPrice,
-}
-
 /// How one layout wants the buy block drawn. Sizes are not in here on
 /// purpose: the button height and the legal text size are the same on every
 /// layout.
 @immutable
 class PaywallBuyBlockStyle {
   const PaywallBuyBlockStyle({
-    this.pickerStyle = PaywallPlanPickerStyle.rows,
+    this.pickerStyle = PaywallPlanPickerStyle.segments,
     this.tone = PaywallTone.canvas,
     this.buttonVariant,
-    this.label = PaywallBuyLabel.name,
     this.showsPicker = true,
     this.horizontalPadding = 20,
   });
@@ -48,7 +38,6 @@ class PaywallBuyBlockStyle {
 
   /// Null takes the button that reads on [tone].
   final AppButtonVariant? buttonVariant;
-  final PaywallBuyLabel label;
 
   /// False when the layout places a `PaywallPlanPicker` of its own
   /// somewhere else on the screen.
@@ -62,13 +51,18 @@ String paywallProductName(PaywallProduct product) => switch (product) {
   PaywallProduct.pro => LocaleKeys.paywall_kit_name_pro.tr(),
 };
 
-/// The bottom block of every layout: the plans, the button, the legal
-/// lines, and one row with Restore, Terms and Privacy.
+/// The bottom block of every layout, top to bottom: the plans, the button,
+/// the own-server promise, the legal line, and one line with Restore, Terms
+/// and Privacy. Every part keeps the same side inset.
 ///
-/// It reads the `PaywallBuyCubit` above it and makes every purchase call,
-/// so a layout holds no button, price or legal text of its own. For Pro it
-/// shows the store's title and price as they come and says nothing about
-/// how Pro is paid.
+/// The button is the only filled shape in it. It reads the
+/// `PaywallBuyCubit` above it and makes every purchase call, so a layout
+/// holds no button, price or legal text of its own. Pro has no plan card:
+/// its price is on the button, and nothing says how Pro is paid.
+///
+/// Its text stops growing at `paywallBuyMaxTextScale`. Nothing in it
+/// scrolls or is cut: at a large text size it is taller and the layout
+/// above gives up the height.
 class PaywallBuyBlock extends StatelessWidget {
   const PaywallBuyBlock({
     this.style = const PaywallBuyBlockStyle(),
@@ -81,6 +75,13 @@ class PaywallBuyBlock extends StatelessWidget {
   /// What the Done button does once the product is held. Closes the route
   /// when null.
   final VoidCallback? onDone;
+
+  /// How tall the links line draws at the default text size.
+  static const double linksHeight = 28;
+
+  /// How far each link's tap area runs up past the line it is drawn on,
+  /// over the legal line, to make 44 points.
+  static const double linksTapOverlap = 44 - linksHeight;
 
   static bool _wasBuying(PaywallBuyState state) =>
       state.status == PaywallBuyStatus.purchasing ||
@@ -96,48 +97,67 @@ class PaywallBuyBlock extends StatelessWidget {
         final tone = PaywallToneColors.of(context, style.tone);
         final side = EdgeInsets.symmetric(horizontal: style.horizontalPadding);
 
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: side,
-                  child: MediaQuery.withClampedTextScaling(
-                    maxScaleFactor: paywallBuyMaxTextScale,
-                    child: _Offer(
-                      state: state,
-                      style: style,
-                      tone: tone,
-                      onDone: onDone,
+        return MediaQuery.withClampedTextScaling(
+          maxScaleFactor: paywallBuyMaxTextScale,
+          child: Builder(
+            builder: (context) {
+              final linksLine =
+                  linksHeight * MediaQuery.textScalerOf(context).scale(1);
+
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Padding(
+                    padding: side,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _Offer(
+                          state: state,
+                          style: style,
+                          tone: tone,
+                          onDone: onDone,
+                        ),
+                        if (_showsLegal(state))
+                          _LegalLine(state: state, color: tone.muted)
+                        else
+                          // The links' tap area must not reach the button.
+                          const SizedBox(height: linksTapOverlap),
+                        SizedBox(height: linksLine),
+                      ],
                     ),
                   ),
-                ),
-                if (_showsLegal(state)) ...[
-                  const SizedBox(height: 6),
-                  _LegalLines(product: state.product, color: tone.muted),
+                  // Over the bottom of the column, so each link gets its
+                  // full tap area and the line still draws short.
+                  Positioned(
+                    left: style.horizontalPadding,
+                    right: style.horizontalPadding,
+                    bottom: 0,
+                    height: linksLine + linksTapOverlap,
+                    child: _LinksLine(
+                      state: state,
+                      color: tone.muted,
+                      lineHeight: linksLine,
+                    ),
+                  ),
+                  // A message floats over the bottom of the layout and
+                  // takes no room, so a failed purchase never squeezes
+                  // what is above.
+                  if (state.messageKey case final key?)
+                    Positioned(
+                      left: style.horizontalPadding,
+                      right: style.horizontalPadding,
+                      top: -Spacing.s2,
+                      child: FractionalTranslation(
+                        translation: const Offset(0, -1),
+                        child: _Message(text: key.tr()),
+                      ),
+                    ),
                 ],
-                MediaQuery.withClampedTextScaling(
-                  maxScaleFactor: paywallBuyMaxTextScale,
-                  child: _LinksRow(state: state, color: tone.muted),
-                ),
-              ],
-            ),
-            // A message floats over the bottom of the layout and takes no
-            // room, so a failed purchase never squeezes what is above.
-            if (state.messageKey case final key?)
-              Positioned(
-                left: style.horizontalPadding,
-                right: style.horizontalPadding,
-                top: -Spacing.s2,
-                child: FractionalTranslation(
-                  translation: const Offset(0, -1),
-                  child: _Message(text: key.tr()),
-                ),
-              ),
-          ],
+              );
+            },
+          ),
         );
       },
     );
@@ -212,14 +232,6 @@ class _Offer extends StatelessWidget {
 
     final isPaused =
         state.status == PaywallBuyStatus.checking && state.isPaused;
-    final price = state.selected?.price;
-    final label = isPaused
-        ? LocaleKeys.paywall_kit_button_check_again.tr()
-        : style.label == PaywallBuyLabel.nameAndPrice && price != null
-        ? LocaleKeys.paywall_kit_button_get_price.tr(
-            namedArgs: {'name': name, 'price': price},
-          )
-        : LocaleKeys.paywall_kit_button_get.tr(namedArgs: {'name': name});
     // What a screen reader hears while the button only shows a spinner.
     final busyLabel = switch (state.status) {
       PaywallBuyStatus.purchasing => LocaleKeys.paywall_kit_at_store.tr(),
@@ -232,21 +244,8 @@ class _Offer extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (state.product == PaywallProduct.hosted) ...[
-          Text(
-            LocaleKeys.paywall_self_hosted_note.tr(),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: AppTypography.small(
-              tone.muted,
-              fontSize: 12.5,
-            ).copyWith(height: 1.3),
-          ),
-          const SizedBox(height: Spacing.s2),
-        ],
-        if (style.showsPicker) ...[
-          PaywallPlanPicker(style: style.pickerStyle),
+        if (style.showsPicker && planCardCount(state) > 0) ...[
+          PaywallPlanPicker(style: style.pickerStyle, tone: style.tone),
           const SizedBox(height: Spacing.s2),
         ],
         Semantics(
@@ -254,7 +253,7 @@ class _Offer extends StatelessWidget {
           label: busyLabel,
           // 48 points. The 60 point size is for the alarm screen only.
           child: AppButton(
-            label: label,
+            label: buyButtonLabel(state, name: name),
             variant: variant,
             isFullWidth: true,
             isLoading: state.isBusy,
@@ -265,91 +264,118 @@ class _Offer extends StatelessWidget {
                 : null,
           ),
         ),
+        const SizedBox(height: Spacing.s2),
+        // After the action it reads as a promise: nothing is lost by not
+        // buying.
+        if (state.product == PaywallProduct.hosted) ...[
+          Text(
+            LocaleKeys.paywall_self_hosted_note.tr(),
+            textAlign: TextAlign.center,
+            style: AppTypography.small(
+              tone.note,
+              fontSize: 12.5,
+            ).copyWith(height: 1.3),
+          ),
+          const SizedBox(height: Spacing.s1),
+        ],
       ],
     );
   }
 }
 
-/// What the store charges and, for Hosted, when it charges again. Ten
-/// points, at most three lines at the default text size. At a larger size
-/// it scrolls inside its own box, so the button never leaves the screen.
-class _LegalLines extends StatelessWidget {
-  const _LegalLines({required this.product, required this.color});
-
-  final PaywallProduct product;
-  final Color color;
-
-  static const double _fontSize = 10;
-  static const double _lineHeight = 1.35;
-  static const int _lines = 3;
-
-  @override
-  Widget build(BuildContext context) {
-    final store = storeAccountLabelFor(Theme.of(context).platform);
-    final text = product == PaywallProduct.hosted
-        ? LocaleKeys.paywall_renewal_disclosure.tr(namedArgs: {'store': store})
-        : LocaleKeys.paywall_kit_legal_pro.tr(namedArgs: {'store': store});
-    final scale = MediaQuery.textScalerOf(context).scale(1);
-    final line = _fontSize * _lineHeight * scale;
-    // Three lines until the text outgrows the block's own limit, then as
-    // many whole lines as that room holds, and never under two.
-    final lines = math.max(
-      2,
-      (_lines * math.min(scale, paywallBuyMaxTextScale) / scale).floor(),
-    );
-
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: line * lines + 1),
-      child: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: AppTypography.body(
-            color,
-            fontSize: _fontSize,
-          ).copyWith(height: _lineHeight),
-        ),
-      ),
-    );
-  }
-}
-
-/// Restore, Terms and Privacy on one line, each with a 44 point tap area.
-/// With nothing on sale only Restore is left.
-class _LinksRow extends StatelessWidget {
-  const _LinksRow({required this.state, required this.color});
+/// What the store does with the money, in whole sentences: for Hosted,
+/// that it renews, at what price and where to cancel. Ten points, two
+/// lines at the default text size. It is never cut and never scrolls.
+class _LegalLine extends StatelessWidget {
+  const _LegalLine({required this.state, required this.color});
 
   final PaywallBuyState state;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
+    return Text(
+      legalLine(
+        state,
+        store: storeAccountLabelFor(Theme.of(context).platform),
+      ),
+      textAlign: TextAlign.center,
+      style: AppTypography.body(color, fontSize: 10).copyWith(height: 1.35),
+    );
+  }
+}
+
+/// Restore, Terms and Privacy as one quiet line with dots between. Each
+/// has a 44 point tap area that runs up past the drawn line. With nothing
+/// on sale only Restore is left.
+class _LinksLine extends StatelessWidget {
+  const _LinksLine({
+    required this.state,
+    required this.color,
+    required this.lineHeight,
+  });
+
+  final PaywallBuyState state;
+  final Color color;
+
+  /// The height the words are centred in, at the bottom of the tap area.
+  final double lineHeight;
+
+  @override
+  Widget build(BuildContext context) {
     final cubit = context.read<PaywallBuyCubit>();
     final isDone = state.status == PaywallBuyStatus.done;
     final onlyRestore = state.status == PaywallBuyStatus.notOnSale;
+    final style = AppTypography.small(
+      color,
+      fontSize: 11,
+    ).copyWith(fontWeight: FontWeight.w500, height: 1);
+
+    final links = [
+      if (!isDone)
+        _Link(
+          text: LocaleKeys.paywall_kit_link_restore.tr(),
+          label: LocaleKeys.paywall_restore_purchases_button.tr(),
+          style: style,
+          lineHeight: lineHeight,
+          onTap: state.canRestore ? () => unawaited(cubit.restore()) : null,
+        ),
+      if (!onlyRestore) ...[
+        _Link(
+          text: LocaleKeys.paywall_kit_link_terms.tr(),
+          label: LocaleKeys.paywall_terms_link.tr(),
+          style: style,
+          lineHeight: lineHeight,
+          url: termsUrl,
+        ),
+        _Link(
+          text: LocaleKeys.paywall_kit_link_privacy.tr(),
+          label: LocaleKeys.paywall_privacy_link.tr(),
+          style: style,
+          lineHeight: lineHeight,
+          url: privacyUrl,
+        ),
+      ],
+    ];
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!isDone)
-          _Link(
-            label: LocaleKeys.paywall_restore_purchases_button.tr(),
-            color: color,
-            onTap: state.canRestore ? () => unawaited(cubit.restore()) : null,
-          ),
-        if (!onlyRestore) ...[
-          _Link(
-            label: LocaleKeys.paywall_terms_link.tr(),
-            color: color,
-            url: termsUrl,
-          ),
-          _Link(
-            label: LocaleKeys.paywall_privacy_link.tr(),
-            color: color,
-            url: privacyUrl,
-          ),
+        for (final (i, link) in links.indexed) ...[
+          if (i > 0)
+            ExcludeSemantics(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: SizedBox(
+                  height: lineHeight,
+                  child: Center(
+                    child: Text('·', style: style), // l10n-ok: a separator
+                  ),
+                ),
+              ),
+            ),
+          link,
         ],
       ],
     );
@@ -358,14 +384,21 @@ class _LinksRow extends StatelessWidget {
 
 class _Link extends StatelessWidget {
   const _Link({
+    required this.text,
     required this.label,
-    required this.color,
+    required this.style,
+    required this.lineHeight,
     this.onTap,
     this.url,
   });
 
+  /// The short word drawn.
+  final String text;
+
+  /// What a screen reader says: the long form.
   final String label;
-  final Color color;
+  final TextStyle style;
+  final double lineHeight;
   final VoidCallback? onTap;
 
   /// A page to open. When set, the link is read as a link.
@@ -379,6 +412,7 @@ class _Link extends StatelessWidget {
         : () => unawaited(
             launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView),
           );
+    final color = style.color!;
     final shown = onTap == null ? color.withValues(alpha: 0.5) : color;
 
     return Flexible(
@@ -393,21 +427,23 @@ class _Link extends StatelessWidget {
           onTap: onTap,
           borderRadius: Radii.smAll,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+            constraints: const BoxConstraints(minWidth: 44),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.s2),
-              child: Center(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Align(
+                alignment: Alignment.bottomCenter,
                 widthFactor: 1,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    style: AppTypography.small(shown, fontSize: 11).copyWith(
-                      fontWeight: FontWeight.w600,
-                      height: 1,
-                      decoration: TextDecoration.underline,
-                      decorationColor: shown,
+                child: SizedBox(
+                  height: lineHeight,
+                  child: Center(
+                    widthFactor: 1,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        text,
+                        maxLines: 1,
+                        style: style.copyWith(color: shown),
+                      ),
                     ),
                   ),
                 ),

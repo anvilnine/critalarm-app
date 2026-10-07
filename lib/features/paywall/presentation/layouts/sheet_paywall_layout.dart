@@ -281,8 +281,6 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                     restAt: restAt,
                     buyStyle: const PaywallBuyBlockStyle(
                       tone: PaywallTone.surface,
-                      pickerStyle: PaywallPlanPickerStyle.segments,
-                      label: PaywallBuyLabel.nameAndPrice,
                     ),
                     builder: (context, scope) => ValueListenableBuilder<double>(
                       valueListenable: _clock,
