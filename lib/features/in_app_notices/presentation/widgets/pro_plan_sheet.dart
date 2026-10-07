@@ -5,6 +5,7 @@ import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/notice_detail_sheet.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/widgets.dart';
@@ -49,7 +50,7 @@ Future<void> showProPlanSheet(
         actionLabel: LocaleKeys.notices_pro_ending_action.tr(),
         onAction: () => openAppPath(
           context,
-          paywallLocation(PaywallSource.planSheetEnding),
+          hostedPaywallLocation(PaywallSource.planSheetEnding),
         ),
         onDismiss: onDismiss ?? () {},
       );
@@ -69,7 +70,7 @@ Future<void> showProPlanSheet(
         dismissLabel: LocaleKeys.notices_pro_ended_dismiss.tr(),
         onAction: () => openAppPath(
           context,
-          paywallLocation(PaywallSource.planSheetEnded),
+          hostedPaywallLocation(PaywallSource.planSheetEnded),
         ),
         onDismiss: onDismiss ?? () {},
       );

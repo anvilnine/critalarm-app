@@ -19,6 +19,7 @@ import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rule
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/topics/domain/count_card_layout.dart';
 import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
@@ -620,7 +621,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
       onPressed: () {
         AppHaptics.capture();
         unawaited(
-          context.push(paywallLocation(PaywallSource.createTopicCard)),
+          context.push(hostedPaywallLocation(PaywallSource.createTopicCard)),
         );
       },
     );
