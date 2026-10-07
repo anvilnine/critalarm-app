@@ -51,6 +51,7 @@ const _titleKeys = <String, String>{
   'push_token_confirmed': LocaleKeys.reliability_check_push_token,
   'last_push_received': LocaleKeys.reliability_check_last_push,
   'system_update': LocaleKeys.reliability_check_system_update,
+  'missed_alarm': LocaleKeys.reliability_check_missed_alarm,
 };
 
 /// The one short line under a row's title, as a `LocaleKeys` key, picked from
@@ -77,6 +78,10 @@ const _lineKeys = <String, String>{
   'time_sensitive_off': LocaleKeys.reliability_line_time_sensitive_off,
   'scheduled_summary': LocaleKeys.reliability_line_scheduled_summary,
   'os_changed': LocaleKeys.reliability_line_os_changed,
+  'missed_no_push': LocaleKeys.reliability_line_missed_no_push,
+  'missed_push_no_ring': LocaleKeys.reliability_line_missed_push_no_ring,
+  'missed_rang': LocaleKeys.reliability_line_missed_rang,
+  'missed_unanswered': LocaleKeys.reliability_line_missed_unanswered,
   // A permission's reason is its status name.
   'denied': LocaleKeys.reliability_line_denied,
   'restricted': LocaleKeys.reliability_line_restricted,
