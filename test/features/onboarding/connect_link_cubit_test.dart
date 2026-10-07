@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/links/app_link.dart';
 import 'package:critalarm/core/models/server_info.dart';
@@ -53,11 +54,13 @@ void main() {
   late List<String> printed;
   late DebugPrintCallback realDebugPrint;
   late int connectedCalls;
+  late Future<ServerMode?> Function() readMode;
 
   ConnectLinkCubit build([ConnectLink? link]) => ConnectLinkCubit(
     link ?? _link(),
     connectToServer: connect,
     readConnection: getConnection,
+    readServerMode: () => readMode(),
     events: ConnectLinkAnalytics(gate),
     afterConnected: () async => connectedCalls++,
   );
@@ -68,6 +71,7 @@ void main() {
     gate = _Gate();
     printed = [];
     connectedCalls = 0;
+    readMode = () async => null;
     realDebugPrint = debugPrint;
     debugPrint = (message, {wrapWidth}) => printed.add(message ?? '');
     when(
@@ -125,6 +129,95 @@ void main() {
       expect(cubit.state.replacingHost, 'old.example.com');
       expect(cubit.state.toString(), isNot(contains('tk_old')));
       await cubit.close();
+    });
+
+    group('the server it replaces and whether that is the cloud', () {
+      void savedServer(String url) {
+        when(() => getConnection(any())).thenAnswer(
+          (_) async => ServerConnection(
+            serverUrl: url,
+            adminToken: 'tk_old',
+          ).toSuccess(),
+        );
+      }
+
+      test('arrive together, in one state', () async {
+        savedServer('https://api.critalarm.app');
+        readMode = () async => ServerMode.hosted;
+        final cubit = build();
+        final states = <ConnectLinkState>[];
+        final sub = cubit.stream.listen(states.add);
+        await cubit.open();
+        await Future<void>.delayed(Duration.zero);
+        expect(states, hasLength(1));
+        expect(states.single.replacingHost, 'api.critalarm.app');
+        expect(states.single.replacesCloud, isTrue);
+        await sub.cancel();
+        await cubit.close();
+      });
+
+      test('a self-hosted server is named by its host', () async {
+        savedServer('https://nas.example.org:8443');
+        readMode = () async => ServerMode.selfhosted;
+        final cubit = build();
+        await cubit.open();
+        expect(cubit.state.replacingHost, 'nas.example.org:8443');
+        expect(cubit.state.replacesCloud, isFalse);
+        await cubit.close();
+      });
+
+      test(
+        'a phone on no server has neither, whatever the mode says',
+        () async {
+          readMode = () async => ServerMode.hosted;
+          final cubit = build();
+          await cubit.open();
+          expect(cubit.state.replacingHost, isNull);
+          expect(cubit.state.replacesCloud, isFalse);
+          await cubit.close();
+        },
+      );
+
+      test('a mode that cannot be read names the host', () async {
+        savedServer('https://api.critalarm.app');
+        readMode = () async => throw StateError('no saved session');
+        final cubit = build();
+        await cubit.open();
+        expect(cubit.state.replacingHost, 'api.critalarm.app');
+        expect(cubit.state.replacesCloud, isFalse);
+        await cubit.close();
+      });
+
+      test('both stay through a connect that fails', () async {
+        savedServer('https://api.critalarm.app');
+        readMode = () async => ServerMode.hosted;
+        when(
+          () => connect(
+            serverUrl: any(named: 'serverUrl'),
+            adminToken: any(named: 'adminToken'),
+            pinToAddress: any(named: 'pinToAddress'),
+          ),
+        ).thenAnswer((_) async => const ServerDowngrade());
+        final cubit = build();
+        await cubit.open();
+        await cubit.connect();
+        expect(cubit.state.isFailed, isTrue);
+        expect(cubit.state.replacingHost, 'api.critalarm.app');
+        expect(cubit.state.replacesCloud, isTrue);
+        await cubit.close();
+      });
+
+      test('two states that differ only in the cloud flag are not equal', () {
+        const base = ConnectLinkState(
+          host: 'alarm.example.com',
+          address: 'https://alarm.example.com',
+          isPlainHttp: false,
+        );
+        expect(
+          base.withReplaced(host: 'api.critalarm.app', isCloud: true),
+          isNot(base.withReplaced(host: 'api.critalarm.app', isCloud: false)),
+        );
+      });
     });
 
     test('a plain http address is marked', () async {

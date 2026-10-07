@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/links/app_link.dart';
 import 'package:critalarm/core/telemetry/connect_link_analytics.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -25,12 +26,14 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
     ConnectLink link, {
     required ConnectToServerUsecase connectToServer,
     GetConnectionUsecase? readConnection,
+    Future<ServerMode?> Function()? readServerMode,
     ConnectLinkAnalytics? events,
     Future<void> Function()? afterConnected,
   }) : _token = link.token,
        _serverUrl = link.serverUrl.toString(),
        _connect = connectToServer,
        _getConnection = readConnection,
+       _serverMode = readServerMode,
        _analytics = events,
        _onConnected = afterConnected,
        super(
@@ -45,6 +48,10 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
   final String _serverUrl;
   final ConnectToServerUsecase _connect;
   final GetConnectionUsecase? _getConnection;
+
+  /// The mode the phone saved when it connected to the server it is on now.
+  /// It is the same question the Account and Pro screens ask.
+  final Future<ServerMode?> Function()? _serverMode;
   final ConnectLinkAnalytics? _analytics;
   final Future<void> Function()? _onConnected;
 
@@ -55,14 +62,33 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
   bool get hasTried => _tried;
 
   /// Reports that the sheet opened, and finds the server it replaces.
+  ///
+  /// The saved server's address and its mode are asked for together and go
+  /// into one state, so the "Replaces" line never names a host from one
+  /// moment and a kind of server from another.
   Future<void> open() async {
     unawaited(_analytics?.opened());
-    final result = await _getConnection?.call(const NoParams());
-    final current = result?.getOrNull();
+    final getConnection = _getConnection;
+    if (getConnection == null) return;
+    final (result, isCloud) = await (
+      getConnection(const NoParams()),
+      _readIsCloud(),
+    ).wait;
+    final current = result.getOrNull();
     if (current == null || isClosed) return;
     final uri = Uri.tryParse(current.serverUrl);
     if (uri == null || uri.host.isEmpty) return;
-    emit(state.copyWith(replacingHost: hostLabel(uri)));
+    emit(state.withReplaced(host: hostLabel(uri), isCloud: isCloud));
+  }
+
+  /// False when there is no saved session to read. The host is named
+  /// instead, which says more.
+  Future<bool> _readIsCloud() async {
+    try {
+      return await _serverMode?.call() == ServerMode.hosted;
+    } on Object {
+      return false;
+    }
   }
 
   /// Connects to the server in the link. Does nothing while a connect is

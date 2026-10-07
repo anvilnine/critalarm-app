@@ -264,14 +264,38 @@ String? _firstFilled(String? first, String? second) {
 /// True for a server address a connect link may carry: `https` to anywhere,
 /// `http` only to this device or a private network. An address with a user
 /// name or password in it is refused: the host a person reads would not be
-/// the whole story.
+/// the whole story. So is one with a query or a fragment of its own, even an
+/// empty one: no base address needs either, and the sheet would have to draw
+/// it. The host must be one [isPlainHost] accepts.
 bool isAllowedServerUrl(Uri url) {
   if (url.host.isEmpty) return false;
+  if (!isPlainHost(url.host)) return false;
   if (url.userInfo.isNotEmpty) return false;
+  if (url.hasQuery || url.hasFragment) return false;
   if (url.scheme == 'https') return true;
   if (url.scheme == 'http') return isPrivateOrLoopbackHost(url.host);
   return false;
 }
+
+/// True for a host a person can read letter by letter: ASCII letters,
+/// digits, `-`, `_` and `.`, or an IPv6 address. [host] is what [Uri.host]
+/// gives.
+///
+/// [Uri] does not turn an international name into punycode. It keeps
+/// anything outside ASCII, a space included, as a percent escape
+/// (`alarm%E2%80%8B.example.com` for a zero-width space). So a `%` in the
+/// host means the link carried a character that is not a host character, and
+/// that covers every invisible and direction-changing one (U+200B to U+200F,
+/// U+202A to U+202E, U+2066 to U+2069, U+FEFF). A punycode label
+/// (`xn--...`) is plain ASCII and passes as it came. An IPv6 zone
+/// (`fe80::1%25en0`) is refused with the rest.
+bool isPlainHost(String host) {
+  if (_plainHost.hasMatch(host)) return true;
+  return host.contains(':') &&
+      _tryParse(() => Uri.parseIPv6Address(host)) != null;
+}
+
+final _plainHost = RegExp(r'^[A-Za-z0-9._-]+$');
 
 /// True for `localhost` and for an IP address that is loopback, private or
 /// link-local. A name is never private, whatever it resolves to: the check

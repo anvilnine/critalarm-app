@@ -40,13 +40,15 @@ final class AdminTokenMissing extends ConnectOutcome {
   final ServerInfo info;
 }
 
-/// A link named one server and its answer names another host or port. The
-/// sheet shows what it was asked to connect to, so it connects to nothing
-/// else.
+/// A link named one server and its answer names another address: another
+/// host, port, scheme or base path. The sheet shows what it was asked to
+/// connect to, so it connects to nothing else.
 final class ServerAddressDiffers extends ConnectOutcome {
   const ServerAddressDiffers(this.host);
 
   /// The host the server reported, with its port when not the usual one.
+  /// When the host and port are the ones asked for and something else
+  /// differs, the whole reported address.
   final String host;
 }
 
@@ -109,11 +111,11 @@ class ConnectToServerUsecase {
   /// outcome.
   ///
   /// The server's answer names its own base address, and that is what gets
-  /// saved. With [pinToAddress] the answer must also name the host and port
-  /// in [serverUrl], and an `https` [serverUrl] never ends as `http`: a
-  /// connect link shows one address and connects to that one. Typed in
-  /// setup, the address is the person's own and the server's answer still
-  /// stands, scheme included.
+  /// saved. With [pinToAddress] the answer must also name the scheme, host,
+  /// port and base path in [serverUrl], and an `https` [serverUrl] never
+  /// ends as `http`: a connect link shows one address and connects to that
+  /// one. Typed in setup, the address is the person's own and the server's
+  /// answer still stands, scheme included.
   Future<ConnectOutcome> call({
     required String serverUrl,
     required String adminToken,
@@ -171,23 +173,52 @@ class ConnectToServerUsecase {
     if (to == null || to.host.isEmpty) {
       return pin ? ServerAddressDiffers(reported) : null;
     }
-    if (pin && from != null && !_samePlace(from, to)) {
-      return ServerAddressDiffers(_hostLabel(to));
-    }
-    // Only a link refuses this. Setup keeps following the server's own base
-    // address, which is a product decision still open.
-    if (pin && from != null && from.scheme == 'https' && to.scheme == 'http') {
+    // Only a link refuses any of this. Setup keeps following the server's
+    // own base address, scheme included, because that address is hashed into
+    // the push subscription key.
+    if (!pin || from == null) return null;
+    if (from.scheme == 'https' && to.scheme == 'http') {
       return const ServerDowngrade();
     }
+    if (!_sameHostAndPort(from, to)) {
+      return ServerAddressDiffers(_hostLabel(to));
+    }
+    // The host is the one the sheet showed, so naming it again would say
+    // nothing. The whole reported address shows what differs.
+    if (!_sameAddress(from, to)) return ServerAddressDiffers(to.toString());
     return null;
   }
 
-  /// Same host and port. A path, a trailing slash or the letter case of the
-  /// host does not matter, and neither does `https` against `https://...:443`.
-  static bool _samePlace(Uri a, Uri b) {
+  /// Same host and port. The letter case of the host does not matter, and
+  /// neither does `https` against `https://...:443`.
+  static bool _sameHostAndPort(Uri a, Uri b) {
     if (a.host.toLowerCase() != b.host.toLowerCase()) return false;
     final bothDefault = !a.hasPort && !b.hasPort;
     return bothDefault || a.port == b.port;
+  }
+
+  /// [reported] is the address the sheet showed as [agreed]: the same
+  /// scheme, host, port (the usual one counts when none is written) and base
+  /// path. One closing slash on the path does not matter, and nothing else is
+  /// let through: a reported address with a user name, a query or a fragment
+  /// is another address.
+  static bool _sameAddress(Uri agreed, Uri reported) {
+    if (reported.userInfo.isNotEmpty ||
+        reported.hasQuery ||
+        reported.hasFragment) {
+      return false;
+    }
+    return agreed.scheme == reported.scheme &&
+        agreed.host.toLowerCase() == reported.host.toLowerCase() &&
+        agreed.port == reported.port &&
+        _basePath(agreed) == _basePath(reported);
+  }
+
+  /// The path with one closing slash dropped, so `/one/` is `/one` and `/` is
+  /// no path at all.
+  static String _basePath(Uri uri) {
+    final path = uri.path;
+    return path.endsWith('/') ? path.substring(0, path.length - 1) : path;
   }
 
   static String _hostLabel(Uri uri) {
