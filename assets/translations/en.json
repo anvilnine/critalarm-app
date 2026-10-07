@@ -1841,5 +1841,40 @@
     "kind_pro_later": "Hosted later",
     "kind_review_ask": "Review ask",
     "kind_feedback_ask": "Feedback ask"
+  },
+  "paywall_sheet": {
+    "headline": {
+      "topics": "Unlimited critical topics are part of {name}",
+      "pushes": "More pushes a day are part of {name}",
+      "history": "Older alarms are part of {name}",
+      "widgets": "Home screen widgets are part of {name}",
+      "app_icons": "Extra app icons are part of {name}",
+      "weekly_check": "The weekly delivery check is part of {name}",
+      "fire_drills": "Fire drills are part of {name}",
+      "wake_up_challenges": "Wake-up challenges are part of {name}",
+      "custom_alarm_screens": "Custom alarm screens are part of {name}",
+      "morning_summary": "The morning summary is part of {name}"
+    },
+    "page": {
+      "back_topics": "Topics",
+      "back_settings": "Settings",
+      "save": "Save",
+      "title_new_topic": "New topic",
+      "title_history": "History",
+      "title_widgets": "Widgets",
+      "title_reliability": "Reliability",
+      "title_settings": "Settings",
+      "name": "Name",
+      "critical": "Critical",
+      "critical_line": "Rings like an alarm until you say I'm up.",
+      "critical_used": "{free_critical_topics} of {free_critical_topics} critical topics used",
+      "critical_lifted": "Critical topics. No limit.",
+      "sound": "Sound",
+      "sound_value": "Classic siren",
+      "test_alarm": "Send a test alarm",
+      "quiet_hours": "Quiet hours",
+      "notifications": "Notifications",
+      "appearance": "Appearance"
+    }
   }
 }
