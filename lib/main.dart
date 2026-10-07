@@ -18,6 +18,8 @@ import 'package:critalarm/features/onboarding/domain/connect/background_connect.
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
+import 'package:critalarm/features/reliability/data/platform_phone_capture.dart';
+import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
 import 'package:critalarm/features/reliability/domain/sources/system_update_source.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
 import 'package:critalarm/gen/assets.gen.dart';
@@ -102,9 +104,16 @@ Future<void> main() async {
   final crashReportingOn = privacy.getOrNull()?.crashReportingEnabled ?? false;
   await getIt<TelemetryGate>().setCrashlyticsEnabled(crashReportingOn);
 
+  // The missed alarm check keeps its own copy of those rows. It reads the
+  // list on this line, before the drain below empties it.
+  getIt<PlatformPhoneCapture>()
+    ..start()
+    ..holdPendingRows();
+
   // Anything the native push handler recorded while Dart was asleep. Reported
   // only if the user turned analytics on.
   unawaited(getIt<PushEventDrain>().drain());
+  unawaited(getIt<MissedAlarmReader>().record());
 
   // Acks queued offline go out as soon as the network is back.
   unawaited(getIt<AckQueue>().start());
