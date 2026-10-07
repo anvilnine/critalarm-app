@@ -15,14 +15,21 @@ acknowledge card. One is the weekly check, which shows nothing.
 | `la-start.apns` | `apns-push-type: liveactivity`, `event: start`. Goes to the push-to-start token. | Puts the acknowledge card on the lock screen with no app running. |
 | `la-update.apns` | `event: update`. Goes to that card's own update token. | Changes the state and title on the card already showing. |
 | `la-end.apns` | `event: end`. Same token. | Takes the card down. |
-| `check.apns` | The weekly check of api.md §5.4: `content-available: 1` and nothing else in `aps`, with `kind: check`. | Wakes the app in the background, which sends the receipt to the relay in its saved session. Nothing appears on screen. |
+| `check.apns` | The weekly check of api.md §5.4: `content-available: 1` and nothing else in `aps`, with `kind: check`. | On a phone the app is woken in the background and sends the receipt to the relay in its saved session. Nothing appears on screen. The iOS 26.5 simulator does not hand this payload to the app at all, see below. |
 
 The three `la-*` files need `APNS_LA_START_TOKEN` and `APNS_LA_UPDATE_TOKEN` in
 `apns.env`. Both are printed by a debug build on launch and when a card starts.
 The shape of these three is not in api.md yet; see
 `docs/specs/remote-alarm-ios-blocked.md`.
 
-`check.apns` needs a relay to answer and a device credential to answer with.
+`xcrun simctl push` cannot exercise `check.apns` on the iOS 26.5 simulator. A
+payload with only `content-available` is turned into a background fetch
+there, which this app does not declare, so the remote notification handler
+never runs. `ios/RunnerTests/WeeklyCheckTests.swift` calls the handler
+directly instead, and one of its tests sends a real receipt when a relay is
+listening on `127.0.0.1:8793`.
+
+That test needs a relay to answer and a device credential to answer with.
 A debug build on the simulator reads the credential from the preference
 `flutter.dev.weekly_check_identity` when it is set, as the JSON
 `{"device_id":"dev_...","device_token":"dv_..."}`, so a simulator that has not
