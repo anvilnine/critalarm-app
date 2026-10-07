@@ -153,6 +153,11 @@
     "self_host_connected_title": "Connected",
     "self_host_continue": "Continue"
   },
+  "connect_link": {
+    "what": "This phone will use this server for alarms.",
+    "replaces": "Replaces {host}.",
+    "not_encrypted": "This address is not encrypted."
+  },
   "onboarding_real_ring": {
     "title": "Now a real alarm",
     "subtitle": "The server sends it, and it rings through silent mode.",

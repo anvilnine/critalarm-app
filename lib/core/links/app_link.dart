@@ -16,10 +16,8 @@ abstract final class AppLinkRoutes {
   /// The Reliability screen.
   static const reliability = '/settings/reliability';
 
-  /// What a Reliability link opens today. The router has no
-  /// [reliability] route yet, so the link lands on Settings. Point this at
-  /// [reliability] when the route exists.
-  static const String reliabilityTarget = settings;
+  /// What a Reliability link opens.
+  static const String reliabilityTarget = reliability;
 
   /// Names that are a screen of their own under `/topics/`, so they cannot
   /// also be a topic there: `/topics/new` is the create-topic form. A link

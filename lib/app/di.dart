@@ -66,6 +66,7 @@ import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
+import 'package:critalarm/core/telemetry/connect_link_analytics.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
@@ -155,6 +156,7 @@ import 'package:critalarm/features/onboarding/domain/setup_stats_consent.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/connect_to_server_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
@@ -844,6 +846,9 @@ Future<void> configureDependencies({
       () => LocalReminderAnalytics(getIt<TelemetryGate>()),
     )
     ..registerLazySingleton(
+      () => ConnectLinkAnalytics(getIt<TelemetryGate>()),
+    )
+    ..registerLazySingleton(
       () => PushEventDrain(
         getIt<SharedPreferences>(),
         getIt<TelemetryGate>(),
@@ -1194,6 +1199,17 @@ Future<void> configureDependencies({
     ..registerLazySingleton(
       () => GetServerInfoUsecase(getIt<ServerRepository>()),
     )
+    // The one way a server is connected. The setup connect step and a
+    // connect link both call it.
+    ..registerLazySingleton(
+      () => ConnectToServerUsecase(
+        getIt<GetServerInfoUsecase>(),
+        getIt<EstablishApiSessionUsecase>(),
+        getIt<SaveConnectionUsecase>(),
+        // A server picked by hand replaces a Cloud connect still waiting.
+        cancelPendingConnect: () => getIt<BackgroundConnect>().cancel(),
+      ),
+    )
     ..registerLazySingleton(
       () => TriggerTestAlarmUsecase(
         getIt<IncidentRepository>(),
@@ -1393,6 +1409,7 @@ Future<void> configureDependencies({
         readDraft: getIt<ReadOnboardingDraftUsecase>(),
         saveDraft: getIt<SaveOnboardingDraftUsecase>(),
         backgroundConnect: getIt<BackgroundConnect>(),
+        connectToServer: getIt<ConnectToServerUsecase>(),
         initialConnected: initialConnected ?? false,
       ),
     )
