@@ -93,7 +93,7 @@ ProPackSheetView proPackSheetView(ProPackSheetStage stage) => switch (stage) {
     lineKey: LocaleKeys.pro_pack_sheet_what,
   ),
   ProPackSheetStage.offers => const ProPackSheetView(
-    face: FaceState.interested,
+    face: FaceState.curious,
     titleKey: LocaleKeys.pro_pack_sheet_title,
     lineKey: LocaleKeys.pro_pack_sheet_what,
   ),
