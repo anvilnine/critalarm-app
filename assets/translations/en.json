@@ -1980,5 +1980,12 @@
       "custom_sounds": "Sounds",
       "custom_alarm_screens": "Screens"
     }
+  },
+  "paywall_wipe": {
+    "headline_hosted": "See what Hosted changes",
+    "headline_pro": "See what Pro adds",
+    "tag_free": "Free",
+    "tag_standard": "Standard",
+    "compare_label": "Compare {before} and {name}"
   }
 }
