@@ -763,8 +763,22 @@ offer whose screen went away under it is not counted as declined.
 - It reads the relay's `packs` list: every registration response,
   `GET /relay/v1/packs` on launch and resume (once a minute at most), and
   `POST /relay/v1/packs/refresh` after a purchase or a restore. The last list
-  is kept under the prefs key `pro_pack.relay_packs` with its account id, so
-  a cold start with no network still answers.
+  is kept under the prefs key `pro_pack.relay_packs`, so a cold start with
+  no network still answers.
+- A kept list belongs to one account on one relay (`ProPackScope`). It
+  shows only while this phone's account is known and is that one. An
+  unknown account holds nothing, and a different one clears the list.
+- Relay answers have one writer (`_apply`). The calls `ProPackAccess` makes
+  run one at a time. A registration is numbered when it starts
+  (`beginRelayRequest`), and an answer older than the one showing, or asked
+  for another account, is dropped.
+- A purchase is written down before the store is asked
+  (`pro_pack.pending_confirm`). Until the relay lists the pack, launch and
+  resume ask it to read the store again, for
+  `ProPackAccess.pendingConfirmGivesUpAfter` at most.
+- A kept pack whose `expires_at` has passed stays held for
+  `ProPackAccess.expiredGrace` with no word from the relay, then is not
+  held. A pack with no `expires_at` never ends on the phone.
 - A pack is never worked out from the tier. `proPackGrantedElsewhere`
   (`pro_pack_grant.dart`) is the one function that could grant the pack from
   another source, and it returns false.
@@ -775,7 +789,8 @@ offer whose screen went away under it is not counted as declined.
   `AppRoute.proPack`). It lists the packages of the RevenueCat offering
   `proPackOfferingId` with the store's own title and price strings. With no
   such offering, or in a build that skips the store, it says Pro is not on
-  sale yet and offers nothing to tap.
+  sale yet and offers nothing to buy. Restore is there whenever the sheet
+  rests, on sale or not.
 - The Reliability screen draws `ProPackReliabilityGroup` through
   `reliabilityExtraGroups`: one row, the weekly delivery check. Locked, it
   opens the sheet. Unlocked, it draws its `weeklyCheckBody` builder.
