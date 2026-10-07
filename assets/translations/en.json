@@ -1339,30 +1339,27 @@
         "line": "{hosted_history_days} days, up from {free_history_days}."
       },
       "widgets": {
-        "line": "See what is ringing without opening the app."
+        "title": "Home screen widgets",
+        "line": "See what is ringing and say I'm up from the home screen."
       },
       "app_icons": {
         "line": "Three extra: a crown, shades, or both."
       },
-      "weekly_check": {
-        "title": "Weekly delivery check",
-        "line": "Checks each week that a push still reaches this phone."
-      },
-      "fire_drills": {
-        "title": "Fire drills",
-        "line": "A surprise test alarm, to see how fast you answer."
-      },
       "wake_up_challenges": {
         "title": "Wake-up challenges",
-        "line": "Prove you are up before the alarm lets go."
+        "line": "Scan a QR code or type the topic's name to stop the alarm."
+      },
+      "reliability_checks": {
+        "title": "Reliability checks",
+        "line": "The app checks itself: a weekly delivery check, and fire drills."
+      },
+      "custom_sounds": {
+        "title": "Your own alarm sounds",
+        "line": "Record one, or bring a file."
       },
       "custom_alarm_screens": {
-        "title": "Custom alarm screens",
-        "line": "Pick how the ringing screen looks."
-      },
-      "morning_summary": {
-        "title": "Morning summary",
-        "line": "What rang while you slept."
+        "title": "Your own alarm screens",
+        "line": "Choose how the alarm looks when it rings."
       }
     },
     "dev": {
@@ -1859,7 +1856,11 @@
     "widget_awake": "Awake",
     "widget_quiet": "Quiet",
     "widget_im_up": "I'm up",
-    "widget_done": "Done"
+    "widget_done": "Done",
+    "challenge_locked": "Scan to stop",
+    "challenge_stopped": "Stopped",
+    "sound_name": "My rooster",
+    "screen_wake_up": "Wake up"
   },
   "paywall_bento": {
     "brand": "Crit Alarm {name}",
@@ -1885,11 +1886,10 @@
       "history": "Older alarms are part of {name}",
       "widgets": "Home screen widgets are part of {name}",
       "app_icons": "Extra app icons are part of {name}",
-      "weekly_check": "The weekly delivery check is part of {name}",
-      "fire_drills": "Fire drills are part of {name}",
       "wake_up_challenges": "Wake-up challenges are part of {name}",
-      "custom_alarm_screens": "Custom alarm screens are part of {name}",
-      "morning_summary": "The morning summary is part of {name}"
+      "reliability_checks": "Reliability checks are part of {name}",
+      "custom_sounds": "Your own alarm sounds are part of {name}",
+      "custom_alarm_screens": "Your own alarm screens are part of {name}"
     },
     "page": {
       "back_topics": "Topics",
@@ -1915,14 +1915,18 @@
   },
   "paywall_hero": {
     "headline_hosted": "Hosted lifts every limit",
-    "headline_pro": "Pro keeps watch on delivery",
+    "headline_pro": "Pro makes the alarm yours",
+    "stage_label": "Showing: {benefit}",
     "lines": {
       "topics": "Unlimited critical topics",
       "pushes": "{hosted_p4_daily} high priority pushes a day",
       "history": "{hosted_history_days} days of alarm history",
       "widgets": "Home screen widgets",
       "app_icons": "Three extra app icons",
-      "weekly_check": "A weekly delivery check"
+      "wake_up_challenges": "Wake-up challenges",
+      "reliability_checks": "Reliability checks",
+      "custom_sounds": "Your own alarm sounds",
+      "custom_alarm_screens": "Your own alarm screens"
     }
   }
 }

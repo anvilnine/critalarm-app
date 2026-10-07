@@ -5,20 +5,16 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 /// Every benefit a paywall layout can name, for both products.
-///
-/// The Hosted ones carry the same names as `HostedBenefitId`, so the two
-/// lists can be matched one to one.
 enum PaywallBenefitId {
   topics('topics'),
   pushes('pushes'),
   history('history'),
-  widgets('widgets'),
   appIcons('app_icons'),
-  weeklyCheck('weekly_check'),
-  fireDrills('fire_drills'),
   wakeUpChallenges('wake_up_challenges'),
-  customAlarmScreens('custom_alarm_screens'),
-  morningSummary('morning_summary');
+  widgets('widgets'),
+  reliabilityChecks('reliability_checks'),
+  customSounds('custom_sounds'),
+  customAlarmScreens('custom_alarm_screens');
 
   const PaywallBenefitId(this.key);
 
@@ -57,8 +53,10 @@ class PaywallBenefit {
   String get line => lineKey.tr(namedArgs: HostedBenefit.args);
 }
 
-/// The Hosted line and preview for each Hosted benefit. A benefit taken out
-/// of `HostedBenefit.all` drops off every layout too.
+/// The Hosted line and preview for each benefit a layout lists under
+/// Hosted. A benefit of `HostedBenefit.all` with no entry here is not
+/// listed: home screen widgets are sold with Pro on these layouts. A
+/// benefit taken out of `HostedBenefit.all` drops off every layout too.
 const _hostedParts =
     <HostedBenefitId, (PaywallBenefitId, String, PaywallPreviewId)>{
       HostedBenefitId.topics: (
@@ -76,11 +74,6 @@ const _hostedParts =
         LocaleKeys.paywall_kit_benefits_history_line,
         PaywallPreviewId.history,
       ),
-      HostedBenefitId.widgets: (
-        PaywallBenefitId.widgets,
-        LocaleKeys.paywall_kit_benefits_widgets_line,
-        PaywallPreviewId.widgets,
-      ),
       HostedBenefitId.appIcons: (
         PaywallBenefitId.appIcons,
         LocaleKeys.paywall_kit_benefits_app_icons_line,
@@ -88,25 +81,11 @@ const _hostedParts =
       ),
     };
 
-/// What Pro gives. Only the weekly check is in the app today. The rest are
-/// written down so a layout picks them up the day each one is switched on.
+/// What Pro gives, in display order. [PaywallBenefit.inThisBuild] is true
+/// only for what the app has today: the widgets and the weekly delivery
+/// check. The other three are written and drawn, and a layout picks each
+/// one up the day its switch is turned on.
 const _proBenefits = <PaywallBenefit>[
-  PaywallBenefit(
-    id: PaywallBenefitId.weeklyCheck,
-    product: PaywallProduct.pro,
-    titleKey: LocaleKeys.paywall_kit_benefits_weekly_check_title,
-    lineKey: LocaleKeys.paywall_kit_benefits_weekly_check_line,
-    previewId: PaywallPreviewId.weeklyCheck,
-    inThisBuild: true,
-  ),
-  PaywallBenefit(
-    id: PaywallBenefitId.fireDrills,
-    product: PaywallProduct.pro,
-    titleKey: LocaleKeys.paywall_kit_benefits_fire_drills_title,
-    lineKey: LocaleKeys.paywall_kit_benefits_fire_drills_line,
-    previewId: PaywallPreviewId.fireDrills,
-    inThisBuild: false,
-  ),
   PaywallBenefit(
     id: PaywallBenefitId.wakeUpChallenges,
     product: PaywallProduct.pro,
@@ -116,19 +95,35 @@ const _proBenefits = <PaywallBenefit>[
     inThisBuild: false,
   ),
   PaywallBenefit(
+    id: PaywallBenefitId.widgets,
+    product: PaywallProduct.pro,
+    titleKey: LocaleKeys.paywall_kit_benefits_widgets_title,
+    lineKey: LocaleKeys.paywall_kit_benefits_widgets_line,
+    previewId: PaywallPreviewId.widgets,
+    inThisBuild: true,
+  ),
+  PaywallBenefit(
+    id: PaywallBenefitId.reliabilityChecks,
+    product: PaywallProduct.pro,
+    titleKey: LocaleKeys.paywall_kit_benefits_reliability_checks_title,
+    lineKey: LocaleKeys.paywall_kit_benefits_reliability_checks_line,
+    previewId: PaywallPreviewId.weeklyCheck,
+    inThisBuild: true,
+  ),
+  PaywallBenefit(
+    id: PaywallBenefitId.customSounds,
+    product: PaywallProduct.pro,
+    titleKey: LocaleKeys.paywall_kit_benefits_custom_sounds_title,
+    lineKey: LocaleKeys.paywall_kit_benefits_custom_sounds_line,
+    previewId: PaywallPreviewId.customSounds,
+    inThisBuild: false,
+  ),
+  PaywallBenefit(
     id: PaywallBenefitId.customAlarmScreens,
     product: PaywallProduct.pro,
     titleKey: LocaleKeys.paywall_kit_benefits_custom_alarm_screens_title,
     lineKey: LocaleKeys.paywall_kit_benefits_custom_alarm_screens_line,
     previewId: PaywallPreviewId.customAlarmScreens,
-    inThisBuild: false,
-  ),
-  PaywallBenefit(
-    id: PaywallBenefitId.morningSummary,
-    product: PaywallProduct.pro,
-    titleKey: LocaleKeys.paywall_kit_benefits_morning_summary_title,
-    lineKey: LocaleKeys.paywall_kit_benefits_morning_summary_line,
-    previewId: PaywallPreviewId.morningSummary,
     inThisBuild: false,
   ),
 ];

@@ -4,7 +4,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart';
 import 'package:flutter/material.dart';
 
-// The small size of every preview: one mark on one tile. The six share the
+// The small size of every preview: one mark on one tile. They all share the
 // tile's shape, fill and corner, and the mark's colour, weight and size, so
 // a row of them reads as one set. Nothing on it moves.
 
@@ -33,6 +33,15 @@ enum PreviewMark {
 
   /// A calendar page with a tick on it.
   weeklyCheck,
+
+  /// A code in a viewfinder: four corner marks around a few squares.
+  scanCode,
+
+  /// A waveform: five bars of a sound.
+  soundWave,
+
+  /// A phone with a face on its screen and a button under it.
+  alarmScreen,
 }
 
 /// One mark on the shared tile, centred in [size].
@@ -182,6 +191,57 @@ class _MarkPainter extends CustomPainter {
               ..moveTo(8.6, 13.6)
               ..lineTo(11, 16)
               ..lineTo(15.6, 11.2),
+            stroke,
+          );
+
+      case PreviewMark.scanCode:
+        canvas
+          ..drawPath(
+            Path()
+              ..moveTo(3.5, 8)
+              ..lineTo(3.5, 3.5)
+              ..lineTo(8, 3.5)
+              ..moveTo(16, 3.5)
+              ..lineTo(20.5, 3.5)
+              ..lineTo(20.5, 8)
+              ..moveTo(20.5, 16)
+              ..lineTo(20.5, 20.5)
+              ..lineTo(16, 20.5)
+              ..moveTo(8, 20.5)
+              ..lineTo(3.5, 20.5)
+              ..lineTo(3.5, 16),
+            stroke,
+          )
+          ..drawRRect(box(8, 8, 3.6, 3.6, 0.8), fill)
+          ..drawRRect(box(12.6, 8, 3.4, 3.4, 0.8), fill)
+          ..drawRRect(box(8, 12.6, 3.4, 3.4, 0.8), fill)
+          ..drawRRect(box(13.4, 13.4, 2.6, 2.6, 0.6), fill);
+
+      case PreviewMark.soundWave:
+        canvas.drawPath(
+          Path()
+            ..moveTo(4, 10.5)
+            ..lineTo(4, 13.5)
+            ..moveTo(8, 7)
+            ..lineTo(8, 17)
+            ..moveTo(12, 3.5)
+            ..lineTo(12, 20.5)
+            ..moveTo(16, 8)
+            ..lineTo(16, 16)
+            ..moveTo(20, 10.5)
+            ..lineTo(20, 13.5),
+          stroke,
+        );
+
+      case PreviewMark.alarmScreen:
+        canvas
+          ..drawRRect(box(6, 2.5, 12, 19, 3), stroke)
+          ..drawCircle(const Offset(10.1, 8.6), 1.1, fill)
+          ..drawCircle(const Offset(13.9, 8.6), 1.1, fill)
+          ..drawPath(
+            Path()
+              ..moveTo(10, 16.6)
+              ..lineTo(14, 16.6),
             stroke,
           );
     }
