@@ -112,6 +112,36 @@ void main() {
       });
     }
 
+    test('a denied permission names what it costs, by check', () {
+      final expected = {
+        ReliabilityCheckIds.notifications:
+            LocaleKeys.reliability_line_denied_notifications,
+        ReliabilityCheckIds.fullScreenAlarm:
+            LocaleKeys.reliability_line_denied_full_screen,
+        ReliabilityCheckIds.batteryOptimization:
+            LocaleKeys.reliability_line_denied_battery,
+        ReliabilityCheckIds.alarms: LocaleKeys.reliability_line_denied_alarms,
+      };
+      for (final MapEntry(key: id, value: key) in expected.entries) {
+        expect(
+          reliabilityLineKey(
+            check(id.value, ReliabilityState.broken, reason: 'denied'),
+          ),
+          key,
+          reason: id.value,
+        );
+      }
+    });
+
+    test('a denied check this screen does not know keeps the shared line', () {
+      expect(
+        reliabilityLineKey(
+          check('brand_new', ReliabilityState.broken, reason: 'denied'),
+        ),
+        LocaleKeys.reliability_line_denied,
+      );
+    });
+
     test('every status name a permission can give has a line', () {
       for (final status in DevicePermissionStatus.values) {
         if (status.isGranted) continue;
@@ -693,78 +723,23 @@ void main() {
   });
 
   group('faces', () {
-    const reasons = [
-      null,
-      'denied',
-      'restricted',
-      'notDetermined',
-      'refused',
-      'never',
-      'stale',
-      'silent',
-      'clock',
-      'time_sensitive_off',
-      'scheduled_summary',
-      'os_changed',
-      'maker_unchecked',
-      'maker_os_changed',
-      'missed_no_push',
-      'missed_push_no_ring',
-      'missed_unanswered',
-      'missed_rang',
-      'brand_new',
-    ];
-    final ids = [...sourceIds, const ReliabilityCheckId(laterId)];
-
-    /// The face of every check of [state], whatever its id and reason.
-    Set<FaceState?> facesOf(ReliabilityState state) => {
-      for (final id in ids)
-        for (final reason in reasons)
-          reliabilityRowFace(check(id.value, state, reason: reason)),
-    };
-
-    test('a fine row has no face, whatever the check', () {
-      expect(facesOf(ReliabilityState.fine), {null});
+    // The rows of the screen have no face. The Past checks list takes the
+    // face of a state from here, and it is the face the header uses.
+    test('a fine check and one not on this phone have no face', () {
+      expect(reliabilityStateFace(ReliabilityState.fine), isNull);
+      expect(reliabilityStateFace(ReliabilityState.notOnThisPhone), isNull);
     });
 
-    test('a check that is not on this phone has no face', () {
-      expect(facesOf(ReliabilityState.notOnThisPhone), {null});
-    });
-
-    test('a row that needs a look wears the face of the look header', () {
+    test('a state that needs a look has the face of the look header', () {
       final header = reliabilityHeadlineView(ReliabilityHeadline.needsLook);
       expect(header.face, FaceState.skeptical);
-      expect(facesOf(ReliabilityState.needsLook), {header.face});
+      expect(reliabilityStateFace(ReliabilityState.needsLook), header.face);
     });
 
-    test('a broken row wears the face of the broken header', () {
+    test('a broken state has the face of the broken header', () {
       final header = reliabilityHeadlineView(ReliabilityHeadline.broken);
       expect(header.face, FaceState.sad);
-      expect(facesOf(ReliabilityState.broken), {header.face});
-    });
-
-    test('the face never depends on the id, the reason or the position', () {
-      final others = [
-        check('notifications', ReliabilityState.broken, reason: 'denied'),
-        check('push_token_confirmed', ReliabilityState.needsLook),
-        check('last_push_received', ReliabilityState.fine),
-      ];
-      for (final state in ReliabilityState.values) {
-        final alone = reliabilityRowFace(check('battery_optimization', state));
-        for (var at = 0; at <= others.length; at++) {
-          final ordered = orderReliabilityChecks([
-            ...others.take(at),
-            check('battery_optimization', state),
-            ...others.skip(at),
-          ]);
-          final row = ordered.where(
-            (c) => c.id.value == 'battery_optimization',
-          );
-          // A check that is not on this phone is dropped from the list.
-          if (row.isEmpty) continue;
-          expect(reliabilityRowFace(row.single), alone, reason: '$state $at');
-        }
-      }
+      expect(reliabilityStateFace(ReliabilityState.broken), header.face);
     });
 
     test('a state that asks for nothing has no face and the rest do', () {

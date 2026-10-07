@@ -182,10 +182,13 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
                   onAction: fix == null ? null : () => unawaited(_runFix(fix)),
                 ),
                 // A row of its own, so the weekly row keeps its title and
-                // one line.
-                if (showsRounds) ...[
-                  const ReliabilityRowDivider(),
-                  WeeklyCheckRoundsRow(onCard: needsLook),
+                // one line. While the screen holds this row in its card of
+                // rows that need action, the way to the rounds is the
+                // screen's to draw in the plain list ([WeeklyCheckRoundsTail]),
+                // not the card's.
+                if (showsRounds && check == null) ...const [
+                  ReliabilityRowDivider(),
+                  WeeklyCheckRoundsRow(),
                 ],
               ],
             );
@@ -201,9 +204,9 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
 /// While the check is fine, off or waiting it is a plain row: the title with
 /// the Pro badge, one line and the switch. It has no face.
 ///
-/// A check that needs a look is drawn like the free rows that do: the face
-/// and the "Look" chip of that state, the switch on the title line, one
-/// button when there is something to do. It sits inside the card those rows
+/// A check that needs a look is drawn like the free rows that do: the "Look"
+/// chip of that state, the switch on the title line, one button when there
+/// is something to do. It has no face. It sits inside the card those rows
 /// share.
 class WeeklyCheckUnlockedRow extends StatelessWidget {
   const WeeklyCheckUnlockedRow({
@@ -270,13 +273,6 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
     final onSurface = colors.onCanvas;
     final quiet = AppTypography.small(colors.onCanvasMuted, fontSize: 13);
     final label = actionLabel;
-    final face = reliabilityStateFace(ReliabilityState.needsLook);
-    // At large text the face stands above the words, as on the other rows.
-    final isStacked = MediaQuery.textScalerOf(context).scale(15) >= 15 * 1.8;
-
-    final faceWidget = face == null
-        ? null
-        : ExcludeSemantics(child: FaceWidget(state: face, size: 36));
     final heading = Wrap(
       spacing: Spacing.s2,
       runSpacing: Spacing.s1,
@@ -301,18 +297,15 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (isStacked)
-          heading
-        else
-          // The switch sits on the title line, so the lines under it keep
-          // the whole width.
-          Row(
-            children: [
-              Expanded(child: heading),
-              const SizedBox(width: Spacing.s2),
-              toggle,
-            ],
-          ),
+        // The switch sits on the title line, so the lines under it keep the
+        // whole width.
+        Row(
+          children: [
+            Expanded(child: heading),
+            const SizedBox(width: Spacing.s2),
+            toggle,
+          ],
+        ),
         const SizedBox(height: 2),
         Text(line, style: quiet),
         if (selfHostedLine != null) Text(selfHostedLine, style: quiet),
@@ -336,29 +329,9 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
       ],
     );
 
-    final Widget content = faceWidget == null
-        ? words
-        : isStacked
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(children: [faceWidget, const Spacer(), toggle]),
-              const SizedBox(height: Spacing.s2),
-              words,
-            ],
-          )
-        : Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              faceWidget,
-              const SizedBox(width: Spacing.s3),
-              Expanded(child: words),
-            ],
-          );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: content,
+      child: words,
     );
   }
 }
@@ -366,10 +339,7 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
 /// The way to the list of rounds: a plain row that only opens another
 /// screen, so it has no face.
 class WeeklyCheckRoundsRow extends StatelessWidget {
-  const WeeklyCheckRoundsRow({this.onCard = false, super.key});
-
-  /// The row sits on the cream card of rows that need action.
-  final bool onCard;
+  const WeeklyCheckRoundsRow({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -378,14 +348,30 @@ class WeeklyCheckRoundsRow extends StatelessWidget {
     return ReliabilityPlainRow(
       title: title,
       label: title,
-      onCard: onCard,
       onTap: () =>
           unawaited(context.pushNamed<void>(AppRoute.weeklyCheckRounds)),
-      trailing: AppGlyph(
-        GlyphType.arrow,
-        color: onCard ? colors.onCanvasMuted : colors.ink3,
-        size: 16,
-      ),
+      trailing: AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
+    );
+  }
+}
+
+/// The way to the rounds for a weekly row that sits in the card of rows that
+/// need action. The Reliability screen draws it at the end of its plain
+/// list, with its own rule above, and it draws nothing until the relay has
+/// sent this phone a check.
+class WeeklyCheckRoundsTail extends StatelessWidget {
+  const WeeklyCheckRoundsTail({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<WeeklyCheckCubit, WeeklyCheckRowState>(
+      bloc: getIt<WeeklyCheckCubit>(),
+      builder: (context, state) => weeklyCheckShowsRounds(state.check)
+          ? const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [ReliabilityRowDivider(), WeeklyCheckRoundsRow()],
+            )
+          : const SizedBox.shrink(),
     );
   }
 }

@@ -58,6 +58,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Connect link: `hostFit`, `connectShowsAddress`, `connectHeadSemantics` and `connectReplaces` are the sheet's pure rules. `isPlainHost` and `isAllowedServerUrl` refuse hosts with non-host characters and server addresses with a query or fragment. A pinned connect compares scheme, host, port and base path with the server's reported address. `ConnectLinkState.replacesCloud` is read with the replaced host in one step.
 - Home: the hero's expired branch is gone, `heroWhileMissedNoticeShows` quiets the hero under a missed alarm notice, `newestClosed` counts closed incidents only, and `readsNoticeOnReturn` reloads the notice when Home comes back from another tab.
 - Removed `SettingsHealthRow`, `reliabilityRowFaces`, and 18 string keys nothing read.
+- AppDismissCross, the bare 44 pt close control, and AppNoticeCard with AppNoticeTone (cream, crit) in lib/design/components. Every dismissible Home card and the pinned bar use the cross.
+- lib/design/faces/face\_meaning.dart: needsLookFace and brokenFace. A face means one state. Fine rows and rows in the problem card carry none.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -96,6 +98,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - DeviceTokenRegistry sends the unchanged push token to the relay again at most once every 24 hours, on launch or resume, and records when the relay last accepted it and whether the last call was refused. PushEventDrain keeps the time of the newest push\_received row before it empties the list.
 - The relay confirmation record is scoped to the device id, relay address and a hash of the token, and is cleared with the device identity. Registration calls are single flight, the daily window counts from the last accepted call, and PushEventDrain no longer loses its backlog if the last push write throws. New prefs keys: relay\_push\_confirmed\_scope, relay\_push\_attempt\_scope. ReliabilityCubit marks the overall state needs a look when a source throws.
 - App links: an https link reads the connect address and token from the fragment only, never opens a fixed screen under /topics/ (AppLinkRoutes.reservedTopicNames, checked against the router in test/app/router\_test.dart), and opens Home for a double slash, a dot segment or a user name. iOS no longer passes an app link's user activity or URL context on to Flutter and its plugins.
+- Reliability screen: fine rows are plain rows, rows needing action share one card (splitReliabilityRows), ReliabilityFixButton announces its check, reliabilityRowFace is gone, denied lines are picked per check.
+- A tinted button washes a light highlight card with ink. Home uses barBacking and shrinks the stage face above 1.3x text.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

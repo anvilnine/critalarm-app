@@ -45,6 +45,9 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The connect sheet keeps the server name whole at large text, shows the full address whenever the name alone does not say it all, says Replaces Crit Alarm Cloud when it does, and reads Close when the server refuses.
 - A connect link refuses a server that reports a different address, path or scheme than the one shown, and a server address with invisible characters, a query or a fragment.
 - Screen readers read the full server address in the connect sheet.
+- Will it wake me? is a plain list now. What needs fixing sits in one card at the top, and each line says what the blocked setting costs you.
+- Home no longer says All clear while a notice about missed alarms, missed checks or a phone update is showing.
+- Home cards close with a plain x and share one look.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
@@ -60,6 +63,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The message on a ringing alarm no longer sits behind the buttons on a small phone or at a large text size. The face shrinks to make room, and the message scrolls clear of the buttons when it is long.
 - Setup steps at large text sizes no longer print their buttons and the app name over the text behind them.
 - A list scrolled under the Topics, Settings or New topic title blurs more as it goes under, so it no longer runs sharp through the title.
+- At large text sizes, Home and Will it wake me? keep the first action in view and the title no longer draws over the list.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.

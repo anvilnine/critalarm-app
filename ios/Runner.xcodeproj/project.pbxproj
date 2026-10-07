@@ -3,61 +3,13 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A32000000000000000000011 /* LiveCardText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* LiveCardText.swift */; };
-		A32000000000000000000012 /* LiveCardText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* LiveCardText.swift */; };
-		A32000000000000000000013 /* LiveCardText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* LiveCardText.swift */; };
-		A32000000000000000000014 /* LiveCardText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* LiveCardText.swift */; };
-		A32000000000000000000021 /* LiveCardTextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000002 /* LiveCardTextTests.swift */; };
-		A24A00000000000000000035 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
-		A24A00000000000000000011 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
-		A24A00000000000000000012 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
-		A24A00000000000000000013 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
-		A24A00000000000000000014 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
-		A24A00000000000000000021 /* AlarmScheduleRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000002 /* AlarmScheduleRule.swift */; };
-		A28A00000000000000000201 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
-		A28A00000000000000000211 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
-		A28A00000000000000000202 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
-		A28A00000000000000000212 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
-		A28A00000000000000000203 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
-		A28A00000000000000000213 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
-		A28A00000000000000000204 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
-		A28A00000000000000000214 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
-		A28A00000000000000000221 /* RearmRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000103 /* RearmRuleTests.swift */; };
-		A28A00000000000000000231 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
-		A28A00000000000000000241 /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
-		A24A00000000000000000022 /* AlarmScheduleRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000002 /* AlarmScheduleRule.swift */; };
-		A24A00000000000000000031 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
-		A24A00000000000000000032 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
-		A24A00000000000000000033 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
-		A24A00000000000000000034 /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
-		A24A00000000000000000041 /* AlarmScheduleRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000004 /* AlarmScheduleRuleTests.swift */; };
-		A24A00000000000000000042 /* AckedIncidentStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000005 /* AckedIncidentStoreTests.swift */; };
-		A24A00000000000000000051 /* OpenIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000071 /* OpenIncidentStore.swift */; };
-		A24A00000000000000000052 /* OpenIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000071 /* OpenIncidentStore.swift */; };
-		A24A00000000000000000053 /* OpenIncidentStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000081 /* OpenIncidentStoreTests.swift */; };
-		A24A00000000000000000043 /* NativeAckSenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000006 /* NativeAckSenderTests.swift */; };
-		A19B00000000000000000011 /* DebugStateRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19B00000000000000000001 /* DebugStateRule.swift */; };
-		A19B00000000000000000012 /* DebugStateRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19B00000000000000000001 /* DebugStateRule.swift */; };
-		A19B00000000000000000013 /* DebugStateRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19B00000000000000000002 /* DebugStateRuleTests.swift */; };
-		A19B00000000000000000014 /* AlarmDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19B00000000000000000003 /* AlarmDebug.swift */; };
 		05BDDBA0157A3EE529FEC613 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E03D7BEA0BF5A60A3DCFDC3 /* NotificationService.swift */; };
 		0617CFB82831F64DAE3C6E36 /* PushEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B43861F26AA39D52CC432E /* PushEventLog.swift */; };
 		0632154549508956E8E82937 /* AlarmTriggerPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */; };
-		A13F0C1E4B7D25A9E0115002 /* SharedSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */; };
-		A13F0C1E4B7D25A9E0115003 /* SharedSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */; };
-		A13F0C1E4B7D25A9E0115004 /* SharedSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */; };
-		A13F0C1E4B7D25A9E0114003 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
-		A13F0C1E4B7D25A9E0114004 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
-		A13F0C1E4B7D25A9E0114005 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
-		A13F0C1E4B7D25A9E0114006 /* QuietHoursTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114002 /* QuietHoursTests.swift */; };
-		A13F0C1E4B7D25A9E0116002 /* IncidentContentCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0116001 /* IncidentContentCache.swift */; };
-		A13F0C1E4B7D25A9E0116003 /* IncidentContentCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0116001 /* IncidentContentCache.swift */; };
-		A13F0C1E4B7D25A9E0116004 /* IncidentContentCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0116001 /* IncidentContentCache.swift */; };
-		A13F0C1E4B7D25A9E0116006 /* IncidentContentCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0116005 /* IncidentContentCacheTests.swift */; };
 		0667D9BC1041B885CED760AE /* IncidentActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */; };
 		0CC17DA6DCACE81402DAB0A4 /* IncidentAlarmAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */; };
 		0D184790693B92A167F3BAAD /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
@@ -69,14 +21,12 @@
 		356C4B6EB2F3C77BF0302A49 /* AlarmTriggerPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */; };
 		36122E51C399B0584985D46D /* PushEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B43861F26AA39D52CC432E /* PushEventLog.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
-		A1B2C3D40000000000000002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000001 /* PrivacyInfo.xcprivacy */; };
 		417DD9FCF00F687DBD202688 /* IncidentAlarmScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1152E565D4F08BE1BD9C5C4 /* IncidentAlarmScheduler.swift */; };
 		5073401426B1F19765FDAE5F /* IncidentIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */; };
 		522BFE16F4DDA83E81723EBE /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
 		5387ED3388595C04D2B93590 /* p5.apns in Resources */ = {isa = PBXBuildFile; fileRef = C3F562DA2F44EAB6B928F6EB /* p5.apns */; };
 		6CFAE537A5AD36D290371A7B /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
 		6E372DAD65DA145D7B0F7BF5 /* IncidentAlarmScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1152E565D4F08BE1BD9C5C4 /* IncidentAlarmScheduler.swift */; };
-		A53A00000000000000000002 /* GaplessCaf.swift in Sources */ = {isa = PBXBuildFile; fileRef = A53A00000000000000000001 /* GaplessCaf.swift */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
 		A84A00000000000000000011 /* AppLinkRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A84A00000000000000000001 /* AppLinkRule.swift */; };
@@ -103,37 +53,52 @@
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		9D78FA391E6A115F041E23D0 /* IncidentIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */; };
 		9DF7AE06CF79C15046128835 /* NotificationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78F50D192BF422EDEFDC2935 /* NotificationServiceTests.swift */; };
+		A13F0C1E4B7D25A9E0114003 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
+		A13F0C1E4B7D25A9E0114004 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
+		A13F0C1E4B7D25A9E0114005 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
+		A13F0C1E4B7D25A9E0114006 /* QuietHoursTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114002 /* QuietHoursTests.swift */; };
+		A13F0C1E4B7D25A9E0115002 /* SharedSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */; };
+		A13F0C1E4B7D25A9E0115003 /* SharedSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */; };
+		A13F0C1E4B7D25A9E0115004 /* SharedSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */; };
+		A13F0C1E4B7D25A9E0116002 /* IncidentContentCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0116001 /* IncidentContentCache.swift */; };
+		A13F0C1E4B7D25A9E0116003 /* IncidentContentCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0116001 /* IncidentContentCache.swift */; };
+		A13F0C1E4B7D25A9E0116004 /* IncidentContentCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0116001 /* IncidentContentCache.swift */; };
+		A13F0C1E4B7D25A9E0116006 /* IncidentContentCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0116005 /* IncidentContentCacheTests.swift */; };
 		A1497E3050226B8FD2727E0E /* IncidentIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */; };
-		A3A92D32093F03668C763709 /* IncidentAlarmAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */; };
-		A436826ED21EEF1AB1E6333E /* NtfyEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */; };
-		A5BB28153649D3FD00B5FF5A /* AlarmActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8CD8DDE3EBA196FC51BFDDE /* AlarmActivityWidget.swift */; };
-		A93DE8C5BF97C64AEB9101C2 /* IncidentActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88FF122110739F2C4E9B4941 /* IncidentActivityWidget.swift */; };
-		B82753055D3DA46E0D865B9A /* CritAlarmNSE.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B48FF43F18021E4A198D5CC1 /* CritAlarmNSE.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		B8508035E7616B526E6B2F6B /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 593DA1142F90062F7FE99B54 /* Pods_Runner.framework */; };
-		B943C66DEA85CFE559E1B67C /* NtfyEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */; };
-		BA319A4AD1C672C67B0FB5E6 /* IncidentAlarmAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */; };
-		BABE51D86ECDA0FCAC490506 /* IncidentAlarmAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */; };
-		BE4704C5DA9B9A1CAC9CBCAC /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E03D7BEA0BF5A60A3DCFDC3 /* NotificationService.swift */; };
-		C63EE7878B06FA3AE8C95D9D /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D67F82837113861230B142A /* Pods_RunnerTests.framework */; };
-		C680A45AFEDCDE12BB4C0417 /* NtfyEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */; };
-		C7813969644D094F58A29C4D /* IncidentActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */; };
-		C827D752D015968E3C46FD3E /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
-		CF1F6744B717A05554FDAF49 /* FaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 459470031D166B3CA2B80886 /* FaceView.swift */; };
-		CF2A62EB3F4FB523CF9334A7 /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
-		CF8B5F6F7F90CEDBD6A3E5A6 /* alarm.caf in Resources */ = {isa = PBXBuildFile; fileRef = 56422C7C20CDE71116711FD1 /* alarm.caf */; };
 		A14C1D0EB7F3524C8A9D0011 /* DeviceIdentityKeychainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14C1D0EB7F3524C8A9D0012 /* DeviceIdentityKeychainTests.swift */; };
-		D183068650726122FB4BED45 /* PushDeliveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */; };
-		D1D0455B373B068D9BE01B47 /* IncidentIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */; };
-		D5AA1E2175BB98EC72D83577 /* p4.apns in Resources */ = {isa = PBXBuildFile; fileRef = F4C3109ABCF417BB50CBFEBB /* p4.apns */; };
-		D88DFA6CED8914FC4D107BEA /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 798CCEC30ED822B6D363FB7E /* Foundation.framework */; };
-		E8500162759DEE4214490819 /* PushEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B43861F26AA39D52CC432E /* PushEventLog.swift */; };
-		EBDDE7E06FD4B4CE2BC6A67E /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
-		ED2803F0D04A5E547665D02A /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
-		ED7D55E31FECA295DFAC93C5 /* IncidentContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F706A2A4516835A56FA2F295 /* IncidentContent.swift */; };
-		F6BAA4FB61319AC1D2D1ADA7 /* AlarmTriggerPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */; };
-		FC678E988BB03EB22189B384 /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
-		FCC5FE50E2B32C65DAE754E8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 798CCEC30ED822B6D363FB7E /* Foundation.framework */; };
-		FD773139A83FCEC454AD6252 /* p3.apns in Resources */ = {isa = PBXBuildFile; fileRef = ACCD930E3ED1D741B0A061A9 /* p3.apns */; };
+		A19B00000000000000000011 /* DebugStateRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19B00000000000000000001 /* DebugStateRule.swift */; };
+		A19B00000000000000000012 /* DebugStateRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19B00000000000000000001 /* DebugStateRule.swift */; };
+		A19B00000000000000000013 /* DebugStateRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19B00000000000000000002 /* DebugStateRuleTests.swift */; };
+		A19B00000000000000000014 /* AlarmDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19B00000000000000000003 /* AlarmDebug.swift */; };
+		A1B2C3D40000000000000002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000001 /* PrivacyInfo.xcprivacy */; };
+		A24A00000000000000000011 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
+		A24A00000000000000000012 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
+		A24A00000000000000000013 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
+		A24A00000000000000000014 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
+		A24A00000000000000000021 /* AlarmScheduleRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000002 /* AlarmScheduleRule.swift */; };
+		A24A00000000000000000022 /* AlarmScheduleRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000002 /* AlarmScheduleRule.swift */; };
+		A24A00000000000000000031 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
+		A24A00000000000000000032 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
+		A24A00000000000000000033 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
+		A24A00000000000000000034 /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
+		A24A00000000000000000035 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
+		A24A00000000000000000041 /* AlarmScheduleRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000004 /* AlarmScheduleRuleTests.swift */; };
+		A24A00000000000000000042 /* AckedIncidentStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000005 /* AckedIncidentStoreTests.swift */; };
+		A24A00000000000000000043 /* NativeAckSenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000006 /* NativeAckSenderTests.swift */; };
+		A24A00000000000000000051 /* OpenIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000071 /* OpenIncidentStore.swift */; };
+		A24A00000000000000000052 /* OpenIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000071 /* OpenIncidentStore.swift */; };
+		A24A00000000000000000053 /* OpenIncidentStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000081 /* OpenIncidentStoreTests.swift */; };
+		A28A00000000000000000201 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
+		A28A00000000000000000202 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
+		A28A00000000000000000203 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
+		A28A00000000000000000204 /* RearmRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000101 /* RearmRule.swift */; };
+		A28A00000000000000000211 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
+		A28A00000000000000000212 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
+		A28A00000000000000000213 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
+		A28A00000000000000000214 /* IncidentRearm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000102 /* IncidentRearm.swift */; };
+		A28A00000000000000000221 /* RearmRuleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28A00000000000000000103 /* RearmRuleTests.swift */; };
+		A28A00000000000000000231 /* QuietHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */; };
+		A28A00000000000000000241 /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
 		A31000000000000000000011 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000001 /* WidgetSnapshot.swift */; };
 		A31000000000000000000012 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000001 /* WidgetSnapshot.swift */; };
 		A31000000000000000000013 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000001 /* WidgetSnapshot.swift */; };
@@ -155,11 +120,46 @@
 		A31000000000000000000116 /* TopicWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000106 /* TopicWidget.swift */; };
 		A31000000000000000000117 /* OpenCountWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000107 /* OpenCountWidget.swift */; };
 		A31000000000000000000118 /* WidgetDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000108 /* WidgetDisplayTests.swift */; };
+		A32000000000000000000011 /* LiveCardText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* LiveCardText.swift */; };
+		A32000000000000000000012 /* LiveCardText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* LiveCardText.swift */; };
+		A32000000000000000000013 /* LiveCardText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* LiveCardText.swift */; };
+		A32000000000000000000014 /* LiveCardText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000001 /* LiveCardText.swift */; };
+		A32000000000000000000021 /* LiveCardTextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32000000000000000000002 /* LiveCardTextTests.swift */; };
+		A3A92D32093F03668C763709 /* IncidentAlarmAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */; };
+		A436826ED21EEF1AB1E6333E /* NtfyEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */; };
+		A53A00000000000000000002 /* GaplessCaf.swift in Sources */ = {isa = PBXBuildFile; fileRef = A53A00000000000000000001 /* GaplessCaf.swift */; };
 		A54A00000000000000000002 /* SoundPackBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54A00000000000000000001 /* SoundPackBridge.swift */; };
 		A54A00000000000000000004 /* SoundPackBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54A00000000000000000003 /* SoundPackBridgeTests.swift */; };
 		A54A00000000000000000005 /* SoundPackBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54A00000000000000000001 /* SoundPackBridge.swift */; };
 		A54A00000000000000000014 /* DownloaderExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54A00000000000000000011 /* DownloaderExtension.swift */; };
 		A54A00000000000000000015 /* CritAlarmDownloader.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = A54A00000000000000000010 /* CritAlarmDownloader.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A5BB28153649D3FD00B5FF5A /* AlarmActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8CD8DDE3EBA196FC51BFDDE /* AlarmActivityWidget.swift */; };
+		A93DE8C5BF97C64AEB9101C2 /* IncidentActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88FF122110739F2C4E9B4941 /* IncidentActivityWidget.swift */; };
+		B82753055D3DA46E0D865B9A /* CritAlarmNSE.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B48FF43F18021E4A198D5CC1 /* CritAlarmNSE.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B8508035E7616B526E6B2F6B /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 593DA1142F90062F7FE99B54 /* Pods_Runner.framework */; };
+		B943C66DEA85CFE559E1B67C /* NtfyEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */; };
+		BA319A4AD1C672C67B0FB5E6 /* IncidentAlarmAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */; };
+		BABE51D86ECDA0FCAC490506 /* IncidentAlarmAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */; };
+		BE4704C5DA9B9A1CAC9CBCAC /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E03D7BEA0BF5A60A3DCFDC3 /* NotificationService.swift */; };
+		C63EE7878B06FA3AE8C95D9D /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D67F82837113861230B142A /* Pods_RunnerTests.framework */; };
+		C680A45AFEDCDE12BB4C0417 /* NtfyEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */; };
+		C7813969644D094F58A29C4D /* IncidentActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AAA776DB809D23FA4650FE /* IncidentActivityCoordinator.swift */; };
+		C827D752D015968E3C46FD3E /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
+		CF1F6744B717A05554FDAF49 /* FaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 459470031D166B3CA2B80886 /* FaceView.swift */; };
+		CF2A62EB3F4FB523CF9334A7 /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
+		CF8B5F6F7F90CEDBD6A3E5A6 /* alarm.caf in Resources */ = {isa = PBXBuildFile; fileRef = 56422C7C20CDE71116711FD1 /* alarm.caf */; };
+		D183068650726122FB4BED45 /* PushDeliveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */; };
+		D1D0455B373B068D9BE01B47 /* IncidentIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCEE9B8DFEF89E72F2F9667 /* IncidentIntents.swift */; };
+		D5AA1E2175BB98EC72D83577 /* p4.apns in Resources */ = {isa = PBXBuildFile; fileRef = F4C3109ABCF417BB50CBFEBB /* p4.apns */; };
+		D88DFA6CED8914FC4D107BEA /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 798CCEC30ED822B6D363FB7E /* Foundation.framework */; };
+		E8500162759DEE4214490819 /* PushEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B43861F26AA39D52CC432E /* PushEventLog.swift */; };
+		EBDDE7E06FD4B4CE2BC6A67E /* IncidentPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DEF5EBBCB3B08892505BF /* IncidentPush.swift */; };
+		ED2803F0D04A5E547665D02A /* AckQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BAD55840AA45916DA08E7A /* AckQueueStore.swift */; };
+		ED7D55E31FECA295DFAC93C5 /* IncidentContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F706A2A4516835A56FA2F295 /* IncidentContent.swift */; };
+		F6BAA4FB61319AC1D2D1ADA7 /* AlarmTriggerPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */; };
+		FC678E988BB03EB22189B384 /* NseCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */; };
+		FCC5FE50E2B32C65DAE754E8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 798CCEC30ED822B6D363FB7E /* Foundation.framework */; };
+		FD773139A83FCEC454AD6252 /* p3.apns in Resources */ = {isa = PBXBuildFile; fileRef = ACCD930E3ED1D741B0A061A9 /* p3.apns */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -177,19 +177,19 @@
 			remoteGlobalIDString = 05734ECE5496AD88F886B6DE;
 			remoteInfo = CritAlarmNSE;
 		};
-		BCA8FC9E0A77CEA2C77BF6F2 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D86D592251E086420ADFCB9C;
-			remoteInfo = CritAlarmActivity;
-		};
 		A54A0000000000000000001C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = A54A0000000000000000001B;
 			remoteInfo = CritAlarmDownloader;
+		};
+		BCA8FC9E0A77CEA2C77BF6F2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D86D592251E086420ADFCB9C;
+			remoteInfo = CritAlarmActivity;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -204,6 +204,17 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A54A00000000000000000017 /* Embed ExtensionKit Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(EXTENSIONS_FOLDER_PATH)";
+			dstSubfolderSpec = 16;
+			files = (
+				A54A00000000000000000015 /* CritAlarmDownloader.appex in Embed ExtensionKit Extensions */,
+			);
+			name = "Embed ExtensionKit Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B0672B11E2BE0E9A0EFF8B6B /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -216,36 +227,9 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A54A00000000000000000017 /* Embed ExtensionKit Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "$(EXTENSIONS_FOLDER_PATH)";
-			dstSubfolderSpec = 16;
-			files = (
-				A54A00000000000000000015 /* CritAlarmDownloader.appex in Embed ExtensionKit Extensions */,
-			);
-			name = "Embed ExtensionKit Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		A32000000000000000000001 /* LiveCardText.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveCardText.swift; sourceTree = "<group>"; };
-		A32000000000000000000002 /* LiveCardTextTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveCardTextTests.swift; sourceTree = "<group>"; };
-		A24A00000000000000000001 /* AckedIncidentStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AckedIncidentStore.swift; sourceTree = "<group>"; };
-		A24A00000000000000000002 /* AlarmScheduleRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmScheduleRule.swift; sourceTree = "<group>"; };
-		A28A00000000000000000101 /* RearmRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RearmRule.swift; sourceTree = "<group>"; };
-		A28A00000000000000000102 /* IncidentRearm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentRearm.swift; sourceTree = "<group>"; };
-		A28A00000000000000000103 /* RearmRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RearmRuleTests.swift; sourceTree = "<group>"; };
-		A24A00000000000000000003 /* NativeAckSender.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeAckSender.swift; sourceTree = "<group>"; };
-		A24A00000000000000000004 /* AlarmScheduleRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmScheduleRuleTests.swift; sourceTree = "<group>"; };
-		A24A00000000000000000005 /* AckedIncidentStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AckedIncidentStoreTests.swift; sourceTree = "<group>"; };
-		A24A00000000000000000071 /* OpenIncidentStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenIncidentStore.swift; sourceTree = "<group>"; };
-		A24A00000000000000000081 /* OpenIncidentStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenIncidentStoreTests.swift; sourceTree = "<group>"; };
-		A24A00000000000000000006 /* NativeAckSenderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeAckSenderTests.swift; sourceTree = "<group>"; };
-		A19B00000000000000000001 /* DebugStateRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DebugStateRule.swift; sourceTree = "<group>"; };
-		A19B00000000000000000002 /* DebugStateRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DebugStateRuleTests.swift; sourceTree = "<group>"; };
-		A19B00000000000000000003 /* AlarmDebug.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmDebug.swift; sourceTree = "<group>"; };
 		0146C79FC6676957BD7BBD61 /* IncidentAlarmAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentAlarmAttributes.swift; sourceTree = "<group>"; };
 		0343E94C6B3165806974A529 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		0729842DADC1254D34F8C509 /* CritAlarmActivity.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = CritAlarmActivity.entitlements; sourceTree = "<group>"; };
@@ -253,7 +237,6 @@
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		1B2DCDA317FEB203F1A8AEE4 /* PushDeliveryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushDeliveryTests.swift; sourceTree = "<group>"; };
-		A14C1D0EB7F3524C8A9D0012 /* DeviceIdentityKeychainTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceIdentityKeychainTests.swift; sourceTree = "<group>"; };
 		27BE1B266C87A73BE64F5093 /* CritAlarmActivityBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CritAlarmActivityBundle.swift; sourceTree = "<group>"; };
 		2D67F82837113861230B142A /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
@@ -263,7 +246,6 @@
 		56422C7C20CDE71116711FD1 /* alarm.caf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = alarm.caf; sourceTree = "<group>"; };
 		593DA1142F90062F7FE99B54 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
-		A53A00000000000000000001 /* GaplessCaf.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GaplessCaf.swift; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		A84A00000000000000000001 /* AppLinkRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppLinkRule.swift; sourceTree = "<group>"; };
@@ -287,15 +269,52 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		A1B2C3D40000000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		9B7FFF5B3D8F249A07E1CCE0 /* AlarmTriggerPath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmTriggerPath.swift; sourceTree = "<group>"; };
-		A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedSounds.swift; sourceTree = "<group>"; };
+		A001835E63EC097B270CFC7B /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		A13F0C1E4B7D25A9E0114001 /* QuietHours.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuietHours.swift; sourceTree = "<group>"; };
 		A13F0C1E4B7D25A9E0114002 /* QuietHoursTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuietHoursTests.swift; sourceTree = "<group>"; };
+		A13F0C1E4B7D25A9E0115001 /* SharedSounds.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedSounds.swift; sourceTree = "<group>"; };
 		A13F0C1E4B7D25A9E0116001 /* IncidentContentCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentContentCache.swift; sourceTree = "<group>"; };
 		A13F0C1E4B7D25A9E0116005 /* IncidentContentCacheTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentContentCacheTests.swift; sourceTree = "<group>"; };
-		A001835E63EC097B270CFC7B /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
+		A14C1D0EB7F3524C8A9D0012 /* DeviceIdentityKeychainTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceIdentityKeychainTests.swift; sourceTree = "<group>"; };
+		A19B00000000000000000001 /* DebugStateRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DebugStateRule.swift; sourceTree = "<group>"; };
+		A19B00000000000000000002 /* DebugStateRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DebugStateRuleTests.swift; sourceTree = "<group>"; };
+		A19B00000000000000000003 /* AlarmDebug.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmDebug.swift; sourceTree = "<group>"; };
+		A1B2C3D40000000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A24A00000000000000000001 /* AckedIncidentStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AckedIncidentStore.swift; sourceTree = "<group>"; };
+		A24A00000000000000000002 /* AlarmScheduleRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmScheduleRule.swift; sourceTree = "<group>"; };
+		A24A00000000000000000003 /* NativeAckSender.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeAckSender.swift; sourceTree = "<group>"; };
+		A24A00000000000000000004 /* AlarmScheduleRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmScheduleRuleTests.swift; sourceTree = "<group>"; };
+		A24A00000000000000000005 /* AckedIncidentStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AckedIncidentStoreTests.swift; sourceTree = "<group>"; };
+		A24A00000000000000000006 /* NativeAckSenderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeAckSenderTests.swift; sourceTree = "<group>"; };
+		A24A00000000000000000071 /* OpenIncidentStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenIncidentStore.swift; sourceTree = "<group>"; };
+		A24A00000000000000000081 /* OpenIncidentStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenIncidentStoreTests.swift; sourceTree = "<group>"; };
+		A28A00000000000000000101 /* RearmRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RearmRule.swift; sourceTree = "<group>"; };
+		A28A00000000000000000102 /* IncidentRearm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentRearm.swift; sourceTree = "<group>"; };
+		A28A00000000000000000103 /* RearmRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RearmRuleTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000001 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
+		A31000000000000000000002 /* WidgetSnapshotStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotStore.swift; sourceTree = "<group>"; };
+		A31000000000000000000003 /* WidgetLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetLink.swift; sourceTree = "<group>"; };
+		A31000000000000000000004 /* WidgetSnapshotTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000005 /* WidgetLinkTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetLinkTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000101 /* WidgetFetcher.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetFetcher.swift; sourceTree = "<group>"; };
+		A31000000000000000000102 /* WidgetTimeline.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetTimeline.swift; sourceTree = "<group>"; };
+		A31000000000000000000103 /* TopicEntity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TopicEntity.swift; sourceTree = "<group>"; };
+		A31000000000000000000104 /* WidgetViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetViews.swift; sourceTree = "<group>"; };
+		A31000000000000000000105 /* TopicsWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TopicsWidget.swift; sourceTree = "<group>"; };
+		A31000000000000000000106 /* TopicWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TopicWidget.swift; sourceTree = "<group>"; };
+		A31000000000000000000107 /* OpenCountWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenCountWidget.swift; sourceTree = "<group>"; };
+		A31000000000000000000108 /* WidgetDisplayTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetDisplayTests.swift; sourceTree = "<group>"; };
+		A32000000000000000000001 /* LiveCardText.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveCardText.swift; sourceTree = "<group>"; };
+		A32000000000000000000002 /* LiveCardTextTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveCardTextTests.swift; sourceTree = "<group>"; };
 		A471C6FA0F15B4693AAA2990 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
+		A53A00000000000000000001 /* GaplessCaf.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GaplessCaf.swift; sourceTree = "<group>"; };
+		A54A00000000000000000001 /* SoundPackBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoundPackBridge.swift; sourceTree = "<group>"; };
+		A54A00000000000000000003 /* SoundPackBridgeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoundPackBridgeTests.swift; sourceTree = "<group>"; };
+		A54A00000000000000000010 /* CritAlarmDownloader.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = CritAlarmDownloader.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A54A00000000000000000011 /* DownloaderExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DownloaderExtension.swift; sourceTree = "<group>"; };
+		A54A00000000000000000012 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A54A00000000000000000013 /* CritAlarmDownloader.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = CritAlarmDownloader.entitlements; sourceTree = "<group>"; };
 		AC3AEDFC4F2EE8CE8EDAC14A /* NtfyEmoji.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NtfyEmoji.swift; sourceTree = "<group>"; };
 		ACCD930E3ED1D741B0A061A9 /* p3.apns */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = p3.apns; sourceTree = "<group>"; };
 		B0D3ED050514E625AEF9F0B2 /* NseCredentials.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NseCredentials.swift; sourceTree = "<group>"; };
@@ -316,25 +335,6 @@
 		F4C3109ABCF417BB50CBFEBB /* p4.apns */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = p4.apns; sourceTree = "<group>"; };
 		F706A2A4516835A56FA2F295 /* IncidentContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IncidentContent.swift; sourceTree = "<group>"; };
 		F8CD8DDE3EBA196FC51BFDDE /* AlarmActivityWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmActivityWidget.swift; sourceTree = "<group>"; };
-		A31000000000000000000001 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
-		A31000000000000000000002 /* WidgetSnapshotStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotStore.swift; sourceTree = "<group>"; };
-		A31000000000000000000003 /* WidgetLink.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetLink.swift; sourceTree = "<group>"; };
-		A31000000000000000000004 /* WidgetSnapshotTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotTests.swift; sourceTree = "<group>"; };
-		A31000000000000000000005 /* WidgetLinkTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetLinkTests.swift; sourceTree = "<group>"; };
-		A31000000000000000000101 /* WidgetFetcher.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetFetcher.swift; sourceTree = "<group>"; };
-		A31000000000000000000102 /* WidgetTimeline.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetTimeline.swift; sourceTree = "<group>"; };
-		A31000000000000000000103 /* TopicEntity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TopicEntity.swift; sourceTree = "<group>"; };
-		A31000000000000000000104 /* WidgetViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetViews.swift; sourceTree = "<group>"; };
-		A31000000000000000000105 /* TopicsWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TopicsWidget.swift; sourceTree = "<group>"; };
-		A31000000000000000000106 /* TopicWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TopicWidget.swift; sourceTree = "<group>"; };
-		A31000000000000000000107 /* OpenCountWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenCountWidget.swift; sourceTree = "<group>"; };
-		A31000000000000000000108 /* WidgetDisplayTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetDisplayTests.swift; sourceTree = "<group>"; };
-		A54A00000000000000000001 /* SoundPackBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoundPackBridge.swift; sourceTree = "<group>"; };
-		A54A00000000000000000003 /* SoundPackBridgeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoundPackBridgeTests.swift; sourceTree = "<group>"; };
-		A54A00000000000000000010 /* CritAlarmDownloader.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = CritAlarmDownloader.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		A54A00000000000000000011 /* DownloaderExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DownloaderExtension.swift; sourceTree = "<group>"; };
-		A54A00000000000000000012 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		A54A00000000000000000013 /* CritAlarmDownloader.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = CritAlarmDownloader.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -363,6 +363,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A54A00000000000000000019 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F942527B03F361B877215965 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -371,24 +378,9 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A54A00000000000000000019 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		A24A00000000000000000007 /* Ack */ = {
-			isa = PBXGroup;
-			children = (
-				A24A00000000000000000003 /* NativeAckSender.swift */,
-			);
-			path = Ack;
-			sourceTree = "<group>";
-		};
 		0E74CCA51819F6C432F2180C /* Pods */ = {
 			isa = PBXGroup;
 			children = (
@@ -579,6 +571,14 @@
 			path = Alarm;
 			sourceTree = "<group>";
 		};
+		A24A00000000000000000007 /* Ack */ = {
+			isa = PBXGroup;
+			children = (
+				A24A00000000000000000003 /* NativeAckSender.swift */,
+			);
+			path = Ack;
+			sourceTree = "<group>";
+		};
 		A2AC5B24027214B8FCBD0F33 /* CritAlarmNSE */ = {
 			isa = PBXGroup;
 			children = (
@@ -587,18 +587,6 @@
 				D4A55D581404C4B5C1339CF8 /* CritAlarmNSE.entitlements */,
 			);
 			path = CritAlarmNSE;
-			sourceTree = "<group>";
-		};
-		D766E60CE6801CFC5001ED33 /* PushFixtures */ = {
-			isa = PBXGroup;
-			children = (
-				ACCD930E3ED1D741B0A061A9 /* p3.apns */,
-				F4C3109ABCF417BB50CBFEBB /* p4.apns */,
-				C3F562DA2F44EAB6B928F6EB /* p5.apns */,
-				D87297CA8D80B89C76E0382B /* content-none.apns */,
-			);
-			name = PushFixtures;
-			path = ../scripts/push;
 			sourceTree = "<group>";
 		};
 		A31000000000000000000006 /* Widgets */ = {
@@ -619,6 +607,18 @@
 				A54A00000000000000000013 /* CritAlarmDownloader.entitlements */,
 			);
 			path = CritAlarmDownloader;
+			sourceTree = "<group>";
+		};
+		D766E60CE6801CFC5001ED33 /* PushFixtures */ = {
+			isa = PBXGroup;
+			children = (
+				ACCD930E3ED1D741B0A061A9 /* p3.apns */,
+				F4C3109ABCF417BB50CBFEBB /* p4.apns */,
+				C3F562DA2F44EAB6B928F6EB /* p5.apns */,
+				D87297CA8D80B89C76E0382B /* content-none.apns */,
+			);
+			name = PushFixtures;
+			path = ../scripts/push;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -690,23 +690,6 @@
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
 		};
-		D86D592251E086420ADFCB9C /* CritAlarmActivity */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 5DAC28EF00695246D806B488 /* Build configuration list for PBXNativeTarget "CritAlarmActivity" */;
-			buildPhases = (
-				E08A1AA3B3C22998776ABFEA /* Sources */,
-				2251A154A02C292055922263 /* Frameworks */,
-				4B78C254668B714FFF051457 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = CritAlarmActivity;
-			productName = CritAlarmActivity;
-			productReference = 95753DAD60ADE7A8BC9ABFC6 /* CritAlarmActivity.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
 		A54A0000000000000000001B /* CritAlarmDownloader */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A54A00000000000000000021 /* Build configuration list for PBXNativeTarget "CritAlarmDownloader" */;
@@ -724,6 +707,23 @@
 			productReference = A54A00000000000000000010 /* CritAlarmDownloader.appex */;
 			productType = "com.apple.product-type.extensionkit-extension";
 		};
+		D86D592251E086420ADFCB9C /* CritAlarmActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5DAC28EF00695246D806B488 /* Build configuration list for PBXNativeTarget "CritAlarmActivity" */;
+			buildPhases = (
+				E08A1AA3B3C22998776ABFEA /* Sources */,
+				2251A154A02C292055922263 /* Frameworks */,
+				4B78C254668B714FFF051457 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CritAlarmActivity;
+			productName = CritAlarmActivity;
+			productReference = 95753DAD60ADE7A8BC9ABFC6 /* CritAlarmActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -734,15 +734,6 @@
 				LastUpgradeCheck = 1510;
 				ORGANIZATIONNAME = "";
 				TargetAttributes = {
-					A54A0000000000000000001B = {
-						CreatedOnToolsVersion = 26.4;
-						ProvisioningStyle = Automatic;
-						SystemCapabilities = {
-							com.apple.ApplicationGroups.iOS = {
-								enabled = 1;
-							};
-						};
-					};
 					05734ECE5496AD88F886B6DE = {
 						CreatedOnToolsVersion = 15.1;
 						ProvisioningStyle = Automatic;
@@ -773,6 +764,15 @@
 								enabled = 1;
 							};
 							com.apple.Push = {
+								enabled = 1;
+							};
+						};
+					};
+					A54A0000000000000000001B = {
+						CreatedOnToolsVersion = 26.4;
+						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
 								enabled = 1;
 							};
 						};
@@ -837,14 +837,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		B2CEF310B550A3689B8C25F3 /* Resources */ = {
+		A54A0000000000000000001A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A54A0000000000000000001A /* Resources */ = {
+		B2CEF310B550A3689B8C25F3 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1047,6 +1047,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A54A00000000000000000018 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A54A00000000000000000014 /* DownloaderExtension.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D1A76A8600F2CCAD9C020801 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1108,14 +1116,6 @@
 				9D78FA391E6A115F041E23D0 /* IncidentIntents.swift in Sources */,
 				ED2803F0D04A5E547665D02A /* AckQueueStore.swift in Sources */,
 				356C4B6EB2F3C77BF0302A49 /* AlarmTriggerPath.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A54A00000000000000000018 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A54A00000000000000000014 /* DownloaderExtension.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1251,7 +1251,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = N358LNAWS2;
+				DEVELOPMENT_TEAM = 9CY5Y632V8;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1543,7 +1543,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = N358LNAWS2;
+				DEVELOPMENT_TEAM = 9CY5Y632V8;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1570,7 +1570,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/RunnerRelease.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = N358LNAWS2;
+				DEVELOPMENT_TEAM = 9CY5Y632V8;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1585,29 +1585,6 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
-		};
-		C5480033E11DD857CF0045AD /* Profile */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Flutter/Extension.xcconfig */;
-			buildSettings = {
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				CODE_SIGN_ENTITLEMENTS = CritAlarmNSE/CritAlarmNSE.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = N358LNAWS2;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = CritAlarmNSE/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
-				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.CritAlarmNSE;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Profile;
 		};
 		A54A0000000000000000001E /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -1669,6 +1646,29 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.CritAlarmDownloader;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Profile;
+		};
+		C5480033E11DD857CF0045AD /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB39D2C24F513B2DC40B6462 /* Flutter/Extension.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = CritAlarmNSE/CritAlarmNSE.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = N358LNAWS2;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CritAlarmNSE/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.critalarm.CritAlarmNSE;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
