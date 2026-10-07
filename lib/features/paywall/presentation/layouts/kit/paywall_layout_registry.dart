@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/hero_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/plain_paywall_layout.dart';
@@ -17,14 +18,23 @@ import 'package:go_router/go_router.dart';
 typedef PaywallLayoutBuilder = Widget Function(BuildContext context);
 
 /// Every layout that is built, by id. To add one, add its line here. An id
-/// with no line draws `plain`.
+/// with no line draws [paywallFallbackLayout].
 final Map<PaywallLayoutId, PaywallLayoutBuilder> paywallLayoutBuilders = {
+  PaywallLayoutId.hero: (_) => const HeroPaywallLayout(),
   PaywallLayoutId.plain: (_) => const PlainPaywallLayout(),
   PaywallLayoutId.proof: (_) => const ProofPaywallLayout(),
   PaywallLayoutId.sheet: (_) => const SheetPaywallLayout(),
 };
 
-/// Whether [layout] has a layout of its own, or falls back to `plain`.
+/// What an id with no layout of its own draws.
+const PaywallLayoutId paywallFallbackLayout = PaywallLayoutId.hero;
+
+/// The id whose layout is drawn for [layout]: its own when it is built,
+/// [paywallFallbackLayout] when it is not.
+PaywallLayoutId paywallLayoutDrawnFor(PaywallLayoutId layout) =>
+    paywallLayoutIsBuilt(layout) ? layout : paywallFallbackLayout;
+
+/// Whether [layout] has a layout of its own, or falls back.
 bool paywallLayoutIsBuilt(PaywallLayoutId layout) =>
     paywallLayoutBuilders.containsKey(layout);
 
@@ -68,9 +78,7 @@ class PaywallLayoutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final builder =
-        paywallLayoutBuilders[layout] ??
-        paywallLayoutBuilders[PaywallLayoutId.plain]!;
+    final builder = paywallLayoutBuilders[paywallLayoutDrawnFor(layout)]!;
 
     return BlocProvider<PaywallBuyCubit>(
       create: (_) {

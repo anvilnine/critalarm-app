@@ -331,6 +331,10 @@ void main() {
               .toString();
           final boundaryKey = GlobalKey();
 
+          // A test paints every shadow as a solid shape unless told
+          // otherwise. A capture is looked at, so it draws them as a phone
+          // does.
+          debugDisableShadows = false;
           try {
             await tester.pumpWidget(
               BlocProvider<ThemeCubit>.value(
@@ -393,6 +397,7 @@ void main() {
 
             expect(problems, isEmpty, reason: problems.join('\n'));
           } finally {
+            debugDisableShadows = true;
             FlutterError.onError = oldHandler;
           }
         });
