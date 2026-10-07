@@ -1299,6 +1299,72 @@
     "feedback_purchases_restored": "Purchases restored.",
     "error_subscription_failed": "That did not go through. Try again."
   },
+  "paywall_kit": {
+    "close": "Close",
+    "name_hosted": "Hosted",
+    "name_pro": "Pro",
+    "button_get": "Get {name}",
+    "button_get_price": "Get {name} for {price}",
+    "button_check_again": "Check again",
+    "button_done": "Done",
+    "legal_pro": "Payment is charged to your {store} at confirmation of purchase.",
+    "not_on_sale": "{name} is not on sale yet.",
+    "at_store": "Waiting for the store",
+    "checking": "Confirming your purchase",
+    "paused": "The store is done. Crit Alarm is still confirming it.",
+    "failed": "The store did not finish that. Try again.",
+    "nothing_to_restore": "Nothing to restore for this account.",
+    "done_hosted": "Crit Alarm Hosted is on.",
+    "done_pro": "Pro is on.",
+    "plain": {
+      "headline_hosted": "Hosted raises your limits",
+      "headline_pro": "Pro adds to your alarm"
+    },
+    "benefits": {
+      "topics": {
+        "line": "No limit. Free stops at {free_critical_topics}."
+      },
+      "pushes": {
+        "line": "{hosted_p4_daily} a day, up from {free_p4_daily}."
+      },
+      "history": {
+        "line": "{hosted_history_days} days, up from {free_history_days}."
+      },
+      "widgets": {
+        "line": "See what is ringing without opening the app."
+      },
+      "app_icons": {
+        "line": "Three extra: a crown, shades, or both."
+      },
+      "weekly_check": {
+        "title": "Weekly delivery check",
+        "line": "Checks each week that a push still reaches this phone."
+      },
+      "fire_drills": {
+        "title": "Fire drills",
+        "line": "A surprise test alarm, to see how fast you answer."
+      },
+      "wake_up_challenges": {
+        "title": "Wake-up challenges",
+        "line": "Prove you are up before the alarm lets go."
+      },
+      "custom_alarm_screens": {
+        "title": "Custom alarm screens",
+        "line": "Pick how the ringing screen looks."
+      },
+      "morning_summary": {
+        "title": "Morning summary",
+        "line": "What rang while you slept."
+      }
+    },
+    "dev": {
+      "row_title": "Paywall layouts",
+      "row_subtitle": "Every layout, for Hosted and for Pro",
+      "page_title": "Paywall layouts",
+      "note": "A layout that is not built yet opens the plain one.",
+      "not_built": "not built"
+    }
+  },
   "hosted_benefits": {
     "and": "and",
     "topics": {
@@ -1779,5 +1845,64 @@
     "kind_pro_later": "Hosted later",
     "kind_review_ask": "Review ask",
     "kind_feedback_ask": "Feedback ask"
+  },
+  "paywall_previews_extras": {
+    "widget_ringing": "Ringing",
+    "widget_awake": "Awake",
+    "widget_quiet": "Quiet",
+    "widget_im_up": "I'm up",
+    "widget_done": "Done"
+  },
+  "paywall_bento": {
+    "brand": "Crit Alarm {name}",
+    "headline_hosted": "Your limits, lifted.",
+    "headline_pro": "More for your alarm."
+  },
+  "paywall_proof": {
+    "headline_hosted": "Free lets {free_critical_topics} topics ring. Hosted has no limit.",
+    "headline_pro_one": "{benefit} is part of Pro.",
+    "headline_pro_two": "{benefit} is part of Pro. So is one more thing.",
+    "headline_pro_many": "{benefit} is part of Pro. So are {count} more things.",
+    "card_title": "Topics",
+    "counter_label": "Critical",
+    "counter_used": "{used} of {cap} used",
+    "counter_no_limit": "No limit",
+    "free_label": "Free",
+    "demo_aria": "A topic list. On Free, the Critical switch on a third topic is refused. On Hosted it turns on."
+  },
+  "paywall_sheet": {
+    "headline": {
+      "topics": "Unlimited critical topics are part of {name}",
+      "pushes": "More pushes a day are part of {name}",
+      "history": "Older alarms are part of {name}",
+      "widgets": "Home screen widgets are part of {name}",
+      "app_icons": "Extra app icons are part of {name}",
+      "weekly_check": "The weekly delivery check is part of {name}",
+      "fire_drills": "Fire drills are part of {name}",
+      "wake_up_challenges": "Wake-up challenges are part of {name}",
+      "custom_alarm_screens": "Custom alarm screens are part of {name}",
+      "morning_summary": "The morning summary is part of {name}"
+    },
+    "page": {
+      "back_topics": "Topics",
+      "back_settings": "Settings",
+      "save": "Save",
+      "title_new_topic": "New topic",
+      "title_history": "History",
+      "title_widgets": "Widgets",
+      "title_reliability": "Reliability",
+      "title_settings": "Settings",
+      "name": "Name",
+      "critical": "Critical",
+      "critical_line": "Rings like an alarm until you say I'm up.",
+      "critical_used": "{free_critical_topics} of {free_critical_topics} critical topics used",
+      "critical_lifted": "Critical topics. No limit.",
+      "sound": "Sound",
+      "sound_value": "Classic siren",
+      "test_alarm": "Send a test alarm",
+      "quiet_hours": "Quiet hours",
+      "notifications": "Notifications",
+      "appearance": "Appearance"
+    }
   }
 }
