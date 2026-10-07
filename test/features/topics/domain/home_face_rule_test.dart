@@ -150,6 +150,54 @@ void main() {
       expect(result.hero.severity, SeverityMode.none);
     });
 
+    test('an expired incident is never the last alarm handled', () {
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.expired,
+            closedAt: now.subtract(const Duration(hours: 2)),
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      expect(result.hero.subText, 'Nothing is ringing.');
+    });
+
+    test('newest expired, older closed: the line names the closed one', () {
+      final closedAt = now.subtract(const Duration(days: 3));
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.expired,
+            closedAt: now.subtract(const Duration(hours: 2)),
+          ),
+          _incident(
+            'inc2',
+            'prod-db',
+            IncidentStates.closed,
+            closedAt: closedAt,
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      final local = closedAt.toLocal();
+      final time =
+          '${DateFormat.MMMd().format(local)}, '
+          '${DateFormat.Hm().format(local)}';
+      expect(
+        result.hero.subText,
+        'Nothing is ringing.\nLast alarm handled at $time.',
+      );
+    });
+
     test('calm hero shows the last handled time from any age', () {
       // Handled wins over calm for 30 seconds, so once an incident is old
       // enough to fall out of the handled window it still counts for the
@@ -249,6 +297,74 @@ void main() {
       final row = result.rows.firstWhere((r) => r.name == 'nas-backup');
       expect(row.faceState, FaceState.success);
       expect(row.meta, 'Handled ${DateFormat.Hm().format(closedAt.toLocal())}');
+    });
+
+    test('an expired incident row says nobody answered, not Handled', () {
+      final closedAt = now.subtract(const Duration(minutes: 10));
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'nas-backup',
+            IncidentStates.expired,
+            closedAt: closedAt,
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      final row = result.rows.firstWhere((r) => r.name == 'nas-backup');
+      expect(row.faceState, FaceState.calm);
+      expect(row.meta, 'Nobody answered.');
+      expect(row.meta, isNot(contains('Handled')));
+      // The other topic is untouched.
+      final other = result.rows.firstWhere((r) => r.name == 'prod-db');
+      expect(other.meta, 'Quiet');
+    });
+
+    test('an expired row goes back to quiet after the hour', () {
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'nas-backup',
+            IncidentStates.expired,
+            closedAt: now.subtract(const Duration(minutes: 61)),
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      final row = result.rows.firstWhere((r) => r.name == 'nas-backup');
+      expect(row.faceState, FaceState.calm);
+      expect(row.meta, 'Quiet');
+    });
+
+    test('the newest of a closed and an expired incident wins the row', () {
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'nas-backup',
+            IncidentStates.expired,
+            closedAt: now.subtract(const Duration(minutes: 30)),
+          ),
+          _incident(
+            'inc2',
+            'nas-backup',
+            IncidentStates.closed,
+            closedAt: now.subtract(const Duration(minutes: 5)),
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      final row = result.rows.firstWhere((r) => r.name == 'nas-backup');
+      expect(row.faceState, FaceState.success);
+      expect(row.meta, startsWith('Handled'));
     });
 
     test('quiet row when nothing active', () {
@@ -491,7 +607,7 @@ void main() {
           _incident(
             'inc1',
             'prod-db',
-            IncidentStates.expired,
+            IncidentStates.closed,
             closedAt: now.subtract(const Duration(hours: 2)),
           ),
         ]),
