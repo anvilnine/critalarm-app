@@ -14,7 +14,11 @@ import 'package:critalarm/features/reliability/domain/reliability_check_source.d
 ///
 /// Not on this phone when the version cannot be read (the web).
 ///
-/// Reasons: `os_changed`. The fix is a test alarm, through [testRouteName].
+/// A change time or a test time in the future (a clock that was set back)
+/// cannot be compared, so the check needs a look until the clock catches up.
+///
+/// Reasons: `os_changed`, `clock`. The fix is a test alarm, through
+/// [testRouteName].
 ///
 /// [recordVersion] does the comparing and storing without building a check.
 /// Call it on launch, so a change is stamped when it happened and not when a
@@ -50,6 +54,17 @@ final class SystemUpdateSource implements ReliabilityCheckSource {
     return next;
   }
 
+  /// [recordVersion] for the launch path, where nobody awaits it. It never
+  /// throws: a phone that cannot read or save the version tries again on the
+  /// next read.
+  Future<void> recordVersionAtLaunch() async {
+    try {
+      await recordVersion();
+    } on Object catch (_) {
+      // Nothing waits for this, and the next read stamps the change.
+    }
+  }
+
   @override
   Future<List<ReliabilityCheck>> read() async {
     final record = await recordVersion();
@@ -60,6 +75,7 @@ final class SystemUpdateSource implements ReliabilityCheckSource {
     }
     return [
       systemUpdateCheckFor(
+        now: _now(),
         changedAt: record.changedAt,
         lastTestAt: await lastTestAt(),
         testRouteName: testRouteName,
@@ -70,6 +86,7 @@ final class SystemUpdateSource implements ReliabilityCheckSource {
   /// The state rule. Pure. A test at the very moment of the change does not
   /// count: it has to be newer.
   static ReliabilityCheck systemUpdateCheckFor({
+    required DateTime now,
     required DateTime? changedAt,
     required DateTime? lastTestAt,
     required String testRouteName,
@@ -77,6 +94,14 @@ final class SystemUpdateSource implements ReliabilityCheckSource {
     const id = ReliabilityCheckIds.systemUpdate;
     if (changedAt == null) {
       return const ReliabilityCheck(id: id, state: ReliabilityState.fine);
+    }
+    if (changedAt.isAfter(now) || (lastTestAt?.isAfter(now) ?? false)) {
+      return ReliabilityCheck(
+        id: id,
+        state: ReliabilityState.needsLook,
+        reason: 'clock',
+        fix: OpenRouteFix(testRouteName),
+      );
     }
     if (lastTestAt != null && lastTestAt.isAfter(changedAt)) {
       return ReliabilityCheck(
