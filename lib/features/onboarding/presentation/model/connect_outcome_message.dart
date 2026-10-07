@@ -10,6 +10,9 @@ String? connectOutcomeMessage(ConnectOutcome outcome) => switch (outcome) {
   Connected() || AdminTokenMissing() => null,
   ServerUnreachable(:final failure) ||
   ConnectionNotSaved(:final failure) => failureMessage(failure),
+  ServerAddressDiffers(:final host) =>
+    LocaleKeys.connect_link_address_differs.tr(namedArgs: {'host': host}),
+  ServerDowngrade() => LocaleKeys.connect_link_downgrade.tr(),
   ServerIncompatible(:final version) =>
     LocaleKeys.onboarding_connect_version_incompatible.tr(
       namedArgs: {'version': version},

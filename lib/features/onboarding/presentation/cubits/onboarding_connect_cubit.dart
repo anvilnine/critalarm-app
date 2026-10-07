@@ -442,6 +442,8 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
           ),
         );
       case ServerUnreachable() ||
+          ServerAddressDiffers() ||
+          ServerDowngrade() ||
           ServerIncompatible() ||
           ConnectionNotSaved() ||
           ConnectTransportError():

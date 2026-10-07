@@ -1208,6 +1208,19 @@ Future<void> configureDependencies({
         getIt<SaveConnectionUsecase>(),
         // A server picked by hand replaces a Cloud connect still waiting.
         cancelPendingConnect: () => getIt<BackgroundConnect>().cancel(),
+        readSavedServerUrl: () async =>
+            (await getIt<ConnectionRepository>().getConnection())
+                .getOrNull()
+                ?.serverUrl,
+        // A connect to a different server drops what belongs to the old
+        // one: the same four things an account wipe drops, plus the
+        // archive. Settings, sounds, permissions and the rest stay.
+        forgetServerData: () async {
+          await getIt<AckQueue>().clear();
+          await getIt<MessageSyncService>().resetAllCursors();
+          await getIt<RecentSearchesRepository>().clear();
+          await localStore?.clearServerData();
+        },
       ),
     )
     ..registerLazySingleton(
