@@ -31,6 +31,7 @@ class AppListRow extends StatefulWidget {
     this.isPinned = false,
     this.isMuted = false,
     this.metaMaxLines = 2,
+    this.nameMaxLines = 1,
     super.key,
   });
 
@@ -69,6 +70,12 @@ class AppListRow extends StatefulWidget {
   /// ellipsis. A row that explains something raises it, so a large text
   /// size never hides the end of a sentence.
   final int metaMaxLines;
+
+  /// How many lines the name may take before it is cut with an ellipsis.
+  /// One for every row that names a topic or a setting. A row whose title is
+  /// a sentence or a question raises it, so a large text size never cuts the
+  /// question to its first word.
+  final int nameMaxLines;
 
   @override
   State<AppListRow> createState() => _AppListRowState();
@@ -206,7 +213,7 @@ class _AppListRowState extends State<AppListRow> {
                                     fontSize: 15,
                                     color: nameColor,
                                   ),
-                                  maxLines: 1,
+                                  maxLines: widget.nameMaxLines,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
