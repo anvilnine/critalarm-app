@@ -4,6 +4,7 @@ import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
@@ -36,6 +37,7 @@ import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubi
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/dialog_sheet_gallery_screen.dart';
 import 'package:critalarm/features/settings/presentation/face_gallery_screen.dart';
+import 'package:critalarm/features/settings/presentation/priorities_screen.dart';
 import 'package:critalarm/features/settings/presentation/privacy_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/ringing_faces_screen.dart';
 import 'package:critalarm/features/settings/presentation/server_settings_screen.dart';
@@ -79,6 +81,7 @@ abstract final class AppRoute {
   static const soundCrop = 'soundCrop';
   static const soundRecord = 'soundRecord';
   static const alarmSettings = 'alarmSettings';
+  static const priorities = 'priorities';
   static const serverSettings = 'serverSettings';
   static const account = 'account';
   static const deleteAccount = 'deleteAccount';
@@ -369,6 +372,22 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     key: state.pageKey,
                     opaque: true,
                     child: const AlarmSettingsScreen(),
+                  ),
+                ),
+                // What priorities 1 to 5 do on this phone. A browser has no
+                // push and no alarm, so a typed URL there lands on Settings.
+                GoRoute(
+                  path: 'priorities',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.priorities,
+                  redirect: (context, state) =>
+                      getIt<PlatformCapabilities>().canRunAlarm
+                      ? null
+                      : '/settings',
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    child: const PrioritiesScreen(),
                   ),
                 ),
                 GoRoute(

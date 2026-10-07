@@ -844,6 +844,8 @@
     "alarm_sound_header": "Alarm sound",
     "alarm_sound_row_title": "Default sound",
     "alarm_sound_row_subtitle": "Rings for every topic that has not picked its own",
+    "priorities_row_title": "Priorities",
+    "priorities_row_subtitle": "What 1 to 5 does on this phone",
     "health_row_title": "Health",
     "health_row_subtitle_ok": "Everything needed to ring is on",
     "health_row_subtitle_issue": "Full screen alarms are off",
@@ -1248,6 +1250,20 @@
       "pack_library_synth_alarm": "Synth alarm",
       "pack_library_short_alarm": "Short alarm"
     }
+  },
+  "priorities": {
+    "title": "Priorities",
+    "row_title": "Priority {level}",
+    "alarm_android": "Takes over the screen and rings until you acknowledge it.",
+    "alarm_ios": "Rings as an alarm, even on silent, until you acknowledge it.",
+    "time_sensitive_ios": "A Time Sensitive notification with sound. The silent switch mutes it. Repeats until you acknowledge it.",
+    "notification_android": "A notification. No alarm.",
+    "notification_ios": "A Time Sensitive notification. No alarm.",
+    "history_only": "No notification. Waits in History.",
+    "hear_aria_label": "Hear the alarm sound",
+    "stop_aria_label": "Stop the sound",
+    "critical_topic_title": "Topics",
+    "critical_topic_line": "Priority 5 rings only on a topic with Critical delivery on. Set it on the topic."
   },
   "sound_picker": {
     "title_default": "Alarm sound",
