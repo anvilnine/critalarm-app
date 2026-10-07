@@ -1,5 +1,6 @@
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -299,19 +300,21 @@ HomeFaceResult resolveHomeFace({
   );
 }
 
-/// The hero while Home's missed alarm notice is in the slot.
+/// The hero while a notice that asks for a look is in Home's slot: a missed
+/// alarm, missed weekly checks or a phone update.
 ///
-/// The notice says an alarm was missed, so a glad face over "All clear"
-/// would contradict it. The resting hero (calm, or the short HANDLED
-/// moment) drops to a calm face and the one line that is still true.
-/// Anything live, a ringing, acknowledged or warning hero, is returned
-/// unchanged: a quiet hero never hides an alarm.
-HomeHero heroWhileMissedNoticeShows(HomeHero hero) {
+/// The notice says something may stop an alarm, so a glad face over "All
+/// clear" would contradict it. The resting hero (calm, or the short HANDLED
+/// moment) takes the look face (`needsLookFace`, the face the "Take a look"
+/// header uses) and keeps one line that is still true. The word and the
+/// last-alarm line go. Anything live, a ringing, acknowledged or warning
+/// hero, is returned unchanged: a quiet hero never hides an alarm.
+HomeHero heroWhileLookNoticeShows(HomeHero hero) {
   final isResting =
       hero.faceState == FaceState.calm || hero.faceState == FaceState.success;
   if (!isResting || hero.ringingIncidentId != null) return hero;
   return HomeHero(
-    faceState: FaceState.calm,
+    faceState: needsLookFace,
     word: '',
     subText: LocaleKeys.home_no_alarm_body.tr(),
     severity: SeverityMode.none,
