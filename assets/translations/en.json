@@ -1948,5 +1948,12 @@
       "custom_sounds": "Your own alarm sound",
       "custom_alarm_screens": "Your own alarm screen"
     }
+  },
+  "paywall_doors": {
+    "free": "Free",
+    "headline_hosted": "Step into Hosted",
+    "headline_pro": "Step into Pro",
+    "headline_ending": "Keep the door open",
+    "headline_ended": "Open the door again"
   }
 }
