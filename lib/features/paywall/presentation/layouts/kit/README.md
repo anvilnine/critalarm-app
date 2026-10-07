@@ -11,6 +11,8 @@ and nothing else: no button, price row, legal text, clock, benefit list or purch
 2. Register it in `kit/paywall_layout_registry.dart`:
    `PaywallLayoutId.proof: (_) => const ProofPaywallLayout(),`
 3. Open it at `/plans/<key>?product=hosted|pro`, or from Developer options, Paywall layouts.
+   That route lists every benefit, built or not, so the finished paywall can be seen. Add
+   `&benefits=built` for the list a store build shows: only what `paywallBenefitsFor` returns.
    An id with no line in the registry draws `hero` (`paywallFallbackLayout`).
 
 Import `kit/paywall_frame.dart` (buy block, clock, scope, tones) and `kit/paywall_preview.dart`.
@@ -80,6 +82,23 @@ on both phones: spare height stays empty around the group and nothing is stretch
 At a large text size the face shrinks, then goes, before the card gives up height
 (`oneBenefitSizes`).
 
+## A stage that answers the hand
+
+`hero_paywall_layout.dart` is the one to read. Its loop (`hero/hero_loop.dart`) is a function of
+the clock and of what the hand last chose, a `HeroHand`, and holds no timer:
+
+- `HeroLoop.touch` makes the choice: a line by index, a swipe by step (it wraps), or neither
+  for a tap on the stage, which plays the current benefit again.
+- The chosen benefit plays from its beginning, holds on its finished frame for
+  `heroHandHoldSeconds`, and the loop goes on from the benefit after it.
+- A touch during the entrance waits for the entrance to end.
+- When nothing may move, a touch cuts to that benefit's resting frame and nothing moves on.
+
+A sideways drag on a stage is claimed at once along the left edge of the screen, where the
+route listens for its own back swipe (`_StageDragRecognizer`), so it never closes the paywall.
+Every line of a list is a button with a tap area 44 points tall (`heroLineAt`), however close
+the lines sit.
+
 ## The scope
 
 `product` (`isHosted`, `isPro`), `benefits` (only what this build has, in order), `size`
@@ -135,7 +154,9 @@ fvm flutter test tool/capture_paywall_layout.dart \
 
 It writes eight PNGs to `build/paywall_shots`, prints the buy block's height for each, and
 fails on an overflow, a scroll at the default size, or a cross or button off screen. The top of the tool lists the options: `OUT`, `STATE`,
-`BENEFITS=all`, `SOURCE=<wire name>` (what opened the paywall, such as `history`) and
-`T=<seconds>`, which plays the motion a frame at a time and captures that second.
+`BENEFITS=built` (the store list in place of every benefit), `SOURCE=<wire name>` (what opened
+the paywall, such as `history`) and `T=<seconds>`, which plays the motion a frame at a time and
+captures that second. With `T`, `TAP=x,y` or `DRAG=x,y,x,y` plays a touch at that second and
+`THEN=<seconds>` lets more time run before the capture.
 `PREVIEWS=gallery` captures the two gallery preview sections instead, light and dark. Add
 `T=12.5` to run every preview through a loop and `SIZES=38,48` for other tile sizes.

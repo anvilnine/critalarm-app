@@ -214,7 +214,7 @@ class _Screen extends StatelessWidget {
       decoration: BoxDecoration(
         color: fill,
         borderRadius: BorderRadius.circular(u * 0.09),
-        border: Border.all(color: colors.inkFixed, width: edge),
+        border: Border.all(color: colors.ink, width: edge),
       ),
       child: Column(
         children: [
