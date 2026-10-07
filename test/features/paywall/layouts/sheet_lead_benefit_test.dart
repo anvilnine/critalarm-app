@@ -29,14 +29,20 @@ void main() {
       }
     });
 
-    test('a widget leads with widgets, from either entry point', () {
+    test('a widget leads with widgets where widgets are sold: under Pro', () {
       for (final source in [
         PaywallSource.widgetLocked,
         PaywallSource.homeWidgets,
       ]) {
         expect(
-          sheetLeadBenefit(source, hosted)?.id,
+          sheetLeadBenefit(source, pro)?.id,
           PaywallBenefitId.widgets,
+          reason: source.wire,
+        );
+        // Hosted no longer lists widgets, so it leads with its first.
+        expect(
+          sheetLeadBenefit(source, hosted)?.id,
+          hosted.first.id,
           reason: source.wire,
         );
       }

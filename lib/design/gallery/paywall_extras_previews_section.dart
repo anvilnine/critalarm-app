@@ -4,8 +4,9 @@ import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview.dart';
 import 'package:flutter/material.dart';
 
-/// The paywall previews for widgets, app icons and the weekly check, each
-/// at the three size classes.
+/// The paywall previews that are not a Hosted limit, each at the three
+/// size classes: widgets, app icons, the weekly check, wake-up challenges,
+/// alarm sounds and alarm screens.
 class PaywallExtrasPreviewsSection extends StatelessWidget {
   const PaywallExtrasPreviewsSection({this.edges = _sizes, super.key});
 
@@ -18,6 +19,9 @@ class PaywallExtrasPreviewsSection extends StatelessWidget {
     ('Home screen widgets', PaywallPreviewId.widgets),
     ('App icons', PaywallPreviewId.appIcons),
     ('Weekly delivery check', PaywallPreviewId.weeklyCheck),
+    ('Wake-up challenges', PaywallPreviewId.wakeUpChallenges),
+    ('Your own alarm sounds', PaywallPreviewId.customSounds),
+    ('Your own alarm screens', PaywallPreviewId.customAlarmScreens),
   ];
 
   @override

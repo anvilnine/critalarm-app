@@ -5,7 +5,7 @@ import 'package:critalarm/design/tokens/typography.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview.dart';
 import 'package:flutter/material.dart';
 
-/// The six paywall previews side by side at their small size, then the
+/// Every paywall preview side by side at their small size, then the
 /// three of a Hosted limit lifting (topics, pushes, history) at each size
 /// class.
 class PaywallLimitsPreviewsSection extends StatelessWidget {
@@ -25,6 +25,9 @@ class PaywallLimitsPreviewsSection extends StatelessWidget {
     PaywallPreviewId.widgets,
     PaywallPreviewId.appIcons,
     PaywallPreviewId.weeklyCheck,
+    PaywallPreviewId.wakeUpChallenges,
+    PaywallPreviewId.customSounds,
+    PaywallPreviewId.customAlarmScreens,
   ];
 
   static const _previews = <(PaywallPreviewId, String)>[

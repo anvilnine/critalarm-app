@@ -88,16 +88,14 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
       PaywallBenefitId.history => LocaleKeys.paywall_sheet_headline_history,
       PaywallBenefitId.widgets => LocaleKeys.paywall_sheet_headline_widgets,
       PaywallBenefitId.appIcons => LocaleKeys.paywall_sheet_headline_app_icons,
-      PaywallBenefitId.weeklyCheck =>
-        LocaleKeys.paywall_sheet_headline_weekly_check,
-      PaywallBenefitId.fireDrills =>
-        LocaleKeys.paywall_sheet_headline_fire_drills,
       PaywallBenefitId.wakeUpChallenges =>
         LocaleKeys.paywall_sheet_headline_wake_up_challenges,
+      PaywallBenefitId.reliabilityChecks =>
+        LocaleKeys.paywall_sheet_headline_reliability_checks,
+      PaywallBenefitId.customSounds =>
+        LocaleKeys.paywall_sheet_headline_custom_sounds,
       PaywallBenefitId.customAlarmScreens =>
         LocaleKeys.paywall_sheet_headline_custom_alarm_screens,
-      PaywallBenefitId.morningSummary =>
-        LocaleKeys.paywall_sheet_headline_morning_summary,
       null => null,
     };
     return key == null ? name : key.tr(namedArgs: {'name': name});
