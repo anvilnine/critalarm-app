@@ -190,7 +190,8 @@ void main() {
       );
       final local = closedAt.toLocal();
       final time =
-          '${DateFormat.MMMd().format(local)}, ${DateFormat.Hm().format(local)}';
+          '${DateFormat.MMMd().format(local)}, '
+          '${DateFormat.Hm().format(local)}';
       expect(
         result.hero.subText,
         'Nothing is ringing.\nLast alarm handled at $time.',
