@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
-import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
@@ -16,7 +15,7 @@ import 'package:critalarm/features/feedback/presentation/help_section.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
-import 'package:critalarm/features/settings/presentation/settings_health_row.dart';
+import 'package:critalarm/features/settings/presentation/settings_reliability_row.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -52,46 +51,6 @@ class SettingsScreen extends StatelessWidget {
 
 class _SettingsScreenContent extends StatelessWidget {
   const _SettingsScreenContent();
-
-  Widget _buildHealthIssuesChip(BuildContext context, int issueCount) {
-    final colors = context.appColors;
-
-    return Container(
-      constraints: const BoxConstraints(minHeight: 26),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-      decoration: BoxDecoration(
-        color: colors.high,
-        borderRadius: Radii.fullAll,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // A dot, not a caret: an up arrow reads as a sort control.
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: colors.inkFixed,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            LocaleKeys.settings_health_badge_issues.plural(issueCount),
-            style: TextStyle(
-              fontFamily: AppTypography.fontMono,
-              fontFamilyFallback: AppTypography.fontMonoFallbacks,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-              letterSpacing: 0.2,
-              color: colors.inkFixed,
-              height: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// One row that leads to a screen under /settings.
   Widget _buildNavRow(
@@ -291,30 +250,11 @@ class _SettingsScreenContent extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      BlocBuilder<ShellCubit, ShellHealth>(
-                        builder: (context, health) {
-                          final row = SettingsHealthRow.from(health);
-                          return FeatureGuideAnchor(
-                            id: FeatureGuideAnchorId.settingsHealth,
-                            child: AppListRow(
-                              name: LocaleKeys.settings_health_row_title.tr(),
-                              meta: row.subtitle,
-                              faceState: row.faceState,
-                              trailing: row.isHealthy
-                                  ? AppGlyph(
-                                      GlyphType.arrow,
-                                      color: colors.ink3,
-                                      size: 16,
-                                    )
-                                  : _buildHealthIssuesChip(
-                                      context,
-                                      row.issueCount,
-                                    ),
-                              onTap: () =>
-                                  context.push('/settings/permissions'),
-                            ),
-                          );
-                        },
+                      // The first row. It reads the reliability checks and
+                      // opens the screen that lists them.
+                      const FeatureGuideAnchor(
+                        id: FeatureGuideAnchorId.settingsHealth,
+                        child: SettingsReliabilityEntry(),
                       ),
                       const SizedBox(height: 8),
                       _buildNavRow(
