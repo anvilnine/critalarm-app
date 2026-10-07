@@ -4,6 +4,7 @@ import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_not
 import 'package:critalarm/features/in_app_notices/presentation/widgets/missed_alarm_notice_card.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/no_server_notice_card.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/system_update_notice_card.dart';
+import 'package:critalarm/features/in_app_notices/presentation/widgets/weekly_check_notice_card.dart';
 import 'package:critalarm/features/permissions/presentation/widgets/setup_health_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -32,6 +33,10 @@ class InAppNoticeSlot extends StatelessWidget {
             case InAppNoticeType.systemUpdate:
               child = const SystemUpdateNoticeCard(
                 key: ValueKey('system_update'),
+              );
+            case InAppNoticeType.weeklyCheck:
+              child = const WeeklyCheckNoticeCard(
+                key: ValueKey('weekly_check'),
               );
             case InAppNoticeType.missedAlarm:
               final notice = state.missedAlarm;

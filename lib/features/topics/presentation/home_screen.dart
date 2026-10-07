@@ -829,6 +829,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         InAppNoticeType.noServer ||
         InAppNoticeType.systemUpdate ||
         InAppNoticeType.missedAlarm ||
+        InAppNoticeType.weeklyCheck ||
         InAppNoticeType.criticalHealth => false,
       };
 
@@ -897,6 +898,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       case InAppNoticeType.noServer:
       case InAppNoticeType.systemUpdate:
       case InAppNoticeType.missedAlarm:
+      case InAppNoticeType.weeklyCheck:
       case InAppNoticeType.criticalHealth:
         return null;
     }

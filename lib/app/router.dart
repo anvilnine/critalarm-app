@@ -55,6 +55,7 @@ import 'package:critalarm/features/topics/presentation/create_topic_screen.dart'
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
+import 'package:critalarm/features/weekly_check/presentation/weekly_check_rounds_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -85,6 +86,7 @@ abstract final class AppRoute {
   static const devicePermissions = 'devicePermissions';
   static const reliability = 'reliability';
   static const String makerGuide = makerGuideRouteName;
+  static const weeklyCheckRounds = 'weeklyCheckRounds';
   static const soundPicker = 'soundPicker';
   static const soundCrop = 'soundCrop';
   static const soundRecord = 'soundRecord';
@@ -391,6 +393,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                         key: state.pageKey,
                         opaque: true,
                         child: const MakerGuideScreen(),
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'checks',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.weeklyCheckRounds,
+                      pageBuilder: (context, state) => AmbientPage(
+                        key: state.pageKey,
+                        opaque: true,
+                        child: const WeeklyCheckRoundsScreen(),
                       ),
                     ),
                   ],

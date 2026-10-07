@@ -11,6 +11,7 @@ enum InAppNoticeType {
   accountBackup,
   systemUpdate,
   missedAlarm,
+  weeklyCheck,
 }
 
 @immutable
