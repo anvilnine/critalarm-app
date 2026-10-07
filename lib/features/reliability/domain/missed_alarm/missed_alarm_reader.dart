@@ -127,11 +127,16 @@ class MissedAlarmReader {
   Future<void> _turn = Future<void>.value();
 
   Future<void> _recordOnce() async {
+    final now = _now();
     try {
-      final now = _now();
       final taken = await capture();
       await store.writeRecord(store.readRecord().merged(taken, now: now));
-
+    } on Object catch (error) {
+      debugPrint('MissedAlarmReader: capture failed: $error');
+    }
+    // The stamps do not wait on the capture: a phone that cannot be read
+    // still gets its cut-offs.
+    try {
       if (store.readSetupDoneAt() == null && await isSetupDone()) {
         await store.writeSetupDoneAt(now);
       }
@@ -142,7 +147,7 @@ class MissedAlarmReader {
         await store.writeConnected(ConnectedServer(server: server, since: now));
       }
     } on Object catch (error) {
-      debugPrint('MissedAlarmReader: record failed: $error');
+      debugPrint('MissedAlarmReader: stamp failed: $error');
     }
   }
 
