@@ -1,3 +1,4 @@
+import 'package:critalarm/core/links/app_link.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart' as paywall;
 import 'package:critalarm/core/push/incident_push.dart';
 
@@ -14,7 +15,7 @@ abstract final class PushDeepLink {
   /// topic of its own and opens Home.
   static const openKey = 'open';
   static const openHome = 'home';
-  static const homeLocation = '/';
+  static const String homeLocation = AppLinkRoutes.home;
 
   /// `open=paywall` comes from a locked widget. Widgets are part of Pro.
   static const openPaywall = 'paywall';
@@ -27,10 +28,9 @@ abstract final class PushDeepLink {
       location == paywall.paywallPath ? paywallLocation : location;
 
   static String incidentLocation(String incidentId) =>
-      '/incidents/${Uri.encodeComponent(incidentId)}';
+      AppLinkRoutes.incident(incidentId);
 
-  static String topicLocation(String topic) =>
-      '/topics/${Uri.encodeComponent(topic)}';
+  static String topicLocation(String topic) => AppLinkRoutes.topic(topic);
 
   /// Route for a relay push. Null for a `p4` forward with no incident, which
   /// has nothing specific to open.
@@ -41,24 +41,23 @@ abstract final class PushDeepLink {
 
   /// The scheme the Android tap intents carry on their data URI. It only keeps
   /// two PendingIntents apart; nothing outside the app sends one.
-  static const appScheme = 'critalarm';
+  static const String appScheme = appLinkScheme;
 
   /// Maps a `critalarm://` location that reached the router to a real route,
   /// or null when [location] is not one. `critalarm://incidents/<id>` opens
   /// that incident, `critalarm://topics/<name>` that topic, and any other
   /// `critalarm://` location (a reminder tap, say) opens Home. Never a Page
   /// Not Found.
+  ///
+  /// The answer comes from [parseAppLink], the one link parser. A connect
+  /// link has no route, so one that got this far opens Home and its token
+  /// goes nowhere.
   static String? fromAppUri(Uri location) {
     if (location.scheme != appScheme) return null;
-    final segments = [
-      for (final s in location.pathSegments)
-        if (s.isNotEmpty) s,
-    ];
-    if (segments.length == 1) {
-      if (location.host == 'incidents') return incidentLocation(segments[0]);
-      if (location.host == 'topics') return topicLocation(segments[0]);
-    }
-    return homeLocation;
+    return switch (parseAppLink(location)) {
+      AppLinkRoute(location: final route) => route,
+      _ => homeLocation,
+    };
   }
 
   /// Route for the extras attached to a tapped notification.

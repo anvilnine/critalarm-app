@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:critalarm/core/links/app_link.dart';
+import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:flutter/services.dart';
 
@@ -13,8 +15,9 @@ import 'package:flutter/services.dart';
 /// Off iOS every call is a no-op: the channel has no handler, so the platform
 /// answers [MissingPluginException] and this hands back null.
 final class PushHost {
-  PushHost([MethodChannel? channel])
-    : _channel = channel ?? const MethodChannel(channelName) {
+  PushHost([MethodChannel? channel, ConnectLinkHolder? connectLinks])
+    : _channel = channel ?? const MethodChannel(channelName),
+      _connectLinks = connectLinks {
     _channel.setMethodCallHandler(_handle);
   }
 
@@ -25,7 +28,16 @@ final class PushHost {
   /// the same tap.
   static const tapIdKey = 'tap_id';
 
+  /// Key of a tap that is a link opened from outside the app: an
+  /// `https://critalarm.app/...` link or its `critalarm://` form. The value
+  /// is the whole link as text. A connect link carries a token in it, so the
+  /// value is parsed and dropped, and never printed.
+  static const linkKey = 'link';
+
   final MethodChannel _channel;
+
+  /// Where a connect link goes. It opens no screen from here.
+  final ConnectLinkHolder? _connectLinks;
   final _tokens = StreamController<String>.broadcast();
   final _routes = StreamController<String>.broadcast();
   final _acks = StreamController<String>.broadcast();
@@ -84,7 +96,25 @@ final class PushHost {
         if (entry.value != null) '${entry.key}': '${entry.value}',
     };
     if (_isRepeatTap(data)) return null;
-    return PushDeepLink.fromNotificationData(data);
+    return _routeFor(data);
+  }
+
+  /// The route a tap opens, or null when it opens none.
+  ///
+  /// A tap that carries a link goes through the one link parser. A connect
+  /// link is handed to the holder and opens nothing here.
+  String? _routeFor(Map<String, String> data) {
+    final text = data[linkKey];
+    if (text == null) return PushDeepLink.fromNotificationData(data);
+    switch (parseAppLinkText(text)) {
+      case AppLinkRoute(:final location):
+        return location;
+      case final ConnectLink link:
+        _connectLinks?.offer(link);
+        return null;
+      case null:
+        return null;
+    }
   }
 
   /// Sets the number on the app icon. Zero clears it.
@@ -109,7 +139,7 @@ final class PushHost {
       case 'onNotificationTap':
         final data = _stringMap(call);
         if (_isRepeatTap(data)) return;
-        final route = PushDeepLink.fromNotificationData(data);
+        final route = _routeFor(data);
         if (route != null) _routes.add(route);
       case 'onAckQueued':
         final id = call.arguments as String?;
