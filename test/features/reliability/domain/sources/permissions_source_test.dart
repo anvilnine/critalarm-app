@@ -94,6 +94,54 @@ void main() {
         'restricted',
       );
     });
+
+    test('a permission never asked for is asked in the app', () {
+      for (final type in [
+        DevicePermissionType.notifications,
+        DevicePermissionType.alarms,
+      ]) {
+        final check = PermissionsSource.permissionCheckFor(
+          type,
+          DevicePermissionStatus.notDetermined,
+        );
+        expect(check.fix, AskPermissionFix(type), reason: type.name);
+        expect(check.reason, 'notDetermined');
+        expect(check.state, ReliabilityState.broken);
+      }
+    });
+
+    test('once asked, only system settings can change it', () {
+      for (final status in [
+        DevicePermissionStatus.denied,
+        DevicePermissionStatus.restricted,
+      ]) {
+        expect(
+          PermissionsSource.permissionCheckFor(
+            DevicePermissionType.notifications,
+            status,
+          ).fix,
+          const OpenSystemSettingsFix(DevicePermissionType.notifications),
+          reason: status.name,
+        );
+      }
+    });
+
+    test('a permission with no system prompt always opens settings', () {
+      for (final type in [
+        DevicePermissionType.fullScreenIntent,
+        DevicePermissionType.batteryOptimization,
+        DevicePermissionType.timeSensitive,
+      ]) {
+        expect(
+          PermissionsSource.permissionCheckFor(
+            type,
+            DevicePermissionStatus.notDetermined,
+          ).fix,
+          OpenSystemSettingsFix(type),
+          reason: type.name,
+        );
+      }
+    });
   });
 
   group('source', () {
@@ -102,11 +150,82 @@ void main() {
       bool isWeb = false,
       int? major,
       _Permissions? permissions,
+      Future<bool> Function()? notificationsNeverAsked,
     }) => PermissionsSource(
       permissions: permissions ?? _Permissions({}),
       capabilities: PlatformCapabilities(isWeb: isWeb, platform: platform),
       os: FixedOsVersionReader(major),
+      notificationsNeverAsked: notificationsNeverAsked,
     );
+
+    group('notifications the phone reports as off', () {
+      Future<ReliabilityCheck> notifications({
+        Future<bool> Function()? neverAsked,
+        DevicePermissionStatus status = DevicePermissionStatus.denied,
+      }) async => _byId(
+        await build(
+          platform: TargetPlatform.android,
+          major: 15,
+          permissions: _Permissions({
+            DevicePermissionType.notifications: status,
+            DevicePermissionType.fullScreenIntent:
+                DevicePermissionStatus.denied,
+          }),
+          notificationsNeverAsked: neverAsked,
+        ).read(),
+      )[ReliabilityCheckIds.notifications]!;
+
+      test('and the app never asked for are asked in the app', () async {
+        final check = await notifications(neverAsked: () async => true);
+        expect(check.reason, 'notDetermined');
+        expect(
+          check.fix,
+          const AskPermissionFix(DevicePermissionType.notifications),
+        );
+      });
+
+      test('and the app did ask for open settings', () async {
+        final check = await notifications(neverAsked: () async => false);
+        expect(check.reason, 'denied');
+        expect(
+          check.fix,
+          const OpenSystemSettingsFix(DevicePermissionType.notifications),
+        );
+      });
+
+      test('stay as reported when nothing says whether it asked', () async {
+        final check = await notifications();
+        expect(check.reason, 'denied');
+      });
+
+      test('a granted one is not asked about', () async {
+        var asked = 0;
+        final check = await notifications(
+          status: DevicePermissionStatus.granted,
+          neverAsked: () async {
+            asked++;
+            return true;
+          },
+        );
+        expect(check.state, ReliabilityState.fine);
+        expect(asked, 0);
+      });
+
+      test('the answer is for notifications only', () async {
+        final checks = _byId(
+          await build(
+            platform: TargetPlatform.android,
+            major: 15,
+            permissions: _Permissions({
+              DevicePermissionType.fullScreenIntent:
+                  DevicePermissionStatus.denied,
+            }),
+            notificationsNeverAsked: () async => true,
+          ).read(),
+        );
+        expect(checks[ReliabilityCheckIds.fullScreenAlarm]!.reason, 'denied');
+      });
+    });
 
     test(
       'Android reports notifications, full-screen alarm and battery',
