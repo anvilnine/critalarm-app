@@ -10,6 +10,29 @@ import java.net.URLEncoder
  * `Uri.encodeComponent` and Android's `Uri.encode`.
  */
 object TapRoute {
+    /**
+     * The map Dart gets for a tap. A link opened from outside the app goes
+     * over whole, under `link`, and Dart's parser decides what it opens.
+     */
+    fun tapFor(
+        sequence: Int,
+        incidentId: String?,
+        topic: String?,
+        open: String?,
+        link: String?,
+    ): Map<String, String> {
+        val tap = mutableMapOf(MainActivity.KEY_TAP_ID to sequence.toString())
+        if (incidentId != null) tap[MainActivity.EXTRA_INCIDENT_ID] = incidentId
+        if (topic != null) tap[MainActivity.EXTRA_TOPIC] = topic
+        if (open != null) tap[MainActivity.EXTRA_OPEN] = open
+        if (link != null) tap[MainActivity.EXTRA_LINK] = link
+        return tap
+    }
+
+    /**
+     * Null for a tap that only carries a link: the route is worked out in
+     * Dart, which takes the tap at startup, so nothing here parses a link.
+     */
     fun routeFor(tap: Map<String, String>?): String? {
         if (tap == null) return null
         tap[MainActivity.EXTRA_INCIDENT_ID]?.let { return "/incidents/${encode(it)}" }
