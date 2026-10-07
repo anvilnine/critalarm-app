@@ -19,6 +19,7 @@ final class RegisterDeviceUsecase {
     String Function()? platform,
     this.identifyAccount,
     this.onPacks,
+    this.beforePacksRequest,
     PlanChanges? planChanges,
   }) : _platform = platform ?? defaultPushPlatform,
        _planChanges = planChanges ?? appPlanChanges;
@@ -29,7 +30,21 @@ final class RegisterDeviceUsecase {
 
   /// Handed every registration response, for whoever keeps the account's
   /// packs (api.md §4.2). The list is the relay's and is passed on as it is.
-  final Future<void> Function(DeviceRegistrationResponse response)? onPacks;
+  ///
+  /// `relayUri` is the relay this call was sent to when the caller named
+  /// one, and `request` is what [beforePacksRequest] answered before the
+  /// call went out.
+  final Future<void> Function(
+    DeviceRegistrationResponse response, {
+    Uri? relayUri,
+    int? request,
+  })?
+  onPacks;
+
+  /// Called just before the registration goes out. Its answer numbers the
+  /// request, so the keeper of the packs can tell an answer that came back
+  /// late from a newer one.
+  final int Function()? beforePacksRequest;
   final ApiClient _api;
   final DeviceIdentityStore _identity;
   final PushTokenProvider _tokens;
@@ -47,6 +62,7 @@ final class RegisterDeviceUsecase {
       pushToken: pushToken ?? await _tokens.getToken(),
       appVersion: appVersion,
     );
+    final packsRequest = beforePacksRequest?.call();
     // api.md §4.2: the first call mints the device token, later calls PATCH the
     // same device id with the new push token. Re-POSTing would answer 401.
     final response = identity.deviceToken == null
@@ -73,7 +89,11 @@ final class RegisterDeviceUsecase {
       _planChanges.bump();
     }
     try {
-      await onPacks?.call(response);
+      await onPacks?.call(
+        response,
+        relayUri: relayUri,
+        request: packsRequest,
+      );
     } on Object catch (_) {
       // Keeping the packs is not part of registering. A phone that could not
       // save them is still registered.
