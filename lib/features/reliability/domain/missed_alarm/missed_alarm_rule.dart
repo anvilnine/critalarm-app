@@ -8,15 +8,16 @@ import 'package:flutter/foundation.dart';
 /// acknowledgement, and that is all it says.
 enum MissedReason {
   /// The phone kept a full record over the time the incident rang, and no
-  /// push for it is in there.
+  /// push for it is in there. It says what was recorded and no more: a push
+  /// can still have come in late or been lost before it was written down.
   noPushReached('no_push'),
 
   /// A push for the incident is on record, and so is the phone not starting
   /// the alarm for it.
   pushButNoRing('push_no_ring'),
 
-  /// The alarm was set off on this phone, and nobody acknowledged it before
-  /// it expired.
+  /// The phone saw the alarm sounding, and nobody acknowledged it before it
+  /// expired.
   rangUnanswered('rang'),
 
   /// The phone cannot tell which of the others it was.
@@ -40,8 +41,9 @@ enum NotMissedReason {
   /// It was acknowledged on this phone, whether or not the server heard.
   acknowledgedHere,
 
-  /// The topic is not critical, or it is not known to be.
-  topicNotCritical,
+  /// It opened before this phone held the topic, or the phone has no record
+  /// of when it first did.
+  topicNotHeld,
 
   /// No priority 5 message is in what the app holds for it.
   belowPriorityFive,
@@ -82,10 +84,12 @@ final class PhoneKnowledge {
   /// An acknowledgement made on this phone is on record.
   final bool acknowledgedHere;
 
-  /// The alarm for this incident was set off on this phone.
+  /// The phone saw the alarm for this incident sounding. A push that
+  /// arrived, or an alarm that was set, is not this.
   final bool rang;
 
-  /// A push that names this incident reached the phone.
+  /// A push that names this incident reached the phone, or an alarm was set
+  /// for it. It says nothing about whether anything sounded.
   final bool pushReached;
 
   /// The phone recorded that it did not start the alarm for that push. Only
@@ -116,14 +120,15 @@ final class PhoneKnowledge {
   );
 }
 
-/// The three moments an incident has to come after to count. A null one is
-/// not known, and then nothing counts.
+/// The moments an incident has to come after to count. A null one is not
+/// known, and then the incident is left unclassified.
 @immutable
 final class MissedAlarmCutoffs {
   const MissedAlarmCutoffs({
     required this.firstLaunchAt,
     required this.setupDoneAt,
     required this.connectedSince,
+    required this.topicHeldSince,
   });
 
   /// When this install first ran.
@@ -132,8 +137,11 @@ final class MissedAlarmCutoffs {
   /// When this phone first saw setup done.
   final DateTime? setupDoneAt;
 
-  /// When this phone first saw itself connected to the server it is on now.
+  /// When this phone connected to the server it is on now.
   final DateTime? connectedSince;
+
+  /// When this phone first held the incident's topic.
+  final DateTime? topicHeldSince;
 }
 
 /// The answer for one incident: missed with one reason, or not missed.
@@ -164,17 +172,19 @@ final class MissedVerdict {
 /// Did this phone miss [incident], and if so, why.
 ///
 /// Missed means the server let it run out (`expired`) with no
-/// acknowledgement from anyone, on a critical topic, at priority 5, after
-/// this phone was set up and connected. The reason is the most specific one
-/// the phone has a record for. When it cannot tell two apart it answers
+/// acknowledgement from anyone, at priority 5, after this phone was set up,
+/// connected and held the topic. The reason is the most specific one the
+/// phone has a record for. When it cannot tell two apart it answers
 /// [MissedReason.unanswered] and names no cause.
 ///
-/// [topicIsCritical] is null when the topic is gone or the list could not be
-/// read, and that counts as not critical. [isSetupTest] is true for an alarm
-/// setup rang on purpose.
+/// The topic's critical switch is not asked. The server only opens an
+/// incident for a priority 5 message on a topic whose switch is on (api.md
+/// 1.7 and 3.3), so the incident existing says what the switch was when it
+/// opened. What the switch says today is a different question.
+///
+/// [isSetupTest] is true for an alarm setup rang on purpose.
 MissedVerdict missedVerdictFor({
   required Incident incident,
-  required bool? topicIsCritical,
   required PhoneKnowledge knowledge,
   required MissedAlarmCutoffs cutoffs,
   bool isSetupTest = false,
@@ -190,9 +200,6 @@ MissedVerdict missedVerdictFor({
   // had somebody up for it.
   if (!incident.isExpired || incident.ackedAt != null) {
     return const MissedVerdict.notMissed(NotMissedReason.acknowledgedElsewhere);
-  }
-  if (topicIsCritical != true) {
-    return const MissedVerdict.notMissed(NotMissedReason.topicNotCritical);
   }
   if (!incident.messages.any((message) => message.priority >= 5)) {
     return const MissedVerdict.notMissed(NotMissedReason.belowPriorityFive);
@@ -212,6 +219,10 @@ MissedVerdict missedVerdictFor({
   final connectedSince = cutoffs.connectedSince;
   if (connectedSince == null || openedAt.isBefore(connectedSince)) {
     return const MissedVerdict.notMissed(NotMissedReason.notConnected);
+  }
+  final topicHeldSince = cutoffs.topicHeldSince;
+  if (topicHeldSince == null || openedAt.isBefore(topicHeldSince)) {
+    return const MissedVerdict.notMissed(NotMissedReason.topicNotHeld);
   }
   if (isSetupTest) {
     return const MissedVerdict.notMissed(NotMissedReason.setupTest);

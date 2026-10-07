@@ -86,7 +86,8 @@ final class PhoneCapture {
   const PhoneCapture({
     this.eventRows = const [],
     this.lostBeforeMs,
-    this.rangIds = const {},
+    this.arrivedIds = const {},
+    this.startedIds = const {},
     this.acknowledgedHereIds = const {},
   });
 
@@ -98,9 +99,12 @@ final class PhoneCapture {
   /// pushed out of it: the time of the oldest row it still held.
   final int? lostBeforeMs;
 
-  /// Incidents the phone says it set an alarm off for, from anywhere other
-  /// than an `alarm_fired` row.
-  final Set<String> rangIds;
+  /// Incidents a push arrived for or an alarm was set for, from anywhere
+  /// other than an `alarm_fired` row. Not proof that anything sounded.
+  final Set<String> arrivedIds;
+
+  /// Incidents whose alarm the phone saw sounding, or silenced by hand.
+  final Set<String> startedIds;
 
   /// Incidents acknowledged on this phone.
   final Set<String> acknowledgedHereIds;
@@ -114,7 +118,8 @@ final class PhoneCapture {
 @immutable
 final class PhoneRecord {
   const PhoneRecord({
-    this.rangAtMs = const {},
+    this.arrivedAtMs = const {},
+    this.startedAtMs = const {},
     this.acknowledgedHereAtMs = const {},
     this.rows = const [],
     this.completeSinceMs,
@@ -135,7 +140,9 @@ final class PhoneRecord {
     final completeSince = raw['complete_since_ms'];
     final lastCapture = raw['last_capture_ms'];
     return PhoneRecord(
-      rangAtMs: times(raw['rang']),
+      // `rang` is what an earlier build called a push that arrived.
+      arrivedAtMs: {...times(raw['rang']), ...times(raw['arrived'])},
+      startedAtMs: times(raw['started']),
       acknowledgedHereAtMs: times(raw['acked_here']),
       rows: [
         if (rows is List)
@@ -146,8 +153,13 @@ final class PhoneRecord {
     );
   }
 
-  /// Incident id to when the phone first said its alarm went off.
-  final Map<String, int> rangAtMs;
+  /// Incident id to when the phone first recorded a push for it, or an
+  /// alarm set for it. An `alarm_fired` row is here too: the phone writes
+  /// it when it posts the alarm, before anything is known to sound.
+  final Map<String, int> arrivedAtMs;
+
+  /// Incident id to when the phone first saw its alarm sounding.
+  final Map<String, int> startedAtMs;
 
   /// Incident id to when an acknowledgement on this phone was first seen.
   final Map<String, int> acknowledgedHereAtMs;
@@ -175,7 +187,8 @@ final class PhoneRecord {
     final nowMs = now.toUtc().millisecondsSinceEpoch;
     final cutoff = nowMs - keepFor.inMilliseconds;
 
-    final rang = Map<String, int>.of(rangAtMs);
+    final arrived = Map<String, int>.of(arrivedAtMs);
+    final started = Map<String, int>.of(startedAtMs);
     final acked = Map<String, int>.of(acknowledgedHereAtMs);
     final kept = <PushLogRow>{...rows};
 
@@ -187,7 +200,7 @@ final class PhoneRecord {
       if (name == PushLogRow.firedName) {
         final id = raw['incident_id'];
         if (id is String && id.isNotEmpty) {
-          rang.update(
+          arrived.update(
             id,
             (held) => held < atMs ? held : atMs.toInt(),
             ifAbsent: atMs.toInt,
@@ -201,8 +214,11 @@ final class PhoneRecord {
       final row = PushLogRow.fromJson(raw);
       if (row != null) kept.add(row);
     }
-    for (final id in capture.rangIds) {
-      if (id.isNotEmpty) rang.putIfAbsent(id, () => nowMs);
+    for (final id in capture.arrivedIds) {
+      if (id.isNotEmpty) arrived.putIfAbsent(id, () => nowMs);
+    }
+    for (final id in capture.startedIds) {
+      if (id.isNotEmpty) started.putIfAbsent(id, () => nowMs);
     }
     for (final id in capture.acknowledgedHereIds) {
       if (id.isNotEmpty) acked.putIfAbsent(id, () => nowMs);
@@ -225,8 +241,12 @@ final class PhoneRecord {
       if (sorted.first.atMs > completeSince) completeSince = sorted.first.atMs;
     }
     return PhoneRecord(
-      rangAtMs: {
-        for (final entry in rang.entries)
+      arrivedAtMs: {
+        for (final entry in arrived.entries)
+          if (entry.value >= cutoff) entry.key: entry.value,
+      },
+      startedAtMs: {
+        for (final entry in started.entries)
           if (entry.value >= cutoff) entry.key: entry.value,
       },
       acknowledgedHereAtMs: {
@@ -248,24 +268,22 @@ final class PhoneRecord {
   /// [everyPushIsLogged] is whether this phone writes a row for every push
   /// that reaches it. Only then can a stretch with no row mean no push.
   ///
-  /// [ringsCanBeHeld] is whether a setting on this phone can hold the sound
-  /// of a priority 5 alarm (quiet hours that do not let critical through).
-  /// The phone writes the alarm down before that is decided, so with it on a
-  /// record of the alarm only proves the push arrived.
+  /// Nothing here reads a setting as it is today. Whether a ring was held
+  /// (quiet hours) is decided on the native side when the push lands and is
+  /// written nowhere, so this never says a ring was held, and it says "it
+  /// rang" only when the phone saw the alarm sounding.
   PhoneKnowledge knowledgeFor(
     Incident incident, {
     required bool everyPushIsLogged,
-    bool ringsCanBeHeld = false,
   }) {
-    final alarmOnRecord = rangAtMs.containsKey(incident.id);
+    final started = startedAtMs.containsKey(incident.id);
+    final arrived = started || arrivedAtMs.containsKey(incident.id);
     return PhoneKnowledge(
       acknowledgedHere: acknowledgedHereAtMs.containsKey(incident.id),
-      rang: alarmOnRecord && !ringsCanBeHeld,
-      // A record of the alarm is the only record of a push that names its
-      // incident, so the two are known together.
-      pushReached: alarmOnRecord,
+      rang: started,
+      pushReached: arrived,
       silenceMeansNoPush:
-          !alarmOnRecord && everyPushIsLogged && _wasSilentFor(incident),
+          !arrived && everyPushIsLogged && _wasSilentFor(incident),
     );
   }
 
@@ -289,7 +307,8 @@ final class PhoneRecord {
   }
 
   Map<String, Object?> toJson() => {
-    'rang': rangAtMs,
+    'arrived': arrivedAtMs,
+    'started': startedAtMs,
     'acked_here': acknowledgedHereAtMs,
     'rows': [for (final row in rows) row.toJson()],
     'complete_since_ms': ?completeSinceMs,
