@@ -4,6 +4,7 @@ import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/limits_preview_clock.dart';
 import 'package:flutter/material.dart';
 
@@ -303,7 +304,10 @@ class HistoryPreview extends StatelessWidget {
     return LimitsPreviewTile(
       size: size,
       color: colors.surface,
-      child: LimitsPreviewClock<HistoryPreviewFrame>(
+      child: PaywallPreviewClock<HistoryPreviewFrame>(
+        restAt: limitsPreviewRestAt,
+        // Told when to play, it starts on its own turn of the shared loop.
+        turnStart: HistoryPreviewTimes.rewind,
         frameAt: (t) => historyPreviewFrameAt(t, free: free, hosted: hosted),
         builder: (context, frame) {
           final scroll = layout.scrollFor(frame, inside.length);

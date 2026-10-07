@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:critalarm/core/app_icon/app_icon.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/extras_preview_stage.dart';
 import 'package:flutter/material.dart';
 
@@ -84,7 +85,7 @@ class AppIconsPreview extends StatelessWidget {
     return ExtrasPreviewTile(
       size: size,
       color: isFull ? context.appColors.cream : null,
-      child: ExtrasPreviewClock(
+      child: PaywallPreviewClock.seconds(
         restAt: appIconsPreviewRestAt,
         builder: (context, t) {
           final frame = appIconsPreviewFrameAt(t);
