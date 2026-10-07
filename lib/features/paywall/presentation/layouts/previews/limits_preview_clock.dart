@@ -15,9 +15,6 @@ const double limitsPreviewPeriod = 9;
 /// finished picture, so the still frame is the frame at zero.
 const double limitsPreviewRestAt = 0;
 
-/// Below this shortest side a limit preview draws its one part alone.
-const double limitsPreviewSmallEdge = 88;
-
 /// The smallest type a limit preview draws. A label that would be smaller
 /// is left out or drawn as a bar.
 const double limitsPreviewMinType = 9;
