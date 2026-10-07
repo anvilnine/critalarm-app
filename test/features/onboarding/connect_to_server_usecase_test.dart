@@ -189,17 +189,27 @@ void main() {
       }
     });
 
-    test('an https address never ends as http, pinned or not', () async {
-      for (final pin in [true, false]) {
-        final outcome = await run(
-          asked: 'https://alarm.example.com',
-          reported: 'http://alarm.example.com',
-          pin: pin,
-        );
-        expect(outcome, isA<ServerDowngrade>(), reason: 'pin=$pin');
-      }
+    test('a connect link never ends as http when it asked for https', () async {
+      final outcome = await run(
+        asked: 'https://alarm.example.com',
+        reported: 'http://alarm.example.com',
+        pin: true,
+      );
+      expect(outcome, isA<ServerDowngrade>());
       verifyNever(() => establish(any(), any()));
       verifyNever(() => save(any()));
+    });
+
+    test('KNOWN BEHAVIOUR AWAITING AN OWNER DECISION: setup follows a '
+        'server that reports http for an https address', () async {
+      final outcome = await run(
+        asked: 'https://alarm.example.com',
+        reported: 'http://alarm.example.com',
+      );
+      expect(outcome, isA<Connected>());
+      final saved =
+          verify(() => save(captureAny())).captured.single as ServerConnection;
+      expect(saved.serverUrl, 'http://alarm.example.com');
     });
 
     test('an http address may stay http', () async {
@@ -287,6 +297,7 @@ void main() {
       final downgrade = await withSaved('https://old.example.com')(
         serverUrl: 'https://alarm.example.com',
         adminToken: 'tk_one',
+        pinToAddress: true,
       );
       expect(downgrade, isA<ServerDowngrade>());
       expect(calls, isNot(contains('forget')));

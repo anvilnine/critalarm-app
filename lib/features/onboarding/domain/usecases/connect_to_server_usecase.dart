@@ -50,8 +50,8 @@ final class ServerAddressDiffers extends ConnectOutcome {
   final String host;
 }
 
-/// The address the person approved was `https` and the server's answer is
-/// `http`. A connection never goes from encrypted to plain.
+/// A link asked for `https` and the server's answer is `http`. A connect
+/// link never goes from encrypted to plain. Setup does not return this.
 final class ServerDowngrade extends ConnectOutcome {
   const ServerDowngrade();
 }
@@ -109,10 +109,11 @@ class ConnectToServerUsecase {
   /// outcome.
   ///
   /// The server's answer names its own base address, and that is what gets
-  /// saved. An `https` [serverUrl] never ends as `http`. With [pinToAddress]
-  /// the answer must also name the host and port in [serverUrl]: a connect
-  /// link shows one address and connects to that one. Typed in setup, the
-  /// address is the person's own and the server's answer still stands.
+  /// saved. With [pinToAddress] the answer must also name the host and port
+  /// in [serverUrl], and an `https` [serverUrl] never ends as `http`: a
+  /// connect link shows one address and connects to that one. Typed in
+  /// setup, the address is the person's own and the server's answer still
+  /// stands, scheme included.
   Future<ConnectOutcome> call({
     required String serverUrl,
     required String adminToken,
@@ -173,7 +174,9 @@ class ConnectToServerUsecase {
     if (pin && from != null && !_samePlace(from, to)) {
       return ServerAddressDiffers(_hostLabel(to));
     }
-    if (from != null && from.scheme == 'https' && to.scheme == 'http') {
+    // Only a link refuses this. Setup keeps following the server's own base
+    // address, which is a product decision still open.
+    if (pin && from != null && from.scheme == 'https' && to.scheme == 'http') {
       return const ServerDowngrade();
     }
     return null;
