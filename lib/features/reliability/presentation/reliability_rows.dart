@@ -2,6 +2,7 @@ import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
+import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_snapshot.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter/foundation.dart';
@@ -51,6 +52,7 @@ const _titleKeys = <String, String>{
   'push_token_confirmed': LocaleKeys.reliability_check_push_token,
   'last_push_received': LocaleKeys.reliability_check_last_push,
   'system_update': LocaleKeys.reliability_check_system_update,
+  'phone_maker': LocaleKeys.maker_guide_row_title,
 };
 
 /// The one short line under a row's title, as a `LocaleKeys` key, picked from
@@ -77,6 +79,8 @@ const _lineKeys = <String, String>{
   'time_sensitive_off': LocaleKeys.reliability_line_time_sensitive_off,
   'scheduled_summary': LocaleKeys.reliability_line_scheduled_summary,
   'os_changed': LocaleKeys.reliability_line_os_changed,
+  'maker_unchecked': LocaleKeys.maker_guide_line_unchecked,
+  'maker_os_changed': LocaleKeys.maker_guide_line_os_changed,
   // A permission's reason is its status name.
   'denied': LocaleKeys.reliability_line_denied,
   'restricted': LocaleKeys.reliability_line_restricted,
@@ -103,6 +107,8 @@ String reliabilityFixLabelKey(
   OpenRouteFix(:final routeName) =>
     routeName == testRouteName
         ? LocaleKeys.reliability_fix_ring_test
+        : routeName == makerGuideRouteName
+        ? LocaleKeys.maker_guide_fix_see_steps
         : LocaleKeys.reliability_fix_open,
 };
 
