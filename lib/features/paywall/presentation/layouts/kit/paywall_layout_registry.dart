@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/doors_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/false_alarm_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/hero_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
@@ -23,6 +24,7 @@ typedef PaywallLayoutBuilder = Widget Function(BuildContext context);
 /// with no line draws [paywallFallbackLayout].
 final Map<PaywallLayoutId, PaywallLayoutBuilder> paywallLayoutBuilders = {
   PaywallLayoutId.hero: (_) => const HeroPaywallLayout(),
+  PaywallLayoutId.doors: (_) => const DoorsPaywallLayout(),
   PaywallLayoutId.falseAlarm: (_) => const FalseAlarmPaywallLayout(),
   PaywallLayoutId.plain: (_) => const PlainPaywallLayout(),
   PaywallLayoutId.proof: (_) => const ProofPaywallLayout(),
