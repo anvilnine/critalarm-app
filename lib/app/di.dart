@@ -191,19 +191,26 @@ import 'package:critalarm/features/permissions/domain/repositories/device_permis
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
+import 'package:critalarm/features/reliability/data/platform_maker_settings_opener.dart';
 import 'package:critalarm/features/reliability/data/platform_scheduled_summary_reader.dart';
+import 'package:critalarm/features/reliability/data/shared_prefs_maker_guide_store.dart';
 import 'package:critalarm/features/reliability/data/shared_prefs_os_version_store.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
+import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
+import 'package:critalarm/features/reliability/domain/maker/maker_guide_store.dart';
+import 'package:critalarm/features/reliability/domain/maker/maker_settings_opener.dart';
 import 'package:critalarm/features/reliability/domain/os_version_store.dart';
 import 'package:critalarm/features/reliability/domain/reliability_fix_runner.dart';
 import 'package:critalarm/features/reliability/domain/scheduled_summary_reader.dart';
 import 'package:critalarm/features/reliability/domain/sources/last_push_source.dart';
 import 'package:critalarm/features/reliability/domain/sources/permissions_source.dart';
+import 'package:critalarm/features/reliability/domain/sources/phone_maker_source.dart';
 import 'package:critalarm/features/reliability/domain/sources/push_token_source.dart';
 import 'package:critalarm/features/reliability/domain/sources/system_update_source.dart';
 import 'package:critalarm/features/reliability/domain/sources/time_sensitive_source.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
+import 'package:critalarm/features/reliability/presentation/maker/maker_guide_cubit.dart';
 import 'package:critalarm/features/search/data/repositories/asset_docs_index_repository.dart';
 import 'package:critalarm/features/search/data/repositories/shared_prefs_recent_searches_repository.dart';
 import 'package:critalarm/features/search/domain/repositories/docs_index_repository.dart';
@@ -1636,6 +1643,20 @@ Future<void> configureDependencies({
         testRouteName: AppRoute.testRing,
       ),
     )
+    ..registerLazySingleton<MakerGuideStore>(
+      () => SharedPrefsMakerGuideStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<MakerSettingsOpener>(
+      PlatformMakerSettingsOpener.new,
+    )
+    ..registerFactory(
+      () => MakerGuideCubit(
+        makerReader: getIt<DeviceMakerReader>(),
+        os: getIt<OsVersionReader>(),
+        store: getIt<MakerGuideStore>(),
+        opener: getIt<MakerSettingsOpener>(),
+      ),
+    )
     ..registerLazySingleton(
       () => ReliabilityFixRunner(
         openSystemSettings: (permission) async {
@@ -1678,6 +1699,13 @@ Future<void> configureDependencies({
           summary: getIt<ScheduledSummaryReader>(),
         ),
         getIt<SystemUpdateSource>(),
+        PhoneMakerSource(
+          capabilities: getIt<PlatformCapabilities>(),
+          makerReader: getIt<DeviceMakerReader>(),
+          os: getIt<OsVersionReader>(),
+          store: getIt<MakerGuideStore>(),
+          guideRouteName: makerGuideRouteName,
+        ),
       ]),
     )
     ..registerFactory(
