@@ -1,4 +1,5 @@
 import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
@@ -72,7 +73,7 @@ void main() {
       'notDetermined': LocaleKeys.reliability_line_not_determined,
     };
 
-    cases.forEach((reason, key) {
+    for (final MapEntry(key: reason, value: key) in cases.entries) {
       test('$reason maps to its own line', () {
         expect(
           reliabilityLineKey(
@@ -81,12 +82,12 @@ void main() {
           key,
         );
       });
-    });
+    }
 
     test('every status name a permission can give has a line', () {
-      // The names of DevicePermissionStatus other than granted.
-      for (final name in ['denied', 'restricted', 'notDetermined']) {
-        expect(cases, contains(name));
+      for (final status in DevicePermissionStatus.values) {
+        if (status.isGranted) continue;
+        expect(cases, contains(status.name));
       }
     });
 

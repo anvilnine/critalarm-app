@@ -123,18 +123,18 @@ const _permissionIds = <ReliabilityCheckId>{
 const _faces = <ReliabilityState, List<FaceState>>{
   ReliabilityState.broken: [
     FaceState.worried,
+    FaceState.concerned,
     FaceState.dizzy,
-    FaceState.shocked,
   ],
   ReliabilityState.needsLook: [
+    FaceState.thinking,
+    FaceState.curious,
     FaceState.confused,
-    FaceState.surprised,
-    FaceState.determined,
   ],
   ReliabilityState.fine: [
     FaceState.calm,
     FaceState.content,
-    FaceState.blink,
+    FaceState.proud,
   ],
 };
 

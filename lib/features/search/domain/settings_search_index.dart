@@ -54,10 +54,27 @@ abstract final class SettingsSearchIndex {
   static final List<SettingsDestination> all = <SettingsDestination>[
     // The six top level screens.
     const SettingsDestination(
+      id: 'reliability',
+      routePath: '/settings/reliability',
+      titleKey: LocaleKeys.reliability_title,
+      parentTitleKey: LocaleKeys.nav_settings,
+      keywords: <String>[
+        'reliability',
+        'health',
+        'wake',
+        'test',
+        'ring a test',
+        'push',
+        'update',
+        'will it wake me',
+      ],
+    ),
+    // The permission rows on the Reliability screen open this screen.
+    const SettingsDestination(
       id: 'health',
       routePath: '/settings/permissions',
-      titleKey: LocaleKeys.settings_health_row_title,
-      parentTitleKey: LocaleKeys.nav_settings,
+      titleKey: LocaleKeys.device_permissions_title,
+      parentTitleKey: LocaleKeys.reliability_title,
       keywords: <String>[
         'permissions',
         'notifications',
