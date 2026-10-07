@@ -251,6 +251,74 @@ void main() {
       expect(row.meta, 'Handled ${DateFormat.Hm().format(closedAt.toLocal())}');
     });
 
+    test('an expired incident row says nobody answered, not Handled', () {
+      final closedAt = now.subtract(const Duration(minutes: 10));
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'nas-backup',
+            IncidentStates.expired,
+            closedAt: closedAt,
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      final row = result.rows.firstWhere((r) => r.name == 'nas-backup');
+      expect(row.faceState, FaceState.calm);
+      expect(row.meta, 'Nobody answered.');
+      expect(row.meta, isNot(contains('Handled')));
+      // The other topic is untouched.
+      final other = result.rows.firstWhere((r) => r.name == 'prod-db');
+      expect(other.meta, 'Quiet');
+    });
+
+    test('an expired row goes back to quiet after the hour', () {
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'nas-backup',
+            IncidentStates.expired,
+            closedAt: now.subtract(const Duration(minutes: 61)),
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      final row = result.rows.firstWhere((r) => r.name == 'nas-backup');
+      expect(row.faceState, FaceState.calm);
+      expect(row.meta, 'Quiet');
+    });
+
+    test('the newest of a closed and an expired incident wins the row', () {
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'nas-backup',
+            IncidentStates.expired,
+            closedAt: now.subtract(const Duration(minutes: 30)),
+          ),
+          _incident(
+            'inc2',
+            'nas-backup',
+            IncidentStates.closed,
+            closedAt: now.subtract(const Duration(minutes: 5)),
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      final row = result.rows.firstWhere((r) => r.name == 'nas-backup');
+      expect(row.faceState, FaceState.success);
+      expect(row.meta, startsWith('Handled'));
+    });
+
     test('quiet row when nothing active', () {
       final result = resolveHomeFace(
         topics: topics,
