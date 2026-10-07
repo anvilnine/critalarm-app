@@ -39,7 +39,7 @@ class _Shape {
 /// The shapes, back to front. They keep to the edges of the stage, where
 /// the mascot and the card are not.
 const _shapes = <_Shape>[
-  _Shape(_Kind.disc, Offset(0.1, 0.8), 30, _Ink.soft, every: 9, turn: 0.1),
+  _Shape(_Kind.disc, Offset(0.1, 0.8), 24, _Ink.soft, every: 9, turn: 0.1),
   _Shape(_Kind.ring, Offset(0.9, 0.2), 15, _Ink.strong, every: 11, turn: 0.4),
   _Shape(_Kind.disc, Offset(0.72, 0.07), 7, _Ink.strong, every: 7, turn: 0.7),
   _Shape(_Kind.pill, Offset(0.2, 0.62), 40, _Ink.light, every: 10, turn: 0.55),
