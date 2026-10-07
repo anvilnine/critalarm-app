@@ -27,6 +27,17 @@ void main() {
       );
     });
 
+    test('the priorities page is found by priority and by p5', () {
+      final release = SettingsSearchIndex.forBuild(
+        includeDevOnly: false,
+        showsStorage: false,
+      );
+      final priorities = release.singleWhere((d) => d.id == 'priorities');
+
+      expect(priorities.routePath, '/settings/priorities');
+      expect(priorities.keywords, containsAll(['priority', 'p5']));
+    });
+
     test('every destination points somewhere inside the app', () {
       for (final destination in SettingsSearchIndex.all) {
         expect(
