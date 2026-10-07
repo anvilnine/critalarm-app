@@ -51,6 +51,7 @@ class _ConnectLinkHostState extends State<ConnectLinkHost>
     links: getIt<ConnectLinkHolder>(),
     readSituation: _readSituation,
     showSheet: _present,
+    checkAgain: _stillAllowed,
   );
 
   StreamSubscription<bool>? _alarmSub;
@@ -123,6 +124,19 @@ class _ConnectLinkHostState extends State<ConnectLinkHost>
   bool get _onConnectStep =>
       _location.path == OnboardingEntryPoint.connectServer;
 
+  /// The part of the rule that can change while the setup answer is being
+  /// read, asked once more right before the sheet opens: an alarm, a screen
+  /// that owns the display, another sheet, no overlay to open in.
+  bool _stillAllowed() {
+    final context = _overlayContext;
+    return !getIt<AlarmFocus>().on &&
+        !isConnectSheetBlockedPath(_location.path) &&
+        !appPopupRoutes.isUp &&
+        !getIt<FeatureGuideCubit>().state.isActive &&
+        context != null &&
+        context.mounted;
+  }
+
   Future<ConnectSheetSituation> _readSituation() async {
     final done =
         (await getIt<GetOnboardingCompletedUsecase>()(
@@ -134,6 +148,7 @@ class _ConnectLinkHostState extends State<ConnectLinkHost>
       setupDone: done,
       onConnectStep: _onConnectStep,
       alarmOn: getIt<AlarmFocus>().on,
+      blockedScreen: isConnectSheetBlockedPath(_location.path),
       // No overlay yet reads as a sheet being up: there is nowhere to open.
       sheetUp:
           appPopupRoutes.isUp ||
