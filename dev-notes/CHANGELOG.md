@@ -77,6 +77,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Local reminder morning-after and plan-ends bodies read their numbers and benefit phrases from HostedBenefit.
 - SetupTapRoom gives the Stop animation chip and the two small pills on Pick a server a 44 point tap area. The pills look the same.
 - DeviceTokenRegistry sends the unchanged push token to the relay again at most once every 24 hours, on launch or resume, and records when the relay last accepted it and whether the last call was refused. PushEventDrain keeps the time of the newest push\_received row before it empties the list.
+- The relay confirmation record is scoped to the device id, relay address and a hash of the token, and is cleared with the device identity. Registration calls are single flight, the daily window counts from the last accepted call, and PushEventDrain no longer loses its backlog if the last push write throws. New prefs keys: relay\_push\_confirmed\_scope, relay\_push\_attempt\_scope. ReliabilityCubit marks the overall state needs a look when a source throws.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

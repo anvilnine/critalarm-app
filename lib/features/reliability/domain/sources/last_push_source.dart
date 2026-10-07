@@ -14,7 +14,10 @@ import 'package:critalarm/features/reliability/domain/reliability_check_source.d
 ///
 /// The fix is a test alarm, through the route [testRouteName].
 ///
-/// Reasons: `silent`.
+/// A time in the future (a clock that was set back) cannot say how long it has
+/// been quiet, so with a critical topic it needs a look too.
+///
+/// Reasons: `silent`, `clock`.
 final class LastPushSource implements ReliabilityCheckSource {
   LastPushSource({
     required this.reader,
@@ -73,6 +76,14 @@ final class LastPushSource implements ReliabilityCheckSource {
       );
     }
     final reference = lastPushAt ?? watchingSince;
+    if (reference.isAfter(now)) {
+      return ReliabilityCheck(
+        id: id,
+        state: ReliabilityState.needsLook,
+        reason: 'clock',
+        fix: OpenRouteFix(testRouteName),
+      );
+    }
     if (now.difference(reference) > quietFor) {
       return ReliabilityCheck(
         id: id,
