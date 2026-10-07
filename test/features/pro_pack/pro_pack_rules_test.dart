@@ -11,7 +11,7 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _isHeldLine =
-    'bool get isHeld => _listed || _override.isForcing || _otherGrant(_other);';
+    '_relayHolds() || _override.isForcing || _otherGrant(_other);';
 
 void main() {
   group('the packs list', () {

@@ -87,7 +87,7 @@ void main() {
   });
 
   test(
-    'the native snapshot adds its rows, alarms and acknowledgements',
+    'the native snapshot adds its rows, arrivals and acknowledgements',
     () async {
       native = {
         'push_events': [
@@ -110,10 +110,28 @@ void main() {
       expect(taken.eventRows, [
         row('push_received', 200, {'kind': 'open'}),
       ]);
-      expect(taken.rangIds, {'inc_rang'});
+      // `ring_until` says a push took the alarm path. It is an arrival.
+      expect(taken.arrivedIds, {'inc_rang'});
+      expect(taken.startedIds, isEmpty);
       expect(taken.acknowledgedHereIds, {'inc_acked', 'inc_marked'});
     },
   );
+
+  test('only an alarm the phone reads as sounding now is a start', () async {
+    native = {
+      'incidents': [
+        {'id': 'inc_live', 'ring_until': 1757464200, 'phone_state': 'ringing'},
+        {'id': 'inc_set', 'ring_until': 1757464200, 'phone_state': 'unknown'},
+        {'id': 'inc_silenced', 'phone_state': 'silenced'},
+        {'id': 'inc_expired', 'phone_state': 'expired'},
+        {'id': 'inc_closed', 'phone_state': 'closed'},
+      ],
+    };
+    final capture = await build();
+    final taken = await capture.take();
+    expect(taken.startedIds, {'inc_live'});
+    expect(taken.arrivedIds, {'inc_live', 'inc_set'});
+  });
 
   test('a native read that throws leaves the rest', () async {
     final capture = PlatformPhoneCapture(
@@ -151,29 +169,35 @@ void main() {
     },
   );
 
-  test('alarm ids the platform reports while the app runs are kept', () async {
-    final scheduled = StreamController<String>.broadcast();
-    final pushes = StreamController<String>.broadcast();
-    final capture = await build(
-      alarmIds: [scheduled.stream, pushes.stream],
-      alarmingIds: () => {'inc_controller'},
-    );
-    capture
-      ..start()
-      // A second start does not listen twice.
-      ..start();
-    scheduled.add('inc_scheduled');
-    pushes.add('inc_pushed');
-    await Future<void>.delayed(Duration.zero);
-    expect((await capture.take()).rangIds, {
-      'inc_scheduled',
-      'inc_pushed',
-      'inc_controller',
-    });
-    await capture.dispose();
-    await scheduled.close();
-    await pushes.close();
-  });
+  test(
+    'alarm ids the platform reports while the app runs are arrivals',
+    () async {
+      final scheduled = StreamController<String>.broadcast();
+      final pushes = StreamController<String>.broadcast();
+      final capture = await build(
+        alarmIds: [scheduled.stream, pushes.stream],
+        alarmingIds: () => {'inc_controller'},
+      );
+      capture
+        ..start()
+        // A second start does not listen twice.
+        ..start();
+      scheduled.add('inc_scheduled');
+      pushes.add('inc_pushed');
+      await Future<void>.delayed(Duration.zero);
+      final taken = await capture.take();
+      expect(taken.arrivedIds, {
+        'inc_scheduled',
+        'inc_pushed',
+        'inc_controller',
+      });
+      // A push that arrived and an alarm that was set are not a ring.
+      expect(taken.startedIds, isEmpty);
+      await capture.dispose();
+      await scheduled.close();
+      await pushes.close();
+    },
+  );
 
   test('a pending value that is not a list is nothing', () async {
     SharedPreferences.setMockInitialValues({'pending_push_events': '{oops'});

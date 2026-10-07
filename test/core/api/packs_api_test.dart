@@ -135,8 +135,13 @@ void main() {
         DeviceIdentityStore(prefs),
         _Tokens(),
         platform: () => 'android',
-        onPacks: (response) async => handed.add(response),
-      )(appVersion: '1.0.0');
+        beforePacksRequest: () => 7,
+        onPacks: (response, {relayUri, request}) async {
+          handed.add(response);
+          expect(relayUri, Uri.parse('https://relay.example'));
+          expect(request, 7);
+        },
+      )(appVersion: '1.0.0', relayUri: Uri.parse('https://relay.example'));
       expect(handed.single.packs, const [AccountPack(id: 'pro')]);
     });
 
@@ -150,7 +155,8 @@ void main() {
           DeviceIdentityStore(prefs),
           _Tokens(),
           platform: () => 'android',
-          onPacks: (_) async => throw StateError('disk full'),
+          onPacks: (_, {relayUri, request}) async =>
+              throw StateError('disk full'),
         )(appVersion: '1.0.0');
         expect(response.accountId, isNotEmpty);
       },
