@@ -1,11 +1,9 @@
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_plan.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// The screen the sheet is drawn over, by what the lead benefit is.
@@ -121,11 +119,13 @@ class SheetPage extends StatelessWidget {
     final colors = context.appColors;
     final rows = _rowsFor(kind);
     final step = plan.rowHeight + plan.rowGap;
+    // The rows under the lit one start under the sheet's edge. They are
+    // there for the moment before the sheet is up, and the mascot has the
+    // room between the lit row and the sheet to itself.
+    final belowTop = plan.sheetTop + plan.rowGap;
     final below = [
       for (final (i, row) in rows.below.indexed)
-        if (plan.litBottom + plan.rowGap + (i + 1) * step <=
-            MediaQuery.sizeOf(context).height)
-          row,
+        if (belowTop + (i + 1) * step <= MediaQuery.sizeOf(context).height) row,
     ];
 
     final (back, title) = switch (kind) {
@@ -151,6 +151,11 @@ class SheetPage extends StatelessWidget {
       ),
     };
 
+    final navStyle = AppTypography.small(
+      colors.onCanvas,
+      fontSize: 15,
+    ).copyWith(fontWeight: FontWeight.w600);
+
     return ColoredBox(
       color: colors.canvas,
       child: Padding(
@@ -162,49 +167,63 @@ class SheetPage extends StatelessWidget {
               height: plan.navHeight,
               child: Row(
                 children: [
-                  if (back != null) ...[
+                  if (back != null && plan.hasTitleLine) ...[
                     AppGlyph(GlyphType.back, size: 16, color: colors.onCanvas),
                     const SizedBox(width: Spacing.s1),
+                    Text(back, style: navStyle),
+                  ],
+                  // A short phone has no line for the title, so the back
+                  // row carries it.
+                  if (plan.header == SheetHeader.inline) ...[
+                    if (back != null) ...[
+                      AppGlyph(
+                        GlyphType.back,
+                        size: 16,
+                        color: colors.onCanvas,
+                      ),
+                      const SizedBox(width: Spacing.s1),
+                    ],
                     Text(
-                      back,
-                      style: AppTypography.small(
+                      title,
+                      maxLines: 1,
+                      style: AppTypography.headline(
                         colors.onCanvas,
-                        fontSize: 15,
-                      ).copyWith(fontWeight: FontWeight.w600),
+                        fontSize: 22,
+                      ),
                     ),
                   ],
                   const Spacer(),
-                  if (kind == SheetPageKind.newTopic)
+                  if (kind == SheetPageKind.newTopic &&
+                      plan.header != SheetHeader.none)
                     Text(
                       LocaleKeys.paywall_sheet_page_save.tr(),
-                      style: AppTypography.small(
-                        colors.onCanvas,
-                        fontSize: 15,
-                      ).copyWith(fontWeight: FontWeight.w700),
+                      style: navStyle.copyWith(fontWeight: FontWeight.w700),
                     ),
                 ],
               ),
             ),
             SizedBox(
               height: plan.titleBlock,
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  style: AppTypography.headline(
-                    colors.onCanvas,
-                    fontSize: plan.titleSize,
-                  ),
-                ),
-              ),
+              child: plan.hasTitleLine
+                  ? Align(
+                      alignment: Alignment.topLeft,
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        style: AppTypography.headline(
+                          colors.onCanvas,
+                          fontSize: plan.titleSize,
+                        ),
+                      ),
+                    )
+                  : null,
             ),
             for (final row in rows.above.take(plan.rowsAbove)) ...[
               _QuietRow(row: row, height: plan.rowHeight),
               SizedBox(height: plan.rowGap),
             ],
             // The lit row is drawn over the scrim, in this gap.
-            SizedBox(height: plan.litHeight + plan.rowGap),
+            SizedBox(height: plan.litHeight + plan.peekGap + plan.rowGap),
             for (final row in below) ...[
               _QuietRow(row: row, height: plan.rowHeight),
               SizedBox(height: plan.rowGap),
@@ -271,17 +290,18 @@ class _QuietRow extends StatelessWidget {
 
 /// The row the user tapped, drawn above the scrim.
 ///
-/// On the new topic form it is the Critical switch with the count under
-/// it, and it plays the limit lifting: the switch turns on and the count
-/// becomes "no limit". Anywhere else it is the benefit's own row with the
-/// product's badge, which shakes its head once a loop.
+/// It draws how far the limit has lifted, [proof] from 0 to 1, and holds
+/// no time of its own. On the new topic form it is the Critical switch
+/// with the count under its name: the switch goes on and the count becomes
+/// "no limit". Anywhere else it is the benefit's own row with a lock on
+/// the product's badge, and the lock becomes a check.
 class SheetLitRow extends StatelessWidget {
   const SheetLitRow({
     required this.plan,
     required this.kind,
     required this.lead,
     required this.badge,
-    required this.clock,
+    required this.proof,
     super.key,
   });
 
@@ -291,103 +311,38 @@ class SheetLitRow extends StatelessWidget {
 
   /// The product's name, for the badge on a locked row.
   final String badge;
-  final ValueListenable<double> clock;
+
+  /// 0 is the limit the user hit, 1 is the limit lifted.
+  final double proof;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isLifted = proof >= 0.5;
+    final isSwitch = kind == SheetPageKind.newTopic;
+
+    final title = isSwitch
+        ? LocaleKeys.paywall_sheet_page_critical.tr()
+        : lead?.title ?? badge;
+    final line = isSwitch
+        ? (isLifted
+              ? LocaleKeys.paywall_sheet_page_critical_lifted.tr(
+                  namedArgs: {'name': badge},
+                )
+              : LocaleKeys.paywall_sheet_page_critical_used.tr(
+                  namedArgs: HostedBenefit.args,
+                ))
+        : lead?.line;
 
     return Container(
       height: plan.litHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: Radii.mdAll,
         boxShadow: AppShadows.shadowLg(isDark: isDark),
       ),
-      child: kind == SheetPageKind.newTopic
-          ? _LimitRow(clock: clock)
-          : _LockedRow(lead: lead, badge: badge, clock: clock),
-    );
-  }
-}
-
-class _LimitRow extends StatelessWidget {
-  const _LimitRow({required this.clock});
-
-  final ValueListenable<double> clock;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-
-    return ValueListenableBuilder<double>(
-      valueListenable: clock,
-      builder: (context, t, _) {
-        final lifted = SheetMotion.limitLifted(t);
-        return Padding(
-          padding: const EdgeInsets.all(Spacing.s1),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppToggleRow(
-                title: LocaleKeys.paywall_sheet_page_critical.tr(),
-                subtitle: LocaleKeys.paywall_sheet_page_critical_line.tr(),
-                value: lifted,
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: Spacing.s3),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: AnimatedSwitcher(
-                      duration: context.motion(AppDurations.base),
-                      switchInCurve: AppCurves.easeOut,
-                      switchOutCurve: AppCurves.easeOut,
-                      child: Text(
-                        lifted
-                            ? LocaleKeys.paywall_sheet_page_critical_lifted.tr()
-                            : LocaleKeys.paywall_sheet_page_critical_used.tr(
-                                namedArgs: HostedBenefit.args,
-                              ),
-                        key: ValueKey(lifted),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.small(
-                          lifted ? colors.cobalt : colors.ink2,
-                          fontSize: 13,
-                        ).copyWith(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _LockedRow extends StatelessWidget {
-  const _LockedRow({
-    required this.lead,
-    required this.badge,
-    required this.clock,
-  });
-
-  final PaywallBenefit? lead;
-  final String badge;
-  final ValueListenable<double> clock;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final line = lead?.line;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(
         children: [
           Expanded(
@@ -396,12 +351,12 @@ class _LockedRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  lead?.title ?? badge,
+                  title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.small(
                     colors.ink,
-                    fontSize: 15,
+                    fontSize: 16,
                   ).copyWith(fontWeight: FontWeight.w700, height: 1.25),
                 ),
                 if (line != null)
@@ -410,25 +365,61 @@ class _LockedRow extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.small(
-                      colors.ink3,
-                      fontSize: 12.5,
-                    ).copyWith(height: 1.3),
+                      colors.ink2,
+                      fontSize: 13,
+                    ).copyWith(fontWeight: FontWeight.w600, height: 1.3),
                   ),
               ],
             ),
           ),
           const SizedBox(width: Spacing.s3),
-          // The shake is a motion. It starts and ends upright.
-          ValueListenableBuilder<double>(
-            valueListenable: clock,
-            builder: (context, t, child) {
-              final shake = SheetMotion.lockedShake(t);
-              return Transform.translate(
-                offset: Offset(4 * shake, 0),
-                child: Transform.rotate(angle: 0.09 * shake, child: child),
-              );
-            },
-            child: ProBadge(label: badge),
+          // A pop as the limit lifts. It starts and ends at its own size.
+          Transform.scale(
+            scale: 1 + 0.14 * 4 * proof * (1 - proof),
+            child: isSwitch
+                ? AppSwitch(value: isLifted)
+                : _LockBadge(label: badge, isOpen: isLifted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The product's badge on a locked row: a lock, then a check once the
+/// limit has lifted.
+class _LockBadge extends StatelessWidget {
+  const _LockBadge({required this.label, required this.isOpen});
+
+  final String label;
+  final bool isOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: colors.yellow,
+        borderRadius: BorderRadius.circular(Radii.full),
+        border: Border.all(color: colors.inkFixed, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppGlyph(
+            isOpen ? GlyphType.check : GlyphType.lock,
+            size: 13,
+            color: colors.inkFixed,
+          ),
+          const SizedBox(width: Spacing.s1),
+          Text(
+            label.toUpperCase(),
+            style: AppTypography.small(colors.inkFixed, fontSize: 11).copyWith(
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              height: 1.2,
+            ),
           ),
         ],
       ),
