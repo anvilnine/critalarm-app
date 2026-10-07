@@ -182,18 +182,23 @@ class _StepRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // The number sits in a fixed circle, so its text stops growing
+            // at the chrome limit instead of spilling out of it.
             ExcludeSemantics(
-              child: Container(
-                width: 26,
-                height: 26,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: colors.panel,
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  '$number',
-                  style: AppTypography.monoBold(colors.onPanel, fontSize: 13),
+              child: MediaQuery.withClampedTextScaling(
+                maxScaleFactor: kChromeMaxTextScale,
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colors.panel,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '$number',
+                    style: AppTypography.monoBold(colors.onPanel, fontSize: 13),
+                  ),
                 ),
               ),
             ),
