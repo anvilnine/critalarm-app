@@ -11,7 +11,6 @@ import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
 import 'package:critalarm/design_system/bar_backing.dart';
-import 'package:critalarm/design_system/edge_effect.dart';
 import 'package:critalarm/design_system/widgets/progressive_blur.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -410,8 +409,8 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
               right: 0,
               child: scopedTop && widget.topBar != null
                   // At rest this is the quiet edge blur every screen has.
-                  // Once a row is under the bar the blur gets as strong as
-                  // the config says and holds that strength under the bar.
+                  // Once a row is under the bar the same blur reaches a
+                  // little further and gets stronger at the screen edge.
                   ? ValueListenableBuilder<double>(
                       valueListenable: _scrolledUnderTop,
                       builder: (context, amount, _) => _BarBlur(
@@ -486,7 +485,6 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                   amount: amount,
                   bar: topInset,
                   isTop: true,
-                  canBlur: widget.withEdgeBlur,
                 ),
               ),
             ),
@@ -582,7 +580,6 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                               amount: amount,
                               bar: bar,
                               isTop: false,
-                              canBlur: widget.withEdgeBlur,
                             ),
                           ],
                         );
@@ -818,14 +815,15 @@ class _BarBacking extends StatelessWidget {
 }
 
 /// The blur behind a bar that takes its backing from an
-/// [AppBarBackingScope]: the progressive blur, as strong as [style] says,
-/// held at that strength for the height of the [bar] and easing off over
-/// the fade length past it.
+/// [AppBarBackingScope]: the progressive blur over the height of the [bar]
+/// plus the fade length. It is nothing at the inner edge of that zone and
+/// rises smoothly to the strength [style] says only at the edge of the
+/// screen, with no flat part unless the style has a plateau.
 ///
-/// [amount] is how far a row is under the bar, 0 to 1, and scales the
-/// strength. With no row there the top edge keeps the quiet blur every
-/// screen has, and the bottom draws nothing, so a screen at rest is what it
-/// was.
+/// [amount] is how far a row is under the bar, 0 to 1. With no row there
+/// the top edge is the quiet blur every screen has, and it grows from that
+/// into the configured one as the row goes under. The bottom draws nothing
+/// at rest. A screen at rest is what it was.
 class _BarBlur extends StatelessWidget {
   const _BarBlur({
     required this.style,
@@ -841,32 +839,38 @@ class _BarBlur extends StatelessWidget {
   final double bar;
   final bool isTop;
 
+  /// How far the quiet top blur runs past the bar.
+  static const double _quietRun = 16;
+
   @override
   Widget build(BuildContext context) {
     if (amount <= 0 || !style.mode.blurs) {
       if (!isTop) return const SizedBox.shrink();
       return SizedBox(
-        height: bar + 16,
-        child: ProgressiveBlurEdge(height: bar + 16, isTop: true),
+        height: bar + _quietRun,
+        child: ProgressiveBlurEdge(height: bar + _quietRun, isTop: true),
       );
     }
-    final height = bar + style.fadeLength;
+    // The top starts from the quiet blur that is already there, so nothing
+    // jumps on the first pixel of scroll. The bottom starts from nothing.
+    final fromSigma = isTop ? ProgressiveBlurEdge.quietSigma : 0.0;
+    final fromRun = isTop ? _quietRun : style.fadeLength;
+    final height = bar + fromRun + (style.fadeLength - fromRun) * amount;
     return SizedBox(
       height: height,
       width: double.infinity,
       child: ProgressiveBlurEdge(
         height: height,
         isTop: isTop,
-        maxSigma: style.blurSigma * amount,
-        plateau: bar,
+        maxSigma: fromSigma + (style.blurSigma - fromSigma) * amount,
+        plateau: height * style.plateau * amount,
       ),
     );
   }
 }
 
-/// The colour over the blur behind a bar: a fade of the canvas colour that
-/// is strongest under the [bar] and gone a fade length past it, or the solid
-/// band when the mode asks for one.
+/// The colour over the blur behind a bar, for a mode that has one: a fade
+/// of the canvas colour on the same ramp as the blur, or the solid band.
 ///
 /// A null [style] is a screen's own backing, which is the solid band.
 class _BarTint extends StatelessWidget {
@@ -876,7 +880,6 @@ class _BarTint extends StatelessWidget {
     required this.amount,
     required this.bar,
     required this.isTop,
-    required this.canBlur,
   });
 
   final BarBackingStyle? style;
@@ -884,9 +887,6 @@ class _BarTint extends StatelessWidget {
   final double amount;
   final double bar;
   final bool isTop;
-
-  /// Whether the screen draws the edge blur at all.
-  final bool canBlur;
 
   @override
   Widget build(BuildContext context) {
@@ -897,69 +897,53 @@ class _BarTint extends StatelessWidget {
         child: _BarBacking(color: color, solid: bar, isTop: isTop),
       );
     }
-    if (amount <= 0 || style.mode == BarBackingMode.none) {
-      return const SizedBox.shrink();
-    }
-    final isPortrait =
-        MediaQuery.orientationOf(context) == Orientation.portrait;
-    return ValueListenableBuilder<EdgeEffect>(
-      valueListenable: appEdgeEffect,
-      builder: (context, effect, _) {
-        // The same test the blur makes before it draws. Where it draws
-        // nothing, the fade has to do the work on its own.
-        final blurs =
-            canBlur &&
-            isPortrait &&
-            (effect == EdgeEffect.sliceBlur ||
-                (effect == EdgeEffect.shaderBlur && edgeBlurProgram != null));
-        final peak = barBackingGradientPeak(style, blurs: blurs) * amount;
-        if (peak <= 0) return const SizedBox.shrink();
-        return _BarFade(
-          color: color,
-          peak: peak,
-          bar: bar,
-          fade: style.fadeLength,
-          isTop: isTop,
-        );
-      },
+    final peak = style.gradientPeak * amount;
+    if (!style.mode.fadesCanvas || peak <= 0) return const SizedBox.shrink();
+    return _BarFade(
+      color: color,
+      peak: peak,
+      height: bar + style.fadeLength,
+      plateau: style.plateau,
+      isTop: isTop,
     );
   }
 }
 
-/// The canvas colour at [peak] opacity for the height of the [bar], easing
-/// to nothing over [fade] past it. The curve is smoothstep, flat at both
-/// ends, so the fade has no line where it starts or stops.
+/// The canvas colour over a zone [height] tall: clear at the inner edge and
+/// rising smoothly across the whole zone to [peak] opacity at the edge of
+/// the screen. See [barBackingRamp].
 class _BarFade extends StatelessWidget {
   const _BarFade({
     required this.color,
     required this.peak,
-    required this.bar,
-    required this.fade,
+    required this.height,
+    required this.plateau,
     required this.isTop,
   });
 
   final Color color;
   final double peak;
-  final double bar;
-  final double fade;
+  final double height;
+  final double plateau;
   final bool isTop;
 
   /// Enough stops that the ramp reads as one curve, not as bands.
-  static const int _steps = 16;
+  static const int _steps = 24;
 
   @override
   Widget build(BuildContext context) {
-    final height = bar + fade;
     if (height <= 0) return const SizedBox.shrink();
-    // Along the strip from the edge of the display: full for the bar, then
-    // the curve.
-    final hold = bar / height;
-    final colors = <Color>[color.withValues(alpha: peak)];
-    final stops = <double>[0];
+    // Stops run from the edge of the screen to the inner edge.
+    final colors = <Color>[];
+    final stops = <double>[];
     for (var i = 0; i <= _steps; i++) {
-      final t = i / _steps;
-      colors.add(color.withValues(alpha: peak * (1 - t * t * (3 - 2 * t))));
-      stops.add(hold + (1 - hold) * t);
+      final fromScreenEdge = i / _steps;
+      colors.add(
+        color.withValues(
+          alpha: peak * barBackingRamp(1 - fromScreenEdge, plateau: plateau),
+        ),
+      );
+      stops.add(fromScreenEdge);
     }
     return IgnorePointer(
       child: SizedBox(

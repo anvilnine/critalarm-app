@@ -32,10 +32,9 @@ class ProgressiveBlurEdge extends StatelessWidget {
   /// blur stronger. It never adds a blur pass or a slice.
   final double maxSigma;
 
-  /// How much of [height], measured from the screen edge, holds the full
-  /// blur before it starts to ease off. For an edge with a bar over it: the
-  /// bar's own height, so a row is as soft at the inner edge of the bar as
-  /// at the edge of the screen.
+  /// How much of [height], in logical pixels from the screen edge, holds
+  /// the full blur before it starts to ease off. 0, the default, is fully
+  /// progressive: the blur is full only at the screen edge.
   final double plateau;
 
   /// The blur of an edge with nothing to hide. Kept low so the effect stays

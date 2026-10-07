@@ -46,16 +46,18 @@ class BarBackingStyle {
     required double blurSigma,
     required double fadeLength,
     required double gradientPeak,
+    double plateau = 0,
   }) : blurSigma = blurSigma.clamp(0, maxBlurSigma).toDouble(),
        fadeLength = fadeLength.clamp(0, maxFadeLength).toDouble(),
-       gradientPeak = gradientPeak.clamp(0, 1).toDouble();
+       gradientPeak = gradientPeak.clamp(0, 1).toDouble(),
+       plateau = plateau.clamp(0, 1).toDouble();
 
   const BarBackingStyle._({
     required this.mode,
     required this.blurSigma,
     required this.fadeLength,
     required this.gradientPeak,
-  });
+  }) : plateau = 0;
 
   /// Reads a stored style. Anything missing or of the wrong kind takes its
   /// value from [fallback].
@@ -71,6 +73,7 @@ class BarBackingStyle {
       blurSigma: number('blur', fallback.blurSigma),
       fadeLength: number('fade', fallback.fadeLength),
       gradientPeak: number('peak', fallback.gradientPeak),
+      plateau: number('plateau', fallback.plateau),
     );
   }
 
@@ -82,27 +85,37 @@ class BarBackingStyle {
 
   final BarBackingMode mode;
 
-  /// The blur right at the bar, as a sigma. It is the strength of the one
-  /// blur the edge draws: a larger number never adds a blur layer.
+  /// The blur at the edge of the screen, as a sigma. The blur is nothing
+  /// where a row comes out from under the effect and rises smoothly to this
+  /// only at the screen edge. It is the strength of the one blur the edge
+  /// draws: a larger number never adds a blur layer.
   final double blurSigma;
 
-  /// How far past the bar the effect runs before it is gone.
+  /// How far past the bar the effect starts. The effect runs over the bar's
+  /// own height plus this, and the ramp spans all of it.
   final double fadeLength;
 
-  /// How opaque the canvas colour is at the bar, 0 to 1. It always falls to
-  /// nothing over [fadeLength] on a smooth curve.
+  /// How opaque the canvas colour is at the edge of the screen, 0 to 1. Like
+  /// the blur it is nothing at the inner edge and rises smoothly across the
+  /// whole zone.
   final double gradientPeak;
+
+  /// How much of the zone, measured from the screen edge, holds the full
+  /// strength, 0 to 1. 0 is fully progressive: no part of the zone is flat.
+  final double plateau;
 
   BarBackingStyle copyWith({
     BarBackingMode? mode,
     double? blurSigma,
     double? fadeLength,
     double? gradientPeak,
+    double? plateau,
   }) => BarBackingStyle(
     mode: mode ?? this.mode,
     blurSigma: blurSigma ?? this.blurSigma,
     fadeLength: fadeLength ?? this.fadeLength,
     gradientPeak: gradientPeak ?? this.gradientPeak,
+    plateau: plateau ?? this.plateau,
   );
 
   Map<String, Object> toJson() => {
@@ -110,6 +123,7 @@ class BarBackingStyle {
     'blur': blurSigma,
     'fade': fadeLength,
     'peak': gradientPeak,
+    'plateau': plateau,
   };
 
   @override
@@ -118,15 +132,17 @@ class BarBackingStyle {
       mode == other.mode &&
       blurSigma == other.blurSigma &&
       fadeLength == other.fadeLength &&
-      gradientPeak == other.gradientPeak;
+      gradientPeak == other.gradientPeak &&
+      plateau == other.plateau;
 
   @override
-  int get hashCode => Object.hash(mode, blurSigma, fadeLength, gradientPeak);
+  int get hashCode =>
+      Object.hash(mode, blurSigma, fadeLength, gradientPeak, plateau);
 
   @override
   String toString() =>
       'BarBackingStyle(${mode.key}, blur $blurSigma, fade $fadeLength, '
-      'peak $gradientPeak)';
+      'peak $gradientPeak, plateau $plateau)';
 }
 
 /// How the top bar and the pinned bottom bar are backed.
@@ -151,22 +167,24 @@ class BarBackingConfig {
     );
   }
 
-  /// What every build ships with. A blur well stronger than the quiet edge
-  /// blur (which is 4), under a fade of the canvas colour that stays well
-  /// short of solid: a row under a bar is a soft smear right at the bar and
-  /// sharp again a short way past it.
+  /// What every build ships with: the progressive blur and nothing over
+  /// it. It is about twice as strong at the screen edge as the quiet edge
+  /// blur (which is 4), over a longer zone, so it rises about as gently. It
+  /// starts at nothing a short way past the bar and gets steadily softer
+  /// towards the edge of the screen. The gradient peak is only what the
+  /// gradient modes start from in Developer options.
   static const BarBackingConfig defaults = BarBackingConfig(
     top: BarBackingStyle._(
-      mode: BarBackingMode.blurAndGradient,
-      blurSigma: 14,
-      fadeLength: 28,
-      gradientPeak: 0.6,
+      mode: BarBackingMode.blur,
+      blurSigma: 8,
+      fadeLength: 48,
+      gradientPeak: 0.3,
     ),
     bottom: BarBackingStyle._(
-      mode: BarBackingMode.blurAndGradient,
-      blurSigma: 16,
-      fadeLength: 28,
-      gradientPeak: 0.7,
+      mode: BarBackingMode.blur,
+      blurSigma: 9,
+      fadeLength: 40,
+      gradientPeak: 0.3,
     ),
   );
 
@@ -191,27 +209,19 @@ class BarBackingConfig {
   String toString() => 'BarBackingConfig(top: $top, bottom: $bottom)';
 }
 
-/// The least opaque the canvas fade is where a mode that blurs cannot blur:
-/// a phone that draws no edge blur, or any phone held sideways. Without the
-/// blur under it a light fade leaves the row behind a button readable.
-const double barBackingPeakWithoutBlur = 0.9;
-
-/// The canvas fade's opacity at the bar for [style], given whether the blur
-/// under it is really drawn.
-double barBackingGradientPeak(BarBackingStyle style, {required bool blurs}) {
-  switch (style.mode) {
-    case BarBackingMode.gradient:
-      return style.gradientPeak;
-    case BarBackingMode.blurAndGradient:
-      return blurs || style.gradientPeak > barBackingPeakWithoutBlur
-          ? style.gradientPeak
-          : barBackingPeakWithoutBlur;
-    case BarBackingMode.blur:
-      return blurs ? 0 : barBackingPeakWithoutBlur;
-    case BarBackingMode.solid:
-    case BarBackingMode.none:
-      return 0;
-  }
+/// How strong the effect is at one point of its zone, 0 to 1.
+///
+/// [position] runs from 0 at the inner edge, where a row comes out from
+/// under the effect, to 1 at the edge of the screen. The curve is smoothstep
+/// across the whole zone: nothing at the inner edge, full only at the screen
+/// edge, flat at both ends so there is no line where it starts. It is the
+/// curve the edge blur has always had. [plateau] is the part of the zone at
+/// the screen edge that holds full strength, and 0 leaves no flat part.
+double barBackingRamp(double position, {double plateau = 0}) {
+  final hold = plateau.clamp(0.0, 1.0);
+  if (hold >= 1) return 1;
+  final t = (position / (1 - hold)).clamp(0.0, 1.0);
+  return t * t * (3 - 2 * t);
 }
 
 /// The config every screen draws with. It holds [BarBackingConfig.defaults]
