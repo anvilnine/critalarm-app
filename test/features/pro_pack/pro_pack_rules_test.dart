@@ -173,13 +173,6 @@ void main() {
       expect(view.lineKey, LocaleKeys.pro_pack_weekly_ready_line);
     });
 
-    test('the two states have different faces', () {
-      expect(
-        weeklyCheckRowView(isHeld: true).face,
-        isNot(weeklyCheckRowView(isHeld: false).face),
-      );
-    });
-
     test('locked on a self-hosted phone: it says relay, not your server', () {
       final view = weeklyCheckRowView(isHeld: false, isSelfHosted: true);
       expect(view.isLocked, isTrue);

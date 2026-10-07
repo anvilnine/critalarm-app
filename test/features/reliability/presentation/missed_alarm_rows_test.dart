@@ -1,4 +1,3 @@
-import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/features/in_app_notices/presentation/missed_alarm_notice_view.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
@@ -112,10 +111,10 @@ void main() {
       );
     });
 
-    test('has no button and a calm face', () {
+    test('has no button and no face', () {
       expect(rang.fix, isNull);
       expect(reliabilityClearLabelKey(rang.fix), isNull);
-      expect(reliabilityRowFace(rang), FaceState.content);
+      expect(reliabilityRowFace(rang), isNull);
     });
   });
 
@@ -146,11 +145,11 @@ void main() {
     );
   });
 
-  test('the row shows the face Home shows for the same reason', () {
+  test('the row wears the look face whatever the reason', () {
     for (final reason in needsLook) {
       expect(
         reliabilityRowFace(missed(reason)),
-        missedAlarmFace(reason),
+        reliabilityStateFace(ReliabilityState.needsLook),
         reason: reason.name,
       );
     }
