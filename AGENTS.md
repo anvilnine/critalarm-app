@@ -813,6 +813,18 @@ native handlers.
 - The check shows nothing: no notification, no sound, no Live Activity, no
   alarm. It writes one preference, `weekly_check.native`, which the incident
   path never reads. A receipt gets three tries and is then dropped.
+- The push callback only parses and hands off. Android does the rest on
+  `WeeklyCheckResponder`'s own single thread and in the job. iPhone does it
+  on `WeeklyCheckResponder.queue`, a serial queue. Every change to the
+  record goes through that thread or queue. Nothing the incident path uses
+  is held. On iPhone the fetch completion handler is called once, when the
+  receipt work ends or after `bound`.
+- On Android a stop belongs to one run of one job (`CheckReceiptJobs`),
+  never to the service object, which the system reuses.
+- The receipt carries `dv_`, so it goes to an https relay only. A debug
+  build may also reach `127.0.0.1`, `localhost` and `10.0.2.2` over http
+  (`PlainHttpRelays` in `src/debug`, `plainHttpHosts` under `#if DEBUG`).
+  With any other http relay the arrival is recorded and nothing is sent.
 - `check_id` is in the push and nowhere else. It is never logged and never
   written to disk.
 - The receipt goes to the relay in the saved session with the device's own
@@ -828,7 +840,9 @@ native handlers.
   this phone, not that server.
 - One missed round changes the row and nothing else. Home shows one notice
   at two misses in a row, or when the phone's own clock passes
-  `notice_after` with no check received since (`WeeklyCheckNoticeRule`). It
+  `notice_after` with no check received since (`WeeklyCheckNoticeRule`). A
+  check that arrived with no receipt answer ends only its own window: the
+  phone then counts two windows of 11 days from that arrival. It
   is `InAppNoticeType.weeklyCheck`, goes through `SetupGate`, and after it is
   closed it comes back only for a later run of misses.
 - The list of rounds is its own page (`AppRoute.weeklyCheckRounds`) and
