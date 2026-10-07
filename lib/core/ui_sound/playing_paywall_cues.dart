@@ -59,36 +59,40 @@ bool paywallCueMayPlay({
 /// - Each cue that plays comes with one light tap, where [haptic] is given.
 final class PlayingPaywallCues implements PaywallCues {
   PlayingPaywallCues({
-    required UiSoundPlayer player,
-    required bool Function() isSwitchOn,
-    required bool Function() isAlarmUp,
+    required this.player,
+    required this.isSwitchOn,
+    required this.isAlarmUp,
     Iterable<Stream<Object?>> alarmStarts = const [],
-    void Function()? haptic,
-  }) : _player = player,
-       _isSwitchOn = isSwitchOn,
-       _isAlarmUp = isAlarmUp,
-       _haptic = haptic {
+    this.haptic,
+  }) {
     for (final starts in alarmStarts) {
-      _subs.add(starts.listen((_) => _player.stop()));
+      _subs.add(starts.listen((_) => player.stop()));
     }
   }
 
-  final UiSoundPlayer _player;
-  final bool Function() _isSwitchOn;
-  final bool Function() _isAlarmUp;
-  final void Function()? _haptic;
+  final UiSoundPlayer player;
+
+  /// The Interface sounds switch, read at every cue.
+  final bool Function() isSwitchOn;
+
+  /// Whether an alarm is under way on this phone, read at every cue.
+  final bool Function() isAlarmUp;
+
+  /// The light tap that goes with a cue. Null where there are no haptics.
+  final void Function()? haptic;
+
   final _subs = <StreamSubscription<Object?>>[];
 
   void _cue(PaywallCueSound sound) {
     final mayPlay = paywallCueMayPlay(
-      isSwitchOn: _isSwitchOn(),
-      isAlarmUp: _isAlarmUp(),
+      isSwitchOn: isSwitchOn(),
+      isAlarmUp: isAlarmUp(),
     );
     if (!mayPlay) return;
     // Not awaited and not held back: the player cuts off whatever is still
     // playing, so a second cue never waits for the first.
-    _player.play(sound.asset);
-    _haptic?.call();
+    player.play(sound.asset);
+    haptic?.call();
   }
 
   @override
