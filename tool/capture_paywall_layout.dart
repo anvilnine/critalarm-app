@@ -14,7 +14,8 @@
 //   --dart-define=OUT=<folder>     where the PNGs go (default build/paywall_shots)
 //   --dart-define=STATE=<status>   a buy state: notOnSale, failed, checking,
 //                                  purchasing, done (default ready)
-//   --dart-define=BENEFITS=all     also list the benefits not in this build
+//   --dart-define=BENEFITS=built   list only the benefits this build has, as a
+//                                  store build does (default: every benefit)
 //   --dart-define=SOURCE=<wire>    what opened the paywall, as a PaywallSource
 //                                  wire name such as history (default direct)
 //   --dart-define=T=<seconds>      let motion run and capture that second,
@@ -22,6 +23,15 @@
 //                                  is stepped a frame at a time, so every
 //                                  frame up to that second is laid out and an
 //                                  overflow on the way fails the capture.
+//   --dart-define=TAP=<x>,<y>      with T: tap that point of the screen at second
+//                                  T, in points from its top left
+//   --dart-define=DRAG=<x>,<y>,<x>,<y>  with T: drag from the first point to
+//                                  the second at second T, over a fifth of a
+//                                  second, and let go
+//   --dart-define=HELD=true        with DRAG: capture with the finger still
+//                                  down at the end of the drag
+//   --dart-define=THEN=<seconds>   with TAP or DRAG: let this much more time
+//                                  run before the capture
 //
 // A capture fails when a layout overflows, when the close cross or the button
 // is off screen, or when anything scrolls at the default text size.
@@ -74,6 +84,43 @@ const _t = String.fromEnvironment('T');
 const _sourceKey = String.fromEnvironment('SOURCE');
 const _previews = String.fromEnvironment('PREVIEWS');
 const _sizes = String.fromEnvironment('SIZES');
+const _tap = String.fromEnvironment('TAP');
+const _drag = String.fromEnvironment('DRAG');
+const _held = bool.fromEnvironment('HELD');
+const _then = String.fromEnvironment('THEN');
+
+List<double> _numbers(String text) => [
+  for (final part in text.split(',')) ?double.tryParse(part.trim()),
+];
+
+/// Plays the touch asked for with TAP or DRAG, then lets THEN seconds run.
+/// Returns the finger when HELD keeps it down, for the caller to lift.
+Future<TestGesture?> _touch(WidgetTester tester) async {
+  TestGesture? finger;
+  final tap = _numbers(_tap);
+  final drag = _numbers(_drag);
+  if (tap.length == 2) {
+    await tester.tapAt(Offset(tap[0], tap[1]));
+    await tester.pump();
+  } else if (drag.length == 4) {
+    final from = Offset(drag[0], drag[1]);
+    final to = Offset(drag[2], drag[3]);
+    finger = await tester.startGesture(from);
+    const steps = 12;
+    for (var i = 1; i <= steps; i++) {
+      await finger.moveTo(Offset.lerp(from, to, i / steps)!);
+      await tester.pump(_frame);
+    }
+    if (!_held) {
+      await finger.up();
+      finger = null;
+      await tester.pump();
+    }
+  }
+  final then = double.tryParse(_then);
+  if (then != null && then > 0) await _stepTo(tester, then);
+  return finger;
+}
 
 /// One frame of the stepped clock.
 const _frame = Duration(milliseconds: 16);
@@ -301,6 +348,10 @@ void main() {
           if (_benefits.isNotEmpty) 'benefits-$_benefits',
           if (_sourceKey.isNotEmpty) 'source-$_sourceKey',
           if (second != null) 't$_t',
+          if (_tap.isNotEmpty) 'tap-${_tap.replaceAll(',', '-')}',
+          if (_drag.isNotEmpty) 'drag-${_drag.replaceAll(',', '-')}',
+          if (_held) 'held',
+          if (_then.isNotEmpty) 'then$_then',
         ].join('_');
 
         testWidgets('capture $name', (tester) async {
@@ -362,6 +413,7 @@ void main() {
             } else {
               await _stepTo(tester, second);
             }
+            final finger = await _touch(tester);
 
             final screen = Offset.zero & size;
             bool onScreen(Finder finder) =>
@@ -395,6 +447,7 @@ void main() {
               print('     buy block ${height.toStringAsFixed(1)} points');
             }
 
+            await finger?.up();
             expect(problems, isEmpty, reason: problems.join('\n'));
           } finally {
             debugDisableShadows = true;
