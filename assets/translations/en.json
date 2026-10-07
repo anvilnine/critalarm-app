@@ -1146,7 +1146,7 @@
       "step_3": "Turn on Allow auto-launch.",
       "step_4": "Realme: Settings, Battery, Power saving settings, App battery management. OxygenOS 11 or older: Settings, Battery, Battery optimization, choose Don't optimize.",
       "note_versions": "These steps are for ColorOS 11 to 14 and OxygenOS 12 and up.",
-      "note_realme": "Realme: Settings, Battery, App battery management.",
+      "note_realme": "Realme: Settings, Battery, Power saving settings, App battery management.",
       "note_oxygen": "OxygenOS 11 or older: Settings, Battery, Battery optimization, Don't optimize."
     },
     "huawei": {
