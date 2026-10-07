@@ -16,6 +16,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/proof_paywall_la
 import 'package:critalarm/features/paywall/presentation/layouts/reel_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sentence_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet_paywall_layout.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/wipe_paywall_layout.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -34,6 +35,7 @@ final Map<PaywallLayoutId, PaywallLayoutBuilder> paywallLayoutBuilders = {
   PaywallLayoutId.reel: (_) => const ReelPaywallLayout(),
   PaywallLayoutId.sentence: (_) => const SentencePaywallLayout(),
   PaywallLayoutId.sheet: (_) => const SheetPaywallLayout(),
+  PaywallLayoutId.wipe: (_) => const WipePaywallLayout(),
 };
 
 /// What an id with no layout of its own draws.
