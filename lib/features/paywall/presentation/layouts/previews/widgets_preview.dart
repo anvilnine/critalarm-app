@@ -562,11 +562,20 @@ class _Button extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         Transform.scale(scale: 1 - 0.12 * frame.press, child: capsule),
+        // The finger is wider than a small button. It is drawn over the
+        // button and takes no room, so nothing around the button moves
+        // while it is down.
         if (showsTap)
-          Positioned(
-            child: ExtrasPreviewTap(
-              tap: frame.tap,
-              diameter: height * (showsLabel ? 0.9 : 1.5),
+          Positioned.fill(
+            child: OverflowBox(
+              minWidth: 0,
+              minHeight: 0,
+              maxWidth: double.infinity,
+              maxHeight: double.infinity,
+              child: ExtrasPreviewTap(
+                tap: frame.tap,
+                diameter: height * (showsLabel ? 0.9 : 1.5),
+              ),
             ),
           ),
       ],
