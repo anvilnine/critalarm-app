@@ -139,7 +139,7 @@ void main() {
     expect(next.incidentIds, ['c']);
   });
 
-  test('the "no record" words claim only what was recorded', () {
+  test('the "no alert recorded" words claim only what was recorded', () {
     final strings =
         jsonDecode(File('assets/translations/en.json').readAsStringSync())
             as Map<String, dynamic>;
@@ -151,7 +151,7 @@ void main() {
         (strings['reliability'] as Map<String, dynamic>)['line_missed_no_push']
             as String;
     for (final text in [home, row]) {
-      expect(text, contains('no record'));
+      expect(text, contains('recorded'));
       expect(text, isNot(contains('reached')));
     }
   });
