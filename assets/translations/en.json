@@ -274,7 +274,7 @@
   },
   "onboarding_permissions": {
     "denied_title": "Crit Alarm can't reach you yet",
-    "denied_description": "Turn these on in Settings, or carry on and fix it later in Health.",
+    "denied_description": "Turn these on in Settings, or carry on and fix it later under Will it wake me?",
     "denied_open_settings": "Open Settings",
     "denied_recheck": "Check again",
     "denied_skip": "Continue without this",
@@ -532,8 +532,8 @@
     "account_backup_body": "Sign in to keep your topics safe if you switch or lose your device.",
     "account_backup_button": "Sign in",
     "battery_title": "Battery saver may delay alarms",
-    "battery_body": "Battery optimization is on for Crit Alarm. Your phone can hold a page back to save power. Turn it off to receive alarms without delay. This reminder shows once, and the setting stays on the Health page.",
-    "battery_button": "Open Health",
+    "battery_body": "Battery optimization is on for Crit Alarm. Your phone can hold a page back to save power. Turn it off to receive alarms without delay. This reminder shows once, and the setting stays under Permissions in Settings.",
+    "battery_button": "Fix it",
     "why": "Why?",
     "system_update_title": "Your phone was updated",
     "system_update_body": "Ring a test to check that alarms still ring.",
@@ -872,13 +872,7 @@
     "priorities_row_title": "Priorities",
     "priorities_row_subtitle": "What each priority does on this phone",
     "health_row_title": "Health",
-    "health_row_subtitle_ok": "Everything needed to ring is on",
     "health_row_subtitle_issue": "Full screen alarms are off",
-    "health_issue_notifications": "No page can reach you",
-    "health_issue_full_screen_intent": "A critical page will not wake the screen",
-    "health_issue_battery_optimization": "Battery saver can delay pages",
-    "health_issue_time_sensitive": "iOS may hold pages for your next summary",
-    "health_issue_alarms": "A page cannot ring through silent mode",
     "health_badge_issues": {
       "one": "1 to fix",
       "other": "{} to fix"
