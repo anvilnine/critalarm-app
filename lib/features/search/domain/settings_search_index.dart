@@ -71,7 +71,7 @@ abstract final class SettingsSearchIndex {
     ),
     // The permission rows on the Reliability screen open this screen.
     const SettingsDestination(
-      id: 'health',
+      id: 'permissions',
       routePath: '/settings/permissions',
       titleKey: LocaleKeys.device_permissions_title,
       parentTitleKey: LocaleKeys.reliability_title,
@@ -80,6 +80,8 @@ abstract final class SettingsSearchIndex {
         'notifications',
         'battery',
         'critical alerts',
+        // The screen used to be called Health. Never shown, so someone who
+        // remembers the old name still finds it.
         'health',
       ],
     ),
