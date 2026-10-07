@@ -141,4 +141,11 @@ abstract class InAppNoticeRepository {
   /// shown. Any other account sees nothing.
   String? getProEndedSheetDueFor();
   Future<void> setProEndedSheetDueFor(String? accountId);
+
+  /// The OS major version the "your phone was updated" notice was closed for
+  /// (dismissed, or its test button tapped). While the phone still runs that
+  /// version the notice stays gone. A later update is a new version and can
+  /// show it once more.
+  int? getSystemUpdateNoticeDismissedFor();
+  Future<void> dismissSystemUpdateNotice(int osMajor);
 }

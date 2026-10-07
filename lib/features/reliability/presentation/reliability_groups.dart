@@ -1,0 +1,16 @@
+import 'package:critalarm/features/reliability/presentation/cubits/reliability_snapshot.dart';
+import 'package:flutter/widgets.dart';
+
+/// Draws one group of rows under the free ones on the Reliability screen,
+/// with its own header if it wants one.
+typedef ReliabilityGroupBuilder =
+    Widget Function(BuildContext context, ReliabilitySnapshot snapshot);
+
+/// The groups the screen draws after the rows built from the checks, in this
+/// order. Empty today.
+///
+/// To add a group, append a builder here. The screen's layout code does not
+/// change: it draws each group in the list, with the same gap between them.
+/// A single row that comes from a new check does not need a group at all.
+/// See `ReliabilityScreen`.
+const List<ReliabilityGroupBuilder> reliabilityExtraGroups = [];

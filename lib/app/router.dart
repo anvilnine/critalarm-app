@@ -26,6 +26,7 @@ import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.da
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/pro_welcome_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
+import 'package:critalarm/features/reliability/presentation/reliability_screen.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_debug_screen.dart';
@@ -77,6 +78,7 @@ abstract final class AppRoute {
   static const settings = 'settings';
   static const settingsDisconnected = 'settingsDisconnected';
   static const devicePermissions = 'devicePermissions';
+  static const reliability = 'reliability';
   static const soundPicker = 'soundPicker';
   static const soundCrop = 'soundCrop';
   static const soundRecord = 'soundRecord';
@@ -362,6 +364,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     key: state.pageKey,
                     opaque: true,
                     child: const DevicePermissionsScreen(),
+                  ),
+                ),
+                GoRoute(
+                  path: 'reliability',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.reliability,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    child: const ReliabilityScreen(),
                   ),
                 ),
                 GoRoute(
