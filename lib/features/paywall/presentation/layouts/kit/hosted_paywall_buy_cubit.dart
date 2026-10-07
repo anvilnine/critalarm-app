@@ -114,15 +114,17 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
   Future<void> buy() async {
     final package = _packages[state.selectedId];
     if (!state.canBuy || package == null) return;
+    _pausedKey = _confirmingKey;
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
     final result = await _purchasePackage(package);
     await result.fold(
       (_) => _afterStore(PaywallStoreResult.done, afterPurchase: true),
       (failure) => _afterStore(
-        // The repository words a cancel with this one string.
-        failure.message == LocaleKeys.purchase_errors_purchase_cancelled.tr()
-            ? PaywallStoreResult.cancelled
-            : PaywallStoreResult.problem,
+        storeResultOfPurchaseFailure(
+          failure.message,
+          cancelledText: LocaleKeys.purchase_errors_purchase_cancelled.tr(),
+          pendingText: LocaleKeys.purchase_errors_payment_pending.tr(),
+        ),
         afterPurchase: true,
       ),
     );
@@ -131,6 +133,7 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
   @override
   Future<void> restore() async {
     if (!state.canRestore) return;
+    _pausedKey = _confirmingKey;
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
     final result = await _restorePurchases(const NoParams());
     await result.fold(
@@ -161,14 +164,23 @@ class HostedPaywallBuyCubit extends PaywallBuyCubit {
     await _confirm(afterPurchase: _afterPurchase);
   }
 
-  static const String _pausedKey =
+  static const String _confirmingKey =
       LocaleKeys.paywall_feedback_purchase_completed;
+
+  /// The line a paused check shows. After a payment the store is holding
+  /// it stays the pending line, because no payment went through.
+  String _pausedKey = _confirmingKey;
 
   Future<void> _afterStore(
     PaywallStoreResult result, {
     required bool afterPurchase,
   }) async {
     if (isClosed) return;
+    if (result == PaywallStoreResult.pending) {
+      // Check again reads the plan as it does after any purchase.
+      _afterPurchase = afterPurchase;
+      _pausedKey = LocaleKeys.purchase_errors_payment_pending;
+    }
     show(afterStore(state, result));
     if (result == PaywallStoreResult.done) {
       await _confirm(afterPurchase: afterPurchase);

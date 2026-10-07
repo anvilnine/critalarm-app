@@ -17,7 +17,8 @@ enum PaywallBuyStatus {
   purchasing,
 
   /// The store finished and the app is confirming it. For Pro that is the
-  /// relay, which has the only say on whether the pack is held.
+  /// relay, which has the only say on whether the pack is held. Paused, it
+  /// is also where a payment the store is holding rests.
   checking,
 
   /// This install has the product.

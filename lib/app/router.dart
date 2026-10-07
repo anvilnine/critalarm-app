@@ -545,16 +545,19 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                         child: const BarBackingLabScreen(),
                       ),
                     ),
-                    GoRoute(
-                      path: 'paywall-layouts',
-                      parentNavigatorKey: _rootKey,
-                      name: AppRoute.paywallLayoutsDev,
-                      pageBuilder: (context, state) => AmbientPage(
-                        key: state.pageKey,
-                        opaque: true,
-                        child: const PaywallLayoutsDevScreen(),
+                    // The same condition as the layout routes it lists, so
+                    // a store build holds neither.
+                    if (_hasPaywallLayoutRoute)
+                      GoRoute(
+                        path: 'paywall-layouts',
+                        parentNavigatorKey: _rootKey,
+                        name: AppRoute.paywallLayoutsDev,
+                        pageBuilder: (context, state) => AmbientPage(
+                          key: state.pageKey,
+                          opaque: true,
+                          child: const PaywallLayoutsDevScreen(),
+                        ),
                       ),
-                    ),
                     GoRoute(
                       path: 'dialog-sheet',
                       parentNavigatorKey: _rootKey,

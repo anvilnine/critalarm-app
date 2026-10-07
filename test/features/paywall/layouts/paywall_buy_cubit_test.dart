@@ -241,6 +241,83 @@ void main() {
       expect(refreshes, 0);
     });
 
+    test('a payment the store is holding shows the pending line with Check '
+        'again, and is never a failure', () async {
+      store.purchaseFailure = Failure.unexpected(
+        message: LocaleKeys.purchase_errors_payment_pending.tr(),
+      );
+      final cubit = build();
+      await cubit.load();
+      final statuses = await seen(cubit, cubit.buy);
+      expect(statuses, [
+        PaywallBuyStatus.purchasing,
+        PaywallBuyStatus.checking,
+      ]);
+      expect(cubit.state.isPaused, isTrue);
+      expect(
+        cubit.state.messageKey,
+        LocaleKeys.purchase_errors_payment_pending,
+      );
+      expect(cubit.state.canBuy, isFalse);
+      expect(cubit.state.canRestore, isTrue);
+      // Nothing was read: the store has not taken the money yet.
+      expect(refreshes, 0);
+
+      // The button does not go back to the store.
+      await cubit.buy();
+      expect(store.purchased, [r'$rc_annual']);
+    });
+
+    test('check again on a held payment reads the plan, and still says '
+        'pending while nobody confirms it', () async {
+      store.purchaseFailure = Failure.unexpected(
+        message: LocaleKeys.purchase_errors_payment_pending.tr(),
+      );
+      final cubit = build();
+      await cubit.load();
+      await cubit.buy();
+
+      final statuses = await seen(cubit, cubit.checkAgain);
+      expect(statuses, isNot(contains(PaywallBuyStatus.failed)));
+      expect(refreshes, HostedPaywallBuyCubit.defaultConfirmWaits.length);
+      expect(cubit.state.status, PaywallBuyStatus.checking);
+      expect(cubit.state.isPaused, isTrue);
+      // Never the line that says the payment went through.
+      expect(
+        cubit.state.messageKey,
+        LocaleKeys.purchase_errors_payment_pending,
+      );
+      expect(store.purchased, hasLength(1));
+
+      serverSaysPaid = [true];
+      await cubit.checkAgain();
+      expect(cubit.state.status, PaywallBuyStatus.done);
+    });
+
+    test('a purchase after a held one pauses on its own line again', () async {
+      store.purchaseFailure = Failure.unexpected(
+        message: LocaleKeys.purchase_errors_payment_pending.tr(),
+      );
+      final cubit = build();
+      await cubit.load();
+      await cubit.buy();
+      store.restoreFindsHosted = false;
+      await cubit.restore();
+      expect(cubit.state.status, PaywallBuyStatus.ready);
+      expect(
+        cubit.state.messageKey,
+        LocaleKeys.paywall_kit_nothing_to_restore,
+      );
+
+      store.purchaseFailure = null;
+      await cubit.buy();
+      expect(cubit.state.isPaused, isTrue);
+      expect(
+        cubit.state.messageKey,
+        LocaleKeys.paywall_feedback_purchase_completed,
+      );
+    });
+
     test(
       'a store problem is failed with a line, and buy works again',
       () async {
@@ -440,6 +517,19 @@ void main() {
       expect(cubit.state.status, PaywallBuyStatus.failed);
       expect(cubit.state.messageKey, LocaleKeys.paywall_kit_failed);
       expect(api.refreshCalls, 0);
+    });
+
+    // The Pro shop answers done, cancelled or problem. A payment the store
+    // is holding comes back as a problem, so this is what that buyer gets.
+    test('a store problem keeps the purchase written down, so a payment the '
+        'store was only holding is asked about on a later launch', () async {
+      shop.buyResult = ProPackStoreResult.problem;
+      final cubit = build();
+      await cubit.load();
+      await cubit.buy();
+      expect(cubit.state.status, PaywallBuyStatus.failed);
+      expect(cubit.state.isPaused, isFalse);
+      expect(packs.pending, isNotNull);
     });
 
     test('a restore the relay reads as empty: nothing to restore', () async {
