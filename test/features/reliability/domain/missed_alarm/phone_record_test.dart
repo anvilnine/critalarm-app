@@ -27,7 +27,8 @@ void main() {
   /// morning after, with [rows] seen at that read.
   PhoneRecord recordWith(
     List<Object?> rows, {
-    Set<String> rangIds = const {},
+    Set<String> arrivedIds = const {},
+    Set<String> startedIds = const {},
     Set<String> acked = const {},
     int? lostBeforeMs,
   }) => const PhoneRecord()
@@ -35,7 +36,8 @@ void main() {
       .merged(
         PhoneCapture(
           eventRows: rows,
-          rangIds: rangIds,
+          arrivedIds: arrivedIds,
+          startedIds: startedIds,
           acknowledgedHereIds: acked,
           lostBeforeMs: lostBeforeMs,
         ),
@@ -43,22 +45,42 @@ void main() {
       );
 
   group('what the record says about an incident', () {
-    test('an alarm_fired row for it means it rang', () {
+    test('an alarm_fired row is a push that arrived, not a ring', () {
+      // The phone writes the row when it posts the alarm. Nothing in it
+      // says the alarm sounded.
       final record = recordWith([
         received(opened.add(const Duration(seconds: 2))),
         fired(opened.add(const Duration(seconds: 2)), 'inc_1'),
       ]);
       expect(
         record.knowledgeFor(incidentFixture(), everyPushIsLogged: true),
+        const PhoneKnowledge(pushReached: true),
+      );
+    });
+
+    test('an alarm the platform set is an arrival, not a ring', () {
+      final record = recordWith(const [], arrivedIds: {'inc_1'});
+      expect(
+        record.knowledgeFor(incidentFixture(), everyPushIsLogged: false),
+        const PhoneKnowledge(pushReached: true),
+      );
+    });
+
+    test('an alarm the phone saw sounding is "it rang"', () {
+      final record = recordWith(const [], startedIds: {'inc_1'});
+      expect(
+        record.knowledgeFor(incidentFixture(), everyPushIsLogged: true),
         const PhoneKnowledge(rang: true, pushReached: true),
       );
     });
 
-    test('an id the platform reported means it rang', () {
-      final record = recordWith(const [], rangIds: {'inc_1'});
+    test('an arrival on record is never "no push"', () {
+      final record = recordWith(const [], arrivedIds: {'inc_1'});
       expect(
-        record.knowledgeFor(incidentFixture(), everyPushIsLogged: false).rang,
-        isTrue,
+        record
+            .knowledgeFor(incidentFixture(), everyPushIsLogged: true)
+            .silenceMeansNoPush,
+        isFalse,
       );
     });
 
@@ -173,20 +195,6 @@ void main() {
       );
     });
 
-    test('a ring that a setting can hold only proves the push', () {
-      final record = recordWith([
-        fired(opened.add(const Duration(seconds: 2)), 'inc_1'),
-      ]);
-      expect(
-        record.knowledgeFor(
-          incidentFixture(),
-          everyPushIsLogged: true,
-          ringsCanBeHeld: true,
-        ),
-        const PhoneKnowledge(pushReached: true),
-      );
-    });
-
     test('an acknowledgement on this phone is kept', () {
       final record = recordWith(const [], acked: {'inc_1'});
       expect(
@@ -224,11 +232,11 @@ void main() {
       final again = first.merged(
         PhoneCapture(
           eventRows: [fired(opened.add(const Duration(minutes: 9)), 'inc_1')],
-          rangIds: const {'inc_1'},
+          arrivedIds: const {'inc_1'},
         ),
         now: morning.add(const Duration(minutes: 1)),
       );
-      expect(again.rangAtMs['inc_1'], ms(opened));
+      expect(again.arrivedAtMs['inc_1'], ms(opened));
     });
 
     test('anything older than eight days is dropped', () {
@@ -241,7 +249,7 @@ void main() {
             now: opened.add(const Duration(days: 8, hours: 1)),
           );
       expect(record.rows, isEmpty);
-      expect(record.rangAtMs, isEmpty);
+      expect(record.arrivedAtMs, isEmpty);
       // Stamped at the morning read, so it is a few hours younger.
       expect(record.acknowledgedHereAtMs.keys, ['inc_2']);
     });
@@ -255,7 +263,7 @@ void main() {
         null,
       ]);
       expect(record.rows, isEmpty);
-      expect(record.rangAtMs, isEmpty);
+      expect(record.arrivedAtMs, isEmpty);
     });
 
     test('more rows than the cap drops the oldest and moves the start', () {
@@ -279,16 +287,31 @@ void main() {
       );
       final back = PhoneRecord.fromJson(record.toJson());
       expect(back.rows, record.rows);
-      expect(back.rangAtMs, record.rangAtMs);
+      expect(back.arrivedAtMs, record.arrivedAtMs);
       expect(back.acknowledgedHereAtMs, record.acknowledgedHereAtMs);
       expect(back.completeSinceMs, record.completeSinceMs);
       expect(back.lastCaptureMs, record.lastCaptureMs);
     });
 
+    test('what an earlier build stored as "rang" reads back as an arrival', () {
+      final back = PhoneRecord.fromJson(const {
+        'rang': {'inc_1': 5},
+      });
+      expect(back.arrivedAtMs, {'inc_1': 5});
+      expect(back.startedAtMs, isEmpty);
+    });
+
+    test('a sounding alarm is kept apart and reads back', () {
+      final record = recordWith(const [], startedIds: {'inc_1'});
+      final back = PhoneRecord.fromJson(record.toJson());
+      expect(back.startedAtMs.keys, ['inc_1']);
+      expect(back.arrivedAtMs, isEmpty);
+    });
+
     test('a damaged value reads as a record that knows nothing', () {
       expect(PhoneRecord.fromJson('nope').rows, isEmpty);
       expect(
-        PhoneRecord.fromJson(const {'rang': 4, 'rows': 'x'}).rangAtMs,
+        PhoneRecord.fromJson(const {'rang': 4, 'rows': 'x'}).arrivedAtMs,
         isEmpty,
       );
     });
