@@ -406,6 +406,28 @@ void main() {
       }
     });
 
+    test('a server address with a query or a fragment of its own is '
+        'refused', () {
+      for (final url in [
+        'https://alarm.example.com?x=1',
+        'https://alarm.example.com/?x=1',
+        'https://alarm.example.com/base?x=1',
+        'https://alarm.example.com/base?',
+        'https://alarm.example.com#top',
+        'https://alarm.example.com/base#',
+        'http://192.168.1.20:8080/?x=1',
+      ]) {
+        final encoded = Uri.encodeComponent(url);
+        for (final link in [
+          'https://critalarm.app/connect#url=$encoded&token=$_token',
+          'critalarm://connect?url=$encoded&token=$_token',
+        ]) {
+          expect(_parse(link), AppLinkRoute.home, reason: link);
+        }
+        expect(isAllowedServerUrl(Uri.parse(url)), isFalse, reason: url);
+      }
+    });
+
     test('percent-encoded values are decoded', () {
       final link = _connect(
         'https://critalarm.app/connect'
