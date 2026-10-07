@@ -75,6 +75,27 @@ void main() {
     expect(await subject.readArrival(), isNull);
   });
 
+  test('a record with fields of the wrong kind has no such fields', () async {
+    final subject = await store({
+      SharedPrefsWeeklyCheckStore.arrivalKey: jsonEncode({
+        'received_at': 'yesterday',
+        'notice_after': [1],
+        'notice_after_seen_at': null,
+      }),
+    });
+    final arrival = (await subject.readArrival())!;
+    expect(arrival.receivedAt, isNull);
+    expect(arrival.noticeAfter, isNull);
+    expect(arrival.noticeAfterSeenAt, isNull);
+  });
+
+  test('a cut-off record is no record', () async {
+    final subject = await store({
+      SharedPrefsWeeklyCheckStore.arrivalKey: '{"received_at":17',
+    });
+    expect(await subject.readArrival(), isNull);
+  });
+
   test('the close time is kept, and clear forgets everything', () async {
     final subject = await store({
       SharedPrefsWeeklyCheckStore.arrivalKey: jsonEncode({'received_at': 100}),
