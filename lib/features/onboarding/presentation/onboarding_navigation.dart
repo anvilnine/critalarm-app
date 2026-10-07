@@ -10,6 +10,38 @@ bool isOnboardingReplayUri(Uri uri) => uri.queryParameters['demo'] == 'true';
 bool isOnboardingReplay(BuildContext context) =>
     isOnboardingReplayUri(GoRouterState.of(context).uri);
 
+/// Whether [uri] was opened by Back: the user has been on this step before
+/// and came back to it. The step then shows what they chose instead of
+/// moving on by itself.
+bool isOnboardingCameBackUri(Uri uri) => uri.queryParameters['back'] == 'true';
+
+bool isOnboardingCameBack(BuildContext context) =>
+    isOnboardingCameBackUri(GoRouterState.of(context).uri);
+
+/// Where Back opens the step at [route]. The replay flag carries on.
+String onboardingBackLocation(String route, {required bool isReplay}) => Uri(
+  path: route,
+  queryParameters: {'back': 'true', if (isReplay) 'demo': 'true'},
+).toString();
+
+/// Moves the step on screen out of the way, towards the start for a step
+/// forward and towards the end for Back. Completes once it is gone, and at
+/// once when the phone asks for reduced motion.
+///
+/// The setup shell on screen hands its own over with
+/// [attachOnboardingStepLeave], so a step change started from anywhere, a
+/// sheet above the router included, moves the old step out before the new
+/// one comes in.
+typedef OnboardingStepLeave = Future<void> Function({required bool isBack});
+
+OnboardingStepLeave? _leaveStep;
+
+void attachOnboardingStepLeave(OnboardingStepLeave leave) => _leaveStep = leave;
+
+void detachOnboardingStepLeave(OnboardingStepLeave leave) {
+  if (_leaveStep == leave) _leaveStep = null;
+}
+
 /// What the router does once a step is finished.
 enum OnboardingMoveKind {
   /// Nothing. The user left the step while the engine was working.
@@ -110,6 +142,34 @@ Future<void> finishOnboardingStepOn(
     case OnboardingMoveKind.pop:
       router.pop();
     case OnboardingMoveKind.go:
-      router.go(move.location!);
+      final next = move.location!;
+      // Only a move to another setup step has a step to slide out for.
+      if (next.startsWith('/onboarding')) {
+        await _leaveStep?.call(isBack: false);
+      }
+      router.go(next);
   }
+}
+
+/// Back from the step [stepId]: opens the step the flow engine says Back
+/// goes to. Returns false, and moves nowhere, when Back is not offered
+/// there or the user has already gone somewhere else.
+///
+/// On a replay nothing is saved.
+Future<bool> goBackInOnboarding(
+  GoRouter router,
+  String stepId, {
+  required bool isReplay,
+}) async {
+  Uri location() => router.routerDelegate.currentConfiguration.uri;
+  final locationBefore = location();
+  final back = await getIt<OnboardingFlowEngine>().goBack(
+    stepId,
+    isReplay: isReplay,
+  );
+  final route = back?.route;
+  if (route == null || locationBefore != location()) return false;
+  await _leaveStep?.call(isBack: true);
+  router.go(onboardingBackLocation(route, isReplay: isReplay));
+  return true;
 }

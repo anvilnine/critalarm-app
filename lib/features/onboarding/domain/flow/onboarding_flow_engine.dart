@@ -1,4 +1,5 @@
 import 'package:critalarm/core/usecase/usecase.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_back_rule.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_resume.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_source.dart';
@@ -179,6 +180,51 @@ class OnboardingFlowEngine {
     final completed = repository.read().completed;
     if (!completed.contains(stepId)) return;
     await repository.saveCompleted({...completed}..remove(stepId));
+  }
+
+  /// The step Back goes to from [stepId], or null when Back is not offered
+  /// there. `onboardingBackStepFor` holds the rule.
+  ///
+  /// Null once setup is complete: a setup screen opened then is not part of
+  /// a run, and closes back to whatever opened it. On a replay no topic is
+  /// ever made, so Back is offered wherever the rule allows it.
+  Future<String?> backStepFrom(String stepId, {bool isReplay = false}) async {
+    var hasFirstTopic = false;
+    if (!isReplay) {
+      final isComplete =
+          (await getOnboardingCompleted(const NoParams())).getOrNull() ?? false;
+      if (isComplete) return null;
+      hasFirstTopic =
+          repository.read().completed.contains(OnboardingStepId.firstTopic) ||
+          await catalog.isSatisfied(OnboardingStepId.firstTopic);
+    }
+    final flow = isReplay ? chooseFlow() : runningFlow();
+    return onboardingBackStepFor(
+      currentStep: stepId,
+      flowSteps: flow.steps,
+      hasFirstTopic: hasFirstTopic,
+      isAvailable: catalog.isAvailable,
+    );
+  }
+
+  /// The user went back from [stepId]. Returns the step Back goes to, or
+  /// null when Back is not offered there, in which case nothing changes.
+  ///
+  /// The step that was left no longer counts as done, so going forward
+  /// again opens it again. The step gone back to keeps what it had. On a
+  /// replay nothing is saved.
+  Future<OnboardingDestination?> goBack(
+    String stepId, {
+    bool isReplay = false,
+  }) async {
+    final target = await backStepFrom(stepId, isReplay: isReplay);
+    if (target == null) return null;
+    if (!isReplay) await reopenStep(stepId);
+    return _enter(
+      target,
+      isReplay ? chooseFlow() : runningFlow(),
+      isReplay: isReplay,
+    );
   }
 
   /// Places a user who was halfway through setup in a version that saved the

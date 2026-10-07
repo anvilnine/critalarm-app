@@ -20,6 +20,21 @@ void main() {
     expect(h.repository.completed, {'welcome'});
   });
 
+  test('a phone pinned to 2026-10-a keeps running it', () async {
+    final h = EngineHarness(
+      repository: FakeOnboardingFlowRepository(
+        pinned: BundledOnboardingFlows.october2026A,
+        completed: {'welcome', 'how_it_rings'},
+      ),
+    );
+
+    final next = await h.engine.resume();
+
+    expect(next.stepId, 'connect');
+    expect(h.repository.pinned, BundledOnboardingFlows.october2026A);
+    expect(h.engine.runningFlow().id, '2026-10-a');
+  });
+
   test('pins the highest-priority valid source', () async {
     final h = EngineHarness(
       sources: [

@@ -30,6 +30,7 @@ class OnboardingStepEntry {
     this.screen,
     this.requires = const {},
     this.handlesMissingServer = false,
+    this.hasTopBar = true,
     this.isAvailable = _onEveryPhone,
     this.isSatisfied = _onlyOnceCompleted,
   });
@@ -53,6 +54,11 @@ class OnboardingStepEntry {
   /// where it would otherwise put the waiting face or the failure in its
   /// place.
   final bool handlesMissingServer;
+
+  /// False for a screen that draws no top bar of its own, as the intro
+  /// steps do. The shell's tracker sits where a top bar would, so on such a
+  /// step the shell also backs it once the page is scrolled under it.
+  final bool hasTopBar;
 
   /// Whether the step exists on this phone.
   final bool Function(OnboardingPlatform on) isAvailable;
@@ -108,6 +114,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       route: '/onboarding/welcome',
       routeName: 'onboardingWelcome',
       ambientStep: OnboardingAmbientStep.welcome,
+      hasTopBar: false,
       screen: (context, state) => OnboardingWelcomeScreen(
         variant: state.uri.queryParameters.containsKey('v')
             ? WelcomeVariant.fromQuery(state.uri.queryParameters['v'])
@@ -120,6 +127,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       route: '/onboarding/how-it-rings',
       routeName: 'onboardingHowItRings',
       ambientStep: OnboardingAmbientStep.howItRings,
+      hasTopBar: false,
       screen: (context, state) => const OnboardingHowItRingsScreen(),
     ),
     OnboardingStepEntry(
@@ -128,7 +136,9 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       routeName: 'onboardingConnect',
       ambientStep: OnboardingAmbientStep.connect,
       isSatisfied: (facts) => facts.hasConnection(),
-      screen: (context, state) => const OnboardingConnectScreen(),
+      screen: (context, state) => OnboardingConnectScreen(
+        cameBack: isOnboardingCameBackUri(state.uri),
+      ),
     ),
     OnboardingStepEntry(
       id: OnboardingStepId.permissions,
@@ -144,6 +154,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
         initialStep: state.uri.queryParameters['denied'] == 'true'
             ? NotificationPermissionStep.denied
             : NotificationPermissionStep.initial,
+        cameBack: isOnboardingCameBackUri(state.uri),
         replaySkips: OnboardingPermissionsScreen.replaySkipsFrom(state.uri),
       ),
     ),
@@ -189,6 +200,7 @@ class OnboardingStepRegistry implements OnboardingStepCatalog {
       route: '/onboarding/widgets',
       routeName: 'onboardingWidgets',
       ambientStep: OnboardingAmbientStep.widgets,
+      hasTopBar: false,
       isAvailable: _whereWidgetsExist,
       screen: (context, state) => const OnboardingWidgetsScreen(),
     ),

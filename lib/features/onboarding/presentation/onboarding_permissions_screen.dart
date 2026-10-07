@@ -41,6 +41,7 @@ class OnboardingPermissionsScreen extends StatelessWidget {
     this.initialStep = NotificationPermissionStep.initial,
     this.replayForDemo = false,
     this.standalone = false,
+    this.cameBack = false,
     this.replaySkips = 0,
   });
 
@@ -68,6 +69,10 @@ class OnboardingPermissionsScreen extends StatelessWidget {
   /// Not part of onboarding: it asks what is left, then closes.
   final bool standalone;
 
+  /// Opened by Back from a later step. Every step shows again, and one the
+  /// user already allowed shows as allowed, with nothing asked twice.
+  final bool cameBack;
+
   /// Steps a developer replay passes over, so a later step can be opened
   /// directly. Nothing is asked for on the way.
   final int replaySkips;
@@ -78,7 +83,11 @@ class OnboardingPermissionsScreen extends StatelessWidget {
       create: (_) {
         final cubit = getIt<NotificationPermissionsCubit>(
           param1: initialStep,
-          param2: (replayForDemo: replayForDemo, standalone: standalone),
+          param2: (
+            replayForDemo: replayForDemo,
+            standalone: standalone,
+            cameBack: cameBack,
+          ),
         );
         unawaited(
           cubit.refresh().then((_) {
@@ -92,15 +101,22 @@ class OnboardingPermissionsScreen extends StatelessWidget {
         );
         return cubit;
       },
-      child: _OnboardingPermissionsView(standalone: standalone),
+      child: _OnboardingPermissionsView(
+        standalone: standalone,
+        cameBack: cameBack,
+      ),
     );
   }
 }
 
 class _OnboardingPermissionsView extends StatefulWidget {
-  const _OnboardingPermissionsView({required this.standalone});
+  const _OnboardingPermissionsView({
+    required this.standalone,
+    required this.cameBack,
+  });
 
   final bool standalone;
+  final bool cameBack;
 
   @override
   State<_OnboardingPermissionsView> createState() =>
@@ -128,6 +144,13 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
   void _syncAmbientStep(NotificationPermissionsState state) {
     final ambient = OnboardingAmbientScope.maybeOf(context);
     if (ambient == null) return;
+    // The small face beside the tracker is worried while the step on screen
+    // is one the user refused.
+    final current = state.current;
+    final isRefused =
+        state.isDenied ||
+        (current != null && state.promptSpent.contains(current));
+    ambient.setFaceMood(isRefused ? TravellingFaceMood.worried : null);
     if (state.isDenied) {
       ambient.setStep(OnboardingAmbientStep.denied);
       return;
@@ -239,8 +262,16 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
         final cubit = context.read<NotificationPermissionsCubit>();
         final allowedView = _allowedView;
         final view = allowedView ?? _viewOf(state);
-        final preview = view?.preview;
-        final badge = view?.badge;
+        // Came back to a step that is already allowed: it shows as allowed,
+        // with no prompt drawn and a button that only moves on.
+        final isAnswered =
+            widget.cameBack &&
+            allowedView == null &&
+            state.granted.contains(state.current);
+        final preview = isAnswered ? null : view?.preview;
+        final badge = isAnswered
+            ? LocaleKeys.onboarding_permissions_allowed_badge.tr()
+            : view?.badge;
         final hint = preview?.hint;
         // While the connect running behind the user says something in the
         // top corner, the dots give it the corner.
@@ -254,7 +285,7 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
           withFades: false,
           hasTabBar: false,
           topBar: AppTopBar(
-            title: LocaleKeys.app_title.tr(),
+            title: setupTopBarTitle(context),
             leading: widget.standalone
                 ? AppIconButton(
                     glyph: GlyphType.close,
@@ -306,7 +337,9 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                 : [
                     if (view != null)
                       AppButton(
-                        label: view.button,
+                        label: isAnswered
+                            ? LocaleKeys.onboarding_welcome_continue.tr()
+                            : view.button,
                         size: AppButtonSize.lg,
                         isFullWidth: true,
                         isLoading: state.isRequesting,
@@ -316,7 +349,9 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                       ),
                     // The way forward is there before the first step is: a
                     // status read that hangs must not hold the user here.
-                    if (view == null || view.canSkip) ...[
+                    // An allowed step has the one button: it already only
+                    // moves on.
+                    if (view == null || (view.canSkip && !isAnswered)) ...[
                       const SizedBox(height: Spacing.s3),
                       AppButton(
                         label: LocaleKeys.onboarding_permissions_not_now.tr(),
@@ -366,13 +401,18 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                         children: [
                           // Glad for one beat after the user allows.
                           SetupFace(
-                            state: allowedView != null
+                            state: allowedView != null || isAnswered
                                 ? view.grantedFace
                                 : view.face,
                           ),
                           if (badge != null) ...[
                             const SizedBox(height: Spacing.s3),
-                            AppBadge(text: badge, faceState: view.face),
+                            AppBadge(
+                              text: badge,
+                              faceState: isAnswered
+                                  ? view.grantedFace
+                                  : view.face,
+                            ),
                           ],
                           const SizedBox(height: Spacing.s4),
                           // One title style for every task screen in setup.

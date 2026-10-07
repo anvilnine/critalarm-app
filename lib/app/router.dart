@@ -24,6 +24,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/notification_p
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/onboarding_step_frame.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
@@ -731,11 +732,19 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
               path: step.route!,
               name: step.routeName,
               // The gate holds a step that needs the server back while a
-              // connect is still running behind the user.
+              // connect is still running behind the user. The frame makes
+              // the system back gesture follow the Back rule.
+              //
+              // The shell slides and fades one step out and the next one
+              // in, both ways, so the page itself changes at once.
               pageBuilder: (context, state) => AmbientPage(
                 key: state.pageKey,
-                child: OnboardingStepGate(
-                  builder: (context) => step.screen!(context, state),
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+                child: OnboardingStepFrame(
+                  child: OnboardingStepGate(
+                    builder: (context) => step.screen!(context, state),
+                  ),
                 ),
               ),
             ),
@@ -745,8 +754,12 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           name: AppRoute.onboardingDenied,
           pageBuilder: (context, state) => AmbientPage(
             key: state.pageKey,
-            child: const OnboardingPermissionsScreen(
-              initialStep: NotificationPermissionStep.denied,
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+            child: const OnboardingStepFrame(
+              child: OnboardingPermissionsScreen(
+                initialStep: NotificationPermissionStep.denied,
+              ),
             ),
           ),
         ),
@@ -755,7 +768,11 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           name: AppRoute.onboardingPermissions,
           pageBuilder: (context, state) => AmbientPage(
             key: state.pageKey,
-            child: const OnboardingPermissionsScreen(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+            child: const OnboardingStepFrame(
+              child: OnboardingPermissionsScreen(),
+            ),
           ),
         ),
       ],

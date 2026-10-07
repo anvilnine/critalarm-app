@@ -231,8 +231,8 @@ void main() {
       expect(
         h.events.map((e) => (e.kind, e.stepId, e.flowId, e.isReplay)),
         [
-          (OnboardingStepEventKind.finished, 'welcome', '2026-10-a', false),
-          (OnboardingStepEventKind.entered, 'how_it_rings', '2026-10-a', false),
+          (OnboardingStepEventKind.finished, 'welcome', '2026-10-b', false),
+          (OnboardingStepEventKind.entered, 'how_it_rings', '2026-10-b', false),
         ],
       );
     });

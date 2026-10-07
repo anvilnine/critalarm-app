@@ -63,6 +63,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Paywall layout kit: a frame, one buy block for Hosted and Pro, a clock, benefits as data, six feature previews, a /plans route for developer builds and a capture tool. Nothing a user can open yet.
 - Paywall layouts sheet, proof and bento at /plans, developer builds only.
 - Design system: a lock glyph and AppCurves.easeBack, both in the gallery.
+- Setup chapters: bundled flow 2026-10-b is the default, SetupTracker and a small face in the setup shell, a Back rule with the system back gesture, and step changes that slide and fade from the shell
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.

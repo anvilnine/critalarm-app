@@ -14,6 +14,7 @@ import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_cubit.
 import 'package:critalarm/features/onboarding/presentation/cubits/hook_up_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/hook_up_leaving.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_problem_card.dart';
@@ -222,7 +223,7 @@ class _HookUpViewState extends State<_HookUpView> with WidgetsBindingObserver {
           barBacking: context.appColors.canvas,
           hasTabBar: false,
           topBar: AppTopBar(
-            title: LocaleKeys.app_title.tr(),
+            title: setupTopBarTitle(context),
             leading: context.canPop()
                 ? AppIconButton(
                     glyph: GlyphType.back,

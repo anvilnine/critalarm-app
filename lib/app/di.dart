@@ -1495,7 +1495,7 @@ Future<void> configureDependencies({
     ..registerFactoryParam<
       NotificationPermissionsCubit,
       NotificationPermissionStep?,
-      ({bool replayForDemo, bool standalone})?
+      ({bool replayForDemo, bool standalone, bool cameBack})?
     >(
       (initialStep, mode) => NotificationPermissionsCubit(
         getIt<RequestNotificationPermissionUsecase>(),
@@ -1505,6 +1505,7 @@ Future<void> configureDependencies({
         devicePermissions: getIt<DevicePermissionsRepository>(),
         replayForDemo: mode?.replayForDemo ?? false,
         standalone: mode?.standalone ?? false,
+        cameBack: mode?.cameBack ?? false,
         initialStep: initialStep ?? NotificationPermissionStep.initial,
       ),
     )
@@ -1520,6 +1521,16 @@ Future<void> configureDependencies({
         readDraft: getIt<ReadOnboardingDraftUsecase>(),
         saveDraft: getIt<SaveOnboardingDraftUsecase>(),
         backgroundConnect: getIt<BackgroundConnect>(),
+        // "Use a different server" on the connect step drops the old one
+        // with the very call Settings > Server makes.
+        disconnect: () async {
+          final settings = getIt<SettingsCubit>();
+          try {
+            await settings.disconnectServer();
+          } finally {
+            await settings.close();
+          }
+        },
         connectToServer: getIt<ConnectToServerUsecase>(),
         initialConnected: initialConnected ?? false,
       ),

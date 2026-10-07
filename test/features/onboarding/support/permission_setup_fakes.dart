@@ -182,6 +182,7 @@ class PermissionPhone {
   NotificationPermissionsCubit cubit({
     bool replayForDemo = false,
     bool standalone = false,
+    bool cameBack = false,
     Duration readTimeout = const Duration(seconds: 5),
     NotificationPermissionStep initialStep = NotificationPermissionStep.initial,
   }) => NotificationPermissionsCubit(
@@ -192,6 +193,7 @@ class PermissionPhone {
     devicePermissions: device,
     replayForDemo: replayForDemo,
     standalone: standalone,
+    cameBack: cameBack,
     readTimeout: readTimeout,
     initialStep: initialStep,
   );
