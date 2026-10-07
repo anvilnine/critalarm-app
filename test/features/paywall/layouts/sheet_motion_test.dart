@@ -1,91 +1,90 @@
+import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_motion.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('SheetMotion at rest', () {
-    const rest = SheetMotion.restAt;
+  final loop = HeroLoop(const [
+    PaywallPreviewId.topics,
+    PaywallPreviewId.pushes,
+    PaywallPreviewId.history,
+  ], prelude: SheetMotion.prelude);
+  final lead = loop.scenes.first.script;
 
-    test('the entrance is over', () {
-      expect(SheetMotion.scrim(rest), 1);
-      expect(SheetMotion.rise(rest), 1);
-      expect(SheetMotion.handle(rest), 1);
-      expect(SheetMotion.peek(rest), 1);
-      expect(rest, greaterThan(SheetMotion.buyBlockAt));
-    });
-
-    test('the row behind still shows the limit', () {
-      expect(SheetMotion.limitLifted(rest), isFalse);
-    });
-
-    test('the badge is upright', () {
-      expect(SheetMotion.lockedShake(rest), 0);
-    });
-  });
-
-  group('SheetMotion entrance', () {
-    test('everything starts hidden', () {
-      expect(SheetMotion.scrim(0), 0);
+  group('the entrance', () {
+    test('the sheet starts below the screen and ends in its seat', () {
       expect(SheetMotion.rise(0), 0);
-      expect(SheetMotion.peek(0), 0);
-      expect(SheetMotion.handle(0), closeTo(0.3, 1e-9));
+      expect(SheetMotion.rise(SheetMotion.restAt), closeTo(1, 0.001));
+      expect(SheetMotion.scrim(0), 0);
+      expect(SheetMotion.scrim(SheetMotion.restAt), 1);
     });
 
-    test('the order is scrim, sheet, handle, face', () {
-      // Half way up the rise the scrim is nearly down and the face has not
-      // started.
-      expect(SheetMotion.scrim(0.4), greaterThan(0.9));
-      expect(SheetMotion.rise(0.4), inExclusiveRange(0, 1));
-      expect(SheetMotion.peek(0.4), 0);
-      // The handle starts before the face and the sheet lands before both
-      // finish.
-      expect(SheetMotion.handle(0.7), greaterThan(0.3));
-      expect(SheetMotion.peek(0.7), 0);
-      expect(SheetMotion.rise(0.82), 1);
-      expect(SheetMotion.peek(1), inExclusiveRange(0, 1.2));
+    test('the sheet has landed before the approved entrance starts', () {
+      expect(SheetMotion.rise(SheetMotion.prelude), greaterThan(0.8));
+      expect(SheetMotion.buyBlockAt, lessThan(SheetMotion.prelude));
     });
 
-    test('the rise passes its seat by only a little', () {
-      var highest = 0.0;
-      for (var t = 0.0; t <= 1; t += 0.005) {
-        final r = SheetMotion.rise(t);
-        if (r > highest) highest = r;
-      }
-      expect(highest, greaterThan(1));
-      expect(highest, lessThan(1.08));
+    test('it rests where the loop starts', () {
+      expect(SheetMotion.restAt, loop.entranceEnd);
     });
   });
 
-  group('SheetMotion loops', () {
-    test('the limit lifts and comes back once a loop', () {
-      expect(SheetMotion.limitLifted(2), isFalse);
-      expect(SheetMotion.limitLifted(2.2), isTrue);
-      expect(SheetMotion.limitLifted(8), isTrue);
-      expect(SheetMotion.limitLifted(8.3), isFalse);
-      // The next loop.
-      expect(SheetMotion.limitLifted(SheetMotion.limitLoop + 1), isFalse);
-      expect(SheetMotion.limitLifted(SheetMotion.limitLoop + 4), isTrue);
+  group('the lit row', () {
+    test('answers at the beat where the feature has done its job', () {
+      expect(SheetMotion.proofAt(lead), 1.85);
     });
 
-    test('the badge shakes inside its window and nowhere else', () {
-      expect(SheetMotion.lockedShake(1), 0);
-      expect(SheetMotion.lockedShake(1.04), 0);
-      expect(SheetMotion.lockedShake(1.1).abs(), greaterThan(0));
-      expect(SheetMotion.lockedShake(1.48), 0);
-      expect(SheetMotion.lockedShake(5), 0);
-      expect(
-        SheetMotion.lockedShake(SheetMotion.lockedLoop + 1.1).abs(),
-        greaterThan(0),
+    test('a script with no such beat answers most of the way through', () {
+      const script = HeroScript(
+        seconds: 2,
+        beats: [HeroBeat(0, HeroFace.watching)],
       );
+      expect(SheetMotion.proofAt(script), closeTo(1.4, 0.001));
     });
 
-    test('the shake never leaves its range and dies down', () {
-      for (var t = 1.04; t <= 1.48; t += 0.002) {
-        expect(SheetMotion.lockedShake(t).abs(), lessThanOrEqualTo(1));
+    test('shows the limit through the entrance and the start of the turn', () {
+      for (final t in [0.0, 0.5, 1.0, loop.entranceEnd, loop.entranceEnd + 1]) {
+        expect(SheetMotion.proofFor(loop, loop.frameAt(t)), 0, reason: '$t');
       }
+    });
+
+    test('has answered by the end of the lead turn and stays answered', () {
+      final end = loop.entranceEnd + lead.seconds;
+      expect(SheetMotion.proofFor(loop, loop.frameAt(end - 0.05)), 1);
+      // Through every other benefit's turn.
+      for (var t = end; t < loop.entranceEnd + loop.period; t += 0.25) {
+        expect(SheetMotion.proofFor(loop, loop.frameAt(t)), 1, reason: '$t');
+      }
+    });
+
+    test('shows the limit again when the lead comes round', () {
+      final again = loop.entranceEnd + loop.period + 0.1;
+      expect(SheetMotion.proofFor(loop, loop.frameAt(again)), 0);
+    });
+
+    test('a line the hand picks leaves it answered', () {
+      final t = loop.entranceEnd + 0.2;
+      final hand = loop.touch(t, index: 2);
       expect(
-        SheetMotion.lockedShake(1.45).abs(),
-        lessThan(SheetMotion.lockedShake(1.1).abs()),
+        SheetMotion.proofFor(loop, loop.frameAt(t + 0.1, hand: hand)),
+        1,
       );
+    });
+
+    test('is the limit, always, when nothing may move', () {
+      expect(
+        SheetMotion.proofFor(loop, loop.rest, isStill: true),
+        0,
+      );
+      expect(
+        SheetMotion.proofFor(loop, loop.restFor(2), isStill: true),
+        0,
+      );
+    });
+
+    test('a product with nothing to show has nothing to answer', () {
+      final empty = HeroLoop(const []);
+      expect(SheetMotion.proofFor(empty, HeroFrame.empty), 0);
     });
   });
 }

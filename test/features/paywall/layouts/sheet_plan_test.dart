@@ -1,219 +1,157 @@
+import 'dart:ui';
+
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_plan.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The two phones every layout must fit, with their insets.
-const _phones = <({double height, double top, double bottom, bool compact})>[
-  (height: 844, top: 47, bottom: 22, compact: false),
-  (height: 667, top: 20, bottom: 0, compact: true),
-];
-
-/// Buy block heights to plan with: a tall one with a plan picker and a
-/// short one without.
-double _buyBlock({required bool isHosted}) => isHosted ? 262 : 180;
-
-SheetPlan _plan(
-  ({double height, double top, double bottom, bool compact}) phone, {
-  required bool isHosted,
-  required bool isSwitch,
-  required int benefitCount,
-  double textScale = 1,
-}) => sheetPlanFor(
-  screenHeight: phone.height,
-  topInset: phone.top,
-  bottomInset: phone.bottom,
-  isCompact: phone.compact,
-  buyBlockHeight: _buyBlock(isHosted: isHosted),
-  isSwitch: isSwitch,
-  benefitCount: benefitCount,
-  textScale: textScale,
-);
-
 void main() {
-  test('the lit row is always above the sheet, with room for the face', () {
-    for (final phone in _phones) {
-      for (final isHosted in [true, false]) {
-        for (final isSwitch in [true, false]) {
-          for (var count = 0; count <= 7; count++) {
-            final plan = _plan(
-              phone,
-              isHosted: isHosted,
-              isSwitch: isSwitch,
-              benefitCount: count,
-            );
-            expect(plan.litTop, greaterThan(phone.top));
-            expect(plan.sheetTop, greaterThan(plan.litBottom));
-            expect(
-              plan.sheetTop - plan.litBottom,
-              greaterThanOrEqualTo(plan.faceSize / 2),
-            );
-            expect(plan.rowsAbove, inInclusiveRange(0, SheetPlan.maxRowsAbove));
-          }
-        }
+  SheetPlan planFor({
+    double screenHeight = 844,
+    double topInset = 47,
+    double bottomInset = 22,
+    bool isCompact = false,
+    double? buyBlockHeight = 200,
+    int benefitCount = 4,
+    double textScale = 1,
+  }) => sheetPlanFor(
+    screenHeight: screenHeight,
+    topInset: topInset,
+    bottomInset: bottomInset,
+    isCompact: isCompact,
+    buyBlockHeight: buyBlockHeight,
+    benefitCount: benefitCount,
+    textScale: textScale,
+  );
+
+  group('sheetPlanFor', () {
+    test('the lit row is above the sheet with room for the mascot', () {
+      for (final compact in [false, true]) {
+        final plan = planFor(isCompact: compact);
+        expect(plan.sheetTop - plan.litBottom, greaterThan(plan.faceAbove));
       }
-    }
-  });
+    });
 
-  test('the sheet keeps more than half the screen', () {
-    for (final phone in _phones) {
-      for (final isHosted in [true, false]) {
-        for (var count = 1; count <= 7; count++) {
-          final plan = _plan(
-            phone,
-            isHosted: isHosted,
-            isSwitch: isHosted,
-            benefitCount: count,
-          );
-          expect(phone.height - plan.sheetTop, greaterThan(phone.height / 2));
-        }
-      }
-    }
-  });
+    test('a tall buy block takes every quiet row above the lit one', () {
+      expect(planFor().rowsAbove, 0);
+    });
 
-  test('a quiet row is kept only while the sheet has the height it wants', () {
-    for (final phone in _phones) {
-      for (final isHosted in [true, false]) {
-        for (var count = 1; count <= 7; count++) {
-          final plan = _plan(
-            phone,
-            isHosted: isHosted,
-            isSwitch: isHosted,
-            benefitCount: count,
-          );
-          if (plan.rowsAbove == 0) continue;
-          expect(
-            phone.height - plan.sheetTop,
-            greaterThanOrEqualTo(
-              sheetWantedHeight(
-                isCompact: phone.compact,
-                buyBlockHeight: _buyBlock(isHosted: isHosted),
-                benefitCount: count,
-                bottomInset: phone.bottom,
-              ),
-            ),
-          );
-        }
-      }
-    }
-  });
-
-  test('a short sheet shows more of the screen behind than a long one', () {
-    final tall = _phones.first;
-    final one = _plan(tall, isHosted: false, isSwitch: false, benefitCount: 1);
-    final five = _plan(tall, isHosted: true, isSwitch: true, benefitCount: 5);
-
-    expect(one.rowsAbove, greaterThan(five.rowsAbove));
-    expect(one.sheetTop, greaterThan(five.sheetTop));
-  });
-
-  test('more benefits never show more of the screen behind', () {
-    for (final phone in _phones) {
-      var last = SheetPlan.maxRowsAbove;
-      for (var count = 1; count <= 7; count++) {
-        final rows = _plan(
-          phone,
-          isHosted: false,
-          isSwitch: false,
-          benefitCount: count,
-        ).rowsAbove;
-        expect(rows, lessThanOrEqualTo(last));
-        last = rows;
-      }
-    }
-  });
-
-  test('past the default text size no quiet row is kept', () {
-    for (final phone in _phones) {
-      final plan = _plan(
-        phone,
-        isHosted: false,
-        isSwitch: false,
-        benefitCount: 1,
-        textScale: 1.3,
-      );
-      expect(plan.rowsAbove, 0);
-    }
-  });
-
-  test('a plan made before the buy block has a height is never drawn', () {
-    for (final phone in _phones) {
-      final plan = sheetPlanFor(
-        screenHeight: phone.height,
-        topInset: phone.top,
-        bottomInset: phone.bottom,
-        isCompact: phone.compact,
-        buyBlockHeight: null,
-        isSwitch: false,
-        benefitCount: 1,
-      );
-      expect(plan.rowsAbove, 0);
-      expect(plan.isMeasured, isFalse);
-    }
-  });
-
-  test('the first plan drawn has the rows the settled plan has', () {
-    for (final phone in _phones) {
-      for (final isHosted in [true, false]) {
-        for (var count = 1; count <= 7; count++) {
-          // What the layout plans with as its frames go by: nothing on the
-          // first, then the height the kit measured.
-          final height = _buyBlock(isHosted: isHosted);
-          final frames = [
-            for (final measured in <double?>[null, height, height])
-              sheetPlanFor(
-                screenHeight: phone.height,
-                topInset: phone.top,
-                bottomInset: phone.bottom,
-                isCompact: phone.compact,
-                buyBlockHeight: measured,
-                isSwitch: isHosted,
-                benefitCount: count,
-              ),
-          ];
-          final drawn = frames.where((plan) => plan.isMeasured).toList();
-          expect(drawn, hasLength(2));
-          expect(drawn.first.rowsAbove, frames.last.rowsAbove);
-          expect(drawn.first.sheetTop, frames.last.sheetTop);
-        }
-      }
-    }
-  });
-
-  test('a guess would have moved: Pro on the tall phone keeps a quiet row '
-      'once measured', () {
-    final plan = _plan(
-      _phones.first,
-      isHosted: false,
-      isSwitch: false,
-      benefitCount: 1,
-    );
-    expect(plan.isMeasured, isTrue);
-    expect(plan.rowsAbove, greaterThan(0));
-  });
-
-  test('past the default text size the plan needs no height, so the first '
-      'frame is drawn', () {
-    for (final phone in _phones) {
-      final plan = sheetPlanFor(
-        screenHeight: phone.height,
-        topInset: phone.top,
-        bottomInset: phone.bottom,
-        isCompact: phone.compact,
-        buyBlockHeight: null,
-        isSwitch: false,
-        benefitCount: 1,
-        textScale: 1.3,
-      );
-      expect(plan.isMeasured, isTrue);
-      expect(plan.rowsAbove, 0);
-    }
-  });
-
-  test('the switch row is taller than a locked row', () {
-    for (final isCompact in [true, false]) {
+    test('a short buy block leaves a quiet row above the lit one', () {
+      final plan = planFor(buyBlockHeight: 98, benefitCount: 5);
+      expect(plan.rowsAbove, greaterThan(0));
       expect(
-        sheetLitHeight(isCompact: isCompact, isSwitch: true),
-        greaterThan(sheetLitHeight(isCompact: isCompact, isSwitch: false)),
+        844 - plan.sheetTop,
+        greaterThanOrEqualTo(
+          sheetWantedHeight(
+            buyBlockHeight: 98,
+            benefitCount: 5,
+            bottomInset: 22,
+          ),
+        ),
       );
-    }
+    });
+
+    test('the sheet takes about two thirds of a regular phone', () {
+      final share = (844 - planFor().sheetTop) / 844;
+      expect(share, inInclusiveRange(0.6, 0.75));
+    });
+
+    test('never more quiet rows than the page has', () {
+      final plan = planFor(screenHeight: 2000, buyBlockHeight: 98);
+      expect(plan.rowsAbove, SheetPlan.maxRowsAbove);
+    });
+
+    test('before the buy block is measured the plan is only a guess', () {
+      final plan = planFor(buyBlockHeight: null);
+      expect(plan.isMeasured, isFalse);
+      expect(plan.rowsAbove, 0);
+    });
+
+    test('past the default text size no quiet row is kept', () {
+      final plan = planFor(buyBlockHeight: 98, textScale: 1.3);
+      expect(plan.rowsAbove, 0);
+      expect(plan.isMeasured, isTrue);
+    });
+
+    test('a regular phone keeps the back row and the title line', () {
+      expect(planFor().header, SheetHeader.full);
+    });
+
+    test('a short phone gives up the header to keep the large preview', () {
+      final plan = planFor(
+        screenHeight: 667,
+        topInset: 20,
+        bottomInset: 0,
+        isCompact: true,
+        buyBlockHeight: 202,
+      );
+      expect(plan.header, SheetHeader.none);
+      expect(
+        667 - plan.sheetTop - 202 - sheetWordsHeight(4),
+        greaterThanOrEqualTo(sheetStageLarge),
+      );
+    });
+
+    test('a short phone with a short buy block keeps its title', () {
+      final plan = planFor(
+        screenHeight: 667,
+        topInset: 20,
+        bottomInset: 0,
+        isCompact: true,
+        buyBlockHeight: 98,
+        benefitCount: 5,
+      );
+      expect(plan.header, SheetHeader.full);
+    });
+
+    test('too short for the large preview whatever goes: the back row', () {
+      final plan = planFor(
+        screenHeight: 568,
+        topInset: 20,
+        bottomInset: 0,
+        isCompact: true,
+      );
+      expect(plan.header, SheetHeader.inline);
+      expect(plan.rowsAbove, 0);
+    });
+  });
+
+  group('sheetStageArrangement', () {
+    test('a full stage holds the preview at its largest, centred', () {
+      final a = sheetStageArrangement(const Size(390, sheetStageFull));
+      expect(a.kind, HeroStageKind.pair);
+      expect(a.card.width, heroCardMax);
+      expect(a.card.height, heroCardMax);
+      expect(a.card.center, const Offset(195, sheetStageFull / 2));
+    });
+
+    test('the preview shrinks with the stage down to the large class', () {
+      final a = sheetStageArrangement(const Size(390, 190));
+      expect(a.card.width, 190 - sheetCardRoom * 2);
+      expect(a.card.width, greaterThanOrEqualTo(heroCardMin));
+    });
+
+    test('never past its largest in a taller stage', () {
+      final a = sheetStageArrangement(const Size(390, 300));
+      expect(a.card.width, heroCardMax);
+      expect(a.card.center.dy, 150);
+    });
+
+    test('a stage too short for the large class holds the middle one', () {
+      final a = sheetStageArrangement(const Size(375, 150));
+      expect(a.kind, HeroStageKind.pair);
+      expect(a.card.width, sheetCardMedium);
+      expect(a.card.top, 15);
+    });
+
+    test('a stage too short for that holds nothing', () {
+      final a = sheetStageArrangement(const Size(375, 100));
+      expect(a.kind, HeroStageKind.none);
+    });
+
+    test('the mascot is not on the stage, and the air sits on the card', () {
+      final a = sheetStageArrangement(const Size(390, 200));
+      expect(a.mascot.isEmpty, isTrue);
+      expect(a.group, a.card);
+    });
   });
 }
