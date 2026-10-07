@@ -33,6 +33,32 @@ class ProofPaywallLayout extends StatelessWidget {
 
   static const double _side = 20;
 
+  /// The empty end of the box that scrolls at a large text size. The fade
+  /// at its edge is this tall, so it covers nothing while the content fits.
+  static const double _scrollEnd = Spacing.s5;
+
+  /// The least height the Pro side is drawn at when the text is large:
+  /// the stage alone, and the stage over its strip of tiles.
+  static const double _minScaledStage = 260;
+  static const double _minScaledStageAndStrip = 400;
+
+  /// How tall [text] is in [style] at this text size, [width] wide.
+  static double _heightOf(
+    BuildContext context,
+    String text,
+    TextStyle style,
+    double width,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: math.max(0, width));
+    final height = painter.height;
+    painter.dispose();
+    return height;
+  }
+
   @override
   Widget build(BuildContext context) {
     return PaywallFrame(
@@ -49,22 +75,23 @@ class ProofPaywallLayout extends StatelessWidget {
         final bottom = scope.isCompact ? Spacing.s2 : Spacing.s3;
         final gap = scope.isCompact ? Spacing.s2 : Spacing.s3;
 
+        final headline = _headline(scope);
+        final headlineStyle = AppTypography.headline(
+          colors.onCanvas,
+          fontSize: scope.isCompact ? 27 : 30,
+        );
+        // The close cross has the corner above the headline.
+        final crossRow = scope.isCompact ? 38.0 : 42.0;
+
         final head = <Widget>[
-          // The close cross has this corner.
-          SizedBox(height: scope.isCompact ? 38 : 42),
+          SizedBox(height: crossRow),
           ProofEntrance(
             clock: scope.clock,
             at: 0,
             seconds: 0.5,
             child: Semantics(
               header: true,
-              child: Text(
-                _headline(scope),
-                style: AppTypography.headline(
-                  colors.onCanvas,
-                  fontSize: scope.isCompact ? 27 : 30,
-                ),
-              ),
+              child: Text(headline, style: headlineStyle),
             ),
           ),
           SizedBox(height: gap),
@@ -118,7 +145,23 @@ class ProofPaywallLayout extends StatelessWidget {
                       ProofProStage(
                         benefits: scope.benefits,
                         clock: scope.clock,
-                        height: math.max(280, scope.size.height * 0.7),
+                        // The room the headline leaves, so the stage
+                        // only scrolls once that is too little to draw in.
+                        height: math.max(
+                          scope.benefits.length > 1
+                              ? _minScaledStageAndStrip
+                              : _minScaledStage,
+                          scope.size.height -
+                              crossRow -
+                              gap -
+                              _scrollEnd -
+                              _heightOf(
+                                context,
+                                headline,
+                                headlineStyle,
+                                scope.size.width - _side * 2,
+                              ),
+                        ),
                         isCompact: scope.isCompact,
                       ),
                   ],
@@ -130,7 +173,10 @@ class ProofPaywallLayout extends StatelessWidget {
               left: 0,
               right: 0,
               bottom: 0,
-              child: AppScrollFade(edge: ScrollFadeEdge.bottom, height: 28),
+              child: AppScrollFade(
+                edge: ScrollFadeEdge.bottom,
+                height: _scrollEnd,
+              ),
             ),
           ],
         );
@@ -236,7 +282,8 @@ class _HostedProof extends StatelessWidget {
           card(ProofTopicCard.naturalHeightFor(rows.length, scale)),
         for (final (i, (benefit, limit)) in bars.indexed)
           Padding(
-            padding: EdgeInsets.only(top: gap),
+            // The first bar stands clear of the card's shadow.
+            padding: EdgeInsets.only(top: i == 0 ? Spacing.s3 : gap),
             child: ProofEntrance(
               clock: scope.clock,
               at: 0.3 + i * 0.12,
