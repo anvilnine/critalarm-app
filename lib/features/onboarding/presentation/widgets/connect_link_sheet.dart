@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/api/api_session.dart';
@@ -341,6 +342,7 @@ class _Head extends StatelessWidget {
               child: Text(
                 state.address,
                 textAlign: TextAlign.center,
+                textDirection: ui.TextDirection.ltr,
                 style: AppTypography.mono(colors.ink3, fontSize: 13),
               ),
             ),
@@ -373,7 +375,9 @@ class _HostName extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
-    final direction = Directionality.of(context);
+    // An address reads left to right in every language. Without this a
+    // right-to-left app would set the labels in the opposite order.
+    const direction = ui.TextDirection.ltr;
     final fontSize = style.fontSize!;
     final labels = hostLabels(host);
     return LayoutBuilder(
@@ -402,11 +406,17 @@ class _HostName extends StatelessWidget {
           letterSpacing: spacing == null ? null : spacing * fitted / fontSize,
         );
         return Wrap(
+          textDirection: direction,
           alignment: WrapAlignment.center,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             for (final label in labels)
-              Text(label, softWrap: false, style: fittedStyle),
+              Text(
+                label,
+                softWrap: false,
+                textDirection: direction,
+                style: fittedStyle,
+              ),
           ],
         );
       },
