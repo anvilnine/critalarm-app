@@ -1,5 +1,7 @@
 import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
+import 'package:critalarm/features/reliability/presentation/reliability_rows.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_standing.dart';
 import 'package:critalarm/features/weekly_check/presentation/weekly_check_views.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -54,8 +56,6 @@ void main() {
       for (final v in [view(null), view(neverOn), view(off)]) {
         expect(v.lineKey, LocaleKeys.pro_pack_weekly_locked_line);
         expect(v.isOn, isFalse);
-        expect(v.nextDueWhen, isNull);
-        expect(v.face, FaceState.sleepy);
       }
     });
 
@@ -63,7 +63,6 @@ void main() {
       final v = view(on(WeeklyCheckState.waiting));
       expect(v.lineKey, LocaleKeys.weekly_check_line_waiting);
       expect(v.isOn, isTrue);
-      expect(v.nextDueWhen, isNotEmpty);
     });
 
     test('last check received, and when', () {
@@ -95,7 +94,6 @@ void main() {
     test('the phone telling by its own clock reads the same', () {
       final v = view(on(WeeklyCheckState.received), missedByClock: true);
       expect(v.lineKey, LocaleKeys.weekly_check_line_missed_repeatedly);
-      expect(v.face, FaceState.shakeHead);
     });
 
     test('the push token was refused', () {
@@ -114,24 +112,6 @@ void main() {
       expect(v.isOn, isTrue);
     });
 
-    test('each state that is on has its own face', () {
-      final faces = [
-        view(null).face,
-        for (final state in WeeklyCheckState.values)
-          if (state != WeeklyCheckState.off) view(on(state)).face,
-        view(on(null)).face,
-      ];
-      expect(faces.toSet().length, faces.length);
-      // The faces the review said to keep.
-      expect(view(on(WeeklyCheckState.received)).face, FaceState.confident);
-      expect(view(on(WeeklyCheckState.missedOnce)).face, FaceState.surprised);
-      expect(
-        view(on(WeeklyCheckState.missedRepeatedly)).face,
-        FaceState.shakeHead,
-      );
-      expect(view(on(WeeklyCheckState.tokenRefused)).face, FaceState.shocked);
-    });
-
     test('no line of any state claims that alarms work', () {
       final keys = {
         view(null).lineKey,
@@ -144,38 +124,19 @@ void main() {
     });
   });
 
-  group('when the next check is due', () {
-    test('a day ahead is named', () {
-      final v = view(on(WeeklyCheckState.received));
-      expect(v.nextDueWhen, weeklyCheckDay(nowSeconds + 6 * day));
-    });
-
-    test('a moment already passed says nothing', () {
-      final v = view(
-        WeeklyCheck(
-          enabled: true,
-          state: WeeklyCheckState.missedOnce,
-          misses: 1,
-          nextDueAt: nowSeconds - 60,
-        ),
-      );
-      expect(v.nextDueWhen, isNull);
-    });
-  });
-
   group('the way to past checks', () {
     test('shows once the relay has sent a check', () {
-      expect(view(on(WeeklyCheckState.waiting)).showsRoundsLink, isTrue);
-      expect(view(off).showsRoundsLink, isTrue);
+      expect(weeklyCheckShowsRounds(on(WeeklyCheckState.waiting)), isTrue);
+      expect(weeklyCheckShowsRounds(off), isTrue);
     });
 
     test('is not there before any was sent', () {
-      expect(view(null).showsRoundsLink, isFalse);
-      expect(view(neverOn).showsRoundsLink, isFalse);
+      expect(weeklyCheckShowsRounds(null), isFalse);
+      expect(weeklyCheckShowsRounds(neverOn), isFalse);
       expect(
-        view(
+        weeklyCheckShowsRounds(
           const WeeklyCheck(enabled: true, state: WeeklyCheckState.waiting),
-        ).showsRoundsLink,
+        ),
         isFalse,
       );
     });
@@ -294,13 +255,31 @@ void main() {
       expect(weeklyCheckRoundView(old, now: now).when, 'Wed 30 Sep, 09:00');
     });
 
-    test('each result has the face the row shows for it', () {
-      expect(weeklyCheckResultFace(round('received')), FaceState.confident);
-      expect(weeklyCheckResultFace(round('missed')), FaceState.surprised);
-      expect(weeklyCheckResultFace(round('refused')), FaceState.shocked);
-      expect(weeklyCheckResultFace(round('skipped')), FaceState.sleepy);
-      expect(weeklyCheckResultFace(round(null)), FaceState.interested);
-      expect(weeklyCheckResultFace(round('paused')), FaceState.blink);
+    test('a missed or refused round wears the face of a broken check', () {
+      final broken = reliabilityStateFace(ReliabilityState.broken);
+      expect(broken, FaceState.sad);
+      expect(weeklyCheckResultFace(round('missed')), broken);
+      expect(weeklyCheckResultFace(round('refused')), broken);
+    });
+
+    test('a received round is a tick with no face', () {
+      expect(weeklyCheckResultFace(round('received')), isNull);
+      expect(weeklyCheckResultShowsTick(round('received')), isTrue);
+    });
+
+    test('skipped, open and closed rounds have no mark', () {
+      for (final r in [
+        round('skipped'),
+        round(null),
+        round('paused'),
+        round('missed'),
+        round('refused'),
+      ]) {
+        expect(weeklyCheckResultShowsTick(r), isFalse, reason: '${r.result}');
+      }
+      for (final r in [round('skipped'), round(null), round('paused')]) {
+        expect(weeklyCheckResultFace(r), isNull, reason: '${r.result}');
+      }
     });
   });
 }

@@ -12,14 +12,12 @@ import 'package:flutter/foundation.dart';
 final class WeeklyCheckRowView {
   const WeeklyCheckRowView({
     required this.isLocked,
-    required this.face,
     required this.lineKey,
     this.selfHostedLineKey,
   });
 
   /// Locked rows open the Pro sheet. An unlocked row draws its body.
   final bool isLocked;
-  final FaceState face;
 
   /// The one short line of a locked row, or of the unlocked row until the
   /// check itself is built.
@@ -35,16 +33,15 @@ final class WeeklyCheckRowView {
   bool operator ==(Object other) =>
       other is WeeklyCheckRowView &&
       other.isLocked == isLocked &&
-      other.face == face &&
       other.lineKey == lineKey &&
       other.selfHostedLineKey == selfHostedLineKey;
 
   @override
-  int get hashCode => Object.hash(isLocked, face, lineKey, selfHostedLineKey);
+  int get hashCode => Object.hash(isLocked, lineKey, selfHostedLineKey);
 }
 
-/// The row for an install that holds the pack, or does not. The two faces
-/// are ones no other row or header on the Reliability screen uses.
+/// The row for an install that holds the pack, or does not. Neither has a
+/// face: only a state that needs a look does.
 ///
 /// [isSelfHosted] is the same fact the weekly check row has. The caller
 /// hands it in. Nothing here reads it.
@@ -54,12 +51,10 @@ WeeklyCheckRowView weeklyCheckRowView({
 }) => isHeld
     ? const WeeklyCheckRowView(
         isLocked: false,
-        face: FaceState.confident,
         lineKey: LocaleKeys.pro_pack_weekly_ready_line,
       )
     : WeeklyCheckRowView(
         isLocked: true,
-        face: FaceState.dozing,
         lineKey: LocaleKeys.pro_pack_weekly_locked_line,
         selfHostedLineKey: isSelfHosted
             ? LocaleKeys.weekly_check_self_hosted_line

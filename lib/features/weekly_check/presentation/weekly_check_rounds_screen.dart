@@ -11,9 +11,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// The weekly check rounds, newest first: each with a face, how it ended in
-/// a few words, and when it opened. The list is the relay's, and reading it
-/// needs no pack.
+/// The weekly check rounds, newest first: each with how it ended in a few
+/// words and when it opened. A missed or refused round wears the face of a
+/// broken check, a received one a tick, and the rest nothing. The list is
+/// the relay's, and reading it needs no pack.
 class WeeklyCheckRoundsScreen extends StatelessWidget {
   const WeeklyCheckRoundsScreen({super.key});
 
@@ -42,6 +43,10 @@ class _RoundsView extends StatelessWidget {
         final rounds = state.rounds;
         final now = DateTime.now();
         return AppScreenScaffold(
+          // The bar's own backing, so a row scrolled under it never shows
+          // through the title.
+          barBacking:
+              AppBarBackingScope.maybeOf(context)?.color ?? colors.canvas,
           onRefresh: cubit.load,
           topBar: MediaQuery(
             data: MediaQuery.of(context).copyWith(
@@ -168,7 +173,26 @@ class _RoundRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
-            ExcludeSemantics(child: FaceWidget(state: view.face, size: 28)),
+            // One slot for the mark, so the words line up whether a round
+            // has a face, a tick or nothing.
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: ExcludeSemantics(
+                child: view.face != null
+                    ? FaceWidget(state: view.face!, size: 28)
+                    : view.showsTick
+                    ? Center(
+                        child: AppGlyph(
+                          GlyphType.check,
+                          size: 18,
+                          color: colors.ink3,
+                          strokeWidth: 2.4,
+                        ),
+                      )
+                    : null,
+              ),
+            ),
             const SizedBox(width: Spacing.s3),
             Expanded(
               // The time drops under the word when the text is large, so
