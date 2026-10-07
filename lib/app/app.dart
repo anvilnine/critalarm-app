@@ -49,6 +49,7 @@ import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/theme_mode_mapper.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -253,6 +254,9 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(getIt<IncidentAlarmController>().retryIfPending());
     // The account's packs, at most once a minute (api.md §4.2).
     unawaited(getIt<ProPackAccess>().refresh());
+    // What the relay says about the weekly check, at most once a minute.
+    // This is also how the phone learns its `notice_after` (api.md §4.5).
+    unawaited(getIt<WeeklyCheckMonitor>().refresh());
   }
 
   /// Drops alarms the user asked the phone to stop keeping. Does nothing

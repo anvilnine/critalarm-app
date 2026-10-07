@@ -8,6 +8,8 @@ import androidx.core.content.ContextCompat
 import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.alarm.AlarmForegroundService
 import app.critalarm.alarm.IncidentRearm
+import app.critalarm.check.CheckPush
+import app.critalarm.check.WeeklyCheckResponder
 import app.critalarm.notifications.AlarmNotificationFactory
 import app.critalarm.notifications.IncidentCards
 import app.critalarm.notifications.IncidentPhoneState
@@ -78,6 +80,14 @@ class PushRouter(private val context: Context) {
      * every other push. A running app is told which incident just rang.
      */
     fun route(data: Map<String, String>): String? {
+        // The weekly check (api.md §5.4) is not an incident push. It is
+        // answered and nothing else happens: no channel, no notification, no
+        // sound, no card, and nothing below this line runs for it. Every
+        // other push is not a check and goes on exactly as before.
+        CheckPush.fromData(data)?.let { check ->
+            WeeklyCheckResponder.answer(context, check)
+            return null
+        }
         val payload = FcmIncidentPayload.fromData(data) ?: run {
             Log.w(TAG, "push_dropped reason=unparseable")
             events.record("push_dropped", mapOf("reason" to "unparseable"))
