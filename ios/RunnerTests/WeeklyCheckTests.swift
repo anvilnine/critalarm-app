@@ -507,6 +507,49 @@ final class WeeklyCheckTests: XCTestCase {
         XCTAssertEqual(AckedIncidentStore.all(), acked)
     }
 
+    /// The whole path with nothing stubbed: the app's own handler, its own
+    /// URLSession, and a relay on this machine. Skipped unless something is
+    /// listening on 127.0.0.1:8793 and answers a receipt the way api.md §4.5
+    /// describes. The device credential comes from the preference a debug
+    /// build on the simulator reads, so no Keychain item is touched.
+    func testTheAppHandlerSendsARealReceiptToALocalRelay() throws {
+        let standard = UserDefaults.standard
+        let seedKey = "flutter.dev.weekly_check_identity"
+        let saved = [RelayDevice.apiSessionKey, WeeklyCheckResponder.arrivalKey, seedKey]
+            .map { ($0, standard.string(forKey: $0)) }
+        defer { saved.forEach { standard.set($0.1, forKey: $0.0) } }
+        standard.set(
+            "http://127.0.0.1:8793|http://127.0.0.1:8793|selfhosted|ad_devtoken",
+            forKey: RelayDevice.apiSessionKey
+        )
+        standard.set(
+            #"{"device_id":"dev_a92sim","device_token":"dv_a92sim_secret"}"#, forKey: seedKey
+        )
+        standard.removeObject(forKey: WeeklyCheckResponder.arrivalKey)
+        let before = notificationCounts()
+
+        deliver(checkPayload)
+
+        var kept: [String: Any] = [:]
+        let deadline = Date().addingTimeInterval(8)
+        while Date() < deadline {
+            if let raw = standard.string(forKey: WeeklyCheckResponder.arrivalKey),
+               let json = try? JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any] {
+                kept = json
+                if kept["notice_after"] != nil { break }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertNotNil(kept["received_at"], "the handler records the arrival")
+        guard kept["notice_after"] != nil else {
+            throw XCTSkip("no relay answered on 127.0.0.1:8793")
+        }
+        XCTAssertNotNil(kept["notice_after_seen_at"])
+        let after = notificationCounts()
+        XCTAssertEqual(after.pending, before.pending)
+        XCTAssertEqual(after.delivered, before.delivered)
+    }
+
     /// A forward with no incident id goes down the incident path, which
     /// ignores it. No weekly check record appears.
     func testTheAppHandlerLeavesAnIncidentPushToTheIncidentPath() {
