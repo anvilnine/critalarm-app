@@ -166,6 +166,19 @@ bool connectShowsAddress(ConnectLinkState state, {bool hostIsCramped = false}) {
   return state.address != bare && state.address != '$bare/';
 }
 
+/// What a screen reader says for the host and the address together, which
+/// are drawn but kept out of the semantics tree so they are heard once.
+///
+/// It is the whole address whenever the address line is drawn
+/// ([showsAddress]): the scheme, so plain `http` is heard as well as seen,
+/// and the port and the path. Otherwise it is the host, which carries its
+/// port when that is not the usual one.
+@visibleForTesting
+String connectHeadSemantics(
+  ConnectLinkState state, {
+  required bool showsAddress,
+}) => showsAddress ? state.address : state.host;
+
 /// [host] cut after each dot, so a line can only break between labels. The
 /// pieces joined are always [host] again.
 @visibleForTesting
@@ -394,7 +407,7 @@ class _Head extends StatelessWidget {
         );
         return Semantics(
           container: true,
-          label: state.host,
+          label: connectHeadSemantics(state, showsAddress: showsAddress),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

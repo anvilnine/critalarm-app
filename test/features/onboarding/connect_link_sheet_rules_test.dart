@@ -305,6 +305,66 @@ void main() {
     });
   });
 
+  group('what a screen reader hears for the host', () {
+    String heard(ConnectLinkState state, {bool hostIsCramped = false}) =>
+        connectHeadSemantics(
+          state,
+          showsAddress: connectShowsAddress(
+            state,
+            hostIsCramped: hostIsCramped,
+          ),
+        );
+
+    test('the host alone when the address line is not drawn', () {
+      expect(heard(_state()), 'alarm.example.com');
+    });
+
+    test('the host with its port when the address line is not drawn', () {
+      expect(
+        heard(
+          _state(
+            host: 'alarm.example.com:8443',
+            address: 'https://alarm.example.com:8443',
+          ),
+        ),
+        'alarm.example.com:8443',
+      );
+    });
+
+    test('the whole address, path included, when it is drawn', () {
+      expect(
+        heard(
+          _state(
+            host: 'alarm.example.com:8443',
+            address: 'https://alarm.example.com:8443/one',
+          ),
+        ),
+        'https://alarm.example.com:8443/one',
+      );
+    });
+
+    test('plain http is heard', () {
+      expect(
+        heard(
+          _state(
+            host: '192.168.1.20:8080',
+            address: 'http://192.168.1.20:8080',
+            isPlainHttp: true,
+          ),
+        ),
+        startsWith('http://'),
+      );
+    });
+
+    test('the whole address in a failed state and for a cramped host', () {
+      expect(
+        heard(_state(phase: ConnectLinkPhase.failed)),
+        'https://alarm.example.com',
+      );
+      expect(heard(_state(), hostIsCramped: true), 'https://alarm.example.com');
+    });
+  });
+
   group('the host cut into labels', () {
     test('breaks only after a dot, and joins back to the host', () {
       for (final host in [
