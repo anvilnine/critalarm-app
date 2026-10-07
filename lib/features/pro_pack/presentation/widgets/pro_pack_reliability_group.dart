@@ -26,6 +26,7 @@ class ProPackReliabilityGroup extends StatelessWidget {
   const ProPackReliabilityGroup({
     this.weeklyCheckBody = weeklyCheckReadyBody,
     this.unlockedFace,
+    this.isSelfHosted = false,
     super.key,
   });
 
@@ -35,6 +36,11 @@ class ProPackReliabilityGroup extends StatelessWidget {
   /// picks. A locked row never uses it.
   final FaceState? unlockedFace;
 
+  /// The phone is on a server of its own. The caller hands in the fact it
+  /// already has. A locked row then says the check covers the push relay
+  /// and not that server, and the Pro sheet it opens says the same.
+  final bool isSelfHosted;
+
   @override
   Widget build(BuildContext context) {
     final access = getIt<ProPackAccess>();
@@ -43,7 +49,10 @@ class ProPackReliabilityGroup extends StatelessWidget {
       initialData: access.isHeld,
       builder: (context, held) {
         // The stream only carries changes, so the value is read each build.
-        final view = weeklyCheckRowView(isHeld: access.isHeld);
+        final view = weeklyCheckRowView(
+          isHeld: access.isHeld,
+          isSelfHosted: isSelfHosted,
+        );
         final face = unlockedFace;
         return WeeklyCheckRow(
           view: face == null || view.isLocked
@@ -55,7 +64,11 @@ class ProPackReliabilityGroup extends StatelessWidget {
                 ),
           body: weeklyCheckBody,
           onOpenPro: () => unawaited(
-            openProPackSheet(context, ProPackSheetSource.reliability),
+            openProPackSheet(
+              context,
+              ProPackSheetSource.reliability,
+              isSelfHosted: isSelfHosted,
+            ),
           ),
         );
       },
@@ -95,6 +108,7 @@ class WeeklyCheckRow extends StatelessWidget {
       child: FaceWidget(state: view.face, size: 36),
     );
     final arrow = AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16);
+    final selfHostedLine = view.selfHostedLineKey?.tr();
 
     final words = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,12 +130,17 @@ class WeeklyCheckRow extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 2),
-        if (view.isLocked)
+        if (view.isLocked) ...[
           Text(
             view.lineKey.tr(),
             style: AppTypography.small(colors.ink3, fontSize: 13),
-          )
-        else
+          ),
+          if (selfHostedLine != null)
+            Text(
+              selfHostedLine,
+              style: AppTypography.small(colors.ink3, fontSize: 13),
+            ),
+        ] else
           body(context),
       ],
     );
@@ -157,9 +176,15 @@ class WeeklyCheckRow extends StatelessWidget {
             ],
           );
 
-    final row = AppHighlightCard(
-      tone: AppHighlightTone.pending,
+    // The same light border as the free test row, so on a screen where all
+    // is fine the paid row is not the loudest thing.
+    final row = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: Radii.mdAll,
+        border: Border.all(color: colors.ink3.withValues(alpha: 0.4)),
+      ),
       child: content,
     );
 
@@ -167,7 +192,12 @@ class WeeklyCheckRow extends StatelessWidget {
     return Semantics(
       container: true,
       button: true,
-      label: '$title, $badge, ${view.lineKey.tr()}',
+      label: [
+        title,
+        badge,
+        view.lineKey.tr(),
+        ?selfHostedLine,
+      ].join(', '),
       hint: LocaleKeys.pro_pack_weekly_locked_hint.tr(),
       excludeSemantics: true,
       child: GestureDetector(
