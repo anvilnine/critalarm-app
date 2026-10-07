@@ -18,6 +18,9 @@ abstract final class AnalyticsEvents {
   static const onboardingStepCompleted = 'onboarding_step_completed';
   static const homeDay0CardShown = 'home_day0_card_shown';
   static const homeDay0CardDismissed = 'home_day0_card_dismissed';
+  static const proPackSheetOpened = 'pro_pack_sheet_opened';
+  static const proPackPurchaseFinished = 'pro_pack_purchase_finished';
+  static const proPackRestoreFinished = 'pro_pack_restore_finished';
 }
 
 /// Thin wrapper so callers name an event instead of building a params map.
