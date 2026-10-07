@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/alarm/alarm_host.dart';
+import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
@@ -20,11 +23,14 @@ import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 
 part 'onboarding_intro_steps.dart';
+part 'onboarding_welcome_product_stories.dart';
 part 'onboarding_welcome_stories.dart';
 part 'onboarding_welcome_variants.dart';
 
-/// The welcome animations. The first five are only faces, the next seven
-/// show how Crit Alarm works, and the last three are faces again.
+/// The older welcome animations, kept for the Developer options preview and
+/// for the steps that still use one. The first five are only faces, the next
+/// seven show how Crit Alarm works, and the last three are faces again. First
+/// launch plays the three product stories instead.
 enum WelcomeVariant {
   /// One big face asleep, wakes up, smiles.
   wakeUp,
@@ -79,10 +85,10 @@ enum WelcomeVariant {
 }
 
 /// Onboarding welcome screen (/onboarding/welcome), the first thing a new
-/// user sees. With no [variant] it opens on the sleeping face, which wakes
-/// at a tap or by itself, then keeps playing more animations for as long as
-/// the user stays. Developer
-/// options opens it with a [variant] and [isPreview] to try each one.
+/// user sees. With no [variant] it plays the three product stories round and
+/// round, each with its own caption, for as long as the user stays. It
+/// always starts on the first one. Developer options opens it with a
+/// [variant] and [isPreview] to try each of the older animations.
 class OnboardingWelcomeScreen extends StatefulWidget {
   const OnboardingWelcomeScreen({
     this.variant,
@@ -110,21 +116,52 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
 
   bool get _isPlaylist => widget.variant == null && !widget.isPreview;
 
+  /// The story on screen. First launch always starts on the first one.
+  _WelcomeStory _story = _WelcomeStory.rings;
+
+  /// Bumped every time a story starts, so each pass plays from its start.
+  int _passes = 0;
+
+  /// What this phone can promise about ringing. Null until it has been
+  /// read, and until then nothing says the phone rings on silent.
+  RingClaim? _ringClaim;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isPlaylist) unawaited(_readRingClaim());
+  }
+
+  Future<void> _readRingClaim() async {
+    // The host answers "unsupported" when it cannot be reached, which
+    // RingClaim reads as the quiet wording on an iPhone.
+    final alarm = await getIt<AlarmHost>().authorizationStatus();
+    if (mounted) setState(() => _ringClaim = RingClaim.forPhone(alarm));
+  }
+
+  /// The story on screen is over: the next one starts.
+  void _showNextStory() {
+    if (!mounted) return;
+    setState(() {
+      _story = _story.next;
+      _passes++;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final ringsOnSilent = _ringClaim == RingClaim.alarm;
     return _IntroLayout(
       top: widget.isPreview ? _previewSwitch() : null,
       isHeroSpoken: true,
-      // On first launch the opening face hands over to more animations for
-      // as long as the user stays.
       hero: _isPlaylist
-          ? OnboardingAnimationLoop(
-              first: _variant,
-              loop: const [
-                WelcomeVariant.ladder,
-                WelcomeVariant.parade,
-                WelcomeVariant.orbit,
-              ],
+          ? KeyedSubtree(
+              key: ValueKey((_story, _passes)),
+              child: _welcomeStoryHero(
+                _story,
+                ringsOnSilent: ringsOnSilent,
+                onDone: _showNextStory,
+              ),
             )
           : KeyedSubtree(
               key: ValueKey((_variant, _replays)),
@@ -132,6 +169,11 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
             ),
       title: LocaleKeys.onboarding_welcome_title.tr(),
       subtitle: LocaleKeys.onboarding_welcome_subtitle.tr(),
+      // Each story has its own line, in the place of the one line the older
+      // animations share.
+      caption: _isPlaylist
+          ? _StoryCaption(story: _story, ringsOnSilent: ringsOnSilent)
+          : null,
       button: LocaleKeys.onboarding_welcome_button.tr(),
       onPressed: widget.isPreview
           ? () => context.pop()
@@ -169,15 +211,17 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
 /// a mock-up of the app: its fake topic names and times mean nothing read
 /// aloud, and the title and text below say what it shows. The sleeping face
 /// answers a tap, so it labels itself.
-Widget _spokenHeroFor(WelcomeVariant variant, {VoidCallback? onAwake}) =>
+Widget _spokenHeroFor(WelcomeVariant variant) =>
     variant == WelcomeVariant.wakeUp
-    ? _WakeUpHero(onAwake: onAwake)
+    ? const _WakeUpHero()
     : ExcludeSemantics(child: _heroFor(variant));
 
 /// Plays one animation cue on the phone.
 void _playHeroCue(HeroCue cue) => switch (cue) {
   HeroCue.typeTick => AppHaptics.tick(),
-  HeroCue.cardLands || HeroCue.commandSent => AppHaptics.lightTap(),
+  HeroCue.cardLands ||
+  HeroCue.alertLands ||
+  HeroCue.commandSent => AppHaptics.lightTap(),
   // The heavy thud. AppHaptics has no call named for a ring, and this is
   // its strongest.
   HeroCue.ringPulse => AppHaptics.success(),
@@ -201,107 +245,6 @@ Widget _heroFor(WelcomeVariant variant) => switch (variant) {
   WelcomeVariant.ringingOrbit => const _RingingOrbitHero(),
 };
 
-/// Plays [first], then each of [loop] round and round, fading between them.
-/// With animations switched off it stays on [first], sitting still.
-class OnboardingAnimationLoop extends StatefulWidget {
-  const OnboardingAnimationLoop({
-    required this.loop,
-    this.first,
-    this.isOnItsOwn = false,
-    super.key,
-  });
-
-  final WelcomeVariant? first;
-  final List<WelcomeVariant> loop;
-
-  /// True where nothing around the loop looks after it, as on the connect
-  /// step. Then the loop keeps its own size when the system text grows, and
-  /// goes away when the room it is given is too small to read. The intro
-  /// layout does both itself.
-  final bool isOnItsOwn;
-
-  @override
-  State<OnboardingAnimationLoop> createState() =>
-      _OnboardingAnimationLoopState();
-}
-
-class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
-  late WelcomeVariant _variant = widget.first ?? widget.loop.first;
-  Timer? _next;
-
-  /// True until [OnboardingAnimationLoop.first] has handed over.
-  bool _isOpening = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _scheduleNext();
-  }
-
-  @override
-  void dispose() {
-    _next?.cancel();
-    super.dispose();
-  }
-
-  /// How long each animation plays: one full story for the phone ones, a
-  /// few seconds for the faces.
-  Duration get _playFor => switch (_variant) {
-    WelcomeVariant.ladder ||
-    WelcomeVariant.pipeline => const Duration(milliseconds: 9800),
-    _ => const Duration(seconds: 7),
-  };
-
-  void _scheduleNext() {
-    _next = Timer(_playFor, () {
-      if (!mounted) return;
-      // With animations off each face sits still, so there is nothing to
-      // move on from.
-      if (MediaQuery.of(context).disableAnimations) return;
-      _showNext();
-    });
-  }
-
-  /// Moves on to the next animation now, and starts its timer.
-  void _showNext() {
-    if (!mounted) return;
-    _next?.cancel();
-    final at = widget.loop.indexOf(_variant);
-    setState(() {
-      _isOpening = false;
-      _variant = widget.loop[(at + 1) % widget.loop.length];
-    });
-    _scheduleNext();
-  }
-
-  @override
-  Widget build(BuildContext context) => _NoIntrinsicSize(
-    child: LayoutBuilder(
-      builder: (context, box) {
-        if (widget.isOnItsOwn && !introHeroFits(box.maxHeight)) {
-          return const SizedBox.shrink();
-        }
-        final hero = AnimatedSwitcher(
-          duration: context.motion(const Duration(milliseconds: 450)),
-          child: KeyedSubtree(
-            key: ValueKey(_variant),
-            child: _spokenHeroFor(
-              _variant,
-              // The opening face does not wait for its timer: the next
-              // animation starts as soon as it is awake.
-              onAwake: _isOpening && widget.first != null ? _showNext : null,
-            ),
-          ),
-        );
-        // A drawing, so it keeps its size when the system text grows.
-        return widget.isOnItsOwn
-            ? MediaQuery.withNoTextScaling(child: hero)
-            : hero;
-      },
-    ),
-  );
-}
-
 /// The shape every intro step shares: an animation filling the top, then a
 /// title, a line of text and one button. The words and the button are on the
 /// page from the first frame and stay put while the animation above them
@@ -315,6 +258,7 @@ class _IntroLayout extends StatelessWidget {
     required this.onPressed,
     this.top,
     this.badge,
+    this.caption,
     this.isHeroSpoken = false,
   });
 
@@ -333,6 +277,10 @@ class _IntroLayout extends StatelessWidget {
 
   /// Between the title and the text, such as the Hosted badge.
   final Widget? badge;
+
+  /// Drawn where [subtitle] would be, for a step whose line changes with
+  /// its animation. It keeps one height, so nothing around it moves.
+  final Widget? caption;
 
   /// The most the system text size may grow the title.
   static const double _titleMaxTextScale = 1.4;
@@ -453,13 +401,14 @@ class _IntroLayout extends StatelessWidget {
                     Align(alignment: Alignment.centerLeft, child: badge),
                   ],
                   const SizedBox(height: Spacing.s2),
-                  Text(
-                    subtitle,
-                    style: AppTypography.lead(
-                      colors.onCanvasMuted,
-                      fontSize: 16,
-                    ),
-                  ),
+                  caption ??
+                      Text(
+                        subtitle,
+                        style: AppTypography.lead(
+                          colors.onCanvasMuted,
+                          fontSize: 16,
+                        ),
+                      ),
                 ],
               ),
             ),
@@ -517,6 +466,10 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
   /// Called on every frame, after the clock has moved to [seconds].
   void onClock(double seconds) {}
 
+  /// Whether [cue] may play now that it is due. A hero whose story the user
+  /// can cut short says no to what is left of it.
+  bool mayPlay(HeroCue cue) => true;
+
   @override
   void initState() {
     super.initState();
@@ -527,7 +480,7 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
       // The cue clock moves on every frame, allowed to play or not, so a
       // cue that was missed is never kept for later.
       final cues = _cueClock.advanceTo(seconds);
-      if (canPlayHaptics) cues.forEach(_playHeroCue);
+      if (canPlayHaptics) cues.where(mayPlay).forEach(_playHeroCue);
     });
   }
 
@@ -613,10 +566,7 @@ Widget _face(FaceShape shape, double size, {Color? fill}) => FaceWidget(
 // 1. Wake up.
 
 class _WakeUpHero extends StatefulWidget {
-  const _WakeUpHero({this.onAwake});
-
-  /// Called once, when the face has finished waking.
-  final VoidCallback? onAwake;
+  const _WakeUpHero();
 
   @override
   State<_WakeUpHero> createState() => _WakeUpHeroState();
@@ -629,7 +579,6 @@ class _WakeUpHeroState extends _ClockState<_WakeUpHero> {
 
   /// When the face woke, on the hero's clock. Null while it dozes.
   double? _wokeAt;
-  bool _hasSaidAwake = false;
 
   /// Wakes the face now. The hop starts on the next frame and the thump
   /// plays here, so a tap feels answered at once.
@@ -642,13 +591,6 @@ class _WakeUpHeroState extends _ClockState<_WakeUpHero> {
   @override
   void onClock(double seconds) {
     if (seconds >= welcomeAutoWakeAfter) _wake();
-    final wokeAt = _wokeAt;
-    if (wokeAt != null &&
-        !_hasSaidAwake &&
-        seconds >= wokeAt + welcomeWakeTakes) {
-      _hasSaidAwake = true;
-      widget.onAwake?.call();
-    }
   }
 
   static const List<FaceState> _after = [

@@ -353,6 +353,11 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   String get chosenHost =>
       _hostOf(state.isConnected ? state.serverUrl : cloudUrl);
 
+  /// Whether the server the user picked is Crit Alarm Cloud, so the screen
+  /// can call it by its name. A connect still on its way is always the
+  /// Cloud's.
+  bool get choseCloud => chosenHost == _hostOf(cloudUrl);
+
   /// Use a different server, for a user who came back to this step. The
   /// server is dropped through [disconnect], which also drops a connect
   /// that has not landed, and the two choices show again.

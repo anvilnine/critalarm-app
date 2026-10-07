@@ -328,17 +328,23 @@ or a callback, and passes null to hand the choice back. `TravellingFaceMood`
 has the five it can be. A step never draws a face of its own in the top bar.
 
 Back: `onboardingBackStepFor` is the rule. Back is offered on
-`how_it_rings`, `connect`, `permissions` and `first_topic`, goes to the
-nearest earlier step of those two chapters that is on this phone, and is
-gone for good once the first topic exists. The shell draws the button only
+`how_it_rings`, `connect`, `permissions` and `first_topic`, and is gone for
+good once the first topic exists. It walks the steps that were on screen in
+this run (`OnboardingFlowEngine.shownSteps`, held in memory), so a step the
+run passed over is never a Back target, and after a restart there is no Back
+until the user moves forward. A screen that moves on with nothing for the
+user to do finishes with `skippedItself: true`. The shell draws the button only
 while it is offered, never greyed out, and `OnboardingStepFrame` makes the
 Android back button and an iPhone edge swipe follow the same rule.
 `OnboardingFlowEngine.goBack` takes the step that was left out of the
 completed steps, so going forward opens it again. Back opens the step with
-`?back=true` (`isOnboardingCameBack`): the connect step then shows the
-server that is saved, with a way to change it through the call Settings >
-Server makes, and the permissions show an allowed step as allowed and ask
-for nothing twice. A step that is busy holds Back with
+`?back=true` (`isOnboardingCameBack`): the connect step then shows
+"Connected to" the server that is saved, or where a connect still running
+stands, with a way to change it through the call Settings > Server makes.
+The permissions list every permission of this phone as allowed or not
+allowed (`PermissionAnswerList`), and only a tap on a row asks for
+anything. The battery row opens the app's page in Settings and never the
+system dialog. A step that is busy holds Back with
 `holdBack(isHeld: true)`.
 
 Step changes: the shell slides and fades the old step out and the new one

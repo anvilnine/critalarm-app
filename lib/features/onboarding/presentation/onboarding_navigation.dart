@@ -111,12 +111,19 @@ OnboardingMove onboardingMoveFor(
 ///
 /// When setup is already complete the screen was opened on its own, from
 /// Settings or a card on Home, and it closes back to there.
-Future<void> finishOnboardingStep(BuildContext context, String stepId) =>
-    finishOnboardingStepOn(
-      GoRouter.of(context),
-      stepId,
-      isReplay: isOnboardingReplay(context),
-    );
+///
+/// [skippedItself] is for a step that moved on with nothing for the user to
+/// do. Back never opens such a step.
+Future<void> finishOnboardingStep(
+  BuildContext context,
+  String stepId, {
+  bool skippedItself = false,
+}) => finishOnboardingStepOn(
+  GoRouter.of(context),
+  stepId,
+  isReplay: isOnboardingReplay(context),
+  skippedItself: skippedItself,
+);
 
 /// [finishOnboardingStep] for a caller with no screen under it, such as the
 /// connect sheet, which opens above the router.
@@ -124,10 +131,15 @@ Future<void> finishOnboardingStepOn(
   GoRouter router,
   String stepId, {
   required bool isReplay,
+  bool skippedItself = false,
 }) async {
   Uri location() => router.routerDelegate.currentConfiguration.uri;
   final locationBefore = location();
-  final next = await finishOnboardingStepInEngine(stepId, isReplay: isReplay);
+  final next = await finishOnboardingStepInEngine(
+    stepId,
+    isReplay: isReplay,
+    skippedItself: skippedItself,
+  );
   final move = onboardingMoveFor(
     next,
     isReplay: isReplay,
@@ -159,6 +171,7 @@ Future<void> finishOnboardingStepOn(
 Future<OnboardingDestination> finishOnboardingStepInEngine(
   String stepId, {
   required bool isReplay,
+  bool skippedItself = false,
 }) async {
   // Read before the engine answers: completing setup forgets the name.
   final firstTopicName = getIt.isRegistered<FirstTopicHandoff>()
@@ -167,6 +180,7 @@ Future<OnboardingDestination> finishOnboardingStepInEngine(
   final next = await getIt<OnboardingFlowEngine>().finishStep(
     stepId,
     isReplay: isReplay,
+    skippedItself: skippedItself,
   );
   final glowTopic = setupGlowTopicFor(
     endedSetup: next.isHome,

@@ -4,10 +4,11 @@ import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/theme/theme.dart';
 import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
+import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_connect_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_permissions_screen.dart';
-import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/connect_routes_picture.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/setup_tracker.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:flutter/material.dart';
@@ -92,8 +93,8 @@ void main() {
   group('OnboardingConnectScreen fixes', () {
     testWidgets(
       'scrolls only when the card does not fit, Set this up later is '
-      'TextButton, and plays the '
-      'onboarding animations',
+      'TextButton, and draws the '
+      'two routes',
       (tester) async {
         tester.view.physicalSize = const Size(390 * 2, 844 * 2);
         tester.view.devicePixelRatio = 2.0;
@@ -101,6 +102,14 @@ void main() {
 
         final router = buildRouter();
         await tester.pumpWidget(buildTestApp(router));
+
+        // Back only opens a step that was on screen in this run, so the
+        // run walks to connect the way a user does.
+        await tester.runAsync(() async {
+          final engine = getIt<OnboardingFlowEngine>();
+          await engine.finishStep('welcome');
+          await engine.finishStep('how_it_rings');
+        });
 
         router.go('/onboarding/connect');
         await tester.pump();
@@ -126,13 +135,14 @@ void main() {
         );
         expect(skipButtonFinder, findsOneWidget);
 
-        // 3. The middle area plays the onboarding animations, and Back is
-        // there: connect goes back to how it rings.
-        expect(find.byType(OnboardingAnimationLoop), findsOneWidget);
+        // 3. The middle area draws the two routes, and Back is there:
+        // connect goes back to how it rings.
+        expect(find.byType(ConnectRoutesPicture), findsOneWidget);
         expect(find.bySemanticsLabel('Back'), findsOneWidget);
 
         // 4. Check Crit Alarm Cloud card is present
-        expect(find.text('Crit Alarm Cloud'), findsOneWidget);
+        // Its name is there twice: on the card and in the picture.
+        expect(find.text('Crit Alarm Cloud'), findsNWidgets(2));
         expect(find.text('EASIEST'), findsOneWidget);
         expect(
           find.text('We run the server. Nothing to set up.'),
