@@ -32,7 +32,7 @@ const samsungGuide = MakerGuide(
     ),
     MakerStep(
       textKey: LocaleKeys.maker_guide_samsung_step_2,
-      writtenFor: 'One UI on Android 11 to 14',
+      writtenFor: 'One UI, version not named by the source',
       sources: [_samsungSupport],
       isConfirmed: true,
       note:
@@ -41,13 +41,13 @@ const samsungGuide = MakerGuide(
     ),
     MakerStep(
       textKey: LocaleKeys.maker_guide_samsung_step_3,
-      writtenFor: 'One UI on Android 11 to 14',
+      writtenFor: 'One UI, version not named by the source',
       sources: [_samsungSupport],
       isConfirmed: true,
       note:
-          'The Samsung page lists both sleeping lists and how to remove '
-          'an app. It does not say Crit Alarm should be removed; that is '
-          'the point of keeping it out of them.',
+          'The Samsung page describes both lists and how to remove an app. '
+          'Checking them for Crit Alarm is advice from this guide, not '
+          'something the page says.',
     ),
   ],
   intents: [
