@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/in_app_notices/presentation/missed_alarm_notice_view.dart';
@@ -111,7 +114,7 @@ void main() {
     MissedAlarmReader readerOver(SharedPreferences prefs) => MissedAlarmReader(
       store: SharedPrefsMissedAlarmStore(prefs),
       readIncidents: () => const [],
-      readCriticalTopics: () async => const {},
+      readTopicNames: () async => const <String>{},
       capture: () async => const PhoneCapture(),
       isSetupDone: () async => true,
       readServer: () async => 'https://alerts.example.com',
@@ -134,6 +137,23 @@ void main() {
       dismissed: dismissed,
     )!;
     expect(next.incidentIds, ['c']);
+  });
+
+  test('the "no record" words claim only what was recorded', () {
+    final strings =
+        jsonDecode(File('assets/translations/en.json').readAsStringSync())
+            as Map<String, dynamic>;
+    final home =
+        (strings['notices']
+                as Map<String, dynamic>)['missed_alarm_reason_no_push']
+            as String;
+    final row =
+        (strings['reliability'] as Map<String, dynamic>)['line_missed_no_push']
+            as String;
+    for (final text in [home, row]) {
+      expect(text, contains('no record'));
+      expect(text, isNot(contains('reached')));
+    }
   });
 
   group('the card', () {
