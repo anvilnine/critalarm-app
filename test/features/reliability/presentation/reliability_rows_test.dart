@@ -112,6 +112,36 @@ void main() {
       });
     }
 
+    test('a denied permission names what it costs, by check', () {
+      final expected = {
+        ReliabilityCheckIds.notifications:
+            LocaleKeys.reliability_line_denied_notifications,
+        ReliabilityCheckIds.fullScreenAlarm:
+            LocaleKeys.reliability_line_denied_full_screen,
+        ReliabilityCheckIds.batteryOptimization:
+            LocaleKeys.reliability_line_denied_battery,
+        ReliabilityCheckIds.alarms: LocaleKeys.reliability_line_denied_alarms,
+      };
+      for (final MapEntry(key: id, value: key) in expected.entries) {
+        expect(
+          reliabilityLineKey(
+            check(id.value, ReliabilityState.broken, reason: 'denied'),
+          ),
+          key,
+          reason: id.value,
+        );
+      }
+    });
+
+    test('a denied check this screen does not know keeps the shared line', () {
+      expect(
+        reliabilityLineKey(
+          check('brand_new', ReliabilityState.broken, reason: 'denied'),
+        ),
+        LocaleKeys.reliability_line_denied,
+      );
+    });
+
     test('every status name a permission can give has a line', () {
       for (final status in DevicePermissionStatus.values) {
         if (status.isGranted) continue;
