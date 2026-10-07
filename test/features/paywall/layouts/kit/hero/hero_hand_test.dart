@@ -1,6 +1,6 @@
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/hero/hero_loop.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/hero_paywall_layout.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_player.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const List<PaywallPreviewId> _previews = [

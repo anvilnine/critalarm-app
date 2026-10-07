@@ -1,259 +1,15 @@
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 
-// The Hero layout's loop, as numbers: which benefit plays when, what the
-// face does about it, and what the frame is when nothing may move. No
-// widget is in here, so every row of the table has a test.
+export 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 
-/// The faces the mascot makes on the stage. The widget turns each into a
-/// shape, so the table can be read and tested without drawing anything.
-enum HeroFace {
-  /// The entrance: eyes wide, just landed.
-  arriving,
+// The loop of a stage that plays one benefit at a time, as numbers: which
+// turn plays when, what the face does about it, what the hand changed, and
+// what the frame is when nothing may move. No widget is in here, so every
+// row of the table has a test.
 
-  /// Glad. The resting face.
-  glad,
-
-  /// Eyes on the card, a small smile.
-  watching,
-
-  /// One brow up at something that will not go through.
-  doubtful,
-
-  /// Leaning in: wide eyes, brows up.
-  keen,
-
-  /// Working something out.
-  thinking,
-
-  /// Startled by a ring.
-  startled,
-
-  /// A small win: dot eyes, an open smile, lines popping above.
-  winning,
-
-  /// Pleased with itself.
-  proud,
-
-  /// A wink.
-  winking,
-
-  /// Half a smile, for behind a pair of shades.
-  cool,
-
-  /// Relief: eyes shut, a puff of breath let go.
-  relieved,
-
-  /// Listening: eyes shut, a small easy smile.
-  listening,
-
-  /// Taken with something: soft eyes and a heart above the head.
-  loving,
-}
-
-/// What the mascot wears.
-enum HeroProp { crown, shades, headphones, bowTie }
-
-/// One change of face inside a scene, [at] seconds after the scene starts.
-class HeroBeat {
-  const HeroBeat(this.at, this.face, {this.isReaction = false});
-
-  final double at;
-  final HeroFace face;
-
-  /// True for the beat where the feature has done its job: the mascot
-  /// hops.
-  final bool isReaction;
-}
-
-/// One benefit's turn on the stage.
-class HeroScript {
-  const HeroScript({
-    required this.seconds,
-    required this.beats,
-    this.lead = 0,
-    this.props = const {},
-    this.propsOff = const {},
-  });
-
-  /// How long the turn lasts.
-  final double seconds;
-
-  /// How far into its own loop the preview already is when the turn
-  /// starts, so the part worth watching falls inside the turn.
-  final double lead;
-
-  /// The faces, in order. The first is at zero.
-  final List<HeroBeat> beats;
-
-  /// When each prop goes on, in seconds after the turn starts. It comes off
-  /// as the turn ends, unless [propsOff] takes it off sooner.
-  final Map<HeroProp, double> props;
-
-  /// When a prop comes off before the turn ends, to make room for the
-  /// next one.
-  final Map<HeroProp, double> propsOff;
-}
-
-/// The entrance is over and the first turn starts at this second.
-const double heroEntranceSeconds = 1;
-
-/// How long one face takes to become the next.
-const double heroFaceBlend = 0.24;
-
-/// How long one preview takes to give way to the next.
-const double heroCardBlend = 0.32;
-
-/// How long a prop takes to land, and to leave before the turn ends.
-const double heroPropBlend = 0.3;
-
-/// How long the hop after a reaction lasts.
-const double heroHopSeconds = 0.42;
-
-/// After a touch, the chosen benefit plays its turn and then holds on its
-/// finished frame for this long before the loop moves on.
-const double heroHandHoldSeconds = 4;
-
-/// The small hop the mascot gives on any touch: how long it lasts, and how
-/// high it goes against the hop of a reaction.
-const double heroTouchHopSeconds = 0.3;
-const double heroTouchHopHeight = 0.55;
-
-/// Seconds between blinks, and how long one lasts.
-const double heroBlinkEvery = 3.1;
-const double heroBlinkSeconds = 0.16;
-
-/// The turn of each benefit when it shares the stage with others. The
-/// times follow what the preview is doing at that moment. Every preview
-/// has one.
-const Map<PaywallPreviewId, HeroScript> _scripts = {
-  // A third switch is refused, then goes on.
-  PaywallPreviewId.topics: HeroScript(
-    seconds: 2.4,
-    lead: 0.3,
-    beats: [
-      HeroBeat(0, HeroFace.watching),
-      HeroBeat(0.8, HeroFace.doubtful),
-      HeroBeat(1.85, HeroFace.glad, isReaction: true),
-    ],
-  ),
-  // The count stalls at the free limit, then runs to the Hosted one.
-  PaywallPreviewId.pushes: HeroScript(
-    seconds: 2.6,
-    lead: 0.5,
-    beats: [
-      HeroBeat(0, HeroFace.watching),
-      HeroBeat(0.75, HeroFace.keen),
-      HeroBeat(2.1, HeroFace.winning, isReaction: true),
-    ],
-  ),
-  // The list stops at the free limit, the limit lifts, the list goes on.
-  PaywallPreviewId.history: HeroScript(
-    seconds: 2.4,
-    lead: 0.3,
-    beats: [
-      HeroBeat(0, HeroFace.watching),
-      HeroBeat(0.8, HeroFace.thinking),
-      HeroBeat(1.45, HeroFace.proud, isReaction: true),
-    ],
-  ),
-  // The widget rings, its button is pressed, it is awake.
-  PaywallPreviewId.widgets: HeroScript(
-    seconds: 2.3,
-    lead: 1.5,
-    beats: [
-      HeroBeat(0, HeroFace.startled),
-      HeroBeat(1.1, HeroFace.winking, isReaction: true),
-    ],
-  ),
-  // The icon gets its crown, and so does the mascot. Then the shades.
-  PaywallPreviewId.appIcons: HeroScript(
-    seconds: 2.3,
-    lead: 2.3,
-    beats: [
-      HeroBeat(0, HeroFace.watching),
-      HeroBeat(0.7, HeroFace.keen),
-      HeroBeat(1.2, HeroFace.cool, isReaction: true),
-    ],
-    props: {HeroProp.crown: 0.7, HeroProp.shades: 1.2},
-  ),
-  // The alarm rings behind a locked button. The code is scanned, the lock
-  // opens and the alarm stops: a breath let go.
-  PaywallPreviewId.wakeUpChallenges: HeroScript(
-    seconds: 3.1,
-    lead: 0.15,
-    beats: [
-      HeroBeat(0, HeroFace.startled),
-      HeroBeat(0.6, HeroFace.keen),
-      HeroBeat(2.35, HeroFace.relieved, isReaction: true),
-    ],
-  ),
-  // A test push leaves the relay and lands on the phone, which lights with
-  // a tick. Then this week is ticked.
-  PaywallPreviewId.weeklyCheck: HeroScript(
-    seconds: 2.6,
-    lead: 1.6,
-    beats: [
-      HeroBeat(0, HeroFace.watching),
-      HeroBeat(0.3, HeroFace.keen),
-      HeroBeat(1.6, HeroFace.winning, isReaction: true),
-    ],
-  ),
-  // The record button goes down and the mascot puts headphones on to
-  // listen. The take becomes a sound of its own, and it loves it.
-  PaywallPreviewId.customSounds: HeroScript(
-    seconds: 3.2,
-    lead: 0.3,
-    beats: [
-      HeroBeat(0, HeroFace.watching),
-      HeroBeat(0.35, HeroFace.listening),
-      HeroBeat(2.45, HeroFace.loving, isReaction: true),
-    ],
-    props: {HeroProp.headphones: 0.3},
-  ),
-  // The alarm screen tries on its looks and the mascot dresses to match:
-  // shades for the dark one, a bow tie for the poster.
-  PaywallPreviewId.customAlarmScreens: HeroScript(
-    seconds: 3,
-    lead: 0.9,
-    beats: [
-      HeroBeat(0, HeroFace.watching),
-      HeroBeat(0.6, HeroFace.cool),
-      HeroBeat(2.1, HeroFace.proud, isReaction: true),
-    ],
-    props: {HeroProp.shades: 0.6, HeroProp.bowTie: 2.1},
-    propsOff: {HeroProp.shades: 1.8},
-  ),
-};
-
-/// The one benefit of a product that has only one: its turn is the
-/// preview's whole loop, so the picture never jumps.
-const Map<PaywallPreviewId, HeroScript> _soloScripts = {
-  // Earlier weeks are ticked, a test push lands on the phone, this week is
-  // ticked.
-  PaywallPreviewId.weeklyCheck: HeroScript(
-    seconds: 9,
-    beats: [
-      HeroBeat(0, HeroFace.watching),
-      HeroBeat(1.9, HeroFace.keen),
-      HeroBeat(3.3, HeroFace.winning, isReaction: true),
-      HeroBeat(4.6, HeroFace.glad),
-      HeroBeat(6.2, HeroFace.proud),
-      HeroBeat(7.8, HeroFace.glad),
-    ],
-  ),
-};
-
-/// The script [preview] plays when it is one of [count] benefits.
-HeroScript heroScriptFor(PaywallPreviewId preview, {required int count}) {
-  if (count == 1) {
-    final solo = _soloScripts[preview];
-    if (solo != null) return solo;
-  }
-  return _scripts[preview]!;
-}
-
-/// One benefit's turn, placed in the loop.
+/// One turn, placed in the loop.
 class HeroScene {
   const HeroScene({
     required this.index,
@@ -262,9 +18,12 @@ class HeroScene {
     required this.script,
   });
 
-  /// Which benefit, in the order the product lists them.
+  /// Which turn: for the default loop, which benefit, in the order the
+  /// product lists them.
   final int index;
-  final PaywallPreviewId preview;
+
+  /// The preview the card plays. Null for a turn a layout draws itself.
+  final PaywallPreviewId? preview;
 
   /// Seconds into the loop this turn starts.
   final double start;
@@ -277,7 +36,7 @@ class HeroScene {
 /// clock alone.
 ///
 /// The benefit at [index] takes the stage at [since], plays its turn from
-/// the beginning, holds on its finished frame for [heroHandHoldSeconds],
+/// the beginning, holds on its finished frame for [HeroLoop.holdSeconds],
 /// and the loop then moves on from the benefit after it. Make one with
 /// [HeroLoop.touch].
 class HeroHand {
@@ -339,13 +98,12 @@ class HeroWait {
   final double? downAt;
 
   /// A finger goes down at clock second [t]. One that lands during the
-  /// entrance counts from the entrance's end.
-  HeroWait down(double t) => downAt != null
+  /// entrance counts from the entrance's end: pass [HeroLoop.entranceEnd]
+  /// as [entranceEnd] for a loop with a beat of its own before it.
+  HeroWait down(double t, {double entranceEnd = heroEntranceSeconds}) =>
+      downAt != null
       ? this
-      : HeroWait(
-          waited: waited,
-          downAt: t < heroEntranceSeconds ? heroEntranceSeconds : t,
-        );
+      : HeroWait(waited: waited, downAt: t < entranceEnd ? entranceEnd : t);
 
   /// The finger lifts at clock second [t].
   HeroWait up(double t) => downAt == null ? this : HeroWait(waited: behind(t));
@@ -379,24 +137,72 @@ class _Turn {
   bool get byHand => hand != null;
 }
 
-/// The whole loop for one product's benefits, in order.
+/// The whole loop of a stage: the turns in order, and every frame as a
+/// function of the clock and of what the hand last chose. It holds no
+/// timer and no state.
+///
+/// The default constructor is the approved loop for a product's benefits.
+/// [HeroLoop.turns] takes a table a layout wrote itself and behaves the
+/// same way: the hand, the hold, the wait and the resting frame all work.
 class HeroLoop {
-  HeroLoop(List<PaywallPreviewId> previews) : scenes = _scenesOf(previews);
+  /// One turn per preview in [previews], each with its approved script. A
+  /// script in [scripts] replaces the approved one for that preview.
+  ///
+  /// [prelude] is how many seconds of its own a layout plays before the
+  /// entrance (see [entranceEnd]). [holdSeconds] is how long a chosen turn
+  /// holds on its finished frame.
+  HeroLoop(
+    List<PaywallPreviewId> previews, {
+    Map<PaywallPreviewId, HeroScript> scripts = const {},
+    this.prelude = 0,
+    this.holdSeconds = heroHandHoldSeconds,
+  }) : scenes = _scenesOf([
+         for (final preview in previews)
+           HeroTurn(
+             heroScriptFor(preview, count: previews.length, own: scripts),
+             preview: preview,
+           ),
+       ]);
 
-  static List<HeroScene> _scenesOf(List<PaywallPreviewId> previews) {
+  /// A loop of a layout's own [turns], in order: which preview (or none),
+  /// how long, which faces at which beats, which props.
+  HeroLoop.turns(
+    List<HeroTurn> turns, {
+    this.prelude = 0,
+    this.holdSeconds = heroHandHoldSeconds,
+  }) : scenes = _scenesOf(turns);
+
+  static List<HeroScene> _scenesOf(List<HeroTurn> turns) {
     final scenes = <HeroScene>[];
     var start = 0.0;
-    for (final (i, preview) in previews.indexed) {
-      final script = heroScriptFor(preview, count: previews.length);
+    for (final (i, turn) in turns.indexed) {
       scenes.add(
-        HeroScene(index: i, preview: preview, start: start, script: script),
+        HeroScene(
+          index: i,
+          preview: turn.preview,
+          start: start,
+          script: turn.script,
+        ),
       );
-      start += script.seconds;
+      start += turn.script.seconds;
     }
     return scenes;
   }
 
   final List<HeroScene> scenes;
+
+  /// Seconds a layout plays of its own before the entrance starts: a gag,
+  /// a title card. Until then every frame is the entrance at zero, which
+  /// draws nothing on the stage. Zero for the approved composition.
+  final double prelude;
+
+  /// How long a turn the hand chose holds on its finished frame before the
+  /// loop moves on.
+  final double holdSeconds;
+
+  /// The clock second the entrance is over and the first turn starts. Give
+  /// it to the frame as `restAt`.
+  double get entranceEnd => prelude + heroEntranceSeconds;
 
   /// Seconds in one pass through every benefit.
   double get period => scenes.isEmpty ? 0 : scenes.last.end;
@@ -433,7 +239,7 @@ class HeroLoop {
     final settled = hand != null && t < hand.since ? hand.before : hand;
     return HeroHand(
       index: (target % count + count) % count,
-      since: isStill || t >= heroEntranceSeconds ? t : heroEntranceSeconds,
+      since: isStill || t >= entranceEnd ? t : entranceEnd,
       touchedAt: t,
       direction: index == null ? step.sign : 0,
       pull: pull,
@@ -446,7 +252,7 @@ class HeroLoop {
   double resumesAt(HeroHand hand) =>
       hand.since +
       scenes[hand.index % scenes.length].script.seconds +
-      heroHandHoldSeconds;
+      holdSeconds;
 
   /// The turn on the stage at [t]. Null during the entrance of an
   /// untouched loop is never returned: the first turn stands in for it.
@@ -475,16 +281,14 @@ class HeroLoop {
       );
     }
 
-    final run =
-        (t < heroEntranceSeconds ? heroEntranceSeconds : t) -
-        heroEntranceSeconds;
+    final run = (t < entranceEnd ? entranceEnd : t) - entranceEnd;
     final pass = (run / period).floor();
     final local = run - pass * period;
     var now = scenes.first;
     for (final s in scenes) {
       if (local >= s.start) now = s;
     }
-    return _Turn(now, heroEntranceSeconds + pass * period + now.start);
+    return _Turn(now, entranceEnd + pass * period + now.start);
   }
 
   /// The turn that [turn] came in over, or null when nothing was there:
@@ -495,7 +299,7 @@ class HeroLoop {
       return _Turn(scenes[hand.index % scenes.length], hand.since, hand: hand);
     }
     if (scenes.length == 1) return null;
-    if (turn.scene.index == 0 && turn.began <= heroEntranceSeconds) {
+    if (turn.scene.index == 0 && turn.began <= entranceEnd) {
       return null;
     }
     final previous =
@@ -548,24 +352,26 @@ class HeroLoop {
                 ),
               );
 
-    if (t < heroEntranceSeconds) {
-      // The mascot lands startled and is glad by the end of the entrance.
+    if (t < entranceEnd) {
+      // A layout's own beat comes first. Then the mascot lands startled
+      // and is glad by the end of the entrance.
+      final local = t < prelude ? 0.0 : t - prelude;
       return HeroFrame(
         scene: scenes.first,
         previous: null,
         sceneSeconds: 0,
         cardEnter: 1,
-        playFrom: heroEntranceSeconds - scenes.first.script.lead,
+        playFrom: entranceEnd - scenes.first.script.lead,
         previousPlayFrom: null,
-        turn: heroEntranceSeconds,
+        turn: entranceEnd,
         previousTurn: null,
         fromFace: HeroFace.arriving,
         face: HeroFace.glad,
-        faceBlend: phase(t, 0.55, 0.85),
+        faceBlend: phase(local, 0.55, 0.85),
         props: const {},
         hop: touchHop,
         blink: 0,
-        entrance: t / heroEntranceSeconds,
+        entrance: local / heroEntranceSeconds,
         bob: 0,
         progress: 0,
         isHeld: false,
@@ -580,7 +386,7 @@ class HeroLoop {
     final previous = _before(turn);
     final elapsed = t - turn.began;
     final since = _since(turn, t);
-    final run = t - heroEntranceSeconds;
+    final run = t - entranceEnd;
 
     // The face: the last beat that has started, blending in from the one
     // before it. The first beat of a turn comes from the face the stage
@@ -597,16 +403,14 @@ class HeroLoop {
         _since(previous, turn.began),
       ).face;
     } else {
-      fromFace = scenes.length == 1 && turn.began > heroEntranceSeconds
+      fromFace = scenes.length == 1 && turn.began > entranceEnd
           ? beats.last.face
           : HeroFace.glad;
     }
 
     // A prop goes on at its time and comes off as the turn ends. A chosen
     // turn keeps it on through the hold.
-    final stay = turn.byHand
-        ? script.seconds + heroHandHoldSeconds
-        : script.seconds;
+    final stay = turn.byHand ? script.seconds + holdSeconds : script.seconds;
     final props = <HeroProp, double>{};
     for (final MapEntry(key: prop, value: at) in script.props.entries) {
       final on = phase(since, at, at + heroPropBlend);
@@ -636,7 +440,7 @@ class HeroLoop {
       faceBlend: phase(since, beat.at, beat.at + heroFaceBlend),
       props: props,
       hop: reaction > touchHop ? reaction : touchHop,
-      blink: _blink(run),
+      blink: heroBlinkAt(run),
       entrance: 1,
       bob: run,
       progress: phase(since, 0, script.seconds),
@@ -659,7 +463,7 @@ class HeroLoop {
       previous: null,
       sceneSeconds: 0,
       cardEnter: 1,
-      playFrom: heroEntranceSeconds,
+      playFrom: entranceEnd,
       previousPlayFrom: null,
       turn: 0,
       previousTurn: null,
@@ -680,14 +484,16 @@ class HeroLoop {
 
   /// Up and back down across a window, 0 at both ends.
   static double _arc(double p) => 4 * p * (1 - p);
+}
 
-  /// How far the eyes are shut at [run] seconds into the loop.
-  static double _blink(double run) {
-    final local = loopT(run, heroBlinkEvery);
-    const start = heroBlinkEvery - heroBlinkSeconds;
-    if (local < start) return 0;
-    return _arc(phase(local, start, heroBlinkEvery));
-  }
+/// How far the eyes are shut by a blink at [seconds] on any clock, 0 to 1.
+/// The loop blinks with it, and so can a mascot drawn outside a stage.
+double heroBlinkAt(double seconds) {
+  final local = loopT(seconds, heroBlinkEvery);
+  const start = heroBlinkEvery - heroBlinkSeconds;
+  if (local < start) return 0;
+  final p = phase(local, start, heroBlinkEvery);
+  return 4 * p * (1 - p);
 }
 
 /// Everything the stage draws at one moment.
@@ -769,7 +575,7 @@ class HeroFrame {
           pull: pull,
         );
 
-  /// The benefit playing. Null only for a product with no benefit.
+  /// The turn playing. Null only for a loop with no turn.
   final HeroScene? scene;
 
   /// The benefit on its way out, while its preview fades. Null otherwise.

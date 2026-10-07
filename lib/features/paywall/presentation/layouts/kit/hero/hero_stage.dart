@@ -1,29 +1,58 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/hero/hero_arrangement.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/hero/hero_atmosphere.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/hero/hero_faces.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/hero/hero_loop.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/hero/hero_props.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_atmosphere.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_mascot.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/extras_preview_stage.dart';
 import 'package:flutter/material.dart';
 
-/// The top of the Hero layout: the mascot and one benefit's preview on a
-/// stage of soft shapes.
+/// Draws the picture of one turn on the stage, in a box [size] points
+/// large. [playFrom] is the clock second the turn's own motion starts at
+/// zero: read time through `PaywallPreviewClock` against it, as a preview
+/// does, and the picture waits, holds and replays with the loop.
+typedef HeroSceneBuilder =
+    Widget Function(
+      BuildContext context,
+      HeroScene scene,
+      Size size,
+      double? playFrom,
+    );
+
+/// The stage: the mascot and one turn's picture on a disc with soft shapes
+/// drifting behind.
 ///
 /// It draws the [frame] it is given and holds no time of its own, so the
-/// resting frame is just another frame. [bleedTop] is how far the shapes
-/// run up past the stage, under the status bar.
+/// resting frame is just another frame. This is the still part. To have it
+/// play and answer the hand, use `HeroLiveStage`, which feeds it from a
+/// `HeroPlayer`.
+///
+/// What a layout can change, each on its own:
+/// - [arrange] places the mascot and the card. The default is the approved
+///   pair, which drops the card and then the mascot as the stage shrinks.
+/// - [tone] is what the stage is painted on. It colours the atmosphere.
+/// - [sceneBuilder] draws each turn's picture in place of the benefit's
+///   preview. The stage still rounds its corners, lifts it on a shadow,
+///   fades one turn into the next and slides it under a swipe.
+/// - [beside] replaces the card altogether with one widget that stays
+///   through every turn: a receipt, a door, a phone. It gets the card's
+///   box and entrance and nothing else.
 class HeroStage extends StatelessWidget {
   const HeroStage({
     required this.size,
     required this.frame,
     required this.seconds,
-    required this.bleedTop,
+    this.bleedTop = 0,
     this.pull = 0,
+    this.arrange = heroArrangementFor,
+    this.tone = PaywallTone.canvas,
+    this.sceneBuilder,
+    this.beside,
+    this.showsShapes,
     super.key,
   });
 
@@ -33,27 +62,39 @@ class HeroStage extends StatelessWidget {
   /// The clock, for the drift of the shapes and the cue of a preview on
   /// its way out. Zero when nothing may move.
   final double seconds;
+
+  /// How far the shapes run up past the stage, under the status bar.
   final double bleedTop;
 
   /// How far the finger holds the card off its place, in points.
   final double pull;
 
+  /// Places the mascot and the card in [size].
+  final HeroArranger arrange;
+
+  /// What the stage is painted on.
+  final PaywallTone tone;
+
+  /// Draws a turn's picture. Null draws the turn's preview.
+  final HeroSceneBuilder? sceneBuilder;
+
+  /// One widget in the card's place for every turn. It wins over
+  /// [sceneBuilder].
+  final Widget? beside;
+
+  /// Whether the small shapes drift around the disc. Null keeps the
+  /// approved rule: only when the mascot and the card both stand.
+  final bool? showsShapes;
+
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final arrangement = heroArrangementFor(size);
+    final arrangement = arrange(size);
     final scene = frame.scene;
     final e = frame.entrance;
+    final air = HeroAtmosphereColors.of(context, tone);
 
-    // The mascot pops up from a little below, past its size and back.
-    final arrive = AppCurves.easeBack.transform(phase(e, 0.08, 0.6));
-    final bob = frame.bob == 0
-        ? 0.0
-        : -3 * math.sin(2 * math.pi * frame.bob / 3.2);
-    final lift = bob - frame.hop * arrangement.mascot.width * 0.08;
-
-    // The card follows it in from the side.
+    // The card follows the mascot in from the side.
     final cardArrive = AppCurves.easeBack.transform(phase(e, 0.42, 0.92));
     final cardIn = phase(e, 0.42, 0.6);
 
@@ -86,26 +127,17 @@ class HeroStage extends StatelessWidget {
                   ),
                   seconds: seconds,
                   entrance: e,
-                  showsShapes: arrangement.kind == HeroStageKind.pair,
-                  // The dark canvas gets a little of the yellow back, or
-                  // the stage would be one flat black.
-                  disc: isDark
-                      ? Color.alphaBlend(
-                          colors.yellow.withValues(alpha: 0.07),
-                          colors.canvasAlt,
-                        )
-                      : colors.canvasAlt,
-                  soft: isDark
-                      ? colors.yellow.withValues(alpha: 0.07)
-                      : colors.canvasGhost,
-                  strong: isDark
-                      ? colors.yellow.withValues(alpha: 0.16)
-                      : colors.canvasGhostStrong,
-                  light: colors.surface.withValues(alpha: isDark ? 0.5 : 0.4),
+                  showsShapes:
+                      showsShapes ?? arrangement.kind == HeroStageKind.pair,
+                  disc: air.disc,
+                  soft: air.soft,
+                  strong: air.strong,
+                  light: air.light,
                 ),
               ),
             ),
-            if (arrangement.kind == HeroStageKind.pair && scene != null)
+            if (arrangement.kind == HeroStageKind.pair &&
+                (scene != null || beside != null))
               Positioned.fromRect(
                 rect: arrangement.card,
                 child: Opacity(
@@ -114,11 +146,16 @@ class HeroStage extends StatelessWidget {
                     offset: Offset(28 * (1 - cardArrive) + pull, 0),
                     child: Transform.scale(
                       scale: 0.82 + 0.18 * cardArrive,
-                      child: _Card(
-                        edge: arrangement.card.width,
-                        frame: frame,
-                        isDark: isDark,
-                      ),
+                      child:
+                          beside ??
+                          _Card(
+                            // The approved card is a square, to the
+                            // last fraction of a point.
+                            size: _cardSize(arrangement.card),
+                            frame: frame,
+                            isDark: isDark,
+                            sceneBuilder: sceneBuilder,
+                          ),
                     ),
                   ),
                 ),
@@ -126,35 +163,9 @@ class HeroStage extends StatelessWidget {
             if (arrangement.kind != HeroStageKind.none)
               Positioned.fromRect(
                 rect: arrangement.mascot,
-                child: Transform.translate(
-                  offset: Offset(0, 26 * (1 - arrive) + lift),
-                  child: Transform.scale(
-                    scale: arrive,
-                    alignment: Alignment.bottomCenter,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        FaceWidget(
-                          state: FaceState.happy,
-                          shape: heroShapeAt(frame),
-                          size: arrangement.mascot.width,
-                        ),
-                        if (frame.props.isNotEmpty)
-                          Positioned.fill(
-                            child: CustomPaint(
-                              painter: HeroPropsPainter(
-                                props: frame.props,
-                                fill: colors.faceFill,
-                                stroke: colors.faceStroke,
-                                lens: colors.inkFixed,
-                                glint: colors.onHighlight,
-                                bow: colors.highlight,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                child: HeroMascot.frame(
+                  frame,
+                  size: arrangement.mascot.width,
                 ),
               ),
           ],
@@ -164,33 +175,61 @@ class HeroStage extends StatelessWidget {
   }
 }
 
+Size _cardSize(Rect card) => (card.width - card.height).abs() < 0.01
+    ? Size.square(card.width)
+    : card.size;
+
 /// How far a preview travels sideways as a swipe brings it in or sends it
 /// out, in points.
 const double heroCardSlide = 30;
 
-/// The preview of the benefit playing, lifted off the stage. The one on
+/// The picture of the turn playing, lifted off the stage. The one on
 /// its way out fades under the one coming in. After a swipe the new one
 /// comes in from the side the finger pulled it from, and the old one
 /// leaves from where the finger let it go.
 class _Card extends StatelessWidget {
   const _Card({
-    required this.edge,
+    required this.size,
     required this.frame,
     required this.isDark,
+    required this.sceneBuilder,
   });
 
-  final double edge;
+  final Size size;
   final HeroFrame frame;
   final bool isDark;
+  final HeroSceneBuilder? sceneBuilder;
+
+  Widget _picture(BuildContext context, HeroScene scene, double? playFrom) {
+    final own = sceneBuilder;
+    if (own != null) {
+      // A layout's own picture gets the card's corners.
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(
+          extrasPreviewRadius(size.shortestSide),
+        ),
+        child: own(context, scene, size, playFrom),
+      );
+    }
+    final preview = scene.preview;
+    if (preview == null) return SizedBox.fromSize(size: size);
+    return PaywallPreview(
+      preview,
+      sizeClass: PaywallPreviewClass.large,
+      size: size,
+      playFrom: playFrom,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final scene = frame.scene!;
     final previous = frame.previous;
     final enter = frame.cardEnter;
-    final size = Size.square(edge);
     final decoration = BoxDecoration(
-      borderRadius: BorderRadius.circular(extrasPreviewRadius(edge)),
+      borderRadius: BorderRadius.circular(
+        extrasPreviewRadius(size.shortestSide),
+      ),
       boxShadow: AppShadows.shadowLg(isDark: isDark),
     );
     final side = frame.direction * heroCardSlide;
@@ -210,12 +249,7 @@ class _Card extends StatelessWidget {
               opacity: 1 - enter,
               child: DecoratedBox(
                 decoration: decoration,
-                child: PaywallPreview(
-                  previous.preview,
-                  sizeClass: PaywallPreviewClass.large,
-                  size: size,
-                  playFrom: frame.previousPlayFrom,
-                ),
+                child: _picture(context, previous, frame.previousPlayFrom),
               ),
             ),
           ),
@@ -228,12 +262,7 @@ class _Card extends StatelessWidget {
               scale: 0.94 + 0.06 * AppCurves.easeBack.transform(enter),
               child: DecoratedBox(
                 decoration: decoration,
-                child: PaywallPreview(
-                  scene.preview,
-                  sizeClass: PaywallPreviewClass.large,
-                  size: size,
-                  playFrom: frame.playFrom,
-                ),
+                child: _picture(context, scene, frame.playFrom),
               ),
             ),
           ),
