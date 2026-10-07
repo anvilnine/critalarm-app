@@ -42,6 +42,7 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_tr
 import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/domain/entities/appearance_settings.dart';
 import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_usecase.dart';
@@ -250,6 +251,8 @@ class _CritAlarmAppState extends State<CritAlarmApp>
       unawaited(getIt<LiveActivityTokenRegistry>().retryIfPending());
     }
     unawaited(getIt<IncidentAlarmController>().retryIfPending());
+    // The account's packs, at most once a minute (api.md §4.2).
+    unawaited(getIt<ProPackAccess>().refresh());
   }
 
   /// Drops alarms the user asked the phone to stop keeping. Does nothing

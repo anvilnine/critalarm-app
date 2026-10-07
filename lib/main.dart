@@ -18,6 +18,7 @@ import 'package:critalarm/features/onboarding/domain/connect/background_connect.
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/reliability/data/platform_phone_capture.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
 import 'package:critalarm/features/reliability/domain/sources/system_update_source.dart';
@@ -144,6 +145,10 @@ Future<void> main() async {
     // never arrives shows as "not ready" and is asked for again next launch.
     unawaited(getIt<LiveActivityTokenRegistry>().start());
   }
+
+  // api.md §4.2: the account's packs, read from the relay on every launch.
+  // The last answer is on the phone already, so nothing waits on this.
+  unawaited(getIt<ProPackAccess>().refresh());
 
   // A phone that was updated since the last launch is stamped now, so the
   // reliability check counts tests from the real moment of the update.

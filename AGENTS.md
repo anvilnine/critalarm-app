@@ -750,6 +750,39 @@ changed (`FeatureGuideHost._onRoute`). Raised earlier, the sheet sat on the
 page that was leaving, went down with it, and was read as "not now". An
 offer whose screen went away under it is not counted as declined.
 
+**Pro pack.** A pack is an add-on an account holds beside its tier
+(api.md §4.2). The only one is `pro`. The code is in `lib/features/pro_pack/`.
+
+- Two things share a word. Identifiers that say Pro and are not `ProPack...`
+  (`ProAskSheet`, `ProStatusCubit`, `SubscriptionTier.proEntitlement`,
+  `ProOverride`, `DevProSwitch`) mean the Hosted plan. The pack is always
+  `ProPack...` in code and "Pro" in copy. Neither routes through the other.
+- `ProPackAccess` answers one question: does this install hold the pack.
+  `isHeld` is the value and `stream` carries its changes. It never says how
+  the pack was granted, and nothing in the app names a way of selling it.
+- It reads the relay's `packs` list: every registration response,
+  `GET /relay/v1/packs` on launch and resume (once a minute at most), and
+  `POST /relay/v1/packs/refresh` after a purchase or a restore. The last list
+  is kept under the prefs key `pro_pack.relay_packs` with its account id, so
+  a cold start with no network still answers.
+- A pack is never worked out from the tier. `proPackGrantedElsewhere`
+  (`pro_pack_grant.dart`) is the one function that could grant the pack from
+  another source, and it returns false.
+- `proPackRefreshOutcome` is the refresh table. `confirmed: false` with no
+  pack listed is `unknown`: what was showing stays, the sheet says it is still
+  checking and asks again. It is never "no pack" and never a failed purchase.
+- The sheet is `ProPackSheet`, a bottom sheet at its own route (`/pro`,
+  `AppRoute.proPack`). It lists the packages of the RevenueCat offering
+  `proPackOfferingId` with the store's own title and price strings. With no
+  such offering, or in a build that skips the store, it says Pro is not on
+  sale yet and offers nothing to tap.
+- The Reliability screen draws `ProPackReliabilityGroup` through
+  `reliabilityExtraGroups`: one row, the weekly delivery check. Locked, it
+  opens the sheet. Unlocked, it draws its `weeklyCheckBody` builder.
+- Developer options has a switch for the pack beside the Hosted one, in a
+  `SKIP_PAYWALL` build only (`dev.pro_pack`). In a mock build it also makes
+  the mock relay hold the pack (`MockServer.grantedPacks`).
+
 **Changelogs.** Two files, both written with cider, never by hand. The
 how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 

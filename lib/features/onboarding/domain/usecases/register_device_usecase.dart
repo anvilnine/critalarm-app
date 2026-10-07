@@ -18,6 +18,7 @@ final class RegisterDeviceUsecase {
     this._tokens, {
     String Function()? platform,
     this.identifyAccount,
+    this.onPacks,
     PlanChanges? planChanges,
   }) : _platform = platform ?? defaultPushPlatform,
        _planChanges = planChanges ?? appPlanChanges;
@@ -25,6 +26,10 @@ final class RegisterDeviceUsecase {
   final PlanChanges _planChanges;
 
   final Future<void> Function(String)? identifyAccount;
+
+  /// Handed every registration response, for whoever keeps the account's
+  /// packs (api.md §4.2). The list is the relay's and is passed on as it is.
+  final Future<void> Function(DeviceRegistrationResponse response)? onPacks;
   final ApiClient _api;
   final DeviceIdentityStore _identity;
   final PushTokenProvider _tokens;
@@ -66,6 +71,12 @@ final class RegisterDeviceUsecase {
     // this. Only a real change bumps, so the launch registration stays quiet.
     if (response.tier != identity.tier || response.caps != identity.caps) {
       _planChanges.bump();
+    }
+    try {
+      await onPacks?.call(response);
+    } on Object catch (_) {
+      // Keeping the packs is not part of registering. A phone that could not
+      // save them is still registered.
     }
     await _releaseRetiredDevice(identity, relayUri);
     await identifyAccount?.call(response.accountId);

@@ -27,6 +27,8 @@ import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.da
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/pro_welcome_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
+import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
 import 'package:critalarm/features/reliability/presentation/maker/maker_guide_screen.dart';
 import 'package:critalarm/features/reliability/presentation/reliability_screen.dart';
@@ -104,6 +106,7 @@ abstract final class AppRoute {
   static const ringingFaces = 'ringingFaces';
   static const localReminderLab = 'localReminderLab';
   static const paywall = 'paywall';
+  static const String proPack = proPackSheetRouteName;
   static const proWelcome = 'proWelcome';
   static const alarm = 'alarm';
   static const incidentDetail = 'incidentDetail';
@@ -606,6 +609,18 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
               : HostedPaywallScreen(source: source),
         );
       },
+    ),
+    // The Pro pack's sheet. It is a bottom sheet with its own route, over
+    // whatever opened it, and has nothing to do with the paywall above.
+    GoRoute(
+      path: proPackSheetPath,
+      name: AppRoute.proPack,
+      parentNavigatorKey: _rootKey,
+      pageBuilder: (context, state) => ProPackSheetPage(
+        key: state.pageKey,
+        // `?source=` names what opened it, for the analytics event.
+        source: ProPackSheetSource.parse(state.uri.queryParameters['source']),
+      ),
     ),
     // Where a purchase lands. Replaces the paywall so Back never returns to
     // it.
