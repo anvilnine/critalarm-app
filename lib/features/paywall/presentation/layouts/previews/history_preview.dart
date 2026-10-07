@@ -6,6 +6,8 @@ import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/limits_preview_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_glyph_tile.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart';
 import 'package:flutter/material.dart';
 
 // History: a list of alarms by age scrolls down to the line where the free
@@ -192,8 +194,8 @@ List<int> historyPreviewAgesBeyond(int free, int hosted) {
   return ages;
 }
 
-/// How the picture is laid out in a box: bars for rows when the box is
-/// small, and faces, topic names and ages when there is room.
+/// How the scene is laid out in a box: rows of a face, a topic name and an
+/// age, with bars for the words where they would be too small to read.
 @immutable
 class HistoryPreviewLayout {
   const HistoryPreviewLayout({
@@ -202,7 +204,6 @@ class HistoryPreviewLayout {
     required this.padding,
     required this.textSize,
     required this.tagSize,
-    required this.showsFaces,
   });
 
   /// Where the line sits in the box, top to bottom, when the list stops at
@@ -223,7 +224,6 @@ class HistoryPreviewLayout {
   /// Type size of the day counts on the line and in the corner. Zero
   /// leaves them out.
   final double tagSize;
-  final bool showsFaces;
 
   bool get showsText => textSize > 0;
   bool get showsTags => tagSize > 0;
@@ -251,17 +251,6 @@ HistoryPreviewLayout historyPreviewLayoutFor(Size size) {
   final w = size.width;
   final h = size.height;
 
-  if (size.shortestSide < limitsPreviewSmallEdge) {
-    return HistoryPreviewLayout(
-      size: size,
-      rowHeight: h / 4.2,
-      padding: w * 0.16,
-      textSize: 0,
-      tagSize: 0,
-      showsFaces: false,
-    );
-  }
-
   final ideal = (w * 0.24).clamp(22.0, 48.0);
   final rowHeight = h / (h / ideal).clamp(2.6, 6.5);
   final padding = size.shortestSide * 0.08;
@@ -276,7 +265,6 @@ HistoryPreviewLayout historyPreviewLayoutFor(Size size) {
     padding: padding,
     textSize: textSize >= limitsPreviewMinType ? textSize : 0,
     tagSize: tagSize >= limitsPreviewMinType ? tagSize : 0,
-    showsFaces: true,
   );
 }
 
@@ -294,6 +282,10 @@ class HistoryPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (size.shortestSide < paywallPreviewSceneMinEdge) {
+      return PreviewGlyphTile.glyph(GlyphType.clock, size: size);
+    }
+
     final colors = context.appColors;
     final free = AccountCaps.free.historyDays ?? 0;
     const hosted = hostedHistoryDays;
@@ -400,11 +392,13 @@ class _HistoryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final mark = isBeyond ? colors.cobalt : colors.ink;
+    // Ink on both sides of the line. What the line opens up is told apart
+    // by weight: the ages past it are full ink, the ones inside are muted.
+    final mark = colors.ink;
 
     Widget bar(double width, Color color) => Container(
       width: width,
-      height: layout.rowHeight * (layout.showsFaces ? 0.16 : 0.3),
+      height: layout.rowHeight * 0.16,
       decoration: BoxDecoration(color: color, borderRadius: Radii.fullAll),
     );
 
@@ -418,32 +412,35 @@ class _HistoryRow extends StatelessWidget {
       final faint = colors.ink.withValues(alpha: 0.16);
       return Row(
         children: [
-          if (isGhost || !layout.showsFaces)
+          if (isGhost)
             Container(
               width: layout.faceSize,
               height: layout.faceSize,
               decoration: BoxDecoration(
-                color: isGhost ? faint : mark,
+                color: faint,
                 borderRadius: BorderRadius.circular(layout.faceSize * 0.3),
               ),
             )
           else
             FaceWidget(
-              state: FaceState.acked,
+              state: FaceState.calm,
               size: layout.faceSize,
             ),
           SizedBox(width: layout.gap),
           if (isGhost || !layout.showsText) ...[
             bar(
-              room * (layout.showsFaces ? 0.7 : 1) * nameLength,
-              isGhost
-                  ? faint
-                  : layout.showsFaces
-                  ? colors.canvasGhostStrong
-                  : mark,
+              room * 0.7 * nameLength,
+              isGhost ? faint : colors.canvasGhostStrong,
             ),
             const Spacer(),
-            if (layout.showsFaces) bar(room * 0.16, isGhost ? faint : mark),
+            bar(
+              room * 0.16,
+              isGhost
+                  ? faint
+                  : isBeyond
+                  ? mark
+                  : colors.ink3,
+            ),
           ] else ...[
             Expanded(
               child: Text(
@@ -461,7 +458,7 @@ class _HistoryRow extends StatelessWidget {
             Text(
               historyPreviewAge(age),
               style: AppTypography.monoBold(
-                isBeyond ? colors.cobalt : colors.ink3,
+                isBeyond ? mark : colors.ink3,
                 fontSize: layout.textSize,
               ).copyWith(height: 1.2),
             ),
@@ -473,7 +470,7 @@ class _HistoryRow extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: layout.padding),
       decoration: BoxDecoration(
-        border: hasRule && layout.showsFaces
+        border: hasRule
             ? Border(top: BorderSide(color: colors.hairline))
             : null,
       ),
@@ -545,7 +542,7 @@ class _FreeLine extends StatelessWidget {
                 if (lift > 0)
                   Transform.scale(
                     scale: AppCurves.easeSpring.transform(lift),
-                    child: tag(window, colors.highlight, colors.onHighlight),
+                    child: tag(window, colors.ink, colors.surface),
                   ),
               ],
             ),
