@@ -38,6 +38,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - AppScreenScaffold.bodyClearsBottomBar for a body that fills the screen and keeps the pinned bar's room itself. The welcome, how it rings and Pick a server steps use it, so they scroll only when the content is taller than the screen.
 - ringing\_layout\_rules.dart sizes the ringing alarm: ringingFaceSizeFor shrinks the face, down to hidden, until the measured message card is clear of the pinned buttons, and ringingHeaderIsCompact holds the word, topic and ring time at 1.3 times when the title still would not fit.
 - BarBackingConfig in lib/design\_system/bar\_backing.dart sets how a bar is backed while a row is under it: mode (blur, blurAndGradient, gradient, solid, none), blur sigma, fade length, gradient peak and plateau, for the top bar and the pinned bottom bar. Ships as blur with no plateau: the blur is nothing at the inner edge of the zone and rises on the edge blur's own smoothstep curve to its full sigma only at the screen edge. Developer options has a Bar backing screen that tunes it live, saved under dev.bar\_backing. ProgressiveBlurEdge takes maxSigma and plateau, and a larger sigma never adds a slice or a pass.
+- Reliability checks as data in lib/features/reliability: a check has an id, a state, a last good time and an optional fix, each source is its own class, and ReliabilityCubit sums them up. Nothing draws them yet. New prefs keys: relay\_push\_confirmed\_at\_ms, relay\_push\_attempt\_at\_ms, relay\_push\_attempt\_outcome, last\_push\_received\_at\_ms, last\_push\_watching\_since\_ms, reliability\_os\_major, reliability\_os\_changed\_at\_ms.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -73,6 +74,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The welcome heroes stop their ticker under reduced motion or once the user taps Stop animation, instead of ignoring it. OnboardingAnimationLoop takes isStopped and isOnItsOwn.
 - Local reminder morning-after and plan-ends bodies read their numbers and benefit phrases from HostedBenefit.
 - SetupTapRoom gives the Stop animation chip and the two small pills on Pick a server a 44 point tap area. The pills look the same.
+- DeviceTokenRegistry sends the unchanged push token to the relay again at most once every 24 hours, on launch or resume, and records when the relay last accepted it and whether the last call was refused. PushEventDrain keeps the time of the newest push\_received row before it empties the list.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:critalarm/app/initial_route_resolver.dart';
+import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
@@ -30,7 +31,9 @@ import 'package:critalarm/core/device/dev_edge_effect_switch.dart';
 import 'package:critalarm/core/device/device_build_mode.dart';
 import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/device/device_maker.dart';
+import 'package:critalarm/core/device/os_version_reader.dart';
 import 'package:critalarm/core/device/platform_device_maker_reader.dart';
+import 'package:critalarm/core/device/platform_os_version_reader.dart';
 import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
@@ -43,9 +46,11 @@ import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/apns_push_token_provider.dart';
 import 'package:critalarm/core/push/firebase_push_token_provider.dart';
+import 'package:critalarm/core/push/last_push_reader.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
+import 'package:critalarm/core/push/relay_confirmation_store.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
@@ -184,6 +189,17 @@ import 'package:critalarm/features/permissions/domain/repositories/device_permis
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
+import 'package:critalarm/features/reliability/data/platform_scheduled_summary_reader.dart';
+import 'package:critalarm/features/reliability/data/shared_prefs_os_version_store.dart';
+import 'package:critalarm/features/reliability/domain/os_version_store.dart';
+import 'package:critalarm/features/reliability/domain/reliability_fix_runner.dart';
+import 'package:critalarm/features/reliability/domain/scheduled_summary_reader.dart';
+import 'package:critalarm/features/reliability/domain/sources/last_push_source.dart';
+import 'package:critalarm/features/reliability/domain/sources/permissions_source.dart';
+import 'package:critalarm/features/reliability/domain/sources/push_token_source.dart';
+import 'package:critalarm/features/reliability/domain/sources/system_update_source.dart';
+import 'package:critalarm/features/reliability/domain/sources/time_sensitive_source.dart';
+import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
 import 'package:critalarm/features/search/data/repositories/asset_docs_index_repository.dart';
 import 'package:critalarm/features/search/data/repositories/shared_prefs_recent_searches_repository.dart';
 import 'package:critalarm/features/search/domain/repositories/docs_index_repository.dart';
@@ -760,6 +776,7 @@ Future<void> configureDependencies({
         tokens: getIt<PushTokenProvider>(),
         appVersion: appVersion,
         callLog: getIt<LaunchCallLog>(),
+        confirmations: getIt<RelayConfirmationStore>(),
       ),
     )
     ..registerLazySingleton<AlarmHost>(AlarmHost.new)
@@ -793,7 +810,11 @@ Future<void> configureDependencies({
       () => LocalReminderAnalytics(getIt<TelemetryGate>()),
     )
     ..registerLazySingleton(
-      () => PushEventDrain(getIt<SharedPreferences>(), getIt<TelemetryGate>()),
+      () => PushEventDrain(
+        getIt<SharedPreferences>(),
+        getIt<TelemetryGate>(),
+        lastPush: getIt<LastPushStore>(),
+      ),
     )
     // Setup step events. They wait on the phone until the user answers the
     // analytics question.
@@ -1539,6 +1560,102 @@ Future<void> configureDependencies({
       () => ShellCubit(
         getIt<GetDevicePermissionsUsecase>(),
       ),
+    )
+    // Reliability checks. Each source answers for its own checks, and the
+    // cubit sums them up. A new source is a class and one line in the list
+    // below. Nothing draws them yet.
+    ..registerLazySingleton(
+      () => RelayConfirmationStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton(() => LastPushStore(getIt<SharedPreferences>()))
+    ..registerLazySingleton(
+      () => LastPushReader(
+        getIt<SharedPreferences>(),
+        getIt<LastPushStore>(),
+        // On iOS the extension writes its rows to the App Group, and they
+        // only reach Dart's list on the next launch. The alarm channel reads
+        // the group directly.
+        nativeRows: getIt<PlatformCapabilities>().isIos
+            ? () async {
+                final snapshot = await getIt<AlarmHost>().debugSnapshot();
+                final rows = snapshot['push_events'];
+                return rows is List ? rows : const [];
+              }
+            : null,
+      ),
+    )
+    ..registerLazySingleton<OsVersionReader>(
+      () => PlatformOsVersionReader(
+        DeviceInfoPlugin(),
+        platform: defaultTargetPlatform,
+        isWeb: kIsWeb,
+      ),
+    )
+    ..registerLazySingleton<OsVersionStore>(
+      () => SharedPrefsOsVersionStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<ScheduledSummaryReader>(
+      PlatformScheduledSummaryReader.new,
+    )
+    ..registerLazySingleton(
+      () => SystemUpdateSource(
+        os: getIt<OsVersionReader>(),
+        store: getIt<OsVersionStore>(),
+        // The newest test the server accepted, on any topic.
+        lastTestAt: () async {
+          final store = getIt<LocalReminderStore>();
+          await store.reload();
+          DateTime? newest;
+          for (final at in store.readLastTestAt().values) {
+            if (newest == null || at.isAfter(newest)) newest = at;
+          }
+          return newest;
+        },
+        testRouteName: AppRoute.testRing,
+      ),
+    )
+    ..registerLazySingleton(
+      () => ReliabilityFixRunner(
+        openSystemSettings: (permission) async {
+          await getIt<OpenPermissionSettingsUsecase>()(permission);
+        },
+        reRegisterPushToken: getIt<DeviceTokenRegistry>().confirmNow,
+      ),
+    )
+    ..registerLazySingleton(
+      () => ReliabilityCubit([
+        PermissionsSource(
+          permissions: getIt<DevicePermissionsRepository>(),
+          capabilities: getIt<PlatformCapabilities>(),
+          os: getIt<OsVersionReader>(),
+        ),
+        PushTokenSource(
+          store: getIt<RelayConfirmationStore>(),
+          // The registry is not started on the mock server, and a phone with
+          // no server has nobody to register with.
+          isRelayExpected: () async =>
+              !buildUsesMockApi &&
+              getIt<PlatformCapabilities>().canRegisterPush &&
+              await getIt<ApiSessionStore>().read() != null,
+        ),
+        LastPushSource(
+          reader: getIt<LastPushReader>(),
+          capabilities: getIt<PlatformCapabilities>(),
+          hasCriticalTopic: () async =>
+              (await getIt<GetTopicsUsecase>()(
+                const NoParams(),
+              )).getOrNull()?.any((topic) => topic.critical) ??
+              false,
+          testRouteName: AppRoute.testRing,
+        ),
+        TimeSensitiveSource(
+          capabilities: getIt<PlatformCapabilities>(),
+          os: getIt<OsVersionReader>(),
+          permissions: getIt<DevicePermissionsRepository>(),
+          summary: getIt<ScheduledSummaryReader>(),
+        ),
+        getIt<SystemUpdateSource>(),
+      ]),
     )
     ..registerFactory(
       () => HistoryCubit(

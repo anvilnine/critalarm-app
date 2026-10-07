@@ -18,6 +18,7 @@ import 'package:critalarm/features/onboarding/domain/connect/background_connect.
 import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
+import 'package:critalarm/features/reliability/domain/sources/system_update_source.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
 import 'package:critalarm/gen/assets.gen.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -134,6 +135,10 @@ Future<void> main() async {
     // never arrives shows as "not ready" and is asked for again next launch.
     unawaited(getIt<LiveActivityTokenRegistry>().start());
   }
+
+  // A phone that was updated since the last launch is stamped now, so the
+  // reliability check counts tests from the real moment of the update.
+  unawaited(getIt<SystemUpdateSource>().recordVersion());
 
   // The server is the truth on launch: any card still up for an incident it
   // has finished with comes down, and any alarm still set for one stops.
