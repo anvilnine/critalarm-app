@@ -1,10 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:critalarm/app/di.dart';
-import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/connect_link_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/connect_link_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -115,29 +112,6 @@ class ConnectLinkSheetBody extends StatefulWidget {
 class _ConnectLinkSheetBodyState extends State<ConnectLinkSheetBody> {
   Timer? _closeTimer;
 
-  /// Whether the server this phone is on now is Crit Alarm Cloud. Null until
-  /// the saved session answers. It is the same question the Account and Pro
-  /// screens ask: the mode the phone saved when it connected.
-  bool? _replacesCloud;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_readReplacesCloud());
-  }
-
-  Future<void> _readReplacesCloud() async {
-    var cloud = false;
-    try {
-      cloud =
-          await getIt<AccountRepository>().readServerMode() ==
-          ServerMode.hosted;
-    } on Object {
-      // No saved session to read. The host is named instead, which says more.
-    }
-    if (mounted) setState(() => _replacesCloud = cloud);
-  }
-
   @override
   void dispose() {
     _closeTimer?.cancel();
@@ -237,21 +211,21 @@ class _ConnectLinkSheetBodyState extends State<ConnectLinkSheetBody> {
         ),
       ];
     }
+    // Both come from one state, which the cubit sets in one step.
+    final replaces = connectReplaces(
+      replacingHost: state.replacingHost,
+      replacesCloud: state.replacesCloud,
+    );
     return [
       Text(
         LocaleKeys.connect_link_what.tr(),
         textAlign: TextAlign.center,
         style: AppTypography.small(colors.ink2, fontSize: 15),
       ),
-      if (_replacesCloud != null &&
-          connectReplaces(
-                replacingHost: state.replacingHost,
-                replacesCloud: _replacesCloud!,
-              ) !=
-              ConnectReplaces.none) ...[
+      if (replaces != ConnectReplaces.none) ...[
         const SizedBox(height: Spacing.s2),
         Text(
-          _replacesCloud!
+          replaces == ConnectReplaces.cloud
               ? LocaleKeys.connect_link_replaces_cloud.tr()
               : LocaleKeys.connect_link_replaces.tr(
                   namedArgs: {'host': state.replacingHost!},
