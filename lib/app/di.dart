@@ -74,6 +74,7 @@ import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/core/widgets/widget_host.dart';
@@ -184,6 +185,7 @@ import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_
 import 'package:critalarm/features/paywall/data/repositories/dev_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/repositories/revenuecat_subscription_repository.dart';
 import 'package:critalarm/features/paywall/data/services/revenuecat_service.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
 import 'package:critalarm/features/paywall/domain/repositories/subscription_repository.dart';
 import 'package:critalarm/features/paywall/domain/usecases/get_customer_info_usecase.dart';
@@ -192,6 +194,10 @@ import 'package:critalarm/features/paywall/domain/usecases/purchase_package_usec
 import 'package:critalarm/features/paywall/domain/usecases/restore_purchases_usecase.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/pro_status_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/demo_paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hosted_paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/pro_paywall_buy_cubit.dart';
 import 'package:critalarm/features/permissions/data/repositories/platform_device_permissions_repository.dart';
 import 'package:critalarm/features/permissions/domain/repositories/device_permissions_repository.dart';
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
@@ -2138,6 +2144,40 @@ Future<void> configureDependencies({
           getIt<WidgetSync>().rewrite();
         },
       ),
+    )
+    // The sounds a paywall layout asks for. Silent until a playing one is
+    // registered in its place.
+    ..registerLazySingleton<PaywallCues>(() => const SilentPaywallCues())
+    // What every paywall layout buys through. A build that skips the store
+    // gets made-up options, so a layout still has something to draw.
+    ..registerFactoryParam<PaywallBuyCubit, PaywallProduct, PaywallBuyStatus?>(
+      (product, demoStatus) {
+        if (buildSkipsPaywall) {
+          return DemoPaywallBuyCubit(product, startAs: demoStatus);
+        }
+        return switch (product) {
+          PaywallProduct.pro => ProPaywallBuyCubit(
+            access: getIt<ProPackAccess>(),
+            shop: getIt<ProPackShop>(),
+          ),
+          PaywallProduct.hosted => HostedPaywallBuyCubit(
+            getOfferings: getIt<GetOfferingsUsecase>(),
+            purchasePackage: getIt<PurchasePackageUsecase>(),
+            restorePurchases: getIt<RestorePurchasesUsecase>(),
+            readIsPaid: () async => AccountAccess(
+              await getIt<DeviceIdentityStore>().readOrCreate(),
+            ).isPaid,
+            readIsRegisteredPaid: () async => AccountAccess(
+              await getIt<DeviceIdentityStore>().readOrCreate(),
+            ).isRegisteredPaid,
+            refreshRegistration: () async {
+              await getIt<RevenueCatService>().invalidateCustomerInfoCache();
+              await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
+              getIt<WidgetSync>().rewrite();
+            },
+          ),
+        };
+      },
     )
     ..registerFactory(
       () => ProStatusCubit(
