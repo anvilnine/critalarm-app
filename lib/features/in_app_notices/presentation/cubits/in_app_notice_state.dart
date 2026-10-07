@@ -8,6 +8,7 @@ enum InAppNoticeType {
   batteryOptimization,
   proEnding,
   accountBackup,
+  systemUpdate,
 }
 
 @immutable

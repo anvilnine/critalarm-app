@@ -36,8 +36,8 @@ void main() {
 
   group('SettingsScreen', () {
     testWidgets(
-      'lists the rows that lead to each sub screen, and Health reaches '
-      '/settings/permissions',
+      'lists the rows that lead to each sub screen, and the first one opens '
+      'the Reliability screen',
       (tester) async {
         tester.view.physicalSize = const Size(390 * 2, 844 * 2);
         tester.view.devicePixelRatio = 2.0;
@@ -52,7 +52,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Settings'), findsOneWidget);
-        expect(find.text('Health'), findsOneWidget);
+        expect(find.text('Will it wake me?'), findsOneWidget);
         expect(find.text('Default sound'), findsOneWidget);
         expect(find.text('Server'), findsOneWidget);
         expect(find.text('Privacy'), findsOneWidget);
@@ -60,15 +60,22 @@ void main() {
         expect(find.text('Redo onboarding'), findsOneWidget);
 
         // Both of these were dropped: priority is a per-message header, not a
-        // topic setting, and Health already leads to permissions.
+        // topic setting, and the permissions are reached from Reliability.
         expect(find.text('Per-topic priority'), findsNothing);
         expect(find.text('Device permissions'), findsNothing);
 
-        await tester.tap(find.text('Health'));
-        await tester.pumpAndSettle();
+        await tester.tap(find.text('Will it wake me?'));
+        // Not pumpAndSettle: until the checks are read the screen shows the
+        // waiting face, which never stops moving.
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
 
-        // The permissions screen is titled Health and lists the permissions.
-        expect(find.text('Health'), findsAtLeast(1));
+        // The Reliability screen ends with the test alarm row.
+        expect(find.text('Ring a test now'), findsOneWidget);
+
+        // The permissions screen stays reachable at its own route.
+        router.go('/settings/permissions');
+        await tester.pumpAndSettle();
         expect(find.text('Device permissions'), findsOneWidget);
       },
     );

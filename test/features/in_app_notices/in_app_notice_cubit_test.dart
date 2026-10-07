@@ -11,6 +11,7 @@ import 'package:critalarm/features/account/domain/entities/identity_provider.dar
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
+import 'package:critalarm/features/in_app_notices/domain/system_update_notice_rule.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_state.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
@@ -180,6 +181,7 @@ void main() {
   InAppNoticeCubit buildCubit({
     Duration cooldown = const Duration(seconds: 45),
     Future<bool> Function()? isSetupDone,
+    Future<SystemUpdateReading?> Function()? readSystemUpdate,
   }) {
     return InAppNoticeCubit(
       getConnectionUsecase: getConnection,
@@ -193,6 +195,7 @@ void main() {
       cooldownDuration: cooldown,
       identityChanges: identityChanges,
       isSetupDone: isSetupDone,
+      readSystemUpdate: readSystemUpdate,
     );
   }
 
@@ -760,6 +763,103 @@ void main() {
       await next.load();
       expect(next.state.noticeType, isNot(InAppNoticeType.batteryOptimization));
       await next.close();
+    });
+  });
+
+  group('system update notice', () {
+    const updated = SystemUpdateReading(needsLook: true, osMajor: 27);
+
+    setUp(() {
+      getConnection.result = const ServerConnection(
+        serverUrl: 'https://api.critalarm.app',
+        adminToken: 'token123',
+      ).toSuccess();
+    });
+
+    test('shows when the check needs a look', () async {
+      final cubit = buildCubit(readSystemUpdate: () async => updated);
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.systemUpdate);
+      await cubit.close();
+    });
+
+    test('absent when the check is fine', () async {
+      final cubit = buildCubit(
+        readSystemUpdate: () async =>
+            const SystemUpdateReading(needsLook: false, osMajor: 27),
+      );
+      await cubit.load();
+
+      expect(cubit.state.noticeType, isNot(InAppNoticeType.systemUpdate));
+      await cubit.close();
+    });
+
+    test('absent while setup is not done', () async {
+      final cubit = buildCubit(
+        isSetupDone: () async => false,
+        readSystemUpdate: () async => updated,
+      );
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.none);
+      await cubit.close();
+    });
+
+    test('a failed read shows nothing and breaks nothing', () async {
+      final cubit = buildCubit(
+        readSystemUpdate: () async => throw StateError('no plugin'),
+      );
+      await cubit.load();
+
+      expect(cubit.state.noticeType, isNot(InAppNoticeType.systemUpdate));
+      await cubit.close();
+    });
+
+    test('closing it keeps it gone for the same OS version', () async {
+      final cubit = buildCubit(
+        cooldown: const Duration(milliseconds: 20),
+        readSystemUpdate: () async => updated,
+      );
+      await cubit.load();
+      await cubit.dismissCurrent();
+
+      expect(promptRepo.systemUpdateDismissedFor, 27);
+      expect(cubit.state.noticeType, InAppNoticeType.none);
+
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      await cubit.onAppResumed();
+      expect(cubit.state.noticeType, isNot(InAppNoticeType.systemUpdate));
+      await cubit.close();
+
+      // A new launch agrees.
+      final next = buildCubit(readSystemUpdate: () async => updated);
+      await next.load();
+      expect(next.state.noticeType, isNot(InAppNoticeType.systemUpdate));
+      await next.close();
+    });
+
+    test('a later update shows it once more', () async {
+      promptRepo.systemUpdateDismissedFor = 27;
+      final cubit = buildCubit(
+        readSystemUpdate: () async =>
+            const SystemUpdateReading(needsLook: true, osMajor: 28),
+      );
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.systemUpdate);
+      await cubit.close();
+    });
+
+    test('a blocker comes before it', () async {
+      getConnection.result = const Failure.notFound(
+        message: 'No saved connection',
+      ).toFailure();
+      final cubit = buildCubit(readSystemUpdate: () async => updated);
+      await cubit.load();
+
+      expect(cubit.state.noticeType, InAppNoticeType.noServer);
+      await cubit.close();
     });
   });
 }

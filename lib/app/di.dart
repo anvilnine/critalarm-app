@@ -95,6 +95,7 @@ import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
+import 'package:critalarm/features/in_app_notices/domain/system_update_notice_rule.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
@@ -192,6 +193,8 @@ import 'package:critalarm/features/permissions/domain/usecases/open_permission_s
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
 import 'package:critalarm/features/reliability/data/platform_scheduled_summary_reader.dart';
 import 'package:critalarm/features/reliability/data/shared_prefs_os_version_store.dart';
+import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
+import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/reliability/domain/os_version_store.dart';
 import 'package:critalarm/features/reliability/domain/reliability_fix_runner.dart';
 import 'package:critalarm/features/reliability/domain/scheduled_summary_reader.dart';
@@ -1898,6 +1901,20 @@ Future<void> configureDependencies({
         readTopics: () async =>
             (await getIt<GetTopicsUsecase>()(const NoParams())).getOrNull(),
         proEnding: getIt<ProEnding>(),
+        // The same check the Reliability screen lists. Reading it also
+        // stamps an OS version change.
+        readSystemUpdate: () async {
+          final checks = await getIt<SystemUpdateSource>().read();
+          final needsLook = checks.any(
+            (check) =>
+                check.id == ReliabilityCheckIds.systemUpdate &&
+                check.state == ReliabilityState.needsLook,
+          );
+          return SystemUpdateReading(
+            needsLook: needsLook,
+            osMajor: getIt<OsVersionStore>().read().major,
+          );
+        },
         identityChanges: appAccountIdentityChanges,
         isSetupDone: () => getIt<SetupGate>().isDone(),
       ),
