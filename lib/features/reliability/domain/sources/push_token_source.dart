@@ -7,12 +7,16 @@ import 'package:critalarm/features/reliability/domain/reliability_check_source.d
 /// Whether the relay holds this phone's push token.
 ///
 /// `DeviceTokenRegistry` sends the token at most once a day and keeps what
-/// came back in a [RelayConfirmationStore]. This reads it.
+/// came back in a [RelayConfirmationStore]. This reads it, for the device,
+/// relay and token the phone holds now. A record about another device (after
+/// a sign out), another relay (after a server switch) or another token does
+/// not count, so it reads as if the relay never accepted anything.
 ///
 /// - Broken: the last attempt was refused (the relay answered with a 4xx).
 /// - Needs a look: the relay has not accepted the token for more than
 ///   [fineFor], or never has. A token that could not be sent because the
-///   network was down is judged by the same age.
+///   network was down is judged by the same age. So is an acceptance dated in
+///   the future, which a clock set back leaves behind: its age is unknown.
 /// - Fine: accepted within [fineFor].
 ///
 /// The check is not on this phone when [isRelayExpected] says so: no server is
@@ -20,12 +24,13 @@ import 'package:critalarm/features/reliability/domain/reliability_check_source.d
 /// where registration is skipped. A mock build therefore reports "not on this
 /// phone", never broken.
 ///
-/// Reasons: `refused`, `never`, `stale`. The fix is a re-register for all
-/// three. Self-hosted servers register the same way (see the registry).
+/// Reasons: `refused`, `never`, `stale`, `clock`. The fix is a re-register for
+/// all of them. Self-hosted servers register the same way (see the registry).
 final class PushTokenSource implements ReliabilityCheckSource {
   PushTokenSource({
     required this.store,
     required this.isRelayExpected,
+    required this.currentScope,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
@@ -34,6 +39,10 @@ final class PushTokenSource implements ReliabilityCheckSource {
 
   final RelayConfirmationStore store;
   final Future<bool> Function() isRelayExpected;
+
+  /// The scope of the token the phone would send now.
+  /// `DeviceTokenRegistry.currentScope`.
+  final Future<RelayConfirmationScope?> Function() currentScope;
   final DateTime Function() _now;
 
   @override
@@ -45,11 +54,12 @@ final class PushTokenSource implements ReliabilityCheckSource {
         ),
       ];
     }
+    final scope = await currentScope();
     return [
       pushTokenCheckFor(
         now: _now(),
-        confirmedAt: store.confirmedAt,
-        lastOutcome: store.lastOutcome,
+        confirmedAt: scope == null ? null : store.confirmedAtFor(scope),
+        lastOutcome: scope == null ? null : store.lastOutcomeFor(scope),
       ),
     ];
   }
@@ -76,6 +86,16 @@ final class PushTokenSource implements ReliabilityCheckSource {
         id: id,
         state: ReliabilityState.needsLook,
         reason: 'never',
+        fix: fix,
+      );
+    }
+    if (confirmedAt.isAfter(now)) {
+      // The clock went back since it was stamped. Nothing says how long ago
+      // the relay really took the token.
+      return const ReliabilityCheck(
+        id: id,
+        state: ReliabilityState.needsLook,
+        reason: 'clock',
         fix: fix,
       );
     }
