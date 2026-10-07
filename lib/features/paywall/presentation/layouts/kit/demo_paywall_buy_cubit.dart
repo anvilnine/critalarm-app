@@ -75,6 +75,7 @@ class DemoPaywallBuyCubit extends PaywallBuyCubit {
   @override
   Future<void> buy() async {
     if (!state.canBuy) return;
+    began(PaywallBuyAction.purchase);
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
     await Future<void>.delayed(stepTime);
     show(afterStore(state, PaywallStoreResult.done));
@@ -91,6 +92,7 @@ class DemoPaywallBuyCubit extends PaywallBuyCubit {
   @override
   Future<void> restore() async {
     if (!state.canRestore) return;
+    began(PaywallBuyAction.restore);
     show(state.copyWith(status: PaywallBuyStatus.purchasing));
     await Future<void>.delayed(stepTime);
     show(

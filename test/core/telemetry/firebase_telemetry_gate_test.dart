@@ -105,6 +105,8 @@ void main() {
             'paywall_enabled': false,
             'paywall_variant': 'straight',
             'onboarding_flow': '',
+            'paywall_layout': '',
+            'pro_paywall_layout': '',
           }),
         ).called(1);
 
@@ -170,6 +172,42 @@ void main() {
 
       expect(gate.paywallEnabled, isFalse);
       expect(gate.isPaywallEnabled, isFalse);
+    });
+  });
+
+  group('the paywall layout values', () {
+    late MockFirebaseRemoteConfig remoteConfig;
+    late FirebaseTelemetryGate gate;
+
+    setUp(() {
+      remoteConfig = MockFirebaseRemoteConfig();
+      gate = FirebaseTelemetryGate(remoteConfig: remoteConfig);
+    });
+
+    test('both default to an empty string, the shipped paywall', () {
+      const defaults = FirebaseTelemetryGate.remoteConfigDefaults;
+      expect(defaults['paywall_layout'], isEmpty);
+      expect(defaults['pro_paywall_layout'], isEmpty);
+      expect(FirebaseTelemetryGate().paywallLayoutKey, isEmpty);
+      expect(FirebaseTelemetryGate().proPaywallLayoutKey, isEmpty);
+    });
+
+    test('each reads its own key, already activated, with no fetch', () {
+      when(() => remoteConfig.getString('paywall_layout')).thenReturn('auto');
+      when(
+        () => remoteConfig.getString('pro_paywall_layout'),
+      ).thenReturn('sheet');
+
+      expect(gate.paywallLayoutKey, 'auto');
+      expect(gate.proPaywallLayoutKey, 'sheet');
+      verifyNever(() => remoteConfig.fetchAndActivate());
+    });
+
+    test('a read that throws is empty', () {
+      when(() => remoteConfig.getString(any())).thenThrow(Exception('gone'));
+
+      expect(gate.paywallLayoutKey, isEmpty);
+      expect(gate.proPaywallLayoutKey, isEmpty);
     });
   });
 

@@ -10,8 +10,9 @@ and nothing else: no button, price row, legal text, clock, benefit list or purch
    `plain_paywall_layout.dart` is the shortest layout with no stage.
 2. Register it in `kit/paywall_layout_registry.dart`: `PaywallLayoutId.proof: (_) => const Proof...()`.
 3. Open it at `/plans/<key>?product=hosted|pro`, or from Developer options, Paywall layouts.
-   That route lists every benefit, built or not. Add `&benefits=built` for the list a store
-   build shows (`paywallBenefitsFor`). An unregistered id draws `hero` (`paywallFallbackLayout`).
+   The route lists what this build has (`paywallBenefitsFor`). The developer page adds
+   `&benefits=all`, which also lists what is not built yet and which only a developer build
+   reads. An unregistered id draws `hero` (`paywallFallbackLayout`).
 4. Import `kit/paywall_frame.dart` (buy block, clock, scope, tones), `kit/paywall_preview.dart`.
 
 ## The frame

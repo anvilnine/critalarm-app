@@ -13,6 +13,7 @@ import 'package:critalarm/features/feature_guides/presentation/feature_guide_ste
 import 'package:critalarm/features/feature_guides/presentation/widgets/feature_guide_picker_sheet.dart';
 import 'package:critalarm/features/feedback/presentation/help_section.dart';
 import 'package:critalarm/features/paywall/presentation/cubits/paywall_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
 import 'package:critalarm/features/settings/presentation/settings_reliability_row.dart';
@@ -191,7 +192,9 @@ class _SettingsScreenContent extends StatelessWidget {
               onPressed: () {
                 AppHaptics.capture();
                 unawaited(
-                  context.push(paywallLocation(PaywallSource.settingsPlan)),
+                  context.push(
+                    hostedPaywallLocation(PaywallSource.settingsPlan),
+                  ),
                 );
               },
             ),

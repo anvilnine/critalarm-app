@@ -377,7 +377,10 @@ void main() {
                   'product': product.key,
                   if (_sourceKey.isNotEmpty) 'source': source.wire,
                   if (_state.isNotEmpty) 'state': _state,
-                  if (_benefits.isNotEmpty) 'benefits': _benefits,
+                  // The route lists what the build has unless asked for all.
+                  'benefits': _benefits.isEmpty
+                      ? paywallAllBenefits
+                      : _benefits,
                 },
               )
               .toString();
