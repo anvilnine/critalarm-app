@@ -37,6 +37,23 @@ class InAppNoticeState {
 
   bool get isVisible => noticeType != InAppNoticeType.none;
 
+  /// True while the card in the slot asks the person to take a look: a
+  /// missed alarm, missed weekly checks, or a phone update. Home's big face
+  /// answers with the look face while this is true
+  /// (`heroWhileLookNoticeShows`). A card that is closing no longer asks.
+  bool get asksForLook =>
+      !isDismissing &&
+      switch (noticeType) {
+        InAppNoticeType.missedAlarm => missedAlarm != null,
+        InAppNoticeType.weeklyCheck || InAppNoticeType.systemUpdate => true,
+        InAppNoticeType.none ||
+        InAppNoticeType.noServer ||
+        InAppNoticeType.criticalHealth ||
+        InAppNoticeType.batteryOptimization ||
+        InAppNoticeType.proEnding ||
+        InAppNoticeType.accountBackup => false,
+      };
+
   InAppNoticeState copyWith({
     InAppNoticeType? noticeType,
     bool? isDismissing,

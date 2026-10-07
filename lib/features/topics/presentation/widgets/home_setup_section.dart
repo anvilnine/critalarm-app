@@ -181,7 +181,7 @@ class _WidgetsCard extends StatelessWidget {
     );
 
     return SetupBlock(
-      padding: const EdgeInsets.fromLTRB(14, 6, 6, 14),
+      padding: const EdgeInsets.fromLTRB(14, 2, 2, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -197,12 +197,9 @@ class _WidgetsCard extends StatelessWidget {
                 ProBadge(label: LocaleKeys.paywall_pro_badge.tr()),
               const Spacer(),
               // The way out is always there and never the loud thing.
-              AppIconButton(
-                glyph: GlyphType.close,
-                ariaLabel: LocaleKeys.home_widgets_dismiss_button.tr(),
-                glyphSize: 14,
-                color: colors.onCanvasMuted,
+              AppDismissCross(
                 onPressed: onDismiss,
+                label: LocaleKeys.home_widgets_dismiss_button.tr(),
               ),
             ],
           ),

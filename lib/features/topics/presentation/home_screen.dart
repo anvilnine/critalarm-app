@@ -495,12 +495,13 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             subText: exampleStage.subText,
             severity: exampleStage.severity,
           );
-    // While the missed alarm notice is up, the stage does not say "All
-    // clear" over a glad face. A live alarm keeps the stage as it is.
+    // While a notice that asks for a look is up (a missed alarm, missed
+    // weekly checks, a phone update), the stage does not say "All clear" over
+    // a glad face. It wears the look face. A live alarm keeps the stage as
+    // it is.
     final state =
-        _missedAlarmNoticeShows(notice, guide) &&
-            staged.status == HomeStatus.success
-        ? _quietStage(staged)
+        _lookNoticeShows(notice, guide) && staged.status == HomeStatus.success
+        ? _lookStage(staged)
         : staged;
     // A deleted topic leaves the pane pointing at a name the list no
     // longer has, so the selection is read back off the list every build
@@ -836,20 +837,16 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     );
   }
 
-  /// True while the missed alarm card is drawn in the notice slot. The slot
-  /// is hidden under a running guide and while a card is closing.
-  static bool _missedAlarmNoticeShows(
+  /// True while a card that asks for a look is drawn in the notice slot. The
+  /// slot is hidden under a running guide and while a card is closing.
+  static bool _lookNoticeShows(
     InAppNoticeState notice,
     FeatureGuideState guide,
-  ) =>
-      !guide.isActive &&
-      !notice.isDismissing &&
-      notice.noticeType == InAppNoticeType.missedAlarm &&
-      notice.missedAlarm != null;
+  ) => !guide.isActive && notice.asksForLook;
 
-  /// [home] with its stage changed by `heroWhileMissedNoticeShows`.
-  static HomeState _quietStage(HomeState home) {
-    final hero = heroWhileMissedNoticeShows(
+  /// [home] with its stage changed by `heroWhileLookNoticeShows`.
+  static HomeState _lookStage(HomeState home) {
+    final hero = heroWhileLookNoticeShows(
       HomeHero(
         faceState: home.faceState,
         word: home.word,

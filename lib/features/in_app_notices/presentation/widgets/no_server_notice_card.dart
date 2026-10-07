@@ -14,59 +14,23 @@ class NoServerNoticeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, Spacing.s3, 12, 0),
-      child: AppHighlightCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                const FaceWidget(state: FaceState.worried, size: 28),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    LocaleKeys.notices_no_server_title.tr(),
-                    style: TextStyle(
-                      fontFamily: AppTypography.fontDisplay,
-                      fontFamilyFallback: AppTypography.fontDisplayFallbacks,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                      color: colors.onCanvas,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              LocaleKeys.notices_no_server_body.tr(),
-              style: AppTypography.small(colors.onCanvasMuted),
-            ),
-            const SizedBox(height: 12),
-            AppButton(
-              label: LocaleKeys.notices_no_server_button.tr(),
-              size: AppButtonSize.sm,
-              isFullWidth: true,
-              // The connect screen closes back to Home. Ask again then,
-              // so a user who just connected is not told they have no
-              // server.
-              onPressed: () async {
-                final notices = context.read<InAppNoticeCubit?>();
-                await GoRouter.of(
-                  context,
-                ).push<void>(OnboardingEntryPoint.connectServer);
-                if (notices != null && !notices.isClosed) {
-                  await notices.refresh();
-                }
-              },
-            ),
-          ],
-        ),
-      ),
+    return AppNoticeCard(
+      tone: AppHighlightTone.crit,
+      face: FaceState.worried,
+      title: LocaleKeys.notices_no_server_title.tr(),
+      lines: [LocaleKeys.notices_no_server_body.tr()],
+      actionLabel: LocaleKeys.notices_no_server_button.tr(),
+      // The connect screen closes back to Home. Ask again then, so a user
+      // who just connected is not told they have no server.
+      onAction: () async {
+        final notices = context.read<InAppNoticeCubit?>();
+        await GoRouter.of(
+          context,
+        ).push<void>(OnboardingEntryPoint.connectServer);
+        if (notices != null && !notices.isClosed) {
+          await notices.refresh();
+        }
+      },
     );
   }
 }

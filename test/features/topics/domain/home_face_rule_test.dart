@@ -1,6 +1,7 @@
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/topics/domain/home_face_rule.dart';
@@ -576,7 +577,7 @@ void main() {
     });
   });
 
-  group('heroWhileMissedNoticeShows', () {
+  group('heroWhileLookNoticeShows', () {
     HomeHero heroOf(HomeFaceResult r) => r.hero;
 
     HomeFaceResult resolve(List<Incident> incidents, {Set<String>? warnings}) =>
@@ -588,17 +589,17 @@ void main() {
         );
 
     void expectQuiet(HomeHero hero) {
-      expect(hero.faceState, FaceState.calm);
+      expect(hero.faceState, needsLookFace);
       expect(hero.word, isEmpty);
       expect(hero.subText, 'Nothing is ringing.');
       expect(hero.severity, SeverityMode.none);
       expect(hero.ringingIncidentId, isNull);
     }
 
-    test('the resting hero loses "All clear" and the glad face', () {
+    test('the resting hero loses "All clear" and takes the look face', () {
       final rest = heroOf(resolve(const []));
       expect(rest.word, 'All clear');
-      expectQuiet(heroWhileMissedNoticeShows(rest));
+      expectQuiet(heroWhileLookNoticeShows(rest));
     });
 
     test('the last-alarm line goes too', () {
@@ -613,7 +614,7 @@ void main() {
         ]),
       );
       expect(withLast.subText, contains('Last alarm'));
-      expectQuiet(heroWhileMissedNoticeShows(withLast));
+      expectQuiet(heroWhileLookNoticeShows(withLast));
     });
 
     test('the short HANDLED moment is quieted too', () {
@@ -628,7 +629,7 @@ void main() {
         ]),
       );
       expect(handled.faceState, FaceState.success);
-      expectQuiet(heroWhileMissedNoticeShows(handled));
+      expectQuiet(heroWhileLookNoticeShows(handled));
     });
 
     test('a ringing alarm keeps the hero', () {
@@ -643,7 +644,7 @@ void main() {
           ),
         ]),
       );
-      final same = heroWhileMissedNoticeShows(ringing);
+      final same = heroWhileLookNoticeShows(ringing);
       expect(same.faceState, FaceState.alarmed);
       expect(same.word, 'CRITICAL');
       expect(same.ringingIncidentId, 'inc1');
@@ -660,14 +661,14 @@ void main() {
           ),
         ]),
       );
-      final same = heroWhileMissedNoticeShows(acked);
+      final same = heroWhileLookNoticeShows(acked);
       expect(same.faceState, FaceState.acked);
       expect(same.word, acked.word);
     });
 
     test('a warning keeps the hero', () {
       final warning = heroOf(resolve(const [], warnings: {'nas-backup'}));
-      final same = heroWhileMissedNoticeShows(warning);
+      final same = heroWhileLookNoticeShows(warning);
       expect(same.faceState, FaceState.worried);
       expect(same.word, warning.word);
     });
