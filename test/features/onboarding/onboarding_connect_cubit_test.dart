@@ -292,7 +292,8 @@ void main() {
     );
 
     blocTest<OnboardingConnectCubit, OnboardingConnectState>(
-      'connect never moves an https address to http: nothing is saved',
+      'KNOWN BEHAVIOUR AWAITING AN OWNER DECISION: setup follows a server '
+      'that reports http for an https address',
       setUp: () {
         const downgraded = ServerInfo(
           version: '0.1.0',
@@ -302,6 +303,9 @@ void main() {
         when(
           () => mockGetServerInfo(any()),
         ).thenAnswer((_) async => downgraded.toSuccess());
+        when(
+          () => mockSaveConnection(any()),
+        ).thenAnswer((_) async => unit.toSuccess());
       },
       build: () => OnboardingConnectCubit(
         mockGetServerInfo,
@@ -314,10 +318,8 @@ void main() {
       ),
       act: (cubit) => cubit.connect(),
       verify: (cubit) {
-        expect(cubit.state.status, OnboardingConnectStatus.failure);
-        expect(cubit.state.errorMessage, contains('Not connected'));
-        verifyNever(() => mockSaveConnection(any()));
-        verifyNever(() => mockEstablishSession(any(), any()));
+        expect(cubit.state.status, OnboardingConnectStatus.connected);
+        expect(cubit.state.serverUrl, 'http://api.critalarm.app');
       },
     );
 
