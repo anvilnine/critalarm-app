@@ -1,6 +1,9 @@
 import 'dart:async';
 
+import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/connect_link_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/connect_link_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -33,6 +36,71 @@ Future<bool?> showConnectLinkSheet(
   );
 }
 
+/// Which "Replaces" line the sheet draws.
+enum ConnectReplaces {
+  /// This phone is on no server. No line.
+  none,
+
+  /// The server being replaced is Crit Alarm Cloud, which a cloud user does
+  /// not know by its host name.
+  cloud,
+
+  /// Any other server, named by its host.
+  host,
+}
+
+/// The "Replaces" line for a phone connected to [replacingHost], where
+/// [replacesCloud] is true when that server is Crit Alarm Cloud.
+@visibleForTesting
+ConnectReplaces connectReplaces({
+  required String? replacingHost,
+  required bool replacesCloud,
+}) {
+  if (replacingHost == null) return ConnectReplaces.none;
+  return replacesCloud ? ConnectReplaces.cloud : ConnectReplaces.host;
+}
+
+/// True when the only button that leaves the sheet should read "Close": the
+/// server refused, and asking again would get the same answer, so "Not now"
+/// would suggest a later that does not exist.
+@visibleForTesting
+bool connectLeaveIsClose(ConnectLinkState state) =>
+    state.isFailed && !state.canRetry;
+
+/// A host longer than this keeps its address line, so a long name is shown
+/// twice, as before, in case the large type has to be set small.
+const int connectHostLongLength = 40;
+
+/// True when the address line under the host says something the host does
+/// not already say. A person must never see less of the address than they
+/// are agreeing to, so this answers false only for an `https` address that is
+/// exactly `https://` and the host, with at most a closing slash. A path, a
+/// query, a fragment, user info, a port the host does not carry, `http`, a
+/// long host and every failed state show the whole address.
+@visibleForTesting
+bool connectShowsAddress(ConnectLinkState state) {
+  if (state.isPlainHttp || state.isFailed) return true;
+  if (state.host.length > connectHostLongLength) return true;
+  final bare = 'https://${state.host}';
+  return state.address != bare && state.address != '$bare/';
+}
+
+/// [host] cut after each dot, so a line can only break between labels. The
+/// pieces joined are always [host] again.
+@visibleForTesting
+List<String> hostLabels(String host) {
+  final labels = <String>[];
+  var start = 0;
+  for (var i = 0; i < host.length; i++) {
+    if (host[i] == '.') {
+      labels.add(host.substring(start, i + 1));
+      start = i + 1;
+    }
+  }
+  if (start < host.length) labels.add(host.substring(start));
+  return labels;
+}
+
 /// The face and the host, the address under it, one line on what connecting
 /// does, and the two ways out. It reads [ConnectLinkCubit] and never sees
 /// the token.
@@ -45,6 +113,29 @@ class ConnectLinkSheetBody extends StatefulWidget {
 
 class _ConnectLinkSheetBodyState extends State<ConnectLinkSheetBody> {
   Timer? _closeTimer;
+
+  /// Whether the server this phone is on now is Crit Alarm Cloud. Null until
+  /// the saved session answers. It is the same question the Account and Pro
+  /// screens ask: the mode the phone saved when it connected.
+  bool? _replacesCloud;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_readReplacesCloud());
+  }
+
+  Future<void> _readReplacesCloud() async {
+    var cloud = false;
+    try {
+      cloud =
+          await getIt<AccountRepository>().readServerMode() ==
+          ServerMode.hosted;
+    } on Object {
+      // No saved session to read. The host is named instead, which says more.
+    }
+    if (mounted) setState(() => _replacesCloud = cloud);
+  }
 
   @override
   void dispose() {
@@ -151,12 +242,19 @@ class _ConnectLinkSheetBodyState extends State<ConnectLinkSheetBody> {
         textAlign: TextAlign.center,
         style: AppTypography.small(colors.ink2, fontSize: 15),
       ),
-      if (state.replacingHost != null) ...[
+      if (_replacesCloud != null &&
+          connectReplaces(
+                replacingHost: state.replacingHost,
+                replacesCloud: _replacesCloud!,
+              ) !=
+              ConnectReplaces.none) ...[
         const SizedBox(height: Spacing.s2),
         Text(
-          LocaleKeys.connect_link_replaces.tr(
-            namedArgs: {'host': state.replacingHost!},
-          ),
+          _replacesCloud!
+              ? LocaleKeys.connect_link_replaces_cloud.tr()
+              : LocaleKeys.connect_link_replaces.tr(
+                  namedArgs: {'host': state.replacingHost!},
+                ),
           textAlign: TextAlign.center,
           style: AppTypography.small(colors.ink3),
         ),
@@ -187,7 +285,9 @@ class _ConnectLinkSheetBodyState extends State<ConnectLinkSheetBody> {
         const SizedBox(height: Spacing.s2),
       ],
       AppButton(
-        label: LocaleKeys.common_not_now.tr(),
+        label: connectLeaveIsClose(state)
+            ? LocaleKeys.connect_link_close.tr()
+            : LocaleKeys.common_not_now.tr(),
         variant: AppButtonVariant.ghost,
         isFullWidth: true,
         onPressed: () {
@@ -227,23 +327,89 @@ class _Head extends StatelessWidget {
             child: FaceWidget(state: _face, size: 72, isLive: true),
           ),
           const SizedBox(height: Spacing.s3),
-          AppFittedTitle(
-            state.host,
-            minFontSize: 18,
-            style: AppTypography.headline(colors.ink, fontSize: 28),
-          ),
-          const SizedBox(height: Spacing.s1),
-          // An address is a machine string, so it is set in mono. It is
-          // shown whole, because the host alone is not the whole story.
           ExcludeSemantics(
-            child: Text(
-              state.address,
-              textAlign: TextAlign.center,
-              style: AppTypography.mono(colors.ink3, fontSize: 13),
+            child: _HostName(
+              state.host,
+              style: AppTypography.headline(colors.ink, fontSize: 28),
             ),
           ),
+          // An address is a machine string, so it is set in mono. It is
+          // shown whole whenever it holds more than the host above it.
+          if (connectShowsAddress(state)) ...[
+            const SizedBox(height: Spacing.s1),
+            ExcludeSemantics(
+              child: Text(
+                state.address,
+                textAlign: TextAlign.center,
+                style: AppTypography.mono(colors.ink3, fontSize: 13),
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+/// The host, large. It wraps only between labels (after a dot), so a label is
+/// never cut in two, and the type is scaled down until the longest label fits
+/// the line.
+///
+/// `AppFittedTitle` does this for words split by spaces. A host has none, so
+/// it would see one very long word, shrink to its floor and let the line
+/// break inside a label ("alarm.example.co" then "m" at 2.0x text). This uses
+/// the same `fittedFontSize` with the labels as the words and a floor low
+/// enough that every label fits.
+class _HostName extends StatelessWidget {
+  const _HostName(this.host, {required this.style});
+
+  final String host;
+  final TextStyle style;
+
+  /// A DNS label is at most 63 characters, which fits a 343 point line at
+  /// about this size, so no label has to break.
+  static const double _floor = 9;
+
+  @override
+  Widget build(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    final fontSize = style.fontSize!;
+    final labels = hostLabels(host);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        var longest = 0.0;
+        for (final label in labels) {
+          final painter = TextPainter(
+            text: TextSpan(text: label, style: style),
+            textDirection: direction,
+            textScaler: scaler,
+            maxLines: 1,
+          )..layout();
+          if (painter.width > longest) longest = painter.width;
+          painter.dispose();
+        }
+        final fitted = fittedFontSize(
+          fontSize: fontSize,
+          // A hair of slack, so rounding never tips a label over the edge.
+          longestWordWidth: longest + 1,
+          maxWidth: constraints.maxWidth,
+          minFontSize: _floor,
+        );
+        final spacing = style.letterSpacing;
+        final fittedStyle = style.copyWith(
+          fontSize: fitted,
+          letterSpacing: spacing == null ? null : spacing * fitted / fontSize,
+        );
+        return Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            for (final label in labels)
+              Text(label, softWrap: false, style: fittedStyle),
+          ],
+        );
+      },
     );
   }
 }
