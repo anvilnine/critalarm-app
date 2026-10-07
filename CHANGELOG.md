@@ -41,7 +41,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The critical topics count card on the new topic screen wraps cleanly at large text sizes, and no longer shows before you own a critical topic.
 - The message on a ringing alarm no longer sits behind the buttons on a small phone or at a large text size. The face shrinks to make room, and the message scrolls clear of the buttons when it is long.
 - Setup steps at large text sizes no longer print their buttons and the app name over the text behind them.
-- A list scrolled under the Topics, Settings or New topic title no longer shows through it.
+- A list scrolled under the Topics, Settings or New topic title is blurred and faded behind it, so it no longer runs through the title.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.

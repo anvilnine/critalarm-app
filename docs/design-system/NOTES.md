@@ -99,12 +99,23 @@ Two more came later and are listed after them.
 
 - `AppBarBackingScope`: put it where a canvas is drawn behind screens that leave their own
   background clear (the app shell, the setup shell, the ringing alarm). It tells every
-  `AppScreenScaffold` under it the canvas colour, and each one backs its top bar with that colour
-  while a row is scrolled under it, so a row never runs through the title. With `coversBottomBar`
-  the pinned bottom bar gets the same backing while a row is under it, so no text shows through a
-  button. A screen that fits looks the same with or without it. `topBarMaxTextScale` caps how far
-  the system text size grows what is in the top bar, which has one fixed height. A screen that
-  passes `barBacking` keeps its own, which is always there under the pinned bar.
+  `AppScreenScaffold` under it the canvas colour. While a row is scrolled under the top bar, the
+  scaffold backs the bar: the progressive blur, stronger than the quiet edge blur and held at full
+  strength for the height of the bar, under a fade of the canvas colour that eases to nothing a
+  short way past the bar. It is never a solid band. With `coversBottomBar` the pinned bottom bar
+  gets the same while a row is under it, so a button label stays readable over a soft smear. A
+  screen that fits looks the same with or without it. `topBarMaxTextScale` caps how far the system
+  text size grows what is in the top bar, which has one fixed height. A screen that passes
+  `barBacking` keeps its own solid one.
+- `BarBackingConfig` (`lib/design_system/bar_backing.dart`): how that backing is drawn, one
+  `BarBackingStyle` for the top bar and one for the pinned bottom bar. Each has a mode (`blur`,
+  `blurAndGradient`, `gradient`, `solid`, `none`), the blur strength as a sigma, the fade length
+  past the bar, and the canvas fade's opacity at the bar. The app hands it down from its root
+  (`BarBackingConfigScope`), and `BarBackingConfig.defaults` is what ships. Developer options,
+  Bar backing, tunes it live and keeps the choice under the prefs key `dev.bar_backing`. A
+  stronger blur is the same one blur with a larger sigma: it never adds a pass or a slice. Where
+  a phone draws no edge blur, or is held sideways, a mode that blurs raises the canvas fade to
+  0.9 so the row behind a button is still unreadable.
 - `AppScreenScaffold.bodyClearsBottomBar`: turn it on for a body that fills the screen with a
   `SliverFillRemaining` and keeps the pinned bar's room on its own child. The list then adds no
   room of its own after it, and the page scrolls only once the body is taller than the screen.
