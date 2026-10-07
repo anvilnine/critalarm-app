@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:critalarm/app/router.dart';
+import 'package:critalarm/app/shell/shell_branches.dart';
+import 'package:critalarm/core/links/app_link.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
@@ -9,7 +10,6 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
 /// Home says this phone missed an alarm: how many, the newest one's topic
 /// and time, and the reason in a few words.
@@ -94,7 +94,7 @@ class MissedAlarmNoticeCard extends StatelessWidget {
                     size: AppButtonSize.sm,
                     isFullWidth: true,
                     onPressed: () =>
-                        context.pushNamed<void>(AppRoute.reliability),
+                        openAppPath(context, AppLinkRoutes.reliability),
                   ),
                 ],
               ),

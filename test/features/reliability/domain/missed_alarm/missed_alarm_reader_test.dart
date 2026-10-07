@@ -137,6 +137,19 @@ void main() {
     expect(store.connected!.since, now);
   });
 
+  test('an incident that opened while the phone had no server is not '
+      'missed after it connects to the same server again', () async {
+    // Disconnected before the incident, seen by a read at that time.
+    now = opened.subtract(const Duration(hours: 1));
+    server = null;
+    await build().record();
+    // Connected again the morning after.
+    now = expired.add(const Duration(hours: 4));
+    server = 'https://alerts.example.com';
+    expect(await build().read(), isEmpty);
+    expect(store.connected!.since, now);
+  });
+
   group('stamps', () {
     setUp(() {
       store = MemoryMissedAlarmStore();
