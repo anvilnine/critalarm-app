@@ -95,6 +95,42 @@ void main() {
       },
     );
 
+    test('the phone telling by its own clock reaches the row', () async {
+      api.check = const WeeklyCheck(
+        enabled: true,
+        state: WeeklyCheckState.received,
+        // Long past: this phone's clock says two rounds were missed.
+        noticeAfter: 1000,
+      );
+      final cubit = build();
+      await cubit.load();
+      expect(cubit.state.check!.state, WeeklyCheckState.received);
+      expect(cubit.state.missedByClock, isTrue);
+      await cubit.close();
+    });
+
+    test('with notice_after ahead the clock says nothing', () async {
+      api.check = const WeeklyCheck(
+        enabled: true,
+        state: WeeklyCheckState.received,
+        noticeAfter: 4000000000,
+      );
+      final cubit = build();
+      await cubit.load();
+      expect(cubit.state.missedByClock, isFalse);
+      await cubit.close();
+    });
+
+    test('a forced load reads again inside the one-minute window', () async {
+      final cubit = build();
+      await cubit.load();
+      await cubit.load();
+      expect(api.reads, 1);
+      await cubit.load(force: true);
+      expect(api.reads, 2);
+      await cubit.close();
+    });
+
     test('one tap at a time', () async {
       final cubit = build();
       final first = cubit.setEnabled(enabled: true);
