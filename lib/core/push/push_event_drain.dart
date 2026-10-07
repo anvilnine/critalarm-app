@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
+import 'package:critalarm/core/push/last_push_reader.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,8 +13,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// preferences instead. This drains that list on launch and reports it through
 /// [TelemetryGate], which drops everything unless the user opted in.
 final class PushEventDrain {
-  PushEventDrain(this._prefs, this._gate, {DateTime Function()? clock})
-    : _clock = clock ?? DateTime.now;
+  PushEventDrain(
+    this._prefs,
+    this._gate, {
+    DateTime Function()? clock,
+    LastPushStore? lastPush,
+  }) : _clock = clock ?? DateTime.now,
+       _lastPush = lastPush ?? LastPushStore(_prefs);
 
   /// Written by `PushEventLog.kt`. The `flutter.` prefix is what the
   /// shared_preferences plugin puts on every key it owns.
@@ -22,6 +28,7 @@ final class PushEventDrain {
   final SharedPreferences _prefs;
   final TelemetryGate _gate;
   final DateTime Function() _clock;
+  final LastPushStore _lastPush;
   final List<DebugPushEvent> _recent = [];
 
   /// The latest 100 valid events, newest first.
@@ -49,6 +56,11 @@ final class PushEventDrain {
       return 0;
     }
     if (decoded is! List) return 0;
+
+    // The list is about to be gone, so keep the one thing a screen about
+    // reliability needs from it: when a push last arrived.
+    final newestPush = newestPushReceived(decoded);
+    if (newestPush != null) await _lastPush.record(newestPush);
 
     var reported = 0;
     for (final row in decoded.whereType<Map<String, dynamic>>()) {

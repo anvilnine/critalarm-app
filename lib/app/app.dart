@@ -241,10 +241,11 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   /// Device registration, the Live Activity token upload and the incident
   /// reconcile each retry themselves on launch. If one still failed after
   /// every retry, this gives it one more try on the next resume instead of
-  /// waiting for the next cold start.
+  /// waiting for the next cold start. Device registration also sends the
+  /// unchanged token again here when a day has passed since the last call.
   Future<void> _retryFailedLaunchCalls() async {
     if (!buildUsesMockApi) {
-      unawaited(getIt<DeviceTokenRegistry>().retryIfPending());
+      unawaited(getIt<DeviceTokenRegistry>().onResumed());
       unawaited(getIt<LiveActivityTokenRegistry>().retryIfPending());
     }
     unawaited(getIt<IncidentAlarmController>().retryIfPending());
