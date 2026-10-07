@@ -8,6 +8,7 @@ import 'package:critalarm/core/links/app_link.dart';
 import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/telemetry/connect_link_analytics.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
+import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_link_coordinator.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_sheet_rules.dart';
@@ -167,6 +168,7 @@ class _ConnectLinkHostState extends State<ConnectLinkHost>
       link,
       connectToServer: getIt<ConnectToServerUsecase>(),
       readConnection: getIt<GetConnectionUsecase>(),
+      readServerMode: () => getIt<AccountRepository>().readServerMode(),
       events: getIt<ConnectLinkAnalytics>(),
       // Topics, incidents and the no-server card on Home load again, and
       // the reminders are planned again, the same as after a Cloud connect.

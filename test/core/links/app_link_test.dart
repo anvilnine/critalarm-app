@@ -406,6 +406,90 @@ void main() {
       }
     });
 
+    test('a server address with a query or a fragment of its own is '
+        'refused', () {
+      for (final url in [
+        'https://alarm.example.com?x=1',
+        'https://alarm.example.com/?x=1',
+        'https://alarm.example.com/base?x=1',
+        'https://alarm.example.com/base?',
+        'https://alarm.example.com#top',
+        'https://alarm.example.com/base#',
+        'http://192.168.1.20:8080/?x=1',
+      ]) {
+        final encoded = Uri.encodeComponent(url);
+        for (final link in [
+          'https://critalarm.app/connect#url=$encoded&token=$_token',
+          'critalarm://connect?url=$encoded&token=$_token',
+        ]) {
+          expect(_parse(link), AppLinkRoute.home, reason: link);
+        }
+        expect(isAllowedServerUrl(Uri.parse(url)), isFalse, reason: url);
+      }
+    });
+
+    test('a host with an invisible or direction-changing character is '
+        'refused', () {
+      for (final host in [
+        // Zero-width space, and right-to-left override.
+        'alarm\u200b.example.com',
+        'alarm\u202e.example.com',
+        'alarm\u200e.example.com',
+        'alarm\u200f.example.com',
+        'alarm\u202a.example.com',
+        'alarm\u2066.example.com',
+        'alarm\u2069.example.com',
+        '\ufeffalarm.example.com',
+        // The same two, already percent-encoded inside the address.
+        'alarm%E2%80%8B.example.com',
+        'alarm%E2%80%AE.example.com',
+        // Whitespace.
+        'alarm .example.com',
+        'alarm\u00a0.example.com',
+        'alarm\t.example.com',
+        // A name outside ASCII that is not punycode.
+        'ex\u00e4mple.com',
+        '\u0430larm.example.com',
+        // Not host characters.
+        'alarm%2F.example.com',
+        '[fe80::1%25en0]',
+      ]) {
+        final url = 'https://$host/base';
+        final encoded = Uri.encodeComponent(url);
+        for (final link in [
+          'https://critalarm.app/connect#url=$encoded&token=$_token',
+          'critalarm://connect?url=$encoded&token=$_token',
+        ]) {
+          expect(_parse(link), AppLinkRoute.home, reason: encoded);
+        }
+        final parsed = Uri.tryParse(url);
+        if (parsed != null) {
+          expect(isAllowedServerUrl(parsed), isFalse, reason: encoded);
+        }
+      }
+    });
+
+    test('an ASCII host, a punycode label and an IP address pass as they '
+        'come', () {
+      for (final host in [
+        'alarm.example.com',
+        'xn--exmple-cua.com',
+        'pager.example-company.com:8443',
+        'my_nas.internal',
+        'alarm.example.com.',
+        '203.0.113.7',
+        '[2001:db8::1]:8443',
+      ]) {
+        final url = 'https://$host/base';
+        final link = _connect(
+          'https://critalarm.app/connect#url=${Uri.encodeComponent(url)}&token=$_token',
+        );
+        expect(link.serverUrl, Uri.parse(url), reason: host);
+      }
+      expect(isPlainHost('2001:db8::1'), isTrue);
+      expect(isPlainHost('not:an:address'), isFalse);
+    });
+
     test('percent-encoded values are decoded', () {
       final link = _connect(
         'https://critalarm.app/connect'
