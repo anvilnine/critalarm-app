@@ -68,6 +68,10 @@ class BarBackingLabScreen extends StatelessWidget {
                         style: AppTypography.small(colors.onCanvasMuted),
                       ),
                     ),
+                    // Dense rows before and after the controls, so there is
+                    // always small text to scroll under either bar.
+                    const _DenseRows(),
+                    const SizedBox(height: Spacing.s3),
                     _StyleCard(
                       title: LocaleKeys.settings_developer_bar_backing_top.tr(),
                       style: config.top,
@@ -85,24 +89,7 @@ class BarBackingLabScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: Spacing.s3),
-                    // Something to scroll under the bars.
-                    AppSheet(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (var row = 1; row <= 12; row++)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Text(
-                                LocaleKeys.settings_developer_bar_backing_sample
-                                    .tr(args: ['$row']),
-                                style: AppTypography.body(colors.ink),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
+                    const _DenseRows(),
                   ],
                 ),
               ),
@@ -114,7 +101,39 @@ class BarBackingLabScreen extends StatelessWidget {
   }
 }
 
-/// One bar's mode and its three numbers.
+/// A block of small, tightly set lines. Scrolled under a bar it shows the
+/// ramp line by line: each line a little softer than the one before.
+class _DenseRows extends StatelessWidget {
+  const _DenseRows();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return AppSheet(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var row = 1; row <= 18; row++)
+            Text(
+              LocaleKeys.settings_developer_bar_backing_sample.tr(
+                args: ['$row'.padLeft(2, '0')],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.clip,
+              softWrap: false,
+              style: AppTypography.mono(
+                colors.ink,
+                fontSize: 11,
+              ).copyWith(height: 1.25),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One bar's mode and its numbers.
 class _StyleCard extends StatelessWidget {
   const _StyleCard({
     required this.title,
@@ -192,6 +211,14 @@ class _StyleCard extends StatelessWidget {
             divisions: 100,
             decimals: 2,
             onChanged: (v) => onChanged(style.copyWith(gradientPeak: v)),
+          ),
+          _NumberSlider(
+            label: LocaleKeys.settings_developer_bar_backing_plateau.tr(),
+            value: style.plateau,
+            max: 1,
+            divisions: 100,
+            decimals: 2,
+            onChanged: (v) => onChanged(style.copyWith(plateau: v)),
           ),
         ],
       ),
