@@ -1841,5 +1841,9 @@
     "kind_pro_later": "Hosted later",
     "kind_review_ask": "Review ask",
     "kind_feedback_ask": "Feedback ask"
+  },
+  "paywall_sounds": {
+    "settings_title": "Interface sounds",
+    "settings_subtitle": "Short sounds on the plans screen. They follow silent mode and the media volume. They are never an alarm."
   }
 }
