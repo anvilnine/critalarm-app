@@ -4,13 +4,9 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:flutter/material.dart';
 
-// What the widgets, app icons and weekly check previews share: the tile
-// they sit on and the press of a drawn finger. Their clock is the kit's
-// `PaywallPreviewClock`.
-
-/// A preview with a short side under this many points draws its simple
-/// scene: one object and the thing that changes on it.
-const double extrasPreviewFullEdge = 88;
+// What the scenes of the widgets, app icons and weekly check previews
+// share: the tile they sit on and the press of a drawn finger. Their clock
+// is the kit's `PaywallPreviewClock`.
 
 /// How far a pressed thing is squeezed at second [t], from 0 (at rest) to 1
 /// (fully down), for a press that lands at [at]. It goes down fast and
