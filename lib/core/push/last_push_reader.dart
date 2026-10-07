@@ -8,8 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// The native push handlers write a `push_received` row for every push they
 /// accept (`PushEventLog`). `PushEventDrain` empties that list on launch and
 /// calls [record] with the newest row first, so the time survives the drain.
-final class LastPushStore {
-  LastPushStore(this._prefs);
+class LastPushStore {
+  LastPushStore(SharedPreferences prefs) : _prefs = prefs;
 
   static const receivedAtKey = 'last_push_received_at_ms';
   static const watchingSinceKey = 'last_push_watching_since_ms';

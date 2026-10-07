@@ -117,6 +117,8 @@ void main() {
     },
   );
 
+  drainSurvivesAThrowingStore();
+
   test('watchingSince is set once and kept', () async {
     final first = DateTime.utc(2026, 10, 7);
     expect(await store.watchingSince(first), first);
@@ -125,4 +127,52 @@ void main() {
       first,
     );
   });
+}
+
+class _ThrowingLastPushStore extends LastPushStore {
+  _ThrowingLastPushStore(super.prefs);
+
+  @override
+  Future<void> record(DateTime at) async => throw StateError('disk full');
+}
+
+void drainSurvivesAThrowingStore() {
+  test('a store that throws does not stop or change the drain', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final gate = _CountingGate();
+    final drain = PushEventDrain(
+      prefs,
+      gate,
+      lastPush: _ThrowingLastPushStore(prefs),
+    );
+    await prefs.setString(
+      PushEventDrain.storageKey,
+      jsonEncode([
+        {'name': 'push_received', 'at_ms': 2000},
+        {'name': 'push_dropped', 'reason': 'x'},
+        {'name': 'debug_action', 'action': 'refresh'},
+      ]),
+    );
+
+    expect(await drain.drain(), 2);
+    expect(gate.events, ['push_received', 'push_dropped']);
+    expect(drain.recent().map((e) => e.name), [
+      'debug_action',
+      'push_dropped',
+      'push_received',
+    ]);
+    expect(prefs.getString(PushEventDrain.storageKey), isNull);
+  });
+}
+
+class _CountingGate extends NoopTelemetryGate {
+  _CountingGate();
+
+  final events = <String>[];
+
+  @override
+  Future<void> logEvent(String name, [Map<String, Object?>? parameters]) async {
+    events.add(name);
+  }
 }

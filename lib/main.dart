@@ -138,7 +138,7 @@ Future<void> main() async {
 
   // A phone that was updated since the last launch is stamped now, so the
   // reliability check counts tests from the real moment of the update.
-  unawaited(getIt<SystemUpdateSource>().recordVersion());
+  unawaited(getIt<SystemUpdateSource>().recordVersionAtLaunch());
 
   // The server is the truth on launch: any card still up for an incident it
   // has finished with comes down, and any alarm still set for one stops.

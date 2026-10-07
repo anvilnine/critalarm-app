@@ -57,10 +57,16 @@ final class PushEventDrain {
     }
     if (decoded is! List) return 0;
 
-    // The list is about to be gone, so keep the one thing a screen about
-    // reliability needs from it: when a push last arrived.
-    final newestPush = newestPushReceived(decoded);
-    if (newestPush != null) await _lastPush.record(newestPush);
+    // The list is already gone, so keep the one thing a screen about
+    // reliability needs from it: when a push last arrived. That is a bonus.
+    // A write that fails must not stop the drain or change what it reports,
+    // so it is caught and the drain carries on exactly as it always did.
+    try {
+      final newestPush = newestPushReceived(decoded);
+      if (newestPush != null) await _lastPush.record(newestPush);
+    } on Object catch (_) {
+      // Nothing to do: the next push the drain sees tries again.
+    }
 
     var reported = 0;
     for (final row in decoded.whereType<Map<String, dynamic>>()) {

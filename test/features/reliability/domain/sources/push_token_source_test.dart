@@ -83,17 +83,57 @@ void main() {
     });
   });
 
+  group('a time in the future', () {
+    test('an acceptance dated after now needs a look, not fine', () {
+      final check = PushTokenSource.pushTokenCheckFor(
+        now: _now,
+        confirmedAt: _now.add(const Duration(days: 3)),
+        lastOutcome: RelayAttemptOutcome.accepted,
+      );
+      expect(check.state, ReliabilityState.needsLook);
+      expect(check.reason, 'clock');
+      expect(check.lastKnownGood, isNull);
+    });
+
+    test('an acceptance dated exactly now is fine', () {
+      final check = PushTokenSource.pushTokenCheckFor(
+        now: _now,
+        confirmedAt: _now,
+        lastOutcome: RelayAttemptOutcome.accepted,
+      );
+      expect(check.state, ReliabilityState.fine);
+    });
+
+    test('a refusal still wins over a future acceptance', () {
+      final check = PushTokenSource.pushTokenCheckFor(
+        now: _now,
+        confirmedAt: _now.add(const Duration(days: 3)),
+        lastOutcome: RelayAttemptOutcome.refused,
+      );
+      expect(check.state, ReliabilityState.broken);
+    });
+  });
+
   group('source', () {
     late RelayConfirmationStore store;
+    const here = RelayConfirmationScope(
+      deviceId: 'dev_a',
+      relay: 'https://relay-a.example',
+      tokenHash: 'h1',
+    );
 
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       store = RelayConfirmationStore(await SharedPreferences.getInstance());
     });
 
-    PushTokenSource build({required bool expected}) => PushTokenSource(
+    PushTokenSource build({
+      required bool expected,
+      RelayConfirmationScope? scope = here,
+    }) => PushTokenSource(
       store: store,
       isRelayExpected: () async => expected,
+      currentScope: () async => scope,
       now: () => _now,
     );
 
@@ -101,6 +141,7 @@ void main() {
       await store.record(
         _now.subtract(const Duration(hours: 2)),
         RelayAttemptOutcome.accepted,
+        here,
       );
       final checks = await build(expected: true).read();
       expect(checks.single.id, ReliabilityCheckIds.pushTokenConfirmed);
@@ -111,10 +152,12 @@ void main() {
       await store.record(
         _now.subtract(const Duration(hours: 30)),
         RelayAttemptOutcome.accepted,
+        here,
       );
       await store.record(
         _now.subtract(const Duration(hours: 1)),
         RelayAttemptOutcome.refused,
+        here,
       );
       final check = (await build(expected: true).read()).single;
       expect(check.state, ReliabilityState.broken);
@@ -133,5 +176,75 @@ void main() {
         expect(check.state, isNot(ReliabilityState.broken));
       },
     );
+
+    test('an acceptance for another device id does not count', () async {
+      await store.record(
+        _now.subtract(const Duration(hours: 1)),
+        RelayAttemptOutcome.accepted,
+        const RelayConfirmationScope(
+          deviceId: 'dev_old',
+          relay: 'https://relay-a.example',
+          tokenHash: 'h1',
+        ),
+      );
+      final check = (await build(expected: true).read()).single;
+      expect(check.state, ReliabilityState.needsLook);
+      expect(check.reason, 'never');
+    });
+
+    test('an acceptance by another relay does not count', () async {
+      await store.record(
+        _now.subtract(const Duration(hours: 1)),
+        RelayAttemptOutcome.accepted,
+        const RelayConfirmationScope(
+          deviceId: 'dev_a',
+          relay: 'https://relay-b.example',
+          tokenHash: 'h1',
+        ),
+      );
+      final check = (await build(expected: true).read()).single;
+      expect(check.state, ReliabilityState.needsLook);
+    });
+
+    test('an acceptance of another token does not count', () async {
+      await store.record(
+        _now.subtract(const Duration(hours: 1)),
+        RelayAttemptOutcome.accepted,
+        const RelayConfirmationScope(
+          deviceId: 'dev_a',
+          relay: 'https://relay-a.example',
+          tokenHash: 'h0',
+        ),
+      );
+      final check = (await build(expected: true).read()).single;
+      expect(check.state, ReliabilityState.needsLook);
+    });
+
+    test(
+      'a refusal of an old token does not make the new one broken',
+      () async {
+        await store.record(
+          _now.subtract(const Duration(hours: 1)),
+          RelayAttemptOutcome.refused,
+          const RelayConfirmationScope(
+            deviceId: 'dev_a',
+            relay: 'https://relay-a.example',
+            tokenHash: 'h0',
+          ),
+        );
+        final check = (await build(expected: true).read()).single;
+        expect(check.state, ReliabilityState.needsLook);
+      },
+    );
+
+    test('no scope to name reads as never accepted', () async {
+      await store.record(
+        _now.subtract(const Duration(hours: 1)),
+        RelayAttemptOutcome.accepted,
+        here,
+      );
+      final check = (await build(expected: true, scope: null).read()).single;
+      expect(check.state, ReliabilityState.needsLook);
+    });
   });
 }
