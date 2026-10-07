@@ -51,6 +51,13 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Weekly check: native handlers answer a kind `check` push on Android (`CheckPush`, `WeeklyCheckResponder`, `CheckReceiptJobService`) and iPhone (`CheckPush`, `WeeklyCheckResponder`) before the incident path. The push callback only hands off (Android single thread, iPhone serial queue), the record has one writer, and the receipt goes to https only (debug builds may reach localhost and 10.0.2.2).
 - Weekly check in Dart: feature folder `lib/features/weekly_check`, `WeeklyCheckApi` on both API clients, `MockServer.seedWeeklyCheck`, `InAppNoticeType.weeklyCheck`, route `weeklyCheckRounds`. Prefs keys `weekly_check.kept`, `weekly_check.notice_dismissed_at` and `weekly_check.native` (written by native code).
 - After a merge that adds strings, run `make l10n`. `make gen` does not write `lib/gen/locale_keys.g.dart`.
+- Reliability rows: `reliabilityRowFace(check)` picks a face from the check and its state, `reliabilityPrimaryRow` picks the one primary button, `reliabilityScreenLayout` places a group in its check's row and skips the plain row, and `ReliabilityGroup` names the check a group draws. New fixes `AskPermissionFix` and `MissedAlarmFix`. `PermissionsSource.notificationsNeverAsked`.
+- Weekly check is a `ReliabilityCheckSource` (id `weekly_check`). `weeklyCheckStanding` is the one answer the row, the header and the Settings count read. `WeeklyCheckNoticeRule.twoRoundsMissed` is the notice rule without setup and dismissal.
+- `ProPackReliabilityGroup`, `ProPackSheet` and `openProPackSheet` take `isSelfHosted`.
+- `AppListRow` takes `nameMaxLines` and `metaMaxLines`. `MakerGuide.notes` holds unnumbered notes under a guide's steps.
+- Connect link: `hostFit`, `connectShowsAddress`, `connectHeadSemantics` and `connectReplaces` are the sheet's pure rules. `isPlainHost` and `isAllowedServerUrl` refuse hosts with non-host characters and server addresses with a query or fragment. A pinned connect compares scheme, host, port and base path with the server's reported address. `ConnectLinkState.replacesCloud` is read with the replaced host in one step.
+- Home: the hero's expired branch is gone, `heroWhileMissedNoticeShows` quiets the hero under a missed alarm notice, `newestClosed` counts closed incidents only, and `readsNoticeOnReturn` reloads the notice when Home comes back from another tab.
+- Removed `SettingsHealthRow`, `reliabilityRowFaces`, and 18 string keys nothing read.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
