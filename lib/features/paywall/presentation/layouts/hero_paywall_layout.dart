@@ -503,8 +503,8 @@ class _StageDragRecognizer extends HorizontalDragGestureRecognizer {
 }
 
 /// One small pip per benefit, under the stage. The one on stage is longer
-/// and fills as its turn plays. Ink at low opacity, so it says the stage
-/// has more to show without asking to be looked at.
+/// and fills as its turn plays. Plain ink, thick enough to be found at a
+/// glance and no louder than that.
 class _PipsPainter extends CustomPainter {
   const _PipsPainter({
     required this.count,
@@ -520,9 +520,9 @@ class _PipsPainter extends CustomPainter {
   final double show;
   final Color color;
 
-  static const double _thick = 4;
-  static const double _long = 20;
-  static const double _gap = 5;
+  static const double _thick = 5;
+  static const double _long = 26;
+  static const double _gap = 6;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -530,8 +530,8 @@ class _PipsPainter extends CustomPainter {
     final grow = AppCurves.easeOut.transform(frame.cardEnter);
     final leaving = frame.previous?.index;
     final top = (size.height - _thick) / 2;
-    final track = Paint()..color = color.withValues(alpha: 0.2 * show);
-    final fill = Paint()..color = color.withValues(alpha: 0.62 * show);
+    final track = Paint()..color = color.withValues(alpha: 0.3 * show);
+    final fill = Paint()..color = color.withValues(alpha: 0.82 * show);
 
     var x = 0.0;
     for (var i = 0; i < count; i++) {
