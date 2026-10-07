@@ -70,6 +70,7 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
   Future<void> connect() async {
     final token = _token;
     if (token == null || state.isConnecting || state.isConnected) return;
+    if (state.isFailed && !state.canRetry) return;
     _tried = true;
     emit(
       state.copyWith(
@@ -79,7 +80,12 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
     );
     final ConnectOutcome outcome;
     try {
-      outcome = await _connect(serverUrl: _serverUrl, adminToken: token);
+      outcome = await _connect(
+        serverUrl: _serverUrl,
+        adminToken: token,
+        // The sheet shows one address and connects to that one.
+        pinToAddress: true,
+      );
     } on Object {
       // The use case answers with an outcome and does not throw. This is
       // for a failure outside it. Its text is dropped: it is not a sentence,
@@ -100,21 +106,41 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
       connectOutcomeMessage(outcome) ??
           LocaleKeys.onboarding_connect_admin_token_error_empty.tr(),
       token,
+      // Asking the same server again gets the same answer.
+      canRetry: outcome is! ServerAddressDiffers && outcome is! ServerDowngrade,
     );
   }
 
   /// Shows [message], unless it holds the token, which a wrapped exception
   /// could. That one gets the plain unknown-error line.
-  void _fail(String message, String token) {
+  void _fail(String message, String token, {bool canRetry = true}) {
     if (isClosed) return;
     emit(
       state.copyWith(
         phase: ConnectLinkPhase.failed,
-        errorMessage: message.contains(token)
+        errorMessage: _holdsToken(message, token)
             ? LocaleKeys.api_errors_unknown.tr()
             : message,
+        canRetry: canRetry,
       ),
     );
+  }
+
+  /// True when [message] holds [token] in any form an error could echo it:
+  /// as the link gave it, as the request sent it (trimmed), and percent
+  /// encoded either way. Case is ignored, because `%2F` and `%2f` are one
+  /// thing.
+  static bool _holdsToken(String message, String token) {
+    final text = message.toLowerCase();
+    final plain = {token, token.trim()}..removeWhere((form) => form.isEmpty);
+    final forms = {
+      for (final form in plain) ...[
+        form,
+        Uri.encodeComponent(form),
+        Uri.encodeQueryComponent(form),
+      ],
+    };
+    return forms.any((form) => text.contains(form.toLowerCase()));
   }
 
   /// The person answered Not now, or swiped the sheet away.

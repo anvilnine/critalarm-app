@@ -176,14 +176,16 @@ class _ConnectLinkSheetBodyState extends State<ConnectLinkSheetBody> {
   ) {
     if (state.isConnecting || state.isConnected) return const [];
     return [
-      AppButton(
-        label: state.isFailed
-            ? LocaleKeys.common_retry.tr()
-            : LocaleKeys.onboarding_connect_connect_button.tr(),
-        isFullWidth: true,
-        onPressed: () => unawaited(cubit.connect()),
-      ),
-      const SizedBox(height: Spacing.s2),
+      if (!state.isFailed || state.canRetry) ...[
+        AppButton(
+          label: state.isFailed
+              ? LocaleKeys.common_retry.tr()
+              : LocaleKeys.onboarding_connect_connect_button.tr(),
+          isFullWidth: true,
+          onPressed: () => unawaited(cubit.connect()),
+        ),
+        const SizedBox(height: Spacing.s2),
+      ],
       AppButton(
         label: LocaleKeys.common_not_now.tr(),
         variant: AppButtonVariant.ghost,

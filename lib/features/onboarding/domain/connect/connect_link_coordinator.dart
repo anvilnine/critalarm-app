@@ -34,8 +34,13 @@ typedef ConnectSheetPresenter =
 ///   and gets its own sheet after this one closes. The sheet never changes
 ///   what it shows while the person is reading it, because a tap on
 ///   Connect must connect to what was on screen.
+/// - Newest wins. A link that is waiting is replaced by a newer one, and a
+///   link that goes back (below) never replaces a newer one. The older link
+///   is dropped on purpose, because the person tapped the newer one last.
 /// - A sheet that an alarm closed before the person tried to connect puts
 ///   its link back, unless a newer link has arrived.
+/// - A sheet that failed to open puts its link back once. A second failure
+///   drops it.
 ///
 /// Memory only. Nothing here logs the link.
 class ConnectLinkCoordinator {
@@ -43,13 +48,22 @@ class ConnectLinkCoordinator {
     required ConnectLinkHolder links,
     required Future<ConnectSheetSituation> Function() readSituation,
     required ConnectSheetPresenter showSheet,
-  }) : _holder = links,
+    bool Function()? checkAgain,
+  }) : _stillAllowed = checkAgain,
+       _holder = links,
        _situation = readSituation,
        _present = showSheet;
 
   final ConnectLinkHolder _holder;
   final Future<ConnectSheetSituation> Function() _situation;
   final ConnectSheetPresenter _present;
+
+  /// Asked once more, with no wait before the sheet opens, because the
+  /// situation was read a moment earlier and an alarm can start in between.
+  final bool Function()? _stillAllowed;
+
+  /// The link that already failed to open once. It is not given a third try.
+  ConnectLink? _failedOnce;
 
   StreamSubscription<ConnectLink>? _sub;
   bool _busy = false;
@@ -84,6 +98,7 @@ class ConnectLinkCoordinator {
           if (_again) continue;
           return;
         }
+        if (!(_stillAllowed?.call() ?? true)) return;
         final link = _holder.take();
         if (link == null) return;
         await _show(link);
@@ -96,17 +111,29 @@ class ConnectLinkCoordinator {
   Future<void> _show(ConnectLink link) async {
     _showing = true;
     var end = ConnectSheetEnd.left;
+    var failed = false;
     try {
       end = await _present(link);
     } on Object {
-      // A sheet that failed to open spends the link. Nothing is reported,
-      // because what failed may hold it.
+      // Nothing is reported, because what failed may hold the link.
+      failed = true;
     } finally {
       _showing = false;
     }
-    // Nothing here keeps the link, so an alarm that closed the sheet is the
-    // only reason to hand it back, and only when nothing newer is waiting.
-    if (end == ConnectSheetEnd.interrupted && _holder.pending == null) {
+    if (!failed) _failedOnce = null;
+    // A newer link always wins: it is what the person tapped last. So a link
+    // goes back only when nothing newer is waiting, and that is on purpose.
+    if (_holder.pending != null) return;
+    if (failed) {
+      // One more try, so a sheet that could not open for a moment does not
+      // cost the person their link. A second failure drops it.
+      if (_failedOnce == link) {
+        _failedOnce = null;
+        return;
+      }
+      _failedOnce = link;
+      _holder.offer(link);
+    } else if (end == ConnectSheetEnd.interrupted) {
       _holder.offer(link);
     }
   }

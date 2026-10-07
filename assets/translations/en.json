@@ -156,7 +156,9 @@
   "connect_link": {
     "what": "This phone will use this server for alarms.",
     "replaces": "Replaces {host}.",
-    "not_encrypted": "This address is not encrypted."
+    "not_encrypted": "This address is not encrypted.",
+    "address_differs": "This server says its address is {host}. Not connected.",
+    "downgrade": "This server answered with an unencrypted address. Not connected."
   },
   "onboarding_real_ring": {
     "title": "Now a real alarm",

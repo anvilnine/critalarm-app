@@ -281,6 +281,119 @@ void main() {
     });
   });
 
+  group('a link is never lost without a reason', () {
+    test('an alarm that starts between the check and the sheet holds the '
+        'link back', () async {
+      var allowed = false;
+      final late = ConnectLinkCoordinator(
+        links: holder,
+        readSituation: () async => now,
+        checkAgain: () => allowed,
+        showSheet: (link) async {
+          shown.add(link);
+          return ConnectSheetEnd.left;
+        },
+      );
+      addTearDown(late.dispose);
+      holder.offer(_link('a.example.com'));
+      await late.check();
+      expect(shown, isEmpty);
+      expect(holder.pending, _link('a.example.com'));
+
+      allowed = true;
+      await late.check();
+      expect(shown, hasLength(1));
+      expect(holder.pending, isNull);
+    });
+
+    test('a sheet that failed to open is put back once, and shows on the '
+        'second try', () async {
+      var attempts = 0;
+      final flaky = ConnectLinkCoordinator(
+        links: holder,
+        readSituation: () async => now,
+        showSheet: (link) async {
+          attempts++;
+          if (attempts == 1) throw StateError('no overlay');
+          shown.add(link);
+          return ConnectSheetEnd.connected;
+        },
+      );
+      addTearDown(flaky.dispose);
+      holder.offer(_link('a.example.com'));
+      await flaky.check();
+      expect(attempts, 2);
+      expect(shown.map((l) => l.serverUrl.host), ['a.example.com']);
+      expect(holder.pending, isNull);
+    });
+
+    test('a sheet that fails twice drops the link, and only then', () async {
+      var attempts = 0;
+      final broken = ConnectLinkCoordinator(
+        links: holder,
+        readSituation: () async => now,
+        showSheet: (link) {
+          attempts++;
+          throw StateError('no overlay');
+        },
+      );
+      addTearDown(broken.dispose);
+      holder.offer(_link('a.example.com'));
+      await broken.check();
+      await settle();
+      expect(attempts, 2);
+      expect(holder.pending, isNull);
+      expect(broken.isShowing, isFalse);
+    });
+
+    test('a failed sheet does not put its link over a newer one', () async {
+      var attempts = 0;
+      final seen = <String>[];
+      late final ConnectLinkCoordinator flaky;
+      flaky = ConnectLinkCoordinator(
+        links: holder,
+        readSituation: () async => now,
+        showSheet: (link) async {
+          attempts++;
+          seen.add(link.serverUrl.host);
+          if (attempts == 1) {
+            // A newer link lands while the first sheet is failing.
+            holder.offer(_link('b.example.com', 'tk_newer'));
+            throw StateError('no overlay');
+          }
+          return ConnectSheetEnd.left;
+        },
+      );
+      addTearDown(flaky.dispose);
+      holder.offer(_link('a.example.com'));
+      await flaky.check();
+      expect(seen, ['a.example.com', 'b.example.com']);
+    });
+
+    test('newest wins on purpose: an interrupted link is dropped when a '
+        'newer one is waiting, and the older one never shows', () async {
+      holder.offer(_link('a.example.com'));
+      coordinator.start();
+      await settle();
+      situation(alarmOn: true);
+      holder.offer(_link('b.example.com', 'tk_newer'));
+      sheets.single.complete(ConnectSheetEnd.interrupted);
+      await settle();
+
+      situation();
+      await poke();
+      expect(shown.map((l) => l.serverUrl.host), [
+        'a.example.com',
+        'b.example.com',
+      ]);
+      sheets.last.complete(ConnectSheetEnd.left);
+      await settle();
+      expect(holder.pending, isNull);
+      await poke();
+      expect(shown, hasLength(2));
+    });
+  });
+
   test('a disposed coordinator opens nothing', () async {
     situation(alarmOn: true);
     holder.offer(_link('a.example.com'));
