@@ -7,6 +7,10 @@ const _phones = <({double height, double top, double bottom, bool compact})>[
   (height: 667, top: 20, bottom: 0, compact: true),
 ];
 
+/// Buy block heights to plan with: a tall one with a plan picker and a
+/// short one without.
+double _buyBlock({required bool isHosted}) => isHosted ? 262 : 180;
+
 SheetPlan _plan(
   ({double height, double top, double bottom, bool compact}) phone, {
   required bool isHosted,
@@ -18,7 +22,7 @@ SheetPlan _plan(
   topInset: phone.top,
   bottomInset: phone.bottom,
   isCompact: phone.compact,
-  isHosted: isHosted,
+  buyBlockHeight: _buyBlock(isHosted: isHosted),
   isSwitch: isSwitch,
   benefitCount: benefitCount,
   textScale: textScale,
@@ -81,7 +85,7 @@ void main() {
             greaterThanOrEqualTo(
               sheetWantedHeight(
                 isCompact: phone.compact,
-                isHosted: isHosted,
+                buyBlockHeight: _buyBlock(isHosted: isHosted),
                 benefitCount: count,
                 bottomInset: phone.bottom,
               ),
@@ -125,6 +129,21 @@ void main() {
         isSwitch: false,
         benefitCount: 1,
         textScale: 1.3,
+      );
+      expect(plan.rowsAbove, 0);
+    }
+  });
+
+  test('no quiet row is kept until the buy block has a height', () {
+    for (final phone in _phones) {
+      final plan = sheetPlanFor(
+        screenHeight: phone.height,
+        topInset: phone.top,
+        bottomInset: phone.bottom,
+        isCompact: phone.compact,
+        buyBlockHeight: null,
+        isSwitch: false,
+        benefitCount: 1,
       );
       expect(plan.rowsAbove, 0);
     }
