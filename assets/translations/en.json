@@ -1953,5 +1953,32 @@
       "custom_sounds": "Your own alarm sound",
       "custom_alarm_screens": "Your own alarm screen"
     }
+  },
+  "paywall_sentence": {
+    "stem_hosted": "Hosted gives you",
+    "stem_pro": "Pro gives you",
+    "sentence_label": "{stem} {tail}.",
+    "tails": {
+      "topics": "unlimited critical topics",
+      "pushes": "{hosted_p4_daily} pushes a day",
+      "history": "{hosted_history_days} days of history",
+      "widgets": "Home screen widgets",
+      "app_icons": "three more app icons",
+      "wake_up_challenges": "challenges that wake you up",
+      "reliability_checks": "weekly reliability checks",
+      "custom_sounds": "your own alarm sound",
+      "custom_alarm_screens": "your own alarm screen"
+    },
+    "names": {
+      "topics": "Topics",
+      "pushes": "Pushes",
+      "history": "History",
+      "widgets": "Widgets",
+      "app_icons": "Icons",
+      "wake_up_challenges": "Challenges",
+      "reliability_checks": "Checks",
+      "custom_sounds": "Sounds",
+      "custom_alarm_screens": "Screens"
+    }
   }
 }
