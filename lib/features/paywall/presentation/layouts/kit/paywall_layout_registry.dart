@@ -7,6 +7,7 @@ import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart'
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/plain_paywall_layout.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/proof_paywall_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -18,6 +19,7 @@ typedef PaywallLayoutBuilder = Widget Function(BuildContext context);
 /// with no line draws `plain`.
 final Map<PaywallLayoutId, PaywallLayoutBuilder> paywallLayoutBuilders = {
   PaywallLayoutId.plain: (_) => const PlainPaywallLayout(),
+  PaywallLayoutId.proof: (_) => const ProofPaywallLayout(),
 };
 
 /// Whether [layout] has a layout of its own, or falls back to `plain`.
