@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:critalarm/core/api/packs_api.dart';
 import 'package:critalarm/core/models/account_pack.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
@@ -38,6 +40,34 @@ class FakePacksApi implements PacksApi {
   }
 }
 
+/// A relay whose answers the test hands over one by one, so it can decide
+/// which call comes back first.
+class GatedPacksApi implements PacksApi {
+  final List<Completer<PacksAnswer>> reads = [];
+  final List<Completer<PacksRefreshAnswer>> refreshes = [];
+
+  @override
+  Future<PacksAnswer> getPacks() {
+    final gate = Completer<PacksAnswer>();
+    reads.add(gate);
+    return gate.future;
+  }
+
+  @override
+  Future<PacksRefreshAnswer> refreshPacks() {
+    final gate = Completer<PacksRefreshAnswer>();
+    refreshes.add(gate);
+    return gate.future;
+  }
+}
+
+/// Lets everything that is ready to run, run.
+Future<void> settle() async {
+  for (var i = 0; i < 20; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
 class MemoryProPackStore implements ProPackStore {
   MemoryProPackStore([this.kept]);
 
@@ -55,6 +85,18 @@ class MemoryProPackStore implements ProPackStore {
 
   @override
   Future<void> clear() async => kept = null;
+
+  PendingProPackConfirm? pending;
+
+  @override
+  PendingProPackConfirm? readPending() => pending;
+
+  @override
+  Future<void> writePending(PendingProPackConfirm pending) async =>
+      this.pending = pending;
+
+  @override
+  Future<void> clearPending() async => pending = null;
 }
 
 class FakeProPackShop implements ProPackShop {
@@ -66,12 +108,16 @@ class FakeProPackShop implements ProPackShop {
   final List<String> bought = [];
   int restores = 0;
 
+  /// Runs when the store is handed a purchase, before it answers.
+  void Function()? onBuy;
+
   @override
   Future<List<ProPackOffer>> readOffers() async => offers;
 
   @override
   Future<ProPackStoreResult> buy(ProPackOffer offer) async {
     bought.add(offer.handle);
+    onBuy?.call();
     return buyResult;
   }
 

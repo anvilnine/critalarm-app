@@ -72,22 +72,43 @@ class ProPackSheetCubit extends Cubit<ProPackSheetState> {
     unawaited(_analytics?.sheetOpened(source));
     if (_access.isHeld) return _show(ProPackSheetStage.held);
     final offers = await _shop.readOffers();
-    if (isClosed || state.stage == ProPackSheetStage.held) return;
-    _show(
-      offers.isEmpty ? ProPackSheetStage.notOnSale : ProPackSheetStage.offers,
-      offers: offers,
-    );
+    if (isClosed || state.stage != ProPackSheetStage.loading) return;
+    _show(_restingStage(offers), offers: offers);
   }
+
+  /// Where the sheet rests when nothing is running: the offers, or the
+  /// line that says there are none.
+  ProPackSheetStage _restingStage(List<ProPackOffer> offers) =>
+      offers.isEmpty ? ProPackSheetStage.notOnSale : ProPackSheetStage.offers;
+
+  /// Restore is there whenever the sheet rests and the pack is not held,
+  /// with or without anything on sale. It is gone only while the store or
+  /// the relay is being asked.
+  static bool canRestore(ProPackSheetStage stage) => switch (stage) {
+    ProPackSheetStage.notOnSale ||
+    ProPackSheetStage.offers ||
+    ProPackSheetStage.checkingPaused => true,
+    ProPackSheetStage.loading ||
+    ProPackSheetStage.atStore ||
+    ProPackSheetStage.checking ||
+    ProPackSheetStage.held => false,
+  };
 
   Future<void> buy(ProPackOffer offer) async {
     if (state.stage != ProPackSheetStage.offers) return;
     _show(ProPackSheetStage.atStore);
+    // Written down before the store is asked, so a purchase the app does
+    // not live to see confirmed is asked about again on the next launch.
+    await _access.purchaseStarted();
     final result = await _shop.buy(offer);
+    if (result == ProPackStoreResult.cancelled) {
+      await _access.purchaseAbandoned();
+    }
     await _afterStore(result, afterPurchase: true);
   }
 
   Future<void> restore() async {
-    if (state.stage != ProPackSheetStage.offers) return;
+    if (!canRestore(state.stage)) return;
     _show(ProPackSheetStage.atStore);
     final result = await _shop.restore();
     await _afterStore(result, afterPurchase: false);
@@ -106,9 +127,12 @@ class ProPackSheetCubit extends Cubit<ProPackSheetState> {
     if (isClosed || state.stage == ProPackSheetStage.held) return;
     switch (result) {
       case ProPackStoreResult.cancelled:
-        _show(ProPackSheetStage.offers);
+        _show(_restingStage(state.offers));
       case ProPackStoreResult.problem:
-        _show(ProPackSheetStage.offers, note: ProPackSheetNote.storeProblem);
+        _show(
+          _restingStage(state.offers),
+          note: ProPackSheetNote.storeProblem,
+        );
       case ProPackStoreResult.done:
         await _confirm(afterPurchase: afterPurchase, report: true);
     }
@@ -157,7 +181,7 @@ class ProPackSheetCubit extends Cubit<ProPackSheetState> {
         _show(ProPackSheetStage.held);
       case 'none':
         _show(
-          ProPackSheetStage.offers,
+          _restingStage(state.offers),
           note: ProPackSheetNote.nothingToRestore,
         );
       default:
