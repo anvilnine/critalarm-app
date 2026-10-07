@@ -96,7 +96,5 @@ It writes eight PNGs to `build/paywall_shots` and fails on an overflow, a scroll
 size, or a cross or button off screen. The top of the tool lists the options: `OUT`, `STATE`,
 `BENEFITS=all`, `SOURCE=<wire name>` (what opened the paywall, such as `history`) and
 `T=<seconds>`, which plays the motion a frame at a time and captures that second.
-
-`--dart-define=PREVIEWS=gallery` captures the two gallery preview sections, light and dark,
-with no layout. Add `T=12.5` to run every preview through a loop and `SIZES=38,48` for other
-tile sizes.
+`PREVIEWS=gallery` captures the two gallery preview sections instead, light and dark. Add
+`T=12.5` to run every preview through a loop and `SIZES=38,48` for other tile sizes.
