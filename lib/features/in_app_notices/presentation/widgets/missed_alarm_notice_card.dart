@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_branches.dart';
 import 'package:critalarm/core/links/app_link.dart';
 import 'package:critalarm/design/design.dart';
@@ -10,18 +11,33 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 /// Home says this phone missed an alarm: how many, the newest one's topic
 /// and time, and the reason in a few words.
 ///
 /// The card is drawn in Home's notice slot. `InAppNoticeCubit` decides when
-/// it shows. Closing it keeps those alarms off Home for good. The button
-/// opens the Reliability screen and closes nothing, so the row there still
-/// says why. It is a card: it rings nothing and posts no notification.
+/// it shows. Closing it keeps those alarms off Home for good. With several
+/// missed alarms the line says which one the reason is about. The button
+/// depends on the reason (`missedAlarmAction`): the test alarm screen, or
+/// the newest missed alarm. It closes nothing. It is a card: it rings
+/// nothing and posts no notification.
 class MissedAlarmNoticeCard extends StatelessWidget {
   const MissedAlarmNoticeCard({required this.notice, super.key});
 
   final MissedAlarmNotice notice;
+
+  /// Ring a test opens the test alarm screen, as the Reliability screen's
+  /// own button does. See the alarm opens the newest missed alarm, which
+  /// is first in [MissedAlarmNotice.incidentIds].
+  void _open(BuildContext context) {
+    switch (missedAlarmAction(notice.reason)) {
+      case MissedAlarmAction.ringTest:
+        unawaited(context.pushNamed<void>(AppRoute.testRing));
+      case MissedAlarmAction.seeAlarm:
+        openAppPath(context, AppLinkRoutes.incident(notice.incidentIds.first));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +48,7 @@ class MissedAlarmNoticeCard extends StatelessWidget {
         : LocaleKeys.notices_missed_alarm_title_many.tr(
             namedArgs: {'count': '${notice.count}'},
           );
-    final when = LocaleKeys.notices_missed_alarm_when.tr(
+    final when = missedAlarmWhenKey(count: notice.count).tr(
       namedArgs: {
         'topic': notice.topic,
         'time': missedAlarmTime(notice.at, now: DateTime.now()),
@@ -90,11 +106,10 @@ class MissedAlarmNoticeCard extends StatelessWidget {
                   ),
                   const SizedBox(height: Spacing.s3),
                   AppButton(
-                    label: LocaleKeys.notices_missed_alarm_button.tr(),
+                    label: missedAlarmButtonKey(notice.reason).tr(),
                     size: AppButtonSize.sm,
                     isFullWidth: true,
-                    onPressed: () =>
-                        openAppPath(context, AppLinkRoutes.reliability),
+                    onPressed: () => _open(context),
                   ),
                 ],
               ),

@@ -157,6 +157,14 @@ void main() {
   });
 
   group('the card', () {
+    String english(String key) {
+      final strings =
+          jsonDecode(File('assets/translations/en.json').readAsStringSync())
+              as Map<String, dynamic>;
+      final parts = key.split('.');
+      return (strings[parts[0]] as Map<String, dynamic>)[parts[1]] as String;
+    }
+
     test('every reason has its own words and its own face', () {
       expect(
         MissedReason.values.map(missedAlarmReasonKey).toSet(),
@@ -169,6 +177,52 @@ void main() {
       expect(
         missedAlarmReasonKey(MissedReason.unanswered),
         LocaleKeys.notices_missed_alarm_reason_unanswered,
+      );
+    });
+
+    test('the button depends on the reason and names no screen', () {
+      expect(
+        missedAlarmAction(MissedReason.noPushReached),
+        MissedAlarmAction.ringTest,
+      );
+      expect(
+        missedAlarmAction(MissedReason.pushButNoRing),
+        MissedAlarmAction.ringTest,
+      );
+      expect(
+        missedAlarmAction(MissedReason.rangUnanswered),
+        MissedAlarmAction.seeAlarm,
+      );
+      expect(
+        missedAlarmAction(MissedReason.unanswered),
+        MissedAlarmAction.seeAlarm,
+      );
+      expect(
+        MissedReason.values.map((r) => english(missedAlarmButtonKey(r))),
+        everyElement(anyOf('Ring a test', 'See the alarm')),
+      );
+      expect(
+        missedAlarmButtonKey(MissedReason.noPushReached),
+        LocaleKeys.notices_missed_alarm_button_test,
+      );
+      expect(
+        missedAlarmButtonKey(MissedReason.unanswered),
+        LocaleKeys.notices_missed_alarm_button_incident,
+      );
+    });
+
+    test('several missed alarms say which one the line is about', () {
+      expect(
+        missedAlarmWhenKey(count: 1),
+        LocaleKeys.notices_missed_alarm_when,
+      );
+      expect(
+        missedAlarmWhenKey(count: 3),
+        LocaleKeys.notices_missed_alarm_latest,
+      );
+      expect(
+        english(LocaleKeys.notices_missed_alarm_latest),
+        'Latest: {topic}, {time}',
       );
     });
 
