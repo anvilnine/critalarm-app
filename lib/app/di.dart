@@ -74,12 +74,16 @@ import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
+import 'package:critalarm/core/ui_sound/interface_sounds_setting.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
+import 'package:critalarm/core/ui_sound/playing_paywall_cues.dart';
+import 'package:critalarm/core/ui_sound/ui_sound_host.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/core/widgets/widget_host.dart';
 import 'package:critalarm/design_system/bar_backing.dart';
 import 'package:critalarm/design_system/edge_effect.dart';
+import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
 import 'package:critalarm/features/account/data/services/provider_sign_in.dart';
@@ -2145,9 +2149,32 @@ Future<void> configureDependencies({
         },
       ),
     )
-    // The sounds a paywall layout asks for. Silent until a playing one is
-    // registered in its place.
-    ..registerLazySingleton<PaywallCues>(() => const SilentPaywallCues())
+    // The Interface sounds switch in Settings. On until the user turns it off.
+    ..registerLazySingleton<InterfaceSoundsSetting>(
+      () => InterfaceSoundsSetting(getIt<SharedPreferences>()),
+    )
+    // The sounds a paywall layout asks for. They play where the platform has
+    // a player for interface sounds, and stay silent on the web and anywhere
+    // else. Nothing here touches the alarm: it only asks whether one is up.
+    ..registerLazySingleton<PaywallCues>(
+      () => paywallCuesFor(
+        getIt<PlatformCapabilities>(),
+        playing: () => PlayingPaywallCues(
+          player: UiSoundHost(),
+          isSwitchOn: () => getIt<InterfaceSoundsSetting>().isOn,
+          isAlarmUp: () =>
+              getIt<AlarmFocus>().on ||
+              getIt<IncidentAlarmController>().alarmingIncidentIds.isNotEmpty,
+          alarmStarts: [
+            getIt<AlarmArrivals>().incidentIds,
+            getIt<AlarmFocus>().stream.where((isOn) => isOn),
+          ],
+          haptic: getIt<PlatformCapabilities>().hasHaptics
+              ? AppHaptics.selection
+              : null,
+        ),
+      ),
+    )
     // What every paywall layout buys through. A build that skips the store
     // gets made-up options, so a layout still has something to draw.
     ..registerFactoryParam<PaywallBuyCubit, PaywallProduct, PaywallBuyStatus?>(
