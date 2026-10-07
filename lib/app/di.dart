@@ -777,6 +777,18 @@ Future<void> configureDependencies({
         appVersion: appVersion,
         callLog: getIt<LaunchCallLog>(),
         confirmations: getIt<RelayConfirmationStore>(),
+        // What a confirmation is about: this device, the relay of the saved
+        // server and the token. No saved server, nothing to name.
+        scopeFor: (token) async {
+          final session = await getIt<ApiSessionStore>().read();
+          if (session == null) return null;
+          final identity = await getIt<DeviceIdentityStore>().readOrCreate();
+          return RelayConfirmationScope.of(
+            deviceId: identity.deviceId,
+            relay: session.relayUri.toString(),
+            token: token,
+          );
+        },
       ),
     )
     ..registerLazySingleton<AlarmHost>(AlarmHost.new)
@@ -1631,6 +1643,7 @@ Future<void> configureDependencies({
         ),
         PushTokenSource(
           store: getIt<RelayConfirmationStore>(),
+          currentScope: getIt<DeviceTokenRegistry>().currentScope,
           // The registry is not started on the mock server, and a phone with
           // no server has nobody to register with.
           isRelayExpected: () async =>
