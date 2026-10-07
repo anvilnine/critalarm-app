@@ -15,6 +15,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - After your first real alarm, Home shows what Free keeps and what Hosted adds. Close the card and it stays closed.
 - On your own server, Settings says so: no limits, no charge.
 - Settings opens with a Will it wake me? screen that lists what could stop an alarm, with a fix beside each. After your phone updates, Home offers a test alarm once.
+- Settings has a Priorities page that says what priorities 1 to 5 do on this phone, with a button to hear the alarm sound in the app.
 - Opening a connect link shows the server and asks before it connects.
 - On Samsung, Xiaomi, Redmi, Poco, Oppo, Realme, OnePlus, Huawei and Honor phones, Will it wake me? has a Sleep settings row with short steps that stop the phone putting Crit Alarm to sleep.
 - Home tells you when this phone missed an alarm, with what the phone recorded about it, and Will it wake me? lists it.
