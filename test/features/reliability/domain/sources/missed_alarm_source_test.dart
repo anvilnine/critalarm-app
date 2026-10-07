@@ -64,11 +64,11 @@ void main() {
         alarm(
           'new',
           now.subtract(const Duration(days: 6, hours: 23)),
-          reason: MissedReason.rangUnanswered,
+          reason: MissedReason.noPushReached,
         ),
       ]);
       expect(result.state, ReliabilityState.needsLook);
-      expect(result.reason, 'missed_rang');
+      expect(result.reason, 'missed_no_push');
     });
   });
 
@@ -118,32 +118,115 @@ void main() {
     expect(result.reason, 'missed_no_push');
   });
 
-  test('a phone that got no push, or did not ring, is offered a test', () {
+  group('an alarm that rang and went unanswered', () {
+    final rang = alarm(
+      'rang',
+      now.subtract(const Duration(hours: 1)),
+      reason: MissedReason.rangUnanswered,
+    );
+
+    test('is fine: the phone did its part', () {
+      final result = check([rang]);
+      expect(result.state, ReliabilityState.fine);
+      expect(result.fix, isNull);
+    });
+
+    test('still says what happened', () {
+      expect(check([rang]).reason, 'missed_rang');
+    });
+
+    test('says nothing once its entry is closed', () {
+      expect(
+        check([rang], dismissed: {'rang'}),
+        const ReliabilityCheck(
+          id: ReliabilityCheckIds.missedAlarm,
+          state: ReliabilityState.fine,
+        ),
+      );
+    });
+
+    test('does not hide an older alarm the phone may have let down', () {
+      final result = check([
+        rang,
+        alarm(
+          'older',
+          now.subtract(const Duration(days: 2)),
+          reason: MissedReason.pushButNoRing,
+        ),
+      ]);
+      expect(result.state, ReliabilityState.needsLook);
+      expect(result.reason, 'missed_push_no_ring');
+      expect(
+        (result.fix! as MissedAlarmFix).at,
+        now.subtract(
+          const Duration(days: 2),
+        ),
+      );
+    });
+  });
+
+  test('every reason that needs a look is offered a test', () {
     for (final reason in [
       MissedReason.noPushReached,
       MissedReason.pushButNoRing,
+      MissedReason.unanswered,
     ]) {
+      final result = check([
+        alarm('a', now.subtract(const Duration(hours: 1)), reason: reason),
+      ]);
+      expect(result.state, ReliabilityState.needsLook, reason: reason.name);
       expect(
-        check([
-          alarm('a', now.subtract(const Duration(hours: 1)), reason: reason),
-        ]).fix,
-        const OpenRouteFix('testRing'),
+        result.fix,
+        MissedAlarmFix(
+          testRouteName: 'testRing',
+          topic: 'prod',
+          at: now.subtract(const Duration(hours: 1)),
+          incidentIds: const ['a'],
+        ),
+        reason: reason.name,
       );
     }
   });
 
-  test('a phone that rang, or cannot tell, is offered nothing', () {
-    for (final reason in [
-      MissedReason.rangUnanswered,
-      MissedReason.unanswered,
-    ]) {
-      expect(
+  test('the fix names the newest alarm that counts', () {
+    final fix =
         check([
-          alarm('a', now.subtract(const Duration(hours: 1)), reason: reason),
-        ]).fix,
-        isNull,
-      );
-    }
+              MissedAlarm(
+                incidentId: 'old',
+                topic: 'nas',
+                at: now.subtract(const Duration(days: 3)),
+                reason: MissedReason.noPushReached,
+              ),
+              MissedAlarm(
+                incidentId: 'new',
+                topic: 'prod-db',
+                at: now.subtract(const Duration(hours: 2)),
+                reason: MissedReason.unanswered,
+              ),
+            ]).fix!
+            as MissedAlarmFix;
+    expect(fix.topic, 'prod-db');
+    expect(fix.at, now.subtract(const Duration(hours: 2)));
+  });
+
+  test('closing clears every entry Home counts, newest first', () {
+    final fix =
+        check(
+              [
+                alarm('gone', now.subtract(const Duration(hours: 1))),
+                alarm(
+                  'rang',
+                  now.subtract(const Duration(hours: 2)),
+                  reason: MissedReason.rangUnanswered,
+                ),
+                alarm('older', now.subtract(const Duration(days: 2))),
+                alarm('too_old', now.subtract(const Duration(days: 9))),
+              ],
+              dismissed: {'gone'},
+            ).fix!
+            as MissedAlarmFix;
+    // The same list `missedAlarmsToShow` gives Home's notice.
+    expect(fix.incidentIds, ['rang', 'older']);
   });
 
   test('read asks both callbacks and answers one check', () async {

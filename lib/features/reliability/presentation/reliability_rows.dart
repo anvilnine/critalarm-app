@@ -108,6 +108,8 @@ String reliabilityFixLabelKey(
   required String testRouteName,
 }) => switch (fix) {
   OpenSystemSettingsFix() => LocaleKeys.reliability_fix_open_settings,
+  AskPermissionFix() => LocaleKeys.reliability_fix_allow,
+  MissedAlarmFix() => LocaleKeys.reliability_fix_ring_test,
   RunFix() => LocaleKeys.reliability_fix_try_again,
   OpenRouteFix(:final routeName) =>
     routeName == testRouteName
