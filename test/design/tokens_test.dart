@@ -224,6 +224,16 @@ void main() {
     test('curves match design system cubic bezier', () {
       expect(AppCurves.easeOut, const Cubic(0.16, 1, 0.3, 1));
       expect(AppCurves.easeSpring, const Cubic(0.34, 1.2, 0.64, 1));
+      expect(AppCurves.easeBack, const Cubic(0.34, 1.56, 0.64, 1));
+    });
+
+    test('easeBack passes its end value and lands on it', () {
+      final peak = [
+        for (var i = 0; i <= 100; i++) AppCurves.easeBack.transform(i / 100),
+      ].reduce((a, b) => a > b ? a : b);
+      expect(peak, greaterThan(1.05));
+      expect(peak, lessThan(1.2));
+      expect(AppCurves.easeBack.transform(1), 1);
     });
   });
 
