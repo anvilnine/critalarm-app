@@ -6,6 +6,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
+import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
 import 'package:critalarm/features/reliability/domain/reliability_fix_runner.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
 import 'package:critalarm/features/reliability/presentation/cubits/reliability_snapshot.dart';
@@ -19,7 +20,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 /// Settings, "Will it wake me?": one overall state with a face, then a row for
-/// each check, the ones that need attention first, then the test alarm.
+/// each check, the ones that need attention first, then the test alarm, then
+/// the extra groups.
 ///
 /// What to draw comes from `ReliabilityCubit`. Which rows, in what order, with
 /// which words, is decided by the pure functions in `reliability_rows.dart`.
@@ -27,7 +29,10 @@ import 'package:go_router/go_router.dart';
 /// To add a row for a new check: add the id to `ReliabilityCheckIds`, add its
 /// source to the list in `di.dart`, then give it a title and its reason lines
 /// in `reliability_rows.dart` and the strings. Until the words exist, the row
-/// still draws, with the id as its title.
+/// still draws, with the id as its title. Nothing here knows the list of
+/// checks: the order, the face and the one primary button all come from each
+/// check's state, reason and fix, so a check from a new source sorts and
+/// draws like the rest.
 ///
 /// To add a group of rows: append a builder to `reliabilityExtraGroups`.
 class ReliabilityScreen extends StatelessWidget {
@@ -65,6 +70,9 @@ class _ReliabilityViewState extends State<_ReliabilityView>
   /// Checks whose fix is running, so their button shows progress.
   final Set<ReliabilityCheckId> _busy = {};
 
+  /// Checks whose entry is being closed.
+  final Set<ReliabilityCheckId> _clearing = {};
+
   @override
   void initState() {
     super.initState();
@@ -93,8 +101,17 @@ class _ReliabilityViewState extends State<_ReliabilityView>
     final fix = check.fix;
     if (fix == null) return;
     AppHaptics.capture();
-    if (fix is OpenRouteFix) {
-      await context.pushNamed<void>(fix.routeName);
+    // A fix that opens a screen of the app is the screen's to run.
+    final routeName = switch (fix) {
+      OpenRouteFix(:final routeName) => routeName,
+      MissedAlarmFix(:final testRouteName) => testRouteName,
+      // The prompt screen the permissions screen opens for a permission
+      // that was never asked.
+      AskPermissionFix() => AppRoute.askPermissions,
+      OpenSystemSettingsFix() || RunFix() => null,
+    };
+    if (routeName != null) {
+      await context.pushNamed<void>(routeName);
       await _refresh();
       return;
     }
@@ -107,8 +124,35 @@ class _ReliabilityViewState extends State<_ReliabilityView>
     await _refresh();
   }
 
-  Future<void> _openPermissions() async {
-    await context.push<void>('/settings/permissions');
+  /// Closes a missed alarm's entry. It writes the one record Home's notice
+  /// writes when it is closed, so the entry goes from both.
+  Future<void> _clear(ReliabilityCheck check) async {
+    final fix = check.fix;
+    if (fix is! MissedAlarmFix || _clearing.contains(check.id)) return;
+    AppHaptics.capture();
+    setState(() => _clearing.add(check.id));
+    try {
+      await getIt<MissedAlarmReader>().dismiss(fix.incidentIds);
+    } finally {
+      if (mounted) setState(() => _clearing.remove(check.id));
+    }
+    await _refresh();
+  }
+
+  /// What a tap on the row itself does, or null for a plain display.
+  VoidCallback? _onRowTap(ReliabilityCheck check) =>
+      switch (reliabilityRowTarget(check.id)) {
+        ReliabilityRowTarget.none => null,
+        ReliabilityRowTarget.permissions => () => unawaited(
+          _open(AppRoute.devicePermissions),
+        ),
+        ReliabilityRowTarget.makerGuide => () => unawaited(
+          _open(AppRoute.makerGuide),
+        ),
+      };
+
+  Future<void> _open(String routeName) async {
+    await context.pushNamed<void>(routeName);
     await _refresh();
   }
 
@@ -125,7 +169,8 @@ class _ReliabilityViewState extends State<_ReliabilityView>
         final view = reliabilityHeadlineView(headline);
         final isLoading = headline == ReliabilityHeadline.loading;
         final ordered = orderReliabilityChecks(snapshot.checks);
-        final faces = reliabilityRowFaces(ordered);
+        final primary = reliabilityPrimaryRow(ordered);
+        final now = DateTime.now();
 
         return AppScreenScaffold(
           onRefresh: _refresh,
@@ -181,22 +226,34 @@ class _ReliabilityViewState extends State<_ReliabilityView>
                         for (var i = 0; i < ordered.length; i++) ...[
                           ReliabilityRow(
                             check: ordered[i],
-                            face: faces[i],
+                            face: reliabilityRowFace(ordered[i]),
+                            now: now,
                             actionLabel: _actionLabel(ordered[i]),
+                            // One primary button on the screen: the first
+                            // row with something to do.
+                            actionVariant: i == primary
+                                ? AppButtonVariant.primary
+                                : AppButtonVariant.ghost,
                             isBusy: _busy.contains(ordered[i].id),
                             onAction: () => unawaited(_runFix(ordered[i])),
-                            onTap: isPermissionCheck(ordered[i].id)
-                                ? () => unawaited(_openPermissions())
-                                : null,
+                            clearLabel: reliabilityClearLabelKey(
+                              ordered[i].fix,
+                            )?.tr(),
+                            isClearing: _clearing.contains(ordered[i].id),
+                            onClear: () => unawaited(_clear(ordered[i])),
+                            onTap: _onRowTap(ordered[i]),
                           ),
                           const SizedBox(height: 8),
                         ],
-                        for (final group in widget.extraGroups) ...[
-                          group(context, snapshot),
-                          const SizedBox(height: 8),
-                        ],
                       ],
+                      // The free test comes before anything that costs
+                      // money.
                       ReliabilityTestRow(onTap: () => unawaited(_openTest())),
+                      if (!isLoading)
+                        for (final group in widget.extraGroups) ...[
+                          const SizedBox(height: 8),
+                          group(context, snapshot),
+                        ],
                     ],
                   ),
                 ),

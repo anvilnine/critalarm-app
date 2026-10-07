@@ -9,15 +9,21 @@ import 'package:flutter/material.dart';
 /// One check on the Reliability screen: a face, a title, at most one short
 /// line, the state, and one action when the check has a fix.
 ///
-/// A fine row is quiet: no fill, no line, no action. A check this screen has
-/// no words for shows its id as the title.
+/// A fine row is quiet: no fill and no action, a tick or a value where the
+/// tick would be, and an arrow after it when a tap opens something. A check
+/// this screen has no words for shows its id as the title.
 class ReliabilityRow extends StatelessWidget {
   const ReliabilityRow({
     required this.check,
     required this.face,
+    required this.now,
     this.actionLabel,
+    this.actionVariant = AppButtonVariant.primary,
     this.isBusy = false,
     this.onAction,
+    this.clearLabel,
+    this.isClearing = false,
+    this.onClear,
     this.onTap,
     super.key,
   });
@@ -25,12 +31,25 @@ class ReliabilityRow extends StatelessWidget {
   final ReliabilityCheck check;
   final FaceState face;
 
+  /// The moment the words are worked out for: "2 h ago", "Tue 13:23".
+  final DateTime now;
+
   /// The action's label, or null when the check has no fix.
   final String? actionLabel;
+
+  /// Primary on the first row with an action, ghost on every later one, so
+  /// a screen with three things to fix has one loudest button.
+  final AppButtonVariant actionVariant;
 
   /// The action is running, so its button shows progress and takes no tap.
   final bool isBusy;
   final VoidCallback? onAction;
+
+  /// A second, quieter action beside the first, or null for none. A missed
+  /// alarm has one: "Got it", which closes its entry.
+  final String? clearLabel;
+  final bool isClearing;
+  final VoidCallback? onClear;
 
   /// Taps on the row itself. Null makes the row a plain display.
   final VoidCallback? onTap;
@@ -43,12 +62,15 @@ class ReliabilityRow extends StatelessWidget {
     final onSurface = isFine ? colors.ink : colors.onCanvas;
     final muted = isFine ? colors.ink3 : colors.onCanvasMuted;
 
-    final titleKey = reliabilityTitleKey(check.id);
+    final titleKey = reliabilityRowTitleKey(check);
     final title = titleKey == null ? check.id.value : titleKey.tr();
-    final lineKey = reliabilityLineKey(check);
+    final lineWords = reliabilityLine(check, now: now);
+    final line = lineWords?.key.tr(namedArgs: lineWords.args);
     final stateWord = reliabilityStateKey(state).tr();
+    final valueWords = reliabilityFineValue(check, now: now);
+    final value = valueWords?.key.tr(namedArgs: valueWords.args);
 
-    final isSingleLine = lineKey == null && actionLabel == null;
+    final isSingleLine = line == null && actionLabel == null;
     // At large text the face stands above the words, so the title keeps the
     // whole width of the card and no word has to break.
     final isStacked = MediaQuery.textScalerOf(context).scale(15) >= 15 * 1.8;
@@ -62,12 +84,47 @@ class ReliabilityRow extends StatelessWidget {
     );
     // A fine row says it with a tick, not a word. The word is still in the
     // row's semantics label.
-    final tick = AppGlyph(
-      GlyphType.check,
-      size: 18,
-      color: colors.ink3,
-      strokeWidth: 2.4,
+    //
+    // "Last push" shows when instead: a tick there would say a push arrived
+    // on a phone that has never had one.
+    final mark = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (value != null)
+          Text(value, style: AppTypography.small(colors.ink2, fontSize: 13))
+        else
+          AppGlyph(
+            GlyphType.check,
+            size: 18,
+            color: colors.ink3,
+            strokeWidth: 2.4,
+          ),
+        // A fine row that opens something says so.
+        if (onTap != null) ...[
+          const SizedBox(width: Spacing.s2),
+          AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
+        ],
+      ],
     );
+
+    final action = actionLabel == null
+        ? null
+        : AppButton(
+            label: actionLabel!,
+            size: AppButtonSize.sm,
+            variant: actionVariant,
+            isLoading: isBusy,
+            onPressed: onAction,
+          );
+    final clear = clearLabel == null
+        ? null
+        : AppButton(
+            label: clearLabel!,
+            size: AppButtonSize.sm,
+            variant: AppButtonVariant.tinted,
+            isLoading: isClearing,
+            onPressed: onClear,
+          );
 
     final words = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,22 +147,31 @@ class ReliabilityRow extends StatelessWidget {
             if (!isFine) ReliabilityStateChip(state: state, label: stateWord),
           ],
         ),
-        if (lineKey != null)
-          Text(
-            lineKey.tr(),
-            style: AppTypography.small(muted, fontSize: 13),
-          ),
+        if (line != null)
+          Text(line, style: AppTypography.small(muted, fontSize: 13)),
         if (actionLabel != null) ...[
           const SizedBox(height: Spacing.s2),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: AppButton(
-              label: actionLabel!,
-              size: AppButtonSize.sm,
-              isLoading: isBusy,
-              onPressed: onAction,
+          if (clear == null)
+            action!
+          else if (isStacked)
+            // At large text each label gets the whole width.
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                action!,
+                const SizedBox(height: Spacing.s2),
+                clear,
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(child: action!),
+                const SizedBox(width: Spacing.s2),
+                Expanded(child: clear),
+              ],
             ),
-          ),
         ],
       ],
     );
@@ -118,7 +184,7 @@ class ReliabilityRow extends StatelessWidget {
               Row(
                 children: [
                   faceWidget,
-                  if (isFine) ...[const Spacer(), tick],
+                  if (isFine) ...[const Spacer(), mark],
                 ],
               ),
               const SizedBox(height: Spacing.s2),
@@ -133,7 +199,7 @@ class ReliabilityRow extends StatelessWidget {
               faceWidget,
               const SizedBox(width: Spacing.s3),
               Expanded(child: words),
-              if (isFine) ...[const SizedBox(width: Spacing.s2), tick],
+              if (isFine) ...[const SizedBox(width: Spacing.s2), mark],
             ],
           );
 
@@ -160,7 +226,8 @@ class ReliabilityRow extends StatelessWidget {
       label: [
         title,
         stateWord,
-        if (lineKey != null) lineKey.tr(),
+        ?value,
+        ?line,
       ].join(', '),
       // The action keeps its own button semantics.
       explicitChildNodes: true,
@@ -233,7 +300,8 @@ class ReliabilityStateChip extends StatelessWidget {
   }
 }
 
-/// The last row: opens the test alarm screen. It rings nothing by itself.
+/// The free test: opens the test alarm screen. It rings nothing by itself.
+/// It sits right under the checks, above any extra group.
 class ReliabilityTestRow extends StatelessWidget {
   const ReliabilityTestRow({required this.onTap, super.key});
 
