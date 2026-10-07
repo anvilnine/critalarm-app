@@ -78,7 +78,7 @@ class _MakerGuideView extends StatelessWidget {
             if (guide != null) ...[
               SliverToBoxAdapter(
                 child: AppStage.horizontal(
-                  faceState: state.isDone ? FaceState.proud : FaceState.curious,
+                  faceState: state.isDone ? FaceState.happy : FaceState.curious,
                   sub: state.isDone
                       ? LocaleKeys.maker_guide_done_line.tr()
                       : LocaleKeys.maker_guide_stage_line.tr(),
@@ -96,6 +96,10 @@ class _MakerGuideView extends StatelessWidget {
                           _StepRow(number: i + 1, step: guide.steps[i]),
                           const SizedBox(height: 8),
                         ],
+                        // Notes are not steps: no number, nothing to do
+                        // before "I did these", no "Step n" for a reader.
+                        for (final note in guide.notes)
+                          _NoteRow(text: note.textKey.tr()),
                         const SizedBox(height: Spacing.s2),
                         AppButton(
                           label: LocaleKeys.maker_guide_open_settings.tr(),
@@ -136,13 +140,10 @@ class _MakerGuideView extends StatelessWidget {
                             );
                           },
                         ),
-                        const SizedBox(height: Spacing.s2),
-                        AppButton(
+                        _MoreLink(
                           label: LocaleKeys.maker_guide_more_link.tr(),
-                          variant: AppButtonVariant.ghost,
-                          size: AppButtonSize.sm,
-                          isFullWidth: true,
-                          onPressed: () => unawaited(_openMore(guide.moreUrl)),
+                          url: guide.moreUrl,
+                          onTap: () => unawaited(_openMore(guide.moreUrl)),
                         ),
                       ],
                     ),
@@ -215,6 +216,74 @@ class _StepRow extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A line under the steps that is not a step: a version or a sub-brand the
+/// steps do not cover. Plain text, no box and no number, so it reads as an
+/// aside to the steps above it.
+class _NoteRow extends StatelessWidget {
+  const _NoteRow({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      child: Text(
+        text,
+        style: AppTypography.small(
+          colors.ink2,
+          fontSize: 13,
+        ).copyWith(height: 1.35),
+      ),
+    );
+  }
+}
+
+/// The page on dontkillmyapp.com, drawn as a text link under the buttons.
+/// The design system has no link component. This follows the underlined ink
+/// text the legal links on the paywall and Account use, at a size a thumb can
+/// hit.
+class _MoreLink extends StatelessWidget {
+  const _MoreLink({
+    required this.label,
+    required this.url,
+    required this.onTap,
+  });
+
+  final String label;
+  final String url;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Semantics(
+      link: true,
+      linkUrl: Uri.tryParse(url),
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Center(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: AppTypography.small(colors.ink2).copyWith(
+                decoration: TextDecoration.underline,
+                decorationColor: colors.ink2,
+              ),
+            ),
+          ),
         ),
       ),
     );
