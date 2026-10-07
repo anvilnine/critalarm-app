@@ -12,8 +12,10 @@ import 'package:critalarm/features/onboarding/presentation/model/permission_step
 import 'package:critalarm/features/onboarding/presentation/model/permission_step_views.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
+import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/permission_preview_frame.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/permission_step_dots.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -109,7 +111,6 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
     with WidgetsBindingObserver {
   /// The face every onboarding screen shares, so it flies between them.
   static const _faceHeroTag = 'onboarding-face';
-  static const double _faceSize = 80;
 
   @override
   void initState() {
@@ -357,23 +358,17 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                         child: AppWaitingFace(
                           message: LocaleKeys.onboarding_permissions_checking
                               .tr(),
-                          faceSize: _faceSize,
+                          faceSize: SetupFace.waitingSizeOf(context),
                           heroTag: _faceHeroTag,
                         ),
                       )
                     : Column(
                         children: [
-                          Hero(
-                            tag: _faceHeroTag,
-                            flightShuttleBuilder: faceFlightShuttleBuilder,
-                            child: FaceWidget(
-                              // Glad for one beat after the user allows.
-                              state: allowedView != null
-                                  ? view.grantedFace
-                                  : view.face,
-                              size: _faceSize,
-                              isLive: true,
-                            ),
+                          // Glad for one beat after the user allows.
+                          SetupFace(
+                            state: allowedView != null
+                                ? view.grantedFace
+                                : view.face,
                           ),
                           if (badge != null) ...[
                             const SizedBox(height: Spacing.s3),
@@ -381,9 +376,9 @@ class _OnboardingPermissionsViewState extends State<_OnboardingPermissionsView>
                           ],
                           const SizedBox(height: Spacing.s4),
                           // One title style for every task screen in setup.
-                          Text(
+                          AppFittedTitle(
                             view.title,
-                            textAlign: TextAlign.center,
+                            minFontSize: setupTitleMinFontSize,
                             style: AppTypography.headline(
                               colors.onCanvas,
                               fontSize: 30,

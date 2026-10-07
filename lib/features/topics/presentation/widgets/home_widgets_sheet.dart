@@ -4,9 +4,6 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-/// What the paywall is told opened it from the widgets card or its sheet.
-const homeWidgetsPaywallSource = 'home_widgets';
-
 /// The steps to add a widget on [platform], in order, or null where there
 /// are no widgets to add. iOS and Android each have their own keys: the
 /// gestures and the labels differ.

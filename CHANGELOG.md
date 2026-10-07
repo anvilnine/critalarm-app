@@ -9,6 +9,11 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Setup ends with a ready curl line for your new topic and waits for your first message.
 - Home shows a short setup checklist until your first message arrives.
 - The Finish setting up list can be closed for good.
+- VoiceOver and TalkBack start on I'm up and read the topic and ring time. On iPhone, a two-finger double tap acknowledges the alarm.
+- You can stop the welcome animation. It also holds still when reduced motion is on.
+- Setup works at the largest text sizes. The face shrinks first, and a step scrolls when it has to.
+- After your first real alarm, Home shows what Free keeps and what Hosted adds. Close the card and it stays closed.
+- On your own server, Settings says so: no limits, no charge.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
@@ -21,6 +26,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The Finish setting up list on Home is lighter and shorter, and the widgets card leads with Hosted when widgets need it.
 - Ring me for real counts down 5 seconds before it sends, so there is time to lock the phone. Cancel stops it.
 - The face on the acknowledged screen has its dark outline and features back.
+- The Hosted sheet lists what the plan adds and what Free keeps.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
@@ -32,6 +38,10 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - A first message sent from a topic page before going back to Home now ticks the list, and so does one on a fourth or later topic.
 - The acknowledged screen no longer breaks its title in the middle of a word, draws its hint over the details, or turns dark and muddy after At my desk.
 - The Android app no longer closes the moment you open it.
+- The critical topics count card on the new topic screen wraps cleanly at large text sizes, and no longer shows before you own a critical topic.
+- The message on a ringing alarm no longer sits behind the buttons on a small phone or at a large text size. The face shrinks to make room, and the message scrolls clear of the buttons when it is long.
+- Setup steps at large text sizes no longer print their buttons and the app name over the text behind them.
+- A list scrolled under the Topics, Settings or New topic title blurs more as it goes under, so it no longer runs sharp through the title.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.

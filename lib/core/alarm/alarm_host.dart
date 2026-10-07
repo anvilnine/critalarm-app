@@ -87,6 +87,7 @@ final class AlarmHost {
   final MethodChannel _channel;
   final _tokens = StreamController<ActivityToken>.broadcast();
   final _scheduled = StreamController<String>.broadcast();
+  final _magicTaps = StreamController<void>.broadcast();
 
   /// Tokens captured while the app is running. Tokens captured before Dart was
   /// listening come from [takePendingTokens] instead.
@@ -96,6 +97,18 @@ final class AlarmHost {
   /// schedules with no Dart involved, and this is how the in-app rule that
   /// blocks a second card hears about it.
   Stream<String> get alarmsScheduled => _scheduled.stream;
+
+  /// VoiceOver magic taps (a two-finger double tap) the iPhone handed over.
+  /// The native side only sends one while [setMagicTapArmed] is on. It is a
+  /// touch on the glass and exists only with VoiceOver running.
+  Stream<void> get magicTaps => _magicTaps.stream;
+
+  /// Tells the iPhone whether a magic tap belongs to the app right now. On
+  /// only while the ringing alarm screen is in front. Off, the native handler
+  /// answers false and the system keeps its own behaviour. Android has no
+  /// magic tap and no handler for this.
+  Future<void> setMagicTapArmed({required bool isArmed}) async =>
+      _invoke<void>('setMagicTapArmed', {'armed': isArmed});
 
   Future<AlarmAuthorization> authorizationStatus() async =>
       AlarmAuthorization.fromName(await _invoke<String>('authorizationStatus'));
@@ -347,6 +360,8 @@ final class AlarmHost {
       case 'onAlarmScheduled':
         final id = call.arguments as String?;
         if (id != null && id.isNotEmpty) _scheduled.add(id);
+      case 'onMagicTap':
+        _magicTaps.add(null);
     }
   }
 
@@ -354,5 +369,6 @@ final class AlarmHost {
     _channel.setMethodCallHandler(null);
     await _tokens.close();
     await _scheduled.close();
+    await _magicTaps.close();
   }
 }

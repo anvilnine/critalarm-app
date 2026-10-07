@@ -38,7 +38,9 @@ class PermissionPreviewFrame extends StatelessWidget {
           child: GestureDetector(
             onTap: onTap,
             behavior: HitTestBehavior.opaque,
-            child: child,
+            // A drawing of a prompt the system will show at its own size, so
+            // it keeps its size when the system text grows.
+            child: MediaQuery.withNoTextScaling(child: child),
           ),
         ),
       ),

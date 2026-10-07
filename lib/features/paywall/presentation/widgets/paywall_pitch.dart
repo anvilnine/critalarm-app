@@ -1,14 +1,14 @@
 import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 /// What sits above the plan rows, which is the only part an A/B test changes.
 ///
-/// Every claim here is a number the relay enforces. Critical topics and the
-/// daily push allowance come from `tier/caps.ts`; the history window is the
-/// same table, trimmed for display by `HistoryCubit`.
+/// Every line comes from [HostedBenefit.all], so the layouts agree on what
+/// Hosted gives and in what order.
 class PaywallPitch extends StatelessWidget {
   const PaywallPitch({required this.variant, super.key});
 
@@ -38,35 +38,31 @@ class _StraightPitch extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        AppFeatureBullet(
-          text: LocaleKeys.paywall_feature_unlimited_topics.tr(),
-          glyph: GlyphType.list,
-        ),
-        const SizedBox(height: 12),
-        AppFeatureBullet(
-          text: LocaleKeys.paywall_feature_push_limit.tr(),
-          glyph: GlyphType.bell,
-        ),
-        const SizedBox(height: 12),
-        AppFeatureBullet(
-          text: LocaleKeys.paywall_feature_history.tr(),
-          glyph: GlyphType.clock,
-        ),
-        const SizedBox(height: 12),
-        AppFeatureBullet(
-          text: LocaleKeys.paywall_feature_widgets.tr(),
-          glyph: GlyphType.dot,
-        ),
-        const SizedBox(height: 12),
-        AppFeatureBullet(
-          text: LocaleKeys.paywall_feature_app_icons.tr(),
-          glyph: GlyphType.gear,
-        ),
-        const SizedBox(height: 18),
-        AppNote(text: LocaleKeys.paywall_self_hosted_note.tr()),
+        ..._benefitBullets(HostedSurface.paywallStraight),
+        ..._ownServerNote(HostedSurface.paywallStraight),
       ],
     );
   }
+}
+
+/// The own-server line under a pitch, with its gap, when [surface] has one.
+List<Widget> _ownServerNote(HostedSurface surface) {
+  final line = surface.ownServerLine;
+  if (line == null) return const [];
+  return [const SizedBox(height: 18), AppNote(text: line)];
+}
+
+/// One bullet per benefit in list order, with a gap between them. Every line
+/// carries the same included mark.
+List<Widget> _benefitBullets(HostedSurface surface) {
+  return [
+    for (final b in HostedBenefit.all) ...[
+      if (b != HostedBenefit.all.first) const SizedBox(height: 12),
+      AppFeatureBullet(
+        text: b.shortKey.tr(namedArgs: HostedBenefit.args),
+      ),
+    ],
+  ];
 }
 
 /// Free and Hosted side by side.
@@ -96,29 +92,14 @@ class _ComparePitch extends StatelessWidget {
           hosted: LocaleKeys.paywall_compare_col_hosted.tr(),
           isHeader: true,
         ),
-        _CompareRow(
-          label: LocaleKeys.paywall_compare_row_topics.tr(),
-          free: LocaleKeys.paywall_compare_free_topics.tr(),
-          hosted: LocaleKeys.paywall_compare_hosted_topics.tr(),
-        ),
-        _CompareRow(
-          label: LocaleKeys.paywall_compare_row_pushes.tr(),
-          free: LocaleKeys.paywall_compare_free_pushes.tr(),
-          hosted: LocaleKeys.paywall_compare_hosted_pushes.tr(),
-        ),
-        _CompareRow(
-          label: LocaleKeys.paywall_compare_row_history_days.tr(),
-          free: LocaleKeys.paywall_compare_free_history_days.tr(),
-          hosted: LocaleKeys.paywall_compare_hosted_history_days.tr(),
-        ),
-        _CompareRow(
-          label: LocaleKeys.paywall_compare_row_widgets.tr(),
-          free: LocaleKeys.paywall_compare_free_widgets.tr(),
-          hosted: LocaleKeys.paywall_compare_hosted_widgets.tr(),
-          isLast: true,
-        ),
-        const SizedBox(height: 18),
-        AppNote(text: LocaleKeys.paywall_self_hosted_note.tr()),
+        for (final b in HostedBenefit.all)
+          _CompareRow(
+            label: b.compareLabelKey.tr(namedArgs: HostedBenefit.args),
+            free: b.compareFreeKey.tr(namedArgs: HostedBenefit.args),
+            hosted: b.compareHostedKey.tr(namedArgs: HostedBenefit.args),
+            isLast: b == HostedBenefit.all.last,
+          ),
+        ..._ownServerNote(HostedSurface.paywallCompare),
       ],
     );
   }
@@ -193,7 +174,8 @@ class _CompareRow extends StatelessWidget {
   }
 }
 
-/// Leads with the topic limit, which is the wall people hit first.
+/// Leads with the topic limit, which is the wall people hit first, then
+/// shows the rest of what Hosted gives below it.
 class _OneJobPitch extends StatelessWidget {
   const _OneJobPitch();
 
@@ -203,15 +185,8 @@ class _OneJobPitch extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        AppFeatureBullet(
-          text: LocaleKeys.paywall_feature_unlimited_topics.tr(),
-          glyph: GlyphType.list,
-        ),
-        const SizedBox(height: 12),
-        AppFeatureBullet(
-          text: LocaleKeys.paywall_feature_push_limit.tr(),
-          glyph: GlyphType.bell,
-        ),
+        ..._benefitBullets(HostedSurface.paywallOneJob),
+        ..._ownServerNote(HostedSurface.paywallOneJob),
       ],
     );
   }

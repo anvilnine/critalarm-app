@@ -1,17 +1,22 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
+import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_cubit.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/onboarding_ambient_profiles.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_welcome_screen.dart';
+import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/local_test_alarm_views.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_tap_room.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -82,7 +87,6 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
   /// The face every setup step shares, so it flies between them and stays
   /// put from the form to the check to the answer.
   static const _faceHeroTag = 'onboarding-face';
-  static const double _faceSize = 80;
 
   @override
   void initState() {
@@ -252,20 +256,46 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
 
         // What the pinned bar takes off the bottom of the viewport: its own
         // buttons, the 12 the scaffold puts under them, and the home
-        // indicator. AppButton is lg 60, md 48, sm 36.
+        // indicator. AppButton is lg 60, md 48, sm 36, and each grows once
+        // its label does.
+        final scale = setupTextScaleOf(context);
+        final smButton = setupButtonHeightFor(
+          minHeight: 36,
+          fontSize: 14,
+          textScale: scale,
+        );
+        final lgButton = setupButtonHeightFor(
+          minHeight: 60,
+          fontSize: 19,
+          textScale: scale,
+        );
         final barButtons = switch (state) {
           _ when isTest && state.isCountingDown => 48.0,
           // lg + Spacing.s3 + sm, on both the connected bar and the
           // self-hosted form's Connect + "use the cloud instead" pair.
-          _ when isTest || state.isSelfHosting => 60.0 + 12 + 36,
+          _ when isTest || state.isSelfHosting => lgButton + 12 + smButton,
           // The cloud bar is the self-host toggle plus the text button.
-          _ => 36.0 + 4 + 36,
+          _ =>
+            smButton +
+                4 +
+                setupButtonHeightFor(
+                  minHeight: 36,
+                  fontSize: 15 * 1.3,
+                  textScale: scale,
+                  verticalPadding: 0,
+                ),
         };
         final bottomBarHeight =
             barButtons + 12 + MediaQuery.paddingOf(context).bottom;
 
         return AppScreenScaffold(
-          physics: bottomAligned ? const NeverScrollableScrollPhysics() : null,
+          // Still while the card fits above the buttons. At a large text
+          // size the card outgrows the room, and then the page scrolls
+          // instead of putting the card out of reach.
+          physics: bottomAligned ? const ClampingScrollPhysics() : null,
+          // The cloud card's column fills the screen and keeps the room for
+          // the buttons itself, so the list adds none on top of it.
+          bodyClearsBottomBar: bottomAligned,
           backgroundColor: Colors.transparent,
           withGhosts: false,
           withFades: false,
@@ -342,7 +372,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           message: LocaleKeys.onboarding_connect_self_host_connecting.tr(
             namedArgs: {'host': cubit.typedHost},
           ),
-          faceSize: _faceSize,
+          faceSize: SetupFace.waitingSizeOf(context),
           heroTag: _faceHeroTag,
         ),
       );
@@ -358,19 +388,10 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Hero(
-                  tag: _faceHeroTag,
-                  flightShuttleBuilder: faceFlightShuttleBuilder,
-                  child: FaceWidget(
-                    state: FaceState.thinking,
-                    size: _faceSize,
-                    isLive: true,
-                  ),
-                ),
-                const SizedBox(height: Spacing.s4),
-                Text(
+                const SetupFace(state: FaceState.thinking, gap: Spacing.s4),
+                AppFittedTitle(
                   LocaleKeys.onboarding_connect_self_host_title.tr(),
-                  textAlign: TextAlign.center,
+                  minFontSize: setupTitleMinFontSize,
                   style: AppTypography.headline(colors.onCanvas, fontSize: 30),
                 ),
               ],
@@ -389,6 +410,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           const SizedBox(height: Spacing.s4),
           const Expanded(
             child: OnboardingAnimationLoop(
+              isOnItsOwn: true,
               loop: [
                 WelcomeVariant.pipeline,
                 WelcomeVariant.parade,
@@ -427,10 +449,18 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
+                // The badge drops under the title when the title is too wide
+                // for both, as it is at a large text size.
+                SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    // Title left and badge right while both fit.
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 10,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
                         LocaleKeys.onboarding_connect_cloud_title.tr(),
                         style: TextStyle(
                           fontFamily: AppTypography.fontDisplay,
@@ -441,12 +471,11 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
                           color: colors.ink,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    AppBadge(
-                      text: LocaleKeys.onboarding_connect_cloud_badge.tr(),
-                    ),
-                  ],
+                      AppBadge(
+                        text: LocaleKeys.onboarding_connect_cloud_badge.tr(),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(
@@ -544,16 +573,7 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         .tr();
     return Column(
       children: [
-        const Hero(
-          tag: _faceHeroTag,
-          flightShuttleBuilder: faceFlightShuttleBuilder,
-          child: FaceWidget(
-            state: FaceState.success,
-            size: _faceSize,
-            isLive: true,
-          ),
-        ),
-        const SizedBox(height: Spacing.s4),
+        const SetupFace(state: FaceState.success, gap: Spacing.s4),
         Semantics(
           liveRegion: true,
           // Read as one: "Connected, alerts.example.com".
@@ -562,9 +582,9 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+                AppFittedTitle(
                   connected,
-                  textAlign: TextAlign.center,
+                  minFontSize: setupTitleMinFontSize,
                   style: AppTypography.headline(colors.onCanvas, fontSize: 30),
                 ),
                 const SizedBox(height: Spacing.s2),
@@ -637,12 +657,16 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Spacing.s5),
-            child: AppButton(
-              label: LocaleKeys.onboarding_connect_self_host_toggle.tr(),
-              variant: AppButtonVariant.ghost,
-              size: AppButtonSize.sm,
-              isFullWidth: true,
-              onPressed: cubit.toggleSelfHosting,
+            // A small pill, so its tap area runs a little above it.
+            child: SetupTapRoom(
+              onTap: cubit.toggleSelfHosting,
+              child: AppButton(
+                label: LocaleKeys.onboarding_connect_self_host_toggle.tr(),
+                variant: AppButtonVariant.ghost,
+                size: AppButtonSize.sm,
+                isFullWidth: true,
+                onPressed: cubit.toggleSelfHosting,
+              ),
             ),
           ),
           const SizedBox(height: Spacing.s1),
@@ -664,13 +688,31 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
           isFullWidth: true,
           onPressed: widget.isReplay ? _finishConnectStep : cubit.connect,
         ),
-        const SizedBox(height: Spacing.s3),
-        AppButton(
-          label: LocaleKeys.onboarding_connect_self_host_hide.tr(),
-          variant: AppButtonVariant.ghost,
-          size: AppButtonSize.sm,
-          isFullWidth: true,
-          onPressed: cubit.toggleSelfHosting,
+        // The small pill's tap area takes its extra room out of the gap
+        // above it, so the pill stays where it was.
+        SizedBox(
+          height:
+              Spacing.s3 -
+              math.min(
+                Spacing.s3,
+                setupTapRoomFor(
+                  setupButtonHeightFor(
+                    minHeight: 36,
+                    fontSize: 14,
+                    textScale: setupTextScaleOf(context),
+                  ),
+                ),
+              ),
+        ),
+        SetupTapRoom(
+          onTap: cubit.toggleSelfHosting,
+          child: AppButton(
+            label: LocaleKeys.onboarding_connect_self_host_hide.tr(),
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.sm,
+            isFullWidth: true,
+            onPressed: cubit.toggleSelfHosting,
+          ),
         ),
       ],
     );
@@ -695,20 +737,14 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
         ),
         const SizedBox(height: Spacing.s5),
 
-        Hero(
-          tag: _faceHeroTag,
-          flightShuttleBuilder: faceFlightShuttleBuilder,
-          child: FaceWidget(
-            state: state.isCountingDown ? FaceState.alarmed : FaceState.cheeky,
-            size: _faceSize,
-            isLive: true,
-          ),
+        SetupFace(
+          state: state.isCountingDown ? FaceState.alarmed : FaceState.cheeky,
+          gap: Spacing.s4,
         ),
-        const SizedBox(height: Spacing.s4),
 
-        Text(
+        AppFittedTitle(
           LocaleKeys.onboarding_connect_hook_title.tr(),
-          textAlign: TextAlign.center,
+          minFontSize: setupTitleMinFontSize,
           style: AppTypography.headline(colors.onCanvas, fontSize: 30),
         ),
         const SizedBox(height: Spacing.s2),

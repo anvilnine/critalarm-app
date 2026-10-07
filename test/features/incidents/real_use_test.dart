@@ -178,4 +178,31 @@ void main() {
       expect(afterAck('inc_prod_down'), AfterAck.proSheet);
     });
   });
+
+  group('countsAsFirstRealAck', () {
+    bool first(String? id, {bool isTest = false}) => countsAsFirstRealAck(
+      incidentId: id,
+      isTest: isTest,
+      setupIncidentIds: setupIds,
+    );
+
+    test('a setup ring does not set the first real acknowledge', () {
+      expect(first('inc_test'), isFalse);
+      expect(first('inc_first_message'), isFalse);
+      expect(first(phoneOnlyTestIncidentId), isFalse);
+    });
+
+    test('a Settings test alarm does not set it', () {
+      expect(first('inc_settings_test', isTest: true), isFalse);
+    });
+
+    test('an unknown incident does not set it', () {
+      expect(first(null, isTest: true), isFalse);
+      expect(first(null), isFalse);
+    });
+
+    test('a real alarm sets it', () {
+      expect(first('inc_prod_down'), isTrue);
+    });
+  });
 }

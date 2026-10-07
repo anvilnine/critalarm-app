@@ -272,6 +272,14 @@ void main() {
       offersOn: () => offersOn,
     );
 
+    test('waits 24 hours after the day-0 card is shown', () async {
+      promptRepo.day0CardShownAt = today.subtract(const Duration(hours: 2));
+      expect(await rules().shouldAsk(), isFalse);
+
+      promptRepo.day0CardShownAt = today.subtract(const Duration(hours: 24));
+      expect(await rules().shouldAsk(), isTrue);
+    });
+
     test('waits 24 hours after a feedback ask', () async {
       promptRepo.feedbackAskedAt = today.subtract(const Duration(hours: 2));
       expect(await rules().shouldAsk(), isFalse);

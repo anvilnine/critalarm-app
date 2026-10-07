@@ -55,8 +55,7 @@ class DeveloperSettingsScreen extends StatelessWidget {
                       valueListenable: getIt<DevProSwitch>(),
                       builder: (context, isPro, _) => AppToggleRow(
                         title: LocaleKeys.settings_developer_pro_title.tr(),
-                        subtitle: LocaleKeys.settings_developer_pro_subtitle
-                            .tr(),
+                        subtitle: LocaleKeys.settings_developer_pro_note.tr(),
                         value: isPro,
                         onChanged: (val) {
                           unawaited(getIt<DevProSwitch>().setPro(isPro: val));
@@ -74,6 +73,20 @@ class DeveloperSettingsScreen extends StatelessWidget {
                     const SizedBox(height: 14),
                   ],
                   const DeveloperSetupSection(),
+                  AppListRow(
+                    name: LocaleKeys.settings_developer_bar_backing_title.tr(),
+                    meta: LocaleKeys.settings_developer_bar_backing_subtitle
+                        .tr(),
+                    faceState: null,
+                    trailing: AppGlyph(
+                      GlyphType.arrow,
+                      color: context.appColors.ink3,
+                      size: 16,
+                    ),
+                    onTap: () =>
+                        context.push('/settings/developer/bar-backing'),
+                  ),
+                  const SizedBox(height: 8),
                   AppListRow(
                     name: LocaleKeys.settings_developer_dialog_sheet_title.tr(),
                     meta: LocaleKeys.settings_developer_dialog_sheet_subtitle

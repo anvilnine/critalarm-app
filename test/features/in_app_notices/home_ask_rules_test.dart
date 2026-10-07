@@ -299,6 +299,31 @@ void main() {
       );
     });
 
+    test('waits 24 hours after the day-0 card is shown', () {
+      HomeAsk afterCard(DateTime shownAt) => HomeAskRules.decide(
+        now: now,
+        firstSeenAt: DateTime(2026, 9),
+        consentAskedAt: DateTime(2026, 9, 2),
+        isConsentGiven: false,
+        reviewAskedAt: null,
+        reviewAskCount: 0,
+        lastAcknowledgedAt: DateTime(2026, 9, 19, 14),
+        proAskedAt: null,
+        isRinging: false,
+        isWeb: false,
+        isSetupDone: true,
+        day0CardShownAt: shownAt,
+      );
+      expect(
+        afterCard(now.subtract(const Duration(hours: 2))),
+        HomeAsk.none,
+      );
+      expect(
+        afterCard(now.subtract(const Duration(hours: 24))),
+        HomeAsk.review,
+      );
+    });
+
     test('waits 24 hours after a feedback ask', () {
       expect(
         review(

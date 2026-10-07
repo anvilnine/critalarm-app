@@ -38,6 +38,7 @@ abstract final class ReviewAskRule {
       isRinging: false,
       isWeb: inputs.isWeb,
       feedbackAskedAt: inputs.feedbackAskedAt,
+      day0CardShownAt: inputs.day0CardShownAt,
     );
     if (ask != HomeAsk.review) return null;
 

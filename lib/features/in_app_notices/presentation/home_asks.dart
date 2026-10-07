@@ -4,6 +4,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
+import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
@@ -11,6 +12,7 @@ import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
+import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/consent_ask_sheet.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_plan_sheet.dart';
@@ -34,77 +36,98 @@ bool _isAsking = false;
 /// When one is due, waits a moment so home has settled, and gives up if
 /// another screen has been pushed on top in the meantime.
 ///
+/// After the sheets, the day-0 card gets its turn (`Day0CardCubit`).
+/// [isNewOpen] is true for a Home open and false for any other run on the
+/// same screen, so only an open uses up one of the card's three.
+///
 /// Nothing shows before onboarding is finished and the Topics Feature Guide
 /// seen, or while any guide is up (`SetupGate`). Home runs this again when a
 /// guide ends, so what was held back shows after it.
-Future<void> runHomeAsk(BuildContext context) async {
+Future<void> runHomeAsk(
+  BuildContext context, {
+  bool isNewOpen = false,
+}) async {
   if (_isAsking) return;
   // Nothing pops up while an alarm is under way.
   if (getIt<AlarmFocus>().on) return;
   _isAsking = true;
   try {
-    if (!await getIt<SetupGate>().isDone()) return;
+    final isAskDue = await _runSheets(context);
     if (!context.mounted) return;
-    // Pro ending or ended comes first: it has a date attached.
-    final pro = await getIt<ProEnding>().read();
-    if (pro.sheet != ProPlanSheet.none) {
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-      if (!context.mounted || !await _stillFree(context)) return;
-      if (!context.mounted) return;
-      await showProPlanSheet(context, pro);
-      // The pill waits for the sheet, so reload the notices.
-      if (context.mounted) {
-        unawaited(context.read<InAppNoticeCubit>().load());
-      }
-      return;
-    }
-
-    final localReminderAsk = await _nextLocalReminderAsk();
-    if (localReminderAsk != LocalReminderHomeAsk.none) {
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-      if (!context.mounted || !await _stillFree(context)) return;
-      if (!context.mounted) return;
-      await _showLocalReminderAsk(context, localReminderAsk);
-      return;
-    }
-
-    final ask = await getIt<HomeAskRules>().next();
-    if (ask == HomeAsk.none) return;
-
-    await Future<void>.delayed(const Duration(milliseconds: 800));
-    if (!context.mounted || !await _stillFree(context)) return;
-    if (!context.mounted) return;
-
-    switch (ask) {
-      case HomeAsk.consent:
-        var sharesAnalytics = false;
-        await showConsentAskSheet(
-          context: context,
-          repository: getIt<InAppNoticeRepository>(),
-          onShare: ({required crashReports, required analytics}) {
-            sharesAnalytics = analytics;
-            return _share(crashReports: crashReports, analytics: analytics);
-          },
-        );
-        // Not now, a swipe, or Share with analytics switched off: the ask
-        // never opens again, so setup events still waiting are deleted. An
-        // analytics switch that was already on stays an opt-in.
-        final privacy = await getIt<PrivacyRepository>().getPrivacySettings();
-        final isAnalyticsOn = privacy.getOrNull()?.analyticsEnabled ?? false;
-        if (!sharesAnalytics && !isAnalyticsOn) {
-          await getIt<OnboardingFunnel>().answered(isOn: false);
-        }
-      case HomeAsk.review:
-        await _askForReview();
-        // The popup moved the review ask time, so a planned review
-        // reminder must be dropped.
-        unawaited(getIt<LocalReminderPlanTrigger>().run());
-      case HomeAsk.none:
-        break;
-    }
+    // The day-0 card goes last: it never starts in a visit that has a sheet,
+    // and it only joins the ask list once everything above had its turn.
+    await context.read<Day0CardCubit>().evaluate(
+      isNewOpen: isNewOpen,
+      isAskDue: isAskDue,
+    );
   } finally {
     _isAsking = false;
   }
+}
+
+/// Runs the sheets and popups, at most one. True when one was due, whether
+/// or not it ended up on screen.
+Future<bool> _runSheets(BuildContext context) async {
+  if (!await getIt<SetupGate>().isDone()) return false;
+  if (!context.mounted) return false;
+  // Pro ending or ended comes first: it has a date attached.
+  final pro = await getIt<ProEnding>().read();
+  if (pro.sheet != ProPlanSheet.none) {
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    if (!context.mounted || !await _stillFree(context)) return true;
+    if (!context.mounted) return true;
+    await showProPlanSheet(context, pro);
+    // The pill waits for the sheet, so reload the notices.
+    if (context.mounted) {
+      unawaited(context.read<InAppNoticeCubit>().load());
+    }
+    return true;
+  }
+
+  final localReminderAsk = await _nextLocalReminderAsk();
+  if (localReminderAsk != LocalReminderHomeAsk.none) {
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    if (!context.mounted || !await _stillFree(context)) return true;
+    if (!context.mounted) return true;
+    await _showLocalReminderAsk(context, localReminderAsk);
+    return true;
+  }
+
+  final ask = await getIt<HomeAskRules>().next();
+  if (ask == HomeAsk.none) return false;
+
+  await Future<void>.delayed(const Duration(milliseconds: 800));
+  if (!context.mounted || !await _stillFree(context)) return true;
+  if (!context.mounted) return true;
+
+  switch (ask) {
+    case HomeAsk.consent:
+      var sharesAnalytics = false;
+      await showConsentAskSheet(
+        context: context,
+        repository: getIt<InAppNoticeRepository>(),
+        onShare: ({required crashReports, required analytics}) {
+          sharesAnalytics = analytics;
+          return _share(crashReports: crashReports, analytics: analytics);
+        },
+      );
+      // Not now, a swipe, or Share with analytics switched off: the ask
+      // never opens again, so setup events still waiting are deleted. An
+      // analytics switch that was already on stays an opt-in.
+      final privacy = await getIt<PrivacyRepository>().getPrivacySettings();
+      final isAnalyticsOn = privacy.getOrNull()?.analyticsEnabled ?? false;
+      if (!sharesAnalytics && !isAnalyticsOn) {
+        await getIt<OnboardingFunnel>().answered(isOn: false);
+      }
+    case HomeAsk.review:
+      await _askForReview();
+      // The popup moved the review ask time, so a planned review
+      // reminder must be dropped.
+      unawaited(getIt<LocalReminderPlanTrigger>().run());
+    case HomeAsk.none:
+      break;
+  }
+  return true;
 }
 
 /// Checked again after the wait, right before a sheet opens: a guide or an
@@ -144,6 +167,7 @@ Future<LocalReminderHomeAsk> _nextLocalReminderAsk() async {
       notices.getConsentAskedAt(),
       notices.getReviewAskedAt(),
       notices.getFeedbackAskedAt(),
+      notices.getDay0CardShownAt(),
     ],
   );
 }
@@ -159,7 +183,10 @@ Future<void> _showLocalReminderAsk(
     case LocalReminderHomeAsk.proSheet:
       await store.writeProSheetOwed(owed: false);
       if (!context.mounted) return;
-      await askProSheet(context);
+      await askProSheet(
+        context,
+        trigger: HostedAskTrigger.owedAfterNightAck,
+      );
     case LocalReminderHomeAsk.none:
       break;
   }

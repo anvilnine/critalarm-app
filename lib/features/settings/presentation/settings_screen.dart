@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
+import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
@@ -114,7 +116,64 @@ class _SettingsScreenContent extends StatelessWidget {
     );
   }
 
+  /// A phone on a server of its own has no plan, so this says so and offers
+  /// nothing to buy. The second line is plain text, not a link.
+  Widget _buildSelfHostedPlanRow(BuildContext context) {
+    final colors = context.appColors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Prose, so the title is set in the body face and wraps. AppListRow
+        // sets every name in mono, which is for topic names and the like.
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: Radii.mdAll,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                LocaleKeys.settings_plan_selfhosted_title.tr(),
+                style: TextStyle(
+                  fontFamily: AppTypography.fontBody,
+                  fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: colors.ink,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                LocaleKeys.settings_plan_selfhosted_subtitle.tr(),
+                style: TextStyle(
+                  fontFamily: AppTypography.fontBody,
+                  fontFamilyFallback: AppTypography.fontBodyFallbacks,
+                  fontSize: 12,
+                  color: colors.ink3,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+          child: Text(
+            LocaleKeys.settings_plan_selfhosted_cloud_note.tr(),
+            style: AppTypography.small(colors.ink3, fontSize: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPlanRow(BuildContext context, SettingsState state) {
+    if (state.serverMode == ServerMode.selfhosted) {
+      return _buildSelfHostedPlanRow(context);
+    }
     final colors = context.appColors;
     final isPro = state.access.isPaid;
     return Container(
@@ -172,7 +231,9 @@ class _SettingsScreenContent extends StatelessWidget {
               size: AppButtonSize.sm,
               onPressed: () {
                 AppHaptics.capture();
-                unawaited(context.push('/paywall'));
+                unawaited(
+                  context.push(paywallLocation(PaywallSource.settingsPlan)),
+                );
               },
             ),
           ] else if (!buildSkipsPaywall) ...[

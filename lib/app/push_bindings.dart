@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
+import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:flutter/foundation.dart';
 
@@ -73,7 +74,7 @@ class AppPushBindings {
       _selectIncident(incidentId);
       return;
     }
-    _navigate(location);
+    _navigate(PushDeepLink.tagged(location));
   }
 
   bool _isAlarmRoute(String location) =>

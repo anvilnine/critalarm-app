@@ -1,4 +1,5 @@
 import 'package:critalarm/design/ambient/ambient.dart';
+import 'package:critalarm/design/components/screen_scaffold.dart';
 import 'package:critalarm/design/motion.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:flutter/material.dart';
@@ -215,7 +216,14 @@ class _AppAmbientShellState extends State<AppAmbientShell> {
         Positioned.fill(
           child: AmbientScope(
             controller: _controller,
-            child: widget.child,
+            // The screens leave their background clear and sit on the canvas
+            // above. Each backs its top bar with the canvas colour while a
+            // row is scrolled under it, so the row does not run through the
+            // title.
+            child: AppBarBackingScope(
+              color: profile.canvas,
+              child: widget.child,
+            ),
           ),
         ),
       ],
