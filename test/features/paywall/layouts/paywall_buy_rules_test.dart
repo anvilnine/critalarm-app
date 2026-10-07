@@ -8,15 +8,14 @@ import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Made-up amounts. No plan costs these.
+const double _m = 10; // l10n-ok: demo data
+const double _y = 80; // l10n-ok: demo data
 const _yearly = HostedPlanQuote(
   priceString: 'Y-PRICE',
-  price: 80, // l10n-ok: demo data
+  price: _y,
   pricePerMonthString: 'Y-PER-MONTH',
 );
-const _monthly = HostedPlanQuote(
-  priceString: 'M-PRICE',
-  price: 10, // l10n-ok: demo data
-);
+const _monthly = HostedPlanQuote(priceString: 'M-PRICE', price: _m);
 
 const _hosted = PaywallBuyState(product: PaywallProduct.hosted);
 const _pro = PaywallBuyState(product: PaywallProduct.pro);
@@ -72,13 +71,10 @@ void main() {
     });
 
     test('no per month line when the store gives no such figure', () {
-      const bare = HostedPlanQuote(
-        priceString: 'Y-PRICE',
-        price: 80, // l10n-ok: demo data
-      );
+      const bare = HostedPlanQuote(priceString: 'Y-PRICE', price: _y);
       const empty = HostedPlanQuote(
         priceString: 'Y-PRICE',
-        price: 80, // l10n-ok: demo data
+        price: _y,
         pricePerMonthString: '',
       );
       for (final yearly in [bare, empty]) {
@@ -90,19 +86,28 @@ void main() {
 
   group('the saving label', () {
     test('is the whole percent yearly saves against twelve months', () {
-      expect(yearlySavingLabel(monthlyPrice: 10, yearlyPrice: 80), 'Save 33%');
-      expect(yearlySavingLabel(monthlyPrice: 10, yearlyPrice: 60), 'Save 50%');
+      expect(yearlySavingLabel(monthlyPrice: _m, yearlyPrice: _y), 'Save 33%');
+      expect(
+        yearlySavingLabel(monthlyPrice: _m, yearlyPrice: _m * 6),
+        'Save 50%',
+      );
     });
 
     test('is missing when a price is missing', () {
-      expect(yearlySavingLabel(monthlyPrice: null, yearlyPrice: 80), isNull);
-      expect(yearlySavingLabel(monthlyPrice: 10, yearlyPrice: null), isNull);
+      expect(yearlySavingLabel(monthlyPrice: null, yearlyPrice: _y), isNull);
+      expect(yearlySavingLabel(monthlyPrice: _m, yearlyPrice: null), isNull);
     });
 
     test('is missing when yearly is not cheaper', () {
-      expect(yearlySavingLabel(monthlyPrice: 10, yearlyPrice: 120), isNull);
-      expect(yearlySavingLabel(monthlyPrice: 10, yearlyPrice: 130), isNull);
-      expect(yearlySavingLabel(monthlyPrice: 0, yearlyPrice: 80), isNull);
+      expect(
+        yearlySavingLabel(monthlyPrice: _m, yearlyPrice: _m * 12),
+        isNull,
+      );
+      expect(
+        yearlySavingLabel(monthlyPrice: _m, yearlyPrice: _m * 13),
+        isNull,
+      );
+      expect(yearlySavingLabel(monthlyPrice: 0, yearlyPrice: _y), isNull);
     });
   });
 

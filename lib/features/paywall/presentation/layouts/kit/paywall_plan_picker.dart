@@ -140,8 +140,10 @@ class _PlanCard extends StatelessWidget {
     final price = AppTypography.title(
       colors.ink,
     ).copyWith(fontWeight: FontWeight.w800, height: 1.1);
+    // The second ink, not the third: an unpicked card is see-through, and
+    // on a dark tone the quietest ink is under 3:1 on it.
     final fine = AppTypography.small(
-      colors.ink3,
+      colors.ink2,
       fontSize: 11.5,
     ).copyWith(height: 1.25);
 
@@ -189,41 +191,34 @@ class _PlanCard extends StatelessWidget {
       );
     } else {
       final after = afterPrice(Alignment.centerRight);
-      // The price side takes the width it needs, up to most of the row,
-      // and sits against the right edge. The words get the rest.
-      content = LayoutBuilder(
-        builder: (context, constraints) => Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  oneLine(option.title, title),
-                  if (option.renewalLine case final line?) oneLine(line, fine),
-                ],
-              ),
+      // Each side may take up to half the row and shrinks its text past
+      // that, so at a large text size both sides give way by the same
+      // amount. The price side sits against the right edge.
+      content = Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                oneLine(option.title, title),
+                if (option.renewalLine case final line?) oneLine(line, fine),
+              ],
             ),
-            const SizedBox(width: Spacing.s3),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: constraints.maxWidth * 0.6,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  oneLine(
-                    option.price,
-                    price,
-                    alignment: Alignment.centerRight,
-                  ),
-                  ?after,
-                ],
-              ),
+          ),
+          const SizedBox(width: Spacing.s3),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                oneLine(option.price, price, alignment: Alignment.centerRight),
+                ?after,
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
