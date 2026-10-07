@@ -41,7 +41,6 @@ class MissedAlarmNoticeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final cubit = context.read<InAppNoticeCubit>();
     final title = notice.count == 1
         ? LocaleKeys.notices_missed_alarm_title.tr()
@@ -55,68 +54,14 @@ class MissedAlarmNoticeCard extends StatelessWidget {
       },
     );
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, Spacing.s3, 12, 0),
-      child: AppHighlightCard(
-        tone: AppHighlightTone.choice,
-        padding: const EdgeInsets.fromLTRB(14, 6, 6, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                ExcludeSemantics(
-                  child: FaceWidget(
-                    state: missedAlarmFace(notice.reason),
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(width: Spacing.s3),
-                Expanded(
-                  child: Semantics(
-                    header: true,
-                    child: Text(
-                      title,
-                      style: AppTypography.body(
-                        colors.onCanvas,
-                      ).copyWith(fontWeight: FontWeight.w700, height: 1.3),
-                    ),
-                  ),
-                ),
-                AppIconButton(
-                  glyph: GlyphType.close,
-                  ariaLabel: LocaleKeys.notices_missed_alarm_dismiss.tr(),
-                  glyphSize: 14,
-                  color: colors.onCanvasMuted,
-                  onPressed: () => unawaited(cubit.dismissCurrent()),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(when, style: AppTypography.small(colors.onCanvas)),
-                  Text(
-                    missedAlarmReasonKey(notice.reason).tr(),
-                    style: AppTypography.small(colors.onCanvasMuted),
-                  ),
-                  const SizedBox(height: Spacing.s3),
-                  AppButton(
-                    label: missedAlarmButtonKey(notice.reason).tr(),
-                    size: AppButtonSize.sm,
-                    isFullWidth: true,
-                    onPressed: () => _open(context),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+    return AppNoticeCard(
+      face: missedAlarmFace(notice.reason),
+      title: title,
+      lines: [when, missedAlarmReasonKey(notice.reason).tr()],
+      actionLabel: missedAlarmButtonKey(notice.reason).tr(),
+      onAction: () => _open(context),
+      onDismiss: () => unawaited(cubit.dismissCurrent()),
+      dismissLabel: LocaleKeys.notices_missed_alarm_dismiss.tr(),
     );
   }
 }
