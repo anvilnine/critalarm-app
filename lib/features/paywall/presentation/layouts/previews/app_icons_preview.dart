@@ -5,6 +5,8 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/extras_preview_stage.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_glyph_tile.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart';
 import 'package:flutter/material.dart';
 
 /// The loop is this many seconds long.
@@ -71,8 +73,9 @@ AppIconsPreviewFrame appIconsPreviewFrameAt(double t) {
 
 /// The app icon swapping between the icons the app ships.
 ///
-/// Small, the tile is the icon. From [extrasPreviewFullEdge] up it is the
+/// Small, it is an app icon mark on the shared tile. As a scene it is the
 /// icon over the row it was picked from, with the pick mark moving along.
+/// The orange is the icon's own colour.
 class AppIconsPreview extends StatelessWidget {
   const AppIconsPreview({required this.size, super.key});
 
@@ -80,19 +83,16 @@ class AppIconsPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final u = size.shortestSide;
-    final isFull = u >= extrasPreviewFullEdge;
+    if (size.shortestSide < paywallPreviewSceneMinEdge) {
+      return PreviewGlyphTile.mark(PreviewMark.appIcon, size: size);
+    }
     return ExtrasPreviewTile(
       size: size,
-      color: isFull ? context.appColors.cream : null,
+      color: context.appColors.cream,
       child: PaywallPreviewClock.seconds(
         restAt: appIconsPreviewRestAt,
-        builder: (context, t) {
-          final frame = appIconsPreviewFrameAt(t);
-          return Center(
-            child: isFull ? _picker(context, frame) : _tile(frame, u),
-          );
-        },
+        builder: (context, t) =>
+            Center(child: _picker(context, appIconsPreviewFrameAt(t))),
       ),
     );
   }

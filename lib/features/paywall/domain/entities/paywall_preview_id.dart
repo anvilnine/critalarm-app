@@ -10,8 +10,7 @@ enum PaywallPreviewId {
   widgets,
   appIcons,
   weeklyCheck,
-  fireDrills,
   wakeUpChallenges,
+  customSounds,
   customAlarmScreens,
-  morningSummary,
 }

@@ -913,6 +913,12 @@
     "developer_paywall_variant_compare": "Free and Hosted",
     "developer_paywall_variant_one_job": "Topic limit",
     "developer_paywall_variant_hosted_template": "RevenueCat dashboard",
+    "developer_paywall_route_hosted_title": "Hosted paywall opens",
+    "developer_paywall_route_pro_title": "Pro paywall opens",
+    "developer_paywall_route_subtitle": "Now: {}. Tap to change.",
+    "developer_paywall_route_follow": "Follow the remote value",
+    "developer_paywall_route_shipped": "What ships today",
+    "developer_paywall_route_auto": "Auto, by entry point",
     "developer_edge_effect_title": "List edges",
     "developer_bar_backing_title": "Bar backing",
     "developer_bar_backing_subtitle": "Blur and fade behind the top bar and the pinned buttons",
@@ -1304,10 +1310,18 @@
     "name_hosted": "Hosted",
     "name_pro": "Pro",
     "button_get": "Get {name}",
-    "button_get_price": "Get {name} for {price}",
+    "button_get_price": "Get {name} · {price}",
     "button_check_again": "Check again",
     "button_done": "Done",
-    "legal_pro": "Payment is charged to your {store} at confirmation of purchase.",
+    "legal_pro": "Charged to your {store}.",
+    "legal_hosted": "Renews until you cancel.\nCancel any time in your {store}.",
+    "legal_hosted_yearly": "Renews at {price} a year until you cancel.\nCancel any time in your {store}.",
+    "legal_hosted_monthly": "Renews at {price} a month until you cancel.\nCancel any time in your {store}.",
+    "renews_yearly": "renews yearly",
+    "renews_monthly": "renews monthly",
+    "link_restore": "Restore",
+    "link_terms": "Terms",
+    "link_privacy": "Privacy",
     "not_on_sale": "{name} is not on sale yet.",
     "at_store": "Waiting for the store",
     "checking": "Confirming your purchase",
@@ -1331,37 +1345,34 @@
         "line": "{hosted_history_days} days, up from {free_history_days}."
       },
       "widgets": {
-        "line": "See what is ringing without opening the app."
+        "title": "Home screen widgets",
+        "line": "See what is ringing and say I'm up from the home screen."
       },
       "app_icons": {
         "line": "Three extra: a crown, shades, or both."
       },
-      "weekly_check": {
-        "title": "Weekly delivery check",
-        "line": "Checks each week that a push still reaches this phone."
-      },
-      "fire_drills": {
-        "title": "Fire drills",
-        "line": "A surprise test alarm, to see how fast you answer."
-      },
       "wake_up_challenges": {
         "title": "Wake-up challenges",
-        "line": "Prove you are up before the alarm lets go."
+        "line": "Scan a QR code or type the topic's name to stop the alarm."
+      },
+      "reliability_checks": {
+        "title": "Reliability checks",
+        "line": "The app checks itself: a weekly delivery check, and fire drills."
+      },
+      "custom_sounds": {
+        "title": "Upload/Record your alarm",
+        "line": "Bring a sound file, or record one on the phone."
       },
       "custom_alarm_screens": {
-        "title": "Custom alarm screens",
-        "line": "Pick how the ringing screen looks."
-      },
-      "morning_summary": {
-        "title": "Morning summary",
-        "line": "What rang while you slept."
+        "title": "Customize the Alarm Screen",
+        "line": "Pick the look of the screen that rings."
       }
     },
     "dev": {
       "row_title": "Paywall layouts",
       "row_subtitle": "Every layout, for Hosted and for Pro",
       "page_title": "Paywall layouts",
-      "note": "A layout that is not built yet opens the plain one.",
+      "note": "A layout that is not built yet opens the hero one.",
       "not_built": "not built"
     }
   },
@@ -1851,7 +1862,11 @@
     "widget_awake": "Awake",
     "widget_quiet": "Quiet",
     "widget_im_up": "I'm up",
-    "widget_done": "Done"
+    "widget_done": "Done",
+    "challenge_locked": "Scan to stop",
+    "challenge_stopped": "Stopped",
+    "sound_name": "My rooster",
+    "screen_wake_up": "Wake up"
   },
   "paywall_bento": {
     "brand": "Crit Alarm {name}",
@@ -1859,29 +1874,23 @@
     "headline_pro": "More for your alarm."
   },
   "paywall_proof": {
-    "headline_hosted": "Free lets {free_critical_topics} topics ring. Hosted has no limit.",
-    "headline_pro_one": "{benefit} is part of Pro.",
-    "headline_pro_two": "{benefit} is part of Pro. So is one more thing.",
-    "headline_pro_many": "{benefit} is part of Pro. So are {count} more things.",
-    "card_title": "Topics",
-    "counter_label": "Critical",
-    "counter_used": "{used} of {cap} used",
-    "counter_no_limit": "No limit",
-    "free_label": "Free",
-    "demo_aria": "A topic list. On Free, the Critical switch on a third topic is refused. On Hosted it turns on."
+    "headline_hosted": "Hit the limit. Lift it.",
+    "headline_pro": "From default to yours",
+    "tag_free": "Free",
+    "tag_hosted": "Hosted",
+    "tag_pro": "Pro"
   },
   "paywall_sheet": {
     "headline": {
-      "topics": "Unlimited critical topics are part of {name}",
-      "pushes": "More pushes a day are part of {name}",
-      "history": "Older alarms are part of {name}",
-      "widgets": "Home screen widgets are part of {name}",
-      "app_icons": "Extra app icons are part of {name}",
-      "weekly_check": "The weekly delivery check is part of {name}",
-      "fire_drills": "Fire drills are part of {name}",
-      "wake_up_challenges": "Wake-up challenges are part of {name}",
-      "custom_alarm_screens": "Custom alarm screens are part of {name}",
-      "morning_summary": "The morning summary is part of {name}"
+      "topics": "Critical on every topic",
+      "pushes": "Room for every push",
+      "history": "Every alarm, kept longer",
+      "widgets": "Alarms on your home screen",
+      "app_icons": "Pick your own app icon",
+      "wake_up_challenges": "Prove you are awake",
+      "reliability_checks": "A delivery check every week",
+      "custom_sounds": "Upload/Record your alarm",
+      "custom_alarm_screens": "Customize the Alarm Screen"
     },
     "page": {
       "back_topics": "Topics",
@@ -1894,9 +1903,8 @@
       "title_settings": "Settings",
       "name": "Name",
       "critical": "Critical",
-      "critical_line": "Rings like an alarm until you say I'm up.",
       "critical_used": "{free_critical_topics} of {free_critical_topics} critical topics used",
-      "critical_lifted": "Critical topics. No limit.",
+      "critical_lifted": "No limit on {name}",
       "sound": "Sound",
       "sound_value": "Classic siren",
       "test_alarm": "Send a test alarm",
@@ -1904,5 +1912,96 @@
       "notifications": "Notifications",
       "appearance": "Appearance"
     }
+  },
+  "paywall_hero": {
+    "headline_hosted": "Hosted lifts every limit",
+    "headline_pro": "Pro makes the alarm yours",
+    "stage_label": "Showing: {benefit}",
+    "lines": {
+      "topics": "Unlimited critical topics",
+      "pushes": "{hosted_p4_daily} high priority pushes a day",
+      "history": "{hosted_history_days} days of alarm history",
+      "widgets": "Home screen widgets",
+      "app_icons": "Three extra app icons",
+      "wake_up_challenges": "Wake-up challenges",
+      "reliability_checks": "Reliability checks",
+      "custom_sounds": "Upload/Record your alarm",
+      "custom_alarm_screens": "Customize the Alarm Screen"
+    }
+  },
+  "paywall_false_alarm": {
+    "word": "ALARM",
+    "admission": "Just kidding.",
+    "tag": "False alarm.\nJust kidding."
+  },
+  "paywall_reel": {
+    "eyebrow": "With {name}",
+    "position": "{current} of {total}",
+    "headlines": {
+      "topics": "Unlimited critical topics",
+      "pushes": "{hosted_p4_daily} high priority pushes a day",
+      "history": "{hosted_history_days} days of alarm history",
+      "widgets": "Widgets on your Home screen",
+      "app_icons": "Three extra app icons",
+      "wake_up_challenges": "Wake-up challenges",
+      "reliability_checks": "Weekly reliability checks",
+      "custom_sounds": "Upload/Record your alarm",
+      "custom_alarm_screens": "Customize the Alarm Screen"
+    }
+  },
+  "paywall_sentence": {
+    "stem_hosted": "Hosted gives you",
+    "stem_pro": "Pro gives you",
+    "sentence_label": "{stem} {tail}.",
+    "tails": {
+      "topics": "unlimited critical topics",
+      "pushes": "{hosted_p4_daily} pushes a day",
+      "history": "{hosted_history_days} days of history",
+      "widgets": "Home screen widgets",
+      "app_icons": "three more app icons",
+      "wake_up_challenges": "challenges that wake you up",
+      "reliability_checks": "weekly reliability checks",
+      "custom_sounds": "an alarm you upload or record",
+      "custom_alarm_screens": "an alarm screen you customize"
+    },
+    "names": {
+      "topics": "Topics",
+      "pushes": "Pushes",
+      "history": "History",
+      "widgets": "Widgets",
+      "app_icons": "Icons",
+      "wake_up_challenges": "Challenges",
+      "reliability_checks": "Checks",
+      "custom_sounds": "Sounds",
+      "custom_alarm_screens": "Screens"
+    }
+  },
+  "paywall_doors": {
+    "free": "Free",
+    "headline_hosted": "Step into Hosted",
+    "headline_pro": "Step into Pro",
+    "headline_ending": "Keep the door open",
+    "headline_ended": "Open the door again"
+  },
+  "paywall_receipt": {
+    "headline": "What {name} gets you",
+    "lines": {
+      "topics": "Unlimited critical topics",
+      "pushes": "{hosted_p4_daily} high priority a day",
+      "history": "{hosted_history_days} days of history",
+      "widgets": "Home screen widgets",
+      "app_icons": "Three extra app icons",
+      "wake_up_challenges": "Wake-up challenges",
+      "reliability_checks": "Reliability checks",
+      "custom_sounds": "Upload/Record your alarm",
+      "custom_alarm_screens": "Customize the Alarm Screen"
+    }
+  },
+  "paywall_wipe": {
+    "headline_hosted": "See what Hosted changes",
+    "headline_pro": "See what Pro adds",
+    "tag_free": "Free",
+    "tag_standard": "Standard",
+    "compare_label": "Compare {before} and {name}"
   }
 }

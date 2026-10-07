@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
-import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dart';
 import 'package:critalarm/features/pro_pack/presentation/pro_pack_views.dart';
 import 'package:critalarm/features/reliability/presentation/widgets/reliability_row.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -52,7 +52,7 @@ class ProPackReliabilityGroup extends StatelessWidget {
           view: view,
           body: weeklyCheckBody,
           onOpenPro: () => unawaited(
-            openProPackSheet(
+            openProPaywall(
               context,
               ProPackSheetSource.reliability,
               isSelfHosted: isSelfHosted,

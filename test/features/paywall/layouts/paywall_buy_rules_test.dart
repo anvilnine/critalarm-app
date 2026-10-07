@@ -52,11 +52,11 @@ void main() {
       );
       expect(yearly.perPeriodLine, 'Y-PER-MONTH / month');
       expect(yearly.savingLabel, 'Save 33%');
-      expect(yearly.renewalLine, '12 months, renews yearly');
+      expect(yearly.renewalLine, 'renews yearly');
       expect(yearly.title, 'Yearly');
       expect(monthly.perPeriodLine, isNull);
       expect(monthly.savingLabel, isNull);
-      expect(monthly.renewalLine, '1 month, renews monthly');
+      expect(monthly.renewalLine, 'renews monthly');
       expect(monthly.title, 'Monthly');
     });
 
@@ -419,6 +419,176 @@ void main() {
       expect(state.status, PaywallBuyStatus.checking);
       expect(state.isPaused, isFalse);
       expect(state.messageKey, isNull);
+    });
+  });
+
+  group('what the block draws for a state', () {
+    final hostedReady = restingState(
+      _hosted,
+      options: hostedPlanOptions(yearly: _yearly, monthly: _monthly),
+    );
+    final proReady = restingState(
+      _pro,
+      options: proPlanOptions(const [
+        ProPackOffer(handle: 'a', title: 'STORE-TITLE', price: 'P-PRICE'),
+      ]),
+    );
+    final proTwo = restingState(
+      _pro,
+      options: proPlanOptions(const [
+        ProPackOffer(handle: 'a', title: 'A', price: 'A-PRICE'),
+        ProPackOffer(handle: 'b', title: 'B', price: 'B-PRICE'),
+      ]),
+    );
+
+    test('Hosted has a card per plan and Pro with one offer has none', () {
+      expect(planCardCount(hostedReady), 2);
+      expect(planCardCount(proReady), 0);
+      expect(planCardCount(proTwo), 2);
+    });
+
+    test('one Hosted plan still gets its card, which says when it renews', () {
+      final onlyMonthly = restingState(
+        _hosted,
+        options: hostedPlanOptions(yearly: null, monthly: _monthly),
+      );
+      expect(planCardCount(onlyMonthly), 1);
+      expect(priceOnButton(onlyMonthly), isNull);
+    });
+
+    test('while loading Hosted holds room for two plans and Pro for none', () {
+      expect(planCardCount(_hosted), 2);
+      expect(planCardCount(_pro), 0);
+      expect(priceOnButton(_pro), isNull);
+    });
+
+    test('the button names the product, and carries the price only where '
+        'no card shows it', () {
+      expect(buyButtonLabel(hostedReady, name: 'Hosted'), 'Get Hosted');
+      expect(buyButtonLabel(proReady, name: 'Pro'), 'Get Pro · P-PRICE');
+      expect(buyButtonLabel(proTwo, name: 'Pro'), 'Get Pro');
+      expect(buyButtonLabel(_pro, name: 'Pro'), 'Get Pro');
+    });
+
+    test('the label is the same after a failed purchase', () {
+      final failed = afterStore(proReady, PaywallStoreResult.problem);
+      expect(failed.status, PaywallBuyStatus.failed);
+      expect(buyButtonLabel(failed, name: 'Pro'), 'Get Pro · P-PRICE');
+    });
+
+    test('a held payment reads Check again, for either product', () {
+      for (final ready in [hostedReady, proReady]) {
+        final held = afterStore(ready, PaywallStoreResult.pending);
+        expect(held.messageKey, LocaleKeys.purchase_errors_payment_pending);
+        expect(buyButtonLabel(held, name: 'X'), 'Check again');
+      }
+    });
+
+    test('a check that is still running keeps the product label', () {
+      final checking = afterStore(hostedReady, PaywallStoreResult.done);
+      expect(checking.isPaused, isFalse);
+      expect(buyButtonLabel(checking, name: 'Hosted'), 'Get Hosted');
+    });
+
+    test('the second line of a card is the per month figure, or when the '
+        'plan renews', () {
+      final [yearly, monthly] = hostedPlanOptions(
+        yearly: _yearly,
+        monthly: _monthly,
+      );
+      expect(planCardSecondLine(yearly), 'Y-PER-MONTH / month');
+      expect(planCardSecondLine(monthly), 'renews monthly');
+
+      final plainYearly = hostedPlanOptions(
+        yearly: const HostedPlanQuote(priceString: 'Y-PRICE', price: _y),
+        monthly: null,
+      ).single;
+      expect(planCardSecondLine(plainYearly), 'renews yearly');
+
+      final offer = proPlanOptions(const [
+        ProPackOffer(handle: 'a', title: 'A', price: 'A-PRICE'),
+      ]).single;
+      expect(planCardSecondLine(offer), isNull);
+    });
+
+    test('the badge is the saving, on the yearly card only, and only when '
+        'the prices show one', () {
+      final [yearly, monthly] = hostedPlanOptions(
+        yearly: _yearly,
+        monthly: _monthly,
+      );
+      expect(planCardBadge(yearly), 'Save 33%');
+      expect(planCardBadge(monthly), isNull);
+
+      final plainYearly = hostedPlanOptions(
+        yearly: _yearly,
+        monthly: null,
+      ).single;
+      expect(planCardBadge(plainYearly), isNull);
+    });
+
+    test('the picker keeps room for a badge only when a card has one', () {
+      expect(planPickerKeepsBadgeRoom(hostedReady), isTrue);
+
+      final noSaving = restingState(
+        _hosted,
+        options: hostedPlanOptions(yearly: _yearly, monthly: null),
+      );
+      expect(planPickerKeepsBadgeRoom(noSaving), isFalse);
+      // Pro has no card at all with one offer.
+      expect(planPickerKeepsBadgeRoom(proReady), isFalse);
+    });
+
+    test('while the store is asked, Hosted holds the badge room so the '
+        'cards do not move when the prices arrive', () {
+      expect(planPickerKeepsBadgeRoom(_hosted), isTrue);
+      expect(planPickerKeepsBadgeRoom(_pro), isFalse);
+    });
+  });
+
+  group('the legal line', () {
+    final ready = restingState(
+      _hosted,
+      options: hostedPlanOptions(yearly: _yearly, monthly: _monthly),
+    );
+
+    test('Hosted says the picked price, how often it renews, that it goes '
+        'on until cancelled, and where to cancel', () {
+      final yearly = legalLine(ready, store: 'STORE');
+      expect(yearly, contains('Renews at Y-PRICE a year until you cancel.'));
+      expect(yearly, contains('Cancel any time in your STORE.'));
+
+      final monthly = legalLine(
+        ready.copyWith(selectedId: PaywallPlanOption.monthlyId),
+        store: 'STORE',
+      );
+      expect(monthly, contains('Renews at M-PRICE a month until you cancel.'));
+      expect(monthly, contains('Cancel any time in your STORE.'));
+    });
+
+    test('each Hosted sentence starts its own line, so none is cut', () {
+      expect(legalLine(ready, store: 'STORE').split('\n'), hasLength(2));
+    });
+
+    test('with no plan picked yet it still says it renews and where to '
+        'cancel, and names no price', () {
+      final line = legalLine(_hosted, store: 'STORE');
+      expect(line, contains('Renews until you cancel.'));
+      expect(line, contains('Cancel any time in your STORE.'));
+    });
+
+    test('Pro says who charges and nothing about renewing', () {
+      final line = legalLine(
+        restingState(
+          _pro,
+          options: proPlanOptions(const [
+            ProPackOffer(handle: 'a', title: 'A', price: 'A-PRICE'),
+          ]),
+        ),
+        store: 'STORE',
+      );
+      expect(line, 'Charged to your STORE.');
+      expect(line.toLowerCase(), isNot(contains('renew')));
     });
   });
 }

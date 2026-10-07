@@ -6,10 +6,12 @@ import 'package:critalarm/core/device/dev_edge_effect_switch.dart';
 import 'package:critalarm/core/paywall/dev_paywall_variant_switch.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_variant.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/edge_effect.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
+import 'package:critalarm/features/settings/presentation/developer_paywall_route_section.dart';
 import 'package:critalarm/features/settings/presentation/developer_setup_section.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -85,6 +87,10 @@ class DeveloperSettingsScreen extends StatelessWidget {
                   ],
                   if (buildHasPaywallLab) ...[
                     const _PaywallVariantPicker(),
+                    const SizedBox(height: 14),
+                  ],
+                  if (buildHasPaywallLayoutSwitch) ...[
+                    const DeveloperPaywallRouteSection(),
                     const SizedBox(height: 14),
                   ],
                   const DeveloperSetupSection(),
