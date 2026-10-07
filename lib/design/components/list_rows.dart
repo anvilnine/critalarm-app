@@ -30,6 +30,7 @@ class AppListRow extends StatefulWidget {
     this.unreadCount = 0,
     this.isPinned = false,
     this.isMuted = false,
+    this.metaMaxLines = 2,
     super.key,
   });
 
@@ -63,6 +64,11 @@ class AppListRow extends StatefulWidget {
 
   /// Greys the row out and puts a crossed bell after the name.
   final bool isMuted;
+
+  /// How many lines the meta line may take before it is cut with an
+  /// ellipsis. A row that explains something raises it, so a large text
+  /// size never hides the end of a sentence.
+  final int metaMaxLines;
 
   @override
   State<AppListRow> createState() => _AppListRowState();
@@ -257,7 +263,7 @@ class _AppListRowState extends State<AppListRow> {
                               ),
                               // Two lines, so the last word of a sentence
                               // subtitle survives at default text size.
-                              maxLines: 2,
+                              maxLines: widget.metaMaxLines,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
