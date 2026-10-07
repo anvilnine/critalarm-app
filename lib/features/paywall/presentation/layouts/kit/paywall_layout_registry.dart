@@ -13,6 +13,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layo
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/plain_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/proof_paywall_layout.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/receipt_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/reel_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet_paywall_layout.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
@@ -30,6 +31,7 @@ final Map<PaywallLayoutId, PaywallLayoutBuilder> paywallLayoutBuilders = {
   PaywallLayoutId.falseAlarm: (_) => const FalseAlarmPaywallLayout(),
   PaywallLayoutId.plain: (_) => const PlainPaywallLayout(),
   PaywallLayoutId.proof: (_) => const ProofPaywallLayout(),
+  PaywallLayoutId.receipt: (_) => const ReceiptPaywallLayout(),
   PaywallLayoutId.reel: (_) => const ReelPaywallLayout(),
   PaywallLayoutId.sheet: (_) => const SheetPaywallLayout(),
 };
