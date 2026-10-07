@@ -390,6 +390,49 @@ class $AssetsTranslationsGen {
   List<String> get values => [en];
 }
 
+class $AssetsUiSoundsGen {
+  const $AssetsUiSoundsGen();
+
+  /// File path: assets/ui_sounds/ui_buy.m4a
+  String get uiBuy => 'assets/ui_sounds/ui_buy.m4a';
+
+  /// File path: assets/ui_sounds/ui_close.m4a
+  String get uiClose => 'assets/ui_sounds/ui_close.m4a';
+
+  /// File path: assets/ui_sounds/ui_gag.m4a
+  String get uiGag => 'assets/ui_sounds/ui_gag.m4a';
+
+  /// File path: assets/ui_sounds/ui_open.m4a
+  String get uiOpen => 'assets/ui_sounds/ui_open.m4a';
+
+  /// File path: assets/ui_sounds/ui_pick_monthly.m4a
+  String get uiPickMonthly => 'assets/ui_sounds/ui_pick_monthly.m4a';
+
+  /// File path: assets/ui_sounds/ui_pick_yearly.m4a
+  String get uiPickYearly => 'assets/ui_sounds/ui_pick_yearly.m4a';
+
+  /// File path: assets/ui_sounds/ui_print.m4a
+  String get uiPrint => 'assets/ui_sounds/ui_print.m4a';
+
+  /// File path: assets/ui_sounds/ui_tick.m4a
+  String get uiTick => 'assets/ui_sounds/ui_tick.m4a';
+
+  /// Directory path: assets/ui_sounds
+  String get path => 'assets/ui_sounds';
+
+  /// List of all assets
+  List<String> get values => [
+    uiBuy,
+    uiClose,
+    uiGag,
+    uiOpen,
+    uiPickMonthly,
+    uiPickYearly,
+    uiPrint,
+    uiTick,
+  ];
+}
+
 class Assets {
   const Assets._();
 
@@ -400,6 +443,7 @@ class Assets {
       $AssetsReminderFacesGen();
   static const $AssetsSoundsGen sounds = $AssetsSoundsGen();
   static const $AssetsTranslationsGen translations = $AssetsTranslationsGen();
+  static const $AssetsUiSoundsGen uiSounds = $AssetsUiSoundsGen();
 }
 
 class AssetGenImage {
