@@ -34,14 +34,16 @@ import 'package:go_router/go_router.dart';
 /// check's state, reason and fix, so a check from a new source sorts and
 /// draws like the rest.
 ///
-/// To add a group of rows: append a builder to `reliabilityExtraGroups`.
+/// To add a group of rows: append one to `reliabilityExtraGroups`. A group
+/// that draws a check of its own names the check's id, and the screen then
+/// draws no plain row for it (`reliabilityScreenLayout`).
 class ReliabilityScreen extends StatelessWidget {
   const ReliabilityScreen({
     this.extraGroups = reliabilityExtraGroups,
     super.key,
   });
 
-  final List<ReliabilityGroupBuilder> extraGroups;
+  final List<ReliabilityGroup> extraGroups;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +60,7 @@ class ReliabilityScreen extends StatelessWidget {
 class _ReliabilityView extends StatefulWidget {
   const _ReliabilityView({required this.extraGroups, required this.runner});
 
-  final List<ReliabilityGroupBuilder> extraGroups;
+  final List<ReliabilityGroup> extraGroups;
   final ReliabilityFixRunner runner;
 
   @override
@@ -169,7 +171,11 @@ class _ReliabilityViewState extends State<_ReliabilityView>
         final view = reliabilityHeadlineView(headline);
         final isLoading = headline == ReliabilityHeadline.loading;
         final ordered = orderReliabilityChecks(snapshot.checks);
-        final primary = reliabilityPrimaryRow(ordered);
+        // A check a group draws gets no plain row, and its group moves up
+        // to the check's place while it needs attention.
+        final layout = reliabilityScreenLayout(ordered, [
+          for (final group in widget.extraGroups) group.checkId,
+        ]);
         final now = DateTime.now();
 
         return AppScreenScaffold(
@@ -222,37 +228,39 @@ class _ReliabilityViewState extends State<_ReliabilityView>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (!isLoading) ...[
-                        for (var i = 0; i < ordered.length; i++) ...[
-                          ReliabilityRow(
-                            check: ordered[i],
-                            face: reliabilityRowFace(ordered[i]),
-                            now: now,
-                            actionLabel: _actionLabel(ordered[i]),
-                            // One primary button on the screen: the first
-                            // row with something to do.
-                            actionVariant: i == primary
-                                ? AppButtonVariant.primary
-                                : AppButtonVariant.ghost,
-                            isBusy: _busy.contains(ordered[i].id),
-                            onAction: () => unawaited(_runFix(ordered[i])),
-                            clearLabel: reliabilityClearLabelKey(
-                              ordered[i].fix,
-                            )?.tr(),
-                            isClearing: _clearing.contains(ordered[i].id),
-                            onClear: () => unawaited(_clear(ordered[i])),
-                            onTap: _onRowTap(ordered[i]),
-                          ),
+                      if (!isLoading)
+                        for (final row in layout.rows) ...[
+                          if (row.group case final group?)
+                            _group(context, snapshot, group, row)
+                          else
+                            ReliabilityRow(
+                              check: row.check,
+                              face: reliabilityRowFace(row.check),
+                              now: now,
+                              actionLabel: _actionLabel(row.check),
+                              // One primary button on the screen: the
+                              // first row with something to do.
+                              actionVariant: row.isPrimary
+                                  ? AppButtonVariant.primary
+                                  : AppButtonVariant.ghost,
+                              isBusy: _busy.contains(row.check.id),
+                              onAction: () => unawaited(_runFix(row.check)),
+                              clearLabel: reliabilityClearLabelKey(
+                                row.check.fix,
+                              )?.tr(),
+                              isClearing: _clearing.contains(row.check.id),
+                              onClear: () => unawaited(_clear(row.check)),
+                              onTap: _onRowTap(row.check),
+                            ),
                           const SizedBox(height: 8),
                         ],
-                      ],
                       // The free test comes before anything that costs
                       // money.
                       ReliabilityTestRow(onTap: () => unawaited(_openTest())),
                       if (!isLoading)
-                        for (final group in widget.extraGroups) ...[
+                        for (final below in layout.below) ...[
                           const SizedBox(height: 8),
-                          group(context, snapshot),
+                          _group(context, snapshot, below.group, null),
                         ],
                     ],
                   ),
@@ -264,6 +272,23 @@ class _ReliabilityViewState extends State<_ReliabilityView>
       },
     );
   }
+
+  /// One group, keyed by its position so it keeps its state when it moves
+  /// between its place in the list and its place under the test row.
+  Widget _group(
+    BuildContext context,
+    ReliabilitySnapshot snapshot,
+    int index,
+    ReliabilityListRow? row,
+  ) => KeyedSubtree(
+    key: ValueKey('reliability_group_$index'),
+    child: widget.extraGroups[index].builder(
+      context,
+      snapshot,
+      check: row?.check,
+      isPrimary: row?.isPrimary ?? false,
+    ),
+  );
 
   String? _actionLabel(ReliabilityCheck check) {
     final fix = check.fix;

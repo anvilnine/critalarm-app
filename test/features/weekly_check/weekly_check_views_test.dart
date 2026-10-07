@@ -1,5 +1,6 @@
 import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_standing.dart';
 import 'package:critalarm/features/weekly_check/presentation/weekly_check_views.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,7 +13,13 @@ void main() {
   WeeklyCheckBodyView view(
     WeeklyCheck? check, {
     bool isSelfHosted = false,
+    bool missedByClock = false,
   }) => weeklyCheckBodyView(
+    standing: weeklyCheckStanding(
+      check: check,
+      isPackHeld: true,
+      missedByClock: missedByClock,
+    ),
     check: check,
     isSelfHosted: isSelfHosted,
     now: now,
@@ -30,19 +37,32 @@ void main() {
     noticeAfter: nowSeconds + 14 * day,
   );
 
+  const neverOn = WeeklyCheck(
+    enabled: false,
+    state: WeeklyCheckState.off,
+    reason: WeeklyCheckOffReason.disabled,
+  );
+  final off = WeeklyCheck(
+    enabled: false,
+    state: WeeklyCheckState.off,
+    reason: WeeklyCheckOffReason.disabled,
+    lastSentAt: nowSeconds - 9 * day,
+  );
+
   group('the row, one line for each state', () {
-    test('before the relay has answered it is ready to switch on', () {
-      final v = view(null);
-      expect(v.lineKey, LocaleKeys.pro_pack_weekly_ready_line);
-      expect(v.isOn, isFalse);
-      expect(v.nextDueKey, isNull);
+    test('while off the line says what the check does', () {
+      for (final v in [view(null), view(neverOn), view(off)]) {
+        expect(v.lineKey, LocaleKeys.pro_pack_weekly_locked_line);
+        expect(v.isOn, isFalse);
+        expect(v.nextDueWhen, isNull);
+        expect(v.face, FaceState.sleepy);
+      }
     });
 
     test('waiting for the first check', () {
       final v = view(on(WeeklyCheckState.waiting));
       expect(v.lineKey, LocaleKeys.weekly_check_line_waiting);
       expect(v.isOn, isTrue);
-      expect(v.nextDueKey, LocaleKeys.weekly_check_next_due);
       expect(v.nextDueWhen, isNotEmpty);
     });
 
@@ -72,6 +92,12 @@ void main() {
       expect(v.lineKey, LocaleKeys.weekly_check_line_missed_repeatedly);
     });
 
+    test('the phone telling by its own clock reads the same', () {
+      final v = view(on(WeeklyCheckState.received), missedByClock: true);
+      expect(v.lineKey, LocaleKeys.weekly_check_line_missed_repeatedly);
+      expect(v.face, FaceState.shakeHead);
+    });
+
     test('the push token was refused', () {
       final v = view(on(WeeklyCheckState.tokenRefused, misses: 1));
       expect(v.lineKey, LocaleKeys.weekly_check_line_token_refused);
@@ -82,66 +108,28 @@ void main() {
       expect(v.lineKey, LocaleKeys.weekly_check_line_no_token);
     });
 
-    test('switched off', () {
-      final v = view(
-        WeeklyCheck(
-          enabled: false,
-          state: WeeklyCheckState.off,
-          reason: WeeklyCheckOffReason.disabled,
-          lastSentAt: nowSeconds - 9 * day,
-        ),
-      );
-      expect(v.lineKey, LocaleKeys.weekly_check_line_off);
-      expect(v.isOn, isFalse);
-      expect(v.nextDueKey, isNull);
-    });
-
-    test('never switched on reads as ready, not as switched off', () {
-      final v = view(
-        const WeeklyCheck(
-          enabled: false,
-          state: WeeklyCheckState.off,
-          reason: WeeklyCheckOffReason.disabled,
-        ),
-      );
-      expect(v.lineKey, LocaleKeys.pro_pack_weekly_ready_line);
-    });
-
-    test('the pack was lost', () {
-      final v = view(
-        const WeeklyCheck(
-          enabled: true,
-          state: WeeklyCheckState.off,
-          reason: WeeklyCheckOffReason.pack,
-        ),
-      );
-      expect(v.lineKey, LocaleKeys.weekly_check_line_pack_lost);
-      expect(v.isOn, isFalse);
-      expect(v.showsSelfHostedLine, isFalse);
-    });
-
     test('a state this build does not know still shows the switch on', () {
       final v = view(on(null));
-      expect(v.lineKey, LocaleKeys.weekly_check_line_on);
+      expect(v.lineKey, LocaleKeys.pro_pack_weekly_locked_line);
       expect(v.isOn, isTrue);
     });
 
-    test('each state has its own face', () {
+    test('each state that is on has its own face', () {
       final faces = [
         view(null).face,
         for (final state in WeeklyCheckState.values)
           if (state != WeeklyCheckState.off) view(on(state)).face,
-        view(
-          const WeeklyCheck(
-            enabled: true,
-            state: WeeklyCheckState.off,
-            reason: WeeklyCheckOffReason.pack,
-          ),
-        ).face,
+        view(on(null)).face,
       ];
       expect(faces.toSet().length, faces.length);
-      // Received keeps the face the unlocked row had before the check.
+      // The faces the review said to keep.
       expect(view(on(WeeklyCheckState.received)).face, FaceState.confident);
+      expect(view(on(WeeklyCheckState.missedOnce)).face, FaceState.surprised);
+      expect(
+        view(on(WeeklyCheckState.missedRepeatedly)).face,
+        FaceState.shakeHead,
+      );
+      expect(view(on(WeeklyCheckState.tokenRefused)).face, FaceState.shocked);
     });
 
     test('no line of any state claims that alarms work', () {
@@ -159,11 +147,10 @@ void main() {
   group('when the next check is due', () {
     test('a day ahead is named', () {
       final v = view(on(WeeklyCheckState.received));
-      expect(v.nextDueKey, LocaleKeys.weekly_check_next_due);
       expect(v.nextDueWhen, weeklyCheckDay(nowSeconds + 6 * day));
     });
 
-    test('a moment already passed just says it is due', () {
+    test('a moment already passed says nothing', () {
       final v = view(
         WeeklyCheck(
           enabled: true,
@@ -172,51 +159,69 @@ void main() {
           nextDueAt: nowSeconds - 60,
         ),
       );
-      expect(v.nextDueKey, LocaleKeys.weekly_check_next_due_now);
       expect(v.nextDueWhen, isNull);
     });
   });
 
+  group('the way to past checks', () {
+    test('shows once the relay has sent a check', () {
+      expect(view(on(WeeklyCheckState.waiting)).showsRoundsLink, isTrue);
+      expect(view(off).showsRoundsLink, isTrue);
+    });
+
+    test('is not there before any was sent', () {
+      expect(view(null).showsRoundsLink, isFalse);
+      expect(view(neverOn).showsRoundsLink, isFalse);
+      expect(
+        view(
+          const WeeklyCheck(enabled: true, state: WeeklyCheckState.waiting),
+        ).showsRoundsLink,
+        isFalse,
+      );
+    });
+  });
+
   group('on a self-hosted phone', () {
-    test('every enrolled state carries the relay line', () {
-      for (final state in WeeklyCheckState.values) {
-        if (state == WeeklyCheckState.off) continue;
+    test('every state of the unlocked row carries the relay line', () {
+      for (final check in [
+        null,
+        neverOn,
+        off,
+        for (final state in WeeklyCheckState.values)
+          if (state != WeeklyCheckState.off) on(state),
+        on(null),
+      ]) {
         expect(
-          view(on(state), isSelfHosted: true).showsSelfHostedLine,
+          view(check, isSelfHosted: true).showsSelfHostedLine,
           isTrue,
-          reason: state.name,
+          reason: '$check',
         );
       }
     });
 
     test('a cloud phone never does', () {
-      for (final state in WeeklyCheckState.values) {
-        expect(view(on(state)).showsSelfHostedLine, isFalse);
+      for (final check in [
+        null,
+        neverOn,
+        off,
+        for (final state in WeeklyCheckState.values) on(state),
+      ]) {
+        expect(view(check).showsSelfHostedLine, isFalse);
       }
-    });
-
-    test('switched off says nothing more', () {
-      final v = view(
-        const WeeklyCheck(
-          enabled: false,
-          state: WeeklyCheckState.off,
-          reason: WeeklyCheckOffReason.disabled,
-        ),
-        isSelfHosted: true,
-      );
-      expect(v.showsSelfHostedLine, isFalse);
     });
   });
 
-  group('a round, its result in a word', () {
-    WeeklyCheckRound round(String? result) => WeeklyCheckRound.fromJson({
-      'id': 'rnd_1',
-      'opened_at': nowSeconds - 3 * 3600,
-      'closes_at': nowSeconds + 21 * 3600,
-      'closed_at': result == null ? null : nowSeconds - 3 * 3600 + 4,
-      'attempts': 1,
-      'result': result,
-    });
+  group('a round: a face, its result in a few words, its time', () {
+    WeeklyCheckRound round(String? result, {String? reason}) =>
+        WeeklyCheckRound.fromJson({
+          'id': 'rnd_1',
+          'opened_at': nowSeconds - 3 * 3600,
+          'closes_at': nowSeconds + 9 * 3600,
+          'closed_at': result == null ? null : nowSeconds - 3 * 3600 + 4,
+          'attempts': 1,
+          'result': result,
+          'reason': reason,
+        });
 
     test('each result has a word', () {
       expect(
@@ -231,18 +236,44 @@ void main() {
         weeklyCheckResultKey(round('refused')),
         LocaleKeys.weekly_check_result_refused,
       );
-      expect(
-        weeklyCheckResultKey(round('skipped')),
-        LocaleKeys.weekly_check_result_skipped,
-      );
     });
 
-    test('a round still open is waiting', () {
-      expect(round(null).isOpen, isTrue);
+    test('skipped says "switched off" only when that is the reason', () {
       expect(
-        weeklyCheckResultKey(round(null)),
-        LocaleKeys.weekly_check_result_open,
+        weeklyCheckResultKey(round('skipped', reason: 'disabled')),
+        LocaleKeys.weekly_check_result_skipped_off,
       );
+      // Every other reason the contract lists, and none at all.
+      for (final reason in ['pack', 'no_token', 'held', 'unsent', null]) {
+        expect(
+          weeklyCheckResultKey(round('skipped', reason: reason)),
+          LocaleKeys.weekly_check_result_skipped,
+          reason: '$reason',
+        );
+      }
+    });
+
+    test('a round still open says when it is due by', () {
+      final open = round(null);
+      expect(open.isOpen, isTrue);
+      final v = weeklyCheckRoundView(open, now: now);
+      expect(v.wordKey, LocaleKeys.weekly_check_result_open_due);
+      // It closes at 18:00 today.
+      expect(v.wordTime, '18:00');
+      // One time on the row.
+      expect(v.when, isNull);
+    });
+
+    test('an open round with no closing time is waiting', () {
+      final open = WeeklyCheckRound(
+        id: 'rnd_2',
+        openedAt: nowSeconds - 3 * 3600,
+        isOpen: true,
+      );
+      final v = weeklyCheckRoundView(open, now: now);
+      expect(v.wordKey, LocaleKeys.weekly_check_result_open);
+      expect(v.wordTime, isNull);
+      expect(v.when, '06:00');
     });
 
     test('a result this build does not know is closed, not open', () {
@@ -251,17 +282,25 @@ void main() {
       expect(weeklyCheckResultKey(odd), LocaleKeys.weekly_check_result_closed);
     });
 
-    test('the time is when the round opened', () {
-      expect(weeklyCheckRoundView(round('missed'), now: now).when, '06:00');
+    test('a closed round is listed at the time it opened', () {
+      final v = weeklyCheckRoundView(round('missed'), now: now);
+      expect(v.when, '06:00');
+      expect(v.wordTime, isNull);
       final old = WeeklyCheckRound(
         id: 'rnd_0',
         openedAt: nowSeconds - 7 * day,
         result: WeeklyCheckResult.received,
       );
-      expect(
-        weeklyCheckRoundView(old, now: now).when,
-        'Wed 30 Sep, 09:00',
-      );
+      expect(weeklyCheckRoundView(old, now: now).when, 'Wed 30 Sep, 09:00');
+    });
+
+    test('each result has the face the row shows for it', () {
+      expect(weeklyCheckResultFace(round('received')), FaceState.confident);
+      expect(weeklyCheckResultFace(round('missed')), FaceState.surprised);
+      expect(weeklyCheckResultFace(round('refused')), FaceState.shocked);
+      expect(weeklyCheckResultFace(round('skipped')), FaceState.sleepy);
+      expect(weeklyCheckResultFace(round(null)), FaceState.interested);
+      expect(weeklyCheckResultFace(round('paused')), FaceState.blink);
     });
   });
 }

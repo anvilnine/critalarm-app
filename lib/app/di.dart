@@ -140,6 +140,7 @@ import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onb
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_intent_store.dart';
+import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
@@ -300,6 +301,7 @@ import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
 import 'package:critalarm/features/weekly_check/data/shared_prefs_weekly_check_store.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_source.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_store.dart';
 import 'package:critalarm/features/weekly_check/presentation/cubits/weekly_check_cubit.dart';
 import 'package:critalarm/features/weekly_check/presentation/cubits/weekly_check_rounds_cubit.dart';
@@ -1876,6 +1878,13 @@ Future<void> configureDependencies({
           permissions: getIt<DevicePermissionsRepository>(),
           capabilities: getIt<PlatformCapabilities>(),
           os: getIt<OsVersionReader>(),
+          // The phone does not tell "never asked" from "said no" for
+          // notifications. The same answer the permissions screen uses.
+          notificationsNeverAsked: () async =>
+              (await getIt<CheckNotificationPermissionUsecase>()(
+                const NoParams(),
+              )).getOrNull() ==
+              NotificationPermissionStatus.notDetermined,
         ),
         PushTokenSource(
           store: getIt<RelayConfirmationStore>(),
@@ -1915,6 +1924,16 @@ Future<void> configureDependencies({
           readMissed: getIt<MissedAlarmReader>().read,
           readDismissedIds: () =>
               getIt<MissedAlarmStore>().readDismissed().keys.toSet(),
+          testRouteName: AppRoute.testRing,
+        ),
+        // The weekly check counts while it is switched on, as "needs a
+        // look" at most. It reads what the monitor already holds and never
+        // calls the relay: the row's own cubit does that.
+        WeeklyCheckSource(
+          readCheck: () => getIt<WeeklyCheckMonitor>().check,
+          isPackHeld: () => getIt<ProPackAccess>().isHeld,
+          readMissedByClock: () =>
+              getIt<WeeklyCheckMonitor>().twoRoundsMissed(),
           testRouteName: AppRoute.testRing,
         ),
       ]),

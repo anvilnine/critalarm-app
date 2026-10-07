@@ -162,6 +162,14 @@ final class WeeklyCheckMonitor {
         now: _nowSeconds(),
       );
 
+  /// Whether two rounds in a row were missed as far as this phone can
+  /// tell, whatever happened to the Home notice. For the Reliability
+  /// screen. Reads what the phone holds and calls nobody.
+  Future<bool> twoRoundsMissed() async => WeeklyCheckNoticeRule.twoRoundsMissed(
+    facts: await noticeFacts(),
+    now: _nowSeconds(),
+  );
+
   /// The notice was closed. It stays gone for this run of misses.
   Future<void> dismissNotice() async {
     await _store.writeDismissedAt(_nowSeconds());
