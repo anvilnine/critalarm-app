@@ -21,6 +21,10 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Home tells you when this phone missed an alarm, with what the phone recorded about it, and Will it wake me? lists it.
 - Pro, a paid pack separate from Hosted: a weekly delivery check. Switch it on in Will it wake me? and the relay checks once a week that a push still reaches this phone. Home says so if two checks in a row are missed.
 - Will it wake me? has a sheet where Pro can be bought once it is on sale, with Restore.
+- Will it wake me? counts the weekly delivery check while it is switched on. Two missed checks or a refused push token show as Take a look, with one button to act on it.
+- A missed alarm on Will it wake me? names the topic and time, offers a test, and can be closed there. Closing it clears it from Home.
+- A permission you were never asked for can be allowed from Will it wake me? without opening system settings.
+- On a phone that uses your own server, the Pro row and the Pro sheet say before you pay that the weekly check covers the push relay to the phone, and says nothing about your server.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
@@ -34,6 +38,13 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Ring me for real counts down 5 seconds before it sends, so there is time to lock the phone. Cancel stops it.
 - The face on the acknowledged screen has its dark outline and features back.
 - The Hosted sheet lists what the plan adds and what Free keeps.
+- The permissions screen is called Permissions. It was called Health.
+- Home says an alarm was missed in one place, the notice, with a button for what to do: Ring a test, or See the alarm. The big face no longer says All clear above it.
+- Will it wake me? no longer asks for a look when an alarm rang and nobody answered.
+- The sleep settings steps for Oppo, Realme and OnePlus are three steps, with the Realme and older OxygenOS routes as notes under them.
+- The connect sheet keeps the server name whole at large text, shows the full address whenever the name alone does not say it all, says Replaces Crit Alarm Cloud when it does, and reads Close when the server refuses.
+- A connect link refuses a server that reports a different address, path or scheme than the one shown, and a server address with invisible characters, a query or a fragment.
+- Screen readers read the full server address in the connect sheet.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
