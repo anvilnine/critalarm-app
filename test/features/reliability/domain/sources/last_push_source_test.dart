@@ -64,6 +64,41 @@ void main() {
       expect(check.state, ReliabilityState.fine);
     });
 
+    test('a last push dated in the future needs a look, not fine', () {
+      final check = LastPushSource.lastPushCheckFor(
+        now: _now,
+        lastPushAt: _now.add(const Duration(days: 2)),
+        watchingSince: ago(const Duration(days: 30)),
+        hasCriticalTopic: true,
+        testRouteName: _route,
+      );
+      expect(check.state, ReliabilityState.needsLook);
+      expect(check.reason, 'clock');
+    });
+
+    test('a watch start in the future with no push needs a look', () {
+      final check = LastPushSource.lastPushCheckFor(
+        now: _now,
+        lastPushAt: null,
+        watchingSince: _now.add(const Duration(days: 2)),
+        hasCriticalTopic: true,
+        testRouteName: _route,
+      );
+      expect(check.state, ReliabilityState.needsLook);
+      expect(check.reason, 'clock');
+    });
+
+    test('a future time with no critical topic is still fine', () {
+      final check = LastPushSource.lastPushCheckFor(
+        now: _now,
+        lastPushAt: _now.add(const Duration(days: 2)),
+        watchingSince: ago(const Duration(days: 30)),
+        hasCriticalTopic: false,
+        testRouteName: _route,
+      );
+      expect(check.state, ReliabilityState.fine);
+    });
+
     test('never received counts from when the check first looked', () {
       ReliabilityState stateWatchedFor(Duration d) =>
           LastPushSource.lastPushCheckFor(

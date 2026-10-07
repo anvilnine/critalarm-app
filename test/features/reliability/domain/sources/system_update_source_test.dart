@@ -55,6 +55,7 @@ void main() {
 
     test('no change is fine', () {
       final check = SystemUpdateSource.systemUpdateCheckFor(
+        now: changed.add(const Duration(days: 1)),
         changedAt: null,
         lastTestAt: null,
         testRouteName: 'testRing',
@@ -64,6 +65,7 @@ void main() {
 
     test('a change with no test ever needs a look, and offers a test', () {
       final check = SystemUpdateSource.systemUpdateCheckFor(
+        now: changed.add(const Duration(days: 1)),
         changedAt: changed,
         lastTestAt: null,
         testRouteName: 'testRing',
@@ -75,6 +77,7 @@ void main() {
 
     test('a test from before the change does not count', () {
       final check = SystemUpdateSource.systemUpdateCheckFor(
+        now: changed.add(const Duration(days: 1)),
         changedAt: changed,
         lastTestAt: changed.subtract(const Duration(days: 3)),
         testRouteName: 'testRing',
@@ -84,6 +87,7 @@ void main() {
 
     test('a test at the very moment of the change does not count', () {
       final check = SystemUpdateSource.systemUpdateCheckFor(
+        now: changed.add(const Duration(days: 1)),
         changedAt: changed,
         lastTestAt: changed,
         testRouteName: 'testRing',
@@ -91,8 +95,31 @@ void main() {
       expect(check.state, ReliabilityState.needsLook);
     });
 
+    test('a change dated in the future needs a look, not fine', () {
+      final check = SystemUpdateSource.systemUpdateCheckFor(
+        now: changed.subtract(const Duration(days: 2)),
+        changedAt: changed,
+        lastTestAt: changed.add(const Duration(hours: 1)),
+        testRouteName: 'testRing',
+      );
+      expect(check.state, ReliabilityState.needsLook);
+      expect(check.reason, 'clock');
+    });
+
+    test('a test dated in the future does not clear a change', () {
+      final check = SystemUpdateSource.systemUpdateCheckFor(
+        now: changed.add(const Duration(days: 1)),
+        changedAt: changed,
+        lastTestAt: changed.add(const Duration(days: 30)),
+        testRouteName: 'testRing',
+      );
+      expect(check.state, ReliabilityState.needsLook);
+      expect(check.reason, 'clock');
+    });
+
     test('a test one second after the change clears it', () {
       final check = SystemUpdateSource.systemUpdateCheckFor(
+        now: changed.add(const Duration(days: 1)),
         changedAt: changed,
         lastTestAt: changed.add(const Duration(seconds: 1)),
         testRouteName: 'testRing',
@@ -149,6 +176,7 @@ void main() {
       expect((await build().read()).single.state, ReliabilityState.needsLook);
 
       lastTest = DateTime.utc(2026, 10, 20, 9);
+      clock.now = DateTime.utc(2026, 10, 20, 10);
       final check = (await build().read()).single;
       expect(check.state, ReliabilityState.fine);
       expect(check.lastKnownGood, lastTest);
@@ -168,6 +196,7 @@ void main() {
       clock.now = DateTime.utc(2026, 10, 20, 8);
       await build().read();
       lastTest = DateTime.utc(2026, 10, 20, 9);
+      clock.now = DateTime.utc(2026, 10, 20, 10);
       expect((await build().read()).single.state, ReliabilityState.fine);
 
       os.value = 19;

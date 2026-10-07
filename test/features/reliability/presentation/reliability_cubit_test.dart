@@ -75,7 +75,7 @@ void main() {
     await cubit.close();
   });
 
-  test('a source that throws loses its checks and nothing else', () async {
+  test('a source that throws loses its checks, keeps the others', () async {
     final cubit = ReliabilityCubit([
       _ThrowingSource(),
       _Source([_check('a', ReliabilityState.fine)]),
@@ -83,6 +83,36 @@ void main() {
     await cubit.refresh();
     expect(cubit.state.loaded, isTrue);
     expect(cubit.state.checks.map((c) => c.id.value), ['a']);
+    expect(cubit.state.incomplete, isTrue);
+    await cubit.close();
+  });
+
+  test('a source that throws never leaves the overall state fine', () async {
+    final cubit = ReliabilityCubit([
+      _ThrowingSource(),
+      _Source([_check('a', ReliabilityState.fine)]),
+    ]);
+    await cubit.refresh();
+    expect(cubit.state.overall, ReliabilityState.needsLook);
+    await cubit.close();
+  });
+
+  test('a source that throws does not hide a broken check', () async {
+    final cubit = ReliabilityCubit([
+      _ThrowingSource(),
+      _Source([_check('a', ReliabilityState.broken)]),
+    ]);
+    await cubit.refresh();
+    expect(cubit.state.overall, ReliabilityState.broken);
+    await cubit.close();
+  });
+
+  test('a read where every source answers is complete', () async {
+    final cubit = ReliabilityCubit([
+      _Source([_check('a', ReliabilityState.fine)]),
+    ]);
+    await cubit.refresh();
+    expect(cubit.state.incomplete, isFalse);
     expect(cubit.state.overall, ReliabilityState.fine);
     await cubit.close();
   });

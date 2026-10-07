@@ -10,6 +10,7 @@ final class ReliabilitySnapshot {
     this.checks = const [],
     this.overall = ReliabilityState.fine,
     this.loaded = false,
+    this.incomplete = false,
   });
 
   /// The checks that exist on this phone, in source order. Checks that are
@@ -23,13 +24,20 @@ final class ReliabilitySnapshot {
   /// a screen waits instead of drawing "fine".
   final bool loaded;
 
+  /// True when a source failed to answer on the last read, so [checks] is
+  /// missing some. [overall] is then at least needs a look: a list with a hole
+  /// in it must not read as fine.
+  final bool incomplete;
+
   @override
   bool operator ==(Object other) =>
       other is ReliabilitySnapshot &&
       other.overall == overall &&
       other.loaded == loaded &&
+      other.incomplete == incomplete &&
       listEquals(other.checks, checks);
 
   @override
-  int get hashCode => Object.hash(overall, loaded, Object.hashAll(checks));
+  int get hashCode =>
+      Object.hash(overall, loaded, incomplete, Object.hashAll(checks));
 }
