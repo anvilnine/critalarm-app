@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
+import 'package:critalarm/app/connect_link_host.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/incoming_audio_bindings.dart';
 import 'package:critalarm/app/local_reminder_bindings.dart';
@@ -311,9 +312,12 @@ class _CritAlarmAppState extends State<CritAlarmApp>
                       getIt<DeviceForm>().isIphone,
                   child: FeatureGuideHost(
                     router: _router,
-                    child: AppAmbientShell(
+                    child: ConnectLinkHost(
                       router: _router,
-                      child: child ?? const SizedBox.shrink(),
+                      child: AppAmbientShell(
+                        router: _router,
+                        child: child ?? const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 ),

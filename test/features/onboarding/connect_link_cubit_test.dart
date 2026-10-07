@@ -225,7 +225,7 @@ void main() {
         ),
       ).thenAnswer(
         (_) async => ++calls == 1
-            ? ServerUnreachable(const Failure.unexpected())
+            ? const ServerUnreachable(Failure.unexpected())
             : const Connected(_info),
       );
       final cubit = build();
@@ -287,9 +287,9 @@ void main() {
         'ending', () async {
       for (final outcome in <ConnectOutcome>[
         const Connected(_info),
-        ServerUnreachable(const Failure.unexpected(message: 'refused')),
+        const ServerUnreachable(Failure.unexpected(message: 'refused')),
         const ServerIncompatible('9.9.9'),
-        ConnectionNotSaved(const Failure.database()),
+        const ConnectionNotSaved(Failure.database()),
         ConnectTransportError(Exception('socket')),
         const AdminTokenMissing(_info),
       ]) {
@@ -365,7 +365,7 @@ void main() {
           serverUrl: any(named: 'serverUrl'),
           adminToken: any(named: 'adminToken'),
         ),
-      ).thenAnswer((_) async => ServerUnreachable(const Failure.unexpected()));
+      ).thenAnswer((_) async => const ServerUnreachable(Failure.unexpected()));
       final cubit = build();
       await cubit.connect();
       cubit.notNow();
@@ -375,16 +375,14 @@ void main() {
     });
 
     test('an alarm that takes the screen', () async {
-      final cubit = build();
-      cubit.interrupted();
+      final cubit = build()..interrupted();
       await cubit.close();
       await Future<void>.delayed(Duration.zero);
       expect(gate.lines.last, 'connect_link_ended:interrupted');
     });
 
     test('one ending is reported once', () async {
-      final cubit = build();
-      cubit
+      final cubit = build()
         ..notNow()
         ..notNow();
       await cubit.close();

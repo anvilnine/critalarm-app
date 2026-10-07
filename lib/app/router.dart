@@ -1,4 +1,5 @@
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/popup_route_tracker.dart';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
@@ -112,7 +113,7 @@ final _rootKey = GlobalKey<NavigatorState>();
 
 GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
   navigatorKey: _rootKey,
-  observers: [appRouteObserver],
+  observers: [appRouteObserver, appPopupRoutes],
   initialLocation: initialLocation,
   // A critalarm:// data URI on a tap intent must never become a location the
   // router cannot match. Android stops Flutter passing it on (see
