@@ -1354,12 +1354,12 @@
         "line": "The app checks itself: a weekly delivery check, and fire drills."
       },
       "custom_sounds": {
-        "title": "Your own alarm sounds",
-        "line": "Record one, or bring a file."
+        "title": "Upload/Record your alarm",
+        "line": "Bring a sound file, or record one on the phone."
       },
       "custom_alarm_screens": {
-        "title": "Your own alarm screens",
-        "line": "Choose how the alarm looks when it rings."
+        "title": "Customize the Alarm Screen",
+        "line": "Pick the look of the screen that rings."
       }
     },
     "dev": {
@@ -1888,8 +1888,8 @@
       "app_icons": "Extra app icons are part of {name}",
       "wake_up_challenges": "Wake-up challenges are part of {name}",
       "reliability_checks": "Reliability checks are part of {name}",
-      "custom_sounds": "Your own alarm sounds are part of {name}",
-      "custom_alarm_screens": "Your own alarm screens are part of {name}"
+      "custom_sounds": "Upload/Record your alarm is part of {name}",
+      "custom_alarm_screens": "Customize the Alarm Screen is part of {name}"
     },
     "page": {
       "back_topics": "Topics",
@@ -1925,8 +1925,8 @@
       "app_icons": "Three extra app icons",
       "wake_up_challenges": "Wake-up challenges",
       "reliability_checks": "Reliability checks",
-      "custom_sounds": "Your own alarm sounds",
-      "custom_alarm_screens": "Your own alarm screens"
+      "custom_sounds": "Upload/Record your alarm",
+      "custom_alarm_screens": "Customize the Alarm Screen"
     }
   }
 }
