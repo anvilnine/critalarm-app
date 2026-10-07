@@ -7,7 +7,10 @@ import 'package:flutter/material.dart';
 /// The three paywall previews of a Hosted limit lifting (topics, pushes,
 /// history), each at the sizes a layout may give it.
 class PaywallLimitsPreviewsSection extends StatelessWidget {
-  const PaywallLimitsPreviewsSection({super.key});
+  const PaywallLimitsPreviewsSection({this.edges = sizes, super.key});
+
+  /// The tile edges drawn. The capture tool passes its own.
+  final List<double> edges;
 
   /// Edge lengths shown, smallest first.
   static const sizes = <double>[56, 120, 240];
@@ -44,7 +47,7 @@ class PaywallLimitsPreviewsSection extends StatelessWidget {
             runSpacing: Spacing.s4,
             crossAxisAlignment: WrapCrossAlignment.end,
             children: [
-              for (final edge in sizes)
+              for (final edge in edges)
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
