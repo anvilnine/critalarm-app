@@ -1928,5 +1928,10 @@
       "custom_sounds": "Upload/Record your alarm",
       "custom_alarm_screens": "Customize the Alarm Screen"
     }
+  },
+  "paywall_false_alarm": {
+    "word": "ALARM",
+    "admission": "Just kidding.",
+    "tag": "False alarm.\nJust kidding."
   }
 }
