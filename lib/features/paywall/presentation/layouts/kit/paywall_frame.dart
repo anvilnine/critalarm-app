@@ -1,10 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/app/di.dart';
-import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
@@ -12,7 +10,9 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layo
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -33,6 +33,28 @@ typedef PaywallLayoutContentBuilder =
 /// lines keep growing, inside their own box.
 const double paywallLayoutMaxTextScale = 1.5;
 
+/// A handle on the frame for a layout that also draws outside it: a sheet
+/// with a scrim to tap, a picture behind that needs the buy block's height.
+///
+/// Make one in your `State`, hand it to `PaywallFrame` or `PaywallFrameBody`
+/// as `controller`, and dispose it. A layout that draws only in the
+/// builder needs none: its scope has `close` and `size`.
+class PaywallFrameController {
+  _PaywallFrameBodyState? _body;
+  final ValueNotifier<double?> _buyBlockHeight = ValueNotifier<double?>(null);
+
+  /// The buy block's height in points, as it was last laid out. Null until
+  /// the first frame is laid out. It follows the buy state, the text size
+  /// and the width, and tells its listeners when it changes.
+  ValueListenable<double?> get buyBlockHeight => _buyBlockHeight;
+
+  /// Closes the paywall, as a tap on the cross does: the close cue plays
+  /// once and the route goes. Nothing happens while no frame holds this.
+  void close() => _body?._close();
+
+  void dispose() => _buyBlockHeight.dispose();
+}
+
 /// The one-screen scaffold of every paywall layout. It never scrolls.
 ///
 /// It paints the tone, keeps the safe areas, puts the close cross on screen
@@ -48,10 +70,14 @@ class PaywallFrame extends StatelessWidget {
     this.restAt = 0,
     this.buyStyle,
     this.backdrop,
+    this.controller,
     super.key,
   });
 
   final PaywallLayoutContentBuilder builder;
+
+  /// For a layout that needs the frame from outside its builder.
+  final PaywallFrameController? controller;
 
   /// The background, and with it the colour of the close cross and of the
   /// buy block's text.
@@ -116,6 +142,7 @@ class PaywallFrame extends StatelessWidget {
                 entranceCue: entranceCue,
                 restAt: restAt,
                 buyStyle: buyStyle,
+                controller: controller,
               ),
             ),
           ],
@@ -137,6 +164,7 @@ class PaywallFrameBody extends StatefulWidget {
     this.entranceCue = PaywallEntranceCue.open,
     this.restAt = 0,
     this.buyStyle,
+    this.controller,
     super.key,
   });
 
@@ -147,6 +175,7 @@ class PaywallFrameBody extends StatefulWidget {
   final PaywallEntranceCue entranceCue;
   final double restAt;
   final PaywallBuyBlockStyle? buyStyle;
+  final PaywallFrameController? controller;
 
   @override
   State<PaywallFrameBody> createState() => _PaywallFrameBodyState();
@@ -177,6 +206,7 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
     super.initState();
     _cues = getIt<PaywallCues>();
     _buy = context.read<PaywallBuyCubit>();
+    widget.controller?._body = this;
     switch (widget.entranceCue) {
       case PaywallEntranceCue.open:
         _cues.open();
@@ -196,6 +226,14 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
     _clock.tell();
   }
 
+  @override
+  void didUpdateWidget(PaywallFrameBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) return;
+    if (oldWidget.controller?._body == this) oldWidget.controller?._body = null;
+    widget.controller?._body = this;
+  }
+
   void _sayClose() {
     if (_saidClose) return;
     _saidClose = true;
@@ -204,6 +242,7 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
   }
 
   void _close() {
+    if (!mounted) return;
     _sayClose();
     if (context.canPop()) {
       context.pop();
@@ -212,10 +251,15 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
     }
   }
 
+  void _reportBuyBlockHeight(double height) {
+    if (mounted) widget.controller?._buyBlockHeight.value = height;
+  }
+
   @override
   void dispose() {
     // Back and a swipe leave without the cross.
     _sayClose();
+    if (widget.controller?._body == this) widget.controller?._body = null;
     _clock.dispose();
     super.dispose();
   }
@@ -223,14 +267,7 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
   @override
   Widget build(BuildContext context) {
     final tone = PaywallToneColors.of(context, widget.tone);
-    final info = PaywallRouteInfo.maybeOf(context);
-    final product = _buy.state.product;
-    final benefits = info?.showsUnbuilt ?? false
-        ? [
-            for (final b in allPaywallBenefits)
-              if (b.product == product) b,
-          ]
-        : paywallBenefitsFor(product);
+    final offer = PaywallOffer.of(context);
     final isCompact = PaywallFrame.isCompactOf(context);
 
     return Column(
@@ -244,13 +281,14 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final scope = PaywallLayoutScope(
-                      product: product,
-                      benefits: benefits,
+                      product: offer.product,
+                      benefits: offer.benefits,
                       size: constraints.biggest,
                       isCompact: isCompact,
-                      source: info?.source ?? PaywallSource.direct,
+                      source: offer.source,
                       clock: _clock,
                       closeOnLeft: widget.closeOnLeft,
+                      close: _close,
                     );
                     return PaywallLayoutScopeProvider(
                       scope: scope,
@@ -268,8 +306,12 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
               // whatever the layout is doing.
               Positioned(
                 top: 0,
-                left: widget.closeOnLeft ? Spacing.s1 : null,
-                right: widget.closeOnLeft ? null : Spacing.s1,
+                left: widget.closeOnLeft
+                    ? PaywallLayoutScope.closeCrossInset
+                    : null,
+                right: widget.closeOnLeft
+                    ? null
+                    : PaywallLayoutScope.closeCrossInset,
                 child: AppDismissCross(
                   label: LocaleKeys.paywall_kit_close.tr(),
                   color: tone.ink,
@@ -279,10 +321,13 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
             ],
           ),
         ),
-        _Reveal(
-          isVisible: widget.buyBlockVisible,
-          child: PaywallBuyBlock(
-            style: widget.buyStyle ?? PaywallBuyBlockStyle(tone: widget.tone),
+        _HeightReport(
+          onHeight: _reportBuyBlockHeight,
+          child: _Reveal(
+            isVisible: widget.buyBlockVisible,
+            child: PaywallBuyBlock(
+              style: widget.buyStyle ?? PaywallBuyBlockStyle(tone: widget.tone),
+            ),
           ),
         ),
       ],
@@ -319,6 +364,43 @@ class _Reveal extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Tells [onHeight] the height its child was laid out at, after the frame
+/// in which that height changed.
+class _HeightReport extends SingleChildRenderObjectWidget {
+  const _HeightReport({required this.onHeight, required super.child});
+
+  final ValueChanged<double> onHeight;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderHeightReport(onHeight);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderHeightReport renderObject,
+  ) => renderObject.onHeight = onHeight;
+}
+
+class _RenderHeightReport extends RenderProxyBox {
+  _RenderHeightReport(this.onHeight);
+
+  ValueChanged<double> onHeight;
+  double? _told;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final height = size.height;
+    if (height == _told) return;
+    _told = height;
+    // A listener may rebuild, which a layout pass does not allow.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (attached && _told == height) onHeight(height);
+    });
   }
 }
 
