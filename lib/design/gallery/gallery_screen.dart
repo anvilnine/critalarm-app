@@ -25,6 +25,7 @@ import 'package:critalarm/design/components/waveform_bars.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/faces/pulse_ring_widget.dart';
+import 'package:critalarm/design/gallery/paywall_extras_previews_section.dart';
 import 'package:critalarm/design/theme/severity.dart';
 import 'package:critalarm/design/theme/theme.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -131,6 +132,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           _buildPriorityLadderSection(colors),
                           const SizedBox(height: 48),
                           _buildAlarmPreviewSection(colors),
+                          const SizedBox(height: 48),
+                          const PaywallExtrasPreviewsSection(),
                           const SizedBox(height: 64),
                         ],
                       ),
