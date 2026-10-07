@@ -23,9 +23,9 @@ void main() {
       );
     });
 
-    test('the Reliability link opens Settings until its route exists', () {
+    test('the Reliability link opens the Reliability screen', () {
       expect(AppLinkRoutes.reliability, '/settings/reliability');
-      expect(AppLinkRoutes.reliabilityTarget, '/settings');
+      expect(AppLinkRoutes.reliabilityTarget, '/settings/reliability');
       expect(
         _parse('https://critalarm.app/open/settings/reliability'),
         const AppLinkRoute(AppLinkRoutes.reliabilityTarget),
