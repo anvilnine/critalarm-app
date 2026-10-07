@@ -69,14 +69,97 @@ bool connectLeaveIsClose(ConnectLinkState state) =>
 /// twice, as before, in case the large type has to be set small.
 const int connectHostLongLength = 40;
 
+/// The smallest size the large host is set in: the smallest body size the
+/// design system has (`bodySmall`). The system text size scales it up from
+/// there.
+const double connectHostMinFontSize = 12;
+
+/// How the large host is set in the room it has.
+@immutable
+class HostFit {
+  const HostFit({
+    required this.fontSize,
+    required this.atFloor,
+    required this.breaksInsideLabel,
+  });
+
+  /// The size to set the host in.
+  final double fontSize;
+
+  /// The host had to be scaled all the way down to
+  /// [connectHostMinFontSize].
+  final bool atFloor;
+
+  /// A label is wider than the line even at the smallest size, so it wraps
+  /// letter by letter. Nothing is cut off and nothing is set smaller.
+  final bool breaksInsideLabel;
+
+  /// The large host is harder to read than it should be, so the whole
+  /// address is shown under it whatever else is true.
+  bool get isCramped => atFloor || breaksInsideLabel;
+
+  @override
+  bool operator ==(Object other) =>
+      other is HostFit &&
+      other.fontSize == fontSize &&
+      other.atFloor == atFloor &&
+      other.breaksInsideLabel == breaksInsideLabel;
+
+  @override
+  int get hashCode => Object.hash(fontSize, atFloor, breaksInsideLabel);
+
+  @override
+  String toString() =>
+      'HostFit($fontSize, atFloor: $atFloor, breaks: $breaksInsideLabel)';
+}
+
+/// Fits the host's longest label to the line.
+///
+/// [fontSize] is the size the host wants, [longestLabelWidth] how wide its
+/// longest label is at that size, [maxWidth] the room it has. The type is
+/// scaled down until that label fits, but never below [minFontSize]. A label
+/// that still does not fit there wraps inside itself: the host is always
+/// readable in full.
+@visibleForTesting
+HostFit hostFit({
+  required double fontSize,
+  required double longestLabelWidth,
+  required double maxWidth,
+  double minFontSize = connectHostMinFontSize,
+}) {
+  final fits =
+      longestLabelWidth <= 0 ||
+      !maxWidth.isFinite ||
+      longestLabelWidth <= maxWidth;
+  if (fits) {
+    return HostFit(
+      fontSize: fontSize,
+      atFloor: fontSize <= minFontSize,
+      breaksInsideLabel: false,
+    );
+  }
+  final scaled = maxWidth <= 0 ? 0.0 : fontSize * maxWidth / longestLabelWidth;
+  if (scaled > minFontSize) {
+    return HostFit(fontSize: scaled, atFloor: false, breaksInsideLabel: false);
+  }
+  return HostFit(
+    fontSize: minFontSize < fontSize ? minFontSize : fontSize,
+    atFloor: true,
+    breaksInsideLabel: scaled < minFontSize,
+  );
+}
+
 /// True when the address line under the host says something the host does
 /// not already say. A person must never see less of the address than they
 /// are agreeing to, so this answers false only for an `https` address that is
 /// exactly `https://` and the host, with at most a closing slash. A path, a
 /// query, a fragment, user info, a port the host does not carry, `http`, a
-/// long host and every failed state show the whole address.
+/// long host and every failed state show the whole address. So does a host
+/// that had to be set at its smallest size or wrapped inside a label
+/// ([hostIsCramped], from [HostFit.isCramped]).
 @visibleForTesting
-bool connectShowsAddress(ConnectLinkState state) {
+bool connectShowsAddress(ConnectLinkState state, {bool hostIsCramped = false}) {
+  if (hostIsCramped) return true;
   if (state.isPlainHttp || state.isFailed) return true;
   if (state.host.length > connectHostLongLength) return true;
   final bare = 'https://${state.host}';
@@ -292,108 +375,128 @@ class _Head extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Semantics(
-      container: true,
-      label: state.host,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Center(
-            child: FaceWidget(state: _face, size: 72, isLive: true),
-          ),
-          const SizedBox(height: Spacing.s3),
-          ExcludeSemantics(
-            child: _HostName(
-              state.host,
-              style: AppTypography.headline(colors.ink, fontSize: 28),
-            ),
-          ),
-          // An address is a machine string, so it is set in mono. It is
-          // shown whole whenever it holds more than the host above it.
-          if (connectShowsAddress(state)) ...[
-            const SizedBox(height: Spacing.s1),
-            ExcludeSemantics(
-              child: Text(
-                state.address,
-                textAlign: TextAlign.center,
-                textDirection: ui.TextDirection.ltr,
-                style: AppTypography.mono(colors.ink3, fontSize: 13),
+    final style = AppTypography.headline(colors.ink, fontSize: 28);
+    final fontSize = style.fontSize!;
+    final scaler = MediaQuery.textScalerOf(context);
+    final labels = hostLabels(state.host);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fit = hostFit(
+          fontSize: fontSize,
+          // A hair of slack, so rounding never tips a label over the edge.
+          longestLabelWidth: _longestWidth(labels, style, scaler) + 1,
+          maxWidth: constraints.maxWidth,
+        );
+        final spacing = style.letterSpacing;
+        final showsAddress = connectShowsAddress(
+          state,
+          hostIsCramped: fit.isCramped,
+        );
+        return Semantics(
+          container: true,
+          label: state.host,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: FaceWidget(state: _face, size: 72, isLive: true),
               ),
-            ),
-          ],
-        ],
-      ),
+              const SizedBox(height: Spacing.s3),
+              ExcludeSemantics(
+                child: _HostName(
+                  labels,
+                  style: style.copyWith(
+                    fontSize: fit.fontSize,
+                    letterSpacing: spacing == null
+                        ? null
+                        : spacing * fit.fontSize / fontSize,
+                  ),
+                  breaksInsideLabel: fit.breaksInsideLabel,
+                ),
+              ),
+              // An address is a machine string, so it is set in mono. It is
+              // shown whole whenever it holds more than the host above it, and
+              // whenever the host above it had to be set small or wrapped.
+              if (showsAddress) ...[
+                const SizedBox(height: Spacing.s1),
+                ExcludeSemantics(
+                  child: Text(
+                    state.address,
+                    textAlign: TextAlign.center,
+                    textDirection: _ltr,
+                    style: AppTypography.mono(colors.ink3, fontSize: 13),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  /// How wide the widest of [labels] is on one line in [style].
+  static double _longestWidth(
+    List<String> labels,
+    TextStyle style,
+    TextScaler scaler,
+  ) {
+    var longest = 0.0;
+    for (final label in labels) {
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: style),
+        textDirection: _ltr,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      if (painter.width > longest) longest = painter.width;
+      painter.dispose();
+    }
+    return longest;
   }
 }
 
-/// The host, large. It wraps only between labels (after a dot), so a label is
-/// never cut in two, and the type is scaled down until the longest label fits
-/// the line.
+/// An address reads left to right in every language. Without this a
+/// right-to-left app would set the host's labels in the opposite order.
+const ui.TextDirection _ltr = ui.TextDirection.ltr;
+
+/// The host, large. It wraps between labels (after a dot), and [style] is
+/// already scaled down so the longest label fits the line, see [hostFit].
 ///
 /// `AppFittedTitle` does this for words split by spaces. A host has none, so
 /// it would see one very long word, shrink to its floor and let the line
-/// break inside a label ("alarm.example.co" then "m" at 2.0x text). This uses
-/// the same `fittedFontSize` with the labels as the words and a floor low
-/// enough that every label fits.
+/// break inside a label ("alarm.example.co" then "m" at 2.0x text).
+///
+/// A label is cut in two only when [breaksInsideLabel] is set: it does not
+/// fit the line at the smallest size, so it wraps letter by letter there
+/// instead of running off the sheet.
 class _HostName extends StatelessWidget {
-  const _HostName(this.host, {required this.style});
+  const _HostName(
+    this.labels, {
+    required this.style,
+    required this.breaksInsideLabel,
+  });
 
-  final String host;
+  final List<String> labels;
   final TextStyle style;
-
-  /// A DNS label is at most 63 characters, which fits a 343 point line at
-  /// about this size, so no label has to break.
-  static const double _floor = 9;
+  final bool breaksInsideLabel;
 
   @override
   Widget build(BuildContext context) {
-    final scaler = MediaQuery.textScalerOf(context);
-    // An address reads left to right in every language. Without this a
-    // right-to-left app would set the labels in the opposite order.
-    const direction = ui.TextDirection.ltr;
-    final fontSize = style.fontSize!;
-    final labels = hostLabels(host);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        var longest = 0.0;
-        for (final label in labels) {
-          final painter = TextPainter(
-            text: TextSpan(text: label, style: style),
-            textDirection: direction,
-            textScaler: scaler,
-            maxLines: 1,
-          )..layout();
-          if (painter.width > longest) longest = painter.width;
-          painter.dispose();
-        }
-        final fitted = fittedFontSize(
-          fontSize: fontSize,
-          // A hair of slack, so rounding never tips a label over the edge.
-          longestWordWidth: longest + 1,
-          maxWidth: constraints.maxWidth,
-          minFontSize: _floor,
-        );
-        final spacing = style.letterSpacing;
-        final fittedStyle = style.copyWith(
-          fontSize: fitted,
-          letterSpacing: spacing == null ? null : spacing * fitted / fontSize,
-        );
-        return Wrap(
-          textDirection: direction,
-          alignment: WrapAlignment.center,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            for (final label in labels)
-              Text(
-                label,
-                softWrap: false,
-                textDirection: direction,
-                style: fittedStyle,
-              ),
-          ],
-        );
-      },
+    return Wrap(
+      textDirection: _ltr,
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final label in labels)
+          Text(
+            label,
+            softWrap: breaksInsideLabel,
+            textAlign: TextAlign.center,
+            textDirection: _ltr,
+            style: style,
+          ),
+      ],
     );
   }
 }
