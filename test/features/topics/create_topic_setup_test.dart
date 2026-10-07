@@ -258,16 +258,10 @@ void main() {
       expect(find.textContaining(token!), findsNothing);
     });
 
-    testWidgets('closing while the create is on its way leaves once', (
-      tester,
-    ) async {
+    testWidgets('has no close button', (tester) async {
       await open(tester);
-      await tester.tap(find.text('Create topic'));
-      await tester.tap(find.bySemanticsLabel('Not now'));
-      await settle(tester);
-      await settle(tester);
 
-      expect(doneCalls, 1);
+      expect(find.bySemanticsLabel('Not now'), findsNothing);
     });
 
     testWidgets('a replay moves on and makes nothing', (tester) async {

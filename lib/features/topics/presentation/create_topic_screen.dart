@@ -153,8 +153,8 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
   bool _faceSettled = false;
   Timer? _settleTimer;
 
-  /// Setup moves on by itself after the topic is made. Guards the X and the
-  /// timer from both doing it.
+  /// Setup moves on by itself after the topic is made. Guards the button and
+  /// the timer from both doing it.
   bool _hasLeftSetup = false;
 
   void _leaveSetup() {
@@ -898,13 +898,15 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                         },
                       )
                     : null,
-                trailing: AppIconButton(
-                  glyph: GlyphType.close,
-                  ariaLabel: isSetup
-                      ? LocaleKeys.onboarding_permissions_not_now.tr()
-                      : LocaleKeys.create_topic_cancel_aria_label.tr(),
-                  onPressed: close,
-                ),
+                // Setup has no way out of this step but making the topic.
+                trailing: isSetup
+                    ? null
+                    : AppIconButton(
+                        glyph: GlyphType.close,
+                        ariaLabel: LocaleKeys.create_topic_cancel_aria_label
+                            .tr(),
+                        onPressed: close,
+                      ),
               ),
               // Pinned, so the button is at one height in every state and
               // stays above the keyboard.

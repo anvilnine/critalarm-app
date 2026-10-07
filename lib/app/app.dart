@@ -28,7 +28,6 @@ import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/size_class.dart';
-import 'package:critalarm/design_system/bar_backing.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
@@ -302,29 +301,20 @@ class _CritAlarmAppState extends State<CritAlarmApp>
           locale: context.locale,
           routerConfig: _router,
           scaffoldMessengerKey: _messenger,
-          // How bars are backed, handed to every screen. It only ever
-          // changes in a build with Developer options.
-          builder: (context, child) => ValueListenableBuilder<BarBackingConfig>(
-            valueListenable: appBarBacking,
-            builder: (context, barBacking, appChild) => BarBackingConfigScope(
-              config: barBacking,
-              child: appChild!,
-            ),
-            child: _AppearanceScope(
-              child: _OnTranslationsLoaded(
-                onLoaded: _quickActions.start,
-                child: AppDeviceScope(
-                  isIphone:
-                      getIt.isRegistered<DeviceForm>() &&
-                      getIt<DeviceForm>().isIphone,
-                  child: FeatureGuideHost(
+          builder: (context, child) => _AppearanceScope(
+            child: _OnTranslationsLoaded(
+              onLoaded: _quickActions.start,
+              child: AppDeviceScope(
+                isIphone:
+                    getIt.isRegistered<DeviceForm>() &&
+                    getIt<DeviceForm>().isIphone,
+                child: FeatureGuideHost(
+                  router: _router,
+                  child: ConnectLinkHost(
                     router: _router,
-                    child: ConnectLinkHost(
+                    child: AppAmbientShell(
                       router: _router,
-                      child: AppAmbientShell(
-                        router: _router,
-                        child: child ?? const SizedBox.shrink(),
-                      ),
+                      child: child ?? const SizedBox.shrink(),
                     ),
                   ),
                 ),

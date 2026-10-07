@@ -48,6 +48,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Will it wake me? is a plain list now. What needs fixing sits in one card at the top, and each line says what the blocked setting costs you.
 - Home no longer says All clear while a notice about missed alarms, missed checks or a phone update is showing.
 - Home cards close with a plain x and share one look.
+- The keyboard stays up while you scroll search results and goes away when you drag the list down.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
@@ -64,9 +65,11 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Setup steps at large text sizes no longer print their buttons and the app name over the text behind them.
 - A list scrolled under the Topics, Settings or New topic title blurs more as it goes under, so it no longer runs sharp through the title.
 - At large text sizes, Home and Will it wake me? keep the first action in view and the title no longer draws over the list.
+- The Android back button closes search instead of leaving the app.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.
+- Setup no longer shows a Stop animation button on the welcome screen or a close button on the first topic step.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added

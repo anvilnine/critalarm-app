@@ -142,6 +142,7 @@ class _DevicePermissionsViewState extends State<_DevicePermissionsView>
             : LocaleKeys.device_permissions_stage_sub_required.tr();
 
         return AppScreenScaffold(
+          hasTabBar: false,
           onRefresh: cubit.refresh,
           topBar: AppTopBar(
             title: LocaleKeys.device_permissions_title.tr(),

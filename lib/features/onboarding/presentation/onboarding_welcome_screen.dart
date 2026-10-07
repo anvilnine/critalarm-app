@@ -7,7 +7,6 @@ import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/curl_terminal.dart';
-import 'package:critalarm/features/onboarding/presentation/widgets/setup_tap_room.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -110,39 +109,15 @@ class _OnboardingWelcomeScreenState extends State<OnboardingWelcomeScreen> {
 
   bool get _isPlaylist => widget.variant == null && !widget.isPreview;
 
-  /// True once the user has stopped the playlist. It stays on its opening
-  /// face, held still, for the rest of the visit.
-  bool _animationStopped = false;
-
   @override
   Widget build(BuildContext context) {
-    // Under reduced motion nothing plays, so there is nothing to stop.
-    final canStop =
-        _isPlaylist &&
-        !_animationStopped &&
-        !(MediaQuery.maybeOf(context)?.disableAnimations ?? false);
-    void stop() => setState(() => _animationStopped = true);
     return _IntroLayout(
       top: widget.isPreview ? _previewSwitch() : null,
-      heroAction: canStop
-          // A small chip, so its tap area runs a little above it, over the
-          // animation it stops.
-          ? SetupTapRoom(
-              onTap: stop,
-              child: AppButton(
-                label: LocaleKeys.onboarding_welcome_stop_animation.tr(),
-                size: AppButtonSize.sm,
-                variant: AppButtonVariant.tinted,
-                onPressed: stop,
-              ),
-            )
-          : null,
       // On first launch the opening face hands over to more animations for
       // as long as the user stays.
       hero: _isPlaylist
           ? OnboardingAnimationLoop(
               first: _variant,
-              isStopped: _animationStopped,
               loop: const [
                 WelcomeVariant.ladder,
                 WelcomeVariant.parade,
@@ -207,22 +182,17 @@ Widget _heroFor(WelcomeVariant variant) => switch (variant) {
 };
 
 /// Plays [first], then each of [loop] round and round, fading between them.
-/// With animations switched off it stays on [first], sitting still, and so
-/// it does once [isStopped] is true.
+/// With animations switched off it stays on [first], sitting still.
 class OnboardingAnimationLoop extends StatefulWidget {
   const OnboardingAnimationLoop({
     required this.loop,
     this.first,
-    this.isStopped = false,
     this.isOnItsOwn = false,
     super.key,
   });
 
   final WelcomeVariant? first;
   final List<WelcomeVariant> loop;
-
-  /// True once the user stopped the animation: back to [first], held still.
-  final bool isStopped;
 
   /// True where nothing around the loop looks after it, as on the connect
   /// step. Then the loop keeps its own size when the system text grows, and
@@ -246,15 +216,6 @@ class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
   }
 
   @override
-  void didUpdateWidget(OnboardingAnimationLoop oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isStopped && !oldWidget.isStopped) {
-      _next?.cancel();
-      _variant = widget.first ?? widget.loop.first;
-    }
-  }
-
-  @override
   void dispose() {
     _next?.cancel();
     super.dispose();
@@ -270,7 +231,7 @@ class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
 
   void _scheduleNext() {
     _next = Timer(_playFor, () {
-      if (!mounted || widget.isStopped) return;
+      if (!mounted) return;
       // With animations off each face sits still, so there is nothing to
       // move on from.
       if (MediaQuery.of(context).disableAnimations) return;
@@ -291,14 +252,11 @@ class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
         // times mean nothing read aloud; the title and text below say what
         // they show.
         final hero = ExcludeSemantics(
-          child: _StillScope(
-            isStill: widget.isStopped,
-            child: AnimatedSwitcher(
-              duration: context.motion(const Duration(milliseconds: 450)),
-              child: KeyedSubtree(
-                key: ValueKey(_variant),
-                child: _heroFor(_variant),
-              ),
+          child: AnimatedSwitcher(
+            duration: context.motion(const Duration(milliseconds: 450)),
+            child: KeyedSubtree(
+              key: ValueKey(_variant),
+              child: _heroFor(_variant),
             ),
           ),
         );
@@ -324,7 +282,6 @@ class _IntroLayout extends StatelessWidget {
     required this.onPressed,
     this.top,
     this.badge,
-    this.heroAction,
   });
 
   final Widget hero;
@@ -338,13 +295,6 @@ class _IntroLayout extends StatelessWidget {
 
   /// Between the title and the text, such as the Hosted badge.
   final Widget? badge;
-
-  /// A small action for the animation, drawn only while the animation is. It
-  /// sits outside the animation's own text scaling, so it grows with the
-  /// system text. Over the animation's bottom left corner at the default
-  /// text size, so nothing moves; under the animation once the text is
-  /// larger, where the animation is small and would run into it.
-  final Widget? heroAction;
 
   /// The most the system text size may grow the title.
   static const double _titleMaxTextScale = 1.4;
@@ -422,7 +372,7 @@ class _IntroLayout extends StatelessWidget {
                           // A mock-up; the words below carry the meaning.
                           // It is a drawing, so it keeps its size when the
                           // system text grows.
-                          final drawing = ExcludeSemantics(
+                          return ExcludeSemantics(
                             child: MediaQuery.withNoTextScaling(
                               child: AnimatedSwitcher(
                                 duration: context.motion(
@@ -431,30 +381,6 @@ class _IntroLayout extends StatelessWidget {
                                 child: hero,
                               ),
                             ),
-                          );
-                          final action = heroAction;
-                          if (action == null) return drawing;
-                          // A column and a row, so the button keeps its own
-                          // size instead of filling the room it is given.
-                          final button = Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [action],
-                          );
-                          if (textScale > 1) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(child: drawing),
-                                const SizedBox(height: Spacing.s2),
-                                button,
-                              ],
-                            );
-                          }
-                          return Stack(
-                            children: [
-                              Positioned.fill(child: drawing),
-                              Positioned(left: 0, bottom: 0, child: button),
-                            ],
                           );
                         },
                       ),
@@ -497,8 +423,8 @@ class _IntroLayout extends StatelessWidget {
 }
 
 /// A hero that redraws every frame and knows how many seconds it has run.
-/// With animations switched off, or inside a [_StillScope] that is still, it
-/// sits at [restAt] and runs no ticker at all.
+/// With animations switched off it sits at [restAt] and runs no ticker at
+/// all.
 abstract class _ClockState<T extends StatefulWidget> extends State<T>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
@@ -508,7 +434,7 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
   double get restAt;
 
   /// True while the hero is asked to hold still: the phone asks for reduced
-  /// motion, or the user stopped the animation.
+  /// motion.
   bool _isStill = false;
 
   /// Seconds since the hero appeared.
@@ -525,9 +451,7 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _isStill =
-        (MediaQuery.maybeOf(context)?.disableAnimations ?? false) ||
-        _StillScope.of(context);
+    _isStill = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     // The ticker is stopped, not just ignored: a frame callback that
     // does nothing still wakes the engine every frame.
     if (_isStill && _ticker.isActive) {
@@ -542,22 +466,6 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
     _ticker.dispose();
     super.dispose();
   }
-}
-
-/// Tells the heroes below it to hold still. Set once the user has stopped the
-/// animation on the welcome screen.
-class _StillScope extends InheritedWidget {
-  const _StillScope({required this.isStill, required super.child});
-
-  final bool isStill;
-
-  static bool of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_StillScope>()?.isStill ??
-      false;
-
-  @override
-  bool updateShouldNotify(_StillScope oldWidget) =>
-      isStill != oldWidget.isStill;
 }
 
 // ---------------------------------------------------------------------------

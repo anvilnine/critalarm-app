@@ -363,6 +363,7 @@ class _ServerSettingsView extends StatelessWidget {
         final cubit = context.read<SettingsCubit>();
 
         return AppScreenScaffold(
+          hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.settings_server_connection_header.tr(),
             leading: AppIconButton(

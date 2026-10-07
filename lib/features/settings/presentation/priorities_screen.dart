@@ -90,6 +90,7 @@ class _PrioritiesView extends StatelessWidget {
       builder: (context, state) {
         final cubit = context.read<PrioritiesCubit>();
         return AppScreenScaffold(
+          hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.priorities_title.tr(),
             leading: AppIconButton(

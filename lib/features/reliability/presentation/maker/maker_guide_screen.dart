@@ -53,6 +53,7 @@ class _MakerGuideView extends StatelessWidget {
         final cubit = context.read<MakerGuideCubit>();
         final guide = state.guide;
         return AppScreenScaffold(
+          hasTabBar: false,
           topBar: MediaQuery(
             data: MediaQuery.of(context).copyWith(
               textScaler: MediaQuery.textScalerOf(

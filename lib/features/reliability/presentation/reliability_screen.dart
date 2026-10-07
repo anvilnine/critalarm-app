@@ -190,6 +190,7 @@ class _ReliabilityViewState extends State<_ReliabilityView>
         ];
 
         return AppScreenScaffold(
+          hasTabBar: false,
           // The bar's own backing, so a row scrolled under it never shows
           // through the title.
           barBacking: _barBacking(context),
