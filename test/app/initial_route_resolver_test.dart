@@ -1,10 +1,13 @@
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/core/failures/failure.dart';
+import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
+import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_completed_usecase.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -14,6 +17,70 @@ class MockGetOnboardingCompletedUsecase extends Mock
     implements GetOnboardingCompletedUsecase {}
 
 void main() {
+  group('a link that starts the app while setup is unfinished', () {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    const channel = MethodChannel(PushHost.channelName);
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    late ConnectLinkHolder holder;
+    late PushHost host;
+
+    void platformHolds(String link) {
+      messenger.setMockMethodCallHandler(
+        channel,
+        (call) async => call.method == 'takePending'
+            ? {
+                'tap': {PushHost.linkKey: link, 'tap_id': '1'},
+              }
+            : null,
+      );
+    }
+
+    setUp(() {
+      holder = ConnectLinkHolder();
+      host = PushHost(null, holder);
+    });
+
+    tearDown(() async {
+      await host.dispose();
+      await holder.dispose();
+      messenger.setMockMethodCallHandler(channel, null);
+    });
+
+    test('a connect link fills the holder and setup resumes where it '
+        'was', () async {
+      platformHolds(
+        'https://critalarm.app/connect#url=https%3A%2F%2Falarm.example.com&token=tk_x',
+      );
+      final tapped = await host.takePendingRoute();
+      expect(tapped, isNull);
+      expect(
+        initialLocationFor(
+          hasCompletedOnboarding: false,
+          resumeRoute: '/onboarding/connect',
+          deepLink: tapped,
+        ),
+        '/onboarding/connect',
+      );
+      expect(holder.pending?.serverUrl.host, 'alarm.example.com');
+    });
+
+    test('a topic link is ignored and setup resumes where it was', () async {
+      platformHolds('https://critalarm.app/open/topics/prod');
+      final tapped = await host.takePendingRoute();
+      expect(tapped, '/topics/prod');
+      expect(
+        initialLocationFor(
+          hasCompletedOnboarding: false,
+          resumeRoute: '/onboarding/connect',
+          deepLink: tapped,
+        ),
+        '/onboarding/connect',
+      );
+      expect(holder.pending, isNull);
+    });
+  });
+
   group('initialLocationFor', () {
     test('opens onboarding at the welcome screen when nothing is saved', () {
       expect(

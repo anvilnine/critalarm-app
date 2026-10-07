@@ -93,6 +93,149 @@ void main() {
     });
   });
 
+  group('a name that is a screen of its own', () {
+    test('an https link never opens the create-topic screen', () {
+      expect(AppLinkRoutes.reservedTopicNames, contains('new'));
+      for (final name in AppLinkRoutes.reservedTopicNames) {
+        for (final link in [
+          'https://critalarm.app/open/topics/$name',
+          'https://critalarm.app/open/topics/$name/',
+          'critalarm://open/topics/$name',
+        ]) {
+          expect(_parse(link), AppLinkRoute.home, reason: link);
+          expect(parseAppLinkText(link), AppLinkRoute.home, reason: link);
+        }
+      }
+    });
+
+    test('a name that only starts like one is a topic', () {
+      expect(
+        _parse('https://critalarm.app/open/topics/newsletter'),
+        const AppLinkRoute('/topics/newsletter'),
+      );
+      expect(
+        _parse('https://critalarm.app/open/topics/New'),
+        const AppLinkRoute('/topics/New'),
+      );
+    });
+
+    test('critalarm://topics/new reads as it did before app links', () {
+      // Widgets and notifications build critalarm://topics/<name> from a real
+      // topic name and nothing else builds one, so this form is left alone.
+      expect(
+        _parse('critalarm://topics/new'),
+        const AppLinkRoute('/topics/new'),
+      );
+    });
+  });
+
+  group('odd shapes on https://critalarm.app', () {
+    test('a double slash in the path opens Home', () {
+      for (final link in [
+        'https://critalarm.app//open/topics/prod',
+        'https://critalarm.app/open//topics/prod',
+        'https://critalarm.app/open/topics//prod',
+        'https://critalarm.app/open/topics/prod//',
+        'https://critalarm.app//connect#url=https%3A%2F%2Fa.example&token=$_token',
+      ]) {
+        expect(_parse(link), AppLinkRoute.home, reason: link);
+        expect(parseAppLinkText(link), AppLinkRoute.home, reason: link);
+      }
+    });
+
+    test('a dot segment in the link as written opens Home', () {
+      for (final link in [
+        'https://critalarm.app/open/../connect#url=https%3A%2F%2Fa.example&token=$_token',
+        'https://critalarm.app/open/./topics/prod',
+        'https://critalarm.app/open/topics/../topics/prod',
+        'https://critalarm.app/pricing/../open/topics/prod',
+        'https://critalarm.app/open/%2e%2e/connect#url=https%3A%2F%2Fa.example&token=$_token',
+        'https://critalarm.app/open/%2E/topics/prod',
+        'https://critalarm.app/open/topics/..',
+        'https://critalarm.app/open/topics/.',
+      ]) {
+        expect(parseAppLinkText(link), AppLinkRoute.home, reason: link);
+      }
+    });
+
+    test('dots inside a name or after the # are not dot segments', () {
+      expect(
+        parseAppLinkText('https://critalarm.app/open/topics/..prod'),
+        const AppLinkRoute('/topics/..prod'),
+      );
+      expect(
+        parseAppLinkText('https://critalarm.app/open/topics/v1.2'),
+        const AppLinkRoute('/topics/v1.2'),
+      );
+      expect(
+        parseAppLinkText(
+          'https://critalarm.app/connect'
+          '#url=https://alarm.example.com/a/../b&token=$_token',
+        ),
+        isA<ConnectLink>(),
+      );
+    });
+
+    test('the host and the scheme match in any letter case', () {
+      expect(
+        parseAppLinkText('HTTPS://CritAlarm.APP/open/topics/prod'),
+        const AppLinkRoute('/topics/prod'),
+      );
+      // The path does not: /Open/ is not /open/.
+      expect(
+        parseAppLinkText('https://critalarm.app/Open/topics/prod'),
+        AppLinkRoute.home,
+      );
+    });
+
+    test('a trailing dot on the host is another host', () {
+      expect(
+        parseAppLinkText('https://critalarm.app./open/topics/prod'),
+        isNull,
+      );
+      expect(
+        parseAppLinkText(
+          'https://critalarm.app./connect#url=https%3A%2F%2Fa.example&token=$_token',
+        ),
+        isNull,
+      );
+    });
+
+    test('only the https port belongs to the app', () {
+      expect(
+        parseAppLinkText('https://critalarm.app:443/open/topics/prod'),
+        const AppLinkRoute('/topics/prod'),
+      );
+      for (final link in [
+        'https://critalarm.app:8443/open/topics/prod',
+        'https://critalarm.app:80/open/topics/prod',
+        'https://critalarm.app:8443/connect#url=https%3A%2F%2Fa.example&token=$_token',
+      ]) {
+        expect(parseAppLinkText(link), isNull, reason: link);
+      }
+    });
+
+    test('a user name in front of the host opens Home, or is another host', () {
+      for (final link in [
+        'https://user@critalarm.app/open/topics/prod',
+        'https://user:pw@critalarm.app/open/topics/prod',
+        'https://user:pw@critalarm.app/connect#url=https%3A%2F%2Fa.example&token=$_token',
+      ]) {
+        expect(parseAppLinkText(link), AppLinkRoute.home, reason: link);
+      }
+      expect(
+        parseAppLinkText('https://critalarm.app@evil.example/open/topics/prod'),
+        isNull,
+      );
+      expect(
+        parseAppLinkText(
+          'https://critalarm.app:443@evil.example/connect#url=https%3A%2F%2Fa.example&token=$_token',
+        ),
+        isNull,
+      );
+    });
+  });
+
   group('routes on critalarm://', () {
     test('the same routes, with and without open', () {
       expect(
@@ -196,13 +339,34 @@ void main() {
       expect(link.token, _token);
     });
 
-    test('each scheme takes the other form too', () {
-      expect(
-        _connect(
-          'https://critalarm.app/connect?url=https%3A%2F%2Fa.example&token=$_token',
-        ).token,
-        _token,
+    test('an https link with the address or the token in the query is '
+        'refused', () {
+      for (final link in [
+        'https://critalarm.app/connect?url=https%3A%2F%2Fa.example&token=$_token',
+        // The token after the # and the address in the query.
+        'https://critalarm.app/connect?url=https%3A%2F%2Fa.example#token=$_token',
+        // The other way round.
+        'https://critalarm.app/connect?token=$_token#url=https%3A%2F%2Fa.example',
+        // Both after the #, and a copy of either in the query as well.
+        'https://critalarm.app/connect?token=tk_query#url=https%3A%2F%2Fa.example&token=$_token',
+        'https://critalarm.app/connect?url=https%3A%2F%2Fquery.example#url=https%3A%2F%2Fa.example&token=$_token',
+        // An empty copy still went to the server as a key.
+        'https://critalarm.app/connect?token=#url=https%3A%2F%2Fa.example&token=$_token',
+      ]) {
+        expect(_parse(link), AppLinkRoute.home, reason: link);
+      }
+    });
+
+    test('an https link may carry other things in the query', () {
+      final link = _connect(
+        'https://critalarm.app/connect?utm_source=docs'
+        '#url=https%3A%2F%2Fa.example&token=$_token',
       );
+      expect(link.serverUrl, Uri.parse('https://a.example'));
+      expect(link.token, _token);
+    });
+
+    test('the critalarm form takes the fragment too', () {
       expect(
         _connect(
           'critalarm://connect#url=https%3A%2F%2Fa.example&token=$_token',
@@ -211,9 +375,9 @@ void main() {
       );
     });
 
-    test('the fragment wins over the query', () {
+    test('on the critalarm form the fragment wins over the query', () {
       final link = _connect(
-        'https://critalarm.app/connect'
+        'critalarm://connect'
         '?url=https%3A%2F%2Fquery.example&token=tk_query'
         '#url=https%3A%2F%2Ffragment.example&token=tk_fragment',
       );
@@ -221,12 +385,25 @@ void main() {
       expect(link.token, 'tk_fragment');
     });
 
-    test('a value the fragment lacks comes from the query', () {
+    test('on the critalarm form a value the fragment lacks comes from the '
+        'query', () {
       final link = _connect(
-        'https://critalarm.app/connect?token=$_token#url=https%3A%2F%2Fa.example',
+        'critalarm://connect?token=$_token#url=https%3A%2F%2Fa.example',
       );
       expect(link.serverUrl.host, 'a.example');
       expect(link.token, _token);
+    });
+
+    test('a server address with a user name or password in it is refused', () {
+      for (final url in [
+        'https://user:pw@alarm.example.com',
+        'https://alarm.example.com@evil.example',
+        'http://admin@192.168.1.20',
+      ]) {
+        final link =
+            'https://critalarm.app/connect#url=${Uri.encodeComponent(url)}&token=$_token';
+        expect(_parse(link), AppLinkRoute.home, reason: url);
+      }
     });
 
     test('percent-encoded values are decoded', () {

@@ -1,4 +1,5 @@
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/core/links/app_link.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -19,8 +20,67 @@ Iterable<RouteBase> _flatten(RouteBase route) sync* {
   }
 }
 
+/// Every full path the router knows, with nested paths joined to their
+/// parents.
+Iterable<String> _fullPaths(RouteBase route, String parent) sync* {
+  var here = parent;
+  if (route is GoRoute) {
+    here = route.path.startsWith('/')
+        ? route.path
+        : '${parent.endsWith('/') ? parent : '$parent/'}${route.path}';
+    yield here;
+  }
+  final children = route is StatefulShellRoute
+      ? route.branches.expand((b) => b.routes)
+      : route.routes;
+  for (final child in children) {
+    yield* _fullPaths(child, here);
+  }
+}
+
+/// The fixed words the router has directly under [prefix]: for `/topics/`,
+/// the `new` of `/topics/new`. A `:name` is not one.
+Set<String> _fixedWordsUnder(String prefix) => {
+  for (final path in buildRouter().configuration.routes.expand(
+    (r) => _fullPaths(r, ''),
+  ))
+    if (path.startsWith(prefix))
+      if (path.substring(prefix.length).split('/') case [
+        final word,
+        ...,
+      ] when word.isNotEmpty && !word.startsWith(':'))
+        word,
+};
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('names an app link must not mistake for a topic or an incident', () {
+    test('the router does have /topics/new and /topics/:name', () {
+      final paths = buildRouter().configuration.routes
+          .expand((r) => _fullPaths(r, ''))
+          .toSet();
+      expect(paths, contains('/topics/new'));
+      expect(paths, contains('/topics/:name'));
+      expect(paths, contains('/incidents/:id'));
+    });
+
+    test(
+      'every fixed screen under /topics/ is reserved in the link parser',
+      () {
+        // A new fixed route such as /topics/import fails here until its word
+        // is added to AppLinkRoutes.reservedTopicNames.
+        expect(_fixedWordsUnder('/topics/'), AppLinkRoutes.reservedTopicNames);
+      },
+    );
+
+    test('every fixed screen under /incidents/ is reserved too', () {
+      expect(
+        _fixedWordsUnder('/incidents/'),
+        AppLinkRoutes.reservedIncidentIds,
+      );
+    });
+  });
 
   group('the sound picker route', () {
     test('is top level and draws on the root navigator', () {
