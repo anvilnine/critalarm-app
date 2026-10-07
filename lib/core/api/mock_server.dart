@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/models/account_pack.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -63,6 +64,34 @@ class MockServer {
   /// `POST /v1/account/join-token` replaces it with a fresh one (api.md §3.7).
   final Map<String, String> accountJoinTokens = {};
 
+  /// Packs the fixture account holds from a source that is not the store: a
+  /// grant, or the relay's own configuration. The developer switch for the
+  /// pack writes here, so a mock build can hold one with nothing bought.
+  final Set<String> grantedPacks = {};
+
+  /// Packs the store lists for the fixture account. A test adds one to stand
+  /// in for a purchase. The relay only learns of it on its next store read.
+  final Set<String> storePacks = {};
+
+  /// What the last store read that worked found.
+  final Set<String> _packsFromStore = {};
+
+  /// False makes `POST /relay/v1/packs/refresh` answer `"confirmed":false`,
+  /// as a relay does when the store cannot be read or it never reads one.
+  bool storeReadable = true;
+
+  /// The last store read that worked, in epoch seconds. Null until one has.
+  int? packsCheckedAt;
+
+  /// The clock the refresh limit counts on. A test swaps it.
+  DateTime Function() packsClock = DateTime.now;
+
+  final List<DateTime> _packRefreshes = [];
+
+  /// api.md §4.2: refresh is limited to this many calls per window.
+  static const packRefreshLimit = 6;
+  static const packRefreshWindow = Duration(seconds: 60);
+
   int _counter = 1000;
 
   /// Makes `GET /v1/incidents/{id}` answer 503, so the app's fallback path can
@@ -88,6 +117,13 @@ class MockServer {
     accountIdentities.clear();
     tombstonedAccounts.clear();
     accountJoinTokens.clear();
+    grantedPacks.clear();
+    storePacks.clear();
+    _packsFromStore.clear();
+    storeReadable = true;
+    packsCheckedAt = null;
+    packsClock = DateTime.now;
+    _packRefreshes.clear();
     _counter = 1000;
     failIncidentFetch = false;
   }
@@ -1091,10 +1127,57 @@ class MockServer {
       accountId: accountId,
       accountJoinToken: joinToken,
       caps: caps,
+      packs: heldPacks(),
     );
 
     _devices[registration.deviceId] = response;
     return response;
+  }
+
+  /// The packs the fixture account holds now, from every source.
+  List<AccountPack> heldPacks() => [
+    for (final id in {...grantedPacks, ..._packsFromStore}.toList()..sort())
+      AccountPack(id: id),
+  ];
+
+  /// GET /relay/v1/packs. Answers from what is held and reads no store.
+  PacksAnswer getPacks() =>
+      PacksAnswer(packs: heldPacks(), checkedAt: packsCheckedAt);
+
+  /// POST /relay/v1/packs/refresh. Reads the store inside the call when it
+  /// can. `confirmed` is about that read, never about the list.
+  PacksRefreshAnswer refreshPacks() {
+    final now = packsClock();
+    _packRefreshes.removeWhere(
+      (at) => now.difference(at) >= packRefreshWindow,
+    );
+    if (_packRefreshes.length >= packRefreshLimit) {
+      throw const ApiException(
+        statusCode: 429,
+        message: 'rate limited',
+        code: 42901,
+      );
+    }
+    _packRefreshes.add(now);
+    if (storeReadable) {
+      _packsFromStore
+        ..clear()
+        ..addAll(storePacks);
+      packsCheckedAt = now.millisecondsSinceEpoch ~/ 1000;
+    }
+    return PacksRefreshAnswer(
+      confirmed: storeReadable,
+      packs: heldPacks(),
+      checkedAt: packsCheckedAt,
+    );
+  }
+
+  /// The bearer on a pack route has to be a device token this server gave.
+  void _authorizePackCall(String token) {
+    if (token.isEmpty ||
+        !_devices.values.any((device) => device.deviceToken == token)) {
+      throw const ApiException(statusCode: 401, message: 'unauthorized');
+    }
   }
 
   DeviceRegistrationResponse _authorizedDevice(String id, String token) {
@@ -1111,7 +1194,11 @@ class MockServer {
       _authorizedDevice(
         id,
         token,
-      ).copyWith(deviceToken: null, accountJoinToken: null);
+      ).copyWith(
+        deviceToken: null,
+        accountJoinToken: null,
+        packs: heldPacks(),
+      );
 
   void subscribeTopic({
     required String deviceId,
@@ -1678,6 +1765,30 @@ class MockServer {
         return _jsonResponse(response.toJson(), 201);
       }
 
+      if (path == '/relay/v1/packs' && method == 'GET') {
+        _authorizePackCall(
+          (request.headers['authorization'] ?? '').replaceFirst('Bearer ', ''),
+        );
+        final answer = getPacks();
+        return _jsonResponse({
+          'packs': accountPacksToJson(answer.packs),
+          'checked_at': answer.checkedAt,
+        }, 200);
+      }
+      if (path == '/relay/v1/packs/refresh' && method == 'POST') {
+        _authorizePackCall(
+          (request.headers['authorization'] ?? '').replaceFirst('Bearer ', ''),
+        );
+        final answer = refreshPacks();
+        return _jsonResponse({
+          'confirmed': answer.confirmed,
+          'checked_at': answer.checkedAt,
+          'tier': 'free',
+          'caps': AccountCaps.free.toJson(),
+          'packs': accountPacksToJson(answer.packs),
+        }, 200);
+      }
+
       final deviceRoute = RegExp(
         r'^/relay/v1/devices/([^/]+)(?:/(subscriptions|tokens)(?:/([^/]+))?)?$',
       ).firstMatch(path);
@@ -1872,6 +1983,7 @@ class MockServer {
       };
       if (e.code != null) body['code'] = e.code;
       if (e.cap != null) body['cap'] = e.cap;
+      if (e.pack != null) body['pack'] = e.pack;
       return _jsonResponse(body, e.statusCode);
     } on Exception catch (e) {
       return _jsonResponse({'error': e.toString()}, 500);

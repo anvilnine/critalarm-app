@@ -5,6 +5,7 @@ class ApiException implements Exception {
     required this.message,
     this.code,
     this.cap,
+    this.pack,
   });
 
   final int statusCode;
@@ -12,10 +13,14 @@ class ApiException implements Exception {
   final int? code;
   final String? cap;
 
+  /// The pack a route needed and the account does not hold: the `pack` field
+  /// of a `403 {"error":"pack","pack":"..."}` (api.md §1.8).
+  final String? pack;
+
   @override
   String toString() =>
       'ApiException(statusCode: $statusCode, message: $message, code: $code, '
-      'cap: $cap)';
+      'cap: $cap, pack: $pack)';
 }
 
 /// Thrown when a call needs a server and none is set up yet, such as the app
