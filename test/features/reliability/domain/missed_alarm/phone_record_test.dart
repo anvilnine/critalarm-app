@@ -288,7 +288,7 @@ void main() {
     test('a damaged value reads as a record that knows nothing', () {
       expect(PhoneRecord.fromJson('nope').rows, isEmpty);
       expect(
-        PhoneRecord.fromJson({'rang': 4, 'rows': 'x'}).rangAtMs,
+        PhoneRecord.fromJson(const {'rang': 4, 'rows': 'x'}).rangAtMs,
         isEmpty,
       );
     });

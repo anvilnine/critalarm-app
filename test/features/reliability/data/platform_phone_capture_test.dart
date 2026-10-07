@@ -181,8 +181,7 @@ void main() {
       prefs: await SharedPreferences.getInstance(),
       readNative: () async => const {},
       readAckQueue: () => const [],
-    );
-    capture.holdPendingRows();
+    )..holdPendingRows();
     expect((await capture.take()).eventRows, isEmpty);
   });
 }

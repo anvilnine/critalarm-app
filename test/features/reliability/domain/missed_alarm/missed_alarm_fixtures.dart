@@ -5,13 +5,13 @@ import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_
 import 'package:critalarm/features/reliability/domain/missed_alarm/phone_record.dart';
 
 /// 03:00 on the night the fixtures are about.
-final opened = DateTime.utc(2026, 10, 6, 3);
+final DateTime opened = DateTime.utc(2026, 10, 6, 3);
 
 /// Half an hour of ringing later, when the server gave up.
-final expired = opened.add(const Duration(minutes: 30));
+final DateTime expired = opened.add(const Duration(minutes: 30));
 
 /// The phone was installed, set up and connected a week before.
-final cutoffsLongAgo = MissedAlarmCutoffs(
+final MissedAlarmCutoffs cutoffsLongAgo = MissedAlarmCutoffs(
   firstLaunchAt: opened.subtract(const Duration(days: 7)),
   setupDoneAt: opened.subtract(const Duration(days: 7)),
   connectedSince: opened.subtract(const Duration(days: 7)),

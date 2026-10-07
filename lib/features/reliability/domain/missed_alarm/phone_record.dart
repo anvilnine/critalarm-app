@@ -121,6 +121,31 @@ final class PhoneRecord {
     this.lastCaptureMs,
   });
 
+  /// Reads [raw] back. Anything of the wrong shape is left out, so a damaged
+  /// record reads as a record that knows less.
+  factory PhoneRecord.fromJson(Object? raw) {
+    if (raw is! Map) return const PhoneRecord();
+    Map<String, int> times(Object? value) => {
+      if (value is Map)
+        for (final entry in value.entries)
+          if (entry.key is String && entry.value is num)
+            entry.key as String: (entry.value as num).toInt(),
+    };
+    final rows = raw['rows'];
+    final completeSince = raw['complete_since_ms'];
+    final lastCapture = raw['last_capture_ms'];
+    return PhoneRecord(
+      rangAtMs: times(raw['rang']),
+      acknowledgedHereAtMs: times(raw['acked_here']),
+      rows: [
+        if (rows is List)
+          ...rows.map(PushLogRow.fromJson).whereType<PushLogRow>(),
+      ],
+      completeSinceMs: completeSince is num ? completeSince.toInt() : null,
+      lastCaptureMs: lastCapture is num ? lastCapture.toInt() : null,
+    );
+  }
+
   /// Incident id to when the phone first said its alarm went off.
   final Map<String, int> rangAtMs;
 
@@ -270,29 +295,4 @@ final class PhoneRecord {
     'complete_since_ms': ?completeSinceMs,
     'last_capture_ms': ?lastCaptureMs,
   };
-
-  /// Reads [raw] back. Anything of the wrong shape is left out, so a damaged
-  /// record reads as a record that knows less.
-  factory PhoneRecord.fromJson(Object? raw) {
-    if (raw is! Map) return const PhoneRecord();
-    Map<String, int> times(Object? value) => {
-      if (value is Map)
-        for (final entry in value.entries)
-          if (entry.key is String && entry.value is num)
-            entry.key as String: (entry.value as num).toInt(),
-    };
-    final rows = raw['rows'];
-    final completeSince = raw['complete_since_ms'];
-    final lastCapture = raw['last_capture_ms'];
-    return PhoneRecord(
-      rangAtMs: times(raw['rang']),
-      acknowledgedHereAtMs: times(raw['acked_here']),
-      rows: [
-        if (rows is List)
-          ...rows.map(PushLogRow.fromJson).whereType<PushLogRow>(),
-      ],
-      completeSinceMs: completeSince is num ? completeSince.toInt() : null,
-      lastCaptureMs: lastCapture is num ? lastCapture.toInt() : null,
-    );
-  }
 }

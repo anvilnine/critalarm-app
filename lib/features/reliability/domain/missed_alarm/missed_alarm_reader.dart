@@ -140,10 +140,12 @@ class MissedAlarmReader {
       if (store.readSetupDoneAt() == null && await isSetupDone()) {
         await store.writeSetupDoneAt(now);
       }
-      final server = await readServer();
-      if (server != null &&
-          server.isNotEmpty &&
-          store.readConnected()?.server != server) {
+      final server = await readServer() ?? '';
+      final held = store.readConnected()?.server ?? '';
+      // A phone with no server gets an empty stamp, so connecting again,
+      // even to the same server, starts a new one: what opened in between
+      // was not this phone's to ring for.
+      if (held != server) {
         await store.writeConnected(ConnectedServer(server: server, since: now));
       }
     } on Object catch (error) {
@@ -162,7 +164,10 @@ class MissedAlarmReader {
       firstLaunchAt: firstLaunchAt(),
       setupDoneAt: store.readSetupDoneAt(),
       // A stamp for another server says nothing about this one.
-      connectedSince: connected != null && connected.server == server
+      connectedSince:
+          connected != null &&
+              connected.server.isNotEmpty &&
+              connected.server == server
           ? connected.since
           : null,
     );
