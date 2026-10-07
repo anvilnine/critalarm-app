@@ -1,12 +1,9 @@
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/bento/bento_grid.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// The bento layout: a grid of tiles of unequal sizes, one benefit each
 /// with its preview playing, and the first benefit as the lead.
@@ -21,17 +18,8 @@ class BentoPaywallLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isHosted = context.select<PaywallBuyCubit, bool>(
-      (cubit) => cubit.state.product == PaywallProduct.hosted,
-    );
-
     return PaywallFrame(
       restAt: _restAt,
-      // The two plans sit side by side, so the grid keeps the height.
-      buyStyle: PaywallBuyBlockStyle(
-        pickerStyle: PaywallPlanPickerStyle.segments,
-        label: isHosted ? PaywallBuyLabel.nameAndPrice : PaywallBuyLabel.name,
-      ),
       builder: (context, scope) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

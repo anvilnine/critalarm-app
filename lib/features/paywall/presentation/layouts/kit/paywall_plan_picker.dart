@@ -1,17 +1,19 @@
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_rules.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// How the plan picker is drawn. Both styles read the same state.
+/// How the plan picker is drawn. Both styles read the same state and draw
+/// the same card.
 enum PaywallPlanPickerStyle {
-  /// One full-width row per plan, stacked.
+  /// One full-width card per plan, stacked. For a layout with the height.
   rows,
 
-  /// The plans side by side. Shorter, for a layout that needs the height.
+  /// The plans side by side, one card tall.
   segments,
 }
 
@@ -21,22 +23,27 @@ const double paywallBuyMaxTextScale = 1.3;
 
 /// The plans of the product on sale, as tappable cards.
 ///
-/// With one option it is a single card with the store's title and price and
-/// nothing to pick. While the store is being asked it holds the same room
-/// with empty cards, so the layout above does not jump when they arrive.
-/// The buy block draws this. A layout places one itself only when it hides
-/// the block's own picker.
+/// It draws nothing where there is nothing to pick (`planCardCount`): the
+/// button carries that price. While the store is being asked it holds the
+/// same room with empty cards, so the layout above does not jump when they
+/// arrive. The buy block draws this. A layout places one itself only when
+/// it hides the block's own picker.
 class PaywallPlanPicker extends StatelessWidget {
   const PaywallPlanPicker({
-    this.style = PaywallPlanPickerStyle.rows,
+    this.style = PaywallPlanPickerStyle.segments,
+    this.tone = PaywallTone.canvas,
     super.key,
   });
 
   final PaywallPlanPickerStyle style;
 
-  static const double _rowHeight = 56;
-  static const double _segmentHeight = 86;
-  static const double _gap = 6;
+  /// What the cards sit on. An unpicked card has no fill, so its text
+  /// takes this tone's colours.
+  final PaywallTone tone;
+
+  /// One card, at the default text size.
+  static const double cardHeight = 52;
+  static const double _gap = Spacing.s2;
 
   @override
   Widget build(BuildContext context) {
@@ -50,24 +57,21 @@ class PaywallPlanPicker extends StatelessWidget {
       child: BlocBuilder<PaywallBuyCubit, PaywallBuyState>(
         builder: (context, state) {
           final isLoading = state.status == PaywallBuyStatus.loading;
-          // The store has not answered: hold room for what it usually has.
-          final count = isLoading
-              ? (state.product == PaywallProduct.hosted ? 2 : 1)
-              : state.options.length;
+          final count = planCardCount(state);
           if (count == 0) return const SizedBox.shrink();
 
           Widget card(int i) {
             final option = isLoading ? null : state.options[i];
-            final isSingle = count == 1;
+            final isOnly = count == 1;
             return _PlanCard(
               option: option,
-              isSingle: isSingle,
-              // The only option has nothing to be picked from.
+              tone: tone,
+              isWide: isOnly || style == PaywallPlanPickerStyle.rows,
+              isChoice: option != null && !isOnly,
+              // The only plan is the one that will be bought.
               isSelected:
-                  !isSingle && option != null && option.id == state.selectedId,
-              isCompactCard:
-                  !isSingle && style == PaywallPlanPickerStyle.segments,
-              onTap: option == null || isSingle || state.isBusy
+                  option != null && (isOnly || option.id == state.selectedId),
+              onTap: option == null || isOnly || state.isBusy
                   ? null
                   : () {
                       if (option.id == state.selectedId) return;
@@ -77,6 +81,7 @@ class PaywallPlanPicker extends StatelessWidget {
             );
           }
 
+          final height = cardHeight * scale;
           if (count == 1 || style == PaywallPlanPickerStyle.rows) {
             return Column(
               mainAxisSize: MainAxisSize.min,
@@ -84,18 +89,18 @@ class PaywallPlanPicker extends StatelessWidget {
               children: [
                 for (var i = 0; i < count; i++) ...[
                   if (i > 0) const SizedBox(height: _gap),
-                  SizedBox(height: _rowHeight * scale, child: card(i)),
+                  SizedBox(height: height, child: card(i)),
                 ],
               ],
             );
           }
           return SizedBox(
-            height: _segmentHeight * scale,
+            height: height,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (var i = 0; i < count; i++) ...[
-                  if (i > 0) const SizedBox(width: Spacing.s2),
+                  if (i > 0) const SizedBox(width: _gap),
                   Expanded(child: card(i)),
                 ],
               ],
@@ -107,138 +112,134 @@ class PaywallPlanPicker extends StatelessWidget {
   }
 }
 
-/// One plan. The billed amount is the largest thing on it. The per month
-/// figure and the saving are smaller and come after it, which is what both
-/// stores ask for.
+/// One plan, in two lines. The name and the billed amount, which is the
+/// largest thing on the card. Under them, smaller, the per month figure
+/// and the saving, or when the plan renews. Both stores ask for that order.
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.option,
-    required this.isSingle,
+    required this.tone,
+    required this.isWide,
+    required this.isChoice,
     required this.isSelected,
-    required this.isCompactCard,
     required this.onTap,
   });
 
   /// Null while the store is being asked: an empty card of the same size.
   final PaywallPlanOption? option;
-  final bool isSingle;
-  final bool isSelected;
+  final PaywallTone tone;
 
-  /// True for a side by side card, which stacks its lines.
-  final bool isCompactCard;
+  /// True for a card that has the full width to itself.
+  final bool isWide;
+
+  /// False for an empty card and for the only plan: nothing to pick.
+  final bool isChoice;
+  final bool isSelected;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final toneColors = PaywallToneColors.of(context, tone);
     final option = this.option;
-    final isLit = isSelected || isSingle;
+    // The picked card is a surface. Any other is an outline on the tone.
+    final ink = isSelected ? colors.ink : toneColors.ink;
+    final soft = isSelected ? colors.ink2 : toneColors.note;
 
     final title = AppTypography.small(
-      colors.ink,
+      ink,
     ).copyWith(fontWeight: FontWeight.w700, height: 1.2);
     final price = AppTypography.title(
-      colors.ink,
+      ink,
+      fontSize: 18,
     ).copyWith(fontWeight: FontWeight.w800, height: 1.1);
-    // The second ink, not the third: an unpicked card is see-through, and
-    // on a dark tone the quietest ink is under 3:1 on it.
-    final fine = AppTypography.small(
-      colors.ink2,
-      fontSize: 11.5,
-    ).copyWith(height: 1.25);
+    final fine = AppTypography.small(soft, fontSize: 11).copyWith(height: 1.25);
+    final strongFine = fine.copyWith(color: ink, fontWeight: FontWeight.w700);
 
-    Widget oneLine(String text, TextStyle style, {Alignment? alignment}) =>
+    // The store's own strings and the plan words, as they come, each on
+    // one line. Text that is too wide for its side is drawn smaller.
+    Widget oneLine(String text, TextStyle style, Alignment alignment) =>
         FittedBox(
           fit: BoxFit.scaleDown,
-          alignment: alignment ?? Alignment.centerLeft,
-          // The store's own strings and the plan words, as they come.
+          alignment: alignment,
           child: Text(text, style: style, maxLines: 1),
         );
-
-    /// The per month figure, then the saving. Both follow the price.
-    Widget? afterPrice(Alignment alignment) {
-      final per = option?.perPeriodLine;
-      final saving = option?.savingLabel;
-      if (per == null && saving == null) return null;
-      return FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: alignment,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (per != null) Text(per, style: fine, maxLines: 1),
-            if (per != null && saving != null) const SizedBox(width: 6),
-            if (saving != null) _SavingTag(label: saving),
-          ],
-        ),
-      );
-    }
 
     final Widget content;
     if (option == null) {
       content = const SizedBox.expand();
-    } else if (isCompactCard) {
-      final after = afterPrice(Alignment.centerLeft);
-      content = Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          oneLine(option.title, title),
-          oneLine(option.price, price),
-          if (option.renewalLine case final line?) oneLine(line, fine),
-          ?after,
-        ],
-      );
     } else {
-      final after = afterPrice(Alignment.centerRight);
-      // Each side may take up to half the row and shrinks its text past
-      // that, so at a large text size both sides give way by the same
-      // amount. The price side sits against the right edge.
-      content = Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      final second = planCardSecondLine(option);
+      content = Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+          // The billed amount takes the width it needs, up to most of the
+          // line, and keeps its size. The plan's name gives way first.
+          LayoutBuilder(
+            builder: (context, box) => Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
-                oneLine(option.title, title),
-                if (option.renewalLine case final line?) oneLine(line, fine),
+                Expanded(
+                  child: oneLine(option.title, title, Alignment.centerLeft),
+                ),
+                const SizedBox(width: Spacing.s2),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: box.maxWidth * 0.7),
+                  child: oneLine(option.price, price, Alignment.centerRight),
+                ),
               ],
             ),
           ),
-          const SizedBox(width: Spacing.s3),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                oneLine(option.price, price, alignment: Alignment.centerRight),
-                ?after,
-              ],
+          if (second.left != null || second.right != null) ...[
+            const SizedBox(height: 2),
+            // The two fine parts are one line: short of room, both get
+            // smaller together.
+            LayoutBuilder(
+              builder: (context, box) => FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: box.maxWidth),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (second.left case final left?)
+                        Text(left, style: fine, maxLines: 1),
+                      if (second.left != null && second.right != null)
+                        const SizedBox(width: Spacing.s2),
+                      if (second.right case final right?)
+                        Text(right, style: strongFine, maxLines: 1),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ],
       );
     }
 
     final card = AnimatedContainer(
       duration: context.motion(AppDurations.quick),
-      padding: EdgeInsets.symmetric(
-        horizontal: isCompactCard ? Spacing.s3 : 14,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: isWide ? 14 : Spacing.s3),
       decoration: BoxDecoration(
-        color: isLit ? colors.surface : colors.surface.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(16),
+        color: isSelected
+            ? colors.surface
+            : colors.surface.withValues(alpha: 0),
+        borderRadius: Radii.mdAll,
         border: Border.all(
-          color: isSelected ? colors.ink : colors.hairline,
-          width: isSelected ? 2.5 : 1.5,
+          color: isSelected
+              ? colors.ink
+              : toneColors.ink.withValues(alpha: 0.3),
+          width: isSelected ? 2 : 1.5,
         ),
       ),
       child: content,
     );
 
-    if (isSingle || option == null) {
+    if (!isChoice) {
       return ExcludeSemantics(excluding: option == null, child: card);
     }
     // One node per plan, read as a choice among the others.
@@ -249,34 +250,8 @@ class _PlanCard extends StatelessWidget {
       inMutuallyExclusiveGroup: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.mdAll,
         child: card,
-      ),
-    );
-  }
-}
-
-class _SavingTag extends StatelessWidget {
-  const _SavingTag({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: colors.highlight,
-        borderRadius: Radii.fullAll,
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        style: AppTypography.small(
-          colors.onHighlight,
-          fontSize: 10,
-        ).copyWith(fontWeight: FontWeight.w700, height: 1),
       ),
     );
   }
