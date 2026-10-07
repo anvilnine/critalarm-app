@@ -45,14 +45,15 @@ class HeroPropsPainter extends CustomPainter {
     final alpha = _alpha(amount);
     canvas
       ..save()
-      ..translate(100, 15 + _drop(amount, 46));
+      ..translate(100, 20 + _drop(amount, 46));
+    // Low and wide, so its points stay clear of the status bar.
     final crown = Path()
       ..moveTo(-40, 0)
-      ..lineTo(-47, -38)
-      ..lineTo(-22, -20)
-      ..lineTo(0, -48)
-      ..lineTo(22, -20)
-      ..lineTo(47, -38)
+      ..lineTo(-46, -30)
+      ..lineTo(-22, -15)
+      ..lineTo(0, -38)
+      ..lineTo(22, -15)
+      ..lineTo(46, -30)
       ..lineTo(40, 0)
       ..close();
     canvas
@@ -66,8 +67,8 @@ class HeroPropsPainter extends CustomPainter {
           ..strokeJoin = StrokeJoin.round,
       )
       ..drawCircle(
-        const Offset(0, -17),
-        5,
+        const Offset(0, -13),
+        4.5,
         Paint()..color = stroke.withValues(alpha: alpha),
       )
       ..restore();
