@@ -1088,6 +1088,49 @@
     "last_delivery_label": "Last delivery",
     "test_alarm_button": "Send a test alarm"
   },
+  "maker_guide": {
+    "row_title": "Sleep settings",
+    "line_unchecked": "Your phone may put apps to sleep.",
+    "line_os_changed": "Phone updated. Check the steps again.",
+    "fix_see_steps": "See the steps",
+    "back_aria_label": "Back",
+    "stage_line": "Your phone puts unused apps to sleep. Do these once.",
+    "step_aria": "Step {number}",
+    "open_settings": "Open settings",
+    "opened_app_page": "Opened the app page. Follow the steps from here.",
+    "open_failed": "Could not open it. Follow the steps.",
+    "did_these": "I did these",
+    "not_yet": "Not yet",
+    "done_line": "Marked done. This resets after a phone update.",
+    "more_link": "More on dontkillmyapp.com",
+    "samsung": {
+      "name": "Samsung",
+      "step_1": "Open Settings, then Battery, then Background usage limits. On older versions, open Battery and device care first.",
+      "step_2": "Tap Never sleeping apps, then +. Pick Crit Alarm and tap Add.",
+      "step_3": "Open Sleeping apps and Deep sleeping apps. If Crit Alarm is in either one, remove it."
+    },
+    "xiaomi": {
+      "name": "Xiaomi, Redmi, Poco",
+      "step_1": "Open Settings, then Apps, and find Crit Alarm. On HyperOS, tap Manage apps first.",
+      "step_2": "Turn on Autostart. On MIUI 14 it is under App permissions, as Background autostart.",
+      "step_3": "Tap Battery saver (called Power on some versions) and choose No restrictions.",
+      "step_4": "Open recent apps. Drag the Crit Alarm card down, or long-press it, and tap the padlock."
+    },
+    "oppo": {
+      "name": "Oppo, Realme, OnePlus",
+      "step_1": "Open Settings, then Apps, then App management. Tap Crit Alarm, then Battery usage. (ColorOS 11 to 14, OxygenOS 12 and up.)",
+      "step_2": "Turn on Allow background activity.",
+      "step_3": "Turn on Allow auto-launch.",
+      "step_4": "Realme: use Settings, Battery, Power saving settings, App battery management instead. OnePlus on OxygenOS 11 or older: Settings, Battery, Battery optimization, then set Crit Alarm to Don't optimize."
+    },
+    "huawei": {
+      "name": "Huawei, Honor",
+      "step_1": "Open Settings, then Battery, then App launch.",
+      "step_2": "Turn off Manage automatically for Crit Alarm.",
+      "step_3": "In the box that opens, turn on Auto-launch, Secondary launch and Run in background. Tap OK.",
+      "step_4": "EMUI 6 to 8: also open Settings, Advanced settings, Battery manager, Protected apps, and turn on Crit Alarm."
+    }
+  },
   "reliability": {
     "title": "Will it wake me?",
     "back_aria_label": "Back",

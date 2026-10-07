@@ -290,5 +290,13 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- The phone makers' settings apps, so the maker guide can ask
+             whether a page of theirs exists before it opens it. From
+             Android 11 the package manager hides apps not listed here. -->
+        <package android:name="com.samsung.android.lool"/>
+        <package android:name="com.miui.securitycenter"/>
+        <package android:name="com.coloros.safecenter"/>
+        <package android:name="com.oppo.safe"/>
+        <package android:name="com.huawei.systemmanager"/>
     </queries>
 </manifest>

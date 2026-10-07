@@ -19,6 +19,7 @@ import app.critalarm.notifications.LiveUpdate
 import app.critalarm.notifications.NotificationChannels
 import app.critalarm.localreminders.LocalReminderChannel
 import app.critalarm.localreminders.LocalReminderTapIntent
+import app.critalarm.makersettings.MakerSettingsChannel
 import app.critalarm.sound.IncomingAudioHolder
 import app.critalarm.sound.SoundChannel
 import app.critalarm.sound.SoundPackChannel
@@ -83,6 +84,9 @@ class MainActivity : FlutterFragmentActivity() {
         val widgets = WidgetChannel(applicationContext)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WidgetChannel.NAME)
             .setMethodCallHandler(widgets::handle)
+        val makerSettings = MakerSettingsChannel(applicationContext)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, MakerSettingsChannel.NAME)
+            .setMethodCallHandler(makerSettings::handle)
         val appIcon = AppIconChannel(applicationContext)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AppIconChannel.NAME)
             .setMethodCallHandler(appIcon::handle)
