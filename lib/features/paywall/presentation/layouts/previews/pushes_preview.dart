@@ -4,6 +4,7 @@ import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/limits_preview_clock.dart';
 import 'package:flutter/material.dart';
 
@@ -254,7 +255,10 @@ class PushesPreview extends StatelessWidget {
       color: colors.panel,
       child: Padding(
         padding: EdgeInsets.all(layout.padding),
-        child: LimitsPreviewClock<PushesPreviewFrame>(
+        child: PaywallPreviewClock<PushesPreviewFrame>(
+          restAt: limitsPreviewRestAt,
+          // Told when to play, it starts on its own turn of the shared loop.
+          turnStart: PushesPreviewTimes.drain,
           frameAt: (t) => pushesPreviewFrameAt(t, free: free, hosted: hosted),
           builder: (context, frame) {
             final bar = CustomPaint(

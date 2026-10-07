@@ -33,16 +33,33 @@ the close cross on screen from the first frame, and pins the buy block at the bo
 - `restAt`: the second the scope's clock rests on when nothing may move.
 
 A sheet-style layout puts `PaywallFrameBody` (same options, no full screen) in its own sheet.
+What it draws outside that body reads the kit too:
+- `PaywallOffer.of(context)`: `product`, `benefits` and `source`, the same ones the scope has.
+- A `PaywallFrameController`, made and disposed in your `State` and passed as `controller`:
+  `close()` does what the cross does, and `buyBlockHeight` is the buy block's measured height
+  as a listenable. It is null for the first frame, then follows the buy state.
+- `PaywallLayoutScope.closeCrossInset` and `closeCrossSize` place the cross.
 
 ## The scope
 
 `product` (`isHosted`, `isPro`), `benefits` (only what this build has, in order), `size`
-(the room you have), `isCompact` (667 points tall or under), `source`, `clock`, `closeOnLeft`.
-The cross covers a 44 point square in a top corner of your room: keep words out of it.
-Deeper in your tree, `PaywallLayoutScope.of(context)` returns the same scope.
+(the room you have), `isCompact` (667 points tall or under), `source`, `clock`, `closeOnLeft`,
+`close` (what the cross does). The cross covers a 44 point square in a top corner of your room:
+keep words out of it. Deeper in your tree, `PaywallLayoutScope.of(context)` returns the same
+scope, and `maybeOf` returns null where no frame is above.
+
+## Previews
 
 Draw a benefit with `benefit.title`, `benefit.line` and `PaywallPreview(benefit.previewId)`.
-A preview not built yet draws a placeholder tile. To build one, add it to `paywallPreviewBuilders`.
+A preview not built yet draws a placeholder tile.
+
+- `PaywallPreview(id, size: ..., playFrom: 6)`: the second on the layout clock at which that
+  preview's loop starts at zero, for one benefit per scene. Before it the preview holds its
+  first frame. Without it the three limit previews take turns in one 9 second loop.
+- To build one, add it to `paywallPreviewBuilders` and read time through `PaywallPreviewClock`
+  (or `.seconds`): the layout's clock under a frame, its own in the gallery, `restAt` when
+  nothing may move. Write no clock of your own.
+- A pop eases with `AppCurves.easeBack`. A locked thing shows `GlyphType.lock`.
 
 ## The clock
 
@@ -75,5 +92,8 @@ fvm flutter test tool/capture_paywall_layout.dart \
 ```
 
 It writes eight PNGs to `build/paywall_shots` and fails on an overflow, a scroll at the default
-size, or a cross or button off screen. The top of the tool lists `OUT`, `STATE`, `BENEFITS=all`
-and `T=<seconds>`.
+size, or a cross or button off screen. The top of the tool lists the options: `OUT`, `STATE`,
+`BENEFITS=all`, `SOURCE=<wire name>` (what opened the paywall, such as `history`) and
+`T=<seconds>`, which plays the motion a frame at a time and captures that second.
+`PREVIEWS=gallery` captures the two gallery preview sections instead, light and dark. Add
+`T=12.5` to run every preview through a loop and `SIZES=38,48` for other tile sizes.

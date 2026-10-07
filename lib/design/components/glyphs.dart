@@ -31,6 +31,7 @@ enum GlyphType {
   pin,
   bellOff,
   share,
+  lock,
 }
 
 /// Vector glyph icon painted according to index.html on a 24x24 viewBox.
@@ -369,6 +370,23 @@ class _GlyphPainter extends CustomPainter {
           ..lineTo(19, 20)
           ..lineTo(19, 12);
         canvas.drawPath(path, strokePaint);
+
+      case GlyphType.lock:
+        // A padlock: rect 5,11 14x9 r2.5 M8 11V8a4 4 0 018 0v3
+        final shackle = Path()
+          ..moveTo(8, 11)
+          ..lineTo(8, 8)
+          ..arcToPoint(const Offset(16, 8), radius: const Radius.circular(4))
+          ..lineTo(16, 11);
+        canvas
+          ..drawRRect(
+            RRect.fromRectAndRadius(
+              const Rect.fromLTWH(5, 11, 14, 9),
+              const Radius.circular(2.5),
+            ),
+            strokePaint,
+          )
+          ..drawPath(shackle, strokePaint);
 
       case GlyphType.info:
         canvas.drawCircle(const Offset(12, 12), 9, strokePaint);

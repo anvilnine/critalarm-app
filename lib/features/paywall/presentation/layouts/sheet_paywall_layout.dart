@@ -1,10 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
-import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_content.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sheet/sheet_lead_benefit.dart';
@@ -16,7 +13,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// The Sheet layout: a bottom sheet over the screen where the user hit a
 /// limit. The row they tapped stays lit above the scrim and the sheet
@@ -42,7 +38,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
   static const double _extraTravel = 46;
 
   late final _SheetClock _clock = _SheetClock(() => t);
-  late final PaywallProduct _product;
+  final PaywallFrameController _frame = PaywallFrameController();
 
   /// True once the buy block may come in.
   bool _buyIn = false;
@@ -59,10 +55,14 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     }
   }
 
+  // The plan needs the buy block's height, so it is drawn again when the
+  // kit has laid the block out.
+  void _onBuyBlockHeight() => setState(() {});
+
   @override
   void initState() {
     super.initState();
-    _product = context.read<PaywallBuyCubit>().state.product;
+    _frame.buyBlockHeight.addListener(_onBuyBlockHeight);
   }
 
   @override
@@ -73,12 +73,14 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
 
   @override
   void dispose() {
+    _frame.buyBlockHeight.removeListener(_onBuyBlockHeight);
+    _frame.dispose();
     _clock.dispose();
     super.dispose();
   }
 
-  String _headline(PaywallBenefit? lead) {
-    final name = paywallProductName(_product);
+  String _headline(PaywallOffer offer, PaywallBenefit? lead) {
+    final name = paywallProductName(offer.product);
     final key = switch (lead?.id) {
       PaywallBenefitId.topics => LocaleKeys.paywall_sheet_headline_topics,
       PaywallBenefitId.pushes => LocaleKeys.paywall_sheet_headline_pushes,
@@ -106,18 +108,11 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
     final media = MediaQuery.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isCompact = PaywallFrame.isCompactOf(context);
-    final info = PaywallRouteInfo.maybeOf(context);
-    final source = info?.source ?? PaywallSource.direct;
-
-    // The same list the frame hands its builder. The screen behind is drawn
-    // outside the frame, so it is worked out here too.
-    final benefits = info?.showsUnbuilt ?? false
-        ? [
-            for (final b in allPaywallBenefits)
-              if (b.product == _product) b,
-          ]
-        : paywallBenefitsFor(_product);
-    final lead = sheetLeadBenefit(source, benefits);
+    // The screen behind is drawn outside the frame, from the same offer
+    // the frame hands its builder.
+    final offer = PaywallOffer.of(context);
+    final benefits = offer.benefits;
+    final lead = sheetLeadBenefit(offer.source, benefits);
     final others = sheetOtherBenefits(lead, benefits);
     final kind = sheetPageKindFor(lead?.id);
     final isSwitch = kind == SheetPageKind.newTopic;
@@ -130,7 +125,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
       topInset: media.viewPadding.top,
       bottomInset: bottomInset.toDouble(),
       isCompact: isCompact,
-      isHosted: _product == PaywallProduct.hosted,
+      buyBlockHeight: _frame.buyBlockHeight.value,
       isSwitch: isSwitch,
       benefitCount: benefits.length,
       textScale: media.textScaler.scale(100) / 100,
@@ -160,6 +155,20 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                 child: const AppScrim(),
               ),
             ),
+            // A tap on the screen behind closes the sheet, as the cross
+            // does. The cross is the control a screen reader gets.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: plan.sheetTop,
+              child: ExcludeSemantics(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _frame.close,
+                ),
+              ),
+            ),
             Positioned(
               top: plan.litTop,
               left: Spacing.s4,
@@ -170,7 +179,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                     plan: plan,
                     kind: kind,
                     lead: lead,
-                    badge: paywallProductName(_product),
+                    badge: paywallProductName(offer.product),
                     clock: _clock,
                   ),
                 ),
@@ -233,7 +242,9 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
             // sheet is, and this keeps it readable over the screen behind.
             Positioned(
               top: plan.sheetTop + (PaywallLayoutScope.closeCrossSize - 32) / 2,
-              right: Spacing.s1 + (PaywallLayoutScope.closeCrossSize - 32) / 2,
+              right:
+                  PaywallLayoutScope.closeCrossInset +
+                  (PaywallLayoutScope.closeCrossSize - 32) / 2,
               child: IgnorePointer(
                 child: Container(
                   width: 32,
@@ -253,6 +264,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
               child: Padding(
                 padding: EdgeInsets.only(bottom: bottomInset.toDouble()),
                 child: PaywallFrameBody(
+                  controller: _frame,
                   tone: PaywallTone.surface,
                   closeOnLeft: false,
                   // It comes in as the sheet lands. With nothing moving it
@@ -271,7 +283,7 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
                       child: child,
                     ),
                     child: SheetContent(
-                      headline: _headline(lead),
+                      headline: _headline(offer, lead),
                       lead: lead,
                       others: others,
                       isCompact: scope.isCompact,

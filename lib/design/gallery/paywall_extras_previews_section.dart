@@ -7,7 +7,10 @@ import 'package:flutter/material.dart';
 /// The paywall previews for widgets, app icons and the weekly check, each
 /// at the three sizes a layout is most likely to ask for.
 class PaywallExtrasPreviewsSection extends StatelessWidget {
-  const PaywallExtrasPreviewsSection({super.key});
+  const PaywallExtrasPreviewsSection({this.edges = _sizes, super.key});
+
+  /// The tile edges drawn. The capture tool passes its own.
+  final List<double> edges;
 
   static const _sizes = <double>[56, 120, 240];
 
@@ -42,7 +45,7 @@ class PaywallExtrasPreviewsSection extends StatelessWidget {
             runSpacing: Spacing.s4,
             crossAxisAlignment: WrapCrossAlignment.end,
             children: [
-              for (final edge in _sizes)
+              for (final edge in edges)
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,

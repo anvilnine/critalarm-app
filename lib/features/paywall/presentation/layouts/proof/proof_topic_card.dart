@@ -407,9 +407,11 @@ class _LockedChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CustomPaint(
-            size: const Size.square(12),
-            painter: _LockPainter(colors.canvas),
+          AppGlyph(
+            GlyphType.lock,
+            size: 12,
+            color: colors.canvas,
+            strokeWidth: 2.4,
           ),
           const SizedBox(width: 6),
           Text(
@@ -424,45 +426,4 @@ class _LockedChip extends StatelessWidget {
       ),
     );
   }
-}
-
-/// A padlock on the glyph set's 24 unit grid, which has none.
-class _LockPainter extends CustomPainter {
-  const _LockPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final unit = size.width / 24;
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4 * unit
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    canvas
-      ..drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(5 * unit, 11 * unit, 14 * unit, 9 * unit),
-          Radius.circular(2.5 * unit),
-        ),
-        paint,
-      )
-      ..drawPath(
-        Path()
-          ..moveTo(8 * unit, 11 * unit)
-          ..lineTo(8 * unit, 8 * unit)
-          ..arcToPoint(
-            Offset(16 * unit, 8 * unit),
-            radius: Radius.circular(4 * unit),
-          )
-          ..lineTo(16 * unit, 11 * unit),
-        paint,
-      );
-  }
-
-  @override
-  bool shouldRepaint(_LockPainter oldDelegate) => oldDelegate.color != color;
 }
