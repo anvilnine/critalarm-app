@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:critalarm/core/links/app_link.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -7,13 +8,15 @@ import 'package:critalarm/features/onboarding/domain/usecases/get_onboarding_com
 
 /// Routes a tapped notification or widget can ask for. Anything else from the
 /// platform is ignored, so a stray route name cannot drop the user somewhere
-/// odd. Home is on the list for the open count widget, and the paywall for a
-/// locked widget.
+/// odd. Home is on the list for the open count widget, the paywall for a
+/// locked widget, and Settings for a link to the Reliability screen.
 bool isPushDeepLink(String? location) =>
     location != null &&
     (location == PushDeepLink.homeLocation ||
         location == PushDeepLink.paywallLocation ||
         location == paywallPath ||
+        location == AppLinkRoutes.reliabilityTarget ||
+        location == AppLinkRoutes.reliability ||
         location.startsWith('/incidents/') ||
         location.startsWith('/topics/'));
 

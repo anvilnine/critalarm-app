@@ -32,6 +32,7 @@ import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/device/device_maker.dart';
 import 'package:critalarm/core/device/platform_device_maker_reader.dart';
 import 'package:critalarm/core/env/env.dart';
+import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
@@ -423,7 +424,12 @@ Future<void> configureDependencies({
     ..registerLazySingleton<TopicListPrefsRepository>(
       () => SharedPrefsTopicListPrefsRepository(getIt<SharedPreferences>()),
     )
-    ..registerLazySingleton<PushHost>(PushHost.new)
+    // A connect link the user tapped waits here, in memory only, until a
+    // screen takes it.
+    ..registerLazySingleton<ConnectLinkHolder>(ConnectLinkHolder.new)
+    ..registerLazySingleton<PushHost>(
+      () => PushHost(null, getIt<ConnectLinkHolder>()),
+    )
     ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
     ..registerLazySingleton<WidgetHost>(WidgetHost.new)
     ..registerLazySingleton<AppIconHost>(AppIconHost.new)
