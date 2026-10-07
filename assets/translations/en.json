@@ -1009,6 +1009,8 @@
     "about_row_subtitle": "Version, license and links",
     "developer_row_title": "Developer options",
     "developer_row_subtitle": "Switch between Free and Hosted",
+    "developer_pro_pack_title": "Pro pack",
+    "developer_pro_pack_note": "Hold the Pro pack on this install",
     "setup_header": "Setup",
     "help_header": "Help",
     "help_feedback_row": "Send feedback",
@@ -1183,6 +1185,29 @@
     "fix_ring_test": "Ring a test",
     "fix_open": "Open",
     "ring_test_title": "Ring a test now"
+  },
+  "pro_pack": {
+    "badge": "Pro",
+    "weekly_title": "Weekly delivery check",
+    "weekly_locked_line": "Checks each week that a push still reaches this phone.",
+    "weekly_ready_line": "Ready to switch on.",
+    "weekly_locked_hint": "Opens Pro",
+    "sheet_title": "Pro",
+    "sheet_what": "A weekly check that a push still reaches this phone.",
+    "sheet_why": "Pro costs money because these checks run on the relay every week.",
+    "sheet_loading": "Asking the store",
+    "sheet_not_on_sale": "Pro is not on sale yet.",
+    "sheet_restore": "Restore",
+    "sheet_at_store": "Waiting for the store",
+    "sheet_checking": "Still checking with the store",
+    "sheet_paused_title": "Still checking",
+    "sheet_paused_line": "The store has not answered yet.",
+    "sheet_check_again": "Check again",
+    "sheet_held_title": "Pro is on",
+    "sheet_held_line": "The weekly check is ready.",
+    "sheet_done": "Done",
+    "sheet_store_problem": "The store did not finish that. Try again.",
+    "sheet_nothing_to_restore": "Nothing to restore for this account."
   },
   "paywall": {
     "welcome": {
