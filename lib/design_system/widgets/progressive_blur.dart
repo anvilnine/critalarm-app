@@ -17,6 +17,8 @@ class ProgressiveBlurEdge extends StatelessWidget {
   const ProgressiveBlurEdge({
     required this.height,
     required this.isTop,
+    this.maxSigma = quietSigma,
+    this.plateau = 0,
     super.key,
   });
 
@@ -26,9 +28,37 @@ class ProgressiveBlurEdge extends StatelessWidget {
   /// True for the top edge, false for the bottom.
   final bool isTop;
 
-  /// Blur strength right at the screen edge. Kept low so the effect stays
+  /// Blur strength right at the screen edge. A larger number makes the one
+  /// blur stronger. It never adds a blur pass or a slice.
+  final double maxSigma;
+
+  /// How much of [height], in logical pixels from the screen edge, holds
+  /// the full blur before it starts to ease off. 0, the default, is fully
+  /// progressive: the blur is full only at the screen edge.
+  final double plateau;
+
+  /// The blur of an edge with nothing to hide. Kept low so the effect stays
   /// quiet.
-  static const double _maxSigma = 4;
+  static const double quietSigma = 4;
+
+  /// Slices per edge in the slice blur, whatever the strength.
+  static const int sliceCount = 24;
+
+  /// Below this a blur is not worth a pass.
+  static const double _leastSigma = 0.05;
+
+  /// The blur of each slice of the slice blur, from the screen edge inwards:
+  /// full at the edge, easing to nothing at the inner end. Smoothstep keeps
+  /// both ends flat, so there is no visible start. Always [sliceCount] long:
+  /// [maxSigma] scales every slice and adds none.
+  static List<double> sliceSigmas(double maxSigma) => [
+    for (var i = 0; i < sliceCount; i++) _sliceSigma(i, maxSigma),
+  ];
+
+  static double _sliceSigma(int i, double maxSigma) {
+    final t = 1 - (i + 0.5) / sliceCount;
+    return maxSigma * (t * t * (3 - 2 * t));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +67,7 @@ class ProgressiveBlurEdge extends StatelessWidget {
     if (MediaQuery.orientationOf(context) == Orientation.landscape) {
       return const SizedBox.shrink();
     }
+    if (maxSigma < _leastSigma) return const SizedBox.shrink();
     return ValueListenableBuilder<EdgeEffect>(
       valueListenable: appEdgeEffect,
       builder: (context, effect, _) {
@@ -47,8 +78,15 @@ class ProgressiveBlurEdge extends StatelessWidget {
               program: program,
               height: height,
               isTop: isTop,
+              maxSigma: maxSigma,
+              plateau: plateau,
             ),
-            EdgeEffect.sliceBlur => _SliceEdge(height: height, isTop: isTop),
+            EdgeEffect.sliceBlur => _SliceEdge(
+              height: height,
+              isTop: isTop,
+              maxSigma: maxSigma,
+              plateau: plateau,
+            ),
             _ => const SizedBox.shrink(),
           },
         );
@@ -72,11 +110,15 @@ class _ShaderEdge extends StatefulWidget {
     required this.program,
     required this.height,
     required this.isTop,
+    required this.maxSigma,
+    required this.plateau,
   });
 
   final ui.FragmentProgram program;
   final double height;
   final bool isTop;
+  final double maxSigma;
+  final double plateau;
 
   @override
   State<_ShaderEdge> createState() => _ShaderEdgeState();
@@ -128,9 +170,12 @@ class _ShaderEdgeState extends State<_ShaderEdge> {
 
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final bottom = top + widget.height;
-    // Floats 0 and 1 are the input size, which the engine sets.
+    // Floats 0 and 1 are the input size, which the engine sets. The shader
+    // holds the full blur from the first line outwards, so moving that line
+    // in by the plateau keeps the blur full under the bar.
+    final plateau = widget.plateau.clamp(0.0, widget.height);
     _shader
-      ..setFloat(2, (widget.isTop ? top : bottom) * dpr)
+      ..setFloat(2, (widget.isTop ? top + plateau : bottom - plateau) * dpr)
       ..setFloat(3, (widget.isTop ? bottom : top) * dpr);
 
     return ClipRect(
@@ -138,8 +183,8 @@ class _ShaderEdgeState extends State<_ShaderEdge> {
         filter: ui.ImageFilter.compose(
           outer: ui.ImageFilter.shader(_shader),
           inner: ui.ImageFilter.blur(
-            sigmaX: ProgressiveBlurEdge._maxSigma,
-            sigmaY: ProgressiveBlurEdge._maxSigma,
+            sigmaX: widget.maxSigma,
+            sigmaY: widget.maxSigma,
           ),
         ),
         child: const SizedBox.expand(),
@@ -158,13 +203,17 @@ class _ShaderEdgeState extends State<_ShaderEdge> {
 /// [BackdropKey], so the engine reads the screen behind them once instead of
 /// once per slice.
 class _SliceEdge extends StatefulWidget {
-  const _SliceEdge({required this.height, required this.isTop});
+  const _SliceEdge({
+    required this.height,
+    required this.isTop,
+    required this.maxSigma,
+    required this.plateau,
+  });
 
   final double height;
   final bool isTop;
-
-  /// Slices per edge. With a top blur of 4, neighbours differ by about 0.25.
-  static const int _slices = 24;
+  final double maxSigma;
+  final double plateau;
 
   @override
   State<_SliceEdge> createState() => _SliceEdgeState();
@@ -183,28 +232,34 @@ class _SliceEdgeState extends State<_SliceEdge> {
 
   @override
   Widget build(BuildContext context) {
-    const n = _SliceEdge._slices;
-    final sliceHeight = widget.height / n;
+    const n = ProgressiveBlurEdge.sliceCount;
+    final plateau = widget.plateau.clamp(0.0, widget.height);
+    final sliceHeight = (widget.height - plateau) / n;
+    final sigmas = ProgressiveBlurEdge.sliceSigmas(widget.maxSigma);
     _dpr = MediaQuery.devicePixelRatioOf(context);
+
+    // Where slice i starts, measured from the screen edge. The first slice
+    // also covers the plateau, so the count stays the same.
+    double start(int i) => i == 0 ? 0 : plateau + i * sliceHeight;
 
     return Stack(
       children: [
         for (var i = 0; i < n; i++)
           // i = 0 is the slice right at the screen edge.
-          if (_sigma(i) > 0.05)
+          if (sigmas[i] > ProgressiveBlurEdge._leastSigma)
             Positioned(
               left: 0,
               right: 0,
               top: widget.isTop
-                  ? _snap(i * sliceHeight)
-                  : _snap(widget.height) - _snap((i + 1) * sliceHeight),
-              height: _snap((i + 1) * sliceHeight) - _snap(i * sliceHeight),
+                  ? _snap(start(i))
+                  : _snap(widget.height) - _snap(start(i + 1)),
+              height: _snap(start(i + 1)) - _snap(start(i)),
               child: ClipRect(
                 child: BackdropFilter(
                   backdropGroupKey: _backdropKey,
                   filter: ui.ImageFilter.blur(
-                    sigmaX: _sigma(i),
-                    sigmaY: _sigma(i),
+                    sigmaX: sigmas[i],
+                    sigmaY: sigmas[i],
                   ),
                   child: const SizedBox.expand(),
                 ),
@@ -212,13 +267,5 @@ class _SliceEdgeState extends State<_SliceEdge> {
             ),
       ],
     );
-  }
-
-  /// Blur for slice [i]: full at the edge, easing to nothing at the inner
-  /// end. Smoothstep keeps both ends flat, so there is no visible start.
-  static double _sigma(int i) {
-    const n = _SliceEdge._slices;
-    final t = 1 - (i + 0.5) / n;
-    return ProgressiveBlurEdge._maxSigma * (t * t * (3 - 2 * t));
   }
 }

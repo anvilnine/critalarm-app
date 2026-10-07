@@ -1,3 +1,4 @@
+import 'package:critalarm/core/paywall/paywall_source.dart' as paywall;
 import 'package:critalarm/core/push/incident_push.dart';
 
 /// Where a tapped notification should land.
@@ -17,7 +18,13 @@ abstract final class PushDeepLink {
 
   /// `open=paywall` comes from a locked widget. Widgets are part of Pro.
   static const openPaywall = 'paywall';
-  static const paywallLocation = '/paywall';
+  static final String paywallLocation = paywall.paywallLocation(
+    paywall.PaywallSource.widgetLocked,
+  );
+
+  /// A bare `/paywall` from the Android widget tap says where it came from.
+  static String tagged(String location) =>
+      location == paywall.paywallPath ? paywallLocation : location;
 
   static String incidentLocation(String incidentId) =>
       '/incidents/${Uri.encodeComponent(incidentId)}';

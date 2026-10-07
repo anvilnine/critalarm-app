@@ -4,6 +4,7 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_candida
 import 'package:critalarm/features/local_reminders/domain/local_reminder_kind.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
 import 'package:critalarm/features/local_reminders/domain/rules/plan_heads_up_rule.dart';
+import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -106,7 +107,10 @@ final class LocalReminderCopy {
         ),
         LocaleKeys.local_reminders_morning_body.plural(
           int.tryParse(args[LocalReminderArgs.seconds] ?? '') ?? 0,
-          namedArgs: {'topic': args[LocalReminderArgs.topic] ?? ''},
+          namedArgs: {
+            'topic': args[LocalReminderArgs.topic] ?? '',
+            'benefits': reminderBenefits(),
+          },
         ),
         [
           _action(
@@ -122,7 +126,11 @@ final class LocalReminderCopy {
       ),
       LocalReminderKind.proLater => (
         LocaleKeys.local_reminders_pro_later_title.tr(),
-        LocaleKeys.local_reminders_pro_later_body.tr(),
+        LocaleKeys.local_reminders_pro_later_body.tr(
+          namedArgs: {
+            'benefits': reminderBenefits(),
+          },
+        ),
         [
           _action(
             LocalReminderActionIds.seePro,
@@ -153,6 +161,14 @@ final class LocalReminderCopy {
       },
     );
   }
+
+  /// The two benefits both Hosted reminders name, critical topics and
+  /// history, joined as running text. Read from the benefits list, so a
+  /// benefit that leaves Hosted leaves the line.
+  static String reminderBenefits() => hostedBenefitSentence(
+    HostedSurface.proLaterReminder,
+    only: {HostedBenefitId.topics, HostedBenefitId.history},
+  );
 
   static int _pool(Map<String, String> args, int size) {
     final index = int.tryParse(args[LocalReminderArgs.pool] ?? '') ?? 0;
@@ -201,7 +217,9 @@ final class LocalReminderCopy {
         LocaleKeys.local_reminders_plan_ends_title.tr(
           namedArgs: {'weekday': args[LocalReminderArgs.weekday] ?? ''},
         ),
-        LocaleKeys.local_reminders_plan_ends_body.tr(),
+        LocaleKeys.local_reminders_plan_ends_body.tr(
+          namedArgs: HostedBenefit.args,
+        ),
         const <LocalReminderAction>[],
       ),
       PlanHeadsUpKind.billing || null => (

@@ -31,6 +31,13 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - SetupProblemCard: the one widget for a setup step that cannot go on or is waiting. The face, then a card with a title, one line and the action. The real ring problems, the hook-up problems and the setup gate use it.
 - Ring me for real waits realRingSendDelay (5 seconds, one constant, zero turns it off) before the server is asked. SendCountdown holds the rule: Cancel sends nothing, and the app leaving the front sends at once. The countdown shows CurlTerminalCard, the terminal from How it rings, typing CurlLine.forTerminal with a masked token. Developer options, Real ring states, has send\_countdown.
 - AppButtonVariant.tinted: a soft tint of the canvas with no stroke, for a quiet action on a coloured canvas. Silence on the alarm screen uses it.
+- Every paywall entry point reports a source on paywall\_viewed, and the Hosted ask sheet logs hosted\_ask\_shown with its trigger
+- AppScreenScaffold.contentSortKey places the scrolling body in the screen reader order against sort keys on the pinned bar. AlarmHost.magicTaps and setMagicTapArmed carry the VoiceOver magic tap
+- Pure setup layout rules in setup\_layout\_rules.dart (setupFaceSizeFor, introHeroMinHeightFor, introHeroFits, setupButtonHeightFor, setupPinsFirstMessageRow) and SetupFace, the shared setup face that shrinks and goes away at large text sizes.
+- AppBarBackingScope tells the scaffolds under it the canvas colour. Each backs its top bar while a row is scrolled under, with a progressive blur, and its pinned bottom bar too with coversBottomBar. The app shell, the setup shell and the ringing alarm provide one. topBarMaxTextScale caps the text scale inside the top bar, 1.3 in setup.
+- AppScreenScaffold.bodyClearsBottomBar for a body that fills the screen and keeps the pinned bar's room itself. The welcome, how it rings and Pick a server steps use it, so they scroll only when the content is taller than the screen.
+- ringing\_layout\_rules.dart sizes the ringing alarm: ringingFaceSizeFor shrinks the face, down to hidden, until the measured message card is clear of the pinned buttons, and ringingHeaderIsCompact holds the word, topic and ring time at 1.3 times when the title still would not fit.
+- BarBackingConfig in lib/design\_system/bar\_backing.dart sets how a bar is backed while a row is under it: mode (blur, blurAndGradient, gradient, solid, none), blur sigma, fade length, gradient peak and plateau, for the top bar and the pinned bottom bar. Ships as blur with no plateau: the blur is nothing at the inner edge of the zone and rises on the edge blur's own smoothstep curve to its full sigma only at the screen edge. Developer options has a Bar backing screen that tunes it live, saved under dev.bar\_backing. ProgressiveBlurEdge takes maxSigma and plateau, and a larger sigma never adds a slice or a pass.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -63,6 +70,9 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - AppButtonVariant.tinted is a wash of the surface colour, so ink on the washed critical red is 6.5:1. Read the full message uses it too, under Silence.
 - The acknowledged screen sizes its face from the room left, so the details card clears the pinned buttons on a 375 pt phone, moves the hint into the list at a large text size, and reaches the topic by the pill only. The send countdown sits on a card. The failed setup gate has a title. isSetupChecklistInFront holds the rule that nothing ticks behind a pinned notice.
 - Feature code asks PlatformCapabilities (lib/core/platform/platform\_capabilities.dart, registered in get\_it) and no longer reads kIsWeb. HomeAskRules and LocalReminderPlanPass take isWeb as a required argument, and tool/check\_layers.sh fails on kIsWeb under lib/features.
+- The welcome heroes stop their ticker under reduced motion or once the user taps Stop animation, instead of ignoring it. OnboardingAnimationLoop takes isStopped and isOnItsOwn.
+- Local reminder morning-after and plan-ends bodies read their numbers and benefit phrases from HostedBenefit.
+- SetupTapRoom gives the Stop animation chip and the two small pills on Pick a server a 44 point tap area. The pills look the same.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -74,6 +84,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - The first tool alarm is matched by more than its incident id: SetupTestRing.firstTool keeps what the first ring looked like, and firstToolVerdictFor forgets it when the incident reopens, takes in another message or closes. It is also forgotten on Done, on Set this up later and at the next launch after the first acknowledgement. A Finish button whose record is gone gives way to the normal acknowledged screen.
 - Ring me for real sends at once when the phone was locked while its checks ran, so no count starts with the app already in the background. RealRingCubit.appLifecycleChanged holds the rule; inactive alone never sends.
 - android/app/proguard-rules.pro keeps the no-arg constructor of Room database classes. R8 removed it from WorkDatabase\_Impl (WorkManager, pulled in by Play asset-delivery), so every release build crashed in androidx.startup.InitializationProvider before Dart started. Debug builds skip R8 and never showed it.
+- Faces inside the setup mock-ups are no longer live under reduce motion or once the animation is stopped, so no ticker runs on How it rings.
 
 ### Removed
 - The `OnboardingStep` enum, `OnboardingDraft.step`, `RememberOnboardingStepUsecase` and `goToOnboardingStep`. The `onboarding_step` prefs key is read once to place a user who was halfway through setup, then removed.

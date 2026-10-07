@@ -25,6 +25,7 @@ import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
+import 'package:critalarm/core/device/dev_bar_backing_switch.dart';
 import 'package:critalarm/core/device/dev_edge_effect_switch.dart';
 import 'package:critalarm/core/device/device_build_mode.dart';
 import 'package:critalarm/core/device/device_form.dart';
@@ -67,6 +68,7 @@ import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/core/widgets/widget_host.dart';
+import 'package:critalarm/design_system/bar_backing.dart';
 import 'package:critalarm/design_system/edge_effect.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
@@ -81,11 +83,13 @@ import 'package:critalarm/features/feedback/data/platform_device_report_reposito
 import 'package:critalarm/features/feedback/domain/repositories/device_report_repository.dart';
 import 'package:critalarm/features/history/presentation/cubits/history_cubit.dart';
 import 'package:critalarm/features/in_app_notices/data/repositories/shared_prefs_in_app_notice_repository.dart';
+import 'package:critalarm/features/in_app_notices/domain/day0_card_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
+import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
@@ -390,6 +394,19 @@ Future<void> configureDependencies({
     void applyEdgeOverride() => appEdgeEffect.value = edgeSwitch.effective;
     edgeSwitch.addListener(applyEdgeOverride);
     applyEdgeOverride();
+  }
+
+  if (buildSkipsPaywall || buildHasPaywallLab) {
+    // Developer options can retune how the bars are backed. A store build
+    // registers nothing here, reads no preference, and keeps the defaults
+    // appBarBacking starts with.
+    if (!getIt.isRegistered<DevBarBackingSwitch>()) {
+      getIt.registerSingleton<DevBarBackingSwitch>(DevBarBackingSwitch(prefs));
+    }
+    final barSwitch = getIt<DevBarBackingSwitch>();
+    void applyBarBacking() => appBarBacking.value = barSwitch.value;
+    barSwitch.addListener(applyBarBacking);
+    applyBarBacking();
   }
 
   // The one place that reads `kIsWeb` for feature code. Features ask
@@ -710,6 +727,24 @@ Future<void> configureDependencies({
           ],
           setupIncidentIds: getIt<SetupTestRing>().setupIncidentIds,
         ),
+      ),
+    )
+    ..registerLazySingleton(() => Day0CardAnalytics(getIt<TelemetryGate>()))
+    ..registerLazySingleton<Day0CardRules>(
+      () => Day0CardRules(
+        noticeRepository: getIt<InAppNoticeRepository>(),
+        accountRepository: getIt<AccountRepository>(),
+        firstMessageStore: getIt<FirstMessageStore>(),
+        isWeb: getIt<PlatformCapabilities>().isWeb,
+        isSetupDone: () => getIt<SetupGate>().isDone(),
+        isRinging: () => getIt<AlarmFocus>().on,
+      ),
+    )
+    ..registerFactory(
+      () => Day0CardCubit(
+        rules: getIt<Day0CardRules>(),
+        noticeRepository: getIt<InAppNoticeRepository>(),
+        analytics: getIt<Day0CardAnalytics>(),
       ),
     )
     ..registerLazySingleton<DeviceReportRepository>(

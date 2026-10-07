@@ -4,6 +4,8 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/core/constants/legal_links.dart';
+import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
@@ -14,6 +16,10 @@ import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_not
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_ask_sheet.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_settler.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rules.dart';
+import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/setup_face.dart';
+import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
+import 'package:critalarm/features/topics/domain/count_card_layout.dart';
 import 'package:critalarm/features/topics/domain/first_topic_rules.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
@@ -272,7 +278,10 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
   /// Asked once per refusal, and only if the rules say this user still wants
   /// to hear it. Somebody who already pays, or who has said no twice, never
   /// sees it.
-  Future<void> _askAboutPro(BuildContext context) async {
+  Future<void> _askAboutPro(
+    BuildContext context,
+    HostedAskTrigger trigger,
+  ) async {
     if (_hasAskedAboutPro) return;
     _hasAskedAboutPro = true;
     final rules = getIt<ProAskRules>();
@@ -282,7 +291,11 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
     await getIt<LocalReminderSettler>().settleAsks(now: DateTime.now());
     if (!await rules.shouldAsk()) return;
     if (!context.mounted) return;
-    await showProAskSheet(context: context, repository: repository);
+    await showProAskSheet(
+      context: context,
+      repository: repository,
+      trigger: trigger,
+    );
   }
 
   void _submit() {
@@ -308,16 +321,13 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
     }
   }
 
-  String _criticalRemainingText(CreateTopicState state) {
-    final limit = state.criticalLimit ?? 2;
-    final remaining = state.criticalRemaining;
-    if (remaining != null && remaining > 0) {
-      return LocaleKeys.create_topic_free_tier_critical_remaining.tr(
-        namedArgs: {'remaining': '$remaining', 'limit': '$limit'},
-      );
-    }
-    return LocaleKeys.create_topic_free_tier_critical_exhausted.tr(
-      namedArgs: {'limit': '$limit'},
+  /// "N of M critical topics used", the same line Settings shows.
+  String _criticalUsedText(CreateTopicState state) {
+    return LocaleKeys.account_critical_usage.tr(
+      namedArgs: {
+        'count': '${state.criticalUsed}',
+        'limit': '${state.criticalLimit ?? 2}',
+      },
     );
   }
 
@@ -546,63 +556,102 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                 ),
         ),
         // On the first topic the card above carries the plan line and the
-        // Go Hosted button waits for the second topic.
-        if (state.isFreeTier && !isFirstTopic) ...[
+        // See Hosted plans button waits until a critical topic exists.
+        if (state.showsCriticalCountCard) ...[
           const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 12,
-            ),
-            decoration: BoxDecoration(
-              color: colors.cream,
-              borderRadius: Radii.mdAll,
-              border: Border.all(color: colors.hairline),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _criticalRemainingText(state),
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontBody,
-                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: colors.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        LocaleKeys.create_topic_free_tier_pro_hint.tr(),
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontBody,
-                          fontFamilyFallback: AppTypography.fontBodyFallbacks,
-                          fontSize: 12,
-                          color: colors.ink3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                AppButton(
-                  label: LocaleKeys.create_topic_go_pro_button.tr(),
-                  size: AppButtonSize.sm,
-                  onPressed: () {
-                    AppHaptics.capture();
-                    unawaited(context.push('/paywall'));
-                  },
-                ),
-              ],
+          _criticalCountCard(context, state),
+        ],
+      ],
+    );
+  }
+
+  /// The plan count, what Hosted adds, the own-server line and the See Hosted
+  /// plans button. At a large text size the row has no room for both, so the
+  /// button moves under the text and the words wrap between words.
+  Widget _criticalCountCard(BuildContext context, CreateTopicState state) {
+    final colors = context.appColors;
+    final textScale = MediaQuery.textScalerOf(context).scale(13) / 13;
+
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _criticalUsedText(state),
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: colors.ink,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          HostedBenefit.all
+              .firstWhere((b) => b.id == HostedBenefitId.topics)
+              .shortKey
+              .tr(namedArgs: HostedBenefit.args),
+          style: TextStyle(
+            fontFamily: AppTypography.fontBody,
+            fontFamilyFallback: AppTypography.fontBodyFallbacks,
+            fontSize: 12,
+            color: colors.ink3,
+          ),
+        ),
+        if (HostedSurface.createTopicCard.ownServerLine case final line?) ...[
+          const SizedBox(height: 2),
+          Text(
+            line,
+            style: TextStyle(
+              fontFamily: AppTypography.fontBody,
+              fontFamilyFallback: AppTypography.fontBodyFallbacks,
+              fontSize: 12,
+              color: colors.ink3,
             ),
           ),
         ],
       ],
+    );
+    final button = AppButton(
+      label: LocaleKeys.asks_pro_button.tr(),
+      variant: AppButtonVariant.ghost,
+      size: AppButtonSize.sm,
+      onPressed: () {
+        AppHaptics.capture();
+        unawaited(
+          context.push(paywallLocation(PaywallSource.createTopicCard)),
+        );
+      },
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.cream,
+        borderRadius: Radii.mdAll,
+        border: Border.all(color: colors.hairline),
+      ),
+      child: LayoutBuilder(
+        builder: (context, box) =>
+            countCardStacks(innerWidth: box.maxWidth, textScale: textScale)
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  text,
+                  const SizedBox(height: 10),
+                  Align(alignment: Alignment.centerLeft, child: button),
+                ],
+              )
+            : Row(
+                children: [
+                  Expanded(child: text),
+                  const SizedBox(width: 12),
+                  button,
+                ],
+              ),
+      ),
     );
   }
 
@@ -704,7 +753,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
           // it, after the topic they came for is safely made. Never in
           // setup, which shows no ask.
           if (!_isSetup && state.isFreeTier && state.criticalRemaining == 1) {
-            unawaited(_askAboutPro(context));
+            unawaited(_askAboutPro(context, HostedAskTrigger.lastCriticalUsed));
           }
         }
         // Hitting the limit is the one moment the user is actually thinking
@@ -717,7 +766,7 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
           if (state.isProPending) {
             _showToast(LocaleKeys.create_topic_toast_pro_pending.tr());
           } else if (!_isSetup) {
-            unawaited(_askAboutPro(context));
+            unawaited(_askAboutPro(context, HostedAskTrigger.capRefused));
           }
         }
         if (state.status == CreateTopicStatus.failure) {
@@ -873,14 +922,17 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                   if (showsLegal)
                     Padding(
                       padding: const EdgeInsets.only(top: Spacing.s2),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      // A wrap, so the second link drops to its own line at a
+                      // large text size instead of running off the edge.
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 16,
                         children: [
                           _LegalLink(
                             label: LocaleKeys.create_topic_terms_link.tr(),
                             url: termsUrl,
                           ),
-                          const SizedBox(width: 16),
                           _LegalLink(
                             label: LocaleKeys.create_topic_privacy_link.tr(),
                             url: privacyUrl,
@@ -913,24 +965,15 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   // The face every setup step shares, so
-                                  // it flies in from the step before.
-                                  Hero(
-                                    tag: 'onboarding-face',
-                                    flightShuttleBuilder:
-                                        faceFlightShuttleBuilder,
-                                    child: FaceWidget(
-                                      state: face,
-                                      size: 80,
-                                      isLive: true,
-                                    ),
-                                  ),
-                                  const SizedBox(height: Spacing.s4),
+                                  // it flies in from the step before. It
+                                  // shrinks and goes with a large text size.
+                                  SetupFace(state: face, gap: Spacing.s4),
                                   Semantics(
                                     header: true,
-                                    child: Text(
+                                    child: AppFittedTitle(
                                       LocaleKeys.create_topic_first_topic_title
                                           .tr(),
-                                      textAlign: TextAlign.center,
+                                      minFontSize: setupTitleMinFontSize,
                                       style: AppTypography.headline(
                                         colors.onCanvas,
                                         fontSize: 30,

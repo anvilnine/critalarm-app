@@ -95,6 +95,10 @@ class CreateTopicState {
   bool get isFirstTopic =>
       isFirstTopicFor(existingNames: existingNames, isListReady: isListReady);
 
+  /// The plan card under the Critical row: the free plan, with a critical
+  /// topic already made. The first topic has its own card with the plan line.
+  bool get showsCriticalCountCard => isFreeTier && criticalUsed >= 1;
+
   /// True when the typed name matches a topic the app already holds. The
   /// server still checks on create: this list can be stale and two devices can
   /// race, so it only saves the user a round trip through step 2.

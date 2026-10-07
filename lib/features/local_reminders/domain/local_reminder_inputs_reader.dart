@@ -274,6 +274,7 @@ final class LocalReminderInputsReader {
       lastAcknowledgedAt: wall(_notices.getLastAcknowledgedAt()),
       proAskedAt: wall(_notices.getProAskedAt()),
       feedbackAskedAt: wall(_notices.getFeedbackAskedAt()),
+      day0CardShownAt: wall(_notices.getDay0CardShownAt()),
       appStoreId: _appStoreId,
       feedbackFormUrl: _feedbackFormUrl,
       budgetSpentAt: wall(_store.readBudgetSpentAt()),

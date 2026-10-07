@@ -9,6 +9,7 @@ import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/domain/usecases/create_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/create_topic_cubit.dart';
+import 'package:critalarm/features/topics/presentation/cubits/create_topic_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -105,5 +106,43 @@ void main() {
     await pumpEventQueue();
 
     expect(cubit.state.isFreeTier, isFalse);
+  });
+
+  group('the count card', () {
+    test('is hidden at zero critical topics, on the first topic or after', () {
+      const first = CreateTopicState(isListReady: true);
+      expect(first.isFirstTopic, isTrue);
+      expect(first.showsCriticalCountCard, isFalse);
+
+      const later = CreateTopicState(
+        isListReady: true,
+        existingNames: {'a'},
+      );
+      expect(later.isFirstTopic, isFalse);
+      expect(later.showsCriticalCountCard, isFalse);
+    });
+
+    test('shows at one and two critical topics', () {
+      const names = {'a', 'b'};
+      for (final used in [1, 2]) {
+        final state = CreateTopicState(
+          isListReady: true,
+          existingNames: names,
+          criticalUsed: used,
+        );
+        expect(state.isFirstTopic, isFalse);
+        expect(state.showsCriticalCountCard, isTrue, reason: 'used $used');
+      }
+    });
+
+    test('never shows off the free plan', () {
+      const state = CreateTopicState(
+        isListReady: true,
+        existingNames: {'a'},
+        isFreeTier: false,
+        criticalUsed: 2,
+      );
+      expect(state.showsCriticalCountCard, isFalse);
+    });
   });
 }

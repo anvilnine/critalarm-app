@@ -3,9 +3,9 @@ import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
+import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
-import 'package:critalarm/core/telemetry/paywall_analytics.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
 import 'package:critalarm/features/account/presentation/account_screen.dart';
@@ -31,6 +31,7 @@ import 'package:critalarm/features/settings/presentation/alarm_debug_screen.dart
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/app_icon_screen.dart';
 import 'package:critalarm/features/settings/presentation/appearance_settings_screen.dart';
+import 'package:critalarm/features/settings/presentation/bar_backing_lab_screen.dart';
 import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubit.dart';
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/dialog_sheet_gallery_screen.dart';
@@ -88,6 +89,7 @@ abstract final class AppRoute {
   static const about = 'about';
   static const developerSettings = 'developerSettings';
   static const alarmDebug = 'alarmDebug';
+  static const barBackingLab = 'barBackingLab';
   static const dialogSheetGallery = 'dialogSheetGallery';
   static const faceGallery = 'faceGallery';
   static const ringingFaces = 'ringingFaces';
@@ -459,6 +461,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   ),
                   routes: [
                     GoRoute(
+                      path: 'bar-backing',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.barBackingLab,
+                      pageBuilder: (context, state) => AmbientPage(
+                        key: state.pageKey,
+                        opaque: true,
+                        child: const BarBackingLabScreen(),
+                      ),
+                    ),
+                    GoRoute(
                       path: 'dialog-sheet',
                       parentNavigatorKey: _rootKey,
                       name: AppRoute.dialogSheetGallery,
@@ -529,16 +541,17 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
       redirect: (context, state) => '/',
     ),
     GoRoute(
-      path: '/paywall',
+      path: paywallPath,
       name: AppRoute.paywall,
       // RevenueCat draws the paywall. The Flutter one in PaywallScreen is only
       // for a --dart-define=SKIP_PAYWALL=true build, where the RevenueCat SDK
       // is never configured and so has nothing to show.
       pageBuilder: (context, state) {
         // `?source=` names what opened it, for the paywall_viewed event.
-        final source =
-            state.uri.queryParameters['source'] ??
-            PaywallAnalytics.directSource;
+        // A missing or unknown one reads as direct.
+        final source = PaywallSource.parse(
+          state.uri.queryParameters['source'],
+        ).wire;
         return AmbientPage(
           key: state.pageKey,
           child: buildSkipsPaywall

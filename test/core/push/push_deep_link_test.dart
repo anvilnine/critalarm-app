@@ -73,7 +73,7 @@ void main() {
   test('open=paywall opens the paywall', () {
     expect(
       PushDeepLink.fromNotificationData({'open': 'paywall'}),
-      '/paywall',
+      '/paywall?source=widget_locked',
     );
   });
 
