@@ -1,6 +1,7 @@
 import 'package:critalarm/design_system/motion.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_state.dart';
+import 'package:critalarm/features/in_app_notices/presentation/widgets/missed_alarm_notice_card.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/no_server_notice_card.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/system_update_notice_card.dart';
 import 'package:critalarm/features/permissions/presentation/widgets/setup_health_notice.dart';
@@ -32,6 +33,14 @@ class InAppNoticeSlot extends StatelessWidget {
               child = const SystemUpdateNoticeCard(
                 key: ValueKey('system_update'),
               );
+            case InAppNoticeType.missedAlarm:
+              final notice = state.missedAlarm;
+              child = notice == null
+                  ? const SizedBox.shrink(key: ValueKey('empty_notice'))
+                  : MissedAlarmNoticeCard(
+                      key: const ValueKey('missed_alarm'),
+                      notice: notice,
+                    );
             // The backup notice is not a card up here any more. It is a line
             // pinned above the tab bar, so it never pushes a topic off the
             // screen. Pro is not in this slot at all: it asks as a sheet.

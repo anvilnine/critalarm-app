@@ -1,3 +1,4 @@
+import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
 import 'package:flutter/foundation.dart';
 
@@ -9,6 +10,7 @@ enum InAppNoticeType {
   proEnding,
   accountBackup,
   systemUpdate,
+  missedAlarm,
 }
 
 @immutable
@@ -18,6 +20,7 @@ class InAppNoticeState {
     this.isDismissing = false,
     this.missingPermissions = const [],
     this.proEndsAt,
+    this.missedAlarm,
   });
 
   final InAppNoticeType noticeType;
@@ -27,6 +30,10 @@ class InAppNoticeState {
   /// When Pro ends, while [noticeType] is [InAppNoticeType.proEnding].
   final DateTime? proEndsAt;
 
+  /// What the missed alarm entry says, while [noticeType] is
+  /// [InAppNoticeType.missedAlarm].
+  final MissedAlarmNotice? missedAlarm;
+
   bool get isVisible => noticeType != InAppNoticeType.none;
 
   InAppNoticeState copyWith({
@@ -34,12 +41,14 @@ class InAppNoticeState {
     bool? isDismissing,
     List<DevicePermissionItem>? missingPermissions,
     DateTime? proEndsAt,
+    MissedAlarmNotice? missedAlarm,
   }) {
     return InAppNoticeState(
       noticeType: noticeType ?? this.noticeType,
       isDismissing: isDismissing ?? this.isDismissing,
       missingPermissions: missingPermissions ?? this.missingPermissions,
       proEndsAt: proEndsAt ?? this.proEndsAt,
+      missedAlarm: missedAlarm ?? this.missedAlarm,
     );
   }
 
@@ -50,6 +59,7 @@ class InAppNoticeState {
           noticeType == other.noticeType &&
           isDismissing == other.isDismissing &&
           proEndsAt == other.proEndsAt &&
+          missedAlarm == other.missedAlarm &&
           listEquals(missingPermissions, other.missingPermissions);
 
   @override
@@ -57,6 +67,7 @@ class InAppNoticeState {
     noticeType,
     isDismissing,
     proEndsAt,
+    missedAlarm,
     Object.hashAll(missingPermissions),
   );
 }

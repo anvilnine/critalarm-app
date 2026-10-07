@@ -192,18 +192,23 @@ import 'package:critalarm/features/permissions/domain/usecases/get_device_permis
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
 import 'package:critalarm/features/reliability/data/platform_maker_settings_opener.dart';
+import 'package:critalarm/features/reliability/data/platform_phone_capture.dart';
 import 'package:critalarm/features/reliability/data/platform_scheduled_summary_reader.dart';
 import 'package:critalarm/features/reliability/data/shared_prefs_maker_guide_store.dart';
+import 'package:critalarm/features/reliability/data/shared_prefs_missed_alarm_store.dart';
 import 'package:critalarm/features/reliability/data/shared_prefs_os_version_store.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_guide_store.dart';
 import 'package:critalarm/features/reliability/domain/maker/maker_settings_opener.dart';
+import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
+import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_store.dart';
 import 'package:critalarm/features/reliability/domain/os_version_store.dart';
 import 'package:critalarm/features/reliability/domain/reliability_fix_runner.dart';
 import 'package:critalarm/features/reliability/domain/scheduled_summary_reader.dart';
 import 'package:critalarm/features/reliability/domain/sources/last_push_source.dart';
+import 'package:critalarm/features/reliability/domain/sources/missed_alarm_source.dart';
 import 'package:critalarm/features/reliability/domain/sources/permissions_source.dart';
 import 'package:critalarm/features/reliability/domain/sources/phone_maker_source.dart';
 import 'package:critalarm/features/reliability/domain/sources/push_token_source.dart';
@@ -1657,6 +1662,57 @@ Future<void> configureDependencies({
         opener: getIt<MakerSettingsOpener>(),
       ),
     )
+    // The missed alarm check. It reads what the phone and the shared lists
+    // already hold: no call to the server, no alert, nothing on the alarm
+    // path changed.
+    ..registerLazySingleton<MissedAlarmStore>(
+      () => SharedPrefsMissedAlarmStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton(
+      () => PlatformPhoneCapture(
+        prefs: getIt<SharedPreferences>(),
+        readNative: getIt<AlarmHost>().debugSnapshot,
+        readAckQueue: getIt<AckQueue>().entries,
+        alarmIds: [
+          getIt<AlarmHost>().alarmsScheduled,
+          getIt<PushHost>().alarmPushes,
+        ],
+        alarmingIds: () => getIt<IncidentAlarmController>().alarmingIncidentIds,
+      ),
+    )
+    ..registerLazySingleton(
+      () => MissedAlarmReader(
+        store: getIt<MissedAlarmStore>(),
+        readIncidents: () => getIt<IncidentsCubit>().state.incidents,
+        readCriticalTopics: () async =>
+            (await getIt<GetTopicsUsecase>()(const NoParams()))
+                .getOrNull()
+                ?.where((topic) => topic.critical)
+                .map((topic) => topic.name)
+                .toSet(),
+        capture: getIt<PlatformPhoneCapture>().take,
+        isSetupDone: () => getIt<SetupGate>().isDone(),
+        readServer: () async {
+          final conn = (await getIt<GetConnectionUsecase>()(
+            const NoParams(),
+          )).getOrNull();
+          final url = conn?.serverUrl.trim() ?? '';
+          return url.isEmpty ? null : url;
+        },
+        firstLaunchAt: getIt<InAppNoticeRepository>().getFirstSeenAt,
+        setupIncidentIds: () => getIt<SetupTestRing>().setupIncidentIds,
+        // Android writes a row for every push it is handed (`PushRouter`).
+        // An iPhone only writes one when the notification extension runs,
+        // so there a stretch with no row proves nothing.
+        everyPushIsLogged:
+            !getIt<PlatformCapabilities>().isWeb &&
+            getIt<PlatformCapabilities>().platform == TargetPlatform.android,
+        ringsCanBeHeld: () {
+          final quiet = getIt<QuietHoursStore>().read();
+          return quiet.isEnabled && !quiet.criticalRingsThrough;
+        },
+      ),
+    )
     ..registerLazySingleton(
       () => ReliabilityFixRunner(
         openSystemSettings: (permission) async {
@@ -1705,6 +1761,12 @@ Future<void> configureDependencies({
           os: getIt<OsVersionReader>(),
           store: getIt<MakerGuideStore>(),
           guideRouteName: makerGuideRouteName,
+        ),
+        MissedAlarmSource(
+          readMissed: getIt<MissedAlarmReader>().read,
+          readDismissedIds: () =>
+              getIt<MissedAlarmStore>().readDismissed().keys.toSet(),
+          testRouteName: AppRoute.testRing,
         ),
       ]),
     )
@@ -1956,10 +2018,32 @@ Future<void> configureDependencies({
             osMajor: getIt<OsVersionStore>().read().major,
           );
         },
+        readMissedAlarms: getIt<MissedAlarmReader>().read,
+        readDismissedMissedAlarms: () =>
+            getIt<MissedAlarmStore>().readDismissed().keys.toSet(),
+        dismissMissedAlarms: getIt<MissedAlarmReader>().dismiss,
+        // Asked again when an incident runs out, and only then: the list
+        // changes far more often than that.
+        missedAlarmChanges: _expiredIncidentChanges(getIt<IncidentsCubit>()),
         identityChanges: appAccountIdentityChanges,
         isSetupDone: () => getIt<SetupGate>().isDone(),
       ),
     );
+}
+
+/// Fires when the set of expired incidents in the shared list changes, and
+/// at no other time: the list itself changes far more often than that.
+Stream<void> _expiredIncidentChanges(IncidentsCubit incidents) {
+  String keyOf(IncidentsState state) => [
+    for (final incident in state.incidents)
+      if (incident.isExpired) incident.id,
+  ].join(',');
+  var last = keyOf(incidents.state);
+  return incidents.stream.map(keyOf).where((key) {
+    if (key == last) return false;
+    last = key;
+    return true;
+  });
 }
 
 void _mirrorStorePro(CustomerInfo info) => appPlanChanges.setStoreSaysPro(
