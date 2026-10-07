@@ -1874,16 +1874,11 @@
     "headline_pro": "More for your alarm."
   },
   "paywall_proof": {
-    "headline_hosted": "Free lets {free_critical_topics} topics ring. Hosted has no limit.",
-    "headline_pro_one": "{benefit} is part of Pro.",
-    "headline_pro_two": "{benefit} is part of Pro. So is one more thing.",
-    "headline_pro_many": "{benefit} is part of Pro. So are {count} more things.",
-    "card_title": "Topics",
-    "counter_label": "Critical",
-    "counter_used": "{used} of {cap} used",
-    "counter_no_limit": "No limit",
-    "free_label": "Free",
-    "demo_aria": "A topic list. On Free, the Critical switch on a third topic is refused. On Hosted it turns on."
+    "headline_hosted": "Hit the limit. Lift it.",
+    "headline_pro": "From default to yours",
+    "tag_free": "Free",
+    "tag_hosted": "Hosted",
+    "tag_pro": "Pro"
   },
   "paywall_sheet": {
     "headline": {
