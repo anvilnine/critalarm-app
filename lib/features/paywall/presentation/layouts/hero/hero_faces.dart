@@ -40,6 +40,9 @@ FaceShape heroFaceShape(HeroFace face) => switch (face) {
   HeroFace.proud => faceFor(FaceState.proud),
   HeroFace.winking => faceFor(FaceState.cheeky),
   HeroFace.cool => faceFor(FaceState.confident),
+  HeroFace.relieved => faceFor(FaceState.breatheOut),
+  HeroFace.listening => faceFor(FaceState.content),
+  HeroFace.loving => faceFor(FaceState.love),
 };
 
 /// The shape on the mascot at [frame]: one face on its way to the next,
