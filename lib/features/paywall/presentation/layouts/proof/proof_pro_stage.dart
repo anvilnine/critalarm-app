@@ -276,7 +276,8 @@ class _Tile extends StatelessWidget {
           Text(
             benefit.title,
             textAlign: TextAlign.center,
-            maxLines: 2,
+            // A long name takes a third line at a large text size.
+            maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style:
                 AppTypography.small(
