@@ -5,6 +5,7 @@ import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/packs_api.dart';
+import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/models/account_pack.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
@@ -13,15 +14,17 @@ import 'package:critalarm/core/models/send_result.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/core/models/topic_token.dart';
+import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:http/http.dart' as http;
 
-final class HttpApiClient implements ApiClient, PacksApi {
+final class HttpApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
   HttpApiClient(
     this._http,
     this._sessions, {
     this.onDeadCredential,
     this.readDeviceToken,
+    this.readDeviceId,
   });
 
   final http.Client _http;
@@ -30,6 +33,11 @@ final class HttpApiClient implements ApiClient, PacksApi {
   /// This phone's own `dv_` token, for the relay routes that take no device
   /// id in their path. Null in a client that never calls them.
   final Future<String?> Function()? readDeviceToken;
+
+  /// This phone's own device id, for the relay routes that name the device
+  /// in their path and are not handed one. Null in a client that never
+  /// calls them.
+  final Future<String?> Function()? readDeviceId;
 
   /// Called when a route answers 401 to this phone's own device token.
   ///
@@ -684,5 +692,67 @@ final class HttpApiClient implements ApiClient, PacksApi {
     return PacksRefreshAnswer.fromJson(
       _json(response) as Map<String, dynamic>,
     );
+  }
+
+  /// The relay, this phone's own token and a path under its own device row.
+  /// With any one missing there is nobody to ask.
+  Future<(Uri, String)> _relayAsThisDevice(String rest) async {
+    final id = await readDeviceId?.call();
+    if (id == null || id.trim().isEmpty) throw const NoApiSessionException();
+    return _relayAsDevice(
+      'relay/v1/devices/${Uri.encodeComponent(id)}/$rest',
+    );
+  }
+
+  @override
+  Future<WeeklyCheck> setWeeklyCheck({required bool enabled}) async {
+    final (uri, token) = await _relayAsThisDevice('check');
+    final response = await _send(
+      'PUT',
+      uri,
+      auth: token,
+      body: {'enabled': enabled},
+    );
+    return WeeklyCheck.fromJson(_json(response) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<WeeklyCheck> getWeeklyCheck() async {
+    final (uri, token) = await _relayAsThisDevice('check');
+    final response = await _send('GET', uri, auth: token);
+    return WeeklyCheck.fromJson(_json(response) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<WeeklyCheckReceipt> sendWeeklyCheckReceipt(
+    String checkId, {
+    int? attempt,
+    int? receivedAt,
+  }) async {
+    final (uri, token) = await _relayAsThisDevice(
+      'checks/${Uri.encodeComponent(checkId)}/receipt',
+    );
+    final response = await _send(
+      'POST',
+      uri,
+      auth: token,
+      body: {'attempt': ?attempt, 'received_at': ?receivedAt},
+    );
+    return WeeklyCheckReceipt.fromJson(
+      _json(response) as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<List<WeeklyCheckRound>> listWeeklyCheckRounds({int? limit}) async {
+    final (base, token) = await _relayAsThisDevice('checks');
+    final uri = limit == null
+        ? base
+        : base.replace(queryParameters: {'limit': '$limit'});
+    final response = await _send('GET', uri, auth: token);
+    return [
+      for (final row in _json(response) as List<dynamic>)
+        if (row is Map<String, dynamic>) WeeklyCheckRound.fromJson(row),
+    ];
   }
 }
