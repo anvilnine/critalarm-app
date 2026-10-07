@@ -9,8 +9,9 @@ import 'package:flutter/material.dart';
 /// Hosted adds, a way to see the plans and a way to close it.
 ///
 /// A quiet card on the same block as the widgets card. No timer, no badge,
-/// no colour of its own. It draws and reports taps. `Day0CardCubit` decides
-/// when it shows and ends it.
+/// no colour of its own. Its title, face, cross and insets match
+/// `AppNoticeCard`, so the two cream cards read as one family. It draws and
+/// reports taps. `Day0CardCubit` decides when it shows and ends it.
 class HomeDay0Card extends StatelessWidget {
   const HomeDay0Card({
     required this.onSeePlans,
@@ -33,33 +34,42 @@ class HomeDay0Card extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              const ExcludeSemantics(
-                child: FaceWidget(state: FaceState.calm, size: 32),
-              ),
-              const SizedBox(width: Spacing.s3),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    LocaleKeys.home_day0_title.tr(),
-                    style: AppTypography.body(
-                      colors.ink,
-                    ).copyWith(fontWeight: FontWeight.w700),
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: AppDismissCross.hitSize,
+            ),
+            child: Row(
+              children: [
+                const ExcludeSemantics(
+                  child: FaceWidget(state: FaceState.calm, size: 28),
+                ),
+                const SizedBox(width: Spacing.s3),
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      LocaleKeys.home_day0_title.tr(),
+                      style: TextStyle(
+                        fontFamily: AppTypography.fontDisplay,
+                        fontFamilyFallback: AppTypography.fontDisplayFallbacks,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: colors.ink,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              // The way out is always there and never the loud thing.
-              AppDismissCross(
-                onPressed: onDismiss,
-                label: LocaleKeys.home_day0_dismiss_button.tr(),
-              ),
-            ],
+                // The way out is always there and never the loud thing.
+                AppDismissCross(
+                  onPressed: onDismiss,
+                  label: LocaleKeys.home_day0_dismiss_button.tr(),
+                  color: colors.ink,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: Spacing.s1),
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
