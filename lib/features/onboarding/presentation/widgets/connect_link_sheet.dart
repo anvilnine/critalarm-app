@@ -66,29 +66,46 @@ class _ConnectLinkSheetBodyState extends State<ConnectLinkSheetBody> {
       listener: (context, state) => _holdThenClose(),
       builder: (context, state) {
         final cubit = context.read<ConnectLinkCubit>();
-        return PopScope(
-          // The connect is under way and cannot be taken back, so the sheet
-          // stays until it answers.
-          canPop: !state.isConnecting,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _Head(state: state),
-              const SizedBox(height: Spacing.s4),
-              ..._body(context, state, cubit),
-            ],
+        final actions = _actions(context, state, cubit);
+        // The words scroll and the buttons stay put, so a large text size on
+        // a small phone never pushes Connect off the sheet. The sheet is a
+        // column in the sheet's column, hence the Flexible around it.
+        return Flexible(
+          child: PopScope(
+            // The connect is under way and cannot be taken back, so the
+            // sheet stays until it answers.
+            canPop: !state.isConnecting,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _Head(state: state),
+                        const SizedBox(height: Spacing.s4),
+                        ..._words(context, state),
+                      ],
+                    ),
+                  ),
+                ),
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: Spacing.s4),
+                  ...actions,
+                ],
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  List<Widget> _body(
-    BuildContext context,
-    ConnectLinkState state,
-    ConnectLinkCubit cubit,
-  ) {
+  /// What the sheet says under the host.
+  List<Widget> _words(BuildContext context, ConnectLinkState state) {
     final colors = context.appColors;
     if (state.isConnected) {
       return [
@@ -116,13 +133,8 @@ class _ConnectLinkSheetBodyState extends State<ConnectLinkSheetBody> {
         ),
       ];
     }
-    void leave() {
-      cubit.notNow();
-      Navigator.of(context).pop();
-    }
-
-    return [
-      if (state.isFailed)
+    if (state.isFailed) {
+      return [
         Semantics(
           liveRegion: true,
           child: Text(
@@ -130,29 +142,40 @@ class _ConnectLinkSheetBodyState extends State<ConnectLinkSheetBody> {
             textAlign: TextAlign.center,
             style: AppTypography.small(colors.ink2, fontSize: 15),
           ),
-        )
-      else ...[
-        Text(
-          LocaleKeys.connect_link_what.tr(),
-          textAlign: TextAlign.center,
-          style: AppTypography.small(colors.ink2, fontSize: 15),
         ),
-        if (state.replacingHost != null) ...[
-          const SizedBox(height: Spacing.s2),
-          Text(
-            LocaleKeys.connect_link_replaces.tr(
-              namedArgs: {'host': state.replacingHost!},
-            ),
-            textAlign: TextAlign.center,
-            style: AppTypography.small(colors.ink3),
+      ];
+    }
+    return [
+      Text(
+        LocaleKeys.connect_link_what.tr(),
+        textAlign: TextAlign.center,
+        style: AppTypography.small(colors.ink2, fontSize: 15),
+      ),
+      if (state.replacingHost != null) ...[
+        const SizedBox(height: Spacing.s2),
+        Text(
+          LocaleKeys.connect_link_replaces.tr(
+            namedArgs: {'host': state.replacingHost!},
           ),
-        ],
-        if (state.isPlainHttp) ...[
-          const SizedBox(height: Spacing.s3),
-          AppNote(text: LocaleKeys.connect_link_not_encrypted.tr()),
-        ],
+          textAlign: TextAlign.center,
+          style: AppTypography.small(colors.ink3),
+        ),
       ],
-      const SizedBox(height: Spacing.s4),
+      if (state.isPlainHttp) ...[
+        const SizedBox(height: Spacing.s3),
+        AppNote(text: LocaleKeys.connect_link_not_encrypted.tr()),
+      ],
+    ];
+  }
+
+  /// The two buttons. None while the connect is under way or done.
+  List<Widget> _actions(
+    BuildContext context,
+    ConnectLinkState state,
+    ConnectLinkCubit cubit,
+  ) {
+    if (state.isConnecting || state.isConnected) return const [];
+    return [
       AppButton(
         label: state.isFailed
             ? LocaleKeys.common_retry.tr()
@@ -165,7 +188,10 @@ class _ConnectLinkSheetBodyState extends State<ConnectLinkSheetBody> {
         label: LocaleKeys.common_not_now.tr(),
         variant: AppButtonVariant.ghost,
         isFullWidth: true,
-        onPressed: leave,
+        onPressed: () {
+          cubit.notNow();
+          Navigator.of(context).pop();
+        },
       ),
     ];
   }
