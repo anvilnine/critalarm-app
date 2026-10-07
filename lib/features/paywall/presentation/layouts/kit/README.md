@@ -8,7 +8,7 @@ and nothing else: no button, price row, legal text, clock, benefit list or purch
 1. Add one file, `layouts/<name>_paywall_layout.dart`. Start from
    `plain_paywall_layout.dart`. The widget returns a `PaywallFrame`.
 2. Register it in `kit/paywall_layout_registry.dart`:
-   `PaywallLayoutId.bento: (_) => const BentoPaywallLayout(),`
+   `PaywallLayoutId.proof: (_) => const ProofPaywallLayout(),`
 3. Open it at `/plans/<key>?product=hosted|pro`, or from Developer options, Paywall layouts.
    An id with no line in the registry draws `plain`.
 
@@ -26,9 +26,11 @@ the close cross on screen from the first frame, and pins the buy block at the bo
 - `closeOnLeft`: which top corner holds the cross.
 - `buyBlockVisible`: false hides the buy block during an entrance. It keeps its room, so
   nothing moves when it comes in. Draw a full-screen entrance in `backdrop`.
-- `buyStyle`: a `PaywallBuyBlockStyle` with `pickerStyle` (`rows` or `segments`), `tone`,
-  `buttonVariant`, `label` (`name` or `nameAndPrice`) and `showsPicker`. Set `showsPicker`
-  to false only when you place a `PaywallPlanPicker` yourself.
+- `buyStyle`: a `PaywallBuyBlockStyle` with `tone`, `buttonVariant`, `pickerStyle` and
+  `showsPicker`. `pickerStyle` is `segments` (the plans side by side, the default) or `rows`
+  (one plan per row, 60 points taller, for a layout with the height). Set `showsPicker` to
+  false only when you place a `PaywallPlanPicker` yourself. A layout does not choose what the
+  button says.
 - `entranceCue`: `open` (the default), `gag`, `print` or `none`.
 - `restAt`: the second the scope's clock rests on when nothing may move.
 
@@ -39,6 +41,39 @@ What it draws outside that body reads the kit too:
   `close()` does what the cross does, and `buyBlockHeight` is the buy block's measured height
   as a listenable. It is null for the first frame, then follows the buy state.
 - `PaywallLayoutScope.closeCrossInset` and `closeCrossSize` place the cross.
+
+## The buy block
+
+Top to bottom, every part at the same 20 point side inset:
+
+1. The plans, Hosted only: two cards, 52 points tall. Each has the plan's name and the billed
+   amount, and under them the per month figure with the saving, or when the plan renews.
+2. The button, 48 points. "Get Hosted", because the picked card shows the price. Pro has no
+   card, so its button carries the price after the name. `buyButtonLabel` is the one rule.
+3. The own-server line, Hosted only.
+4. The legal line, in whole sentences. `legalLine` writes it for the picked plan.
+5. Restore, Terms and Privacy as one line of plain words. Each has a 44 point tap area that
+   runs up over the legal line.
+
+It is about 192 points tall for Hosted and 98 for Pro at the default text size. Keep it that
+way:
+
+- The button is the only filled shape. Anything else in the block is type or a hairline. Do
+  not add a pill, a badge or a second colour.
+- The billed amount is the largest price in the block. Nothing else may outgrow it.
+- Its text stops growing at 1.3 times. Nothing in it scrolls and no sentence is cut: at a
+  large text size the block is taller and your layout gets less room. Plan for that.
+- Use the same 20 point side inset in your own part, so the screen has one left edge.
+
+## One benefit
+
+A product with one benefit is not a list of one. When `scope.benefits.length == 1`, return
+`PaywallOneBenefit(benefit: scope.benefits.single, headline: ...)` from your builder in place
+of your own composition. It draws a 96 point face, the headline, the benefit's preview as one
+card 200 points tall, and the benefit's line under it. The face and the card keep those sizes
+on both phones: spare height stays empty around the group and nothing is stretched to fill.
+At a large text size the face shrinks, then goes, before the card gives up height
+(`oneBenefitSizes`).
 
 ## The scope
 
@@ -77,8 +112,10 @@ must be complete: nothing hidden, half way or at an angle. The clock stops under
 ## Rules every layout keeps
 
 - One screen at 390 by 844 and 375 by 667 at the default text size. Nothing scrolls there.
-- Text in your room grows to 1.5 times at most. Past the default size your content may scroll
-  inside its own box. The frame still does not.
+- Text in your room grows to 1.5 times at most. At a large size, drop detail before you drop
+  a benefit: `plain_paywall_layout.dart` loses second lines, then pictures, then the face, and
+  still names every benefit. Only when nothing more can go may your content scroll inside its
+  own box. The frame still does not.
 - Nothing rests at an angle. Rotation lives inside a motion and ends at zero.
 - No timer, no urgency, no made-up proof, no trial toggle. No word about how Pro is paid.
 - Strings go in `en.json` and are read through `LocaleKeys`. Sounds go through `PaywallCues`.
@@ -91,8 +128,8 @@ fvm flutter test tool/capture_paywall_layout.dart \
   --dart-define=LAYOUT=<key> --dart-define=PRODUCT=hosted
 ```
 
-It writes eight PNGs to `build/paywall_shots` and fails on an overflow, a scroll at the default
-size, or a cross or button off screen. The top of the tool lists the options: `OUT`, `STATE`,
+It writes eight PNGs to `build/paywall_shots`, prints the buy block's height for each, and
+fails on an overflow, a scroll at the default size, or a cross or button off screen. The top of the tool lists the options: `OUT`, `STATE`,
 `BENEFITS=all`, `SOURCE=<wire name>` (what opened the paywall, such as `history`) and
 `T=<seconds>`, which plays the motion a frame at a time and captures that second.
 `PREVIEWS=gallery` captures the two gallery preview sections instead, light and dark. Add
