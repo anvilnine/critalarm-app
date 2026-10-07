@@ -519,10 +519,7 @@ void main() {
       expect(api.refreshCalls, 0);
     });
 
-    // The Pro shop answers done, cancelled or problem. A payment the store
-    // is holding comes back as a problem, so this is what that buyer gets.
-    test('a store problem keeps the purchase written down, so a payment the '
-        'store was only holding is asked about on a later launch', () async {
+    test('a store problem keeps the purchase written down', () async {
       shop.buyResult = ProPackStoreResult.problem;
       final cubit = build();
       await cubit.load();
@@ -530,6 +527,85 @@ void main() {
       expect(cubit.state.status, PaywallBuyStatus.failed);
       expect(cubit.state.isPaused, isFalse);
       expect(packs.pending, isNotNull);
+    });
+
+    test('a payment the store is holding shows the pending line with Check '
+        'again, and is never a failure', () async {
+      shop.buyResult = ProPackStoreResult.pending;
+      final cubit = build();
+      await cubit.load();
+      final statuses = <PaywallBuyStatus>[];
+      final sub = cubit.stream.listen((s) => statuses.add(s.status));
+      await cubit.buy();
+      await settle();
+      await sub.cancel();
+      expect(statuses, [
+        PaywallBuyStatus.purchasing,
+        PaywallBuyStatus.checking,
+      ]);
+      expect(cubit.state.isPaused, isTrue);
+      expect(
+        cubit.state.messageKey,
+        LocaleKeys.purchase_errors_payment_pending,
+      );
+      expect(cubit.state.canBuy, isFalse);
+      expect(cubit.state.canRestore, isTrue);
+      // Nothing was asked: the store has not taken the money yet.
+      expect(api.refreshCalls, 0);
+      // The purchase stays written down for the next launch.
+      expect(packs.pending, isNotNull);
+
+      // The button does not go back to the store.
+      await cubit.buy();
+      expect(shop.bought, ['a']);
+    });
+
+    test('check again on a held payment asks the relay, and still says '
+        'pending while nobody confirms it', () async {
+      shop.buyResult = ProPackStoreResult.pending;
+      api.refreshes = [_readEmpty];
+      final cubit = build();
+      await cubit.load();
+      await cubit.buy();
+
+      await cubit.checkAgain();
+      // A store read with nothing on it is not a no while a payment is held.
+      expect(api.refreshCalls, ProPaywallBuyCubit.defaultConfirmWaits.length);
+      expect(cubit.state.status, PaywallBuyStatus.checking);
+      expect(cubit.state.isPaused, isTrue);
+      // Never the line that says the store is done.
+      expect(
+        cubit.state.messageKey,
+        LocaleKeys.purchase_errors_payment_pending,
+      );
+      expect(shop.bought, hasLength(1));
+      expect(packs.pending, isNotNull);
+
+      now = now.add(const Duration(minutes: 2));
+      api
+        ..refreshes = [_held]
+        ..refreshCalls = 0;
+      await cubit.checkAgain();
+      expect(cubit.state.status, PaywallBuyStatus.done);
+    });
+
+    test('a purchase after a held one pauses on its own line again', () async {
+      shop.buyResult = ProPackStoreResult.pending;
+      api.refreshes = [_readEmpty];
+      final cubit = build();
+      await cubit.load();
+      await cubit.buy();
+      await cubit.restore();
+      expect(cubit.state.status, PaywallBuyStatus.ready);
+
+      now = now.add(const Duration(minutes: 2));
+      shop.buyResult = ProPackStoreResult.done;
+      api
+        ..refreshes = [_unknown]
+        ..refreshCalls = 0;
+      await cubit.buy();
+      expect(cubit.state.isPaused, isTrue);
+      expect(cubit.state.messageKey, LocaleKeys.paywall_kit_paused);
     });
 
     test('a restore the relay reads as empty: nothing to restore', () async {

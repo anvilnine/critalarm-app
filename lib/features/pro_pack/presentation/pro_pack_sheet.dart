@@ -169,7 +169,8 @@ class _ProPackSheetBodyState extends State<_ProPackSheetBody> {
                     const SizedBox(height: Spacing.s2),
                   ],
                 ],
-                if (state.stage == ProPackSheetStage.checkingPaused) ...[
+                if (state.stage == ProPackSheetStage.checkingPaused ||
+                    state.stage == ProPackSheetStage.paymentPending) ...[
                   const SizedBox(height: Spacing.s4),
                   AppButton(
                     label: LocaleKeys.pro_pack_sheet_check_again.tr(),

@@ -776,6 +776,11 @@ offer whose screen went away under it is not counted as declined.
   (`pro_pack.pending_confirm`). Until the relay lists the pack, launch and
   resume ask it to read the store again, for
   `ProPackAccess.pendingConfirmGivesUpAfter` at most.
+- A payment the store is holding is `ProPackStoreResult.pending`, never a
+  problem. The sheet rests on `ProPackSheetStage.paymentPending`: the pending
+  line and Check again, with nothing to buy. Only a cancel clears the
+  written-down purchase, so a held payment is still asked about on launch
+  and resume.
 - A kept pack whose `expires_at` has passed stays held for
   `ProPackAccess.expiredGrace` with no word from the relay, then is not
   held. A pack with no `expires_at` never ends on the phone.

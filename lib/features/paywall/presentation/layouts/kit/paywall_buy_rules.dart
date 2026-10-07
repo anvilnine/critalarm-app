@@ -147,6 +147,7 @@ PaywallStoreResult storeResultOfProPack(ProPackStoreResult result) =>
     switch (result) {
       ProPackStoreResult.done => PaywallStoreResult.done,
       ProPackStoreResult.cancelled => PaywallStoreResult.cancelled,
+      ProPackStoreResult.pending => PaywallStoreResult.pending,
       ProPackStoreResult.problem => PaywallStoreResult.problem,
     };
 

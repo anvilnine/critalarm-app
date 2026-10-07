@@ -52,10 +52,14 @@ final class RevenueCatProPackShop implements ProPackShop {
       await _service.purchasePackage(package);
       return ProPackStoreResult.done;
     } on PlatformException catch (error) {
-      return PurchasesErrorHelper.getErrorCode(error) ==
-              PurchasesErrorCode.purchaseCancelledError
-          ? ProPackStoreResult.cancelled
-          : ProPackStoreResult.problem;
+      return switch (PurchasesErrorHelper.getErrorCode(error)) {
+        PurchasesErrorCode.purchaseCancelledError =>
+          ProPackStoreResult.cancelled,
+        // A held payment is not a failure. Read as one, the sheet would
+        // offer the purchase again.
+        PurchasesErrorCode.paymentPendingError => ProPackStoreResult.pending,
+        _ => ProPackStoreResult.problem,
+      };
     } on Object catch (_) {
       return ProPackStoreResult.problem;
     }
