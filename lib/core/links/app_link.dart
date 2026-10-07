@@ -264,10 +264,13 @@ String? _firstFilled(String? first, String? second) {
 /// True for a server address a connect link may carry: `https` to anywhere,
 /// `http` only to this device or a private network. An address with a user
 /// name or password in it is refused: the host a person reads would not be
-/// the whole story.
+/// the whole story. So is one with a query or a fragment of its own, even an
+/// empty one: no base address needs either, and the sheet would have to draw
+/// it.
 bool isAllowedServerUrl(Uri url) {
   if (url.host.isEmpty) return false;
   if (url.userInfo.isNotEmpty) return false;
+  if (url.hasQuery || url.hasFragment) return false;
   if (url.scheme == 'https') return true;
   if (url.scheme == 'http') return isPrivateOrLoopbackHost(url.host);
   return false;
