@@ -223,14 +223,14 @@ class _Scene extends StatelessWidget {
 
     // The row the take becomes, and the two quiet rows of the list under
     // it.
-    final row = Rect.fromLTWH(u * 0.08, u * 0.12, u * 0.84, u * 0.3);
-    final play = u * 0.19;
+    final row = Rect.fromLTWH(u * 0.08, u * 0.1, u * 0.84, u * 0.36);
+    final play = u * 0.21;
     final playAt = Offset(row.left + u * 0.05, row.center.dy - play / 2);
     final waveLeft = playAt.dx + play + u * 0.05;
     final rowWave = hasWords
         ? Rect.fromLTRB(
             waveLeft,
-            row.top + u * 0.15,
+            row.top + u * 0.165,
             row.right - u * 0.06,
             row.bottom - u * 0.055,
           )
@@ -253,12 +253,12 @@ class _Scene extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        for (final (i, top) in [u * 0.47, u * 0.69].indexed)
+        for (final (i, top) in [u * 0.52, u * 0.72].indexed)
           Positioned(
             left: row.left,
             top: top + u * 0.04 * (1 - _rise(frame.saved, i)),
             width: row.width,
-            height: u * 0.17,
+            height: u * 0.16,
             child: Opacity(
               opacity: _rise(frame.saved, i),
               child: _QuietRow(u: u, short: i == 1),
@@ -294,7 +294,7 @@ class _Scene extends StatelessWidget {
                 overflow: TextOverflow.fade,
                 style: AppTypography.title(
                   colors.ink,
-                  fontSize: u * 0.07,
+                  fontSize: u * 0.075,
                 ).copyWith(height: 1.1),
               ),
             ),

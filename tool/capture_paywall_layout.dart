@@ -23,10 +23,11 @@
 //                                  is stepped a frame at a time, so every
 //                                  frame up to that second is laid out and an
 //                                  overflow on the way fails the capture.
-//   --dart-define=TAP=<x>,<y>      with T: tap that point of the screen at second
-//                                  T, in points from its top left
-//   --dart-define=DRAG=<x>,<y>,<x>,<y>  with T: drag from the first point to
-//                                  the second at second T, over a fifth of a
+//   --dart-define=TAP=<x>,<y>      with T: tap that point of the screen at
+//                                  second T, in points from its top left
+//   --dart-define=DRAG=<x>,<y>,<x>,<y>
+//                                  with T: drag from the first point to the
+//                                  second at second T, over a fifth of a
 //                                  second, and let go
 //   --dart-define=HELD=true        with DRAG: capture with the finger still
 //                                  down at the end of the drag
