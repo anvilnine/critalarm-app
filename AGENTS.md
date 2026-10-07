@@ -218,6 +218,38 @@ Android, and counts as already done once a first message was received.
 lists it. It works at any position, the last one included, and it exists on
 iOS and Android only.
 
+`offer` is a frame around one paywall layout (`offer_step_screen.dart`). It
+holds no words, prices or benefit lists: it builds the layout an id names
+from `paywallLayoutBuilders`, over the whole screen. Closing the layout
+finishes the step and so does a purchase. `2026-10-b` lists it between
+`real_ring` and `hook_up`, it has no chapter, and it ships switched off.
+
+- Four switches (`OnboardingOfferConfig`): `enabled` (false), `cloud_product`
+  (`pro`, `hosted` or `none`; `pro`), `self_hosted_product` (`pro` or `none`;
+  `pro`) and `layout` (a `PaywallLayoutId.key`; `plain`). The bundled value is
+  in brackets. They are one JSON object, read from Developer options
+  (`dev.onboarding_offer`), then the Remote Config key `onboarding_offer`
+  (`TelemetryGate.onboardingOfferJson`), then the bundled value. A field left
+  out takes its bundled value. A field with a value it cannot have sets the
+  whole object aside and the next source is asked.
+- `decideOnboardingOffer` is the rule. The step skips itself on a replay,
+  when it is off, when the product is `none` for this kind of server, when
+  the layout is not built in this version, when no account id is known, and
+  when the user already holds the product. `OnboardingOfferGate` reads the
+  phone for it, and a read that fails is a skip.
+- A step that skips counts as already done (`hasNoOfferToShow`), so a run
+  never opens it and the funnel never counts it.
+- A replay skips the step. The one exception is a developer value: with the
+  Offer step switches set in Developer options, "Open a step" shows it.
+- The buy model comes from the same `PaywallBuyCubit` factory the paywall
+  route uses, so only a `SKIP_PAYWALL` build gets the stand-in.
+- Three funnel events go through `OnboardingFunnel`: `onboarding_offer_shown`,
+  `onboarding_offer_closed` and `onboarding_offer_bought`, each with
+  `product`, `layout` and `flow_id`. They wait for the analytics answer with
+  the step events.
+- While the step is still to come (`offerStepIsAhead`), `AfterAckDecider`
+  gives an acknowledged alarm no follow-up.
+
 Where a flow comes from, highest priority first: the developer settings
 override, the remote value, the bundled default. Each is an
 `OnboardingFlowSource` registered in `lib/app/di.dart`. A source answers with
@@ -285,7 +317,7 @@ where a step's top bar has its title: one small face and three bars.
 `onboardingTrackerFillFor` holds the maths. Bars before the current chapter
 are full, and the current one is the chapter's steps listed before this one
 over all of the chapter's steps in the flow, so a step the run passed over
-counts as done. A step with no chapter (`hook_up`, `widgets`,
+counts as done. A step with no chapter (`offer`, `hook_up`, `widgets`,
 `legacy_test`) shows what the next counted step would, and every bar full
 when none is left. A step's top bar takes its title from
 `setupTopBarTitle(context)`, which is null while the tracker is up.
@@ -478,10 +510,20 @@ In setup the screen is one step (`CreateTopicCubit.isOneStep`, set whenever
 the screen is given `onDone`). The pinned button creates the topic from the
 first step. There is no token-name step: the token is named after the picked
 tool (`setupTokenName`), or by the server when no tool is picked. There is no
-created stop either: the face is glad for one beat and the screen moves on,
-because the hook-up step shows the address and the token where they are
-used. It shows no ask, the Hosted ask included. Opened from Home, the screen
-keeps its two steps and its created state, whatever the topic count.
+created stop either: the topic drops as a row into a small picture of Home
+(`TopicMadeBeat`, about 1.2 seconds, a tap skips it, still under reduce
+motion) and the screen moves on, because the hook-up step shows the address
+and the token where they are used. A replay makes no topic and shows no
+picture. It shows no ask, the Hosted ask included. Opened from Home, the
+screen keeps its two steps and its created state, whatever the topic count.
+
+When finishing a step ends setup, `finishOnboardingStepInEngine` raises
+`setupFinishSignal` with the topic setup made, and the Home that opens next
+takes it and glows that row once (`SetupGlow`). The signal is in memory
+only, so a later launch never glows. A replay, a "Set this up later" exit
+and a run with no topic raise nothing. The rules and times are in
+`lib/features/topics/domain/setup_finish_glow.dart` and
+`topic_made_beat.dart`.
 
 A setup run also fills `FirstTopicHandoff` (registered in `get_it`) when the
 topic is made: the name, server URL, template id and publish token. The entry
@@ -928,9 +970,9 @@ how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 - Real: the design system in `lib/design/`, with its palette, fonts and
   component names. The `AppColors` `ThemeExtension` with `copyWith` and `lerp`,
   the single `ThemeData` construction point in `lib/design/theme/theme.dart`,
-  the theme preference round-trip, `go_router` wiring (`lib/app/router.dart`, 52
+  the theme preference round-trip, `go_router` wiring (`lib/app/router.dart`, 53
   routes today: `GoRoute(` appears 44 times, and one of those is a loop that
-  builds the 9 setup step routes), the `AppResult` and `Failure` types, `tool/check_layers.sh`, CI.
+  builds the 10 setup step routes), the `AppResult` and `Failure` types, `tool/check_layers.sh`, CI.
 - Placeholder: nothing in `lib/design/`. The widgets left in
   `lib/design_system/widgets/` predate it. Do not build new screens from them.
 

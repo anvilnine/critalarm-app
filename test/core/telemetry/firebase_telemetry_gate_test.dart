@@ -105,6 +105,7 @@ void main() {
             'paywall_enabled': false,
             'paywall_variant': 'straight',
             'onboarding_flow': '',
+            'onboarding_offer': '',
           }),
         ).called(1);
 
@@ -207,6 +208,41 @@ void main() {
 
     test('returns an empty string when there is no Remote Config', () {
       expect(FirebaseTelemetryGate().onboardingFlowJson, isEmpty);
+    });
+  });
+
+  group('onboardingOfferJson', () {
+    late MockFirebaseRemoteConfig remoteConfig;
+    late FirebaseTelemetryGate gate;
+
+    setUp(() {
+      remoteConfig = MockFirebaseRemoteConfig();
+      gate = FirebaseTelemetryGate(remoteConfig: remoteConfig);
+    });
+
+    test('the key defaults to an empty string', () {
+      expect(
+        FirebaseTelemetryGate.remoteConfigDefaults['onboarding_offer'],
+        isEmpty,
+      );
+    });
+
+    test('returns the raw string Remote Config holds', () {
+      when(
+        () => remoteConfig.getString('onboarding_offer'),
+      ).thenReturn('{"enabled": true}');
+
+      expect(gate.onboardingOfferJson, '{"enabled": true}');
+    });
+
+    test('returns an empty string when Remote Config throws or is absent', () {
+      when(
+        () => remoteConfig.getString('onboarding_offer'),
+      ).thenThrow(Exception('Config missing'));
+
+      expect(gate.onboardingOfferJson, isEmpty);
+      expect(FirebaseTelemetryGate().onboardingOfferJson, isEmpty);
+      expect(const NoopTelemetryGate().onboardingOfferJson, isEmpty);
     });
   });
 

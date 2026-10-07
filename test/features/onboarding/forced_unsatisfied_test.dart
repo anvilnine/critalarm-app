@@ -144,6 +144,8 @@ void main() {
       connected: true,
       permissions: true,
       ownsTopic: true,
+      // The offer step's check is about its switches, not about this phone.
+      offerSkips: false,
     );
     final withCheck = [
       for (final entry in OnboardingStepRegistry.entries)

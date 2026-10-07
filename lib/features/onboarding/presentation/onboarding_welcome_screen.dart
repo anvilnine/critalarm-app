@@ -8,6 +8,7 @@ import 'package:critalarm/features/onboarding/domain/hero_haptic_cues.dart';
 import 'package:critalarm/features/onboarding/domain/setup_layout_rules.dart';
 import 'package:critalarm/features/onboarding/domain/welcome_timing.dart';
 import 'package:critalarm/features/onboarding/presentation/onboarding_navigation.dart';
+import 'package:critalarm/features/onboarding/presentation/onboarding_shell.dart';
 import 'package:critalarm/features/onboarding/presentation/setup_text_scale.dart';
 import 'package:critalarm/features/onboarding/presentation/widgets/curl_terminal.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -173,20 +174,6 @@ Widget _spokenHeroFor(WelcomeVariant variant, {VoidCallback? onAwake}) =>
     ? _WakeUpHero(onAwake: onAwake)
     : ExcludeSemantics(child: _heroFor(variant));
 
-/// Whether the heroes below may play their haptics. A loop of animations
-/// switches them off after its first pass. With none above, they are on.
-class _HeroHaptics extends InheritedWidget {
-  const _HeroHaptics({required this.isOn, required super.child});
-
-  final bool isOn;
-
-  static bool isOnFor(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_HeroHaptics>()?.isOn ?? true;
-
-  @override
-  bool updateShouldNotify(_HeroHaptics oldWidget) => oldWidget.isOn != isOn;
-}
-
 /// Plays one animation cue on the phone.
 void _playHeroCue(HeroCue cue) => switch (cue) {
   HeroCue.typeTick => AppHaptics.tick(),
@@ -245,10 +232,6 @@ class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
   /// True until [OnboardingAnimationLoop.first] has handed over.
   bool _isOpening = true;
 
-  /// True until every animation has played once. The haptics play on that
-  /// first pass only.
-  bool _isFirstPass = true;
-
   @override
   void initState() {
     super.initState();
@@ -285,8 +268,6 @@ class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
     _next?.cancel();
     final at = widget.loop.indexOf(_variant);
     setState(() {
-      // Leaving the last one means every animation has had its turn.
-      if (at == widget.loop.length - 1) _isFirstPass = false;
       _isOpening = false;
       _variant = widget.loop[(at + 1) % widget.loop.length];
     });
@@ -300,18 +281,15 @@ class _OnboardingAnimationLoopState extends State<OnboardingAnimationLoop> {
         if (widget.isOnItsOwn && !introHeroFits(box.maxHeight)) {
           return const SizedBox.shrink();
         }
-        final hero = _HeroHaptics(
-          isOn: _isFirstPass,
-          child: AnimatedSwitcher(
-            duration: context.motion(const Duration(milliseconds: 450)),
-            child: KeyedSubtree(
-              key: ValueKey(_variant),
-              child: _spokenHeroFor(
-                _variant,
-                // The opening face does not wait for its timer: the next
-                // animation starts as soon as it is awake.
-                onAwake: _isOpening && widget.first != null ? _showNext : null,
-              ),
+        final hero = AnimatedSwitcher(
+          duration: context.motion(const Duration(milliseconds: 450)),
+          child: KeyedSubtree(
+            key: ValueKey(_variant),
+            child: _spokenHeroFor(
+              _variant,
+              // The opening face does not wait for its timer: the next
+              // animation starts as soon as it is awake.
+              onAwake: _isOpening && widget.first != null ? _showNext : null,
             ),
           ),
         );
@@ -363,6 +341,12 @@ class _IntroLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final textScale = setupTextScaleOf(context);
+    // This step has no top bar, so the shell's tracker, small face and Back
+    // sit over the top of the page. The page starts under them, and the
+    // animation gives up that much of its room, so the page is no taller.
+    final trackerRoom = OnboardingAmbientScope.showsTrackerOf(context)
+        ? AppScreenScaffold.topBarHeight - Spacing.s4
+        : 0.0;
 
     // Same frame as the permissions and connect screens, so the button sits
     // in the same place on every onboarding step.
@@ -387,9 +371,9 @@ class _IntroLayout extends StatelessWidget {
       ),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             Spacing.s5,
-            Spacing.s4,
+            Spacing.s4 + trackerRoom,
             Spacing.s5,
             0,
           ),
@@ -421,7 +405,10 @@ class _IntroLayout extends StatelessWidget {
                       // The room the animation keeps depends on the text
                       // size: all of it at the default, none once the text
                       // is larger, so the words come first.
-                      minHeight: introHeroMinHeightFor(textScale),
+                      minHeight: introHeroMinHeightFor(
+                        textScale,
+                        roomAbove: trackerRoom,
+                      ),
                       child: LayoutBuilder(
                         builder: (context, box) {
                           // Too little room for it to read: it goes, and
@@ -505,19 +492,24 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
   /// have none.
   List<TimedCue> buildCues() => const [];
 
-  late final HeroCueClock _cueClock = HeroCueClock(buildCues());
+  /// How many seconds one pass of this hero's story takes, when the story
+  /// starts over and has cues. The cues then play again on every pass.
+  double? get loopTakes => null;
 
-  bool _areHapticsOn = true;
+  late final HeroCueClock _cueClock = HeroCueClock(
+    buildCues(),
+    loopsEvery: loopTakes,
+  );
+
   ModalRoute<Object?>? _route;
 
-  /// Whether this hero may play a haptic right now: it moves, the loop
-  /// around it is on its first pass, its screen is the one on top, and the
-  /// app is in front. A hero whose screen is covered or gone stays silent.
+  /// Whether this hero may play a haptic right now: it moves, its screen is
+  /// the one on top, and the app is in front. A hero whose screen is covered
+  /// or gone stays silent.
   bool get canPlayHaptics {
     final lifecycle = SchedulerBinding.instance.lifecycleState;
     return mounted &&
         !_isStill &&
-        _areHapticsOn &&
         (_route?.isCurrent ?? true) &&
         (lifecycle == null || lifecycle == AppLifecycleState.resumed);
   }
@@ -543,7 +535,6 @@ abstract class _ClockState<T extends StatefulWidget> extends State<T>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _isStill = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    _areHapticsOn = _HeroHaptics.isOnFor(context);
     _route = ModalRoute.of(context);
     // The ticker is stopped, not just ignored: a frame callback that
     // does nothing still wakes the engine every frame.

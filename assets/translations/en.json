@@ -744,6 +744,7 @@
     "token_name_placeholder": "e.g. CI server",
     "token_recap_label": "Token for",
     "toast_created": "Topic created",
+    "made_title": "Your topic lives here",
     "toast_pro_pending": "Hosted is still turning on. Try again in a moment.",
     "name_error_empty": "Give the topic a name.",
     "name_error_invalid": "Use 1 to 64 lowercase letters, digits and hyphens. Try prod-db.",
@@ -1043,7 +1044,9 @@
     "more_states_title": "Other setup states",
     "more_states_subtitle": "Screens around setup that no step opens, with made-up values. Nothing is sent or saved.",
     "force_title": "Count as not done",
-    "force_subtitle": "Setup treats the step as unfinished even when it is already true on this phone."
+    "force_subtitle": "Setup treats the step as unfinished even when it is already true on this phone.",
+    "offer_title": "Offer step",
+    "offer_subtitle": "The switches of the offer step, as in use now. Changing one saves an override, and Open a step then shows the offer on a replay."
   },
   "device_permissions": {
     "title": "Permissions",

@@ -14,8 +14,8 @@ enum OnboardingChapter {
 }
 
 /// The chapter each step belongs to. A step that is not listed here has no
-/// chapter and sits outside the tracker: `hook_up`, `widgets`, the legacy
-/// test, and any step added later that the tracker should not count.
+/// chapter and sits outside the tracker: `offer`, `hook_up`, `widgets`, the
+/// legacy test, and any step added later that the tracker should not count.
 const Map<String, OnboardingChapter> _chapterByStep = {
   OnboardingStepId.welcome: OnboardingChapter.meet,
   OnboardingStepId.howItRings: OnboardingChapter.meet,

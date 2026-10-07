@@ -8,9 +8,13 @@ import 'package:critalarm/features/onboarding/domain/flow/developer_step_list_pa
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_step_catalog.dart';
+import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_config.dart';
+import 'package:critalarm/features/onboarding/domain/offer/onboarding_offer_rule.dart';
 import 'package:critalarm/features/onboarding/presentation/flow/onboarding_step_registry.dart';
 import 'package:critalarm/features/onboarding/presentation/hook_up_screen.dart';
 import 'package:critalarm/features/onboarding/presentation/real_ring_screen.dart';
+import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/topics/domain/tool_template.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_setup_preview.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -124,6 +128,12 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
                 subtitle: LocaleKeys.developer_setup_force_subtitle.tr(),
               ),
               _forceRows(),
+              const SizedBox(height: 14),
+              _Heading(
+                title: LocaleKeys.developer_setup_offer_title.tr(),
+                subtitle: LocaleKeys.developer_setup_offer_subtitle.tr(),
+              ),
+              _offerRows(context),
             ],
           ),
         );
@@ -430,6 +440,97 @@ class _DeveloperSetupSectionState extends State<DeveloperSetupSection> {
                 : null,
           ),
         ],
+      ],
+    );
+  }
+
+  /// The four switches of the offer step. The rows show the values in use
+  /// now, from whichever source won. Changing one saves all four as the
+  /// developer value, which outranks Remote Config.
+  Widget _offerRows(BuildContext context) {
+    final colors = context.appColors;
+    final hasOverride = _overrides.offerJson != null;
+    final now = getIt<OnboardingOfferGate>().chosen().config;
+    final layouts = [
+      for (final layout in paywallLayoutBuilders.keys) layout.key,
+    ];
+
+    void save({
+      bool? enabled,
+      PaywallProduct? Function()? cloudProduct,
+      PaywallProduct? Function()? selfHostedProduct,
+      String? layoutKey,
+    }) => unawaited(
+      _overrides.setOfferJson(
+        OnboardingOfferConfig(
+          enabled: enabled ?? now.enabled,
+          cloudProduct: cloudProduct == null
+              ? now.cloudProduct
+              : cloudProduct(),
+          selfHostedProduct: selfHostedProduct == null
+              ? now.selfHostedProduct
+              : selfHostedProduct(),
+          layoutKey: layoutKey ?? now.layoutKey,
+        ).encode(),
+      ),
+    );
+
+    // A tap moves a row on to its next value, and round again.
+    T after<T>(List<T> values, T current) =>
+        values[(values.indexOf(current) + 1) % values.length];
+
+    Widget valueRow(String name, String value, VoidCallback onTap) => Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: AppListRow(
+        name: name,
+        meta: value,
+        faceState: null,
+        trailing: AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
+        onTap: onTap,
+      ),
+    );
+
+    return Column(
+      children: [
+        AppListRow(
+          name: LocaleKeys.developer_setup_flow_none.tr(),
+          meta: LocaleKeys.developer_setup_flow_none_subtitle.tr(),
+          faceState: null,
+          trailing: hasOverride
+              ? const SizedBox.shrink()
+              : AppGlyph(GlyphType.check, color: colors.highlight, size: 16),
+          onTap: () => unawaited(_overrides.setOfferJson(null)),
+        ),
+        const SizedBox(height: 4),
+        AppToggleRow(
+          title: OnboardingOfferConfig.enabledField,
+          value: now.enabled,
+          onChanged: (on) => save(enabled: on),
+        ),
+        valueRow(
+          OnboardingOfferConfig.cloudProductField,
+          now.cloudProduct?.key ?? OnboardingOfferConfig.noProduct,
+          () => save(
+            cloudProduct: () => after(const [
+              PaywallProduct.pro,
+              PaywallProduct.hosted,
+              null,
+            ], now.cloudProduct),
+          ),
+        ),
+        valueRow(
+          OnboardingOfferConfig.selfHostedProductField,
+          now.selfHostedProduct?.key ?? OnboardingOfferConfig.noProduct,
+          () => save(
+            selfHostedProduct: () =>
+                after(const [PaywallProduct.pro, null], now.selfHostedProduct),
+          ),
+        ),
+        valueRow(
+          OnboardingOfferConfig.layoutField,
+          now.layoutKey,
+          () => save(layoutKey: after(layouts, now.layoutKey)),
+        ),
       ],
     );
   }

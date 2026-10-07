@@ -29,6 +29,7 @@ import 'package:critalarm/features/topics/presentation/formatters/topic_name_for
 import 'package:critalarm/features/topics/presentation/widgets/create_topic_face.dart';
 import 'package:critalarm/features/topics/presentation/widgets/first_topic_critical_card.dart';
 import 'package:critalarm/features/topics/presentation/widgets/token_actions.dart';
+import 'package:critalarm/features/topics/presentation/widgets/topic_made_beat.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -164,19 +165,24 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
     widget.onDone?.call();
   }
 
-  /// What the topic being made does on screen: the face is glad for a beat,
-  /// then settles. In setup the screen then moves on, because the next
-  /// steps show the address and token where they are used.
+  /// Setup made the topic and is showing where it lives on Home. The
+  /// picture moves setup on when it is over, and a tap moves on at once.
+  bool _showsTopicMade = false;
+
+  /// What the topic being made does on screen. In setup the form gives way
+  /// to a picture of Home with the new topic in it, and then the screen
+  /// moves on, because the next steps show the address and token where
+  /// they are used. Anywhere else the face is glad for a beat, then
+  /// settles.
   void _onCreated() {
+    if (_isSetup) {
+      setState(() => _showsTopicMade = true);
+      return;
+    }
     final beat = context.motion(AppDurations.slow);
     _settleTimer?.cancel();
     _settleTimer = Timer(beat, () {
-      if (!mounted) return;
-      if (_isSetup) {
-        _leaveSetup();
-      } else {
-        setState(() => _faceSettled = true);
-      }
+      if (mounted) setState(() => _faceSettled = true);
     });
   }
 
@@ -814,13 +820,42 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
         final stepDuration = context.motion(AppDurations.base);
         // Nothing to do with a name the app already knows is taken.
         final isNameTaken = !isSuccess && !isTokenStep && state.isDuplicateName;
-        // Setup has no created stop: the form stays as it was for the beat
-        // before the screen moves on.
+        // Setup has no created stop: the picture of Home takes the form's
+        // place for a beat and the screen moves on.
         final showsForm = !isSuccess || isSetup;
         final showsCreated = token != null && !isSetup;
         // The step where the topic gets made is the one with something to
         // agree to.
         final showsLegal = !isSuccess && (isSetup || isTokenStep);
+        // Setup made the topic: the form and the button give way to the
+        // picture of Home, which is all there is to look at for that beat.
+        final madeTopic = isSetup && _showsTopicMade
+            ? state.createdTopic
+            : null;
+        if (madeTopic != null) {
+          return AmbientOverride(
+            profile: AmbientAppProfiles.createTopic(colors),
+            direction: AmbientDirection.push,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              // A tap anywhere skips the picture.
+              onTap: _leaveSetup,
+              child: AppScreenScaffold(
+                hasTabBar: false,
+                topBar: AppTopBar(title: setupTopBarTitle(context)),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: TopicMadeBeat(
+                      topicName: madeTopic.name,
+                      ringsThroughSilent: madeTopic.critical,
+                      onDone: _leaveSetup,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
 
         // The system back button and the back gesture do what the top bar's
         // Back does: on step 2 they return to step 1 with everything typed
@@ -1016,7 +1051,12 @@ class _CreateTopicScreenContentState extends State<_CreateTopicScreenContent>
                       faceState: face,
                       faceSize: 110,
                       isLive: true,
-                      padding: const EdgeInsets.fromLTRB(24, Spacing.s3, 24, 0),
+                      padding: const EdgeInsets.fromLTRB(
+                        24,
+                        Spacing.s3,
+                        24,
+                        0,
+                      ),
                     ),
                   ),
                 SliverToBoxAdapter(

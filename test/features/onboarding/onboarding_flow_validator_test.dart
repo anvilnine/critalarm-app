@@ -80,6 +80,7 @@ void main() {
         'permissions',
         'first_topic',
         'real_ring',
+        'offer',
         'hook_up',
       ]);
       expect(BundledOnboardingFlows.october2026A.id, '2026-10-a');

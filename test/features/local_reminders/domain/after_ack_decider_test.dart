@@ -16,7 +16,9 @@ void main() {
       bool isSetupDone = true,
       bool hasOtherOpenIncident = false,
       bool alreadyShownToday = false,
+      bool isOfferAhead = false,
     }) => AfterAckDecider.decide(
+      isOfferAhead: isOfferAhead,
       ackedAt: ackedAt ?? DateTime(2026, 9, 22, 14),
       isTestAck: isTestAck,
       isLocalRemindersSheetShown: isLocalRemindersSheetShown,
@@ -44,6 +46,34 @@ void main() {
         ),
         AfterAck.nothing,
       );
+    });
+
+    test('nothing while the offer step of setup is still to come', () {
+      // Each of these gets a follow-up without the offer ahead.
+      final night = DateTime(2026, 9, 22, 2);
+      for (final isOfferAhead in [false, true]) {
+        final followUps = [
+          decide(
+            isTestAck: true,
+            isLocalRemindersSheetShown: false,
+            isOfferAhead: isOfferAhead,
+          ),
+          decide(isOfferAhead: isOfferAhead),
+          decide(ackedAt: night, offersOn: true, isOfferAhead: isOfferAhead),
+          decide(ackedAt: night, isOfferAhead: isOfferAhead),
+        ];
+        expect(
+          followUps,
+          isOfferAhead
+              ? everyElement(AfterAck.nothing)
+              : [
+                  AfterAck.localRemindersSheet,
+                  AfterAck.proSheet,
+                  AfterAck.planMorningAfter,
+                  AfterAck.proSheetLater,
+                ],
+        );
+      }
     });
 
     test('the Reminders sheet shows once', () {

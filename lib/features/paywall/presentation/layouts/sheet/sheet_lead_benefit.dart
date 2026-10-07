@@ -18,6 +18,7 @@ PaywallBenefitId? sheetBenefitIdFor(PaywallSource source) => switch (source) {
   PaywallSource.reminderMorningAfter ||
   PaywallSource.reminderProLater ||
   PaywallSource.homeDay0Card ||
+  PaywallSource.onboardingOffer ||
   PaywallSource.direct => null,
 };
 
