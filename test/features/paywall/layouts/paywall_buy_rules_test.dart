@@ -490,34 +490,59 @@ void main() {
       expect(buyButtonLabel(checking, name: 'Hosted'), 'Get Hosted');
     });
 
-    test('the second line of a card is the per month figure and the '
-        'saving, or when the plan renews', () {
+    test('the second line of a card is the per month figure, or when the '
+        'plan renews', () {
       final [yearly, monthly] = hostedPlanOptions(
         yearly: _yearly,
         monthly: _monthly,
       );
-      expect(planCardSecondLine(yearly), (
-        left: 'Y-PER-MONTH / month',
-        right: 'Save 33%',
-      ));
-      expect(planCardSecondLine(monthly), (
-        left: 'renews monthly',
-        right: null,
-      ));
+      expect(planCardSecondLine(yearly), 'Y-PER-MONTH / month');
+      expect(planCardSecondLine(monthly), 'renews monthly');
 
       final plainYearly = hostedPlanOptions(
         yearly: const HostedPlanQuote(priceString: 'Y-PRICE', price: _y),
         monthly: null,
       ).single;
-      expect(planCardSecondLine(plainYearly), (
-        left: 'renews yearly',
-        right: null,
-      ));
+      expect(planCardSecondLine(plainYearly), 'renews yearly');
 
       final offer = proPlanOptions(const [
         ProPackOffer(handle: 'a', title: 'A', price: 'A-PRICE'),
       ]).single;
-      expect(planCardSecondLine(offer), (left: null, right: null));
+      expect(planCardSecondLine(offer), isNull);
+    });
+
+    test('the badge is the saving, on the yearly card only, and only when '
+        'the prices show one', () {
+      final [yearly, monthly] = hostedPlanOptions(
+        yearly: _yearly,
+        monthly: _monthly,
+      );
+      expect(planCardBadge(yearly), 'Save 33%');
+      expect(planCardBadge(monthly), isNull);
+
+      final plainYearly = hostedPlanOptions(
+        yearly: _yearly,
+        monthly: null,
+      ).single;
+      expect(planCardBadge(plainYearly), isNull);
+    });
+
+    test('the picker keeps room for a badge only when a card has one', () {
+      expect(planPickerKeepsBadgeRoom(hostedReady), isTrue);
+
+      final noSaving = restingState(
+        _hosted,
+        options: hostedPlanOptions(yearly: _yearly, monthly: null),
+      );
+      expect(planPickerKeepsBadgeRoom(noSaving), isFalse);
+      // Pro has no card at all with one offer.
+      expect(planPickerKeepsBadgeRoom(proReady), isFalse);
+    });
+
+    test('while the store is asked, Hosted holds the badge room so the '
+        'cards do not move when the prices arrive', () {
+      expect(planPickerKeepsBadgeRoom(_hosted), isTrue);
+      expect(planPickerKeepsBadgeRoom(_pro), isFalse);
     });
   });
 
