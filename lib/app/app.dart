@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
+import 'package:critalarm/app/connect_link_host.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/incoming_audio_bindings.dart';
 import 'package:critalarm/app/local_reminder_bindings.dart';
@@ -41,12 +42,14 @@ import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_tr
 import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/settings/domain/entities/app_theme_mode.dart';
 import 'package:critalarm/features/settings/domain/entities/appearance_settings.dart';
 import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:critalarm/features/settings/presentation/theme_mode_mapper.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -241,13 +244,19 @@ class _CritAlarmAppState extends State<CritAlarmApp>
   /// Device registration, the Live Activity token upload and the incident
   /// reconcile each retry themselves on launch. If one still failed after
   /// every retry, this gives it one more try on the next resume instead of
-  /// waiting for the next cold start.
+  /// waiting for the next cold start. Device registration also sends the
+  /// unchanged token again here when a day has passed since the last call.
   Future<void> _retryFailedLaunchCalls() async {
     if (!buildUsesMockApi) {
-      unawaited(getIt<DeviceTokenRegistry>().retryIfPending());
+      unawaited(getIt<DeviceTokenRegistry>().onResumed());
       unawaited(getIt<LiveActivityTokenRegistry>().retryIfPending());
     }
     unawaited(getIt<IncidentAlarmController>().retryIfPending());
+    // The account's packs, at most once a minute (api.md §4.2).
+    unawaited(getIt<ProPackAccess>().refresh());
+    // What the relay says about the weekly check, at most once a minute.
+    // This is also how the phone learns its `notice_after` (api.md §4.5).
+    unawaited(getIt<WeeklyCheckMonitor>().refresh());
   }
 
   /// Drops alarms the user asked the phone to stop keeping. Does nothing
@@ -310,9 +319,12 @@ class _CritAlarmAppState extends State<CritAlarmApp>
                       getIt<DeviceForm>().isIphone,
                   child: FeatureGuideHost(
                     router: _router,
-                    child: AppAmbientShell(
+                    child: ConnectLinkHost(
                       router: _router,
-                      child: child ?? const SizedBox.shrink(),
+                      child: AppAmbientShell(
+                        router: _router,
+                        child: child ?? const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 ),

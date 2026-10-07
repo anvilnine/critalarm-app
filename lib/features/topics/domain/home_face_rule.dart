@@ -1,5 +1,6 @@
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -42,7 +43,7 @@ class HomeFaceResult {
   bool get hasAckedRow => rows.any((r) => r.faceState == FaceState.acked);
 
   /// True while the face changes on its own as time passes: a desk timer
-  /// counting down, or a HANDLED or MISSED face that only lasts a while.
+  /// counting down, or a HANDLED face that only lasts a while.
   bool get needsTick => hasAckedRow || hero.faceState == FaceState.success;
 }
 
@@ -157,6 +158,16 @@ HomeFaceResult resolveHomeFace({
       if (handled.isNotEmpty) {
         handled.sort((a, b) => b.closedAt.compareTo(a.closedAt));
         final entry = handled.first;
+        // An alarm that ran out was not handled by anyone. The row says the
+        // plain fact with a resting face, and the missed alarm notice owns
+        // the rest.
+        if (entry.incident.state == IncidentStates.expired) {
+          return HomeTopicRow(
+            name: t.name,
+            faceState: FaceState.calm,
+            meta: LocaleKeys.notices_missed_alarm_reason_unanswered.tr(),
+          );
+        }
         final time = formatHm(entry.closedAt);
         return HomeTopicRow(
           name: t.name,
@@ -224,43 +235,36 @@ HomeFaceResult resolveHomeFace({
     );
   }
   // A close is a moment, so the face only says HANDLED for a short while.
-  // A missed alarm is worth seeing for the whole hour.
+  // An alarm that ran out is not a close: Home says it in the missed alarm
+  // notice, which has the gates this rule lacks, and never in the hero.
   final heroEntries = handledEntries
       .where(
         (h) =>
-            h.incident.state == IncidentStates.expired ||
+            h.incident.state == IncidentStates.closed &&
             now.difference(h.closedAt) < handledFaceWindow,
       )
       .toList();
   if (heroEntries.isNotEmpty) {
     heroEntries.sort((a, b) => b.closedAt.compareTo(a.closedAt));
     final entry = heroEntries.first;
-    final isExpired = entry.incident.state == IncidentStates.expired;
     final time = formatHm(entry.closedAt);
     return HomeFaceResult(
       hero: HomeHero(
         faceState: FaceState.success,
-        word: isExpired
-            ? LocaleKeys.home_stage_word_missed.tr()
-            : LocaleKeys.home_stage_word_handled.tr(),
-        subText: isExpired
-            ? LocaleKeys.home_stage_sub_missed.tr(
-                namedArgs: {'topic': entry.topic},
-              )
-            : LocaleKeys.home_stage_sub_handled.tr(
-                namedArgs: {'topic': entry.topic, 'time': time},
-              ),
+        word: LocaleKeys.home_stage_word_handled.tr(),
+        subText: LocaleKeys.home_stage_sub_handled.tr(
+          namedArgs: {'topic': entry.topic, 'time': time},
+        ),
         severity: SeverityMode.none,
       ),
       rows: rows,
     );
   }
 
+  // Only a close counts as "handled". An alarm that ran out was not.
   DateTime? newestClosed;
   for (final inc in incidents) {
-    if ((inc.state == IncidentStates.closed ||
-            inc.state == IncidentStates.expired) &&
-        inc.closedAt != null) {
+    if (inc.state == IncidentStates.closed && inc.closedAt != null) {
       if (newestClosed == null || inc.closedAt!.isAfter(newestClosed)) {
         newestClosed = inc.closedAt;
       }
@@ -293,5 +297,26 @@ HomeFaceResult resolveHomeFace({
       severity: SeverityMode.none,
     ),
     rows: rows,
+  );
+}
+
+/// The hero while a notice that asks for a look is in Home's slot: a missed
+/// alarm, missed weekly checks or a phone update.
+///
+/// The notice says something may stop an alarm, so a glad face over "All
+/// clear" would contradict it. The resting hero (calm, or the short HANDLED
+/// moment) takes the look face (`needsLookFace`, the face the "Take a look"
+/// header uses) and keeps one line that is still true. The word and the
+/// last-alarm line go. Anything live, a ringing, acknowledged or warning
+/// hero, is returned unchanged: a quiet hero never hides an alarm.
+HomeHero heroWhileLookNoticeShows(HomeHero hero) {
+  final isResting =
+      hero.faceState == FaceState.calm || hero.faceState == FaceState.success;
+  if (!isResting || hero.ringingIncidentId != null) return hero;
+  return HomeHero(
+    faceState: needsLookFace,
+    word: '',
+    subText: LocaleKeys.home_no_alarm_body.tr(),
+    severity: SeverityMode.none,
   );
 }

@@ -1,4 +1,4 @@
-import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/dismiss_cross.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/faces/face_widget.dart';
 import 'package:critalarm/design/tokens/colors.dart';
@@ -65,9 +65,9 @@ class AppPinnedNoticeBar extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
               Spacing.s3,
-              Spacing.s2,
               Spacing.s1,
-              Spacing.s2,
+              Spacing.s1,
+              Spacing.s1,
             ),
             child: Row(
               children: [
@@ -101,40 +101,11 @@ class AppPinnedNoticeBar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: Spacing.s2),
-                _DismissCross(onTap: onDismiss),
+                AppDismissCross(
+                  onPressed: onDismiss,
+                  label: LocaleKeys.common_close.tr(),
+                ),
               ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A bare cross, no circle behind it, with a hit area big enough for a thumb.
-class _DismissCross extends StatelessWidget {
-  const _DismissCross({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-
-    return Semantics(
-      button: true,
-      label: LocaleKeys.common_close.tr(),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: Radii.fullAll,
-        child: SizedBox(
-          width: 36,
-          height: 36,
-          child: Center(
-            child: AppGlyph(
-              GlyphType.close,
-              size: 12,
-              color: colors.ink3,
             ),
           ),
         ),

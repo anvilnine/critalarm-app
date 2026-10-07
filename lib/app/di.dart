@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:critalarm/app/initial_route_resolver.dart';
+import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
@@ -23,6 +24,8 @@ import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/api/packs_api.dart';
+import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/device/dev_bar_backing_switch.dart';
@@ -30,8 +33,11 @@ import 'package:critalarm/core/device/dev_edge_effect_switch.dart';
 import 'package:critalarm/core/device/device_build_mode.dart';
 import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/device/device_maker.dart';
+import 'package:critalarm/core/device/os_version_reader.dart';
 import 'package:critalarm/core/device/platform_device_maker_reader.dart';
+import 'package:critalarm/core/device/platform_os_version_reader.dart';
 import 'package:critalarm/core/env/env.dart';
+import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
@@ -43,9 +49,11 @@ import 'package:critalarm/core/paywall/pro_override.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/apns_push_token_provider.dart';
 import 'package:critalarm/core/push/firebase_push_token_provider.dart';
+import 'package:critalarm/core/push/last_push_reader.dart';
 import 'package:critalarm/core/push/push_event_drain.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
+import 'package:critalarm/core/push/relay_confirmation_store.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
@@ -60,6 +68,7 @@ import 'package:critalarm/core/storage/shared_prefs_api_session_store.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/telemetry/analytics_events.dart';
+import 'package:critalarm/core/telemetry/connect_link_analytics.dart';
 import 'package:critalarm/core/telemetry/firebase_telemetry_gate.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/core/telemetry/onboarding_funnel.dart';
@@ -89,6 +98,7 @@ import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
+import 'package:critalarm/features/in_app_notices/domain/system_update_notice_rule.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/incidents/data/repositories/in_memory_incident_repository.dart';
@@ -120,6 +130,7 @@ import 'package:critalarm/features/local_reminders/presentation/cubits/local_rem
 import 'package:critalarm/features/local_reminders/presentation/cubits/local_reminder_settings_cubit.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/keychain_mirror_connection_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/observed_connection_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/platform_alarm_arrivals.dart';
 import 'package:critalarm/features/onboarding/data/repositories/platform_notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/prefs_setup_test_ring.dart';
@@ -129,6 +140,7 @@ import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onb
 import 'package:critalarm/features/onboarding/data/repositories/shared_prefs_onboarding_progress_repository.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_intent_store.dart';
+import 'package:critalarm/features/onboarding/domain/entities/notification_permission_status.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_flow_engine.dart';
@@ -148,6 +160,7 @@ import 'package:critalarm/features/onboarding/domain/setup_stats_consent.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/check_notification_permission_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/clear_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/connect_to_server_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
@@ -184,6 +197,41 @@ import 'package:critalarm/features/permissions/domain/repositories/device_permis
 import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:critalarm/features/permissions/domain/usecases/open_permission_settings_usecase.dart';
 import 'package:critalarm/features/permissions/presentation/cubits/device_permissions_cubit.dart';
+import 'package:critalarm/features/pro_pack/data/prefs_pro_pack_dev_switch.dart';
+import 'package:critalarm/features/pro_pack/data/revenuecat_pro_pack_shop.dart';
+import 'package:critalarm/features/pro_pack/data/shared_prefs_pro_pack_store.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_shop.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_store.dart';
+import 'package:critalarm/features/pro_pack/presentation/cubits/pro_pack_sheet_cubit.dart';
+import 'package:critalarm/features/reliability/data/platform_maker_settings_opener.dart';
+import 'package:critalarm/features/reliability/data/platform_phone_capture.dart';
+import 'package:critalarm/features/reliability/data/platform_scheduled_summary_reader.dart';
+import 'package:critalarm/features/reliability/data/shared_prefs_maker_guide_store.dart';
+import 'package:critalarm/features/reliability/data/shared_prefs_missed_alarm_store.dart';
+import 'package:critalarm/features/reliability/data/shared_prefs_os_version_store.dart';
+import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
+import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
+import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
+import 'package:critalarm/features/reliability/domain/maker/maker_guide_store.dart';
+import 'package:critalarm/features/reliability/domain/maker/maker_settings_opener.dart';
+import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
+import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_store.dart';
+import 'package:critalarm/features/reliability/domain/os_version_store.dart';
+import 'package:critalarm/features/reliability/domain/reliability_fix_runner.dart';
+import 'package:critalarm/features/reliability/domain/scheduled_summary_reader.dart';
+import 'package:critalarm/features/reliability/domain/sources/last_push_source.dart';
+import 'package:critalarm/features/reliability/domain/sources/missed_alarm_source.dart';
+import 'package:critalarm/features/reliability/domain/sources/permissions_source.dart';
+import 'package:critalarm/features/reliability/domain/sources/phone_maker_source.dart';
+import 'package:critalarm/features/reliability/domain/sources/push_token_source.dart';
+import 'package:critalarm/features/reliability/domain/sources/system_update_source.dart';
+import 'package:critalarm/features/reliability/domain/sources/time_sensitive_source.dart';
+import 'package:critalarm/features/reliability/presentation/cubits/reliability_cubit.dart';
+import 'package:critalarm/features/reliability/presentation/maker/maker_guide_cubit.dart';
 import 'package:critalarm/features/search/data/repositories/asset_docs_index_repository.dart';
 import 'package:critalarm/features/search/data/repositories/shared_prefs_recent_searches_repository.dart';
 import 'package:critalarm/features/search/domain/repositories/docs_index_repository.dart';
@@ -220,6 +268,7 @@ import 'package:critalarm/features/settings/domain/usecases/set_theme_mode_useca
 import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/app_icon_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
+import 'package:critalarm/features/settings/presentation/cubits/priorities_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/recorder_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/sound_crop_cubit.dart';
@@ -250,6 +299,12 @@ import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
+import 'package:critalarm/features/weekly_check/data/shared_prefs_weekly_check_store.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_source.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_store.dart';
+import 'package:critalarm/features/weekly_check/presentation/cubits/weekly_check_cubit.dart';
+import 'package:critalarm/features/weekly_check/presentation/cubits/weekly_check_rounds_cubit.dart';
 import 'package:critalarm/firebase_options.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -312,6 +367,13 @@ Future<void> configureDependencies({
     // The only place the switch is handed to the rest of the app. In a store
     // build appProOverride is a NoProOverride and this call does nothing.
     appProOverride.watch(getIt<DevProSwitch>());
+
+    // The same for the Pro pack: its own switch, its own override. A store
+    // build compiles appProPackOverride as a NoProPackOverride.
+    if (!getIt.isRegistered<ProPackDevSwitch>()) {
+      getIt.registerSingleton<ProPackDevSwitch>(PrefsProPackDevSwitch(prefs));
+    }
+    appProPackOverride.watch(getIt<ProPackDevSwitch>());
   }
 
   if (buildHasPaywallLab) {
@@ -423,7 +485,12 @@ Future<void> configureDependencies({
     ..registerLazySingleton<TopicListPrefsRepository>(
       () => SharedPrefsTopicListPrefsRepository(getIt<SharedPreferences>()),
     )
-    ..registerLazySingleton<PushHost>(PushHost.new)
+    // A connect link the user tapped waits here, in memory only, until a
+    // screen takes it.
+    ..registerLazySingleton<ConnectLinkHolder>(ConnectLinkHolder.new)
+    ..registerLazySingleton<PushHost>(
+      () => PushHost(null, getIt<ConnectLinkHolder>()),
+    )
     ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
     ..registerLazySingleton<WidgetHost>(WidgetHost.new)
     ..registerLazySingleton<AppIconHost>(AppIconHost.new)
@@ -456,7 +523,81 @@ Future<void> configureDependencies({
               // inside the closure, because the repository needs this client.
               onDeadCredential: () =>
                   getIt<AccountRepository>().recoverFromDeadCredential(),
+              readDeviceToken: () async =>
+                  (await getIt<DeviceIdentityStore>().readOrCreate())
+                      .deviceToken,
+              readDeviceId: () async =>
+                  (await getIt<DeviceIdentityStore>().readOrCreate()).deviceId,
             ),
+    )
+    // The weekly check routes live on the same client too.
+    ..registerLazySingleton<WeeklyCheckApi>(() {
+      final Object api = getIt<ApiClient>();
+      return api is WeeklyCheckApi ? api : const NoWeeklyCheckApi();
+    })
+    ..registerLazySingleton<WeeklyCheckStore>(
+      () => SharedPrefsWeeklyCheckStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<WeeklyCheckMonitor>(() {
+      final monitor = WeeklyCheckMonitor(
+        api: getIt<WeeklyCheckApi>(),
+        store: getIt<WeeklyCheckStore>(),
+        readDeviceId: () async =>
+            (await getIt<DeviceIdentityStore>().readOrCreate()).deviceId,
+        onPackRefused: (packId) => getIt<ProPackAccess>().relayRefused(packId),
+      );
+      // Gaining or losing the pack changes what the relay answers for the
+      // weekly check, so it is read again at once.
+      getIt<ProPackAccess>().stream.listen(
+        (_) => unawaited(monitor.refresh(force: true)),
+      );
+      return monitor;
+    })
+    ..registerLazySingleton<WeeklyCheckCubit>(
+      () => WeeklyCheckCubit(
+        monitor: getIt<WeeklyCheckMonitor>(),
+        readIsSelfHosted: () async =>
+            (await getIt<ApiSessionStore>().read())?.mode ==
+            ServerMode.selfhosted,
+      ),
+    )
+    ..registerFactory(() => WeeklyCheckRoundsCubit(getIt<WeeklyCheckApi>()))
+    // The pack routes live on the same client. A client swapped in by a test
+    // that does not speak them gets the one that always fails.
+    ..registerLazySingleton<PacksApi>(() {
+      final Object api = getIt<ApiClient>();
+      return api is PacksApi ? api : const NoPacksApi();
+    })
+    ..registerLazySingleton<ProPackStore>(
+      () => SharedPrefsProPackStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<ProPackAccess>(
+      () => ProPackAccess(
+        api: getIt<PacksApi>(),
+        store: getIt<ProPackStore>(),
+        readAccountId: () async =>
+            (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
+        // The kept list is for one account on one relay. A sign-out, a
+        // sign-in or a new plan is a reason to look at who this phone is.
+        readRelay: () async =>
+            (await getIt<ApiSessionStore>().read())?.relayUri,
+        identityChanges: [appAccountIdentityChanges, appPlanChanges],
+      ),
+    )
+    // A build that skips the store has nothing on sale.
+    ..registerLazySingleton<ProPackShop>(
+      () => buildSkipsPaywall
+          ? const ClosedProPackShop()
+          : RevenueCatProPackShop(getIt<RevenueCatService>()),
+    )
+    ..registerFactory(
+      () => ProPackSheetCubit(
+        access: getIt<ProPackAccess>(),
+        shop: getIt<ProPackShop>(),
+        analytics: getIt.isRegistered<TelemetryGate>()
+            ? ProPackAnalytics(getIt<TelemetryGate>())
+            : null,
+      ),
     )
     ..registerLazySingleton<ThemePreferenceRepository>(
       () => SharedPrefsThemePreferenceRepository(getIt<SharedPreferences>()),
@@ -487,10 +628,18 @@ Future<void> configureDependencies({
     // The iOS extension reads the server and the token out of the keychain,
     // so saving a connection has to land there too.
     ..registerLazySingleton<ConnectionRepository>(
-      () => KeychainMirrorConnectionRepository(
-        SharedPrefsConnectionRepository(getIt<SharedPreferences>()),
-        getIt<NseCredentialStore>(),
-        widgets: getIt<WidgetHost>(),
+      () => ObservedConnectionRepository(
+        KeychainMirrorConnectionRepository(
+          SharedPrefsConnectionRepository(getIt<SharedPreferences>()),
+          getIt<NseCredentialStore>(),
+          widgets: getIt<WidgetHost>(),
+        ),
+        // The missed alarm check counts an incident only from the moment
+        // this phone connected to its server, so it hears every save and
+        // every removal here, when it happens.
+        onSaved: (serverUrl) =>
+            getIt<MissedAlarmReader>().connectionSaved(serverUrl),
+        onCleared: () => getIt<MissedAlarmReader>().connectionCleared(),
       ),
     )
     ..registerLazySingleton<OnboardingProgressRepository>(
@@ -572,6 +721,15 @@ Future<void> configureDependencies({
         getIt<DeviceIdentityStore>(),
         getIt<PushTokenProvider>(),
         identifyAccount: getIt<RevenueCatService>().identifyAccount,
+        beforePacksRequest: () => getIt<ProPackAccess>().beginRelayRequest(),
+        onPacks: (response, {relayUri, request}) =>
+            getIt<ProPackAccess>().relayAnswered(
+              accountId: response.accountId,
+              packs: response.packs,
+              tier: response.tier,
+              relay: relayUri,
+              request: request,
+            ),
       ),
     )
     ..registerLazySingleton(
@@ -760,6 +918,19 @@ Future<void> configureDependencies({
         tokens: getIt<PushTokenProvider>(),
         appVersion: appVersion,
         callLog: getIt<LaunchCallLog>(),
+        confirmations: getIt<RelayConfirmationStore>(),
+        // What a confirmation is about: this device, the relay of the saved
+        // server and the token. No saved server, nothing to name.
+        scopeFor: (token) async {
+          final session = await getIt<ApiSessionStore>().read();
+          if (session == null) return null;
+          final identity = await getIt<DeviceIdentityStore>().readOrCreate();
+          return RelayConfirmationScope.of(
+            deviceId: identity.deviceId,
+            relay: session.relayUri.toString(),
+            token: token,
+          );
+        },
       ),
     )
     ..registerLazySingleton<AlarmHost>(AlarmHost.new)
@@ -793,7 +964,14 @@ Future<void> configureDependencies({
       () => LocalReminderAnalytics(getIt<TelemetryGate>()),
     )
     ..registerLazySingleton(
-      () => PushEventDrain(getIt<SharedPreferences>(), getIt<TelemetryGate>()),
+      () => ConnectLinkAnalytics(getIt<TelemetryGate>()),
+    )
+    ..registerLazySingleton(
+      () => PushEventDrain(
+        getIt<SharedPreferences>(),
+        getIt<TelemetryGate>(),
+        lastPush: getIt<LastPushStore>(),
+      ),
     )
     // Setup step events. They wait on the phone until the user answers the
     // analytics question.
@@ -861,6 +1039,8 @@ Future<void> configureDependencies({
           // checklist, which is what lets Home tell this install from one
           // set up long before it.
           unawaited(getIt<SetupChecklistStore>().markSetUpHere());
+          // The missed alarm check counts nothing that opened before this.
+          unawaited(getIt<MissedAlarmReader>().setupCompleted());
         },
         getIt<FirstTopicHandoff>(),
         getIt<SetupTestRing>(),
@@ -1139,6 +1319,30 @@ Future<void> configureDependencies({
     ..registerLazySingleton(
       () => GetServerInfoUsecase(getIt<ServerRepository>()),
     )
+    // The one way a server is connected. The setup connect step and a
+    // connect link both call it.
+    ..registerLazySingleton(
+      () => ConnectToServerUsecase(
+        getIt<GetServerInfoUsecase>(),
+        getIt<EstablishApiSessionUsecase>(),
+        getIt<SaveConnectionUsecase>(),
+        // A server picked by hand replaces a Cloud connect still waiting.
+        cancelPendingConnect: () => getIt<BackgroundConnect>().cancel(),
+        readSavedServerUrl: () async =>
+            (await getIt<ConnectionRepository>().getConnection())
+                .getOrNull()
+                ?.serverUrl,
+        // A connect to a different server drops what belongs to the old
+        // one: the same four things an account wipe drops, plus the
+        // archive. Settings, sounds, permissions and the rest stay.
+        forgetServerData: () async {
+          await getIt<AckQueue>().clear();
+          await getIt<MessageSyncService>().resetAllCursors();
+          await getIt<RecentSearchesRepository>().clear();
+          await localStore?.clearServerData();
+        },
+      ),
+    )
     ..registerLazySingleton(
       () => TriggerTestAlarmUsecase(
         getIt<IncidentRepository>(),
@@ -1338,6 +1542,7 @@ Future<void> configureDependencies({
         readDraft: getIt<ReadOnboardingDraftUsecase>(),
         saveDraft: getIt<SaveOnboardingDraftUsecase>(),
         backgroundConnect: getIt<BackgroundConnect>(),
+        connectToServer: getIt<ConnectToServerUsecase>(),
         initialConnected: initialConnected ?? false,
       ),
     )
@@ -1540,6 +1745,199 @@ Future<void> configureDependencies({
         getIt<GetDevicePermissionsUsecase>(),
       ),
     )
+    // Reliability checks. Each source answers for its own checks, and the
+    // cubit sums them up. A new source is a class and one line in the list
+    // below. Nothing draws them yet.
+    ..registerLazySingleton(
+      () => RelayConfirmationStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton(() => LastPushStore(getIt<SharedPreferences>()))
+    ..registerLazySingleton(
+      () => LastPushReader(
+        getIt<SharedPreferences>(),
+        getIt<LastPushStore>(),
+        // On iOS the extension writes its rows to the App Group, and they
+        // only reach Dart's list on the next launch. The alarm channel reads
+        // the group directly.
+        nativeRows: getIt<PlatformCapabilities>().isIos
+            ? () async {
+                final snapshot = await getIt<AlarmHost>().debugSnapshot();
+                final rows = snapshot['push_events'];
+                return rows is List ? rows : const [];
+              }
+            : null,
+      ),
+    )
+    ..registerLazySingleton<OsVersionReader>(
+      () => PlatformOsVersionReader(
+        DeviceInfoPlugin(),
+        platform: defaultTargetPlatform,
+        isWeb: kIsWeb,
+      ),
+    )
+    ..registerLazySingleton<OsVersionStore>(
+      () => SharedPrefsOsVersionStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<ScheduledSummaryReader>(
+      PlatformScheduledSummaryReader.new,
+    )
+    ..registerLazySingleton(
+      () => SystemUpdateSource(
+        os: getIt<OsVersionReader>(),
+        store: getIt<OsVersionStore>(),
+        // The newest test the server accepted, on any topic.
+        lastTestAt: () async {
+          final store = getIt<LocalReminderStore>();
+          await store.reload();
+          DateTime? newest;
+          for (final at in store.readLastTestAt().values) {
+            if (newest == null || at.isAfter(newest)) newest = at;
+          }
+          return newest;
+        },
+        testRouteName: AppRoute.testRing,
+      ),
+    )
+    ..registerLazySingleton<MakerGuideStore>(
+      () => SharedPrefsMakerGuideStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton<MakerSettingsOpener>(
+      PlatformMakerSettingsOpener.new,
+    )
+    ..registerFactory(
+      () => MakerGuideCubit(
+        makerReader: getIt<DeviceMakerReader>(),
+        os: getIt<OsVersionReader>(),
+        store: getIt<MakerGuideStore>(),
+        opener: getIt<MakerSettingsOpener>(),
+      ),
+    )
+    // The missed alarm check. It reads what the phone and the shared lists
+    // already hold: no call to the server, no alert, nothing on the alarm
+    // path changed.
+    ..registerLazySingleton<MissedAlarmStore>(
+      () => SharedPrefsMissedAlarmStore(getIt<SharedPreferences>()),
+    )
+    ..registerLazySingleton(
+      () => PlatformPhoneCapture(
+        prefs: getIt<SharedPreferences>(),
+        readNative: getIt<AlarmHost>().debugSnapshot,
+        readAckQueue: getIt<AckQueue>().entries,
+        alarmIds: [
+          getIt<AlarmHost>().alarmsScheduled,
+          getIt<PushHost>().alarmPushes,
+        ],
+        alarmingIds: () => getIt<IncidentAlarmController>().alarmingIncidentIds,
+      ),
+    )
+    ..registerLazySingleton(
+      () => MissedAlarmReader(
+        store: getIt<MissedAlarmStore>(),
+        readIncidents: () => getIt<IncidentsCubit>().state.incidents,
+        // What the shared list already holds. Never a fetch.
+        readTopicNames: () async {
+          final topics = getIt<TopicsCubit>().state;
+          return topics.isReady
+              ? {for (final topic in topics.topics) topic.name}
+              : null;
+        },
+        capture: getIt<PlatformPhoneCapture>().take,
+        isSetupDone: () async =>
+            (await getIt<GetOnboardingCompletedUsecase>()(
+              const NoParams(),
+            )).getOrNull() ??
+            false,
+        readServer: () async {
+          final conn = (await getIt<GetConnectionUsecase>()(
+            const NoParams(),
+          )).getOrNull();
+          final url = conn?.serverUrl.trim() ?? '';
+          return url.isEmpty ? null : url;
+        },
+        firstLaunchAt: getIt<InAppNoticeRepository>().getFirstSeenAt,
+        setupIncidentIds: () => getIt<SetupTestRing>().setupIncidentIds,
+        // Android writes a row for every push it is handed (`PushRouter`).
+        // An iPhone only writes one when the notification extension runs,
+        // so there a stretch with no row proves nothing.
+        everyPushIsLogged:
+            !getIt<PlatformCapabilities>().isWeb &&
+            getIt<PlatformCapabilities>().platform == TargetPlatform.android,
+      ),
+    )
+    ..registerLazySingleton(
+      () => ReliabilityFixRunner(
+        openSystemSettings: (permission) async {
+          await getIt<OpenPermissionSettingsUsecase>()(permission);
+        },
+        reRegisterPushToken: getIt<DeviceTokenRegistry>().confirmNow,
+      ),
+    )
+    ..registerLazySingleton(
+      () => ReliabilityCubit([
+        PermissionsSource(
+          permissions: getIt<DevicePermissionsRepository>(),
+          capabilities: getIt<PlatformCapabilities>(),
+          os: getIt<OsVersionReader>(),
+          // The phone does not tell "never asked" from "said no" for
+          // notifications. The same answer the permissions screen uses.
+          notificationsNeverAsked: () async =>
+              (await getIt<CheckNotificationPermissionUsecase>()(
+                const NoParams(),
+              )).getOrNull() ==
+              NotificationPermissionStatus.notDetermined,
+        ),
+        PushTokenSource(
+          store: getIt<RelayConfirmationStore>(),
+          currentScope: getIt<DeviceTokenRegistry>().currentScope,
+          // The registry is not started on the mock server, and a phone with
+          // no server has nobody to register with.
+          isRelayExpected: () async =>
+              !buildUsesMockApi &&
+              getIt<PlatformCapabilities>().canRegisterPush &&
+              await getIt<ApiSessionStore>().read() != null,
+        ),
+        LastPushSource(
+          reader: getIt<LastPushReader>(),
+          capabilities: getIt<PlatformCapabilities>(),
+          hasCriticalTopic: () async =>
+              (await getIt<GetTopicsUsecase>()(
+                const NoParams(),
+              )).getOrNull()?.any((topic) => topic.critical) ??
+              false,
+          testRouteName: AppRoute.testRing,
+        ),
+        TimeSensitiveSource(
+          capabilities: getIt<PlatformCapabilities>(),
+          os: getIt<OsVersionReader>(),
+          permissions: getIt<DevicePermissionsRepository>(),
+          summary: getIt<ScheduledSummaryReader>(),
+        ),
+        getIt<SystemUpdateSource>(),
+        PhoneMakerSource(
+          capabilities: getIt<PlatformCapabilities>(),
+          makerReader: getIt<DeviceMakerReader>(),
+          os: getIt<OsVersionReader>(),
+          store: getIt<MakerGuideStore>(),
+          guideRouteName: makerGuideRouteName,
+        ),
+        MissedAlarmSource(
+          readMissed: getIt<MissedAlarmReader>().read,
+          readDismissedIds: () =>
+              getIt<MissedAlarmStore>().readDismissed().keys.toSet(),
+          testRouteName: AppRoute.testRing,
+        ),
+        // The weekly check counts while it is switched on, as "needs a
+        // look" at most. It reads what the monitor already holds and never
+        // calls the relay: the row's own cubit does that.
+        WeeklyCheckSource(
+          readCheck: () => getIt<WeeklyCheckMonitor>().check,
+          isPackHeld: () => getIt<ProPackAccess>().isHeld,
+          readMissedByClock: () =>
+              getIt<WeeklyCheckMonitor>().twoRoundsMissed(),
+          testRouteName: AppRoute.testRing,
+        ),
+      ]),
+    )
     ..registerFactory(
       () => HistoryCubit(
         getIt<IncidentsCubit>(),
@@ -1700,6 +2098,17 @@ Future<void> configureDependencies({
       ),
     )
     ..registerFactory(
+      () => PrioritiesCubit(
+        getIt<AlarmHost>(),
+        getIt<SoundHost>(),
+        getIt<AlarmSoundRepository>(),
+        packs: getIt<SoundPackRepository>(),
+        platform: getIt<PlatformCapabilities>().platform,
+        isWeb: getIt<PlatformCapabilities>().isWeb,
+        nameOf: (id) => 'sound_library.names.$id'.tr(),
+      ),
+    )
+    ..registerFactory(
       () => DevicePermissionsCubit(
         getIt<GetDevicePermissionsUsecase>(),
         getIt<OpenPermissionSettingsUsecase>(),
@@ -1763,10 +2172,97 @@ Future<void> configureDependencies({
         readTopics: () async =>
             (await getIt<GetTopicsUsecase>()(const NoParams())).getOrNull(),
         proEnding: getIt<ProEnding>(),
+        // The same check the Reliability screen lists. Reading it also
+        // stamps an OS version change.
+        readSystemUpdate: () async {
+          final checks = await getIt<SystemUpdateSource>().read();
+          final needsLook = checks.any(
+            (check) =>
+                check.id == ReliabilityCheckIds.systemUpdate &&
+                check.state == ReliabilityState.needsLook,
+          );
+          return SystemUpdateReading(
+            needsLook: needsLook,
+            osMajor: getIt<OsVersionStore>().read().major,
+          );
+        },
+        readMissedAlarms: getIt<MissedAlarmReader>().read,
+        readDismissedMissedAlarms: () =>
+            getIt<MissedAlarmStore>().readDismissed().keys.toSet(),
+        dismissMissedAlarms: getIt<MissedAlarmReader>().dismiss,
+        // Asked again when an incident runs out, and only then: the list
+        // changes far more often than that.
+        missedAlarmChanges: _expiredIncidentChanges(getIt<IncidentsCubit>()),
+        // Two weekly check rounds missed in a row, by the relay's count or
+        // by this phone's own clock. A card on Home, never a notification.
+        readWeeklyCheckStopped: () async =>
+            getIt<WeeklyCheckMonitor>().shouldShowNotice(
+              isSetupDone: await getIt<SetupGate>().isDone(),
+            ),
+        dismissWeeklyCheck: getIt<WeeklyCheckMonitor>().dismissNotice,
+        weeklyCheckChanges: getIt<WeeklyCheckMonitor>().changes,
         identityChanges: appAccountIdentityChanges,
         isSetupDone: () => getIt<SetupGate>().isDone(),
       ),
     );
+
+  if (buildSkipsPaywall && useMockApi) {
+    // In a mock build the developer switch also makes the mock relay hold
+    // the pack, so the read from it and the two pack routes answer the same
+    // as the switch.
+    final devSwitch = getIt<ProPackDevSwitch>();
+    void applyToMock() {
+      final granted = getIt<MockServer>().grantedPacks;
+      if (devSwitch.value) {
+        granted.add(proPackId);
+      } else {
+        granted.remove(proPackId);
+      }
+      unawaited(getIt<ProPackAccess>().refresh(force: true));
+    }
+
+    devSwitch.addListener(applyToMock);
+    applyToMock();
+  }
+}
+
+/// Starts what the missed alarm check needs from launch on. Call it on the
+/// line before the push event drain runs: the drain empties the native list
+/// this copies.
+///
+/// It reads and listens. It changes nothing about how an alarm rings.
+void startMissedAlarmWatch() {
+  getIt<PlatformPhoneCapture>()
+    ..start()
+    ..holdPendingRows();
+  // A topic is stamped the moment the shared list first holds it.
+  final topics = getIt<TopicsCubit>();
+  void seen(TopicsState state) {
+    if (!state.isReady) return;
+    unawaited(
+      getIt<MissedAlarmReader>().topicsSeen([
+        for (final topic in state.topics) topic.name,
+      ]),
+    );
+  }
+
+  seen(topics.state);
+  topics.stream.listen(seen);
+}
+
+/// Fires when the set of expired incidents in the shared list changes, and
+/// at no other time: the list itself changes far more often than that.
+Stream<void> _expiredIncidentChanges(IncidentsCubit incidents) {
+  String keyOf(IncidentsState state) => [
+    for (final incident in state.incidents)
+      if (incident.isExpired) incident.id,
+  ].join(',');
+  var last = keyOf(incidents.state);
+  return incidents.stream.map(keyOf).where((key) {
+    if (key == last) return false;
+    last = key;
+    return true;
+  });
 }
 
 void _mirrorStorePro(CustomerInfo info) => appPlanChanges.setStoreSaysPro(

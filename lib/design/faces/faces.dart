@@ -1,6 +1,7 @@
 /// Expressive face widgets and painters for Crit Alarm.
 library;
 
+export 'face_meaning.dart';
 export 'face_painter.dart';
 export 'face_rig.dart';
 export 'face_ripple.dart';

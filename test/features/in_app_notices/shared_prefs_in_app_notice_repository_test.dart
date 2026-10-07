@@ -34,6 +34,21 @@ void main() {
     expect(repo.getProEndedSheetDueFor(), isNull);
   });
 
+  test(
+    'the system update notice remembers the OS version it was closed for',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final repo = SharedPrefsInAppNoticeRepository(
+        await SharedPreferences.getInstance(),
+      );
+      expect(repo.getSystemUpdateNoticeDismissedFor(), isNull);
+      await repo.dismissSystemUpdateNotice(27);
+      expect(repo.getSystemUpdateNoticeDismissedFor(), 27);
+      await repo.dismissSystemUpdateNotice(28);
+      expect(repo.getSystemUpdateNoticeDismissedFor(), 28);
+    },
+  );
+
   late SharedPrefsInAppNoticeRepository repository;
 
   setUp(() async {

@@ -368,6 +368,14 @@ import AlarmKit
     postTap(tap)
   }
 
+  /// A link `AppLinkRule` took: an `https://critalarm.app` universal link
+  /// or its `critalarm://` form. Dart parses it. The link is never logged,
+  /// because a connect link carries a token.
+  func openAppLink(_ tap: [String: String]) {
+    NSLog("CritAlarm: app_link_opened")
+    postTap(tap)
+  }
+
   /// Hands Dart whatever is waiting, once. A cold launch from a tap comes
   /// through here, which is how the app opens on the right screen, and so
   /// does a tap that woke the app: Dart asks again on every resume, before it
@@ -708,6 +716,17 @@ import AlarmKit
     didReceiveRemoteNotification userInfo: [AnyHashable: Any],
     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
   ) {
+    // The weekly check (api.md §5.4) is not an incident push. It is answered
+    // and nothing else happens: no notification, no sound, no Live Activity,
+    // no alarm, and nothing below this line runs for it. Every other push is
+    // not a check and goes on exactly as before.
+    if let check = CheckPush(payload: userInfo) {
+      WeeklyCheckResponder.answer(check) { sent in
+        DispatchQueue.main.async { completionHandler(sent ? .newData : .noData) }
+      }
+      return
+    }
+
     guard let push = IncidentPush(payload: userInfo) else {
       completionHandler(.noData)
       return

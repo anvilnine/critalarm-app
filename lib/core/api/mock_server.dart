@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
+import 'package:critalarm/core/models/account_pack.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -10,6 +11,7 @@ import 'package:critalarm/core/models/send_result.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/core/models/topic_token.dart';
+import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -63,6 +65,53 @@ class MockServer {
   /// `POST /v1/account/join-token` replaces it with a fresh one (api.md §3.7).
   final Map<String, String> accountJoinTokens = {};
 
+  /// Packs the fixture account holds from a source that is not the store: a
+  /// grant, or the relay's own configuration. The developer switch for the
+  /// pack writes here, so a mock build can hold one with nothing bought.
+  final Set<String> grantedPacks = {};
+
+  /// Packs the store lists for the fixture account. A test adds one to stand
+  /// in for a purchase. The relay only learns of it on its next store read.
+  final Set<String> storePacks = {};
+
+  /// What the last store read that worked found.
+  final Set<String> _packsFromStore = {};
+
+  /// False makes `POST /relay/v1/packs/refresh` answer `"confirmed":false`,
+  /// as a relay does when the store cannot be read or it never reads one.
+  bool storeReadable = true;
+
+  /// The last store read that worked, in epoch seconds. Null until one has.
+  int? packsCheckedAt;
+
+  /// The clock the refresh limit counts on. A test swaps it.
+  DateTime Function() packsClock = DateTime.now;
+
+  final List<DateTime> _packRefreshes = [];
+
+  /// api.md §4.2: refresh is limited to this many calls per window.
+  static const packRefreshLimit = 6;
+  static const packRefreshWindow = Duration(seconds: 60);
+
+  /// Whether the fixture device is enrolled in the weekly check.
+  bool weeklyCheckEnabled = false;
+
+  /// The fixture device's rounds, newest first. A test or a capture writes
+  /// them, or [seedWeeklyCheck] does.
+  final List<WeeklyCheckRound> weeklyCheckRounds = [];
+
+  /// The id the push of the open round carries. No route returns it.
+  String? weeklyCheckOpenCheckId;
+
+  /// False stands in for a relay that holds no push token for the device.
+  bool weeklyCheckHasToken = true;
+
+  /// When the device enrolled, in epoch seconds.
+  int? weeklyCheckEnrolledAt;
+
+  /// The relay's clock for the weekly check. A test swaps it.
+  DateTime Function() weeklyCheckClock = DateTime.now;
+
   int _counter = 1000;
 
   /// Makes `GET /v1/incidents/{id}` answer 503, so the app's fallback path can
@@ -88,6 +137,20 @@ class MockServer {
     accountIdentities.clear();
     tombstonedAccounts.clear();
     accountJoinTokens.clear();
+    grantedPacks.clear();
+    storePacks.clear();
+    _packsFromStore.clear();
+    storeReadable = true;
+    packsCheckedAt = null;
+    packsClock = DateTime.now;
+    _packRefreshes.clear();
+    weeklyCheckEnabled = false;
+    weeklyCheckRounds.clear();
+    weeklyCheckOpenCheckId = null;
+    weeklyCheckHasToken = true;
+    weeklyCheckEnrolledAt = null;
+    weeklyCheckClock = DateTime.now;
+    _answeredChecks.clear();
     _counter = 1000;
     failIncidentFetch = false;
   }
@@ -1091,10 +1154,325 @@ class MockServer {
       accountId: accountId,
       accountJoinToken: joinToken,
       caps: caps,
+      packs: heldPacks(),
     );
 
     _devices[registration.deviceId] = response;
     return response;
+  }
+
+  /// The packs the fixture account holds now, from every source.
+  List<AccountPack> heldPacks() => [
+    for (final id in {...grantedPacks, ..._packsFromStore}.toList()..sort())
+      AccountPack(id: id),
+  ];
+
+  /// GET /relay/v1/packs. Answers from what is held and reads no store.
+  PacksAnswer getPacks() =>
+      PacksAnswer(packs: heldPacks(), checkedAt: packsCheckedAt);
+
+  /// POST /relay/v1/packs/refresh. Reads the store inside the call when it
+  /// can. `confirmed` is about that read, never about the list.
+  PacksRefreshAnswer refreshPacks() {
+    final now = packsClock();
+    _packRefreshes.removeWhere(
+      (at) => now.difference(at) >= packRefreshWindow,
+    );
+    if (_packRefreshes.length >= packRefreshLimit) {
+      throw const ApiException(
+        statusCode: 429,
+        message: 'rate limited',
+        code: 42901,
+      );
+    }
+    _packRefreshes.add(now);
+    if (storeReadable) {
+      _packsFromStore
+        ..clear()
+        ..addAll(storePacks);
+      packsCheckedAt = now.millisecondsSinceEpoch ~/ 1000;
+    }
+    return PacksRefreshAnswer(
+      confirmed: storeReadable,
+      packs: heldPacks(),
+      checkedAt: packsCheckedAt,
+    );
+  }
+
+  /// The bearer on a pack route has to be a device token this server gave.
+  void _authorizePackCall(String token) {
+    if (token.isEmpty ||
+        !_devices.values.any((device) => device.deviceToken == token)) {
+      throw const ApiException(statusCode: 401, message: 'unauthorized');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Weekly check (api.md §4.5)
+  // ---------------------------------------------------------------------------
+
+  static const int _checkDay = 24 * 60 * 60;
+  static const int _checkWeek = 7 * _checkDay;
+
+  int _checkNow() => weeklyCheckClock().millisecondsSinceEpoch ~/ 1000;
+
+  /// Puts the fixture device in one state of the weekly check, with the
+  /// rounds that lead to it. For captures and tests.
+  ///
+  /// [WeeklyCheckState.off] is switched off. For a lost pack, seed another
+  /// state and take the pack away.
+  void seedWeeklyCheck(WeeklyCheckState state) {
+    final now = _checkNow();
+    weeklyCheckRounds.clear();
+    weeklyCheckOpenCheckId = null;
+    weeklyCheckHasToken = state != WeeklyCheckState.noToken;
+    weeklyCheckEnabled = state != WeeklyCheckState.off;
+    weeklyCheckEnrolledAt = now - 30 * _checkDay;
+
+    // The newest round opened 26 hours ago, so one that was missed has
+    // closed, and the next is due in six days.
+    WeeklyCheckRound closed(int weeksAgo, WeeklyCheckResult result) {
+      final opened = now - weeksAgo * _checkWeek - 26 * 60 * 60;
+      final received = result == WeeklyCheckResult.received;
+      return WeeklyCheckRound(
+        id: _nextId('rnd'),
+        openedAt: opened,
+        closesAt: opened + _checkDay,
+        closedAt: received ? opened + 4 : opened + _checkDay,
+        attempts: switch (result) {
+          WeeklyCheckResult.received => 1,
+          WeeklyCheckResult.missed => 3,
+          WeeklyCheckResult.refused => 1,
+          WeeklyCheckResult.skipped => 0,
+        },
+        result: result,
+        attemptReceived: received ? 1 : null,
+        receiptAt: received ? opened + 4 : null,
+        deviceReceivedAt: received ? opened + 3 : null,
+        reason: result == WeeklyCheckResult.skipped ? 'held' : null,
+      );
+    }
+
+    const received = WeeklyCheckResult.received;
+    const missed = WeeklyCheckResult.missed;
+    const refused = WeeklyCheckResult.refused;
+    weeklyCheckRounds.addAll(switch (state) {
+      WeeklyCheckState.waiting => const <WeeklyCheckRound>[],
+      WeeklyCheckState.received => [
+        closed(0, received),
+        closed(1, received),
+        closed(2, WeeklyCheckResult.skipped),
+        closed(3, missed),
+        closed(4, received),
+      ],
+      WeeklyCheckState.missedOnce => [closed(0, missed), closed(1, received)],
+      WeeklyCheckState.missedRepeatedly => [
+        closed(0, missed),
+        closed(1, missed),
+        closed(2, received),
+      ],
+      WeeklyCheckState.tokenRefused => [
+        closed(0, refused),
+        closed(1, received),
+      ],
+      WeeklyCheckState.noToken => [closed(1, received)],
+      WeeklyCheckState.off => [closed(0, received), closed(1, received)],
+    });
+    if (state == WeeklyCheckState.waiting) weeklyCheckEnrolledAt = now - 60;
+  }
+
+  /// Opens a round now and returns the id its pushes would carry.
+  String openWeeklyCheckRound() {
+    final now = _checkNow();
+    weeklyCheckRounds.insert(
+      0,
+      WeeklyCheckRound(
+        id: _nextId('rnd'),
+        openedAt: now,
+        closesAt: now + _checkDay,
+        attempts: 1,
+        isOpen: true,
+      ),
+    );
+    return weeklyCheckOpenCheckId = _nextId('chk');
+  }
+
+  /// Closes the open round with no receipt, as the relay does at `closes_at`.
+  void closeWeeklyCheckRound(WeeklyCheckResult result) {
+    final index = weeklyCheckRounds.indexWhere((round) => round.isOpen);
+    if (index < 0) return;
+    final open = weeklyCheckRounds[index];
+    weeklyCheckRounds[index] = WeeklyCheckRound(
+      id: open.id,
+      openedAt: open.openedAt,
+      closesAt: open.closesAt,
+      closedAt: open.closesAt,
+      attempts: open.attempts,
+      result: result,
+    );
+    weeklyCheckOpenCheckId = null;
+  }
+
+  /// GET /relay/v1/devices/{device_id}/check
+  WeeklyCheck getWeeklyCheck() {
+    final hasPack = heldPacks().any((pack) => pack.id == 'pro');
+    final closed = [
+      for (final round in weeklyCheckRounds)
+        if (!round.isOpen) round,
+    ];
+    final counted = [
+      for (final round in closed)
+        if (round.result != WeeklyCheckResult.skipped) round,
+    ];
+    final sent = [
+      for (final round in weeklyCheckRounds)
+        if (round.attempts > 0) round.openedAt,
+    ];
+    final receipts = [
+      for (final round in closed)
+        if (round.receiptAt != null) round.receiptAt!,
+    ];
+    final lastSentAt = sent.isEmpty ? null : sent.first;
+    final lastReceivedAt = receipts.isEmpty ? null : receipts.first;
+
+    if (!weeklyCheckEnabled || !hasPack) {
+      return WeeklyCheck(
+        enabled: weeklyCheckEnabled,
+        state: WeeklyCheckState.off,
+        reason: weeklyCheckEnabled
+            ? WeeklyCheckOffReason.pack
+            : WeeklyCheckOffReason.disabled,
+        lastSentAt: lastSentAt,
+        lastReceivedAt: lastReceivedAt,
+      );
+    }
+
+    bool isMiss(WeeklyCheckRound round) =>
+        round.result == WeeklyCheckResult.missed ||
+        round.result == WeeklyCheckResult.refused;
+    var misses = 0;
+    for (final round in counted) {
+      if (!isMiss(round)) break;
+      misses += 1;
+    }
+    final last = counted.isEmpty ? null : counted.first;
+    final state = !weeklyCheckHasToken
+        ? WeeklyCheckState.noToken
+        : last == null
+        ? WeeklyCheckState.waiting
+        : misses >= 2
+        ? WeeklyCheckState.missedRepeatedly
+        : last.result == WeeklyCheckResult.missed
+        ? WeeklyCheckState.missedOnce
+        : last.result == WeeklyCheckResult.refused
+        ? WeeklyCheckState.tokenRefused
+        : WeeklyCheckState.received;
+
+    final lastOpened = weeklyCheckRounds.isEmpty
+        ? null
+        : weeklyCheckRounds.first.openedAt;
+    final nextDueAt = lastOpened == null
+        ? (weeklyCheckEnrolledAt ?? _checkNow()) + _checkDay
+        : lastOpened + _checkWeek;
+    // The second miss in a row: where the run reached two, or where it
+    // would if nothing arrives from now on.
+    final int noticeAfter;
+    if (misses >= 2) {
+      final second = counted[misses - 2];
+      noticeAfter = second.closedAt ?? second.closesAt ?? second.openedAt;
+    } else if (misses == 1) {
+      noticeAfter = nextDueAt + _checkDay;
+    } else {
+      noticeAfter = nextDueAt + _checkWeek + _checkDay;
+    }
+    return WeeklyCheck(
+      enabled: true,
+      state: state,
+      misses: misses,
+      lastSentAt: lastSentAt,
+      lastReceivedAt: lastReceivedAt,
+      nextDueAt: nextDueAt,
+      noticeAfter: noticeAfter,
+    );
+  }
+
+  /// PUT /relay/v1/devices/{device_id}/check
+  WeeklyCheck setWeeklyCheck({required bool enabled}) {
+    if (enabled && !heldPacks().any((pack) => pack.id == 'pro')) {
+      throw const ApiException(statusCode: 403, message: 'pack', pack: 'pro');
+    }
+    if (enabled && !weeklyCheckEnabled) weeklyCheckEnrolledAt = _checkNow();
+    weeklyCheckEnabled = enabled;
+    return getWeeklyCheck();
+  }
+
+  /// POST /relay/v1/devices/{device_id}/checks/{check_id}/receipt
+  ///
+  /// Counts while the round is open. The same receipt sent again gets the
+  /// same answer and changes nothing.
+  WeeklyCheckReceipt receiveWeeklyCheck(
+    String checkId, {
+    int? attempt,
+    int? receivedAt,
+  }) {
+    final known = _answeredChecks[checkId];
+    if (known == null && checkId != weeklyCheckOpenCheckId) {
+      throw const ApiException(statusCode: 404, message: 'not found');
+    }
+    var counted = known ?? false;
+    if (known == null) {
+      final index = weeklyCheckRounds.indexWhere((round) => round.isOpen);
+      final now = _checkNow();
+      if (index >= 0) {
+        final open = weeklyCheckRounds[index];
+        counted = now < (open.closesAt ?? now + 1);
+        weeklyCheckRounds[index] = WeeklyCheckRound(
+          id: open.id,
+          openedAt: open.openedAt,
+          closesAt: open.closesAt,
+          closedAt: counted ? now : open.closesAt,
+          attempts: open.attempts,
+          result: counted
+              ? WeeklyCheckResult.received
+              : WeeklyCheckResult.missed,
+          attemptReceived:
+              attempt != null && attempt >= 1 && attempt <= open.attempts
+              ? attempt
+              : null,
+          receiptAt: counted ? now : null,
+          deviceReceivedAt: receivedAt,
+          lateReceiptAt: counted ? null : now,
+        );
+      }
+      _answeredChecks[checkId] = counted;
+      weeklyCheckOpenCheckId = null;
+    }
+    final check = getWeeklyCheck();
+    return WeeklyCheckReceipt(
+      counted: counted,
+      nextDueAt: check.nextDueAt,
+      noticeAfter: check.noticeAfter,
+    );
+  }
+
+  final Map<String, bool> _answeredChecks = {};
+
+  /// GET /relay/v1/devices/{device_id}/checks
+  List<WeeklyCheckRound> listWeeklyCheckRounds({int? limit}) {
+    final count = (limit ?? 20).clamp(1, 200);
+    return weeklyCheckRounds.take(count).toList();
+  }
+
+  /// A check route reaches one device's data. Another device's token
+  /// answers 404, as on every device route.
+  void _authorizeCheckCall(String deviceId, String token) {
+    final device = _devices[deviceId];
+    if (token.isEmpty) {
+      throw const ApiException(statusCode: 401, message: 'unauthorized');
+    }
+    if (device == null || device.deviceToken != token) {
+      throw const ApiException(statusCode: 404, message: 'not found');
+    }
   }
 
   DeviceRegistrationResponse _authorizedDevice(String id, String token) {
@@ -1111,7 +1489,11 @@ class MockServer {
       _authorizedDevice(
         id,
         token,
-      ).copyWith(deviceToken: null, accountJoinToken: null);
+      ).copyWith(
+        deviceToken: null,
+        accountJoinToken: null,
+        packs: heldPacks(),
+      );
 
   void subscribeTopic({
     required String deviceId,
@@ -1678,6 +2060,85 @@ class MockServer {
         return _jsonResponse(response.toJson(), 201);
       }
 
+      if (path == '/relay/v1/packs' && method == 'GET') {
+        _authorizePackCall(
+          (request.headers['authorization'] ?? '').replaceFirst('Bearer ', ''),
+        );
+        final answer = getPacks();
+        return _jsonResponse({
+          'packs': accountPacksToJson(answer.packs),
+          'checked_at': answer.checkedAt,
+        }, 200);
+      }
+      if (path == '/relay/v1/packs/refresh' && method == 'POST') {
+        _authorizePackCall(
+          (request.headers['authorization'] ?? '').replaceFirst('Bearer ', ''),
+        );
+        final answer = refreshPacks();
+        return _jsonResponse({
+          'confirmed': answer.confirmed,
+          'checked_at': answer.checkedAt,
+          'tier': 'free',
+          'caps': AccountCaps.free.toJson(),
+          'packs': accountPacksToJson(answer.packs),
+        }, 200);
+      }
+
+      final checkRoute = RegExp(
+        r'^/relay/v1/devices/([^/]+)/(check|checks)(?:/([^/]+)/receipt)?$',
+      ).firstMatch(path);
+      if (checkRoute != null) {
+        _authorizeCheckCall(
+          Uri.decodeComponent(checkRoute[1]!),
+          (request.headers['authorization'] ?? '').replaceFirst('Bearer ', ''),
+        );
+        final body = bodyString.isEmpty
+            ? <String, dynamic>{}
+            : jsonDecode(bodyString) as Map<String, dynamic>;
+        final isOne = checkRoute[2] == 'check';
+        final checkId = checkRoute[3];
+        if (isOne && checkId == null && method == 'GET') {
+          return _jsonResponse(getWeeklyCheck().toJson(), 200);
+        }
+        if (isOne && checkId == null && method == 'PUT') {
+          if (body['enabled'] is! bool) {
+            throw const ApiException(
+              statusCode: 400,
+              message: 'invalid request',
+            );
+          }
+          return _jsonResponse(
+            setWeeklyCheck(enabled: body['enabled'] as bool).toJson(),
+            200,
+          );
+        }
+        if (!isOne && checkId == null && method == 'GET') {
+          return _jsonResponse(
+            [
+              for (final round in listWeeklyCheckRounds(
+                limit: int.tryParse(query['limit'] ?? ''),
+              ))
+                round.toJson(),
+            ],
+            200,
+          );
+        }
+        if (!isOne && checkId != null && method == 'POST') {
+          final attempt = body['attempt'];
+          final receivedAt = body['received_at'];
+          final receipt = receiveWeeklyCheck(
+            Uri.decodeComponent(checkId),
+            attempt: attempt is int ? attempt : null,
+            receivedAt: receivedAt is int ? receivedAt : null,
+          );
+          return _jsonResponse({
+            'counted': receipt.counted,
+            'next_due_at': receipt.nextDueAt,
+            'notice_after': receipt.noticeAfter,
+          }, 200);
+        }
+      }
+
       final deviceRoute = RegExp(
         r'^/relay/v1/devices/([^/]+)(?:/(subscriptions|tokens)(?:/([^/]+))?)?$',
       ).firstMatch(path);
@@ -1872,6 +2333,7 @@ class MockServer {
       };
       if (e.code != null) body['code'] = e.code;
       if (e.cap != null) body['cap'] = e.cap;
+      if (e.pack != null) body['pack'] = e.pack;
       return _jsonResponse(body, e.statusCode);
     } on Exception catch (e) {
       return _jsonResponse({'error': e.toString()}, 500);

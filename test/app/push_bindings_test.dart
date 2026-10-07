@@ -4,6 +4,8 @@ import 'package:critalarm/app/push_bindings.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
+import 'package:critalarm/core/links/app_link.dart';
+import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
@@ -64,6 +66,7 @@ void main() {
 
   late List<String> log;
   late PushHost host;
+  late ConnectLinkHolder connectLinks;
   late IncidentsCubit incidents;
   late TopicsCubit topics;
   late AppPushBindings bindings;
@@ -97,7 +100,8 @@ void main() {
     log = [];
     currentLocation = '/';
     answerWith((_) => null);
-    host = PushHost();
+    connectLinks = ConnectLinkHolder();
+    host = PushHost(null, connectLinks);
     incidents = IncidentsCubit(GetIncidentsUsecase(_CountingIncidents(log)));
     topics = TopicsCubit(GetTopicsUsecase(_CountingTopics(log)));
     focusList = StreamController<List<Incident>>.broadcast();
@@ -118,6 +122,7 @@ void main() {
     await focus.dispose();
     await focusList.close();
     await host.dispose();
+    await connectLinks.dispose();
     await incidents.close();
     await topics.close();
     messenger.setMockMethodCallHandler(channel, null);
@@ -177,6 +182,76 @@ void main() {
       'tap_id': '1',
     });
     expect(log, ['go /incidents/inc_9a8b7c']);
+  });
+
+  group('a connect link', () {
+    const token = 'tk_s3cretValue';
+    const link =
+        'https://critalarm.app/connect#url=https%3A%2F%2Falarm.example.com&token=$token';
+    final expected = ConnectLink(
+      serverUrl: Uri.parse('https://alarm.example.com'),
+      token: token,
+    );
+
+    test('fills the holder and navigates nowhere', () async {
+      currentLocation = '/settings';
+      await sendFromPlatform('onNotificationTap', {
+        PushHost.linkKey: link,
+        'tap_id': '1',
+      });
+      expect(connectLinks.pending, expected);
+      expect(log, isEmpty);
+    });
+
+    test('still fills the holder while an alarm has focus, and the alarm '
+        'keeps the screen', () async {
+      await ringOne();
+      currentLocation = '/alarm';
+      await sendFromPlatform('onNotificationTap', {
+        PushHost.linkKey: link,
+        'tap_id': '1',
+      });
+      expect(connectLinks.pending, expected);
+      expect(log.where((e) => e.startsWith('go ')), isEmpty);
+      expect(log.where((e) => e.startsWith('select ')), isEmpty);
+    });
+
+    test('held by the platform while an alarm has focus, it fills the holder '
+        'on resume and navigates nowhere', () async {
+      await ringOne();
+      answerWith(
+        (call) => call.method == 'takePending'
+            ? {
+                'tap': {PushHost.linkKey: link, 'tap_id': '1'},
+              }
+            : null,
+      );
+      await bindings.onResumed();
+      expect(connectLinks.pending, expected);
+      expect(log.where((e) => e.startsWith('go ')), isEmpty);
+    });
+
+    test('a refused one is dropped while an alarm has focus: Home would '
+        'leave the alarm', () async {
+      await ringOne();
+      await sendFromPlatform('onNotificationTap', {
+        PushHost.linkKey:
+            'https://critalarm.app/connect?url=https%3A%2F%2Fa.example&token=$token',
+        'tap_id': '1',
+      });
+      expect(connectLinks.pending, isNull);
+      expect(log, isEmpty);
+    });
+  });
+
+  test('a topic link is dropped while an alarm has focus, like a topic '
+      'tap', () async {
+    await ringOne();
+    await sendFromPlatform('onNotificationTap', {
+      PushHost.linkKey: 'https://critalarm.app/open/topics/ops',
+      'tap_id': '1',
+    });
+    expect(log, isEmpty);
   });
 
   test('a held tap opens before the lists reload', () async {

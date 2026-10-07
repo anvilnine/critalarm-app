@@ -1,6 +1,9 @@
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
+import 'package:critalarm/core/api/packs_api.dart';
+import 'package:critalarm/core/api/weekly_check_api.dart';
+import 'package:critalarm/core/models/account_pack.dart';
 import 'package:critalarm/core/models/device_registration.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -8,9 +11,10 @@ import 'package:critalarm/core/models/send_result.dart';
 import 'package:critalarm/core/models/server_info.dart';
 import 'package:critalarm/core/models/topic.dart';
 import 'package:critalarm/core/models/topic_token.dart';
+import 'package:critalarm/core/models/weekly_check.dart';
 
 /// In-memory implementation of [ApiClient] backed by [MockServer].
-class MockApiClient implements ApiClient {
+class MockApiClient implements ApiClient, PacksApi, WeeklyCheckApi {
   MockApiClient([MockServer? server]) : server = server ?? MockServer();
 
   final MockServer server;
@@ -291,4 +295,32 @@ class MockApiClient implements ApiClient {
     server.registerDevice(registration, deviceToken: deviceToken);
     return server.refreshDevice(registration.deviceId, deviceToken);
   }
+
+  @override
+  Future<PacksAnswer> getPacks() async => server.getPacks();
+
+  @override
+  Future<PacksRefreshAnswer> refreshPacks() async => server.refreshPacks();
+
+  @override
+  Future<WeeklyCheck> setWeeklyCheck({required bool enabled}) async =>
+      server.setWeeklyCheck(enabled: enabled);
+
+  @override
+  Future<WeeklyCheck> getWeeklyCheck() async => server.getWeeklyCheck();
+
+  @override
+  Future<WeeklyCheckReceipt> sendWeeklyCheckReceipt(
+    String checkId, {
+    int? attempt,
+    int? receivedAt,
+  }) async => server.receiveWeeklyCheck(
+    checkId,
+    attempt: attempt,
+    receivedAt: receivedAt,
+  );
+
+  @override
+  Future<List<WeeklyCheckRound>> listWeeklyCheckRounds({int? limit}) async =>
+      server.listWeeklyCheckRounds(limit: limit);
 }

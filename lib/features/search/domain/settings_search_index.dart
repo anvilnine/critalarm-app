@@ -54,15 +54,34 @@ abstract final class SettingsSearchIndex {
   static final List<SettingsDestination> all = <SettingsDestination>[
     // The six top level screens.
     const SettingsDestination(
-      id: 'health',
-      routePath: '/settings/permissions',
-      titleKey: LocaleKeys.settings_health_row_title,
+      id: 'reliability',
+      routePath: '/settings/reliability',
+      titleKey: LocaleKeys.reliability_title,
       parentTitleKey: LocaleKeys.nav_settings,
+      keywords: <String>[
+        'reliability',
+        'health',
+        'wake',
+        'test',
+        'ring a test',
+        'push',
+        'update',
+        'will it wake me',
+      ],
+    ),
+    // The permission rows on the Reliability screen open this screen.
+    const SettingsDestination(
+      id: 'permissions',
+      routePath: '/settings/permissions',
+      titleKey: LocaleKeys.device_permissions_title,
+      parentTitleKey: LocaleKeys.reliability_title,
       keywords: <String>[
         'permissions',
         'notifications',
         'battery',
         'critical alerts',
+        // The screen used to be called Health. Never shown, so someone who
+        // remembers the old name still finds it.
         'health',
       ],
     ),
@@ -127,6 +146,27 @@ abstract final class SettingsSearchIndex {
         'beeper',
         'horn',
         'bell',
+      ],
+    ),
+    const SettingsDestination(
+      id: 'priorities',
+      routePath: '/settings/priorities',
+      titleKey: LocaleKeys.settings_priorities_row_title,
+      parentTitleKey: LocaleKeys.nav_settings,
+      keywords: <String>[
+        'priority',
+        'priorities',
+        'p1',
+        'p2',
+        'p3',
+        'p4',
+        'p5',
+        'level',
+        'critical',
+        'alarm',
+        'ring',
+        'what rings',
+        'time sensitive',
       ],
     ),
     // 'quiet_hours', 'critical_rings' and 'escalation_call' are out while

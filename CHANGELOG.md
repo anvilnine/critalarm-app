@@ -14,6 +14,17 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Setup works at the largest text sizes. The face shrinks first, and a step scrolls when it has to.
 - After your first real alarm, Home shows what Free keeps and what Hosted adds. Close the card and it stays closed.
 - On your own server, Settings says so: no limits, no charge.
+- Settings opens with a Will it wake me? screen that lists what could stop an alarm, with a fix beside each. After your phone updates, Home offers a test alarm once.
+- Settings has a Priorities page that says what priorities 1 to 5 do on this phone, with a button to hear the alarm sound in the app.
+- Opening a connect link shows the server and asks before it connects.
+- On Samsung, Xiaomi, Redmi, Poco, Oppo, Realme, OnePlus, Huawei and Honor phones, Will it wake me? has a Sleep settings row with short steps that stop the phone putting Crit Alarm to sleep.
+- Home tells you when this phone missed an alarm, with what the phone recorded about it, and Will it wake me? lists it.
+- Pro, a paid pack separate from Hosted: a weekly delivery check. Switch it on in Will it wake me? and the relay checks once a week that a push still reaches this phone. Home says so if two checks in a row are missed.
+- Will it wake me? has a sheet where Pro can be bought once it is on sale, with Restore.
+- Will it wake me? counts the weekly delivery check while it is switched on. Two missed checks or a refused push token show as Take a look, with one button to act on it.
+- A missed alarm on Will it wake me? names the topic and time, offers a test, and can be closed there. Closing it clears it from Home.
+- A permission you were never asked for can be allowed from Will it wake me? without opening system settings.
+- On a phone that uses your own server, the Pro row and the Pro sheet say before you pay that the weekly check covers the push relay to the phone, and says nothing about your server.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
@@ -27,6 +38,16 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Ring me for real counts down 5 seconds before it sends, so there is time to lock the phone. Cancel stops it.
 - The face on the acknowledged screen has its dark outline and features back.
 - The Hosted sheet lists what the plan adds and what Free keeps.
+- The permissions screen is called Permissions. It was called Health.
+- Home says an alarm was missed in one place, the notice, with a button for what to do: Ring a test, or See the alarm. The big face no longer says All clear above it.
+- Will it wake me? no longer asks for a look when an alarm rang and nobody answered.
+- The sleep settings steps for Oppo, Realme and OnePlus are three steps, with the Realme and older OxygenOS routes as notes under them.
+- The connect sheet keeps the server name whole at large text, shows the full address whenever the name alone does not say it all, says Replaces Crit Alarm Cloud when it does, and reads Close when the server refuses.
+- A connect link refuses a server that reports a different address, path or scheme than the one shown, and a server address with invisible characters, a query or a fragment.
+- Screen readers read the full server address in the connect sheet.
+- Will it wake me? is a plain list now. What needs fixing sits in one card at the top, and each line says what the blocked setting costs you.
+- Home no longer says All clear while a notice about missed alarms, missed checks or a phone update is showing.
+- Home cards close with a plain x and share one look.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
@@ -42,6 +63,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The message on a ringing alarm no longer sits behind the buttons on a small phone or at a large text size. The face shrinks to make room, and the message scrolls clear of the buttons when it is long.
 - Setup steps at large text sizes no longer print their buttons and the app name over the text behind them.
 - A list scrolled under the Topics, Settings or New topic title blurs more as it goes under, so it no longer runs sharp through the title.
+- At large text sizes, Home and Will it wake me? keep the first action in view and the title no longer draws over the list.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.

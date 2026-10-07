@@ -65,4 +65,43 @@ void main() {
     final stats = await store.stats();
     expect(stats.databaseBytes, greaterThan(0));
   });
+
+  test('clearServerData empties incidents, messages and the since cursor, '
+      'so the next sync asks the new server for everything', () async {
+    final store = await LocalStore.open(
+      factory: databaseFactoryFfi,
+      path: inMemoryDatabasePath,
+    );
+    addTearDown(store.close);
+    final opened = DateTime.utc(2026, 9, 20, 12);
+    await store.incidents.upsertAll([
+      Incident(
+        id: 'inc_1',
+        topic: 'prod',
+        openedAt: opened,
+        lastMessageAt: opened,
+        messages: [
+          Message(
+            id: 'msg_1',
+            topic: 'prod',
+            time: opened.millisecondsSinceEpoch ~/ 1000,
+            incidentId: 'inc_1',
+          ),
+        ],
+      ),
+    ]);
+    await store.messages.upsertAll([
+      const Message(id: 'msg_2', topic: 'prod', time: 1),
+    ]);
+    expect(await store.incidents.newestOpenedAt(), isNotNull);
+    store.recordLastSince(opened);
+
+    await store.clearServerData();
+
+    expect(await store.incidents.newestOpenedAt(), isNull);
+    final stats = await store.stats();
+    expect(stats.incidentCount, 0);
+    expect(stats.messageCount, 0);
+    expect(stats.lastSince, isNull);
+  });
 }

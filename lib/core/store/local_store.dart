@@ -64,6 +64,19 @@ class LocalStore {
         : '${since.toUtc().millisecondsSinceEpoch ~/ 1000}';
   }
 
+  /// Deletes every incident and message, and forgets the `since` cursor.
+  ///
+  /// For a phone that connects to a different server: what is held belongs
+  /// to the old one, and the incident cursor is the newest timestamp the old
+  /// one gave. Nothing else on the phone is touched.
+  Future<void> clearServerData() async {
+    await db.transaction((txn) async {
+      await txn.delete('messages');
+      await txn.delete('incidents');
+    });
+    _lastSinceSent = null;
+  }
+
   /// Aggregate diagnostics only; never exposes the database or message text.
   Future<DebugStoreStats> stats() async {
     final incidentRows = await db.rawQuery('''

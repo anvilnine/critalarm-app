@@ -104,14 +104,14 @@ void main() {
 
   group('DevicePermissionsScreen', () {
     testWidgets(
-      'renders the Health screen with one row per permission',
+      'renders the Permissions screen with one row per permission',
       (tester) async {
         await tester.pumpWidget(buildTestWidget());
         await tester.pumpAndSettle();
 
-        // The screen is titled Health, and the permission list sits under
+        // The screen is titled Permissions, and the permission list sits under
         // its own header.
-        expect(find.text('Health'), findsOneWidget);
+        expect(find.text('Permissions'), findsOneWidget);
         expect(find.text('Device permissions'), findsOneWidget);
 
         expect(find.text('Notifications'), findsOneWidget);

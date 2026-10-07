@@ -1,9 +1,11 @@
 import 'package:critalarm/app/di.dart';
+import 'package:critalarm/app/popup_route_tracker.dart';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
@@ -25,6 +27,11 @@ import 'package:critalarm/features/paywall/presentation/hosted_paywall_screen.da
 import 'package:critalarm/features/paywall/presentation/paywall_screen.dart';
 import 'package:critalarm/features/paywall/presentation/pro_welcome_screen.dart';
 import 'package:critalarm/features/permissions/presentation/device_permissions_screen.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
+import 'package:critalarm/features/pro_pack/presentation/pro_pack_sheet_page.dart';
+import 'package:critalarm/features/reliability/domain/maker/maker_guide.dart';
+import 'package:critalarm/features/reliability/presentation/maker/maker_guide_screen.dart';
+import 'package:critalarm/features/reliability/presentation/reliability_screen.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_debug_screen.dart';
@@ -36,6 +43,7 @@ import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubi
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/dialog_sheet_gallery_screen.dart';
 import 'package:critalarm/features/settings/presentation/face_gallery_screen.dart';
+import 'package:critalarm/features/settings/presentation/priorities_screen.dart';
 import 'package:critalarm/features/settings/presentation/privacy_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/ringing_faces_screen.dart';
 import 'package:critalarm/features/settings/presentation/server_settings_screen.dart';
@@ -47,6 +55,7 @@ import 'package:critalarm/features/topics/presentation/create_topic_screen.dart'
 import 'package:critalarm/features/topics/presentation/home_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
 import 'package:critalarm/features/topics/presentation/topic_messages_screen.dart';
+import 'package:critalarm/features/weekly_check/presentation/weekly_check_rounds_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -75,10 +84,14 @@ abstract final class AppRoute {
   static const settings = 'settings';
   static const settingsDisconnected = 'settingsDisconnected';
   static const devicePermissions = 'devicePermissions';
+  static const reliability = 'reliability';
+  static const String makerGuide = makerGuideRouteName;
+  static const weeklyCheckRounds = 'weeklyCheckRounds';
   static const soundPicker = 'soundPicker';
   static const soundCrop = 'soundCrop';
   static const soundRecord = 'soundRecord';
   static const alarmSettings = 'alarmSettings';
+  static const priorities = 'priorities';
   static const serverSettings = 'serverSettings';
   static const account = 'account';
   static const deleteAccount = 'deleteAccount';
@@ -95,6 +108,7 @@ abstract final class AppRoute {
   static const ringingFaces = 'ringingFaces';
   static const localReminderLab = 'localReminderLab';
   static const paywall = 'paywall';
+  static const String proPack = proPackSheetRouteName;
   static const proWelcome = 'proWelcome';
   static const alarm = 'alarm';
   static const incidentDetail = 'incidentDetail';
@@ -107,7 +121,7 @@ final _rootKey = GlobalKey<NavigatorState>();
 
 GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
   navigatorKey: _rootKey,
-  observers: [appRouteObserver],
+  observers: [appRouteObserver, appPopupRoutes],
   initialLocation: initialLocation,
   // A critalarm:// data URI on a tap intent must never become a location the
   // router cannot match. Android stops Flutter passing it on (see
@@ -362,6 +376,38 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                   ),
                 ),
                 GoRoute(
+                  path: 'reliability',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.reliability,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    child: const ReliabilityScreen(),
+                  ),
+                  routes: [
+                    GoRoute(
+                      path: 'maker',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.makerGuide,
+                      pageBuilder: (context, state) => AmbientPage(
+                        key: state.pageKey,
+                        opaque: true,
+                        child: const MakerGuideScreen(),
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'checks',
+                      parentNavigatorKey: _rootKey,
+                      name: AppRoute.weeklyCheckRounds,
+                      pageBuilder: (context, state) => AmbientPage(
+                        key: state.pageKey,
+                        opaque: true,
+                        child: const WeeklyCheckRoundsScreen(),
+                      ),
+                    ),
+                  ],
+                ),
+                GoRoute(
                   path: 'alarms',
                   parentNavigatorKey: _rootKey,
                   name: AppRoute.alarmSettings,
@@ -369,6 +415,22 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                     key: state.pageKey,
                     opaque: true,
                     child: const AlarmSettingsScreen(),
+                  ),
+                ),
+                // What priorities 1 to 5 do on this phone. A browser has no
+                // push and no alarm, so a typed URL there lands on Settings.
+                GoRoute(
+                  path: 'priorities',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.priorities,
+                  redirect: (context, state) =>
+                      getIt<PlatformCapabilities>().canRunAlarm
+                      ? null
+                      : '/settings',
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    child: const PrioritiesScreen(),
                   ),
                 ),
                 GoRoute(
@@ -559,6 +621,19 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
               : HostedPaywallScreen(source: source),
         );
       },
+    ),
+    // The Pro pack's sheet. It is a bottom sheet with its own route, over
+    // whatever opened it, and has nothing to do with the paywall above.
+    GoRoute(
+      path: proPackSheetPath,
+      name: AppRoute.proPack,
+      parentNavigatorKey: _rootKey,
+      pageBuilder: (context, state) => ProPackSheetPage(
+        key: state.pageKey,
+        // `?source=` names what opened it, for the analytics event.
+        source: ProPackSheetSource.parse(state.uri.queryParameters['source']),
+        isSelfHosted: proPackSheetIsSelfHosted(state.uri),
+      ),
     ),
     // Where a purchase lands. Replaces the paywall so Back never returns to
     // it.

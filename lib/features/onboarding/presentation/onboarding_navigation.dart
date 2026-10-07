@@ -77,9 +77,20 @@ OnboardingMove onboardingMoveFor(
 ///
 /// When setup is already complete the screen was opened on its own, from
 /// Settings or a card on Home, and it closes back to there.
-Future<void> finishOnboardingStep(BuildContext context, String stepId) async {
-  final isReplay = isOnboardingReplay(context);
-  final router = GoRouter.of(context);
+Future<void> finishOnboardingStep(BuildContext context, String stepId) =>
+    finishOnboardingStepOn(
+      GoRouter.of(context),
+      stepId,
+      isReplay: isOnboardingReplay(context),
+    );
+
+/// [finishOnboardingStep] for a caller with no screen under it, such as the
+/// connect sheet, which opens above the router.
+Future<void> finishOnboardingStepOn(
+  GoRouter router,
+  String stepId, {
+  required bool isReplay,
+}) async {
   Uri location() => router.routerDelegate.currentConfiguration.uri;
   final locationBefore = location();
   final next = await getIt<OnboardingFlowEngine>().finishStep(
