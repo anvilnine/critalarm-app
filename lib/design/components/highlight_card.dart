@@ -45,6 +45,31 @@ const double highlightCardStrokeWidth = 2;
   AppHighlightTone.calm => (fill: colors.cobaltTint, stroke: colors.cobalt),
 };
 
+/// The fill an [AppHighlightCard] draws, for the widgets inside it.
+///
+/// A button with no stroke of its own (`AppButtonVariant.tinted`) washes the
+/// surface with white, and white on a light card is invisible. It reads this
+/// to wash a light card with ink instead, so a quiet action on the card keeps
+/// its shape.
+class AppHighlightSurface extends InheritedWidget {
+  const AppHighlightSurface({
+    required this.fill,
+    required super.child,
+    super.key,
+  });
+
+  /// The card's fill colour.
+  final Color fill;
+
+  /// The fill of the highlight card around [context], or null outside one.
+  static Color? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppHighlightSurface>()?.fill;
+
+  @override
+  bool updateShouldNotify(AppHighlightSurface oldWidget) =>
+      fill != oldWidget.fill;
+}
+
 /// A tinted, stroked surface that marks one thing on a screen as the
 /// important one.
 ///
@@ -82,7 +107,7 @@ class AppHighlightCard extends StatelessWidget {
         borderRadius: Radii.lgAll,
         border: Border.all(color: stroke, width: highlightCardStrokeWidth),
       ),
-      child: child,
+      child: AppHighlightSurface(fill: fill, child: child),
     );
   }
 }
