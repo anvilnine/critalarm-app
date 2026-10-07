@@ -25,9 +25,9 @@ class ProPackSheetCubit extends Cubit<ProPackSheetState> {
     Future<void> Function(Duration)? wait,
   }) : _wait = wait ?? _realWait,
        super(const ProPackSheetState()) {
-    _held = _access.stream.listen((isHeld) {
+    _stopListening = _access.stream.listen((isHeld) {
       if (isHeld) _show(ProPackSheetStage.held);
-    });
+    }).cancel;
   }
 
   /// The waits before each ask the sheet makes on its own after the store
@@ -45,7 +45,9 @@ class ProPackSheetCubit extends Cubit<ProPackSheetState> {
   final ProPackShop _shop;
   final ProPackAnalytics? _analytics;
   final Future<void> Function(Duration) _wait;
-  late final StreamSubscription<bool> _held;
+
+  /// Stops hearing [ProPackAccess] when the sheet closes.
+  late final Future<void> Function() _stopListening;
 
   /// Whether the last trip to the store was a purchase, for the retry.
   bool _afterPurchase = false;
@@ -165,7 +167,7 @@ class ProPackSheetCubit extends Cubit<ProPackSheetState> {
 
   @override
   Future<void> close() async {
-    await _held.cancel();
+    await _stopListening();
     return super.close();
   }
 }

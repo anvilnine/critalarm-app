@@ -106,8 +106,12 @@ class _ProPackSheetBodyState extends State<_ProPackSheetBody> {
                 ],
                 if (showsOffers ||
                     state.stage == ProPackSheetStage.notOnSale) ...[
-                  const SizedBox(height: Spacing.s3),
-                  AppNote(text: LocaleKeys.pro_pack_sheet_why.tr()),
+                  const SizedBox(height: Spacing.s2),
+                  Text(
+                    LocaleKeys.pro_pack_sheet_why.tr(),
+                    textAlign: TextAlign.center,
+                    style: AppTypography.small(colors.ink3, fontSize: 13),
+                  ),
                 ],
                 if (state.stage == ProPackSheetStage.notOnSale) ...[
                   const SizedBox(height: Spacing.s4),
@@ -140,13 +144,18 @@ class _ProPackSheetBodyState extends State<_ProPackSheetBody> {
                     ),
                     const SizedBox(height: Spacing.s2),
                   ],
-                  Center(
-                    child: AppButton(
-                      label: LocaleKeys.pro_pack_sheet_restore.tr(),
-                      variant: AppButtonVariant.ghost,
-                      size: AppButtonSize.sm,
-                      onPressed: () => unawaited(cubit.restore()),
-                    ),
+                  // A row hands its child no width, so the button stays as
+                  // wide as its label.
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      AppButton(
+                        label: LocaleKeys.pro_pack_sheet_restore.tr(),
+                        variant: AppButtonVariant.ghost,
+                        size: AppButtonSize.sm,
+                        onPressed: () => unawaited(cubit.restore()),
+                      ),
+                    ],
                   ),
                 ],
                 if (state.stage == ProPackSheetStage.checkingPaused) ...[
@@ -186,7 +195,7 @@ class _OfferRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final strong = AppTypography.body(
-      colors.ink,
+      colors.onCanvas,
       fontSize: 15,
     ).copyWith(fontWeight: FontWeight.w700, height: 1.3);
 
@@ -197,13 +206,9 @@ class _OfferRow extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: Radii.mdAll,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 48),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: Radii.mdAll,
-              border: Border.all(color: colors.ink, width: 1.5),
-            ),
+          // An open choice, so the tone that claims no state.
+          child: AppHighlightCard(
+            tone: AppHighlightTone.choice,
             // The price drops under the title when the two do not fit on
             // one line, so neither is cut.
             child: Wrap(
