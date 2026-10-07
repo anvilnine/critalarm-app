@@ -4,6 +4,7 @@ import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_shop.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack_store.dart';
 import 'package:critalarm/features/pro_pack/presentation/cubits/pro_pack_sheet_cubit.dart';
 import 'package:critalarm/features/pro_pack/presentation/cubits/pro_pack_sheet_state.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -92,15 +93,13 @@ void main() {
       expect(cubit.state.offers, hasLength(1));
     });
 
-    test('no offering: not on sale, and nothing to buy or restore', () async {
+    test('no offering: not on sale, and nothing to buy', () async {
       shop.offers = const [];
       final cubit = build();
       await cubit.open(ProPackSheetSource.direct);
       expect(cubit.state.stage, ProPackSheetStage.notOnSale);
       await cubit.buy(_one);
-      await cubit.restore();
       expect(shop.bought, isEmpty);
-      expect(shop.restores, 0);
       expect(cubit.state.stage, ProPackSheetStage.notOnSale);
     });
 
@@ -337,6 +336,139 @@ void main() {
       await cubit.restore();
       expect(cubit.state.note, ProPackSheetNote.storeProblem);
     });
+  });
+
+  group('restore with nothing on sale', () {
+    setUp(() => shop.offers = const []);
+
+    test('a buyer on a second phone restores and holds the pack', () async {
+      api.refreshes = [_held];
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      expect(cubit.state.stage, ProPackSheetStage.notOnSale);
+      expect(ProPackSheetCubit.canRestore(cubit.state.stage), isTrue);
+      await cubit.restore();
+      expect(shop.restores, 1);
+      expect(cubit.state.stage, ProPackSheetStage.held);
+    });
+
+    test('nothing found goes back to not on sale, with the note', () async {
+      api.refreshes = [_readEmpty];
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.restore();
+      expect(cubit.state.stage, ProPackSheetStage.notOnSale);
+      expect(cubit.state.note, ProPackSheetNote.nothingToRestore);
+    });
+
+    test('a store problem goes back to not on sale, with the note', () async {
+      shop.restoreResult = ProPackStoreResult.problem;
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.restore();
+      expect(cubit.state.stage, ProPackSheetStage.notOnSale);
+      expect(cubit.state.note, ProPackSheetNote.storeProblem);
+    });
+
+    test('the relay saying nothing is still checking', () async {
+      api.refreshes = [_unknown];
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.restore();
+      expect(cubit.state.stage, ProPackSheetStage.checkingPaused);
+    });
+  });
+
+  group('where Restore is', () {
+    test('every resting state, and never while something runs', () {
+      expect(
+        {
+          for (final stage in ProPackSheetStage.values)
+            stage: ProPackSheetCubit.canRestore(stage),
+        },
+        {
+          ProPackSheetStage.loading: false,
+          ProPackSheetStage.notOnSale: true,
+          ProPackSheetStage.offers: true,
+          ProPackSheetStage.atStore: false,
+          ProPackSheetStage.checking: false,
+          ProPackSheetStage.checkingPaused: true,
+          ProPackSheetStage.held: false,
+        },
+      );
+    });
+
+    test('from still checking, a restore can end held', () async {
+      api.refreshes = [_unknown];
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      expect(cubit.state.stage, ProPackSheetStage.checkingPaused);
+
+      now = now.add(ProPackAccess.refreshWindow);
+      api.refreshes = [_unknown, _unknown, _unknown, _unknown, _unknown, _held];
+      await cubit.restore();
+      expect(shop.restores, 1);
+      expect(cubit.state.stage, ProPackSheetStage.held);
+    });
+
+    test('a second tap while the store is busy does nothing', () async {
+      api.refreshes = [_held];
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      final first = cubit.restore();
+      await cubit.restore();
+      await first;
+      expect(shop.restores, 1);
+    });
+  });
+
+  group('a purchase the app may not live to see confirmed', () {
+    test('it is written down before the store is asked', () async {
+      api.refreshes = [_held];
+      PendingProPackConfirm? atStore;
+      shop.onBuy = () => atStore = store.pending;
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      expect(atStore?.scope.accountId, 'acc_1');
+      expect(store.pending, isNull, reason: 'the relay listed the pack');
+    });
+
+    test('backing out forgets it', () async {
+      shop.buyResult = ProPackStoreResult.cancelled;
+      final cubit = build();
+      await cubit.open(ProPackSheetSource.direct);
+      await cubit.buy(_one);
+      expect(store.pending, isNull);
+    });
+
+    test(
+      'killed while still checking: the next launch asks and unlocks',
+      () async {
+        api.refreshes = [_unknown];
+        final cubit = build();
+        await cubit.open(ProPackSheetSource.direct);
+        await cubit.buy(_one);
+        expect(cubit.state.stage, ProPackSheetStage.checkingPaused);
+        expect(store.pending, isNotNull);
+        await cubit.close();
+
+        // The app starts again. Launch reads the list and, because a
+        // purchase is waiting, asks the relay to read the store.
+        now = now.add(const Duration(hours: 2));
+        api
+          ..refreshCalls = 0
+          ..refreshes = [_held];
+        final relaunched = access();
+        await relaunched.ready;
+        expect(relaunched.isHeld, isFalse);
+        await relaunched.refresh();
+        expect(relaunched.isHeld, isTrue);
+        expect(api.refreshCalls, 1);
+        expect(store.pending, isNull);
+      },
+    );
   });
 
   test('no event carries more than a source or a result word', () async {
