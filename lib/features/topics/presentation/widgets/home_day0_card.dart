@@ -28,7 +28,7 @@ class HomeDay0Card extends StatelessWidget {
     final hostedList = hostedBenefitSentence(HostedSurface.homeDay0Card);
 
     return SetupBlock(
-      padding: const EdgeInsets.fromLTRB(14, 6, 6, 14),
+      padding: const EdgeInsets.fromLTRB(14, 2, 2, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -51,12 +51,9 @@ class HomeDay0Card extends StatelessWidget {
                 ),
               ),
               // The way out is always there and never the loud thing.
-              AppIconButton(
-                glyph: GlyphType.close,
-                ariaLabel: LocaleKeys.home_day0_dismiss_button.tr(),
-                glyphSize: 14,
-                color: colors.ink2,
+              AppDismissCross(
                 onPressed: onDismiss,
+                label: LocaleKeys.home_day0_dismiss_button.tr(),
               ),
             ],
           ),

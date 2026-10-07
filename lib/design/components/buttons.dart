@@ -1,4 +1,5 @@
 import 'package:critalarm/design/components/glyphs.dart';
+import 'package:critalarm/design/components/highlight_card.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/design/tokens/durations.dart';
@@ -134,9 +135,19 @@ class _AppButtonState extends State<AppButton> {
         border = BorderSide(color: fg, width: 2);
       case AppButtonVariant.tinted:
         // Pressed or hovered, the wash deepens: there is no stroke to react.
-        bg = colors.surface.withValues(
-          alpha: _isHovered || _isActive ? 0.36 : 0.22,
-        );
+        final cardFill = AppHighlightSurface.maybeOf(context);
+        final onLightCard =
+            cardFill != null &&
+            ThemeData.estimateBrightnessForColor(cardFill) == Brightness.light;
+        // A white wash cannot be seen on a light card (the cream one), so
+        // there the wash is ink and the pill keeps its shape.
+        bg = onLightCard
+            ? colors.ink.withValues(
+                alpha: _isHovered || _isActive ? 0.16 : 0.10,
+              )
+            : colors.surface.withValues(
+                alpha: _isHovered || _isActive ? 0.36 : 0.22,
+              );
         fg = colors.onCanvas;
       case AppButtonVariant.paper:
         bg = _isHovered ? colors.cream : colors.surface;
