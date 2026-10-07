@@ -4,6 +4,11 @@ import UIKit
 class SceneDelegate: FlutterSceneDelegate {
   /// A cold start. A file shared from Voice Memos or Files arrives here when
   /// the app was not running, and so does a link that started the app.
+  ///
+  /// The connection options cannot be changed, so Flutter still sees a link
+  /// that is in them. With Flutter's deep linking off it reads no URL out of
+  /// them, and of the plugins here only two look at the options: one for the
+  /// tapped notification, one for the quick action.
   override func scene(
     _ scene: UIScene,
     willConnectTo session: UISceneSession,
@@ -13,43 +18,73 @@ class SceneDelegate: FlutterSceneDelegate {
     openLinks(connectionOptions.urlContexts)
     for activity in connectionOptions.userActivities { openUniversalLink(activity) }
     super.scene(scene, willConnectTo: session, options: connectionOptions)
+    forgetLinkActivity(on: scene)
   }
 
   /// A warm open: the app was already running when the file was shared.
+  ///
+  /// An app link stops here. Flutter would hand the URL to every plugin, and
+  /// a connect link carries a token. Files and widget links go on as before.
   override func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
     IncomingAudioInbox.receive(URLContexts)
-    openLinks(URLContexts)
-    super.scene(scene, openURLContexts: URLContexts)
+    let taken = openLinks(URLContexts)
+    let rest = URLContexts.subtracting(taken)
+    if !rest.isEmpty { super.scene(scene, openURLContexts: rest) }
   }
 
   /// A warm open from an `https://critalarm.app` universal link.
+  ///
+  /// The activity holds the whole link, token included, so one this app took
+  /// is not passed on to Flutter and its plugins, and is not left on the
+  /// scene, where state restoration would save it.
   override func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
-    openUniversalLink(userActivity)
+    if openUniversalLink(userActivity) {
+      forgetLinkActivity(on: scene)
+      return
+    }
     super.scene(scene, continue: userActivity)
+  }
+
+  /// iOS asks for this when it saves the scene. Flutter starts from
+  /// `scene.userActivity` when there is one, so a link must not be on it.
+  override func stateRestorationActivity(for scene: UIScene) -> NSUserActivity? {
+    forgetLinkActivity(on: scene)
+    return super.stateRestorationActivity(for: scene)
   }
 
   /// A `critalarm://` link. One from a widget becomes a tap as before. One
   /// that is the custom-scheme form of an app link goes to Dart whole. Files
-  /// keep going to the inbox above.
-  private func openLinks(_ contexts: Set<UIOpenURLContext>) {
-    let links = contexts.map(\.url).filter { !$0.isFileURL && $0.scheme == WidgetLink.scheme }
-    guard let app = UIApplication.shared.delegate as? AppDelegate else { return }
-    for url in links {
+  /// keep going to the inbox above. Returns the contexts that were app links.
+  @discardableResult
+  private func openLinks(_ contexts: Set<UIOpenURLContext>) -> Set<UIOpenURLContext> {
+    let links = contexts.filter { !$0.url.isFileURL && $0.url.scheme == WidgetLink.scheme }
+    guard let app = UIApplication.shared.delegate as? AppDelegate else { return [] }
+    var taken: Set<UIOpenURLContext> = []
+    for context in links {
+      let url = context.url
       if WidgetLink.tap(from: url) == nil, let tap = AppLinkRule.tap(from: url) {
         app.openAppLink(tap)
+        taken.insert(context)
       } else {
         app.openWidgetLink(url)
       }
     }
+    return taken
   }
 
   /// Flutter's deep linking is off, so a universal link becomes a tap and
-  /// Dart picks the screen. Any other activity is left to Flutter.
-  private func openUniversalLink(_ activity: NSUserActivity) {
-    guard let tap = AppLinkRule.tap(from: activity),
-          let app = UIApplication.shared.delegate as? AppDelegate
-    else { return }
-    app.openAppLink(tap)
+  /// Dart picks the screen. True when the activity was such a link. Any
+  /// other activity is left to Flutter.
+  @discardableResult
+  private func openUniversalLink(_ activity: NSUserActivity) -> Bool {
+    guard let tap = AppLinkRule.tap(from: activity) else { return false }
+    (UIApplication.shared.delegate as? AppDelegate)?.openAppLink(tap)
+    return true
+  }
+
+  /// Takes a link activity off the scene once it has been handed over.
+  private func forgetLinkActivity(on scene: UIScene) {
+    if AppLinkRule.holdsLink(scene.userActivity) { scene.userActivity = nil }
   }
 }
 
