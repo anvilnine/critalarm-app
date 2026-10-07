@@ -18,11 +18,17 @@ import 'package:critalarm/features/reliability/domain/reliability_check_source.d
 /// is made once.
 ///
 /// Reasons: the status name (`denied`, `restricted`, `notDetermined`).
+///
+/// A permission that was never asked for is fixed in the app
+/// ([AskPermissionFix]), any other one in system settings. The phone does
+/// not tell "never asked" from "said no" for notifications, so the app's own
+/// memory of having asked decides it, through [notificationsNeverAsked].
 final class PermissionsSource implements ReliabilityCheckSource {
   PermissionsSource({
     required this.permissions,
     required this.capabilities,
     required this.os,
+    this.notificationsNeverAsked,
   });
 
   /// AlarmKit, and so the alarms permission, starts at this iOS version.
@@ -31,6 +37,12 @@ final class PermissionsSource implements ReliabilityCheckSource {
   final DevicePermissionsRepository permissions;
   final PlatformCapabilities capabilities;
   final OsVersionReader os;
+
+  /// Whether the app has never shown the system prompt for notifications:
+  /// the answer `DevicePermissionsCubit.neverAsked` gives the permissions
+  /// screen. Null leaves a missing notifications permission as the phone
+  /// reports it.
+  final Future<bool> Function()? notificationsNeverAsked;
 
   @override
   Future<List<ReliabilityCheck>> read() async {
@@ -51,9 +63,24 @@ final class PermissionsSource implements ReliabilityCheckSource {
         // The permissions list does the same: a read that fails is a denial.
         (_) => DevicePermissionStatus.denied,
       );
-      checks.add(permissionCheckFor(type, status));
+      checks.add(permissionCheckFor(type, await _asked(type, status)));
     }
     return checks;
+  }
+
+  /// [status], or not determined for a notifications permission the app
+  /// never asked for.
+  Future<DevicePermissionStatus> _asked(
+    DevicePermissionType type,
+    DevicePermissionStatus status,
+  ) async {
+    final neverAsked = notificationsNeverAsked;
+    if (type != DevicePermissionType.notifications ||
+        !status.isDenied ||
+        neverAsked == null) {
+      return status;
+    }
+    return await neverAsked() ? DevicePermissionStatus.notDetermined : status;
   }
 
   Future<bool> _hasAlarmKit() async {
@@ -87,7 +114,20 @@ final class PermissionsSource implements ReliabilityCheckSource {
           ? ReliabilityState.needsLook
           : ReliabilityState.broken,
       reason: status.name,
-      fix: OpenSystemSettingsFix(type),
+      fix: canAskInApp(type, status)
+          ? AskPermissionFix(type)
+          : OpenSystemSettingsFix(type),
     );
   }
+
+  /// Whether the app can still show the system prompt for [type]. Only
+  /// notifications and alarms have one, and only until it was used: the
+  /// same rule as `DevicePermissionsCubit.neverAsked`.
+  static bool canAskInApp(
+    DevicePermissionType type,
+    DevicePermissionStatus status,
+  ) =>
+      status.isNotDetermined &&
+      (type == DevicePermissionType.notifications ||
+          type == DevicePermissionType.alarms);
 }
