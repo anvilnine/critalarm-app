@@ -34,7 +34,7 @@ class PaywallPlanPicker extends StatelessWidget {
 
   final PaywallPlanPickerStyle style;
 
-  static const double _rowHeight = 54;
+  static const double _rowHeight = 56;
   static const double _segmentHeight = 86;
   static const double _gap = 6;
 
@@ -62,7 +62,9 @@ class PaywallPlanPicker extends StatelessWidget {
             return _PlanCard(
               option: option,
               isSingle: isSingle,
-              isSelected: option != null && option.id == state.selectedId,
+              // The only option has nothing to be picked from.
+              isSelected:
+                  !isSingle && option != null && option.id == state.selectedId,
               isCompactCard:
                   !isSingle && style == PaywallPlanPickerStyle.segments,
               onTap: option == null || isSingle || state.isBusy
@@ -187,30 +189,41 @@ class _PlanCard extends StatelessWidget {
       );
     } else {
       final after = afterPrice(Alignment.centerRight);
-      content = Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                oneLine(option.title, title),
-                if (option.renewalLine case final line?) oneLine(line, fine),
-              ],
+      // The price side takes the width it needs, up to most of the row,
+      // and sits against the right edge. The words get the rest.
+      content = LayoutBuilder(
+        builder: (context, constraints) => Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  oneLine(option.title, title),
+                  if (option.renewalLine case final line?) oneLine(line, fine),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: Spacing.s3),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                oneLine(option.price, price, alignment: Alignment.centerRight),
-                ?after,
-              ],
+            const SizedBox(width: Spacing.s3),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: constraints.maxWidth * 0.6,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  oneLine(
+                    option.price,
+                    price,
+                    alignment: Alignment.centerRight,
+                  ),
+                  ?after,
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 

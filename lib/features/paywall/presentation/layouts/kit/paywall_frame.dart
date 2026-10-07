@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
@@ -97,6 +99,15 @@ class PaywallFrame extends StatelessWidget {
           children: [
             ?backdrop,
             SafeArea(
+              // The links row ends in blank tap area, so it may reach a
+              // little into the home indicator's inset.
+              bottom: false,
+              minimum: EdgeInsets.only(
+                bottom: math.max(
+                  0,
+                  MediaQuery.viewPaddingOf(context).bottom - Spacing.s3,
+                ),
+              ),
               child: PaywallFrameBody(
                 builder: builder,
                 tone: tone,
