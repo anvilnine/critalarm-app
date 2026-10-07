@@ -324,6 +324,17 @@ class _SettingsScreenContent extends StatelessWidget {
                             .tr(),
                         path: '/sounds',
                       ),
+                      // A browser has no push and no alarm to describe.
+                      if (getIt<PlatformCapabilities>().canRunAlarm) ...[
+                        const SizedBox(height: 8),
+                        _buildNavRow(
+                          context,
+                          title: LocaleKeys.settings_priorities_row_title.tr(),
+                          subtitle: LocaleKeys.settings_priorities_row_subtitle
+                              .tr(),
+                          path: '/settings/priorities',
+                        ),
+                      ],
                       // Storage is the only thing left of the old Alarms
                       // page, and it only shows on a paid tier or a
                       // self-hosted server.

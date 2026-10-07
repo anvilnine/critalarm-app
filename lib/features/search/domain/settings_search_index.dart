@@ -129,6 +129,27 @@ abstract final class SettingsSearchIndex {
         'bell',
       ],
     ),
+    const SettingsDestination(
+      id: 'priorities',
+      routePath: '/settings/priorities',
+      titleKey: LocaleKeys.settings_priorities_row_title,
+      parentTitleKey: LocaleKeys.nav_settings,
+      keywords: <String>[
+        'priority',
+        'priorities',
+        'p1',
+        'p2',
+        'p3',
+        'p4',
+        'p5',
+        'level',
+        'critical',
+        'alarm',
+        'ring',
+        'what rings',
+        'time sensitive',
+      ],
+    ),
     // 'quiet_hours', 'critical_rings' and 'escalation_call' are out while
     // their rows are off the alarm settings screen. Searching for them would
     // land on a screen that no longer shows them.
