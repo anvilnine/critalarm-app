@@ -14,6 +14,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Setup works at the largest text sizes. The face shrinks first, and a step scrolls when it has to.
 - After your first real alarm, Home shows what Free keeps and what Hosted adds. Close the card and it stays closed.
 - On your own server, Settings says so: no limits, no charge.
+- Settings opens with a Will it wake me? screen that lists what could stop an alarm, with a fix beside each. After your phone updates, Home offers a test alarm once.
 
 ### Changed
 - The paid plan is called Hosted everywhere in the app, including the paywall, Settings, history, notices and reminders.
