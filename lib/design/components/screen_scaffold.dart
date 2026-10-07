@@ -10,6 +10,8 @@ import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/design/tokens/radii.dart';
 import 'package:critalarm/design/tokens/shadows.dart';
+import 'package:critalarm/design_system/bar_backing.dart';
+import 'package:critalarm/design_system/edge_effect.dart';
 import 'package:critalarm/design_system/widgets/progressive_blur.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -286,6 +288,10 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
     final backsBottomWhenUnder =
         !backsBottomAlways && (scope?.coversBottomBar ?? false);
     final topBarMaxTextScale = scope?.topBarMaxTextScale;
+    // How a backing from the scope is drawn: a blur, a fade of the canvas
+    // colour, or both. A backing the screen asked for itself stays solid.
+    final backingConfig = BarBackingConfigScope.of(context);
+    final scopedTop = widget.barBacking == null && backing != null;
 
     // On its side, or wide enough for two panes, the tab bar stands up as a
     // rail down one edge, so the screen keeps clear of it sideways instead of
@@ -402,11 +408,26 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
               top: 0,
               left: 0,
               right: 0,
-              height: topInset + 16,
-              child: ProgressiveBlurEdge(
-                height: topInset + 16,
-                isTop: true,
-              ),
+              child: scopedTop && widget.topBar != null
+                  // At rest this is the quiet edge blur every screen has.
+                  // Once a row is under the bar the blur gets as strong as
+                  // the config says and holds that strength under the bar.
+                  ? ValueListenableBuilder<double>(
+                      valueListenable: _scrolledUnderTop,
+                      builder: (context, amount, _) => _BarBlur(
+                        style: backingConfig.top,
+                        amount: amount,
+                        bar: topInset,
+                        isTop: true,
+                      ),
+                    )
+                  : SizedBox(
+                      height: topInset + 16,
+                      child: ProgressiveBlurEdge(
+                        height: topInset + 16,
+                        isTop: true,
+                      ),
+                    ),
             ),
             // A pinned bottom bar brings its own blur (AppScrollScrim), so
             // skip this one there or the two stack.
@@ -458,12 +479,14 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
               // block there would cut the background shapes for no reason.
               child: ValueListenableBuilder<double>(
                 valueListenable: _scrolledUnderTop,
-                builder: (context, amount, child) =>
-                    Opacity(opacity: amount, child: child),
-                child: _BarBacking(
+                builder: (context, amount, _) => _BarTint(
+                  // A screen's own backing is the solid band it asked for.
+                  style: scopedTop ? backingConfig.top : null,
                   color: backing,
-                  solid: topInset,
+                  amount: amount,
+                  bar: topInset,
                   isTop: true,
+                  canBlur: widget.withEdgeBlur,
                 ),
               ),
             ),
@@ -537,17 +560,33 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                   if (backsBottomWhenUnder && backing != null)
                     ValueListenableBuilder<double>(
                       valueListenable: _underBottomBar,
-                      builder: (context, amount, child) =>
-                          Opacity(opacity: amount, child: child),
-                      child: _BarBacking(
-                        color: backing,
-                        solid:
+                      builder: (context, amount, _) {
+                        final bar =
                             padding.bottom +
                             tabBarRoom +
                             barHeight +
-                            AppScreenScaffold.bottomBarGap,
-                        isTop: false,
-                      ),
+                            AppScreenScaffold.bottomBarGap;
+                        return Stack(
+                          alignment: Alignment.bottomCenter,
+                          children: [
+                            if (widget.withEdgeBlur)
+                              _BarBlur(
+                                style: backingConfig.bottom,
+                                amount: amount,
+                                bar: bar,
+                                isTop: false,
+                              ),
+                            _BarTint(
+                              style: backingConfig.bottom,
+                              color: backing,
+                              amount: amount,
+                              bar: bar,
+                              isTop: false,
+                              canBlur: widget.withEdgeBlur,
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   SafeArea(
                     top: false,
@@ -773,6 +812,169 @@ class _BarBacking extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: isTop ? [block, edge] : [edge, block],
+      ),
+    );
+  }
+}
+
+/// The blur behind a bar that takes its backing from an
+/// [AppBarBackingScope]: the progressive blur, as strong as [style] says,
+/// held at that strength for the height of the [bar] and easing off over
+/// the fade length past it.
+///
+/// [amount] is how far a row is under the bar, 0 to 1, and scales the
+/// strength. With no row there the top edge keeps the quiet blur every
+/// screen has, and the bottom draws nothing, so a screen at rest is what it
+/// was.
+class _BarBlur extends StatelessWidget {
+  const _BarBlur({
+    required this.style,
+    required this.amount,
+    required this.bar,
+    required this.isTop,
+  });
+
+  final BarBackingStyle style;
+  final double amount;
+
+  /// Height of the bar, measured from the edge of the display.
+  final double bar;
+  final bool isTop;
+
+  @override
+  Widget build(BuildContext context) {
+    if (amount <= 0 || !style.mode.blurs) {
+      if (!isTop) return const SizedBox.shrink();
+      return SizedBox(
+        height: bar + 16,
+        child: ProgressiveBlurEdge(height: bar + 16, isTop: true),
+      );
+    }
+    final height = bar + style.fadeLength;
+    return SizedBox(
+      height: height,
+      width: double.infinity,
+      child: ProgressiveBlurEdge(
+        height: height,
+        isTop: isTop,
+        maxSigma: style.blurSigma * amount,
+        plateau: bar,
+      ),
+    );
+  }
+}
+
+/// The colour over the blur behind a bar: a fade of the canvas colour that
+/// is strongest under the [bar] and gone a fade length past it, or the solid
+/// band when the mode asks for one.
+///
+/// A null [style] is a screen's own backing, which is the solid band.
+class _BarTint extends StatelessWidget {
+  const _BarTint({
+    required this.style,
+    required this.color,
+    required this.amount,
+    required this.bar,
+    required this.isTop,
+    required this.canBlur,
+  });
+
+  final BarBackingStyle? style;
+  final Color color;
+  final double amount;
+  final double bar;
+  final bool isTop;
+
+  /// Whether the screen draws the edge blur at all.
+  final bool canBlur;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = this.style;
+    if (style == null || style.mode == BarBackingMode.solid) {
+      return Opacity(
+        opacity: amount,
+        child: _BarBacking(color: color, solid: bar, isTop: isTop),
+      );
+    }
+    if (amount <= 0 || style.mode == BarBackingMode.none) {
+      return const SizedBox.shrink();
+    }
+    final isPortrait =
+        MediaQuery.orientationOf(context) == Orientation.portrait;
+    return ValueListenableBuilder<EdgeEffect>(
+      valueListenable: appEdgeEffect,
+      builder: (context, effect, _) {
+        // The same test the blur makes before it draws. Where it draws
+        // nothing, the fade has to do the work on its own.
+        final blurs =
+            canBlur &&
+            isPortrait &&
+            (effect == EdgeEffect.sliceBlur ||
+                (effect == EdgeEffect.shaderBlur && edgeBlurProgram != null));
+        final peak = barBackingGradientPeak(style, blurs: blurs) * amount;
+        if (peak <= 0) return const SizedBox.shrink();
+        return _BarFade(
+          color: color,
+          peak: peak,
+          bar: bar,
+          fade: style.fadeLength,
+          isTop: isTop,
+        );
+      },
+    );
+  }
+}
+
+/// The canvas colour at [peak] opacity for the height of the [bar], easing
+/// to nothing over [fade] past it. The curve is smoothstep, flat at both
+/// ends, so the fade has no line where it starts or stops.
+class _BarFade extends StatelessWidget {
+  const _BarFade({
+    required this.color,
+    required this.peak,
+    required this.bar,
+    required this.fade,
+    required this.isTop,
+  });
+
+  final Color color;
+  final double peak;
+  final double bar;
+  final double fade;
+  final bool isTop;
+
+  /// Enough stops that the ramp reads as one curve, not as bands.
+  static const int _steps = 16;
+
+  @override
+  Widget build(BuildContext context) {
+    final height = bar + fade;
+    if (height <= 0) return const SizedBox.shrink();
+    // Along the strip from the edge of the display: full for the bar, then
+    // the curve.
+    final hold = bar / height;
+    final colors = <Color>[color.withValues(alpha: peak)];
+    final stops = <double>[0];
+    for (var i = 0; i <= _steps; i++) {
+      final t = i / _steps;
+      colors.add(color.withValues(alpha: peak * (1 - t * t * (3 - 2 * t))));
+      stops.add(hold + (1 - hold) * t);
+    }
+    return IgnorePointer(
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: isTop ? Alignment.topCenter : Alignment.bottomCenter,
+              end: isTop ? Alignment.bottomCenter : Alignment.topCenter,
+              colors: colors,
+              stops: stops,
+            ),
+          ),
+        ),
       ),
     );
   }
