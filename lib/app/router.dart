@@ -669,7 +669,9 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
               product: PaywallProduct.parse(query['product']),
               source: PaywallSource.parse(query['source']),
               demoStatus: PaywallBuyStatus.values.asNameMap()[query['state']],
-              showsUnbuilt: query['benefits'] == 'all',
+              // A developer sees the finished list. `benefits=built` shows
+              // what a store build lists today.
+              showsUnbuilt: query['benefits'] != 'built',
             ),
           );
         },

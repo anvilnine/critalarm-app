@@ -1,11 +1,14 @@
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_preview_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/alarm_screens_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/app_icons_preview.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/challenge_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/history_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_glyph_tile.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/preview_size_class.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/pushes_preview.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/previews/sounds_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/topics_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/weekly_check_preview.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/previews/widgets_preview.dart';
@@ -29,6 +32,10 @@ final Map<PaywallPreviewId, PaywallPreviewBuilder> paywallPreviewBuilders = {
   PaywallPreviewId.widgets: (_, size) => WidgetsPreview(size: size),
   PaywallPreviewId.appIcons: (_, size) => AppIconsPreview(size: size),
   PaywallPreviewId.weeklyCheck: (_, size) => WeeklyCheckPreview(size: size),
+  PaywallPreviewId.wakeUpChallenges: (_, size) => ChallengePreview(size: size),
+  PaywallPreviewId.customSounds: (_, size) => SoundsPreview(size: size),
+  PaywallPreviewId.customAlarmScreens: (_, size) =>
+      AlarmScreensPreview(size: size),
 };
 
 /// The stand-in glyph for a preview nobody has built yet.
@@ -39,10 +46,9 @@ GlyphType paywallPreviewGlyph(PaywallPreviewId id) => switch (id) {
   PaywallPreviewId.widgets => GlyphType.list,
   PaywallPreviewId.appIcons => GlyphType.pencil,
   PaywallPreviewId.weeklyCheck => GlyphType.check,
-  PaywallPreviewId.fireDrills => GlyphType.play,
-  PaywallPreviewId.wakeUpChallenges => GlyphType.repeat,
+  PaywallPreviewId.wakeUpChallenges => GlyphType.lock,
+  PaywallPreviewId.customSounds => GlyphType.record,
   PaywallPreviewId.customAlarmScreens => GlyphType.filter,
-  PaywallPreviewId.morningSummary => GlyphType.info,
 };
 
 /// The picture of one benefit, at one of three designed sizes. It draws
