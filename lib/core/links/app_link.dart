@@ -21,6 +21,17 @@ abstract final class AppLinkRoutes {
   /// [reliability] when the route exists.
   static const String reliabilityTarget = settings;
 
+  /// Names that are a screen of their own under `/topics/`, so they cannot
+  /// also be a topic there: `/topics/new` is the create-topic form. A link
+  /// from outside the app must never open one of these by naming a topic.
+  ///
+  /// This has to match the router. `test/app/router_test.dart` reads the
+  /// router's fixed `/topics/<word>` routes and fails when the two differ.
+  static const Set<String> reservedTopicNames = {'new'};
+
+  /// The same for `/incidents/`. The router has none today.
+  static const Set<String> reservedIncidentIds = {};
+
   static String incident(String id) => '/incidents/${Uri.encodeComponent(id)}';
 
   static String topic(String name) => '/topics/${Uri.encodeComponent(name)}';
@@ -98,25 +109,52 @@ final class ConnectLink extends AppLink {
 ///
 /// The `critalarm://` form drops the host: `critalarm://connect?url=..`,
 /// `critalarm://topics/<name>`. `critalarm://open/topics/<name>` works too.
+///
+/// The https form is the strict one, because anyone can write such a link:
+///
+/// - A connect link carries its server address and token after the `#` only.
+///   One that has either in the query is refused, because a query reaches
+///   the web server and its logs.
+/// - A name that is a fixed screen under `/topics/` or `/incidents/`
+///   ([AppLinkRoutes.reservedTopicNames]) opens Home, never that screen.
+/// - A path with an empty segment (`//open/...`) or a user name in front of
+///   the host opens Home.
+///
+/// `critalarm://topics/<name>` and `critalarm://incidents/<id>` are what
+/// widgets and notifications inside the app use, and they keep the lenient
+/// reading they always had.
 AppLink? parseAppLink(Uri uri) {
   try {
     if (uri.scheme == 'https') {
       if (uri.host != appLinkHost) return null;
       if (uri.hasPort && uri.port != 443) return null;
-      final segments = _nonEmpty(uri.pathSegments);
+      if (uri.userInfo.isNotEmpty) return AppLinkRoute.home;
+      final segments = uri.pathSegments.toList();
+      // One trailing slash is fine. Any other empty segment is not a path
+      // the site has.
+      if (segments.isNotEmpty && segments.last.isEmpty) segments.removeLast();
+      if (segments.any((s) => s.isEmpty)) return AppLinkRoute.home;
       // Only /connect and /open/ are the app's. The rest of the site stays
       // in the browser, and one that reaches the app anyway opens Home.
       if (segments.isEmpty) return AppLinkRoute.home;
-      if (segments.first == _connect) return _connectFrom(uri, segments);
-      if (segments.first == _open) return _routeFrom(segments.sublist(1));
+      if (segments.first == _connect) {
+        return _connectFrom(uri, segments, fragmentOnly: true);
+      }
+      if (segments.first == _open) {
+        return _routeFrom(segments.sublist(1), strict: true);
+      }
       return AppLinkRoute.home;
     }
     if (uri.scheme == appLinkScheme) {
       final segments = _nonEmpty([uri.host, ...uri.pathSegments]);
       if (segments.isEmpty) return AppLinkRoute.home;
-      if (segments.first == _connect) return _connectFrom(uri, segments);
-      if (segments.first == _open) return _routeFrom(segments.sublist(1));
-      return _routeFrom(segments);
+      if (segments.first == _connect) {
+        return _connectFrom(uri, segments, fragmentOnly: false);
+      }
+      if (segments.first == _open) {
+        return _routeFrom(segments.sublist(1), strict: true);
+      }
+      return _routeFrom(segments, strict: false);
     }
     return null;
   } on FormatException {
@@ -124,12 +162,24 @@ AppLink? parseAppLink(Uri uri) {
   }
 }
 
-/// [parseAppLink] for a link that arrived as text. Text that is not a URI at
-/// all is nobody's link.
+/// [parseAppLink] for a link that arrived as text, which is how the platform
+/// hands one over. Text that is not a URI at all is nobody's link.
+///
+/// A `.` or `..` segment is refused here, on the text as it was written:
+/// [Uri] folds those away while it parses, so `/open/../connect` would
+/// otherwise read as `/connect`.
 AppLink? parseAppLinkText(String text) {
   final uri = Uri.tryParse(text);
-  return uri == null ? null : parseAppLink(uri);
+  if (uri == null) return null;
+  final link = parseAppLink(uri);
+  if (link == null) return null;
+  final end = text.indexOf(RegExp('[?#]'));
+  final beforeQuery = end < 0 ? text : text.substring(0, end);
+  return _dotSegment.hasMatch(beforeQuery) ? AppLinkRoute.home : link;
 }
+
+/// A `.` or `..` path segment, plain or percent-encoded.
+final _dotSegment = RegExp(r'/(\.|%2e){1,2}(/|$)', caseSensitive: false);
 
 final _brokenEscape = RegExp('%(?![0-9A-Fa-f]{2})');
 
@@ -141,36 +191,64 @@ List<String> _nonEmpty(Iterable<String> segments) => [
     if (s.isNotEmpty) s,
 ];
 
-AppLinkRoute _routeFrom(List<String> segments) {
+/// [strict] is for a link from outside the app (`/open/...`): a name that is
+/// a fixed screen of the router opens Home.
+AppLinkRoute _routeFrom(List<String> segments, {required bool strict}) {
   if (segments.length == 2) {
     final [kind, value] = segments;
     if (kind == 'settings' && value == 'reliability') {
       return const AppLinkRoute(AppLinkRoutes.reliabilityTarget);
     }
-    if (kind == 'incidents') return AppLinkRoute(AppLinkRoutes.incident(value));
-    if (kind == 'topics') return AppLinkRoute(AppLinkRoutes.topic(value));
+    if (kind == 'incidents') {
+      if (strict && AppLinkRoutes.reservedIncidentIds.contains(value)) {
+        return AppLinkRoute.home;
+      }
+      return AppLinkRoute(AppLinkRoutes.incident(value));
+    }
+    if (kind == 'topics') {
+      if (strict && AppLinkRoutes.reservedTopicNames.contains(value)) {
+        return AppLinkRoute.home;
+      }
+      return AppLinkRoute(AppLinkRoutes.topic(value));
+    }
   }
   return AppLinkRoute.home;
 }
 
 /// A connect link, or Home when it is not a usable one. A refused link says
 /// nothing about why.
-AppLink _connectFrom(Uri uri, List<String> segments) {
+///
+/// [fragmentOnly] is the https form. A browser never sends what follows the
+/// `#` to a server, so that is the only place such a link may carry the
+/// address and the token. `critalarm://` never reaches a server, so it may
+/// use the query, and the fragment is read first there too.
+AppLink _connectFrom(
+  Uri uri,
+  List<String> segments, {
+  required bool fragmentOnly,
+}) {
   if (segments.length != 1) return AppLinkRoute.home;
   // A broken percent escape is refused here, before anything decodes it.
   if (_brokenEscape.hasMatch(uri.fragment) ||
       _brokenEscape.hasMatch(uri.query)) {
     return AppLinkRoute.home;
   }
-  // The fragment first: a browser never sends it to a server, so that is
-  // where the https link carries the token. The query is for the custom
-  // scheme, and for a link whose fragment was lost on the way.
   final fragment = uri.fragment.isEmpty
       ? const <String, String>{}
       : Uri.splitQueryString(uri.fragment);
   final query = uri.queryParameters;
-  final rawUrl = _firstFilled(fragment['url'], query['url']);
-  final token = _firstFilled(fragment['token'], query['token']);
+  if (fragmentOnly &&
+      (query.containsKey('url') || query.containsKey('token'))) {
+    return AppLinkRoute.home;
+  }
+  final rawUrl = _firstFilled(
+    fragment['url'],
+    fragmentOnly ? null : query['url'],
+  );
+  final token = _firstFilled(
+    fragment['token'],
+    fragmentOnly ? null : query['token'],
+  );
   if (rawUrl == null || token == null) return AppLinkRoute.home;
   final serverUrl = Uri.tryParse(rawUrl.trim());
   if (serverUrl == null || !isAllowedServerUrl(serverUrl)) {
@@ -186,9 +264,12 @@ String? _firstFilled(String? first, String? second) {
 }
 
 /// True for a server address a connect link may carry: `https` to anywhere,
-/// `http` only to this device or a private network.
+/// `http` only to this device or a private network. An address with a user
+/// name or password in it is refused: the host a person reads would not be
+/// the whole story.
 bool isAllowedServerUrl(Uri url) {
   if (url.host.isEmpty) return false;
+  if (url.userInfo.isNotEmpty) return false;
   if (url.scheme == 'https') return true;
   if (url.scheme == 'http') return isPrivateOrLoopbackHost(url.host);
   return false;

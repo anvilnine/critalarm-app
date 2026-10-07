@@ -41,6 +41,13 @@ enum AppLinkRule {
         return [linkKey: url.absoluteString]
     }
 
+    /// True when [activity] carries a link this rule takes. Such an activity
+    /// must not stay on a scene or be passed on: the link may hold a token.
+    static func holdsLink(_ activity: NSUserActivity?) -> Bool {
+        guard let activity else { return false }
+        return tap(from: activity) != nil
+    }
+
     /// The link a universal-link activity carries, or nil for any other
     /// activity (Handoff, Spotlight, a Siri shortcut).
     static func tap(from activity: NSUserActivity) -> [String: String]? {

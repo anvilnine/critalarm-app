@@ -67,6 +67,28 @@ class AppLinkRuleTest {
     }
 
     @Test
+    fun `odd shapes are not forwarded, or are left for Dart to refuse`() {
+        // Not forwarded at all.
+        for (link in listOf(
+            "https://critalarm.app./open/topics/prod",
+            "https://critalarm.app//open/topics/prod",
+            "https://critalarm.app@evil.example/open/topics/prod",
+            "https://critalarm.app:8443/connect",
+        )) {
+            assertNull(link, forward(link))
+        }
+        // Forwarded whole. The Dart parser opens Home for these.
+        for (link in listOf(
+            "https://user:pw@critalarm.app/open/topics/prod",
+            "https://critalarm.app/open/../connect#url=https%3A%2F%2Fa.example&token=tk_x",
+            "https://critalarm.app/open/topics/new",
+            "https://critalarm.app/connect?url=https%3A%2F%2Fa.example&token=tk_x",
+        )) {
+            assertEquals(link, link, forward(link))
+        }
+    }
+
+    @Test
     fun `a link tap carries the link and no route of its own`() {
         val link = "https://critalarm.app/open/topics/prod"
         val tap = TapRoute.tapFor(3, null, null, null, link)
