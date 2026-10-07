@@ -13,9 +13,12 @@ import java.net.URL
  * call, which a thread started from the push handler is not promised. It
  * tries a small number of times and then drops the receipt. Nothing is kept
  * for later and nothing here is shared with incident pushes.
+ *
+ * The system reuses one service object for many jobs, so nothing about one
+ * job is kept on the service: each run has its own entry in [jobs].
  */
 class CheckReceiptJobService : JobService() {
-    @Volatile private var stopped = false
+    private val jobs = CheckReceiptJobs()
 
     override fun onStartJob(params: JobParameters): Boolean {
         val checkId = params.extras.getString(EXTRA_CHECK_ID)
@@ -25,50 +28,53 @@ class CheckReceiptJobService : JobService() {
             attempt = params.extras.getInt(EXTRA_ATTEMPT, 0).takeIf { it > 0 },
         )
         val receivedAt = params.extras.getLong(EXTRA_RECEIVED_AT, System.currentTimeMillis() / 1000L)
+        val run = jobs.started(params.jobId)
         Thread {
-            send(push, receivedAt)
-            // Never rescheduled: a receipt that did not get out is dropped.
-            jobFinished(params, false)
+            try {
+                send(push, receivedAt, run)
+            } finally {
+                jobs.finished(params.jobId, run)
+                // Never rescheduled: a receipt that did not get out is dropped.
+                jobFinished(params, false)
+            }
         }.start()
         return true
     }
 
-    /** The system took the job back, for instance because the network went. Dropped. */
+    /** The system took this job back, for instance because the network went. Dropped. */
     override fun onStopJob(params: JobParameters): Boolean {
-        stopped = true
+        jobs.stop(params.jobId)
         return false
     }
 
-    private fun send(push: CheckPush, receivedAtSeconds: Long) {
+    private fun send(push: CheckPush, receivedAtSeconds: Long, run: CheckReceiptJobs.Run) {
         val device = WeeklyCheckResponder.relayDevice(applicationContext) ?: run {
             Log.i(TAG, "check_receipt_skipped reason=no_credentials")
             return
         }
-        val request = CheckReceipt.request(device, push, receivedAtSeconds)
-        for ((index, delay) in CheckReceipt.TRY_DELAYS_MS.withIndex()) {
-            if (delay > 0) {
-                try {
-                    Thread.sleep(delay)
-                } catch (_: InterruptedException) {
-                    return
-                }
-            }
-            if (stopped) return
-            val (status, body) = post(request)
-            if (status == 200) {
-                CheckReceipt.parseAnswer(body)?.let { answer ->
-                    WeeklyCheckResponder.recordAnswer(applicationContext, answer)
-                    Log.i(TAG, "check_receipt_sent counted=${answer.counted} try=${index + 1}")
-                } ?: Log.i(TAG, "check_receipt_sent try=${index + 1}")
-                return
-            }
-            if (!CheckReceipt.shouldRetry(status)) {
-                Log.i(TAG, "check_receipt_refused status=$status")
-                return
-            }
-            Log.i(TAG, "check_receipt_failed status=${status ?: "-"} try=${index + 1}")
+        if (!CheckReceipt.maySend(device.relay, PlainHttpRelays.hosts)) {
+            // The token never goes out over plain http. No host is named here.
+            Log.i(TAG, "check_receipt_skipped reason=relay_not_https")
+            return
         }
-        Log.i(TAG, "check_receipt_dropped")
+        val outcome = CheckReceipt.send(
+            request = CheckReceipt.request(device, push, receivedAtSeconds),
+            post = ::post,
+            isCancelled = { run.isStopped },
+            onTry = { index, status ->
+                if (status != 200) Log.i(TAG, "check_receipt_failed status=${status ?: "-"} try=${index + 1}")
+            },
+            onAnswer = { answer ->
+                if (answer != null) WeeklyCheckResponder.recordAnswer(applicationContext, answer)
+                Log.i(TAG, "check_receipt_sent counted=${answer?.counted ?: "-"}")
+            },
+        )
+        when (outcome) {
+            CheckReceipt.Outcome.SENT -> Unit
+            CheckReceipt.Outcome.REFUSED -> Log.i(TAG, "check_receipt_refused")
+            CheckReceipt.Outcome.DROPPED -> Log.i(TAG, "check_receipt_dropped")
+            CheckReceipt.Outcome.CANCELLED -> Log.i(TAG, "check_receipt_cancelled")
+        }
     }
 
     /** The status and the body, or a null status when nothing came back. */

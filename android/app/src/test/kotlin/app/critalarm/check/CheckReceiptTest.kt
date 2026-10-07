@@ -157,4 +157,181 @@ class CheckReceiptTest {
             JSONObject(record).keys().asSequence().toSet(),
         )
     }
+
+    // The token only goes out over https.
+
+    @Test
+    fun `a receipt goes to an https relay`() {
+        assertTrue(CheckReceipt.maySend(URI("https://relay.example.test"), emptySet()))
+        assertTrue(CheckReceipt.maySend(URI("HTTPS://relay.example.test"), emptySet()))
+    }
+
+    @Test
+    fun `a release build sends nothing over http, not even to this machine`() {
+        val none = emptySet<String>()
+        for (relay in listOf(
+            "http://relay.example.test",
+            "http://127.0.0.1:8792",
+            "http://localhost:8792",
+            "http://10.0.2.2:8792",
+            "ftp://relay.example.test",
+        )) {
+            assertFalse(relay, CheckReceipt.maySend(URI(relay), none))
+        }
+    }
+
+    @Test
+    fun `a debug build may reach a relay on this machine over http, and no other`() {
+        val local = setOf("127.0.0.1", "localhost", "10.0.2.2")
+        assertTrue(CheckReceipt.maySend(URI("http://10.0.2.2:8792"), local))
+        assertTrue(CheckReceipt.maySend(URI("http://127.0.0.1:8792/base"), local))
+        assertTrue(CheckReceipt.maySend(URI("http://LOCALHOST:8792"), local))
+        assertFalse(CheckReceipt.maySend(URI("http://relay.example.test"), local))
+        assertFalse(CheckReceipt.maySend(URI("http://10.0.2.2.example.test"), local))
+        assertFalse(CheckReceipt.maySend(URI("http://192.168.1.10:8792"), local))
+    }
+
+    @Test
+    fun `only the debug source set lists a plain http host`() {
+        fun hosts(buildType: String) =
+            java.io.File("src/$buildType/kotlin/app/critalarm/check/PlainHttpRelays.kt").readText()
+        assertTrue(hosts("release").contains("emptySet()"))
+        assertTrue(hosts("profile").contains("emptySet()"))
+        assertFalse(hosts("release").contains("10.0.2.2"))
+        assertFalse(hosts("profile").contains("10.0.2.2"))
+        assertTrue(hosts("debug").contains("10.0.2.2"))
+        assertFalse(java.io.File("src/main/kotlin/app/critalarm/check/PlainHttpRelays.kt").exists())
+    }
+
+    @Test
+    fun `the job asks before it sends and says why not without naming the host`() {
+        val service = java.io.File("src/main/kotlin/app/critalarm/check/CheckReceiptJobService.kt").readText()
+        val gate = service.indexOf("CheckReceipt.maySend(device.relay, PlainHttpRelays.hosts)")
+        assertTrue(gate >= 0)
+        assertTrue(gate < service.indexOf("CheckReceipt.send("))
+        assertTrue(service.contains("\"check_receipt_skipped reason=relay_not_https\""))
+    }
+
+    // One receipt: its tries, and its own cancellation.
+
+    private val request = CheckReceipt.request(device, push, 10)
+
+    private fun send(
+        statuses: List<Int?>,
+        isCancelled: () -> Boolean = { false },
+        answers: MutableList<CheckReceiptAnswer?> = mutableListOf(),
+    ): Pair<CheckReceipt.Outcome, Int> {
+        var posts = 0
+        val outcome = CheckReceipt.send(
+            request = request,
+            post = {
+                val status = statuses[minOf(posts, statuses.size - 1)]
+                posts += 1
+                status to if (status == 200) """{"counted":true,"notice_after":900}""" else null
+            },
+            isCancelled = isCancelled,
+            sleep = {},
+            onAnswer = { answers.add(it) },
+        )
+        return outcome to posts
+    }
+
+    @Test
+    fun `a receipt that lands is sent once`() {
+        val answers = mutableListOf<CheckReceiptAnswer?>()
+        assertEquals(CheckReceipt.Outcome.SENT to 1, send(listOf(200), answers = answers))
+        assertEquals(listOf(CheckReceiptAnswer(true, null, 900)), answers)
+    }
+
+    @Test
+    fun `two failures and then it lands`() {
+        assertEquals(CheckReceipt.Outcome.SENT to 3, send(listOf(503, null, 200)))
+    }
+
+    @Test
+    fun `three failures and it is dropped`() {
+        assertEquals(CheckReceipt.Outcome.DROPPED to 3, send(listOf(503)))
+        assertEquals(CheckReceipt.Outcome.DROPPED to 3, send(listOf(null)))
+    }
+
+    @Test
+    fun `a final answer is not asked again`() {
+        assertEquals(CheckReceipt.Outcome.REFUSED to 1, send(listOf(404)))
+        assertEquals(CheckReceipt.Outcome.REFUSED to 1, send(listOf(401)))
+    }
+
+    @Test
+    fun `a stopped job posts nothing`() {
+        assertEquals(CheckReceipt.Outcome.CANCELLED to 0, send(listOf(200), isCancelled = { true }))
+    }
+
+    @Test
+    fun `stopping one job does not stop the next one on the same service`() {
+        val jobs = CheckReceiptJobs()
+        val first = jobs.started(1)
+        jobs.stop(1)
+        assertTrue(first.isStopped)
+        assertEquals(CheckReceipt.Outcome.CANCELLED to 0, send(listOf(200), isCancelled = { first.isStopped }))
+        jobs.finished(1, first)
+
+        // The same service object, a later job.
+        val second = jobs.started(2)
+        assertFalse(second.isStopped)
+        assertEquals(CheckReceipt.Outcome.SENT to 1, send(listOf(200), isCancelled = { second.isStopped }))
+    }
+
+    @Test
+    fun `the same job id run again starts unstopped`() {
+        val jobs = CheckReceiptJobs()
+        val first = jobs.started(7)
+        jobs.stop(7)
+        val again = jobs.started(7)
+        assertTrue(first.isStopped)
+        assertFalse(again.isStopped)
+        // The first run ending late does not take the second run's entry.
+        jobs.finished(7, first)
+        jobs.stop(7)
+        assertTrue(again.isStopped)
+    }
+
+    @Test
+    fun `a stop for a job that is not running is nothing`() {
+        val jobs = CheckReceiptJobs()
+        jobs.stop(3)
+        assertFalse(jobs.started(3).isStopped)
+    }
+
+    @Test
+    fun `the service keeps nothing about one job on itself`() {
+        val service = java.io.File("src/main/kotlin/app/critalarm/check/CheckReceiptJobService.kt").readText()
+        assertFalse(service.contains("@Volatile"))
+        assertTrue(service.contains("jobs.started(params.jobId)"))
+        assertTrue(service.contains("jobs.stop(params.jobId)"))
+    }
+
+    // Nothing on the thread a push arrives on.
+
+    @Test
+    fun `answering a check only hands it to the responder's own thread`() {
+        val responder = java.io.File("src/main/kotlin/app/critalarm/check/WeeklyCheckResponder.kt").readText()
+        val answer = responder.substringAfter("fun answer(context: Context, push: CheckPush) {").substringBefore("\n    }")
+        assertTrue(answer.contains("worker.execute"))
+        for (work in listOf("getSharedPreferences", "JobScheduler", "JobInfo", ".edit()", "Log.")) {
+            assertFalse("answer must not call $work itself", answer.contains(work))
+        }
+        assertTrue(responder.contains("Executors.newSingleThreadExecutor"))
+    }
+
+    @Test
+    fun `every change to the record goes through the one writer`() {
+        val responder = java.io.File("src/main/kotlin/app/critalarm/check/WeeklyCheckResponder.kt").readText()
+        assertEquals(1, Regex("putString\\(ARRIVAL_KEY").findAll(responder).count())
+        val recordAnswer = responder.substringAfter("fun recordAnswer(").substringBefore("\n    }")
+        assertTrue(recordAnswer.contains("worker.execute"))
+        val others = java.io.File("src/main/kotlin/app/critalarm/check").walkTopDown()
+            .filter { it.extension == "kt" && it.name != "WeeklyCheckResponder.kt" }
+            .filter { it.readText().contains("ARRIVAL_KEY") }
+            .map { it.name }.toList()
+        assertEquals(emptyList<String>(), others)
+    }
 }

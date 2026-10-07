@@ -91,6 +91,13 @@ struct RelayDevice: Equatable {
 /// preference key is read by the weekly check in Dart and by nothing else.
 /// A receipt that does not get out is tried a small number of times and then
 /// dropped. Nothing is kept for later.
+///
+/// `answer` does no work on the caller's thread. The caller is the app
+/// delegate, on the main thread, where an alarm push is handled too. The
+/// Keychain read, the record and the request all run on `queue`, a serial
+/// queue of this type's own that nothing on the incident path uses. Every
+/// change to the record goes through it, so two of them never overwrite
+/// each other's fields.
 enum WeeklyCheckResponder {
   struct Answer: Equatable {
     let counted: Bool
@@ -106,6 +113,41 @@ enum WeeklyCheckResponder {
   /// here is the waits plus three timeouts, which stays inside it.
   static let tryDelays: [TimeInterval] = [0, 2, 4]
   static let timeout: TimeInterval = 6
+
+  /// The longest the caller waits to hear back. The tries end before this
+  /// by themselves. It is here so iOS always gets its answer.
+  static let bound: TimeInterval = 26
+
+  /// Everything the weekly check does natively runs here, one thing at a
+  /// time. A wait between tries does not hold it: the wait is scheduled.
+  static let queue = DispatchQueue(label: "app.critalarm.weekly-check", qos: .utility)
+
+  /// Hosts a receipt may reach over plain http. Debug builds only: this
+  /// machine, and the Android emulator's name for it, so a relay run on
+  /// localhost can be answered. A release build has none, so it never sends
+  /// the device token over http.
+  static var plainHttpHosts: Set<String> {
+    #if DEBUG
+    return ["127.0.0.1", "localhost", "10.0.2.2"]
+    #else
+    return []
+    #endif
+  }
+
+  /// Whether a receipt may go to `relay`. The receipt carries the device
+  /// token, so it only ever goes out over https, with the one exception
+  /// above.
+  static func maySend(to relay: URL, plainHttpHosts: Set<String> = plainHttpHosts) -> Bool {
+    switch relay.scheme?.lowercased() {
+    case "https":
+      return true
+    case "http":
+      guard let host = relay.host?.lowercased() else { return false }
+      return plainHttpHosts.contains(host)
+    default:
+      return false
+    }
+  }
 
   static func makeSession(timeout: TimeInterval = timeout) -> URLSession {
     let configuration = URLSessionConfiguration.ephemeral
@@ -199,47 +241,76 @@ enum WeeklyCheckResponder {
     return text
   }
 
-  /// Records the arrival, sends the receipt, and calls back once: true when
-  /// the relay answered 200. The caller is the background push handler, and
-  /// iOS is waiting on its completion handler.
+  /// Calls `completion` at most once. Only ever touched on `queue`.
+  private final class Once {
+    private var completion: ((Bool) -> Void)?
+    init(_ completion: @escaping (Bool) -> Void) { self.completion = completion }
+    func finish(_ sent: Bool) {
+      completion?(sent)
+      completion = nil
+    }
+  }
+
+  /// Hands the check to `queue` and returns. There the arrival is recorded
+  /// and the receipt sent. `completion` is called exactly once, on `queue`:
+  /// true when the relay answered 200, false when the receipt was dropped,
+  /// could not be sent, or `bound` passed first. The caller is the background
+  /// push handler, and iOS is waiting on its completion handler.
   static func answer(
     _ push: CheckPush,
-    device: RelayDevice? = RelayDevice.read(),
-    urlSession: URLSession = makeSession(),
+    readDevice: @escaping () -> RelayDevice? = { RelayDevice.read() },
+    makeURLSession: @escaping () -> URLSession = { makeSession() },
     defaults: UserDefaults = .standard,
     delays: [TimeInterval] = tryDelays,
+    bound: TimeInterval = bound,
+    plainHttpHosts: Set<String> = plainHttpHosts,
     now: @escaping () -> Date = Date.init,
     completion: @escaping (Bool) -> Void
   ) {
     let receivedAt = Int(now().timeIntervalSince1970)
-    // The id of the check is never logged.
-    NSLog("CritAlarmCheck: check_received attempt=%@", push.attempt.map(String.init) ?? "-")
-    defaults.set(
-      withArrival(existing: defaults.string(forKey: arrivalKey), receivedAt: receivedAt),
-      forKey: arrivalKey
-    )
+    queue.async {
+      let once = Once(completion)
+      // The id of the check is never logged.
+      NSLog("CritAlarmCheck: check_received attempt=%@", push.attempt.map(String.init) ?? "-")
+      defaults.set(
+        withArrival(existing: defaults.string(forKey: arrivalKey), receivedAt: receivedAt),
+        forKey: arrivalKey
+      )
 
-    guard let device else {
-      NSLog("CritAlarmCheck: check_receipt_skipped reason=no_credentials")
-      completion(false)
-      return
-    }
-    let request = request(device: device, push: push, receivedAt: receivedAt)
-    send(request, try: 0, delays: delays, urlSession: urlSession) { answer, sent in
-      if let answer {
-        defaults.set(
-          withAnswer(
-            existing: defaults.string(forKey: arrivalKey),
-            answer: answer,
-            now: Int(now().timeIntervalSince1970)
-          ),
-          forKey: arrivalKey
-        )
+      // Before the first unlock after a restart the Keychain item cannot be
+      // read. The arrival above stands, no receipt is sent, and nothing in
+      // the record says one was.
+      guard let device = readDevice() else {
+        NSLog("CritAlarmCheck: check_receipt_skipped reason=no_credentials")
+        once.finish(false)
+        return
       }
-      completion(sent)
+      guard maySend(to: device.relay, plainHttpHosts: plainHttpHosts) else {
+        // The token never goes out over plain http. No host is named here.
+        NSLog("CritAlarmCheck: check_receipt_skipped reason=relay_not_https")
+        once.finish(false)
+        return
+      }
+      queue.asyncAfter(deadline: .now() + bound) { once.finish(false) }
+      let request = request(device: device, push: push, receivedAt: receivedAt)
+      send(request, try: 0, delays: delays, urlSession: makeURLSession()) { answer, sent in
+        if let answer {
+          defaults.set(
+            withAnswer(
+              existing: defaults.string(forKey: arrivalKey),
+              answer: answer,
+              now: Int(now().timeIntervalSince1970)
+            ),
+            forKey: arrivalKey
+          )
+        }
+        once.finish(sent)
+      }
     }
   }
 
+  /// One try after its wait, then the next. `completion` is called on
+  /// `queue`.
   private static func send(
     _ request: URLRequest,
     try index: Int,
@@ -252,27 +323,31 @@ enum WeeklyCheckResponder {
       completion(nil, false)
       return
     }
-    DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delays[index]) {
+    queue.asyncAfter(deadline: .now() + delays[index]) {
       urlSession.dataTask(with: request) { data, response, error in
         let status = error == nil ? (response as? HTTPURLResponse)?.statusCode : nil
-        if status == 200 {
-          let answer = parseAnswer(data)
-          NSLog(
-            "CritAlarmCheck: check_receipt_sent counted=%@ try=%d",
-            answer.map { $0.counted ? "yes" : "no" } ?? "-", index + 1
+        queue.async {
+          if status == 200 {
+            let answer = parseAnswer(data)
+            NSLog(
+              "CritAlarmCheck: check_receipt_sent counted=%@ try=%d",
+              answer.map { $0.counted ? "yes" : "no" } ?? "-", index + 1
+            )
+            completion(answer, true)
+            return
+          }
+          if !shouldRetry(status: status) {
+            NSLog("CritAlarmCheck: check_receipt_refused status=%d", status ?? 0)
+            completion(nil, false)
+            return
+          }
+          // The status alone: an error's text can hold the url, and the url
+          // holds the id of the check.
+          NSLog("CritAlarmCheck: check_receipt_failed status=%d try=%d", status ?? 0, index + 1)
+          send(
+            request, try: index + 1, delays: delays, urlSession: urlSession, completion: completion
           )
-          completion(answer, true)
-          return
         }
-        if !shouldRetry(status: status) {
-          NSLog("CritAlarmCheck: check_receipt_refused status=%d", status ?? 0)
-          completion(nil, false)
-          return
-        }
-        // The status alone: an error's text can hold the url, and the url
-        // holds the id of the check.
-        NSLog("CritAlarmCheck: check_receipt_failed status=%d try=%d", status ?? 0, index + 1)
-        send(request, try: index + 1, delays: delays, urlSession: urlSession, completion: completion)
       }.resume()
     }
   }

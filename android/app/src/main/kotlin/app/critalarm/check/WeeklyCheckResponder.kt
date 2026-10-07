@@ -6,6 +6,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.os.PersistableBundle
 import android.util.Log
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * Answers a weekly check push (api.md §5.4) with no Dart running.
@@ -15,8 +17,12 @@ import android.util.Log
  * and it shares no state with incident pushes: its one preference key is read
  * by the weekly check in Dart and by nothing else.
  *
- * It returns at once. The caller is the thread every push arrives on, and an
- * alarm push behind this one must not wait for a network call.
+ * [answer] does no work on the caller's thread. The caller is the thread
+ * every push arrives on, and an alarm push behind this one must not wait for
+ * a disk write, a system call or the network. Everything goes to [worker],
+ * one thread of this object's own that nothing on the incident path uses.
+ * Every change to the record goes through it too, so two of them never
+ * overwrite each other's fields.
  */
 object WeeklyCheckResponder {
     private const val TAG = "CritAlarmCheck"
@@ -35,11 +41,21 @@ object WeeklyCheckResponder {
     /** Job ids from here up, one per check and attempt. No other job in the app uses them. */
     private const val JOB_ID_BASE = 0x43480000
 
+    private val worker: ExecutorService = Executors.newSingleThreadExecutor { task ->
+        Thread(task, "weekly-check").apply { isDaemon = true }
+    }
+
     fun answer(context: Context, push: CheckPush) {
+        val appContext = context.applicationContext
         val receivedAt = System.currentTimeMillis() / 1000L
+        worker.execute { arrived(appContext, push, receivedAt) }
+    }
+
+    /** On [worker]: the record, then the job. */
+    private fun arrived(context: Context, push: CheckPush, receivedAt: Long) {
         // The id of the check is never logged.
         Log.i(TAG, "check_received attempt=${push.attempt ?: "-"}")
-        recordArrival(context, receivedAt)
+        update(context) { CheckReceipt.withArrival(it, receivedAt) }
 
         val extras = PersistableBundle().apply {
             putString(CheckReceiptJobService.EXTRA_CHECK_ID, push.checkId)
@@ -75,19 +91,16 @@ object WeeklyCheckResponder {
         )
     }
 
-    private fun recordArrival(context: Context, receivedAtSeconds: Long) {
-        val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-        val record = CheckReceipt.withArrival(preferences.getString(ARRIVAL_KEY, null), receivedAtSeconds)
-        preferences.edit().putString(ARRIVAL_KEY, record).apply()
+    /** A receipt was answered. Written on [worker], like every change to the record. */
+    fun recordAnswer(context: Context, answer: CheckReceiptAnswer) {
+        val appContext = context.applicationContext
+        val now = System.currentTimeMillis() / 1000L
+        worker.execute { update(appContext) { CheckReceipt.withAnswer(it, answer, now) } }
     }
 
-    fun recordAnswer(context: Context, answer: CheckReceiptAnswer) {
+    /** Only ever called on [worker], so a read and its write are never split by another. */
+    private fun update(context: Context, change: (String?) -> String) {
         val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-        val record = CheckReceipt.withAnswer(
-            preferences.getString(ARRIVAL_KEY, null),
-            answer,
-            System.currentTimeMillis() / 1000L,
-        )
-        preferences.edit().putString(ARRIVAL_KEY, record).apply()
+        preferences.edit().putString(ARRIVAL_KEY, change(preferences.getString(ARRIVAL_KEY, null))).apply()
     }
 }
