@@ -11,9 +11,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// The weekly check rounds, newest first: each with how it ended in a word
-/// and when it opened. The list is the relay's, and reading it needs no
-/// pack.
+/// The weekly check rounds, newest first: each with a face, how it ended in
+/// a few words, and when it opened. The list is the relay's, and reading it
+/// needs no pack.
 class WeeklyCheckRoundsScreen extends StatelessWidget {
   const WeeklyCheckRoundsScreen({super.key});
 
@@ -158,22 +158,41 @@ class _RoundRow extends StatelessWidget {
     final isMiss =
         round.result == WeeklyCheckResult.missed ||
         round.result == WeeklyCheckResult.refused;
+    final wordTime = view.wordTime;
+    final word = wordTime == null
+        ? view.wordKey.tr()
+        : view.wordKey.tr(namedArgs: {'time': wordTime});
+    final when = view.when;
     return MergeSemantics(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        child: Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: Spacing.s3,
-          runSpacing: Spacing.s1,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
           children: [
-            Text(
-              view.wordKey.tr(),
-              style: AppTypography.body(colors.ink, fontSize: 15).copyWith(
-                fontWeight: isMiss ? FontWeight.w800 : FontWeight.w600,
+            ExcludeSemantics(child: FaceWidget(state: view.face, size: 28)),
+            const SizedBox(width: Spacing.s3),
+            Expanded(
+              // The time drops under the word when the text is large, so
+              // neither is cut.
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: Spacing.s3,
+                runSpacing: Spacing.s1,
+                children: [
+                  Text(
+                    word,
+                    style: AppTypography.body(colors.ink, fontSize: 15)
+                        .copyWith(
+                          fontWeight: isMiss
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                        ),
+                  ),
+                  if (when != null)
+                    Text(when, style: AppTypography.mono(colors.ink3)),
+                ],
               ),
             ),
-            Text(view.when, style: AppTypography.mono(colors.ink3)),
           ],
         ),
       ),

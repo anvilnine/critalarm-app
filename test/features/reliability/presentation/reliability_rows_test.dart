@@ -11,6 +11,8 @@ import 'package:critalarm/features/reliability/presentation/reliability_rows.dar
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../helpers/load_translations.dart';
+
 ReliabilityCheck check(
   String id,
   ReliabilityState state, {
@@ -43,6 +45,9 @@ const sourceIds = <ReliabilityCheckId>[
 const laterId = 'a_later_source';
 
 void main() {
+  // `reliabilityAgo` reads its unit words from the strings.
+  setUpAll(loadTestTranslations);
+
   group('orderReliabilityChecks', () {
     test('broken first, then needs a look, then fine', () {
       final ordered = orderReliabilityChecks([
@@ -375,6 +380,203 @@ void main() {
     test('days after that', () {
       expect(reliabilityAgo(const Duration(days: 1)), '1 d');
       expect(reliabilityAgo(const Duration(days: 6, hours: 23)), '6 d');
+    });
+  });
+
+  group('reliabilityAgoWords', () {
+    void expectWords(Duration since, String key, String n) {
+      final words = reliabilityAgoWords(since);
+      expect(words.key, key);
+      expect(words.args, {'n': n});
+    }
+
+    test('each unit is a string key with the number in its slot', () {
+      expectWords(Duration.zero, LocaleKeys.reliability_ago_minutes, '1');
+      expectWords(
+        const Duration(minutes: 59),
+        LocaleKeys.reliability_ago_minutes,
+        '59',
+      );
+      expectWords(
+        const Duration(hours: 23, minutes: 59),
+        LocaleKeys.reliability_ago_hours,
+        '23',
+      );
+      expectWords(
+        const Duration(days: 6, hours: 23),
+        LocaleKeys.reliability_ago_days,
+        '6',
+      );
+    });
+  });
+
+  group('reliabilityScreenLayout', () {
+    const settings = OpenSystemSettingsFix(DevicePermissionType.notifications);
+    const weekly = ReliabilityCheckId('weekly_check');
+    const ring = OpenRouteFix('testRing');
+
+    List<String> ids(List<ReliabilityListRow> rows) => [
+      for (final row in rows)
+        row.group == null ? row.check.id.value : 'group${row.group}',
+    ];
+
+    test('with no group every check is a plain row, in order', () {
+      final ordered = orderReliabilityChecks([
+        check('a', ReliabilityState.fine),
+        check('b', ReliabilityState.needsLook, fix: settings),
+      ]);
+      final layout = reliabilityScreenLayout(ordered, const []);
+      expect(ids(layout.rows), ['b', 'a']);
+      expect(layout.rows.first.isPrimary, isTrue);
+      expect(layout.rows.last.isPrimary, isFalse);
+      expect(layout.below, isEmpty);
+    });
+
+    test('a check a group draws never gets a plain row as well', () {
+      for (final state in [
+        ReliabilityState.fine,
+        ReliabilityState.needsLook,
+        ReliabilityState.broken,
+      ]) {
+        final ordered = orderReliabilityChecks([
+          check('a', ReliabilityState.fine),
+          check('weekly_check', state, fix: ring),
+        ]);
+        final layout = reliabilityScreenLayout(ordered, const [weekly]);
+        expect(
+          layout.rows.where((r) => r.group == null).map((r) => r.check.id),
+          isNot(contains(weekly)),
+          reason: state.name,
+        );
+        final drawn =
+            layout.rows.where((r) => r.group == 0).length + layout.below.length;
+        expect(drawn, 1, reason: state.name);
+      }
+    });
+
+    test('a group whose check needs a look sits above the fine rows', () {
+      final ordered = orderReliabilityChecks([
+        check('a', ReliabilityState.fine),
+        check('b', ReliabilityState.fine),
+        check('weekly_check', ReliabilityState.needsLook, fix: ring),
+      ]);
+      final layout = reliabilityScreenLayout(ordered, const [weekly]);
+      expect(ids(layout.rows), ['group0', 'a', 'b']);
+      expect(layout.rows.first.check.fix, ring);
+      expect(layout.below, isEmpty);
+    });
+
+    test('a group whose check is fine stays under the test row', () {
+      final fine = check('weekly_check', ReliabilityState.fine);
+      final ordered = orderReliabilityChecks([
+        check('a', ReliabilityState.needsLook, fix: settings),
+        fine,
+      ]);
+      final layout = reliabilityScreenLayout(ordered, const [weekly]);
+      expect(ids(layout.rows), ['a']);
+      expect(layout.below, [(group: 0, check: fine)]);
+    });
+
+    test('a group with no check in the list stays where it was', () {
+      final ordered = orderReliabilityChecks([
+        check('a', ReliabilityState.fine),
+      ]);
+      final layout = reliabilityScreenLayout(ordered, const [weekly]);
+      expect(ids(layout.rows), ['a']);
+      expect(layout.below, [(group: 0, check: null)]);
+      // A group that draws no check at all is the same.
+      expect(reliabilityScreenLayout(ordered, const [null]).below, [
+        (group: 0, check: null),
+      ]);
+    });
+
+    test('a broken free row comes before the group, which needs a look', () {
+      final ordered = orderReliabilityChecks([
+        check('weekly_check', ReliabilityState.needsLook, fix: ring),
+        check('a', ReliabilityState.broken, fix: settings),
+        check('b', ReliabilityState.fine),
+      ]);
+      final layout = reliabilityScreenLayout(ordered, const [weekly]);
+      expect(ids(layout.rows), ['a', 'group0', 'b']);
+    });
+
+    group('the one primary button, with a group in the list', () {
+      test('the group has it when it is the first row with a fix', () {
+        final ordered = orderReliabilityChecks([
+          check('a', ReliabilityState.fine),
+          check('weekly_check', ReliabilityState.needsLook, fix: ring),
+          check('b', ReliabilityState.needsLook, fix: settings),
+        ]);
+        final layout = reliabilityScreenLayout(ordered, const [weekly]);
+        expect(ids(layout.rows), ['group0', 'b', 'a']);
+        expect(
+          [for (final row in layout.rows) row.isPrimary],
+          [
+            true,
+            false,
+            false,
+          ],
+        );
+      });
+
+      test('a free row before it keeps it, and the group goes ghost', () {
+        final ordered = orderReliabilityChecks([
+          check('a', ReliabilityState.needsLook, fix: settings),
+          check('weekly_check', ReliabilityState.needsLook, fix: ring),
+        ]);
+        final layout = reliabilityScreenLayout(ordered, const [weekly]);
+        expect(ids(layout.rows), ['a', 'group0']);
+        expect([for (final row in layout.rows) row.isPrimary], [true, false]);
+      });
+
+      test('a row before it with nothing to do leaves it to the group', () {
+        final ordered = orderReliabilityChecks([
+          check('a', ReliabilityState.needsLook),
+          check('weekly_check', ReliabilityState.needsLook, fix: ring),
+        ]);
+        final layout = reliabilityScreenLayout(ordered, const [weekly]);
+        expect([for (final row in layout.rows) row.isPrimary], [false, true]);
+      });
+
+      test('there is exactly one, or none', () {
+        final ordered = orderReliabilityChecks([
+          check('a', ReliabilityState.broken, fix: settings),
+          check('weekly_check', ReliabilityState.needsLook, fix: ring),
+          check('b', ReliabilityState.needsLook, fix: settings),
+          check('c', ReliabilityState.fine),
+        ]);
+        final layout = reliabilityScreenLayout(ordered, const [weekly]);
+        expect(layout.rows.where((r) => r.isPrimary), hasLength(1));
+        final allFine = reliabilityScreenLayout(
+          orderReliabilityChecks([
+            check('a', ReliabilityState.fine),
+            check('weekly_check', ReliabilityState.fine),
+          ]),
+          const [weekly],
+        );
+        expect(allFine.rows.where((r) => r.isPrimary), isEmpty);
+      });
+    });
+  });
+
+  group('the weekly check as a plain row', () {
+    test('it has a title and a line for each of its reasons', () {
+      expect(
+        reliabilityTitleKey(const ReliabilityCheckId('weekly_check')),
+        LocaleKeys.pro_pack_weekly_title,
+      );
+      String? line(String reason) => reliabilityLineKey(
+        check('weekly_check', ReliabilityState.needsLook, reason: reason),
+      );
+      expect(
+        line('weekly_missed'),
+        LocaleKeys.weekly_check_line_missed_repeatedly,
+      );
+      expect(
+        line('weekly_token_refused'),
+        LocaleKeys.weekly_check_line_token_refused,
+      );
+      expect(line('weekly_no_token'), LocaleKeys.weekly_check_line_no_token);
     });
   });
 

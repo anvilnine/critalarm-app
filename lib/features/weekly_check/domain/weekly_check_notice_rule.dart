@@ -88,43 +88,56 @@ abstract final class WeeklyCheckNoticeRule {
   static int deadlineAfterArrival(int arrivalAt) =>
       arrivalAt + windowsToNotice * missWindow;
 
+  /// Whether two rounds in a row were missed, as far as this phone can
+  /// tell: the first three points of [shouldShow], without setup and
+  /// without whether the notice was closed. The Reliability screen reads
+  /// this, so it still says so after the Home notice was closed.
+  static bool twoRoundsMissed({
+    required WeeklyCheckNoticeFacts? facts,
+    required int now,
+  }) {
+    if (facts == null) return false;
+    final check = facts.check;
+    if (!check.enabled || check.state == WeeklyCheckState.off) return false;
+
+    // An arrival the phone cannot place counts as none: it must neither
+    // raise the notice nor hide a run of misses the relay reported.
+    final arrival = _arrival(facts, now);
+    bool arrivedSince(int? at) => arrival != null && at != null && arrival > at;
+
+    if (arrival != null && arrivedSince(facts.noticeAfterSeenAt)) {
+      // Nothing from the relay is newer than this arrival, so its
+      // `notice_after` and its count of misses describe a window that has
+      // ended. The phone counts on from the arrival by itself.
+      return now >= deadlineAfterArrival(arrival);
+    }
+    final missedTwice = check.misses >= 2 && !arrivedSince(facts.checkSeenAt);
+    final noticeAfter = facts.noticeAfter;
+    return missedTwice || (noticeAfter != null && now >= noticeAfter);
+  }
+
+  static int? _arrival(WeeklyCheckNoticeFacts facts, int now) {
+    final stamped = facts.lastArrivalAt;
+    return stamped != null && stamped > 0 && stamped <= now + clockSlack
+        ? stamped
+        : null;
+  }
+
   static bool shouldShow({
     required bool isSetupDone,
     required WeeklyCheckNoticeFacts? facts,
     required int now,
   }) {
     if (!isSetupDone || facts == null) return false;
-    final check = facts.check;
-    if (!check.enabled || check.state == WeeklyCheckState.off) return false;
-
-    // An arrival the phone cannot place counts as none: it must neither
-    // raise the notice nor hide a run of misses the relay reported.
-    final stamped = facts.lastArrivalAt;
-    final arrival =
-        stamped != null && stamped > 0 && stamped <= now + clockSlack
-        ? stamped
-        : null;
-    bool arrivedSince(int? at) => arrival != null && at != null && arrival > at;
-
-    final bool due;
-    if (arrival != null && arrivedSince(facts.noticeAfterSeenAt)) {
-      // Nothing from the relay is newer than this arrival, so its
-      // `notice_after` and its count of misses describe a window that has
-      // ended. The phone counts on from the arrival by itself.
-      due = now >= deadlineAfterArrival(arrival);
-    } else {
-      final missedTwice = check.misses >= 2 && !arrivedSince(facts.checkSeenAt);
-      final noticeAfter = facts.noticeAfter;
-      due = missedTwice || (noticeAfter != null && now >= noticeAfter);
-    }
-    if (!due) return false;
+    if (!twoRoundsMissed(facts: facts, now: now)) return false;
 
     final dismissedAt = facts.dismissedAt;
     if (dismissedAt == null) return true;
     // A check that arrived after the notice was closed ended that run, so
     // what is due now is a later one.
-    final relayReceived = check.lastReceivedAt;
-    return arrivedSince(dismissedAt) ||
+    final arrival = _arrival(facts, now);
+    final relayReceived = facts.check.lastReceivedAt;
+    return (arrival != null && arrival > dismissedAt) ||
         (relayReceived != null && relayReceived > dismissedAt);
   }
 }
