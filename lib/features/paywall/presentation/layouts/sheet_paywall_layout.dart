@@ -56,7 +56,8 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
   }
 
   // The plan needs the buy block's height, so it is drawn again when the
-  // kit has laid the block out.
+  // kit has laid the block out. Until then nothing is painted: the first
+  // layout only measures.
   void _onBuyBlockHeight() => setState(() {});
 
   @override
@@ -139,161 +140,169 @@ class _SheetPaywallLayoutState extends PaywallClockState<SheetPaywallLayout> {
       child: Scaffold(
         backgroundColor: colors.canvas,
         resizeToAvoidBottomInset: false,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            ExcludeSemantics(
-              child: MediaQuery.withNoTextScaling(
-                child: SheetPage(plan: plan, kind: kind),
-              ),
-            ),
-            IgnorePointer(
-              child: ValueListenableBuilder<double>(
-                valueListenable: _clock,
-                builder: (context, t, child) =>
-                    Opacity(opacity: SheetMotion.scrim(t), child: child),
-                child: const AppScrim(),
-              ),
-            ),
-            // A tap on the screen behind closes the sheet, as the cross
-            // does. The cross is the control a screen reader gets.
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: plan.sheetTop,
-              child: ExcludeSemantics(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _frame.close,
-                ),
-              ),
-            ),
-            Positioned(
-              top: plan.litTop,
-              left: Spacing.s4,
-              right: Spacing.s4,
-              child: ExcludeSemantics(
+        // A plan made before the buy block has a height is laid out and
+        // not painted, so the first frame on screen has the row count the
+        // settled one has.
+        body: Opacity(
+          opacity: plan.isMeasured ? 1 : 0,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ExcludeSemantics(
                 child: MediaQuery.withNoTextScaling(
-                  child: SheetLitRow(
-                    plan: plan,
-                    kind: kind,
-                    lead: lead,
-                    badge: paywallProductName(offer.product),
-                    clock: _clock,
-                  ),
+                  child: SheetPage(plan: plan, kind: kind),
                 ),
               ),
-            ),
-            // The face looks over the sheet's edge at the lit row. It is
-            // behind the sheet, so only its top half shows.
-            Positioned(
-              top: plan.sheetTop - plan.faceSize / 2,
-              left: isSwitch ? (media.size.width - plan.faceSize) / 2 : null,
-              right: isSwitch ? null : Spacing.s8,
-              child: ExcludeSemantics(
+              IgnorePointer(
                 child: ValueListenableBuilder<double>(
                   valueListenable: _clock,
-                  builder: (context, t, _) {
-                    final peek = SheetMotion.peek(t);
-                    return Transform.translate(
-                      offset: Offset(
-                        0,
-                        drop(t) + (1 - peek) * SheetMotion.peekDrop,
-                      ),
-                      // Tilted only on the way in. Upright at rest.
-                      child: Transform.rotate(
-                        angle: (1 - peek) * SheetMotion.peekTilt,
-                        child: FaceWidget(
-                          state: isSwitch && SheetMotion.limitLifted(t)
-                              ? FaceState.happy
-                              : FaceState.curious,
-                          size: plan.faceSize,
-                        ),
-                      ),
-                    );
-                  },
+                  builder: (context, t, child) =>
+                      Opacity(opacity: SheetMotion.scrim(t), child: child),
+                  child: const AppScrim(),
                 ),
               ),
-            ),
-            Positioned(
-              top: plan.sheetTop,
-              left: 0,
-              right: 0,
-              bottom: -_underhang,
-              child: ValueListenableBuilder<double>(
-                valueListenable: _clock,
-                builder: (context, t, child) => Transform.translate(
-                  offset: Offset(0, drop(t)),
-                  child: child,
-                ),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(Radii.xl),
-                    ),
-                    boxShadow: AppShadows.shadowLg(isDark: isDark),
+              // A tap on the screen behind closes the sheet, as the cross
+              // does. The cross is the control a screen reader gets.
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: plan.sheetTop,
+                child: ExcludeSemantics(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _frame.close,
                   ),
                 ),
               ),
-            ),
-            // A seat for the close cross. The cross is on screen before the
-            // sheet is, and this keeps it readable over the screen behind.
-            Positioned(
-              top: plan.sheetTop + (PaywallLayoutScope.closeCrossSize - 32) / 2,
-              right:
-                  PaywallLayoutScope.closeCrossInset +
-                  (PaywallLayoutScope.closeCrossSize - 32) / 2,
-              child: IgnorePointer(
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: colors.ash,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: plan.sheetTop,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Padding(
-                padding: EdgeInsets.only(bottom: bottomInset.toDouble()),
-                child: PaywallFrameBody(
-                  controller: _frame,
-                  tone: PaywallTone.surface,
-                  closeOnLeft: false,
-                  // It comes in as the sheet lands. With nothing moving it
-                  // is there from the first frame.
-                  buyBlockVisible: isStill || _buyIn,
-                  restAt: restAt,
-                  buyStyle: const PaywallBuyBlockStyle(
-                    tone: PaywallTone.surface,
-                    pickerStyle: PaywallPlanPickerStyle.segments,
-                    label: PaywallBuyLabel.nameAndPrice,
-                  ),
-                  builder: (context, scope) => ValueListenableBuilder<double>(
-                    valueListenable: _clock,
-                    builder: (context, t, child) => Transform.translate(
-                      offset: Offset(0, drop(t)),
-                      child: child,
-                    ),
-                    child: SheetContent(
-                      headline: _headline(offer, lead),
+              Positioned(
+                top: plan.litTop,
+                left: Spacing.s4,
+                right: Spacing.s4,
+                child: ExcludeSemantics(
+                  child: MediaQuery.withNoTextScaling(
+                    child: SheetLitRow(
+                      plan: plan,
+                      kind: kind,
                       lead: lead,
-                      others: others,
-                      isCompact: scope.isCompact,
+                      badge: paywallProductName(offer.product),
                       clock: _clock,
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+              // The face looks over the sheet's edge at the lit row. It is
+              // behind the sheet, so only its top half shows.
+              Positioned(
+                top: plan.sheetTop - plan.faceSize / 2,
+                left: isSwitch ? (media.size.width - plan.faceSize) / 2 : null,
+                right: isSwitch ? null : Spacing.s8,
+                child: ExcludeSemantics(
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _clock,
+                    builder: (context, t, _) {
+                      final peek = SheetMotion.peek(t);
+                      return Transform.translate(
+                        offset: Offset(
+                          0,
+                          drop(t) + (1 - peek) * SheetMotion.peekDrop,
+                        ),
+                        // Tilted only on the way in. Upright at rest.
+                        child: Transform.rotate(
+                          angle: (1 - peek) * SheetMotion.peekTilt,
+                          child: FaceWidget(
+                            state: isSwitch && SheetMotion.limitLifted(t)
+                                ? FaceState.happy
+                                : FaceState.curious,
+                            size: plan.faceSize,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Positioned(
+                top: plan.sheetTop,
+                left: 0,
+                right: 0,
+                bottom: -_underhang,
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _clock,
+                  builder: (context, t, child) => Transform.translate(
+                    offset: Offset(0, drop(t)),
+                    child: child,
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(Radii.xl),
+                      ),
+                      boxShadow: AppShadows.shadowLg(isDark: isDark),
+                    ),
+                  ),
+                ),
+              ),
+              // A seat for the close cross. The cross is on screen before the
+              // sheet is, and this keeps it readable over the screen behind.
+              Positioned(
+                top:
+                    plan.sheetTop +
+                    (PaywallLayoutScope.closeCrossSize - 32) / 2,
+                right:
+                    PaywallLayoutScope.closeCrossInset +
+                    (PaywallLayoutScope.closeCrossSize - 32) / 2,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: colors.ash,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: plan.sheetTop,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: bottomInset.toDouble()),
+                  child: PaywallFrameBody(
+                    controller: _frame,
+                    tone: PaywallTone.surface,
+                    closeOnLeft: false,
+                    // It comes in as the sheet lands. With nothing moving it
+                    // is there from the first frame.
+                    buyBlockVisible: isStill || _buyIn,
+                    restAt: restAt,
+                    buyStyle: const PaywallBuyBlockStyle(
+                      tone: PaywallTone.surface,
+                      pickerStyle: PaywallPlanPickerStyle.segments,
+                      label: PaywallBuyLabel.nameAndPrice,
+                    ),
+                    builder: (context, scope) => ValueListenableBuilder<double>(
+                      valueListenable: _clock,
+                      builder: (context, t, child) => Transform.translate(
+                        offset: Offset(0, drop(t)),
+                        child: child,
+                      ),
+                      child: SheetContent(
+                        headline: _headline(offer, lead),
+                        lead: lead,
+                        others: others,
+                        isCompact: scope.isCompact,
+                        clock: _clock,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

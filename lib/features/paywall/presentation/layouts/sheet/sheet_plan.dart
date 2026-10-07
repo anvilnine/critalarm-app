@@ -14,6 +14,7 @@ class SheetPlan {
     required this.topInset,
     required this.rowsAbove,
     required this.litHeight,
+    this.isMeasured = true,
   });
 
   /// The most quiet rows drawn between the title and the lit row.
@@ -29,6 +30,12 @@ class SheetPlan {
 
   /// The lit row's height.
   final double litHeight;
+
+  /// False while the plan is only a guess: the buy block has no height yet
+  /// and its height would change the row count. A guess lays the sheet out
+  /// so the kit can measure the block, and none of it is drawn, so the
+  /// first frame on screen already has the rows the next one has.
+  final bool isMeasured;
 
   /// The back row at the top of the screen behind.
   double get navHeight => isCompact ? 32 : 44;
@@ -84,9 +91,12 @@ double sheetWantedHeight({
 /// It keeps as many quiet rows above the lit row as leave the sheet the
 /// height it wants, so a short sheet shows more of the screen behind and a
 /// long one less. The lit row is always above the sheet. Past the default
-/// text size the sheet needs every point, so no quiet row is kept. None is
-/// kept either while [buyBlockHeight] is null: the buy block has not been
-/// laid out yet, which is the one frame before anything is on screen.
+/// text size the sheet needs every point, so no quiet row is kept, whatever
+/// the buy block measures. At the default size the row count needs
+/// [buyBlockHeight]. While it is null the buy block has not been laid out
+/// yet, and the plan comes back with no quiet row and
+/// [SheetPlan.isMeasured] false: it is there to be laid out and measured,
+/// never drawn.
 SheetPlan sheetPlanFor({
   required double screenHeight,
   required double topInset,
@@ -98,13 +108,15 @@ SheetPlan sheetPlanFor({
   double textScale = 1,
 }) {
   final litHeight = sheetLitHeight(isCompact: isCompact, isSwitch: isSwitch);
-  SheetPlan plan(int rows) => SheetPlan(
+  SheetPlan plan(int rows, {bool isMeasured = true}) => SheetPlan(
     isCompact: isCompact,
     topInset: topInset,
     rowsAbove: rows,
     litHeight: litHeight,
+    isMeasured: isMeasured,
   );
-  if (textScale > 1.01 || buyBlockHeight == null) return plan(0);
+  if (textScale > 1.01) return plan(0);
+  if (buyBlockHeight == null) return plan(0, isMeasured: false);
 
   final wanted = sheetWantedHeight(
     isCompact: isCompact,
