@@ -1295,6 +1295,72 @@
     "feedback_purchases_restored": "Purchases restored.",
     "error_subscription_failed": "That did not go through. Try again."
   },
+  "paywall_kit": {
+    "close": "Close",
+    "name_hosted": "Hosted",
+    "name_pro": "Pro",
+    "button_get": "Get {name}",
+    "button_get_price": "Get {name} for {price}",
+    "button_check_again": "Check again",
+    "button_done": "Done",
+    "legal_pro": "Payment is charged to your {store} at confirmation of purchase.",
+    "not_on_sale": "{name} is not on sale yet.",
+    "at_store": "Waiting for the store",
+    "checking": "Confirming your purchase",
+    "paused": "The store is done. Crit Alarm is still confirming it.",
+    "failed": "The store did not finish that. Try again.",
+    "nothing_to_restore": "Nothing to restore for this account.",
+    "done_hosted": "Crit Alarm Hosted is on.",
+    "done_pro": "Pro is on.",
+    "plain": {
+      "headline_hosted": "Hosted raises your limits",
+      "headline_pro": "Pro adds to your alarm"
+    },
+    "benefits": {
+      "topics": {
+        "line": "No limit. Free stops at {free_critical_topics}."
+      },
+      "pushes": {
+        "line": "{hosted_p4_daily} a day, up from {free_p4_daily}."
+      },
+      "history": {
+        "line": "{hosted_history_days} days, up from {free_history_days}."
+      },
+      "widgets": {
+        "line": "See what is ringing without opening the app."
+      },
+      "app_icons": {
+        "line": "Three extra: a crown, shades, or both."
+      },
+      "weekly_check": {
+        "title": "Weekly delivery check",
+        "line": "Checks each week that a push still reaches this phone."
+      },
+      "fire_drills": {
+        "title": "Fire drills",
+        "line": "A surprise test alarm, to see how fast you answer."
+      },
+      "wake_up_challenges": {
+        "title": "Wake-up challenges",
+        "line": "Prove you are up before the alarm lets go."
+      },
+      "custom_alarm_screens": {
+        "title": "Custom alarm screens",
+        "line": "Pick how the ringing screen looks."
+      },
+      "morning_summary": {
+        "title": "Morning summary",
+        "line": "What rang while you slept."
+      }
+    },
+    "dev": {
+      "row_title": "Paywall layouts",
+      "row_subtitle": "Every layout, for Hosted and for Pro",
+      "page_title": "Paywall layouts",
+      "note": "A layout that is not built yet opens the plain one.",
+      "not_built": "not built"
+    }
+  },
   "hosted_benefits": {
     "and": "and",
     "topics": {
