@@ -25,6 +25,7 @@ import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
+import 'package:critalarm/core/device/dev_bar_backing_switch.dart';
 import 'package:critalarm/core/device/dev_edge_effect_switch.dart';
 import 'package:critalarm/core/device/device_build_mode.dart';
 import 'package:critalarm/core/device/device_form.dart';
@@ -67,6 +68,7 @@ import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/core/widgets/widget_host.dart';
+import 'package:critalarm/design_system/bar_backing.dart';
 import 'package:critalarm/design_system/edge_effect.dart';
 import 'package:critalarm/features/account/data/repositories/api_account_repository.dart';
 import 'package:critalarm/features/account/data/repositories/http_identity_repository.dart';
@@ -392,6 +394,19 @@ Future<void> configureDependencies({
     void applyEdgeOverride() => appEdgeEffect.value = edgeSwitch.effective;
     edgeSwitch.addListener(applyEdgeOverride);
     applyEdgeOverride();
+  }
+
+  if (buildSkipsPaywall || buildHasPaywallLab) {
+    // Developer options can retune how the bars are backed. A store build
+    // registers nothing here, reads no preference, and keeps the defaults
+    // appBarBacking starts with.
+    if (!getIt.isRegistered<DevBarBackingSwitch>()) {
+      getIt.registerSingleton<DevBarBackingSwitch>(DevBarBackingSwitch(prefs));
+    }
+    final barSwitch = getIt<DevBarBackingSwitch>();
+    void applyBarBacking() => appBarBacking.value = barSwitch.value;
+    barSwitch.addListener(applyBarBacking);
+    applyBarBacking();
   }
 
   // The one place that reads `kIsWeb` for feature code. Features ask
