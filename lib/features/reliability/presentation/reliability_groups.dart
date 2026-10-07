@@ -24,10 +24,20 @@ typedef ReliabilityGroupBuilder =
 /// check's place in the list. See `reliabilityScreenLayout`.
 @immutable
 final class ReliabilityGroup {
-  const ReliabilityGroup({required this.builder, this.checkId});
+  const ReliabilityGroup({
+    required this.builder,
+    this.checkId,
+    this.plainTail,
+  });
 
   final ReliabilityGroupBuilder builder;
   final ReliabilityCheckId? checkId;
+
+  /// The part of the group that stays plain when [builder] draws it inside
+  /// the card of rows that need action. The screen puts it at the end of its
+  /// plain list. Null when the group has no such part. The widget brings its
+  /// own rule and draws nothing when it has nothing to show.
+  final WidgetBuilder? plainTail;
 }
 
 /// The groups the screen draws after the rows built from the checks, in this
@@ -38,8 +48,14 @@ final class ReliabilityGroup {
 /// A single row that comes from a new check does not need a group at all.
 /// See `ReliabilityScreen`.
 const List<ReliabilityGroup> reliabilityExtraGroups = [
-  ReliabilityGroup(builder: _proPackGroup, checkId: WeeklyCheckSource.id),
+  ReliabilityGroup(
+    builder: _proPackGroup,
+    checkId: WeeklyCheckSource.id,
+    plainTail: _proPackTail,
+  ),
 ];
+
+Widget _proPackTail(BuildContext context) => const WeeklyCheckRoundsTail();
 
 Widget _proPackGroup(
   BuildContext context,

@@ -387,16 +387,19 @@ ReliabilityRowTarget reliabilityRowTarget(ReliabilityCheckId id) {
   return ReliabilityRowTarget.none;
 }
 
-/// The face a state carries on this screen, or null for none.
+/// The face a state carries where a state is drawn without a chip, or null
+/// for none. The Past checks list uses it. The rows of the Reliability
+/// screen have no face: their card sits under the header's, and their chip
+/// says the state in words.
 ///
-/// A face means one state, everywhere on the screen:
+/// A face means one state:
 ///
 /// - Fine, or not on this phone: none. The row shows a tick.
 /// - Needs a look: the face the "Take a look" header uses.
 /// - Broken: the face the "Fix this" header uses.
 ///
-/// The faces come from [reliabilityHeadlineView], so a row can never wear a
-/// face that its header does not.
+/// The faces come from [reliabilityHeadlineView], so a list can never wear a
+/// face that the header does not.
 FaceState? reliabilityStateFace(ReliabilityState state) => switch (state) {
   ReliabilityState.fine || ReliabilityState.notOnThisPhone => null,
   ReliabilityState.needsLook => reliabilityHeadlineView(
@@ -406,12 +409,6 @@ FaceState? reliabilityStateFace(ReliabilityState state) => switch (state) {
     ReliabilityHeadline.broken,
   ).face,
 };
-
-/// The face on a row. It comes from how the check stands and from nothing
-/// else: not the check, not its reason, not where the row sits. A check from
-/// a source this file has never seen gets the same face as the rest.
-FaceState? reliabilityRowFace(ReliabilityCheck check) =>
-    reliabilityStateFace(check.state);
 
 /// Whether a state asks the user to do something.
 bool reliabilityNeedsAction(ReliabilityState state) =>

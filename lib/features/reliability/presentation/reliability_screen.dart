@@ -228,8 +228,8 @@ class _ReliabilityViewState extends State<_ReliabilityView>
                     )
                   : AppStage(
                       faceState: view.face,
-                      faceSize: 104,
-                      wordFontSize: 34,
+                      faceSize: _headerFaceSize(context),
+                      wordFontSize: _headerWordSize(context),
                       word: view.wordKey.tr(),
                       sub: view.lineKey.tr(),
                     ),
@@ -259,6 +259,14 @@ class _ReliabilityViewState extends State<_ReliabilityView>
                         if (i > 0) const ReliabilityRowDivider(),
                         plain[i],
                       ],
+                      // What a group in the card above leaves plain, such
+                      // as the way to the weekly check's past rounds.
+                      if (!isLoading)
+                        for (final row in split.attention)
+                          if (row.group case final group?)
+                            if (widget.extraGroups[group].plainTail
+                                case final tail?)
+                              tail(context),
                     ],
                   ),
                 ),
@@ -282,7 +290,6 @@ class _ReliabilityViewState extends State<_ReliabilityView>
     }
     return ReliabilityRow(
       check: row.check,
-      face: reliabilityRowFace(row.check),
       now: now,
       actionLabel: _actionLabel(row.check),
       // One primary button on the screen: the first row with something to
@@ -316,6 +323,23 @@ class _ReliabilityViewState extends State<_ReliabilityView>
       isPrimary: row?.isPrimary ?? false,
     ),
   );
+
+  /// At large text the header would take more than half the screen and push
+  /// the first thing to fix out of view. Past [_largeText] the face shrinks,
+  /// and the headline stops growing at the size it has at [_largeText].
+  /// Below it nothing changes.
+  static const double _largeText = 1.3;
+
+  static double _textScale(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(1);
+
+  static double _headerFaceSize(BuildContext context) =>
+      _textScale(context) > _largeText ? 64 : 104;
+
+  static double _headerWordSize(BuildContext context) {
+    final scale = _textScale(context);
+    return scale > _largeText ? 34 * _largeText / scale : 34;
+  }
 
   /// The colour the bar is backed with: the canvas the screen sits on.
   Color _barBacking(BuildContext context) =>

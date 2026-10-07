@@ -33,8 +33,8 @@ class ReliabilityAttentionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppHighlightCard(
       // Red is for a ringing critical alarm and nothing else, so a broken
-      // check is told apart by its chip, its face and the title of the
-      // screen, not by the card's colour.
+      // check is told apart by its chip and the title of the screen, not by
+      // the card's colour.
       tone: AppHighlightTone.choice,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Column(
@@ -67,7 +67,6 @@ class ReliabilityPlainRow extends StatelessWidget {
     this.onTap,
     this.label,
     this.hint,
-    this.onCard = false,
     super.key,
   });
 
@@ -83,14 +82,11 @@ class ReliabilityPlainRow extends StatelessWidget {
   final String? label;
   final String? hint;
 
-  /// The row sits on the cream card, so its text takes the card's colours.
-  final bool onCard;
-
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final ink = onCard ? colors.onCanvas : colors.ink;
-    final muted = onCard ? colors.onCanvasMuted : colors.ink3;
+    final ink = colors.ink;
+    final muted = colors.ink3;
     final trailing = this.trailing;
 
     final Widget row = ConstrainedBox(
@@ -199,13 +195,13 @@ class ReliabilityFixButton extends StatelessWidget {
 /// tick would be) and an arrow when a tap opens something. It has no face.
 ///
 /// A row that needs action goes inside a [ReliabilityAttentionCard]: the
-/// face of its state, the title with a chip, at most one short line and one
-/// action when the check has a fix. A check this screen has no words for
-/// shows its id as the title.
+/// title with a chip, at most one short line and one action when the check
+/// has a fix. It has no face, since the card sits under the header's face
+/// and the chip says the state in words. A check this screen has no words
+/// for shows its id as the title.
 class ReliabilityRow extends StatelessWidget {
   const ReliabilityRow({
     required this.check,
-    required this.face,
     required this.now,
     this.actionLabel,
     this.actionVariant = AppButtonVariant.primary,
@@ -219,9 +215,6 @@ class ReliabilityRow extends StatelessWidget {
   });
 
   final ReliabilityCheck check;
-
-  /// The face of the row's state, or null for none.
-  final FaceState? face;
 
   /// The moment the words are worked out for: "2 h ago", "Tue 13:23".
   final DateTime now;
@@ -294,12 +287,8 @@ class ReliabilityRow extends StatelessWidget {
       );
     }
 
-    // At large text the face stands above the words, so the title keeps the
-    // whole width of the card and no word has to break.
+    // At large text each button gets the whole width.
     final isStacked = MediaQuery.textScalerOf(context).scale(15) >= 15 * 1.8;
-    final faceWidget = face == null
-        ? null
-        : ExcludeSemantics(child: FaceWidget(state: face!, size: 36));
 
     final action = actionLabel == null
         ? null
@@ -351,7 +340,6 @@ class ReliabilityRow extends StatelessWidget {
           if (clear == null)
             action
           else if (isStacked)
-            // At large text each label gets the whole width.
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
@@ -373,33 +361,9 @@ class ReliabilityRow extends StatelessWidget {
       ],
     );
 
-    final isSingleLine = line == null && action == null;
-    final Widget content = faceWidget == null
-        ? words
-        : isStacked
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(children: [faceWidget]),
-              const SizedBox(height: Spacing.s2),
-              words,
-            ],
-          )
-        : Row(
-            crossAxisAlignment: isSingleLine
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.start,
-            children: [
-              faceWidget,
-              const SizedBox(width: Spacing.s3),
-              Expanded(child: words),
-            ],
-          );
-
     final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: content,
+      child: words,
     );
 
     return Semantics(
