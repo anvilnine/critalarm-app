@@ -146,6 +146,9 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
             }
             final check = widget.check;
             final fix = check != null && standing.needsLook ? check.fix : null;
+            // The card is the screen's: a row that the screen has not
+            // counted yet stays a plain row until it has.
+            final needsLook = check != null && standing.needsLook;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
@@ -157,7 +160,7 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
                     isSelfHosted: state.isSelfHosted,
                     now: DateTime.now(),
                   ),
-                  needsLook: standing.needsLook,
+                  needsLook: needsLook,
                   isSwitchBusy: state.isBusy,
                   didSwitchFail: state.didFail,
                   onSwitch: (value) {
@@ -182,7 +185,7 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
                 // one line.
                 if (showsRounds) ...[
                   const ReliabilityRowDivider(),
-                  WeeklyCheckRoundsRow(onCard: standing.needsLook),
+                  WeeklyCheckRoundsRow(onCard: needsLook),
                 ],
               ],
             );
