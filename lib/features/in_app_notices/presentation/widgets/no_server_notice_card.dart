@@ -16,7 +16,7 @@ class NoServerNoticeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppNoticeCard(
       tone: AppHighlightTone.crit,
-      face: FaceState.worried,
+      face: brokenFace,
       title: LocaleKeys.notices_no_server_title.tr(),
       lines: [LocaleKeys.notices_no_server_body.tr()],
       actionLabel: LocaleKeys.notices_no_server_button.tr(),
