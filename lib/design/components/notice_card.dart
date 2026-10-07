@@ -9,6 +9,19 @@ import 'package:critalarm/design/tokens/spacing.dart';
 import 'package:critalarm/design/tokens/typography.dart';
 import 'package:flutter/material.dart';
 
+/// The surface of an [AppNoticeCard].
+enum AppNoticeTone {
+  /// Cream with no stroke, for a notice that asks for a look. It sits on the
+  /// yellow canvas, which already sets it apart. This is not
+  /// [AppHighlightTone.choice]: that tone is cream with the ink stroke, for a
+  /// card on a white sheet.
+  cream,
+
+  /// The critical canvas with its stroke, for the one notice that means no
+  /// alarm can arrive at all (no server).
+  crit,
+}
+
 /// The card Home shows in its notice slot: a face, a title, up to two short
 /// lines, one button, and a bare cross to put it away.
 ///
@@ -18,10 +31,10 @@ import 'package:flutter/material.dart';
 /// `face_meaning.dart`. The card owns the look: type sizes, the geometry and
 /// the 44 point cross. A caller picks only the [tone].
 ///
-/// [AppHighlightTone.choice] is the cream card with no stroke, the same
-/// surface as Home's day-0 card, for a notice that asks for a look. Red
-/// belongs to a ringing alarm, so the crit tone is for the one notice that
-/// means no alarm can arrive at all (no server).
+/// [AppNoticeTone.cream] is the cream card with no stroke, the same surface
+/// as Home's day-0 card, for a notice that asks for a look. Red belongs to a
+/// ringing alarm, so [AppNoticeTone.crit] is for the one notice that means
+/// no alarm can arrive at all (no server).
 ///
 /// The card draws and reports taps. Closing a notice and what the button does
 /// belong to the caller. [onDismiss] null draws no cross, for a notice that
@@ -32,7 +45,7 @@ class AppNoticeCard extends StatelessWidget {
     required this.title,
     required this.actionLabel,
     required this.onAction,
-    this.tone = AppHighlightTone.choice,
+    this.tone = AppNoticeTone.cream,
     this.lines = const [],
     this.onDismiss,
     this.dismissLabel,
@@ -45,9 +58,7 @@ class AppNoticeCard extends StatelessWidget {
   final FaceState face;
   final String title;
 
-  /// [AppHighlightTone.choice] (cream, no stroke) or
-  /// [AppHighlightTone.crit].
-  final AppHighlightTone tone;
+  final AppNoticeTone tone;
 
   /// Short supporting lines under the title, one text style for all of them.
   final List<String> lines;
@@ -64,7 +75,7 @@ class AppNoticeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final isCream = tone == AppHighlightTone.choice;
+    final isCream = tone == AppNoticeTone.cream;
     // Text takes the card's own ink: the canvas text colour on the red card,
     // the plain ink pair on cream (as the day-0 card does).
     final titleColor = isCream ? colors.ink : colors.onCanvas;
