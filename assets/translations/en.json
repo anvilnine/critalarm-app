@@ -1887,15 +1887,15 @@
   },
   "paywall_sheet": {
     "headline": {
-      "topics": "Unlimited critical topics are part of {name}",
-      "pushes": "More pushes a day are part of {name}",
-      "history": "Older alarms are part of {name}",
-      "widgets": "Home screen widgets are part of {name}",
-      "app_icons": "Extra app icons are part of {name}",
-      "wake_up_challenges": "Wake-up challenges are part of {name}",
-      "reliability_checks": "Reliability checks are part of {name}",
-      "custom_sounds": "Upload/Record your alarm is part of {name}",
-      "custom_alarm_screens": "Customize the Alarm Screen is part of {name}"
+      "topics": "Critical on every topic",
+      "pushes": "Room for every push",
+      "history": "Every alarm, kept longer",
+      "widgets": "Alarms on your home screen",
+      "app_icons": "Pick your own app icon",
+      "wake_up_challenges": "Prove you are awake",
+      "reliability_checks": "A delivery check every week",
+      "custom_sounds": "Your own alarm sound",
+      "custom_alarm_screens": "Your own alarm screen"
     },
     "page": {
       "back_topics": "Topics",
@@ -1908,9 +1908,8 @@
       "title_settings": "Settings",
       "name": "Name",
       "critical": "Critical",
-      "critical_line": "Rings like an alarm until you say I'm up.",
       "critical_used": "{free_critical_topics} of {free_critical_topics} critical topics used",
-      "critical_lifted": "Critical topics. No limit.",
+      "critical_lifted": "No limit on {name}",
       "sound": "Sound",
       "sound_value": "Classic siren",
       "test_alarm": "Send a test alarm",
