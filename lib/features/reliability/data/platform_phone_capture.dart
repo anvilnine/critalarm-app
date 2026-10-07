@@ -11,9 +11,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// - the list the native push handlers write (`pending_push_events`), which
 ///   the push event drain empties on launch. [holdPendingRows] copies it
 ///   first, so call that before the drain runs;
-/// - the native alarm snapshot: the incidents the phone set an alarm for and
-///   the ones acknowledged on it. On iOS it also carries the rows the
-///   notification extension wrote and has not handed over yet;
+/// - the native alarm snapshot: the incidents the phone set an alarm for,
+///   the one it reads as sounding right now, and the ones acknowledged on
+///   it. On iOS it also carries the rows the notification extension wrote
+///   and has not handed over yet;
 /// - the acknowledgements still waiting to reach the server;
 /// - the alarm ids the platform reports while the app runs.
 final class PlatformPhoneCapture {
@@ -38,11 +39,13 @@ final class PlatformPhoneCapture {
   /// `AckQueue.entries`.
   final List<AckQueueEntry> Function() readAckQueue;
 
-  /// Streams of incident ids whose alarm the platform set off or received:
-  /// `AlarmHost.alarmsScheduled` and `PushHost.alarmPushes`.
+  /// Streams of incident ids the platform received an alarm push for or set
+  /// an alarm for: `AlarmHost.alarmsScheduled` and `PushHost.alarmPushes`.
+  /// Arrivals, not proof of sound.
   final List<Stream<String>> alarmIds;
 
-  /// The incidents the alarm controller holds as ringing, read only.
+  /// The incidents the alarm controller holds as having an alarm set, read
+  /// only. It hears of them when they are scheduled.
   final Set<String> Function()? alarmingIds;
 
   /// `PushEventDrain.storageKey`.
@@ -74,7 +77,11 @@ final class PlatformPhoneCapture {
     await _prefs.reload();
     _hold(_pendingRows());
 
-    final rang = <String>{..._heardIds, ...?alarmingIds?.call()};
+    // A push that arrived or an alarm that was set. None of these says the
+    // alarm sounded.
+    final arrived = <String>{..._heardIds, ...?alarmingIds?.call()};
+    // Only the phone saying "this one is sounding right now" is that.
+    final started = <String>{};
     final acked = <String>{
       for (final entry in readAckQueue())
         if (entry.action == AckAction.ack) entry.incidentId,
@@ -90,8 +97,12 @@ final class PlatformPhoneCapture {
           final id = row['id'];
           if (id is! String || id.isEmpty) continue;
           // `ring_until` is only written when an alarm push for the incident
-          // was taken down the alarm path.
-          if (row['ring_until'] is num) rang.add(id);
+          // was taken down the alarm path. That is an arrival.
+          if (row['ring_until'] is num) arrived.add(id);
+          // `ringing` is the native side reading its own alarm as live:
+          // the Android alarm service playing for this incident, an
+          // AlarmKit alarm in its alerting state.
+          if (row['phone_state'] == 'ringing') started.add(id);
           if (row['acked_locally'] == true) acked.add(id);
         }
       }
@@ -109,7 +120,8 @@ final class PlatformPhoneCapture {
     final capture = PhoneCapture(
       eventRows: List.unmodifiable(_heldRows),
       lostBeforeMs: _heldLostBeforeMs,
-      rangIds: rang,
+      arrivedIds: arrived,
+      startedIds: started,
       acknowledgedHereIds: acked,
     );
     _heldRows.clear();

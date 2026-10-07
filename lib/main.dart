@@ -19,7 +19,6 @@ import 'package:critalarm/features/onboarding/domain/real_ring/setup_test_ring.d
 import 'package:critalarm/features/onboarding/domain/usecases/device_token_registry.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/end_setup_test_usecase.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
-import 'package:critalarm/features/reliability/data/platform_phone_capture.dart';
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_reader.dart';
 import 'package:critalarm/features/reliability/domain/sources/system_update_source.dart';
 import 'package:critalarm/features/settings/domain/usecases/get_privacy_settings_usecase.dart';
@@ -107,9 +106,7 @@ Future<void> main() async {
 
   // The missed alarm check keeps its own copy of those rows. It reads the
   // list on this line, before the drain below empties it.
-  getIt<PlatformPhoneCapture>()
-    ..start()
-    ..holdPendingRows();
+  startMissedAlarmWatch();
 
   // Anything the native push handler recorded while Dart was asleep. Reported
   // only if the user turned analytics on.

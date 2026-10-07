@@ -7,13 +7,11 @@ import 'missed_alarm_fixtures.dart';
 void main() {
   MissedVerdict verdict({
     Incident? incident,
-    bool? topicIsCritical = true,
     PhoneKnowledge knowledge = PhoneKnowledge.none,
     MissedAlarmCutoffs? cutoffs,
     bool isSetupTest = false,
   }) => missedVerdictFor(
     incident: incident ?? incidentFixture(),
-    topicIsCritical: topicIsCritical,
     knowledge: knowledge,
     cutoffs: cutoffs ?? cutoffsLongAgo,
     isSetupTest: isSetupTest,
@@ -114,9 +112,7 @@ void main() {
     test('the phone was not connected to this server when it opened', () {
       expect(
         verdict(
-          cutoffs: MissedAlarmCutoffs(
-            firstLaunchAt: cutoffsLongAgo.firstLaunchAt,
-            setupDoneAt: cutoffsLongAgo.setupDoneAt,
+          cutoffs: cutoffsWith(
             connectedSince: opened.add(const Duration(minutes: 1)),
           ),
         ),
@@ -127,10 +123,8 @@ void main() {
     test('a connection the phone never saw counts as not connected', () {
       expect(
         verdict(
-          cutoffs: MissedAlarmCutoffs(
-            firstLaunchAt: cutoffsLongAgo.firstLaunchAt,
-            setupDoneAt: cutoffsLongAgo.setupDoneAt,
-            connectedSince: null,
+          cutoffs: cutoffsWith(
+            noConnection: true,
           ),
         ),
         notMissed(NotMissedReason.notConnected),
@@ -153,20 +147,6 @@ void main() {
           ),
         ),
         notMissed(NotMissedReason.stillOpen),
-      );
-    });
-
-    test('a topic that is not critical', () {
-      expect(
-        verdict(topicIsCritical: false),
-        notMissed(NotMissedReason.topicNotCritical),
-      );
-    });
-
-    test('a topic that is gone or could not be read', () {
-      expect(
-        verdict(topicIsCritical: null),
-        notMissed(NotMissedReason.topicNotCritical),
       );
     });
 
@@ -193,13 +173,39 @@ void main() {
   });
 
   group('cut-offs', () {
+    test('opened before this phone held the topic', () {
+      expect(
+        verdict(
+          cutoffs: cutoffsWith(
+            topicHeldSince: opened.add(const Duration(minutes: 1)),
+          ),
+        ),
+        notMissed(NotMissedReason.topicNotHeld),
+      );
+    });
+
+    test('a topic this phone has no stamp for is not classified', () {
+      expect(
+        verdict(cutoffs: cutoffsWith(noTopic: true)),
+        notMissed(NotMissedReason.topicNotHeld),
+      );
+    });
+
+    test('the incident existing is what says the topic was critical: '
+        'nothing about the switch is asked', () {
+      // api.md 1.7: an incident only opens on a topic whose switch is on.
+      // Turning the switch off afterwards changes no input of the rule.
+      expect(verdict().isMissed, isTrue);
+    });
+
     test('older than the first launch', () {
       expect(
         verdict(
-          cutoffs: MissedAlarmCutoffs(
+          cutoffs: cutoffsWith(
             firstLaunchAt: opened.add(const Duration(seconds: 1)),
             setupDoneAt: opened.add(const Duration(seconds: 1)),
             connectedSince: opened.add(const Duration(seconds: 1)),
+            topicHeldSince: opened.add(const Duration(seconds: 1)),
           ),
         ),
         notMissed(NotMissedReason.beforeFirstLaunch),
@@ -209,10 +215,8 @@ void main() {
     test('a first launch nobody stamped', () {
       expect(
         verdict(
-          cutoffs: MissedAlarmCutoffs(
-            firstLaunchAt: null,
-            setupDoneAt: cutoffsLongAgo.setupDoneAt,
-            connectedSince: cutoffsLongAgo.connectedSince,
+          cutoffs: cutoffsWith(
+            noFirstLaunch: true,
           ),
         ),
         notMissed(NotMissedReason.beforeFirstLaunch),
@@ -222,10 +226,8 @@ void main() {
     test('opened while setup was unfinished', () {
       expect(
         verdict(
-          cutoffs: MissedAlarmCutoffs(
-            firstLaunchAt: cutoffsLongAgo.firstLaunchAt,
+          cutoffs: cutoffsWith(
             setupDoneAt: opened.add(const Duration(minutes: 5)),
-            connectedSince: cutoffsLongAgo.connectedSince,
           ),
         ),
         notMissed(NotMissedReason.setupUnfinished),
@@ -235,10 +237,8 @@ void main() {
     test('setup never finished', () {
       expect(
         verdict(
-          cutoffs: MissedAlarmCutoffs(
-            firstLaunchAt: cutoffsLongAgo.firstLaunchAt,
-            setupDoneAt: null,
-            connectedSince: cutoffsLongAgo.connectedSince,
+          cutoffs: cutoffsWith(
+            noSetup: true,
           ),
         ),
         notMissed(NotMissedReason.setupUnfinished),
@@ -248,10 +248,11 @@ void main() {
     test('opened at the very moment setup finished counts', () {
       expect(
         verdict(
-          cutoffs: MissedAlarmCutoffs(
+          cutoffs: cutoffsWith(
             firstLaunchAt: opened,
             setupDoneAt: opened,
             connectedSince: opened,
+            topicHeldSince: opened,
           ),
         ).isMissed,
         isTrue,
@@ -262,10 +263,8 @@ void main() {
       expect(
         verdict(
           knowledge: const PhoneKnowledge(rang: true, pushReached: true),
-          cutoffs: MissedAlarmCutoffs(
-            firstLaunchAt: cutoffsLongAgo.firstLaunchAt,
+          cutoffs: cutoffsWith(
             setupDoneAt: opened.add(const Duration(minutes: 5)),
-            connectedSince: cutoffsLongAgo.connectedSince,
           ),
         ).isMissed,
         isFalse,

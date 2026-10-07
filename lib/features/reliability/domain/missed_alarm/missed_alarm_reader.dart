@@ -60,23 +60,30 @@ List<MissedAlarm> missedAlarmsToShow({
 }
 
 /// Works out which alarms this phone missed, from what the app already
-/// holds: the shared incident list, the topic list and the phone's own
-/// record. It asks the server for nothing.
+/// holds: the shared incident list and the phone's own record. It asks the
+/// server for nothing.
 ///
 /// It only reads. It sets off no alarm, posts no notification and changes
 /// nothing about how an alarm rings or is acknowledged.
+///
+/// An incident counts only when it opened after four moments this phone
+/// stamped itself: setup finished, this server connected, this topic first
+/// held, and the install first ran. Each is stamped where it happens
+/// ([setupCompleted], [connectionSaved], [topicsSeen]). An install that
+/// has no stamp yet gets one the first time this runs, so the stretch
+/// before it is left unclassified. A false "missed" and a false "fine" are
+/// both worse than saying nothing.
 class MissedAlarmReader {
   MissedAlarmReader({
     required this.store,
     required this.readIncidents,
-    required this.readCriticalTopics,
+    required this.readTopicNames,
     required this.capture,
     required this.isSetupDone,
     required this.readServer,
     required this.firstLaunchAt,
     required this.setupIncidentIds,
     required this.everyPushIsLogged,
-    this.ringsCanBeHeld = _never,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
@@ -85,13 +92,14 @@ class MissedAlarmReader {
   /// The incidents the app already holds. Never a fetch.
   final List<Incident> Function() readIncidents;
 
-  /// The names of the critical topics, or null when the list cannot be read.
-  final Future<Set<String>?> Function() readCriticalTopics;
+  /// The names of the topics this phone holds, or null when the list cannot
+  /// be read.
+  final Future<Set<String>?> Function() readTopicNames;
 
   /// One look at what the phone holds right now.
   final Future<PhoneCapture> Function() capture;
 
-  /// `SetupGate.isDone` in the app.
+  /// Whether setup was finished on this phone.
   final Future<bool> Function() isSetupDone;
 
   /// The server the phone is connected to, or null with none.
@@ -106,25 +114,98 @@ class MissedAlarmReader {
   /// Whether this phone writes a row for every push that reaches it.
   final bool everyPushIsLogged;
 
-  /// Whether a setting on this phone can hold a priority 5 ring right now.
-  final bool Function() ringsCanBeHeld;
-
   final DateTime Function() _now;
 
-  static bool _never() => false;
+  /// Every write goes through here, one at a time. The capture reloads the
+  /// preferences from disk, and a write still in the air at that moment
+  /// would be read back as it was before.
+  Future<void> _turn = Future<void>.value();
 
-  /// Copies what the phone holds into the record, and stamps the first time
-  /// setup is seen done and the first time this server is seen connected.
-  ///
-  /// Never throws: nothing waits for it on launch, and the next call tries
-  /// again. Calls take turns, so two of them cannot write over each other.
-  Future<void> record() {
-    final result = _turn.then((_) => _recordOnce());
+  Future<void> _queued(Future<void> Function() action) {
+    final result = _turn.then((_) async {
+      try {
+        await action();
+      } on Object catch (error) {
+        debugPrint('MissedAlarmReader: write failed: $error');
+      }
+    });
     _turn = result;
     return result;
   }
 
-  Future<void> _turn = Future<void>.value();
+  /// Setup was finished just now. Call it where setup completes. Stamped
+  /// once.
+  Future<void> setupCompleted() => _queued(() async {
+    if (store.readSetupDoneAt() == null) {
+      await store.writeSetupDoneAt(_now());
+    }
+  });
+
+  /// A connection to [server] was saved just now. Call it where a
+  /// connection is saved. The same server again changes nothing. Another
+  /// server drops what belonged to the old one.
+  Future<void> connectionSaved(String server) =>
+      _queued(() => _connectedTo(server.trim(), _now()));
+
+  /// The saved connection was removed just now.
+  Future<void> connectionCleared() => _queued(() => _connectedTo('', _now()));
+
+  /// The phone holds exactly [names] right now. Call it when the topic list
+  /// loads or changes. A new name starts a stretch, and a name that is gone
+  /// ends its stretch. The ended stretch is kept, so a miss inside it stays
+  /// a miss after the topic is deleted, and a topic held again later starts
+  /// a new one.
+  Future<void> topicsSeen(Iterable<String> names) =>
+      _queued(() => _topicsHeld(names.toSet(), _now()));
+
+  Future<void> _connectedTo(String server, DateTime now) async {
+    final held = store.readConnected()?.server;
+    if (held == server) return;
+    // Leaving a server: its record, its closed entries and its topic stamps
+    // say nothing about the next one.
+    if (held != null && held.isNotEmpty) await store.clearServerData();
+    await store.writeConnected(ConnectedServer(server: server, since: now));
+  }
+
+  /// How long an ended stretch is kept: as long as the phone's record.
+  static const Duration keepEndedHoldsFor = PhoneRecord.keepFor;
+
+  Future<void> _topicsHeld(Set<String> names, DateTime now) async {
+    final held = store.readTopicHolds();
+    final next = <String, List<TopicHold>>{};
+    var changed = false;
+    for (final name in {...held.keys, ...names}) {
+      final holds = [
+        for (final hold in held[name] ?? const <TopicHold>[])
+          // An ended stretch older than anything still shown is dropped.
+          if (hold.until == null ||
+              now.difference(hold.until!) <= keepEndedHoldsFor)
+            hold,
+      ];
+      if (holds.length != (held[name]?.length ?? 0)) changed = true;
+      final open = holds.isNotEmpty && holds.last.until == null;
+      if (names.contains(name) && !open) {
+        holds.add(TopicHold(since: now));
+        changed = true;
+      } else if (!names.contains(name) && open) {
+        holds[holds.length - 1] = TopicHold(
+          since: holds.last.since,
+          until: now,
+        );
+        changed = true;
+      }
+      if (holds.isNotEmpty) next[name] = holds;
+    }
+    if (changed) await store.writeTopicHolds(next);
+  }
+
+  /// Copies what the phone holds into the record. For an install that has
+  /// no stamp yet (one set up before this existed), it also writes the
+  /// stamps, as of now.
+  ///
+  /// Never throws: nothing waits for it on launch, and the next call tries
+  /// again.
+  Future<void> record() => _queued(_recordOnce);
 
   Future<void> _recordOnce() async {
     final now = _now();
@@ -140,14 +221,9 @@ class MissedAlarmReader {
       if (store.readSetupDoneAt() == null && await isSetupDone()) {
         await store.writeSetupDoneAt(now);
       }
-      final server = await readServer() ?? '';
-      final held = store.readConnected()?.server ?? '';
-      // A phone with no server gets an empty stamp, so connecting again,
-      // even to the same server, starts a new one: what opened in between
-      // was not this phone's to ring for.
-      if (held != server) {
-        await store.writeConnected(ConnectedServer(server: server, since: now));
-      }
+      await _connectedTo((await readServer() ?? '').trim(), now);
+      final names = await readTopicNames();
+      if (names != null) await _topicsHeld(names, now);
     } on Object catch (error) {
       debugPrint('MissedAlarmReader: stamp failed: $error');
     }
@@ -157,23 +233,18 @@ class MissedAlarmReader {
   /// entries included. Callers pick what to show with [missedAlarmsToShow].
   Future<List<MissedAlarm>> read() async {
     await record();
-    final critical = await readCriticalTopics();
-    final server = await readServer();
+    final server = (await readServer() ?? '').trim();
     final connected = store.readConnected();
-    final cutoffs = MissedAlarmCutoffs(
-      firstLaunchAt: firstLaunchAt(),
-      setupDoneAt: store.readSetupDoneAt(),
-      // A stamp for another server says nothing about this one.
-      connectedSince:
-          connected != null &&
-              connected.server.isNotEmpty &&
-              connected.server == server
-          ? connected.since
-          : null,
-    );
+    final setupDoneAt = store.readSetupDoneAt();
+    // A stamp for another server says nothing about this one.
+    final connectedSince =
+        connected != null && server.isNotEmpty && connected.server == server
+        ? connected.since
+        : null;
+    final holds = store.readTopicHolds();
+    final firstLaunch = firstLaunchAt();
     final phone = store.readRecord();
     final tests = setupIncidentIds();
-    final held = ringsCanBeHeld();
 
     final missed = <MissedAlarm>[];
     for (final incident in readIncidents()) {
@@ -183,13 +254,16 @@ class MissedAlarmReader {
       if (at == null) continue;
       final verdict = missedVerdictFor(
         incident: incident,
-        topicIsCritical: critical?.contains(incident.topic),
         knowledge: phone.knowledgeFor(
           incident,
           everyPushIsLogged: everyPushIsLogged,
-          ringsCanBeHeld: held,
         ),
-        cutoffs: cutoffs,
+        cutoffs: MissedAlarmCutoffs(
+          firstLaunchAt: firstLaunch,
+          setupDoneAt: setupDoneAt,
+          connectedSince: connectedSince,
+          topicHeldSince: _heldSinceFor(incident, holds),
+        ),
         isSetupTest: tests.contains(incident.id),
       );
       final reason = verdict.reason;
@@ -206,6 +280,20 @@ class MissedAlarmReader {
     return missed;
   }
 
+  /// The start of the stretch this phone held the incident's topic in when
+  /// it opened, or null when it did not hold it then.
+  static DateTime? _heldSinceFor(
+    Incident incident,
+    Map<String, List<TopicHold>> holds,
+  ) {
+    final openedAt = incident.openedAt;
+    if (openedAt == null) return null;
+    for (final hold in holds[incident.topic] ?? const <TopicHold>[]) {
+      if (hold.covers(openedAt)) return hold.since;
+    }
+    return null;
+  }
+
   /// The missed alarms to show now: inside the window and not closed.
   Future<List<MissedAlarm>> readToShow() async => missedAlarmsToShow(
     missed: await read(),
@@ -218,14 +306,13 @@ class MissedAlarmReader {
   static const rememberDismissedFor = Duration(days: 30);
 
   /// Closes the Home entry for [incidentIds] for good.
-  Future<void> dismiss(Iterable<String> incidentIds) async {
+  Future<void> dismiss(Iterable<String> incidentIds) => _queued(() async {
     final now = _now();
-    final dismissed = {
+    await store.writeDismissed({
       for (final entry in store.readDismissed().entries)
         if (now.difference(entry.value) <= rememberDismissedFor)
           entry.key: entry.value,
       for (final id in incidentIds) id: now,
-    };
-    await store.writeDismissed(dismissed);
-  }
+    });
+  });
 }

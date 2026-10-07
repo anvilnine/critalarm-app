@@ -14,6 +14,7 @@ class SharedPrefsMissedAlarmStore implements MissedAlarmStore {
   static const setupDoneAtKey = 'missed_alarm_setup_done_at_ms';
   static const connectedServerKey = 'missed_alarm_connected_server';
   static const connectedSinceKey = 'missed_alarm_connected_since_ms';
+  static const topicsHeldKey = 'missed_alarm_topics_held_v1';
 
   final SharedPreferences _prefs;
 
@@ -25,8 +26,62 @@ class SharedPrefsMissedAlarmStore implements MissedAlarmStore {
       _prefs.setString(recordKey, jsonEncode(record.toJson()));
 
   @override
-  Map<String, DateTime> readDismissed() {
-    final raw = _decode(dismissedKey);
+  Map<String, DateTime> readDismissed() => _readTimes(dismissedKey);
+
+  @override
+  Future<void> writeDismissed(Map<String, DateTime> dismissed) =>
+      _writeTimes(dismissedKey, dismissed);
+
+  @override
+  Map<String, List<TopicHold>> readTopicHolds() {
+    final raw = _decode(topicsHeldKey);
+    if (raw is! Map) return {};
+    final holds = <String, List<TopicHold>>{};
+    for (final entry in raw.entries) {
+      final name = entry.key;
+      final list = entry.value;
+      if (name is! String || list is! List) continue;
+      final read = <TopicHold>[];
+      for (final pair in list) {
+        if (pair is! List || pair.isEmpty || pair.first is! num) continue;
+        final until = pair.length > 1 ? pair[1] : null;
+        read.add(
+          TopicHold(
+            since: _time((pair.first as num).toInt()),
+            until: until is num ? _time(until.toInt()) : null,
+          ),
+        );
+      }
+      if (read.isNotEmpty) holds[name] = read;
+    }
+    return holds;
+  }
+
+  @override
+  Future<void> writeTopicHolds(Map<String, List<TopicHold>> holds) =>
+      _prefs.setString(
+        topicsHeldKey,
+        jsonEncode({
+          for (final entry in holds.entries)
+            entry.key: [
+              for (final hold in entry.value)
+                [
+                  hold.since.toUtc().millisecondsSinceEpoch,
+                  hold.until?.toUtc().millisecondsSinceEpoch,
+                ],
+            ],
+        }),
+      );
+
+  @override
+  Future<void> clearServerData() async {
+    await _prefs.remove(recordKey);
+    await _prefs.remove(dismissedKey);
+    await _prefs.remove(topicsHeldKey);
+  }
+
+  Map<String, DateTime> _readTimes(String key) {
+    final raw = _decode(key);
     return {
       if (raw is Map)
         for (final entry in raw.entries)
@@ -35,12 +90,11 @@ class SharedPrefsMissedAlarmStore implements MissedAlarmStore {
     };
   }
 
-  @override
-  Future<void> writeDismissed(Map<String, DateTime> dismissed) =>
+  Future<void> _writeTimes(String key, Map<String, DateTime> times) =>
       _prefs.setString(
-        dismissedKey,
+        key,
         jsonEncode({
-          for (final entry in dismissed.entries)
+          for (final entry in times.entries)
             entry.key: entry.value.toUtc().millisecondsSinceEpoch,
         }),
       );
@@ -59,7 +113,7 @@ class SharedPrefsMissedAlarmStore implements MissedAlarmStore {
   ConnectedServer? readConnected() {
     final server = _prefs.getString(connectedServerKey);
     final since = _prefs.getInt(connectedSinceKey);
-    if (server == null || server.isEmpty || since == null) return null;
+    if (server == null || since == null) return null;
     return ConnectedServer(server: server, since: _time(since));
   }
 

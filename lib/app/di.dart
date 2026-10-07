@@ -130,6 +130,7 @@ import 'package:critalarm/features/local_reminders/presentation/cubits/local_rem
 import 'package:critalarm/features/local_reminders/presentation/cubits/local_reminder_settings_cubit.dart';
 import 'package:critalarm/features/onboarding/data/repositories/in_memory_server_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/keychain_mirror_connection_repository.dart';
+import 'package:critalarm/features/onboarding/data/repositories/observed_connection_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/platform_alarm_arrivals.dart';
 import 'package:critalarm/features/onboarding/data/repositories/platform_notification_permission_repository.dart';
 import 'package:critalarm/features/onboarding/data/repositories/prefs_setup_test_ring.dart';
@@ -574,6 +575,11 @@ Future<void> configureDependencies({
         store: getIt<ProPackStore>(),
         readAccountId: () async =>
             (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
+        // The kept list is for one account on one relay. A sign-out, a
+        // sign-in or a new plan is a reason to look at who this phone is.
+        readRelay: () async =>
+            (await getIt<ApiSessionStore>().read())?.relayUri,
+        identityChanges: [appAccountIdentityChanges, appPlanChanges],
       ),
     )
     // A build that skips the store has nothing on sale.
@@ -620,10 +626,18 @@ Future<void> configureDependencies({
     // The iOS extension reads the server and the token out of the keychain,
     // so saving a connection has to land there too.
     ..registerLazySingleton<ConnectionRepository>(
-      () => KeychainMirrorConnectionRepository(
-        SharedPrefsConnectionRepository(getIt<SharedPreferences>()),
-        getIt<NseCredentialStore>(),
-        widgets: getIt<WidgetHost>(),
+      () => ObservedConnectionRepository(
+        KeychainMirrorConnectionRepository(
+          SharedPrefsConnectionRepository(getIt<SharedPreferences>()),
+          getIt<NseCredentialStore>(),
+          widgets: getIt<WidgetHost>(),
+        ),
+        // The missed alarm check counts an incident only from the moment
+        // this phone connected to its server, so it hears every save and
+        // every removal here, when it happens.
+        onSaved: (serverUrl) =>
+            getIt<MissedAlarmReader>().connectionSaved(serverUrl),
+        onCleared: () => getIt<MissedAlarmReader>().connectionCleared(),
       ),
     )
     ..registerLazySingleton<OnboardingProgressRepository>(
@@ -705,11 +719,15 @@ Future<void> configureDependencies({
         getIt<DeviceIdentityStore>(),
         getIt<PushTokenProvider>(),
         identifyAccount: getIt<RevenueCatService>().identifyAccount,
-        onPacks: (response) => getIt<ProPackAccess>().relayAnswered(
-          accountId: response.accountId,
-          packs: response.packs,
-          tier: response.tier,
-        ),
+        beforePacksRequest: () => getIt<ProPackAccess>().beginRelayRequest(),
+        onPacks: (response, {relayUri, request}) =>
+            getIt<ProPackAccess>().relayAnswered(
+              accountId: response.accountId,
+              packs: response.packs,
+              tier: response.tier,
+              relay: relayUri,
+              request: request,
+            ),
       ),
     )
     ..registerLazySingleton(
@@ -1019,6 +1037,8 @@ Future<void> configureDependencies({
           // checklist, which is what lets Home tell this install from one
           // set up long before it.
           unawaited(getIt<SetupChecklistStore>().markSetUpHere());
+          // The missed alarm check counts nothing that opened before this.
+          unawaited(getIt<MissedAlarmReader>().setupCompleted());
         },
         getIt<FirstTopicHandoff>(),
         getIt<SetupTestRing>(),
@@ -1812,14 +1832,19 @@ Future<void> configureDependencies({
       () => MissedAlarmReader(
         store: getIt<MissedAlarmStore>(),
         readIncidents: () => getIt<IncidentsCubit>().state.incidents,
-        readCriticalTopics: () async =>
-            (await getIt<GetTopicsUsecase>()(const NoParams()))
-                .getOrNull()
-                ?.where((topic) => topic.critical)
-                .map((topic) => topic.name)
-                .toSet(),
+        // What the shared list already holds. Never a fetch.
+        readTopicNames: () async {
+          final topics = getIt<TopicsCubit>().state;
+          return topics.isReady
+              ? {for (final topic in topics.topics) topic.name}
+              : null;
+        },
         capture: getIt<PlatformPhoneCapture>().take,
-        isSetupDone: () => getIt<SetupGate>().isDone(),
+        isSetupDone: () async =>
+            (await getIt<GetOnboardingCompletedUsecase>()(
+              const NoParams(),
+            )).getOrNull() ??
+            false,
         readServer: () async {
           final conn = (await getIt<GetConnectionUsecase>()(
             const NoParams(),
@@ -1835,10 +1860,6 @@ Future<void> configureDependencies({
         everyPushIsLogged:
             !getIt<PlatformCapabilities>().isWeb &&
             getIt<PlatformCapabilities>().platform == TargetPlatform.android,
-        ringsCanBeHeld: () {
-          final quiet = getIt<QuietHoursStore>().read();
-          return quiet.isEnabled && !quiet.criticalRingsThrough;
-        },
       ),
     )
     ..registerLazySingleton(
@@ -2184,6 +2205,30 @@ Future<void> configureDependencies({
     devSwitch.addListener(applyToMock);
     applyToMock();
   }
+}
+
+/// Starts what the missed alarm check needs from launch on. Call it on the
+/// line before the push event drain runs: the drain empties the native list
+/// this copies.
+///
+/// It reads and listens. It changes nothing about how an alarm rings.
+void startMissedAlarmWatch() {
+  getIt<PlatformPhoneCapture>()
+    ..start()
+    ..holdPendingRows();
+  // A topic is stamped the moment the shared list first holds it.
+  final topics = getIt<TopicsCubit>();
+  void seen(TopicsState state) {
+    if (!state.isReady) return;
+    unawaited(
+      getIt<MissedAlarmReader>().topicsSeen([
+        for (final topic in state.topics) topic.name,
+      ]),
+    );
+  }
+
+  seen(topics.state);
+  topics.stream.listen(seen);
 }
 
 /// Fires when the set of expired incidents in the shared list changes, and
