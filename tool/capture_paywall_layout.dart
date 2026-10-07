@@ -24,8 +24,7 @@
 //                                  overflow on the way fails the capture.
 //
 // A capture fails when a layout overflows, when the close cross or the button
-// is off screen, or when anything scrolls at the default text size (the legal
-// lines scroll once they pass three lines).
+// is off screen, or when anything scrolls at the default text size.
 //
 // To capture the previews instead of a layout, as the gallery shows them:
 //

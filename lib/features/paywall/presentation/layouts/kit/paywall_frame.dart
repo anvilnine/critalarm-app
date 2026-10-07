@@ -29,8 +29,9 @@ typedef PaywallLayoutContentBuilder =
     Widget Function(BuildContext context, PaywallLayoutScope scope);
 
 /// The text scale a layout's own part stops growing at. A one screen
-/// composition cannot hold text of any size, so past this only the legal
-/// lines keep growing, inside their own box.
+/// composition cannot hold text of any size. The buy block stops sooner,
+/// at `paywallBuyMaxTextScale`, and takes the height it needs: the layout
+/// gets what is left.
 const double paywallLayoutMaxTextScale = 1.5;
 
 /// A handle on the frame for a layout that also draws outside it: a sheet
