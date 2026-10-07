@@ -39,18 +39,55 @@ final class WeeklyCheckNoticeFacts {
 ///
 /// - setup is done (`SetupGate`), like every other notice;
 /// - the device is enrolled and the account still holds the pack;
-/// - two rounds in a row were missed: either the relay says so (`misses` of
-///   2 or more), or this phone's own clock passed `notice_after`. The phone
-///   has to tell by itself, because the push that would bring the news is
-///   the thing that failed;
-/// - no check has reached this phone since it learned that;
+/// - two rounds in a row were missed, by one of the two ways below;
 /// - the notice was not closed for this run of misses.
+///
+/// What the relay last said decides it while no check has reached the phone
+/// since: `misses` of 2 or more, or this phone's own clock passing
+/// `notice_after`. The phone has to tell by itself, because the push that
+/// would bring the news is the thing that failed.
+///
+/// A check that reached the phone after the relay's last answer ends the
+/// miss window it fell in, and only that one. When its receipt was answered
+/// the relay handed back a new `notice_after`, and that is the newer answer.
+/// When it was not, the phone has no newer answer, so it counts from the
+/// arrival: two windows of [missWindow] with nothing arriving are two
+/// rounds missed. An arrival never switches the notice off for good.
 ///
 /// One missed round shows nothing here. Closing the notice keeps it gone
 /// until a check arrives and a later run of misses begins.
 ///
 /// It is a card on Home. It is not a notification and it makes no alert.
 abstract final class WeeklyCheckNoticeRule {
+  /// api.md §4.5, "A round": rounds are 7 days apart, and the gap between a
+  /// device's first two rounds is 3 to 10 days. Ten days is the longest the
+  /// contract lets one round follow another. In seconds.
+  static const int longestGapBetweenRounds = 10 * 24 * 60 * 60;
+
+  /// api.md §4.5, "A round": a round stays open for 24 hours from the
+  /// moment it opens, and only then counts as missed. The relay's own
+  /// `notice_after` sits this far past the round it is waiting on. In
+  /// seconds.
+  static const int roundOpenFor = 24 * 60 * 60;
+
+  /// The longest one round can take to come due and then be missed.
+  static const int missWindow = longestGapBetweenRounds + roundOpenFor;
+
+  /// How many windows in a row with nothing arriving raise the notice. The
+  /// same two rounds the relay counts (api.md §4.5, "One missed round is a
+  /// prompt to look").
+  static const int windowsToNotice = 2;
+
+  /// An arrival stamped later than this far past the phone's own clock was
+  /// not read right, or the clock moved. It counts as no arrival known. In
+  /// seconds.
+  static const int clockSlack = 5 * 60;
+
+  /// The second this phone counts two rounds missed from, when all it has
+  /// is a check that arrived at [arrivalAt].
+  static int deadlineAfterArrival(int arrivalAt) =>
+      arrivalAt + windowsToNotice * missWindow;
+
   static bool shouldShow({
     required bool isSetupDone,
     required WeeklyCheckNoticeFacts? facts,
@@ -60,16 +97,27 @@ abstract final class WeeklyCheckNoticeRule {
     final check = facts.check;
     if (!check.enabled || check.state == WeeklyCheckState.off) return false;
 
-    final arrival = facts.lastArrivalAt;
+    // An arrival the phone cannot place counts as none: it must neither
+    // raise the notice nor hide a run of misses the relay reported.
+    final stamped = facts.lastArrivalAt;
+    final arrival =
+        stamped != null && stamped > 0 && stamped <= now + clockSlack
+        ? stamped
+        : null;
     bool arrivedSince(int? at) => arrival != null && at != null && arrival > at;
 
-    final missedTwice = check.misses >= 2 && !arrivedSince(facts.checkSeenAt);
-    final noticeAfter = facts.noticeAfter;
-    final clockPassed =
-        noticeAfter != null &&
-        now >= noticeAfter &&
-        !arrivedSince(facts.noticeAfterSeenAt);
-    if (!missedTwice && !clockPassed) return false;
+    final bool due;
+    if (arrival != null && arrivedSince(facts.noticeAfterSeenAt)) {
+      // Nothing from the relay is newer than this arrival, so its
+      // `notice_after` and its count of misses describe a window that has
+      // ended. The phone counts on from the arrival by itself.
+      due = now >= deadlineAfterArrival(arrival);
+    } else {
+      final missedTwice = check.misses >= 2 && !arrivedSince(facts.checkSeenAt);
+      final noticeAfter = facts.noticeAfter;
+      due = missedTwice || (noticeAfter != null && now >= noticeAfter);
+    }
+    if (!due) return false;
 
     final dismissedAt = facts.dismissedAt;
     if (dismissedAt == null) return true;
