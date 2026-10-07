@@ -18,6 +18,7 @@ abstract final class ReliabilityCheckIds {
   static const lastPushReceived = ReliabilityCheckId('last_push_received');
   static const systemUpdate = ReliabilityCheckId('system_update');
   static const phoneMaker = ReliabilityCheckId('phone_maker');
+  static const missedAlarm = ReliabilityCheckId('missed_alarm');
 }
 
 /// One question about whether this phone will wake its owner, and the answer.
