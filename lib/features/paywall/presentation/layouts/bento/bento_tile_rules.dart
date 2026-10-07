@@ -54,12 +54,42 @@ const double bentoBesideGap = 8;
 /// The least height a preview keeps before the words give way.
 const double bentoMinPreview = 24;
 
+/// The sizes a title tries, as shares of its own size, in order. The tile
+/// takes the first one that fits its lines.
+///
+/// A title a little too wide for one line is set a little smaller, which
+/// reads better than one word alone on a second line. A longer one wraps
+/// at full size, and steps down only if two lines still cut it short.
+///
+/// At a [textScale] over 1 the title was enlarged, so it may step further
+/// down, as long as it stays about as large as it is at the default size.
+List<double> bentoTitleSteps({
+  required double titleWidth,
+  required double innerWidth,
+  double textScale = 1,
+}) {
+  const nudge = 0.86;
+  const smallest = 0.78;
+  final deeper = [
+    for (final step in const [0.7, 0.62])
+      if (step * textScale >= 0.9) step,
+  ];
+  if (titleWidth + 1 > innerWidth && titleWidth * nudge + 1 <= innerWidth) {
+    return [nudge, smallest, ...deeper];
+  }
+  return [1, 0.92, 0.85, smallest, ...deeper];
+}
+
 /// Decides how a tile sets its words in [inner], its room less padding.
 ///
 /// The preview comes first: the line shows only where the tile has room,
 /// and a title takes a second line only when the preview keeps its height.
 /// [titleWidth] and [lineWidth] are the widths on one line, and the two
 /// heights are of one line each.
+///
+/// [wordsFirst] turns the first rule round for a title that was already
+/// set as small as it goes: it takes its second line even where that
+/// leaves the preview no room, because a title cut short says less.
 BentoTileText bentoTileText({
   required Size inner,
   required double titleWidth,
@@ -67,10 +97,12 @@ BentoTileText bentoTileText({
   required double lineWidth,
   required double lineLineHeight,
   required bool isLead,
+  bool wordsFirst = false,
 }) {
   final fitsOneLine = titleWidth + 1 <= inner.width;
-  final roomForTwo =
-      inner.height - 2 * titleLineHeight - bentoTextGap >= bentoMinPreview;
+  final roomForTwo = wordsFirst
+      ? inner.height >= 2 * titleLineHeight
+      : inner.height - 2 * titleLineHeight - bentoTextGap >= bentoMinPreview;
   final titleLines = fitsOneLine || !roomForTwo ? 1 : 2;
   final titleHeight = titleLines * titleLineHeight;
 
