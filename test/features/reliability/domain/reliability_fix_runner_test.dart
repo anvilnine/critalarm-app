@@ -18,6 +18,24 @@ void main() {
       );
 
       expect(await runner.run(const OpenRouteFix('testRing')), isFalse);
+      // The two other fixes that open a screen of the app are the screen's.
+      expect(
+        await runner.run(
+          const AskPermissionFix(DevicePermissionType.notifications),
+        ),
+        isFalse,
+      );
+      expect(
+        await runner.run(
+          MissedAlarmFix(
+            testRouteName: 'testRing',
+            topic: 'prod',
+            at: DateTime.utc(2026, 10, 7),
+            incidentIds: const ['a'],
+          ),
+        ),
+        isFalse,
+      );
       expect(opened, isEmpty);
       expect(reRegisters, 0);
 

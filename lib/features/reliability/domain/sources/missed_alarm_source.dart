@@ -5,16 +5,21 @@ import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_
 import 'package:critalarm/features/reliability/domain/missed_alarm/missed_alarm_rule.dart';
 import 'package:critalarm/features/reliability/domain/reliability_check_source.dart';
 
-/// Whether this phone missed an alarm lately.
+/// Whether this phone may have let an alarm down lately.
 ///
-/// Needs a look while a missed alarm from the last [missedAlarmWindow] has
-/// not been closed on Home. Fine otherwise. The reason is the newest missed
-/// alarm's.
+/// It looks at the missed alarms from the last [missedAlarmWindow] that
+/// were not closed, on Home or on the Reliability screen. Both close the
+/// same entries.
 ///
-/// Reasons: `missed_no_push`, `missed_push_no_ring`, `missed_rang`,
-/// `missed_unanswered`. The first two offer a test alarm, through
-/// [testRouteName]. The other two offer nothing: the phone did its part, or
-/// cannot say what went wrong.
+/// An alarm that rang and went unanswered is not this phone's failure, so
+/// it never asks for a look. With only such alarms left the check is fine
+/// and carries the reason `missed_rang`, so the row can still say what
+/// happened. Home's notice is where that alarm is told.
+///
+/// Any other missed alarm needs a look. The newest of them gives the
+/// reason: `missed_no_push`, `missed_push_no_ring` or `missed_unanswered`.
+/// Its fix is a [MissedAlarmFix]: a test alarm through [testRouteName],
+/// the topic and time of that alarm, and the ids closing clears.
 final class MissedAlarmSource implements ReliabilityCheckSource {
   MissedAlarmSource({
     required this.readMissed,
@@ -55,16 +60,32 @@ final class MissedAlarmSource implements ReliabilityCheckSource {
     if (shown.isEmpty) {
       return const ReliabilityCheck(id: id, state: ReliabilityState.fine);
     }
-    final reason = shown.first.reason;
+    // The phone did its part for an alarm that rang. Nobody answering is
+    // not something a setting on this phone can fix.
+    final counted = [
+      for (final alarm in shown)
+        if (alarm.reason != MissedReason.rangUnanswered) alarm,
+    ];
+    if (counted.isEmpty) {
+      return ReliabilityCheck(
+        id: id,
+        state: ReliabilityState.fine,
+        reason: 'missed_${MissedReason.rangUnanswered.code}',
+      );
+    }
+    final newest = counted.first;
     return ReliabilityCheck(
       id: id,
       state: ReliabilityState.needsLook,
-      reason: 'missed_${reason.code}',
-      fix: switch (reason) {
-        MissedReason.noPushReached ||
-        MissedReason.pushButNoRing => OpenRouteFix(testRouteName),
-        MissedReason.rangUnanswered || MissedReason.unanswered => null,
-      },
+      reason: 'missed_${newest.reason.code}',
+      fix: MissedAlarmFix(
+        testRouteName: testRouteName,
+        topic: newest.topic,
+        at: newest.at,
+        // The same ids Home's notice closes, so one tap in either place
+        // clears both.
+        incidentIds: [for (final alarm in shown) alarm.incidentId],
+      ),
     );
   }
 }
