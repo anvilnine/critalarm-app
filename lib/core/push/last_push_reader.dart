@@ -65,15 +65,15 @@ const pushReceivedName = 'push_received';
 /// - [LastPushStore], where the drain left it.
 /// - The list the native side writes to and the drain has not emptied yet
 ///   (Android writes it while the app runs).
-/// - [nativeRows], for iOS, where the extension writes to the App Group and
+/// - `nativeRows`, for iOS, where the extension writes to the App Group and
 ///   the rows only reach that list on the next launch.
 final class LastPushReader {
   LastPushReader(
     this._prefs,
     this.store, {
     this.pendingKey = 'pending_push_events',
-    Future<List<Object?>> Function()? nativeRows,
-  }) : _nativeRows = nativeRows;
+    this._nativeRows,
+  });
 
   final SharedPreferences _prefs;
   final LastPushStore store;
