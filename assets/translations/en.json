@@ -1996,5 +1996,12 @@
       "custom_sounds": "Upload/Record your alarm",
       "custom_alarm_screens": "Customize the Alarm Screen"
     }
+  },
+  "paywall_wipe": {
+    "headline_hosted": "See what Hosted changes",
+    "headline_pro": "See what Pro adds",
+    "tag_free": "Free",
+    "tag_standard": "Standard",
+    "compare_label": "Compare {before} and {name}"
   }
 }
