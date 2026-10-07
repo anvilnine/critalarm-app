@@ -172,20 +172,26 @@ void main() {
       );
     });
 
-    test('a link to the Reliability screen opens Settings', () {
-      expect(isPushDeepLink('/settings'), isTrue);
+    test('a link to the Reliability screen opens it', () {
       expect(isPushDeepLink('/settings/reliability'), isTrue);
       expect(
-        initialLocationFor(hasCompletedOnboarding: true, deepLink: '/settings'),
-        '/settings',
+        initialLocationFor(
+          hasCompletedOnboarding: true,
+          deepLink: '/settings/reliability',
+        ),
+        '/settings/reliability',
       );
       expect(
         initialLocationFor(
           hasCompletedOnboarding: false,
-          deepLink: '/settings',
+          deepLink: '/settings/reliability',
         ),
         '/onboarding/welcome',
       );
+    });
+
+    test('Settings itself is not a push deep link', () {
+      expect(isPushDeepLink('/settings'), isFalse);
     });
 
     test('a route that is not a push deep link is ignored', () {
