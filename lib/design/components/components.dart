@@ -10,6 +10,7 @@ export 'chips.dart';
 export 'code_block.dart';
 export 'crop_editor.dart';
 export 'dialogs.dart';
+export 'dismiss_cross.dart';
 export 'empty_state.dart';
 export 'fitted_title.dart';
 export 'floating_tab_bar.dart';
