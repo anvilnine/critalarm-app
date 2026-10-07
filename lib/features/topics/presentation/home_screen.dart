@@ -120,6 +120,10 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   /// The glow has started. It then runs to its end by itself.
   bool _glowPlays = false;
 
+  /// Lets the glow go once it has run, so a row that is built again later
+  /// never plays it a second time.
+  Timer? _glowEnds;
+
   /// Starts the glow once it can be seen, or lets it go. See
   /// [setupGlowStepFor].
   void _updateSetupGlow() {
@@ -146,6 +150,13 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         break;
       case SetupGlowStep.play:
         setState(() => _glowPlays = true);
+        _glowEnds = Timer(setupGlowTakes(isStill: context.reduceMotion), () {
+          if (!mounted) return;
+          setState(() {
+            _glowTopic = null;
+            _glowPlays = false;
+          });
+        });
       case SetupGlowStep.drop:
         setState(() => _glowTopic = null);
     }
@@ -303,6 +314,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
 
   @override
   void dispose() {
+    _glowEnds?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     homeSetupPreview.removeListener(_onSetupPreview);
     unawaited(_guideSub?.cancel());

@@ -128,6 +128,9 @@ class _AnswerRow extends StatelessWidget {
       );
     }
 
+    final buttonLabel = opensSettings
+        ? LocaleKeys.onboarding_permissions_denied_open_settings.tr()
+        : LocaleKeys.device_permissions_allow_button.tr();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -171,12 +174,20 @@ class _AnswerRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          AppButton(
-            label: opensSettings
-                ? LocaleKeys.onboarding_permissions_denied_open_settings.tr()
-                : LocaleKeys.device_permissions_allow_button.tr(),
-            size: AppButtonSize.sm,
-            onPressed: onAllow,
+          // Every row has the same button, so a screen reader hears which
+          // permission this one is for.
+          Semantics(
+            button: true,
+            enabled: onAllow != null,
+            label: '$buttonLabel, $name',
+            onTap: onAllow,
+            child: ExcludeSemantics(
+              child: AppButton(
+                label: buttonLabel,
+                size: AppButtonSize.sm,
+                onPressed: onAllow,
+              ),
+            ),
           ),
         ],
       ),

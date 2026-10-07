@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/features/onboarding/domain/hero_haptic_cues.dart';
+import 'package:critalarm/features/onboarding/presentation/widgets/pages_above.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -163,13 +164,13 @@ class _TypedCurlTerminalState extends State<TypedCurlTerminal>
   /// The haptic cues of the typing, or null when nothing is typed.
   HeroCueClock? _cueClock;
   double _typeSeconds = 0;
-  ModalRoute<Object?>? _route;
+  List<ModalRoute<Object?>> _pagesAbove = const [];
 
   // Started here rather than in initState because it reads MediaQuery.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _route = ModalRoute.of(context);
+    _pagesAbove = pagesAbove(context);
     if (_started) return;
     _started = true;
     final duration = context.motion(widget.typeFor);
@@ -197,7 +198,7 @@ class _TypedCurlTerminalState extends State<TypedCurlTerminal>
   bool get _canPlayHaptics {
     final lifecycle = SchedulerBinding.instance.lifecycleState;
     return mounted &&
-        (_route?.isCurrent ?? true) &&
+        isOnTopOfAll(_pagesAbove) &&
         (lifecycle == null || lifecycle == AppLifecycleState.resumed);
   }
 

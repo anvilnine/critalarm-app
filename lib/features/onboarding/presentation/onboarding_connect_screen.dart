@@ -196,6 +196,9 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
   late bool _keepsChoice = widget.showsChoice;
   bool _isChangingServer = false;
 
+  /// The last try to drop the server failed, so it is still the one saved.
+  bool _changeServerFailed = false;
+
   /// Whether the screen is showing the server the user already picked: one
   /// that is connected, or Crit Alarm Cloud while its connect is on the way.
   bool _showsChoice(OnboardingConnectState state) =>
@@ -208,14 +211,26 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
   /// choices show as they did the first time.
   Future<void> _changeServer() async {
     if (_isChangingServer) return;
-    setState(() => _isChangingServer = true);
-    await context.read<OnboardingConnectCubit>().changeServer();
-    if (!mounted) return;
     setState(() {
-      _isChangingServer = false;
-      _keepsChoice = false;
+      _isChangingServer = true;
+      _changeServerFailed = false;
     });
-    unawaited(_checkConnectivity());
+    var hasChanged = false;
+    try {
+      await context.read<OnboardingConnectCubit>().changeServer();
+      hasChanged = true;
+    } on Object {
+      // The server is still saved. The line under it says so.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isChangingServer = false;
+          _keepsChoice = !hasChanged;
+          _changeServerFailed = !hasChanged;
+        });
+      }
+    }
+    if (mounted && hasChanged) unawaited(_checkConnectivity());
   }
 
   /// Continue with Crit Alarm Cloud. The connect is handed over to run
@@ -752,6 +767,14 @@ class _OnboardingConnectViewState extends State<_OnboardingConnectView>
             ),
           ),
         ),
+        if (_changeServerFailed) ...[
+          const SizedBox(height: Spacing.s4),
+          AppToast(
+            key: const ValueKey('connect-change-server-error-toast'),
+            faceState: FaceState.worried,
+            message: LocaleKeys.onboarding_connect_change_server_failed.tr(),
+          ),
+        ],
       ],
     );
   }

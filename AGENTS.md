@@ -329,10 +329,12 @@ has the five it can be. A step never draws a face of its own in the top bar.
 
 Back: `onboardingBackStepFor` is the rule. Back is offered on
 `how_it_rings`, `connect`, `permissions` and `first_topic`, and is gone for
-good once the first topic exists. It walks the steps that were on screen in
-this run (`OnboardingFlowEngine.shownSteps`, held in memory), so a step the
-run passed over is never a Back target, and after a restart there is no Back
-until the user moves forward. A screen that moves on with nothing for the
+good once the first topic exists. It goes to the nearest earlier step of the
+flow that was on screen at any point in this run
+(`OnboardingFlowEngine.shownSteps`, held in memory and emptied when setup
+ends). Going back takes nothing out of that set, so a step the user saw once
+stays in reach. A step the run passed over is never a Back target, and after a
+restart there is no Back until the user moves forward. A screen that moves on with nothing for the
 user to do finishes with `skippedItself: true`. The shell draws the button only
 while it is offered, never greyed out, and `OnboardingStepFrame` makes the
 Android back button and an iPhone edge swipe follow the same rule.

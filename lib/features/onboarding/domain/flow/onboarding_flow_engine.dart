@@ -86,14 +86,14 @@ class OnboardingFlowEngine {
   /// The one place a step is reported as entered or finished.
   final void Function(OnboardingStepEvent event)? onStepEvent;
 
-  /// The steps that were on screen in this run, in the order the user saw
-  /// them. Back walks this list. Held in memory only, so a restart begins
-  /// with none and Back comes back once the user moves forward again.
-  List<String> get shownSteps => List.unmodifiable(_shownSteps);
-  List<String> _shownSteps = [];
+  /// The steps that were on screen at any point in this run. Back only
+  /// opens one of these, and going back takes none out. Held in memory
+  /// only, so a restart begins with none and Back comes back once the user
+  /// moves forward again. Emptied when setup ends.
+  Set<String> get shownSteps => Set.unmodifiable(_shownSteps);
+  Set<String> _shownSteps = {};
 
-  void _markShown(String stepId) =>
-      _shownSteps = onboardingShownStepsWith(_shownSteps, stepId);
+  void _markShown(String stepId) => _shownSteps.add(stepId);
 
   /// The flow a run starting now would get.
   OnboardingFlow chooseFlow() => chooseFlowWithOrigin().flow;
@@ -168,7 +168,7 @@ class OnboardingFlowEngine {
         isAvailable: catalog.isAvailable,
       );
       if (next == null) {
-        _shownSteps = [];
+        _shownSteps = {};
         return const OnboardingDestination.home();
       }
       return _enter(next, flow, isReplay: true);
@@ -180,7 +180,7 @@ class OnboardingFlowEngine {
 
     // A finished step was on screen, however the user got to it.
     if (skippedItself) {
-      _shownSteps = [..._shownSteps]..remove(stepId);
+      _shownSteps.remove(stepId);
     } else {
       _markShown(stepId);
     }
@@ -210,7 +210,8 @@ class OnboardingFlowEngine {
   /// The step Back goes to from [stepId], or null when Back is not offered
   /// there. `onboardingBackStepFor` holds the rule.
   ///
-  /// Back only opens a step that was on screen in this run ([shownSteps]).
+  /// Back opens the nearest earlier step of the flow that was on screen in
+  /// this run ([shownSteps]).
   ///
   /// Null once setup is complete: a setup screen opened then is not part of
   /// a run, and closes back to whatever opened it. On a replay no topic is
@@ -227,6 +228,7 @@ class OnboardingFlowEngine {
     }
     return onboardingBackStepFor(
       currentStep: stepId,
+      flowSteps: (isReplay ? chooseFlow() : runningFlow()).steps,
       shownSteps: _shownSteps,
       hasFirstTopic: hasFirstTopic,
     );
@@ -286,7 +288,7 @@ class OnboardingFlowEngine {
     );
     if (next == null) {
       await completeOnboarding(const NoParams());
-      _shownSteps = [];
+      _shownSteps = {};
       return const OnboardingDestination.home();
     }
     return _enter(next, flow, isReplay: false);

@@ -177,6 +177,7 @@
     "self_host_connected_title": "Connected",
     "self_host_continue": "Continue",
     "change_server": "Use a different server",
+    "change_server_failed": "Could not change the server. Try again.",
     "came_back_connected_cloud": "Connected to Crit Alarm Cloud",
     "came_back_connected_own": "Connected to your server"
   },
