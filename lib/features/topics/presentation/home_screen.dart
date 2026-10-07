@@ -20,6 +20,7 @@ import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_state.dart';
 import 'package:critalarm/features/in_app_notices/presentation/home_asks.dart';
+import 'package:critalarm/features/in_app_notices/presentation/notice_return_rule.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/in_app_notice_slot.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/notice_detail_sheet.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_plan_sheet.dart';
@@ -219,6 +220,15 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       return;
     }
     if (!_isRouteElsewhere) return;
+    // Back from another tab: what happened there (a missed alarm closed on
+    // the Reliability screen) shows now, not at the next resume. The card
+    // has the same key, so one that is still due does not slide in again.
+    if (readsNoticeOnReturn(
+      wasElsewhere: _isRouteElsewhere,
+      isCovered: _isCovered,
+    )) {
+      unawaited(context.read<InAppNoticeCubit>().load());
+    }
     final change = ++_viewChange;
     unawaited(
       Future<void>.delayed(AppDurations.slow, () {
