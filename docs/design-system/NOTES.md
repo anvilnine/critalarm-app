@@ -100,22 +100,24 @@ Two more came later and are listed after them.
 - `AppBarBackingScope`: put it where a canvas is drawn behind screens that leave their own
   background clear (the app shell, the setup shell, the ringing alarm). It tells every
   `AppScreenScaffold` under it the canvas colour. While a row is scrolled under the top bar, the
-  scaffold backs the bar: the progressive blur, stronger than the quiet edge blur and held at full
-  strength for the height of the bar, under a fade of the canvas colour that eases to nothing a
-  short way past the bar. It is never a solid band. With `coversBottomBar` the pinned bottom bar
-  gets the same while a row is under it, so a button label stays readable over a soft smear. A
-  screen that fits looks the same with or without it. `topBarMaxTextScale` caps how far the system
-  text size grows what is in the top bar, which has one fixed height. A screen that passes
-  `barBacking` keeps its own solid one.
+  scaffold draws the progressive blur over the bar's height plus a fade length past it. The blur
+  is nothing where the row goes in and rises smoothly, on the same smoothstep curve the edge blur
+  has always had, to its full strength only at the edge of the screen. No part of the zone is
+  flat and there is no band of colour. With `coversBottomBar` the pinned bottom bar gets the same
+  while a row is under it. A screen that fits looks the same with or without it.
+  `topBarMaxTextScale` caps how far the system text size grows what is in the top bar, which has
+  one fixed height. A screen that passes `barBacking` keeps its own solid one.
 - `BarBackingConfig` (`lib/design_system/bar_backing.dart`): how that backing is drawn, one
   `BarBackingStyle` for the top bar and one for the pinned bottom bar. Each has a mode (`blur`,
-  `blurAndGradient`, `gradient`, `solid`, `none`), the blur strength as a sigma, the fade length
-  past the bar, and the canvas fade's opacity at the bar. The app hands it down from its root
-  (`BarBackingConfigScope`), and `BarBackingConfig.defaults` is what ships. Developer options,
-  Bar backing, tunes it live and keeps the choice under the prefs key `dev.bar_backing`. A
-  stronger blur is the same one blur with a larger sigma: it never adds a pass or a slice. Where
-  a phone draws no edge blur, or is held sideways, a mode that blurs raises the canvas fade to
-  0.9 so the row behind a button is still unreadable.
+  `blurAndGradient`, `gradient`, `solid`, `none`), the blur sigma at the screen edge, the fade
+  length past the bar, the canvas fade's opacity at the screen edge, and a plateau (the share of
+  the zone held at full strength, 0 for none). What ships is `blur` with no plateau: sigma 8 and
+  48 past the top bar, sigma 9 and 40 past the pinned bar. A gradient follows the same ramp as
+  the blur. The app hands the config down from its root (`BarBackingConfigScope`). Developer
+  options, Bar backing, tunes it live and keeps the choice under the prefs key
+  `dev.bar_backing`. A stronger blur is the same one blur with a larger sigma: it never adds a
+  pass or a slice. Nothing is swapped in where a phone cannot blur: a mode with a gradient draws
+  its gradient, and `blur` draws nothing.
 - `AppScreenScaffold.bodyClearsBottomBar`: turn it on for a body that fills the screen with a
   `SliverFillRemaining` and keeps the pinned bar's room on its own child. The list then adds no
   room of its own after it, and the page scrolls only once the body is taller than the screen.
