@@ -363,4 +363,43 @@ void main() {
       expect(heroSwipeStep(-43, -200), 0);
     });
   });
+
+  test('the loop waits while a finger is down and goes on from there', () {
+    const down = HeroWait();
+    expect(down.loopSeconds(2), 2);
+
+    // Down at second 2 and still down three seconds later: no time passed.
+    final held = down.down(2);
+    expect(held.loopSeconds(2), 2);
+    expect(held.loopSeconds(5), 2);
+    // A second finger changes nothing.
+    expect(held.down(4).loopSeconds(5), 2);
+
+    // Lifted at 5, the loop carries on from second 2.
+    final lifted = held.up(5);
+    expect(lifted.downAt, isNull);
+    expect(lifted.loopSeconds(5), 2);
+    expect(lifted.loopSeconds(5.5), 2.5);
+    expect(lifted.up(9).loopSeconds(9), 6);
+
+    // A second hold adds to the first.
+    final again = lifted.down(6).up(7);
+    expect(again.behind(8), 4);
+
+    // The entrance plays through under a finger, and the first turn waits.
+    final early = down.down(0.2);
+    expect(early.loopSeconds(0.6), 0.6);
+    expect(early.loopSeconds(3), heroEntranceSeconds);
+
+    // The preview is cued as much later as the loop is behind.
+    final loop = HeroLoop(const [
+      PaywallPreviewId.wakeUpChallenges,
+      PaywallPreviewId.widgets,
+    ]);
+    final atDown = loop.frameAt(held.loopSeconds(2)).behind(held.behind(2));
+    final later = loop.frameAt(held.loopSeconds(5)).behind(held.behind(5));
+    expect(later.activeIndex, atDown.activeIndex);
+    expect(later.sceneSeconds, atDown.sceneSeconds);
+    expect(5 - later.playFrom, closeTo(2 - atDown.playFrom, 1e-9));
+  });
 }

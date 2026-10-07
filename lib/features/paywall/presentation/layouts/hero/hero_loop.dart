@@ -188,7 +188,8 @@ const Map<PaywallPreviewId, HeroScript> _scripts = {
       HeroBeat(2.35, HeroFace.relieved, isReaction: true),
     ],
   ),
-  // A push leaves the relay, reaches the phone, and this week is ticked.
+  // A test push leaves the relay and lands on the phone, which lights with
+  // a tick. Then this week is ticked.
   PaywallPreviewId.weeklyCheck: HeroScript(
     seconds: 2.6,
     lead: 1.6,
@@ -228,7 +229,8 @@ const Map<PaywallPreviewId, HeroScript> _scripts = {
 /// The one benefit of a product that has only one: its turn is the
 /// preview's whole loop, so the picture never jumps.
 const Map<PaywallPreviewId, HeroScript> _soloScripts = {
-  // Earlier weeks pass, a push travels to the phone, this week is ticked.
+  // Earlier weeks are ticked, a test push lands on the phone, this week is
+  // ticked.
   PaywallPreviewId.weeklyCheck: HeroScript(
     seconds: 9,
     beats: [
@@ -318,6 +320,44 @@ class HeroHand {
     direction: direction,
     pull: pull,
   );
+}
+
+/// How far the loop is behind the clock, because it waits while a finger
+/// is down on the stage.
+///
+/// The loop reads [loopSeconds] in place of the clock. That second stands
+/// still for as long as the finger is down and goes on from there when it
+/// lifts, so a turn never ends under a finger. The entrance does not wait.
+class HeroWait {
+  const HeroWait({this.waited = 0, this.downAt});
+
+  /// The seconds waited under fingers that have lifted.
+  final double waited;
+
+  /// The clock second the finger now on the stage counts from. Null when
+  /// none is down.
+  final double? downAt;
+
+  /// A finger goes down at clock second [t]. One that lands during the
+  /// entrance counts from the entrance's end.
+  HeroWait down(double t) => downAt != null
+      ? this
+      : HeroWait(
+          waited: waited,
+          downAt: t < heroEntranceSeconds ? heroEntranceSeconds : t,
+        );
+
+  /// The finger lifts at clock second [t].
+  HeroWait up(double t) => downAt == null ? this : HeroWait(waited: behind(t));
+
+  /// How many seconds the loop is behind the clock at clock second [t].
+  double behind(double t) {
+    final since = downAt;
+    return waited + (since == null || t < since ? 0 : t - since);
+  }
+
+  /// The second the loop is at when the clock is at [t].
+  double loopSeconds(double t) => t - behind(t);
 }
 
 /// One turn as it falls on the clock: whose it is, when it began and
@@ -698,6 +738,36 @@ class HeroFrame {
     direction: 0,
     pull: 0,
   );
+
+  /// This frame for a loop that is [seconds] behind the clock: the
+  /// previews are cued that much later, so they wait with the loop.
+  HeroFrame behind(double seconds) => seconds == 0
+      ? this
+      : HeroFrame(
+          scene: scene,
+          previous: previous,
+          sceneSeconds: sceneSeconds,
+          cardEnter: cardEnter,
+          playFrom: playFrom + seconds,
+          previousPlayFrom: switch (previousPlayFrom) {
+            final from? => from + seconds,
+            null => null,
+          },
+          turn: turn,
+          previousTurn: previousTurn,
+          fromFace: fromFace,
+          face: face,
+          faceBlend: faceBlend,
+          props: props,
+          hop: hop,
+          blink: blink,
+          entrance: entrance,
+          bob: bob,
+          progress: progress,
+          isHeld: isHeld,
+          direction: direction,
+          pull: pull,
+        );
 
   /// The benefit playing. Null only for a product with no benefit.
   final HeroScene? scene;
