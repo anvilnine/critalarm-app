@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:critalarm/core/alarm/alarm_host.dart';
-import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/network_failure_message.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
@@ -9,8 +8,8 @@ import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
 import 'package:critalarm/features/onboarding/domain/entities/onboarding_draft.dart';
-import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/flow/onboarding_replay_rules.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/connect_to_server_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
@@ -19,6 +18,7 @@ import 'package:critalarm/features/onboarding/domain/usecases/save_connection_us
 import 'package:critalarm/features/onboarding/domain/usecases/set_up_later_usecase.dart';
 import 'package:critalarm/features/onboarding/presentation/cubits/onboarding_connect_state.dart';
 import 'package:critalarm/features/onboarding/presentation/model/background_connect_copy.dart';
+import 'package:critalarm/features/onboarding/presentation/model/connect_outcome_message.dart';
 import 'package:critalarm/features/onboarding/presentation/model/local_test_alarm.dart';
 import 'package:critalarm/features/topics/domain/usecases/get_topics_usecase.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -40,9 +40,11 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
     this.readDraft,
     this.saveDraft,
     this.backgroundConnect,
+    ConnectToServerUsecase? connectToServer,
     Future<bool> Function()? isOnline,
     bool initialConnected = false,
-  }) : _isOnline = isOnline ?? hasInternet,
+  }) : _sharedConnect = connectToServer,
+       _isOnline = isOnline ?? hasInternet,
        super(
          OnboardingConnectState(
            status: initialConnected
@@ -210,6 +212,18 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
   final GetServerInfoUsecase _getServerInfo;
   final SaveConnectionUsecase _saveConnection;
 
+  /// The one way a server is connected, shared with a connect link. Built
+  /// from the three parts when the app does not hand it over, as tests do.
+  final ConnectToServerUsecase? _sharedConnect;
+  late final ConnectToServerUsecase _connectToServer =
+      _sharedConnect ??
+      ConnectToServerUsecase(
+        _getServerInfo,
+        establishSession,
+        _saveConnection,
+        cancelPendingConnect: backgroundConnect?.cancel,
+      );
+
   /// The "Set this up later" exit. Null in tests that never leave.
   final SetUpLaterUsecase? setUpLater;
 
@@ -374,7 +388,6 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
       return;
     }
 
-    final trimmedToken = state.adminToken.trim();
     emit(
       state.copyWith(
         status: OnboardingConnectStatus.connecting,
@@ -385,98 +398,62 @@ class OnboardingConnectCubit extends Cubit<OnboardingConnectState> {
       ),
     );
     // The user picked a server by hand, so a Cloud connect still waiting
-    // behind them is no longer wanted.
+    // behind them is no longer wanted. The use case drops the background
+    // half of it.
     await _cloudConnectChanges?.cancel();
     _cloudConnectChanges = null;
-    await backgroundConnect?.cancel();
 
-    final result = await _getServerInfo(Uri.parse(trimmedUrl));
-    await result.fold(
-      (info) async {
-        if (!isSemverCompatible(info.version)) {
-          emit(
-            state.copyWith(
-              status: OnboardingConnectStatus.failure,
-              errorMessage: LocaleKeys.onboarding_connect_version_incompatible
-                  .tr(namedArgs: {'version': info.version}),
-            ),
-          );
-          return;
-        }
-
-        final mode = ServerMode.fromWireValue(info.mode);
-        if (mode == ServerMode.selfhosted && trimmedToken.isEmpty) {
-          emit(
-            state.copyWith(
-              status: OnboardingConnectStatus.idle,
-              requiresAdminToken: true,
-              adminTokenError: LocaleKeys
-                  .onboarding_connect_admin_token_error_empty
-                  .tr(),
-            ),
-          );
-          return;
-        }
-        try {
-          final session = await establishSession.call(info, trimmedToken);
-          final saved = await _saveConnection(
-            ServerConnection(
-              serverUrl: info.baseUrl,
-              adminToken: session.managementCredential,
-            ),
-          );
-          await saved.fold(
-            (_) async {
-              // The form has done its job. Left behind, the typed admin
-              // token would sit in the draft for as long as the app lives
-              // when the screen was opened after setup.
-              await _forgetForm();
-              await loadTestTopic();
-              emit(
-                state.copyWith(
-                  serverUrl: info.baseUrl,
-                  status: OnboardingConnectStatus.connected,
-                  clearErrorMessage: true,
-                  // Typed by hand: show that it worked before moving on.
-                  confirmation: state.isSelfHosting
-                      ? ConnectConfirmation(
-                          host: _hostOf(info.baseUrl),
-                          privacyLine: connectPrivacyLine(
-                            mode: info.mode,
-                            relayContent: info.statedRelayContent,
-                          ),
-                        )
-                      : null,
-                ),
-              );
-            },
-            (failure) async => emit(
-              state.copyWith(
-                status: OnboardingConnectStatus.failure,
-                errorMessage: failureMessage(failure),
-              ),
-            ),
-          );
-        } on Object catch (error) {
-          emit(
-            state.copyWith(
-              status: OnboardingConnectStatus.failure,
-              // An exception dump is not a sentence. This one is a transport
-              // error, so it gets the transport wording.
-              errorMessage: networkFailureMessage(error),
-            ),
-          );
-        }
-      },
-      (failure) async {
+    final outcome = await _connectToServer(
+      serverUrl: trimmedUrl,
+      adminToken: state.adminToken,
+    );
+    switch (outcome) {
+      case Connected(:final info):
+        // The form has done its job. Left behind, the typed admin token
+        // would sit in the draft for as long as the app lives when the
+        // screen was opened after setup.
+        await _forgetForm();
+        await loadTestTopic();
+        emit(
+          state.copyWith(
+            serverUrl: info.baseUrl,
+            status: OnboardingConnectStatus.connected,
+            clearErrorMessage: true,
+            // Typed by hand: show that it worked before moving on.
+            confirmation: state.isSelfHosting
+                ? ConnectConfirmation(
+                    host: _hostOf(info.baseUrl),
+                    privacyLine: connectPrivacyLine(
+                      mode: info.mode,
+                      relayContent: info.statedRelayContent,
+                    ),
+                  )
+                : null,
+          ),
+        );
+      case AdminTokenMissing():
+        emit(
+          state.copyWith(
+            status: OnboardingConnectStatus.idle,
+            requiresAdminToken: true,
+            adminTokenError: LocaleKeys
+                .onboarding_connect_admin_token_error_empty
+                .tr(),
+          ),
+        );
+      case ServerUnreachable() ||
+          ServerAddressDiffers() ||
+          ServerDowngrade() ||
+          ServerIncompatible() ||
+          ConnectionNotSaved() ||
+          ConnectTransportError():
         emit(
           state.copyWith(
             status: OnboardingConnectStatus.failure,
-            errorMessage: failureMessage(failure),
+            errorMessage: connectOutcomeMessage(outcome),
           ),
         );
-      },
-    );
+    }
   }
 
   /// The part of a server address a person recognises: the host, with the

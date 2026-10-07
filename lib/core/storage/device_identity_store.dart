@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/models/device_registration.dart';
+import 'package:critalarm/core/push/relay_confirmation_store.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -59,10 +60,17 @@ class DeviceIdentityStore {
     for (final key in legacyKeys) {
       await _prefs.remove(key);
     }
+    await _forgetRelayConfirmation();
     final identity = DeviceIdentity(deviceId: 'dev_${const Uuid().v4()}');
     await _prefs.setString('device_id', identity.deviceId);
     return identity;
   }
+
+  /// What the relay accepted was accepted for the identity that is going. The
+  /// record is scoped to a device id as well, so it would not match the new
+  /// one, but there is no reason to keep it.
+  Future<void> _forgetRelayConfirmation() =>
+      RelayConfirmationStore(_prefs).clear();
 
   /// Forgets this handset's identity. Disconnecting from a server has to do
   /// this, or the next connect reuses a device id and a credential the new
@@ -71,6 +79,7 @@ class DeviceIdentityStore {
     for (final key in legacyKeys) {
       await _prefs.remove(key);
     }
+    await _forgetRelayConfirmation();
   }
 
   Future<void> saveRegistration({
@@ -308,6 +317,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
     for (final key in DeviceIdentityStore.legacyKeys) {
       await _prefs.remove(key);
     }
+    await _forgetRelayConfirmation();
     _current = identity;
     return identity;
   }

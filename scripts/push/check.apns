@@ -1,0 +1,9 @@
+{
+  "Simulator Target Bundle": "app.critalarm",
+  "aps": {
+    "content-available": 1
+  },
+  "kind": "check",
+  "check_id": "chk_5c1d",
+  "attempt": 1
+}

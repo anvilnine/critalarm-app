@@ -750,6 +750,106 @@ changed (`FeatureGuideHost._onRoute`). Raised earlier, the sheet sat on the
 page that was leaving, went down with it, and was read as "not now". An
 offer whose screen went away under it is not counted as declined.
 
+**Pro pack.** A pack is an add-on an account holds beside its tier
+(api.md §4.2). The only one is `pro`. The code is in `lib/features/pro_pack/`.
+
+- Two things share a word. Identifiers that say Pro and are not `ProPack...`
+  (`ProAskSheet`, `ProStatusCubit`, `SubscriptionTier.proEntitlement`,
+  `ProOverride`, `DevProSwitch`) mean the Hosted plan. The pack is always
+  `ProPack...` in code and "Pro" in copy. Neither routes through the other.
+- `ProPackAccess` answers one question: does this install hold the pack.
+  `isHeld` is the value and `stream` carries its changes. It never says how
+  the pack was granted, and nothing in the app names a way of selling it.
+- It reads the relay's `packs` list: every registration response,
+  `GET /relay/v1/packs` on launch and resume (once a minute at most), and
+  `POST /relay/v1/packs/refresh` after a purchase or a restore. The last list
+  is kept under the prefs key `pro_pack.relay_packs`, so a cold start with
+  no network still answers.
+- A kept list belongs to one account on one relay (`ProPackScope`). It
+  shows only while this phone's account is known and is that one. An
+  unknown account holds nothing, and a different one clears the list.
+- Relay answers have one writer (`_apply`). The calls `ProPackAccess` makes
+  run one at a time. A registration is numbered when it starts
+  (`beginRelayRequest`), and an answer older than the one showing, or asked
+  for another account, is dropped.
+- A purchase is written down before the store is asked
+  (`pro_pack.pending_confirm`). Until the relay lists the pack, launch and
+  resume ask it to read the store again, for
+  `ProPackAccess.pendingConfirmGivesUpAfter` at most.
+- A kept pack whose `expires_at` has passed stays held for
+  `ProPackAccess.expiredGrace` with no word from the relay, then is not
+  held. A pack with no `expires_at` never ends on the phone.
+- A pack is never worked out from the tier. `proPackGrantedElsewhere`
+  (`pro_pack_grant.dart`) is the one function that could grant the pack from
+  another source, and it returns false.
+- `proPackRefreshOutcome` is the refresh table. `confirmed: false` with no
+  pack listed is `unknown`: what was showing stays, the sheet says it is still
+  checking and asks again. It is never "no pack" and never a failed purchase.
+- The sheet is `ProPackSheet`, a bottom sheet at its own route (`/pro`,
+  `AppRoute.proPack`). It lists the packages of the RevenueCat offering
+  `proPackOfferingId` with the store's own title and price strings. With no
+  such offering, or in a build that skips the store, it says Pro is not on
+  sale yet and offers nothing to buy. Restore is there whenever the sheet
+  rests, on sale or not.
+- The Reliability screen draws `ProPackReliabilityGroup` through
+  `reliabilityExtraGroups`: one row, the weekly delivery check. Locked, it
+  opens the sheet. Unlocked, it draws its `weeklyCheckBody` builder.
+- Developer options has a switch for the pack beside the Hosted one, in a
+  `SKIP_PAYWALL` build only (`dev.pro_pack`). In a mock build it also makes
+  the mock relay hold the pack (`MockServer.grantedPacks`).
+
+**Weekly check.** Once a week the relay sends an enrolled phone a push that
+shows nothing, and the phone answers with a receipt (api.md §4.5 and §5.4).
+It needs the Pro pack. The code is in `lib/features/weekly_check/`, plus the
+native handlers.
+
+- Native code answers the push, with no Dart running. Android:
+  `CheckPush.fromData` is the first thing `PushRouter.route` asks, and a check
+  goes to `WeeklyCheckResponder`, which schedules `CheckReceiptJobService`.
+  iPhone: `CheckPush(payload:)` is the first thing the background handler in
+  `AppDelegate.swift` asks, and a check goes to `WeeklyCheckResponder`.
+  Everything after that line is the incident path, and a check never reaches
+  it.
+- The check shows nothing: no notification, no sound, no Live Activity, no
+  alarm. It writes one preference, `weekly_check.native`, which the incident
+  path never reads. A receipt gets three tries and is then dropped.
+- The push callback only parses and hands off. Android does the rest on
+  `WeeklyCheckResponder`'s own single thread and in the job. iPhone does it
+  on `WeeklyCheckResponder.queue`, a serial queue. Every change to the
+  record goes through that thread or queue. Nothing the incident path uses
+  is held. On iPhone the fetch completion handler is called once, when the
+  receipt work ends or after `bound`.
+- On Android a stop belongs to one run of one job (`CheckReceiptJobs`),
+  never to the service object, which the system reuses.
+- The receipt carries `dv_`, so it goes to an https relay only. A debug
+  build may also reach `127.0.0.1`, `localhost` and `10.0.2.2` over http
+  (`PlainHttpRelays` in `src/debug`, `plainHttpHosts` under `#if DEBUG`).
+  With any other http relay the arrival is recorded and nothing is sent.
+- `check_id` is in the push and nowhere else. It is never logged and never
+  written to disk.
+- The receipt goes to the relay in the saved session with the device's own
+  `dv_`. Android reads `flutter.api_session`, `flutter.device_id` and
+  `flutter.device_token` from the app's preferences. iPhone reads
+  `flutter.api_session` from the app's preferences and the unsynced Keychain
+  item `app.critalarm.device_identity`.
+- `WeeklyCheckMonitor` reads `GET .../check` on launch and resume, once a
+  minute at most, and keeps the answer on the phone. The switch calls
+  `PUT .../check`. A `403` pack error goes to `ProPackAccess.relayRefused`.
+- A received check is never shown as proof that alarms work. On a phone
+  connected to a self-hosted server the row adds that it checks the relay to
+  this phone, not that server.
+- One missed round changes the row and nothing else. Home shows one notice
+  at two misses in a row, or when the phone's own clock passes
+  `notice_after` with no check received since (`WeeklyCheckNoticeRule`). A
+  check that arrived with no receipt answer ends only its own window: the
+  phone then counts two windows of 11 days from that arrival. It
+  is `InAppNoticeType.weeklyCheck`, goes through `SetupGate`, and after it is
+  closed it comes back only for a later run of misses.
+- The list of rounds is its own page (`AppRoute.weeklyCheckRounds`) and
+  needs no pack.
+- `MockServer.seedWeeklyCheck(state)` puts the mock relay in one state, and
+  `openWeeklyCheckRound()` returns the id a push would carry.
+
 **Changelogs.** Two files, both written with cider, never by hand. The
 how-to is the `changelog` skill: `.claude/skills/changelog/SKILL.md`.
 

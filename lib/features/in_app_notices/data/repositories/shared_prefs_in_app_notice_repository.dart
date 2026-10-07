@@ -25,6 +25,8 @@ class SharedPrefsInAppNoticeRepository implements InAppNoticeRepository {
   static const _day0OpenCountKey = 'home_prompt_day0_open_count';
   static const _day0EndedKey = 'home_prompt_day0_ended_at';
   static const _afterAckSheetKey = 'home_prompt_after_ack_sheet_at';
+  static const _systemUpdateNoticeKey =
+      'home_prompt_system_update_dismissed_major';
 
   DateTime? _readTime(String key) {
     final ms = _prefs.getInt(key);
@@ -256,4 +258,12 @@ class SharedPrefsInAppNoticeRepository implements InAppNoticeRepository {
   Future<void> setProEndedSheetDueFor(String? accountId) => accountId == null
       ? _prefs.remove(_proEndedDueKey)
       : _prefs.setString(_proEndedDueKey, accountId);
+
+  @override
+  int? getSystemUpdateNoticeDismissedFor() =>
+      _prefs.getInt(_systemUpdateNoticeKey);
+
+  @override
+  Future<void> dismissSystemUpdateNotice(int osMajor) =>
+      _prefs.setInt(_systemUpdateNoticeKey, osMajor);
 }

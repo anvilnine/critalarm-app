@@ -1,6 +1,7 @@
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
 import 'package:critalarm/core/models/topic.dart';
+import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/topics/domain/home_face_rule.dart';
@@ -150,6 +151,54 @@ void main() {
       expect(result.hero.severity, SeverityMode.none);
     });
 
+    test('an expired incident is never the last alarm handled', () {
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.expired,
+            closedAt: now.subtract(const Duration(hours: 2)),
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      expect(result.hero.subText, 'Nothing is ringing.');
+    });
+
+    test('newest expired, older closed: the line names the closed one', () {
+      final closedAt = now.subtract(const Duration(days: 3));
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.expired,
+            closedAt: now.subtract(const Duration(hours: 2)),
+          ),
+          _incident(
+            'inc2',
+            'prod-db',
+            IncidentStates.closed,
+            closedAt: closedAt,
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      final local = closedAt.toLocal();
+      final time =
+          '${DateFormat.MMMd().format(local)}, '
+          '${DateFormat.Hm().format(local)}';
+      expect(
+        result.hero.subText,
+        'Nothing is ringing.\nLast alarm handled at $time.',
+      );
+    });
+
     test('calm hero shows the last handled time from any age', () {
       // Handled wins over calm for 30 seconds, so once an incident is old
       // enough to fall out of the handled window it still counts for the
@@ -251,6 +300,74 @@ void main() {
       expect(row.meta, 'Handled ${DateFormat.Hm().format(closedAt.toLocal())}');
     });
 
+    test('an expired incident row says nobody answered, not Handled', () {
+      final closedAt = now.subtract(const Duration(minutes: 10));
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'nas-backup',
+            IncidentStates.expired,
+            closedAt: closedAt,
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      final row = result.rows.firstWhere((r) => r.name == 'nas-backup');
+      expect(row.faceState, FaceState.calm);
+      expect(row.meta, 'Nobody answered.');
+      expect(row.meta, isNot(contains('Handled')));
+      // The other topic is untouched.
+      final other = result.rows.firstWhere((r) => r.name == 'prod-db');
+      expect(other.meta, 'Quiet');
+    });
+
+    test('an expired row goes back to quiet after the hour', () {
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'nas-backup',
+            IncidentStates.expired,
+            closedAt: now.subtract(const Duration(minutes: 61)),
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      final row = result.rows.firstWhere((r) => r.name == 'nas-backup');
+      expect(row.faceState, FaceState.calm);
+      expect(row.meta, 'Quiet');
+    });
+
+    test('the newest of a closed and an expired incident wins the row', () {
+      final result = resolveHomeFace(
+        topics: topics,
+        incidents: [
+          _incident(
+            'inc1',
+            'nas-backup',
+            IncidentStates.expired,
+            closedAt: now.subtract(const Duration(minutes: 30)),
+          ),
+          _incident(
+            'inc2',
+            'nas-backup',
+            IncidentStates.closed,
+            closedAt: now.subtract(const Duration(minutes: 5)),
+          ),
+        ],
+        warningTopics: const {},
+        now: now,
+      );
+      final row = result.rows.firstWhere((r) => r.name == 'nas-backup');
+      expect(row.faceState, FaceState.success);
+      expect(row.meta, startsWith('Handled'));
+    });
+
     test('quiet row when nothing active', () {
       final result = resolveHomeFace(
         topics: topics,
@@ -331,25 +448,31 @@ void main() {
       expect(row.faceState, FaceState.calm);
     });
 
-    test('expired incident reads MISSED', () {
-      final closedAt = now.subtract(const Duration(minutes: 10));
-      final incidents = [
-        _incident(
-          'inc1',
-          'prod-db',
-          IncidentStates.expired,
-          closedAt: closedAt,
-        ),
-      ];
-      final result = resolveHomeFace(
-        topics: topics,
-        incidents: incidents,
-        warningTopics: const {},
-        now: now,
-      );
-      expect(result.hero.faceState, FaceState.success);
-      expect(result.hero.word, 'MISSED');
-      expect(result.hero.subText, 'prod-db was not answered.');
+    test('an expired incident is not a hero state', () {
+      // Home says a missed alarm in its notice only. The hero rests.
+      for (final age in [
+        const Duration(seconds: 5),
+        const Duration(minutes: 10),
+      ]) {
+        final result = resolveHomeFace(
+          topics: topics,
+          incidents: [
+            _incident(
+              'inc1',
+              'prod-db',
+              IncidentStates.expired,
+              closedAt: now.subtract(age),
+            ),
+          ],
+          warningTopics: const {},
+          now: now,
+        );
+        expect(result.hero.faceState, FaceState.calm);
+        expect(result.hero.word, 'All clear');
+        expect(result.hero.word, isNot('MISSED'));
+        expect(result.hero.word, isNot('HANDLED'));
+        expect(result.needsTick, isFalse);
+      }
     });
 
     test('P4 inside an acked incident does not make worried', () {
@@ -451,6 +574,103 @@ void main() {
         now: now,
       );
       expect(withDefault.hero.faceState, FaceState.acked);
+    });
+  });
+
+  group('heroWhileLookNoticeShows', () {
+    HomeHero heroOf(HomeFaceResult r) => r.hero;
+
+    HomeFaceResult resolve(List<Incident> incidents, {Set<String>? warnings}) =>
+        resolveHomeFace(
+          topics: topics,
+          incidents: incidents,
+          warningTopics: warnings ?? const {},
+          now: now,
+        );
+
+    void expectQuiet(HomeHero hero) {
+      expect(hero.faceState, needsLookFace);
+      expect(hero.word, isEmpty);
+      expect(hero.subText, 'Nothing is ringing.');
+      expect(hero.severity, SeverityMode.none);
+      expect(hero.ringingIncidentId, isNull);
+    }
+
+    test('the resting hero loses "All clear" and takes the look face', () {
+      final rest = heroOf(resolve(const []));
+      expect(rest.word, 'All clear');
+      expectQuiet(heroWhileLookNoticeShows(rest));
+    });
+
+    test('the last-alarm line goes too', () {
+      final withLast = heroOf(
+        resolve([
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.closed,
+            closedAt: now.subtract(const Duration(hours: 2)),
+          ),
+        ]),
+      );
+      expect(withLast.subText, contains('Last alarm'));
+      expectQuiet(heroWhileLookNoticeShows(withLast));
+    });
+
+    test('the short HANDLED moment is quieted too', () {
+      final handled = heroOf(
+        resolve([
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.closed,
+            closedAt: now.subtract(const Duration(seconds: 5)),
+          ),
+        ]),
+      );
+      expect(handled.faceState, FaceState.success);
+      expectQuiet(heroWhileLookNoticeShows(handled));
+    });
+
+    test('a ringing alarm keeps the hero', () {
+      final ringing = heroOf(
+        resolve([
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.open,
+            openedAt: now.subtract(const Duration(minutes: 1)),
+            messages: [_msg('m1', 'prod-db', priority: 5, incidentId: 'inc1')],
+          ),
+        ]),
+      );
+      final same = heroWhileLookNoticeShows(ringing);
+      expect(same.faceState, FaceState.alarmed);
+      expect(same.word, 'CRITICAL');
+      expect(same.ringingIncidentId, 'inc1');
+    });
+
+    test('an acknowledged alarm keeps the hero', () {
+      final acked = heroOf(
+        resolve([
+          _incident(
+            'inc1',
+            'prod-db',
+            IncidentStates.acked,
+            ackedAt: now.subtract(const Duration(minutes: 1)),
+          ),
+        ]),
+      );
+      final same = heroWhileLookNoticeShows(acked);
+      expect(same.faceState, FaceState.acked);
+      expect(same.word, acked.word);
+    });
+
+    test('a warning keeps the hero', () {
+      final warning = heroOf(resolve(const [], warnings: {'nas-backup'}));
+      final same = heroWhileLookNoticeShows(warning);
+      expect(same.faceState, FaceState.worried);
+      expect(same.word, warning.word);
     });
   });
 }

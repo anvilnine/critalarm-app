@@ -31,7 +31,8 @@ class DevPushReceiver : BroadcastReceiver() {
                 put(key, value)
             }
         }
-        Log.i(TAG, "dev_push_injected data=$data")
+        // The id of a weekly check is never logged, a made-up one included.
+        Log.i(TAG, "dev_push_injected data=${data - "check_id"}")
         // Told to the running app the way a real push is, so a screen waiting
         // for the alarm hears about this one too.
         MainActivity.notifyPushReceived(PushRouter(context.applicationContext).route(data))

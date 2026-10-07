@@ -1,4 +1,5 @@
 import 'package:critalarm/features/search/domain/settings_search_index.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -25,6 +26,33 @@ void main() {
         sound.keywords,
         containsAll(['emergency', 'klaxon', 'sos', 'beeper', 'horn', 'bell']),
       );
+    });
+
+    test('the priorities page is found by priority and by p5', () {
+      final release = SettingsSearchIndex.forBuild(
+        includeDevOnly: false,
+        showsStorage: false,
+      );
+      final priorities = release.singleWhere((d) => d.id == 'priorities');
+
+      expect(priorities.routePath, '/settings/priorities');
+      expect(priorities.keywords, containsAll(['priority', 'p5']));
+    });
+
+    test('the permissions screen is listed under Will it wake me?', () {
+      final permissions = SettingsSearchIndex.all.singleWhere(
+        (d) => d.id == 'permissions',
+      );
+
+      expect(permissions.routePath, '/settings/permissions');
+      expect(permissions.titleKey, LocaleKeys.device_permissions_title);
+      expect(permissions.parentTitleKey, LocaleKeys.reliability_title);
+      expect(
+        SettingsSearchIndex.all.map((d) => d.id),
+        isNot(contains('health')),
+      );
+      // The old name still finds it, though it is never shown.
+      expect(permissions.keywords, contains('health'));
     });
 
     test('every destination points somewhere inside the app', () {

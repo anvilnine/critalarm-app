@@ -20,11 +20,13 @@ import 'package:critalarm/features/in_app_notices/presentation/cubits/day0_card_
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_state.dart';
 import 'package:critalarm/features/in_app_notices/presentation/home_asks.dart';
+import 'package:critalarm/features/in_app_notices/presentation/notice_return_rule.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/in_app_notice_slot.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/notice_detail_sheet.dart';
 import 'package:critalarm/features/in_app_notices/presentation/widgets/pro_plan_sheet.dart';
 import 'package:critalarm/features/onboarding/domain/flow/developer_onboarding.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/pro_status_badge.dart';
+import 'package:critalarm/features/topics/domain/home_face_rule.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.dart';
@@ -218,6 +220,15 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       return;
     }
     if (!_isRouteElsewhere) return;
+    // Back from another tab: what happened there (a missed alarm closed on
+    // the Reliability screen) shows now, not at the next resume. The card
+    // has the same key, so one that is still due does not slide in again.
+    if (readsNoticeOnReturn(
+      wasElsewhere: _isRouteElsewhere,
+      isCovered: _isCovered,
+    )) {
+      unawaited(context.read<InAppNoticeCubit>().load());
+    }
     final change = ++_viewChange;
     unawaited(
       Future<void>.delayed(AppDurations.slow, () {
@@ -461,7 +472,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     final exampleStage = showExamples
         ? FeatureGuideExamples.troubleStage()
         : null;
-    final state = !showExamples
+    final staged = !showExamples
         ? real
         : real.isEmpty
         ? real.copyWith(
@@ -484,6 +495,14 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
             subText: exampleStage.subText,
             severity: exampleStage.severity,
           );
+    // While a notice that asks for a look is up (a missed alarm, missed
+    // weekly checks, a phone update), the stage does not say "All clear" over
+    // a glad face. It wears the look face. A live alarm keeps the stage as
+    // it is.
+    final state =
+        _lookNoticeShows(notice, guide) && staged.status == HomeStatus.success
+        ? _lookStage(staged)
+        : staged;
     // A deleted topic leaves the pane pointing at a name the list no
     // longer has, so the selection is read back off the list every build
     // rather than trusted.
@@ -590,6 +609,11 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     final screen = SeverityScope(
       severity: state.severity,
       child: AppScreenScaffold(
+        // The bar's own backing, so a row scrolled under it never shows
+        // through the title.
+        barBacking:
+            AppBarBackingScope.maybeOf(context)?.color ??
+            context.appColors.canvas,
         onFaceRefresh: () async {
           final noticeCubit = context.read<InAppNoticeCubit>();
           final homeCubit = context.read<HomeCubit>();
@@ -639,6 +663,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                     id: FeatureGuideAnchorId.homeStage,
                     child: AppStage(
                       faceState: state.faceState,
+                      faceSize: _stageFaceSize(context),
                       word: state.word,
                       sub: state.subText,
                       // Nothing is happening, so the face gets something to
@@ -818,6 +843,42 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     );
   }
 
+  /// The face on the stage. At the larger text sizes its words take more
+  /// room, so the face gives some back and the line under it stays clear of
+  /// the tab bar. The normal size is unchanged up to 1.3x.
+  static double _stageFaceSize(BuildContext context) {
+    const normal = 190.0;
+    final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
+    if (scale <= kChromeMaxTextScale) return normal;
+    return (normal * kChromeMaxTextScale / scale).clamp(96.0, normal);
+  }
+
+  /// True while a card that asks for a look is drawn in the notice slot. The
+  /// slot is hidden under a running guide and while a card is closing.
+  static bool _lookNoticeShows(
+    InAppNoticeState notice,
+    FeatureGuideState guide,
+  ) => !guide.isActive && notice.asksForLook;
+
+  /// [home] with its stage changed by `heroWhileLookNoticeShows`.
+  static HomeState _lookStage(HomeState home) {
+    final hero = heroWhileLookNoticeShows(
+      HomeHero(
+        faceState: home.faceState,
+        word: home.word,
+        subText: home.subText,
+        severity: home.severity,
+        ringingIncidentId: home.ringingIncidentId,
+      ),
+    );
+    return home.copyWith(
+      faceState: hero.faceState,
+      word: hero.word,
+      subText: hero.subText,
+      severity: hero.severity,
+    );
+  }
+
   /// Whether [notice] is one of the notices [_noticeBar] pins above the tab
   /// bar. The rest are cards in the list, or nothing.
   static bool _isPinnedNotice(InAppNoticeState notice) =>
@@ -827,6 +888,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         InAppNoticeType.accountBackup => true,
         InAppNoticeType.none ||
         InAppNoticeType.noServer ||
+        InAppNoticeType.systemUpdate ||
+        InAppNoticeType.missedAlarm ||
+        InAppNoticeType.weeklyCheck ||
         InAppNoticeType.criticalHealth => false,
       };
 
@@ -893,6 +957,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         );
       case InAppNoticeType.none:
       case InAppNoticeType.noServer:
+      case InAppNoticeType.systemUpdate:
+      case InAppNoticeType.missedAlarm:
+      case InAppNoticeType.weeklyCheck:
       case InAppNoticeType.criticalHealth:
         return null;
     }
