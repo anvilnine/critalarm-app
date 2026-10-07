@@ -259,6 +259,14 @@ class _ReliabilityViewState extends State<_ReliabilityView>
                         if (i > 0) const ReliabilityRowDivider(),
                         plain[i],
                       ],
+                      // What a group in the card above leaves plain, such
+                      // as the way to the weekly check's past rounds.
+                      if (!isLoading)
+                        for (final row in split.attention)
+                          if (row.group case final group?)
+                            if (widget.extraGroups[group].plainTail
+                                case final tail?)
+                              tail(context),
                     ],
                   ),
                 ),
@@ -282,7 +290,6 @@ class _ReliabilityViewState extends State<_ReliabilityView>
     }
     return ReliabilityRow(
       check: row.check,
-      face: reliabilityRowFace(row.check),
       now: now,
       actionLabel: _actionLabel(row.check),
       // One primary button on the screen: the first row with something to

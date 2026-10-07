@@ -111,10 +111,9 @@ void main() {
       );
     });
 
-    test('has no button and no face', () {
+    test('has no button', () {
       expect(rang.fix, isNull);
       expect(reliabilityClearLabelKey(rang.fix), isNull);
-      expect(reliabilityRowFace(rang), isNull);
     });
   });
 
@@ -143,16 +142,6 @@ void main() {
       ),
       isNull,
     );
-  });
-
-  test('the row wears the look face whatever the reason', () {
-    for (final reason in needsLook) {
-      expect(
-        reliabilityRowFace(missed(reason)),
-        reliabilityStateFace(ReliabilityState.needsLook),
-        reason: reason.name,
-      );
-    }
   });
 
   test('with nothing missed the title says so', () {
