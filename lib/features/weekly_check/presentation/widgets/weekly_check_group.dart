@@ -108,7 +108,9 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
           initialData: access.isHeld,
           builder: (context, _) {
             final standing = _standing(state);
-            final showsRounds = state.check?.lastSentAt != null;
+            // The list of rounds needs no pack, and only a phone the relay
+            // has sent a check to has one.
+            final showsRounds = weeklyCheckShowsRounds(state.check);
             if (standing == WeeklyCheckStanding.locked) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -133,47 +135,56 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
                     )
                   else
                     ProPackReliabilityGroup(isSelfHosted: state.isSelfHosted),
-                  // The list of rounds needs no pack. A locked row is one
-                  // button to the Pro sheet, so the link sits under it,
-                  // and only on a phone the relay has sent a check to.
-                  if (showsRounds)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 12, top: Spacing.s1),
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: WeeklyCheckRoundsLink(),
-                      ),
-                    ),
+                  // A locked row is one button to the Pro sheet, so the
+                  // way to the rounds is a row of its own under it.
+                  if (showsRounds) ...const [
+                    ReliabilityRowDivider(),
+                    WeeklyCheckRoundsRow(),
+                  ],
                 ],
               );
             }
             final check = widget.check;
             final fix = check != null && standing.needsLook ? check.fix : null;
-            return WeeklyCheckUnlockedRow(
-              view: weeklyCheckBodyView(
-                standing: standing,
-                check: state.check,
-                isSelfHosted: state.isSelfHosted,
-                now: DateTime.now(),
-              ),
-              needsLook: standing.needsLook,
-              isSwitchBusy: state.isBusy,
-              didSwitchFail: state.didFail,
-              onSwitch: (value) {
-                AppHaptics.capture();
-                unawaited(
-                  context.read<WeeklyCheckCubit>().setEnabled(enabled: value),
-                );
-              },
-              actionLabel: fix == null
-                  ? null
-                  : reliabilityFixLabelKey(
-                      fix,
-                      testRouteName: AppRoute.testRing,
-                    ).tr(),
-              isActionPrimary: widget.isPrimary,
-              isActionBusy: _isFixing,
-              onAction: fix == null ? null : () => unawaited(_runFix(fix)),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                WeeklyCheckUnlockedRow(
+                  view: weeklyCheckBodyView(
+                    standing: standing,
+                    check: state.check,
+                    isSelfHosted: state.isSelfHosted,
+                    now: DateTime.now(),
+                  ),
+                  needsLook: standing.needsLook,
+                  isSwitchBusy: state.isBusy,
+                  didSwitchFail: state.didFail,
+                  onSwitch: (value) {
+                    AppHaptics.capture();
+                    unawaited(
+                      context.read<WeeklyCheckCubit>().setEnabled(
+                        enabled: value,
+                      ),
+                    );
+                  },
+                  actionLabel: fix == null
+                      ? null
+                      : reliabilityFixLabelKey(
+                          fix,
+                          testRouteName: AppRoute.testRing,
+                        ).tr(),
+                  isActionPrimary: widget.isPrimary,
+                  isActionBusy: _isFixing,
+                  onAction: fix == null ? null : () => unawaited(_runFix(fix)),
+                ),
+                // A row of its own, so the weekly row keeps its title and
+                // one line.
+                if (showsRounds) ...[
+                  const ReliabilityRowDivider(),
+                  WeeklyCheckRoundsRow(onCard: standing.needsLook),
+                ],
+              ],
             );
           },
         ),
@@ -182,12 +193,15 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
   }
 }
 
-/// The weekly check row once the install holds the pack: the face of its
-/// state, the title with the Pro badge and the switch on one line, one
-/// short line, and one button when there is something to do.
+/// The weekly check row once the install holds the pack.
 ///
-/// A row that needs a look is drawn like the free rows that do: the same
-/// card, the same "Look" chip, the same size of button.
+/// While the check is fine, off or waiting it is a plain row: the title with
+/// the Pro badge, one line and the switch. It has no face.
+///
+/// A check that needs a look is drawn like the free rows that do: the face
+/// and the "Look" chip of that state, the switch on the title line, one
+/// button when there is something to do. It sits inside the card those rows
+/// share.
 class WeeklyCheckUnlockedRow extends StatelessWidget {
   const WeeklyCheckUnlockedRow({
     required this.view,
@@ -222,28 +236,44 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final onSurface = needsLook ? colors.onCanvas : colors.ink;
-    final muted = needsLook ? colors.onCanvasMuted : colors.ink3;
-    final quiet = AppTypography.small(muted, fontSize: 13);
     final title = LocaleKeys.pro_pack_weekly_title.tr();
     final when = view.lineWhen;
     final line = when == null
         ? view.lineKey.tr()
         : view.lineKey.tr(namedArgs: {'when': when});
-    final nextDue = view.nextDueWhen;
-    final label = actionLabel;
-    // At large text the face stands above the words, as on the other rows.
-    final isStacked = MediaQuery.textScalerOf(context).scale(15) >= 15 * 1.8;
-
-    final face = ExcludeSemantics(
-      child: FaceWidget(state: view.face, size: 36),
-    );
+    final selfHostedLine = view.showsSelfHostedLine
+        ? LocaleKeys.weekly_check_self_hosted_line.tr()
+        : null;
+    final failedLine = didSwitchFail
+        ? LocaleKeys.weekly_check_switch_failed.tr()
+        : null;
     final toggle = AppSwitch(
       value: view.isOn,
       semanticLabel: title,
       semanticHint: line,
       onChanged: isSwitchBusy ? null : onSwitch,
     );
+    final badge = ProBadge(label: LocaleKeys.pro_pack_badge.tr());
+
+    if (!needsLook) {
+      return ReliabilityPlainRow(
+        title: title,
+        badge: badge,
+        lines: [line, ?selfHostedLine, ?failedLine],
+        trailing: toggle,
+      );
+    }
+
+    final onSurface = colors.onCanvas;
+    final quiet = AppTypography.small(colors.onCanvasMuted, fontSize: 13);
+    final label = actionLabel;
+    final face = reliabilityStateFace(ReliabilityState.needsLook);
+    // At large text the face stands above the words, as on the other rows.
+    final isStacked = MediaQuery.textScalerOf(context).scale(15) >= 15 * 1.8;
+
+    final faceWidget = face == null
+        ? null
+        : ExcludeSemantics(child: FaceWidget(state: face, size: 36));
     final heading = Wrap(
       spacing: Spacing.s2,
       runSpacing: Spacing.s1,
@@ -256,12 +286,11 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
             fontSize: 15,
           ).copyWith(fontWeight: FontWeight.w700, height: 1.3),
         ),
-        ProBadge(label: LocaleKeys.pro_pack_badge.tr()),
-        if (needsLook)
-          ReliabilityStateChip(
-            state: ReliabilityState.needsLook,
-            label: LocaleKeys.reliability_state_look.tr(),
-          ),
+        badge,
+        ReliabilityStateChip(
+          state: ReliabilityState.needsLook,
+          label: LocaleKeys.reliability_state_look.tr(),
+        ),
       ],
     );
 
@@ -283,43 +312,35 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
           ),
         const SizedBox(height: 2),
         Text(line, style: quiet),
-        if (nextDue != null)
+        if (selfHostedLine != null) Text(selfHostedLine, style: quiet),
+        if (failedLine != null)
           Text(
-            LocaleKeys.weekly_check_next_due.tr(namedArgs: {'when': nextDue}),
-            style: quiet,
-          ),
-        if (view.showsSelfHostedLine)
-          Text(LocaleKeys.weekly_check_self_hosted_line.tr(), style: quiet),
-        if (didSwitchFail)
-          Text(
-            LocaleKeys.weekly_check_switch_failed.tr(),
+            failedLine,
             style: AppTypography.small(onSurface, fontSize: 13),
           ),
         if (label != null) ...[
           const SizedBox(height: Spacing.s2),
-          AppButton(
+          ReliabilityFixButton(
             label: label,
-            size: AppButtonSize.sm,
+            checkTitle: title,
             variant: isActionPrimary
                 ? AppButtonVariant.primary
                 : AppButtonVariant.ghost,
-            isLoading: isActionBusy,
+            isBusy: isActionBusy,
             onPressed: onAction,
           ),
-        ],
-        if (view.showsRoundsLink) ...[
-          const SizedBox(height: Spacing.s1),
-          WeeklyCheckRoundsLink(color: onSurface, arrowColor: muted),
         ],
       ],
     );
 
-    final Widget content = isStacked
+    final Widget content = faceWidget == null
+        ? words
+        : isStacked
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(children: [face, const Spacer(), toggle]),
+              Row(children: [faceWidget, const Spacer(), toggle]),
               const SizedBox(height: Spacing.s2),
               words,
             ],
@@ -327,73 +348,40 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
         : Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              face,
+              faceWidget,
               const SizedBox(width: Spacing.s3),
               Expanded(child: words),
             ],
           );
-
-    if (needsLook) {
-      // The card the free rows use when they need a look.
-      return AppHighlightCard(
-        tone: AppHighlightTone.choice,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        child: content,
-      );
-    }
-    // The same light border as the locked row and the free test row.
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: Radii.mdAll,
-        border: Border.all(color: colors.ink3.withValues(alpha: 0.4)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: content,
     );
   }
 }
 
-/// Opens the list of rounds.
-class WeeklyCheckRoundsLink extends StatelessWidget {
-  const WeeklyCheckRoundsLink({this.color, this.arrowColor, super.key});
+/// The way to the list of rounds: a plain row that only opens another
+/// screen, so it has no face.
+class WeeklyCheckRoundsRow extends StatelessWidget {
+  const WeeklyCheckRoundsRow({this.onCard = false, super.key});
 
-  /// The text colour. Null is the ink of a plain surface.
-  final Color? color;
-  final Color? arrowColor;
+  /// The row sits on the cream card of rows that need action.
+  final bool onCard;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Semantics(
-      button: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () =>
-            unawaited(context.pushNamed<void>(AppRoute.weeklyCheckRounds)),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 32),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  LocaleKeys.weekly_check_rounds_link.tr(),
-                  style: AppTypography.small(
-                    color ?? colors.ink,
-                    fontSize: 13,
-                  ).copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
-              const SizedBox(width: Spacing.s1),
-              AppGlyph(
-                GlyphType.arrow,
-                color: arrowColor ?? colors.ink3,
-                size: 12,
-              ),
-            ],
-          ),
-        ),
+    final title = LocaleKeys.weekly_check_rounds_link.tr();
+    return ReliabilityPlainRow(
+      title: title,
+      label: title,
+      onCard: onCard,
+      onTap: () =>
+          unawaited(context.pushNamed<void>(AppRoute.weeklyCheckRounds)),
+      trailing: AppGlyph(
+        GlyphType.arrow,
+        color: onCard ? colors.onCanvasMuted : colors.ink3,
+        size: 16,
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:critalarm/core/models/weekly_check.dart';
 import 'package:critalarm/design/faces/face_state.dart';
+import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
+import 'package:critalarm/features/reliability/presentation/reliability_rows.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_standing.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:flutter/foundation.dart';
@@ -14,20 +16,18 @@ import 'package:intl/intl.dart';
 // push reached this phone and the phone reached the relay, and no more.
 
 /// What the unlocked weekly check row shows.
+///
+/// The row has no face while the check is fine, so there is none here. A
+/// check that needs a look wears the face of that state, which the row takes
+/// from `reliabilityStateFace`.
 @immutable
 final class WeeklyCheckBodyView {
   const WeeklyCheckBodyView({
-    required this.face,
     required this.lineKey,
     required this.isOn,
     this.lineWhen,
-    this.nextDueWhen,
     this.showsSelfHostedLine = false,
-    this.showsRoundsLink = false,
   });
-
-  /// One face per state, none of them used by another row on the screen.
-  final FaceState face;
 
   /// The one short line, and the time it names when it names one. While
   /// the check is off it is the line that says what the check does.
@@ -37,39 +37,21 @@ final class WeeklyCheckBodyView {
   /// Where the switch stands.
   final bool isOn;
 
-  /// The day the next check is due, or null when none is due or the moment
-  /// has passed. A passed moment says nothing the user can use.
-  final String? nextDueWhen;
-
   /// On a phone connected to a self-hosted server, in every state: the
   /// check covers the relay to this phone and says nothing about that
   /// server.
   final bool showsSelfHostedLine;
 
-  /// The way to the list of rounds, once the relay has sent one.
-  final bool showsRoundsLink;
-
   @override
   bool operator ==(Object other) =>
       other is WeeklyCheckBodyView &&
-      other.face == face &&
       other.lineKey == lineKey &&
       other.lineWhen == lineWhen &&
       other.isOn == isOn &&
-      other.nextDueWhen == nextDueWhen &&
-      other.showsSelfHostedLine == showsSelfHostedLine &&
-      other.showsRoundsLink == showsRoundsLink;
+      other.showsSelfHostedLine == showsSelfHostedLine;
 
   @override
-  int get hashCode => Object.hash(
-    face,
-    lineKey,
-    lineWhen,
-    isOn,
-    nextDueWhen,
-    showsSelfHostedLine,
-    showsRoundsLink,
-  );
+  int get hashCode => Object.hash(lineKey, lineWhen, isOn, showsSelfHostedLine);
 }
 
 DateTime _at(int seconds) =>
@@ -87,9 +69,10 @@ String weeklyCheckMoment(int seconds, {required DateTime now}) {
   return DateFormat(sameDay ? 'HH:mm' : 'EEE d MMM, HH:mm').format(local);
 }
 
-/// A day in the phone's own time, for when the next check is due.
-String weeklyCheckDay(int seconds) =>
-    DateFormat('EEE d MMM').format(_at(seconds).toLocal());
+/// Whether the way to the list of rounds shows: once the relay has sent this
+/// phone a check. The list needs no pack, so this is true for a locked row
+/// too.
+bool weeklyCheckShowsRounds(WeeklyCheck? check) => check?.lastSentAt != null;
 
 /// The unlocked row for how the check stands. [check] is the relay's last
 /// answer, null until it has answered on this phone.
@@ -104,84 +87,68 @@ WeeklyCheckBodyView weeklyCheckBodyView({
   required DateTime now,
 }) {
   final received = check?.lastReceivedAt;
-  final (face, lineKey, lineWhen) = switch (standing) {
+  final (lineKey, lineWhen) = switch (standing) {
     // Off: the switch shows that. The line says what the check does.
     WeeklyCheckStanding.locked ||
     WeeklyCheckStanding.neverOn ||
-    WeeklyCheckStanding.off => (
-      FaceState.sleepy,
-      LocaleKeys.pro_pack_weekly_locked_line,
-      null,
-    ),
-    WeeklyCheckStanding.waiting => (
-      FaceState.interested,
-      LocaleKeys.weekly_check_line_waiting,
-      null,
-    ),
+    WeeklyCheckStanding.off => (LocaleKeys.pro_pack_weekly_locked_line, null),
+    WeeklyCheckStanding.waiting => (LocaleKeys.weekly_check_line_waiting, null),
     WeeklyCheckStanding.received when received != null => (
-      FaceState.confident,
       LocaleKeys.weekly_check_line_received,
       weeklyCheckMoment(received, now: now),
     ),
     WeeklyCheckStanding.received => (
-      FaceState.confident,
       LocaleKeys.weekly_check_line_received_plain,
       null,
     ),
     WeeklyCheckStanding.missedOnce => (
-      FaceState.surprised,
       LocaleKeys.weekly_check_line_missed_once,
       null,
     ),
     WeeklyCheckStanding.missedRepeatedly => (
-      FaceState.shakeHead,
       LocaleKeys.weekly_check_line_missed_repeatedly,
       null,
     ),
     WeeklyCheckStanding.tokenRefused => (
-      FaceState.shocked,
       LocaleKeys.weekly_check_line_token_refused,
       null,
     ),
     WeeklyCheckStanding.noToken => (
-      FaceState.lookLeft,
       LocaleKeys.weekly_check_line_no_token,
       null,
     ),
     // A state a newer relay sends and this build has no words for.
-    WeeklyCheckStanding.on => (
-      FaceState.blink,
-      LocaleKeys.pro_pack_weekly_locked_line,
-      null,
-    ),
+    WeeklyCheckStanding.on => (LocaleKeys.pro_pack_weekly_locked_line, null),
   };
-  final nowSeconds = now.millisecondsSinceEpoch ~/ 1000;
-  final due = check?.nextDueAt;
   return WeeklyCheckBodyView(
-    face: face,
     lineKey: lineKey,
     lineWhen: lineWhen,
     isOn: standing.isOn,
-    nextDueWhen: standing.isOn && due != null && due > nowSeconds
-        ? weeklyCheckDay(due)
-        : null,
     showsSelfHostedLine: isSelfHosted,
-    showsRoundsLink: check?.lastSentAt != null,
   );
 }
 
-/// One round in the list: a face, its result in a few words, and its time.
+/// One round in the list: what marks it, its result in a few words, and its
+/// time.
+///
+/// The mark follows the face rule of the screen: a missed or refused round
+/// wears the face of a broken check, a received one a tick, and a skipped
+/// or open one nothing.
 @immutable
 final class WeeklyCheckRoundView {
   const WeeklyCheckRoundView({
     required this.face,
+    required this.showsTick,
     required this.wordKey,
     this.when,
     this.wordTime,
   });
 
-  /// The face the weekly row shows for the same outcome.
-  final FaceState face;
+  /// The face of a round that went wrong, or null.
+  final FaceState? face;
+
+  /// A round that was received.
+  final bool showsTick;
   final String wordKey;
 
   /// The time [wordKey] names, for a round still open: when it closes.
@@ -195,12 +162,13 @@ final class WeeklyCheckRoundView {
   bool operator ==(Object other) =>
       other is WeeklyCheckRoundView &&
       other.face == face &&
+      other.showsTick == showsTick &&
       other.wordKey == wordKey &&
       other.wordTime == wordTime &&
       other.when == when;
 
   @override
-  int get hashCode => Object.hash(face, wordKey, wordTime, when);
+  int get hashCode => Object.hash(face, showsTick, wordKey, wordTime, when);
 }
 
 /// The words for how a round ended.
@@ -229,17 +197,20 @@ String weeklyCheckResultKey(WeeklyCheckRound round) {
   };
 }
 
-/// The face for a round: the one the weekly row shows for that outcome.
-FaceState weeklyCheckResultFace(WeeklyCheckRound round) {
-  if (round.isOpen) return FaceState.interested;
+/// The face for a round, or null. A missed or refused round takes the face
+/// of a broken check. Received, skipped, open and closed rounds have none.
+FaceState? weeklyCheckResultFace(WeeklyCheckRound round) {
+  if (round.isOpen) return null;
   return switch (round.result) {
-    WeeklyCheckResult.received => FaceState.confident,
-    WeeklyCheckResult.missed => FaceState.surprised,
-    WeeklyCheckResult.refused => FaceState.shocked,
-    WeeklyCheckResult.skipped => FaceState.sleepy,
-    null => FaceState.blink,
+    WeeklyCheckResult.missed ||
+    WeeklyCheckResult.refused => reliabilityStateFace(ReliabilityState.broken),
+    WeeklyCheckResult.received || WeeklyCheckResult.skipped || null => null,
   };
 }
+
+/// Whether a round shows a tick: it was received.
+bool weeklyCheckResultShowsTick(WeeklyCheckRound round) =>
+    !round.isOpen && round.result == WeeklyCheckResult.received;
 
 /// A round is listed at the moment it opened: every round has one, and it
 /// is the moment the relay first reached for the phone.
@@ -253,6 +224,7 @@ WeeklyCheckRoundView weeklyCheckRoundView(
       : null;
   return WeeklyCheckRoundView(
     face: weeklyCheckResultFace(round),
+    showsTick: weeklyCheckResultShowsTick(round),
     wordKey: weeklyCheckResultKey(round),
     wordTime: dueBy,
     when: dueBy == null ? weeklyCheckMoment(round.openedAt, now: now) : null,
