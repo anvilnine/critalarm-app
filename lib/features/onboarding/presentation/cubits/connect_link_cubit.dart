@@ -1,0 +1,151 @@
+import 'dart:async';
+
+import 'package:critalarm/core/links/app_link.dart';
+import 'package:critalarm/core/telemetry/connect_link_analytics.dart';
+import 'package:critalarm/core/usecase/usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/connect_to_server_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
+import 'package:critalarm/features/onboarding/presentation/cubits/connect_link_state.dart';
+import 'package:critalarm/features/onboarding/presentation/model/connect_outcome_message.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+/// Behind the sheet a connect link opens.
+///
+/// It connects through [ConnectToServerUsecase], the same one the setup
+/// connect step calls, and only when the person taps Connect.
+///
+/// The token never leaves this class. It is held in a private field, handed
+/// to the use case, and dropped when the connect lands or the cubit closes.
+/// No state, log line or analytics event carries it, and no event carries
+/// the address either.
+class ConnectLinkCubit extends Cubit<ConnectLinkState> {
+  ConnectLinkCubit(
+    ConnectLink link, {
+    required ConnectToServerUsecase connectToServer,
+    GetConnectionUsecase? readConnection,
+    ConnectLinkAnalytics? events,
+    Future<void> Function()? afterConnected,
+  }) : _token = link.token,
+       _serverUrl = link.serverUrl.toString(),
+       _connect = connectToServer,
+       _getConnection = readConnection,
+       _analytics = events,
+       _onConnected = afterConnected,
+       super(
+         ConnectLinkState(
+           host: hostLabel(link.serverUrl),
+           address: link.serverUrl.toString(),
+           isPlainHttp: link.serverUrl.scheme == 'http',
+         ),
+       );
+
+  String? _token;
+  final String _serverUrl;
+  final ConnectToServerUsecase _connect;
+  final GetConnectionUsecase? _getConnection;
+  final ConnectLinkAnalytics? _analytics;
+  final Future<void> Function()? _onConnected;
+
+  bool _tried = false;
+  bool _ended = false;
+
+  /// The person tapped Connect at least once.
+  bool get hasTried => _tried;
+
+  /// Reports that the sheet opened, and finds the server it replaces.
+  Future<void> open() async {
+    unawaited(_analytics?.opened());
+    final result = await _getConnection?.call(const NoParams());
+    final current = result?.getOrNull();
+    if (current == null || isClosed) return;
+    final uri = Uri.tryParse(current.serverUrl);
+    if (uri == null || uri.host.isEmpty) return;
+    emit(state.copyWith(replacingHost: hostLabel(uri)));
+  }
+
+  /// Connects to the server in the link. Does nothing while a connect is
+  /// under way or once it has landed.
+  Future<void> connect() async {
+    final token = _token;
+    if (token == null || state.isConnecting || state.isConnected) return;
+    _tried = true;
+    emit(
+      state.copyWith(
+        phase: ConnectLinkPhase.connecting,
+        clearErrorMessage: true,
+      ),
+    );
+    final ConnectOutcome outcome;
+    try {
+      outcome = await _connect(serverUrl: _serverUrl, adminToken: token);
+    } on Object {
+      // The use case answers with an outcome and does not throw. This is
+      // for a failure outside it. Its text is dropped: it is not a sentence,
+      // and nothing that might hold the token is shown.
+      _fail(LocaleKeys.api_errors_unknown.tr(), token);
+      return;
+    }
+    if (outcome is Connected) {
+      _token = null;
+      await _onConnected?.call();
+      _report(ConnectLinkEnd.connected);
+      if (!isClosed) emit(state.copyWith(phase: ConnectLinkPhase.connected));
+      return;
+    }
+    // A link always carries a token, so a server that asks for one has
+    // nothing to ask. The line is for the day that changes.
+    _fail(
+      connectOutcomeMessage(outcome) ??
+          LocaleKeys.onboarding_connect_admin_token_error_empty.tr(),
+      token,
+    );
+  }
+
+  /// Shows [message], unless it holds the token, which a wrapped exception
+  /// could. That one gets the plain unknown-error line.
+  void _fail(String message, String token) {
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        phase: ConnectLinkPhase.failed,
+        errorMessage: message.contains(token)
+            ? LocaleKeys.api_errors_unknown.tr()
+            : message,
+      ),
+    );
+  }
+
+  /// The person answered Not now, or swiped the sheet away.
+  void notNow() => _report(
+    state.isFailed ? ConnectLinkEnd.failed : ConnectLinkEnd.notNow,
+  );
+
+  /// An alarm took the screen.
+  void interrupted() => _report(ConnectLinkEnd.interrupted);
+
+  void _report(ConnectLinkEnd end) {
+    if (_ended) return;
+    _ended = true;
+    unawaited(_analytics?.ended(end));
+  }
+
+  @override
+  Future<void> close() {
+    // A sheet that closes by any road other than the ones above (the route
+    // went away under it) still counts as left.
+    if (!state.isConnected) {
+      _report(state.isFailed ? ConnectLinkEnd.failed : ConnectLinkEnd.notNow);
+    }
+    _token = null;
+    return super.close();
+  }
+
+  /// The part of [uri] a person recognises: the host, with the port when it
+  /// is not the usual one. An IPv6 host keeps its brackets.
+  static String hostLabel(Uri uri) {
+    final host = uri.host.contains(':') ? '[${uri.host}]' : uri.host;
+    return uri.hasPort ? '$host:${uri.port}' : host;
+  }
+}
