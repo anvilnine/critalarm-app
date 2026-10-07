@@ -368,6 +368,14 @@ import AlarmKit
     postTap(tap)
   }
 
+  /// A link `AppLinkRule` took: an `https://critalarm.app` universal link
+  /// or its `critalarm://` form. Dart parses it. The link is never logged,
+  /// because a connect link carries a token.
+  func openAppLink(_ tap: [String: String]) {
+    NSLog("CritAlarm: app_link_opened")
+    postTap(tap)
+  }
+
   /// Hands Dart whatever is waiting, once. A cold launch from a tap comes
   /// through here, which is how the app opens on the right screen, and so
   /// does a tap that woke the app: Dart asks again on every resume, before it
