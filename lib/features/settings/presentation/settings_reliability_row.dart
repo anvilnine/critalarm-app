@@ -96,6 +96,9 @@ class _SettingsReliabilityEntryState extends State<SettingsReliabilityEntry>
           // The title is the question this package answers, so it may take
           // two lines instead of being cut at large text sizes.
           nameMaxLines: 2,
+          // The chip and the arrow narrow the text column at large sizes, so
+          // the line under the title gets a third line rather than a cut.
+          metaMaxLines: 3,
           // The count chip sits before the arrow, never in its place: the
           // arrow is what says the row opens a screen.
           trailing: Row(
