@@ -148,7 +148,8 @@ void main() {
                 as Map<String, dynamic>)['missed_alarm_reason_no_push']
             as String;
     final row =
-        (strings['reliability'] as Map<String, dynamic>)['line_missed_no_push']
+        (strings['reliability']
+                as Map<String, dynamic>)['line_missed_no_push_when']
             as String;
     for (final text in [home, row]) {
       expect(text, contains('recorded'));
