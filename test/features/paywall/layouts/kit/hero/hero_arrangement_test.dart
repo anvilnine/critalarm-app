@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:critalarm/features/paywall/presentation/layouts/hero/hero_arrangement.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

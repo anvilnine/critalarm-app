@@ -94,7 +94,7 @@ and capturable.
 
 **Write the timeline as a table, then test the table.** A list of beats: when each starts,
 what the scene shows, which face Crit wears. Keep it in a pure function
-(`layouts/hero/hero_loop.dart` is the worked example). Unit test the order, the loop wrap and
+(`layouts/kit/hero/hero_loop.dart` is the worked example). Unit test the order, the loop wrap and
 the resting frame. Do not write widget tests.
 
 **Tokens.** Durations from `AppDurations`, curves from `AppCurves` (`easeOut` for most moves,

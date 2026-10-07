@@ -1,5 +1,5 @@
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The five turns the loop was first written for. The untouched loop is

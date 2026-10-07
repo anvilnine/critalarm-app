@@ -1,5 +1,5 @@
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:flutter/rendering.dart';
 
 /// What the mascot wears on the stage, drawn over the face in its own 200
