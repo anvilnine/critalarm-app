@@ -105,42 +105,42 @@ class _PrioritiesView extends StatelessWidget {
             ),
           ),
           slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, Spacing.s2, 12, 16),
-                child: AppSheet(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final entry in state.entries) ...[
-                        AppListRow(
-                          name: LocaleKeys.priorities_row_title.tr(
-                            namedArgs: {'level': '${entry.priority}'},
+            if (!state.isLoading)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, Spacing.s2, 12, 16),
+                  child: AppSheet(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final entry in state.entries) ...[
+                          AppListRow(
+                            name: LocaleKeys.priorities_row_title.tr(
+                              namedArgs: {'level': '${entry.priority}'},
+                            ),
+                            meta: lineText(entry.line),
+                            metaMaxLines: 6,
+                            faceState: faceFor(entry),
+                            isCrit: entry.priority == 5,
+                            trailing: entry.canHearIt && state.sound != null
+                                ? AppPreviewButton(
+                                    isPlaying: state.isPlaying,
+                                    playLabel: LocaleKeys
+                                        .priorities_hear_aria_label
+                                        .tr(),
+                                    stopLabel: LocaleKeys
+                                        .priorities_stop_aria_label
+                                        .tr(),
+                                    onPressed: () {
+                                      AppHaptics.selection();
+                                      unawaited(cubit.togglePreview());
+                                    },
+                                  )
+                                : null,
                           ),
-                          meta: lineText(entry.line),
-                          metaMaxLines: 6,
-                          faceState: faceFor(entry),
-                          isCrit: entry.priority == 5,
-                          trailing: entry.canHearIt && state.sound != null
-                              ? AppPreviewButton(
-                                  isPlaying: state.isPlaying,
-                                  playLabel: LocaleKeys
-                                      .priorities_hear_aria_label
-                                      .tr(),
-                                  stopLabel: LocaleKeys
-                                      .priorities_stop_aria_label
-                                      .tr(),
-                                  onPressed: () {
-                                    AppHaptics.selection();
-                                    unawaited(cubit.togglePreview());
-                                  },
-                                )
-                              : null,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      if (!state.isLoading) ...[
+                          const SizedBox(height: 8),
+                        ],
                         const SizedBox(height: 6),
                         AppListRow(
                           name: LocaleKeys.priorities_critical_topic_title.tr(),
@@ -157,11 +157,10 @@ class _PrioritiesView extends StatelessWidget {
                           onTap: () => context.go('/'),
                         ),
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         );
       },

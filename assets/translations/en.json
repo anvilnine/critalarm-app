@@ -1262,7 +1262,7 @@
     "history_only": "No notification. Waits in History.",
     "hear_aria_label": "Hear the alarm sound",
     "stop_aria_label": "Stop the sound",
-    "critical_topic_title": "Critical topics",
+    "critical_topic_title": "Topics",
     "critical_topic_line": "Priority 5 rings only on a topic with Critical delivery on. Set it on the topic."
   },
   "sound_picker": {
