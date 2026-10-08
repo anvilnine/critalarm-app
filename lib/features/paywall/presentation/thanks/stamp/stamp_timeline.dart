@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/presentation/thanks/thanks_parts.dart';
 import 'package:flutter/widgets.dart';
 
@@ -204,105 +203,5 @@ abstract final class StampTimeline {
 }
 
 /// Where the stamp version puts its parts on one phone: the mascot, the
-/// slip it holds by the top edge, and the headline under the slip. The
-/// three are centred as one block in the room above the button, and grow
-/// with the room so a tall phone is used.
-@immutable
-class StampPlan {
-  const StampPlan({
-    required this.crit,
-    required this.paper,
-    required this.headline,
-    required this.headlineSize,
-    required this.unit,
-    required this.lines,
-  });
-
-  factory StampPlan.of({
-    required Size size,
-    required EdgeInsets padding,
-    required int lines,
-    double textScale = 1,
-  }) {
-    final room = Rect.fromLTRB(
-      0,
-      padding.top,
-      size.width,
-      size.height - padding.bottom - paywallThanksButtonRoom,
-    );
-    final unit = (room.height / 687).clamp(0.78, 1.12);
-    final headlineSize = size.height <= 667 ? 30.0 : 34.0;
-    final headlineHeight = headlineSize * 1.15 * math.min(textScale, 1.3);
-    final edge = math.min(size.width * 0.46, room.height * 0.26);
-    final paperWidth = math.min(size.width - 2 * 32, 330 * unit);
-    final paperHeight = paperHeightFor(lines, unit);
-    final overlap = edge * holdShare;
-    final gap = 20 * unit;
-    final headroom = edge * 0.14;
-    final block = edge - overlap + paperHeight + gap + headlineHeight;
-    final spare = room.height - headroom - block;
-    final top = room.top + headroom + math.max(0, spare) * 0.44;
-    final crit = Rect.fromLTWH((size.width - edge) / 2, top, edge, edge);
-    final paper = Rect.fromLTWH(
-      (size.width - paperWidth) / 2,
-      crit.bottom - overlap,
-      paperWidth,
-      paperHeight,
-    );
-    return StampPlan(
-      crit: crit,
-      paper: paper,
-      headline: Rect.fromLTRB(
-        thanksSideInset,
-        paper.bottom + gap,
-        size.width - thanksSideInset,
-        room.bottom,
-      ),
-      headlineSize: headlineSize,
-      unit: unit,
-      lines: lines,
-    );
-  }
-
-  /// How much of the mascot's height the slip's top edge covers: it is
-  /// held in front.
-  static const double holdShare = 0.16;
-
-  /// The parts of the slip top down, in points at a unit of one.
-  static const double lead = 18;
-  static const double header = 22;
-  static const double rule = 16;
-  static const double row = 38;
-  static const double stampRoom = 84;
-  static const double tear = 12;
-  static const double pad = 20;
-
-  /// The height of a slip with [lines] lines at [unit].
-  static double paperHeightFor(int lines, double unit) =>
-      (lead + header + rule + row * lines + rule + stampRoom + tear) * unit;
-
-  /// The mascot at rest.
-  final Rect crit;
-
-  /// The slip at rest.
-  final Rect paper;
-
-  /// The headline's box, under the slip.
-  final Rect headline;
-  final double headlineSize;
-
-  /// What every measure of the slip is multiplied by on this phone.
-  final double unit;
-  final int lines;
-
-  double get rowsTop => (lead + header + rule) * unit;
-  double get rowHeight => row * unit;
-  double get stampTop => rowsTop + rowHeight * lines + rule * unit;
-
-  /// The slip's box [fed] of the way from a slot at [slotTop] to the
-  /// mascot.
-  Rect paperAt(double fed, double slotTop) {
-    final top = slotTop + (paper.top - slotTop) * fed;
-    return Rect.fromLTWH(paper.left, top, paper.width, paper.height);
-  }
-}
+/// slip it holds by the top edge, and the headline under the slip.
+typedef StampPlan = ThanksSlipPlan;

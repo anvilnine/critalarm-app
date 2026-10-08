@@ -105,8 +105,8 @@ class ConfettiThanks extends StatelessWidget {
               ),
             Positioned.fill(
               child: CustomPaint(
-                painter: _ConfettiPainter(
-                  t: t,
+                painter: ThanksConfettiPainter(
+                  t: t - ConfettiTimeline.burst,
                   origin: scope.source,
                   floor: stage.floor,
                   inks: inks,
@@ -145,64 +145,4 @@ class ConfettiThanks extends StatelessWidget {
       },
     );
   }
-}
-
-/// Every piece of confetti at one second.
-class _ConfettiPainter extends CustomPainter {
-  const _ConfettiPainter({
-    required this.t,
-    required this.origin,
-    required this.floor,
-    required this.inks,
-  });
-
-  final double t;
-  final Offset origin;
-  final double floor;
-  final List<Color> inks;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (var i = 0; i < ConfettiTimeline.pieces; i++) {
-      final piece = ConfettiTimeline.piece(
-        i,
-        t,
-        origin: origin,
-        size: size,
-        floor: floor,
-      );
-      if (piece == null) continue;
-      final paint = Paint()
-        ..color = inks[piece.ink % inks.length].withValues(alpha: piece.alpha);
-      canvas
-        ..save()
-        ..translate(piece.at.dx, piece.at.dy)
-        ..rotate(piece.angle);
-      switch (piece.shape) {
-        case 0:
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromCenter(center: Offset.zero, width: 10, height: 5),
-              const Radius.circular(1.5),
-            ),
-            paint,
-          );
-        case 1:
-          canvas.drawCircle(Offset.zero, 3, paint);
-        default:
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromCenter(center: Offset.zero, width: 14, height: 3.5),
-              const Radius.circular(1.75),
-            ),
-            paint,
-          );
-      }
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(_ConfettiPainter old) =>
-      t != old.t || origin != old.origin || floor != old.floor;
 }

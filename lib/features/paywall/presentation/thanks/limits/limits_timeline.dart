@@ -55,6 +55,11 @@ abstract final class LimitsTimeline {
   /// every row: the numbers are in the words beside it.
   static const double capShare = 0.26;
 
+  /// A lifted bar at rest against one at its cap: its height and how much
+  /// ink it has.
+  static const double restThick = 0.34;
+  static const double restInk = 0.3;
+
   /// The mascot's size against its rest size: as it arrives, once every
   /// limit is lifted, and at rest.
   static const double small = 0.6;
@@ -104,6 +109,11 @@ abstract final class LimitsTimeline {
     );
     return capShare + (1 - capShare) * run;
   }
+
+  /// How far bar [index] has let go at [t], 0 to 1: once it has run to
+  /// its end it thins and pales, so the lifted rows rest light.
+  static double eased(double t, int index, int count) =>
+      Curves.easeOut.transform(phase(lifted(t, index, count), 0.8, 1));
 
   /// The number row [index] shows at [t], rolling from [from] to [to].
   static int count(
@@ -223,30 +233,6 @@ abstract final class LimitsTimeline {
   /// How far the one ring that leaves the disc as the mascot grows has
   /// gone at [t], 0 to 1. At one it is gone.
   static double ring(double t) => phase(t, grow + 0.06, grow + 0.6);
-}
-
-/// [count] written as the plan numbers are: a comma between thousands.
-String limitsCountText(int count) {
-  final digits = '$count';
-  final out = StringBuffer();
-  for (var i = 0; i < digits.length; i++) {
-    if (i > 0 && (digits.length - i) % 3 == 0) out.write(',');
-    out.write(digits[i]);
-  }
-  return out.toString();
-}
-
-/// What a row's value reads while its number is [count], on the way from
-/// the free plan's to the product's.
-///
-/// [now] is the product's value as the app writes it and [to] the number
-/// in it. The words around the number stay and only the number changes.
-/// Null when [now] does not hold the number, which is a row that has no
-/// count to roll.
-String? limitsRolling(String now, {required int to, required int count}) {
-  final written = limitsCountText(to);
-  if (!now.contains(written)) return null;
-  return now.replaceFirst(written, limitsCountText(count));
 }
 
 /// Where the limits version puts its parts on one phone: the mascot, the
