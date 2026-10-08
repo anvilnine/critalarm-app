@@ -292,7 +292,10 @@ void main() {
       );
       await _settle();
       expect(heard, contains(AppFeature.longHistory));
-      expect(heard, isNot(contains(AppFeature.weeklyCheck)));
+      // The weekly check is a Hosted feature. What Pro alone unlocks is
+      // left alone.
+      expect(heard, contains(AppFeature.weeklyCheck));
+      expect(heard, isNot(contains(AppFeature.widgets)));
 
       devSwitch.value = false;
       expect(

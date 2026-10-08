@@ -301,20 +301,20 @@ void main() {
     });
 
     test('the developer switch opens the Pro features', () async {
-      expect(access.can(AppFeature.weeklyCheck), isFalse);
+      expect(access.can(AppFeature.widgets), isFalse);
       devSwitch.value = true;
       expect(holdings.holds(Holding.pro), isTrue);
       expect(
-        access.decide(AppFeature.weeklyCheck),
+        access.decide(AppFeature.widgets),
         const FeatureDecision.open(),
       );
       await settle();
-      expect(heard, contains(AppFeature.weeklyCheck));
+      expect(heard, contains(AppFeature.widgets));
       expect(heard, isNot(contains(AppFeature.longHistory)));
 
       devSwitch.value = false;
       expect(
-        access.decide(AppFeature.weeklyCheck),
+        access.decide(AppFeature.widgets),
         const FeatureDecision.locked(Holding.pro),
       );
     });
@@ -325,7 +325,7 @@ void main() {
         if (!featureTable[feature]!.unlockedBy.contains(Holding.pro)) continue;
         expect(
           access.decide(feature),
-          const FeatureDecision.locked(Holding.pro),
+          FeatureDecision.locked(featureTable[feature]!.offered),
           reason: feature.name,
         );
         expect(access.can(feature), isFalse, reason: feature.name);
@@ -338,20 +338,20 @@ void main() {
       await packs.purchaseStarted();
       await packs.purchaseAccepted();
       expect(
-        access.decide(AppFeature.weeklyCheck),
+        access.decide(AppFeature.widgets),
         const FeatureDecision.confirming(Holding.pro),
       );
-      expect(access.can(AppFeature.weeklyCheck), isTrue);
+      expect(access.can(AppFeature.widgets), isTrue);
 
       api.refreshes = [_heldAnswer];
       await packs.confirmWithStore();
       expect(
-        access.decide(AppFeature.weeklyCheck),
+        access.decide(AppFeature.widgets),
         const FeatureDecision.open(),
       );
       await settle();
       expect(
-        heard.where((feature) => feature == AppFeature.weeklyCheck),
+        heard.where((feature) => feature == AppFeature.widgets),
         hasLength(2),
       );
     });

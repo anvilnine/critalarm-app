@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart';
 enum AppFeature {
   unlimitedCriticalTopics,
   longHistory,
-  storageRules,
   appIcons,
   widgets,
   ownSounds,
@@ -24,18 +23,36 @@ enum OwnServerRule {
 
   /// The feature needs the same holding there as on Crit Alarm Cloud.
   sameAsCloud,
+
+  /// The feature does not exist there, whatever is held. It needs a plan
+  /// that is only sold on Crit Alarm Cloud, so there is nothing to sell
+  /// and nothing to switch on.
+  notOffered,
 }
 
 /// Who may use one [AppFeature].
 @immutable
 final class FeatureRule {
-  const FeatureRule({required this.unlockedBy, required this.onOwnServer});
+  const FeatureRule({
+    required this.unlockedBy,
+    required this.onOwnServer,
+    this.offer,
+  });
 
-  /// Any one of these unlocks the feature. The first is the one to offer
-  /// when it is locked.
+  /// Any one of these unlocks the feature.
   final Set<Holding> unlockedBy;
 
   final OwnServerRule onOwnServer;
+
+  /// The holding to sell when the feature is locked. A row that more than
+  /// one holding unlocks names it, so the choice is written down and never
+  /// falls out of the order of a set literal. Left out, it is the one
+  /// holding in [unlockedBy].
+  final Holding? offer;
+
+  /// The holding a locked feature offers: [offer], or the first of
+  /// [unlockedBy] where the row names none.
+  Holding get offered => offer ?? unlockedBy.first;
 }
 
 /// The one table that says which holding unlocks which feature.
@@ -51,12 +68,10 @@ const Map<AppFeature, FeatureRule> featureTable = {
     unlockedBy: {Holding.hosted},
     onOwnServer: OwnServerRule.open,
   ),
-  AppFeature.storageRules: FeatureRule(
-    unlockedBy: {Holding.hosted},
-    onOwnServer: OwnServerRule.open,
-  ),
+  // Either purchase is enough. Hosted is the one offered.
   AppFeature.appIcons: FeatureRule(
-    unlockedBy: {Holding.hosted},
+    unlockedBy: {Holding.hosted, Holding.pro},
+    offer: Holding.hosted,
     onOwnServer: OwnServerRule.open,
   ),
   // Pro only, also on a server of the user's own.
@@ -76,8 +91,10 @@ const Map<AppFeature, FeatureRule> featureTable = {
     unlockedBy: {Holding.pro},
     onOwnServer: OwnServerRule.sameAsCloud,
   ),
+  // The relay runs it, so it is Hosted. Hosted is not sold for a server
+  // of the user's own, and the relay sends no check there (api.md §4.5).
   AppFeature.weeklyCheck: FeatureRule(
-    unlockedBy: {Holding.pro},
-    onOwnServer: OwnServerRule.sameAsCloud,
+    unlockedBy: {Holding.hosted},
+    onOwnServer: OwnServerRule.notOffered,
   ),
 };
