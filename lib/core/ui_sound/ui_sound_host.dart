@@ -2,11 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
-/// Plays one short interface sound at a time.
+/// Plays short interface sounds, one at a time unless told otherwise.
 abstract interface class UiSoundPlayer {
   /// Plays the bundled [asset] once. A sound still playing is cut off and
   /// replaced: nothing is ever queued.
-  void play(String asset);
+  ///
+  /// With [voices] above one, copies of the same [asset] already playing are
+  /// left to finish, up to that many at once with the new one. The oldest
+  /// goes first. A different sound is still cut off.
+  void play(String asset, {int voices = 1});
 
   /// Stops whatever is playing. Safe to call when nothing is.
   void stop();
@@ -34,7 +38,8 @@ final class UiSoundHost implements UiSoundPlayer {
   final MethodChannel _channel;
 
   @override
-  void play(String asset) => unawaited(_invoke('play', {'asset': asset}));
+  void play(String asset, {int voices = 1}) =>
+      unawaited(_invoke('play', {'asset': asset, 'voices': voices}));
 
   @override
   void stop() => unawaited(_invoke('stop'));

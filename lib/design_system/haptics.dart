@@ -3,6 +3,67 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+/// One pulse of a pattern, named by weight.
+///
+/// These are the system's own pulses, sent through Flutter's
+/// [HapticFeedback]. An iPhone has a separate feel for each. Android has one
+/// short effect for each as well, but how far apart they feel is up to the
+/// phone, and on some phones [light], [medium] and [heavy] are close.
+enum HapticPulse { tick, light, medium, heavy }
+
+/// A named haptic. Every pattern is a short list of pulses and the time each
+/// one comes, in milliseconds from the start.
+///
+/// The gaps match the sounds they are played with: the second knock of
+/// [doubleKnock] and the bounces of [tripleFade] land where the sound has
+/// them.
+enum HapticPattern {
+  /// No haptic at all.
+  none([]),
+
+  /// The lightest click, for a change of selection.
+  tick([(atMs: 0, pulse: HapticPulse.tick)]),
+
+  /// One light tap.
+  light([(atMs: 0, pulse: HapticPulse.light)]),
+
+  /// One solid press.
+  medium([(atMs: 0, pulse: HapticPulse.medium)]),
+
+  /// One heavy thud.
+  heavy([(atMs: 0, pulse: HapticPulse.heavy)]),
+
+  /// Two even knocks. A refusal.
+  doubleKnock([
+    (atMs: 0, pulse: HapticPulse.medium),
+    (atMs: 130, pulse: HapticPulse.medium),
+  ]),
+
+  /// Three pulses, each lighter and sooner. Something lands and settles.
+  tripleFade([
+    (atMs: 0, pulse: HapticPulse.heavy),
+    (atMs: 170, pulse: HapticPulse.medium),
+    (atMs: 280, pulse: HapticPulse.light),
+  ]),
+
+  /// A light tap and then a firmer one. Something was allowed or went well.
+  risingPair([
+    (atMs: 0, pulse: HapticPulse.light),
+    (atMs: 85, pulse: HapticPulse.medium),
+  ]);
+
+  const HapticPattern(this.steps);
+
+  /// The pulses in order.
+  final List<({int atMs, HapticPulse pulse})> steps;
+
+  /// The most pulses a pattern may have.
+  static const maxPulses = 3;
+
+  /// The longest a pattern may run, from first pulse to last.
+  static const maxSpan = Duration(milliseconds: 320);
+}
+
 /// Centralized haptic feedback — confirmations and important actions only,
 /// never every tap. Call sites stay one-liners; web is a safe no-op.
 ///
@@ -14,6 +75,11 @@ import 'package:flutter/services.dart';
 /// - [done] a run of work is finished: medium.
 /// - [selection] segmented and mode toggles, tab changes, accept and dismiss.
 /// - [failed] a refresh did not work: heavy, so it feels unlike [done].
+///
+/// [play] takes a named [HapticPattern] for the moments that want more than
+/// one of the above: a double knock, a landing that bounces. A pattern is at
+/// most three short pulses inside a third of a second, so none of them can be
+/// mistaken for an alarm's vibration.
 ///
 /// A0 maps these onto Crit Alarm's own moments. The alarm screen and the two
 /// acknowledge stages are the ones that matter here.
@@ -56,5 +122,44 @@ abstract final class AppHaptics {
   /// A discrete choice: toggle, tab, accept/dismiss — the lightest tick.
   static void selection() {
     if (_enabled) unawaited(HapticFeedback.selectionClick());
+  }
+
+  static final _pending = <Timer>[];
+
+  /// Plays a named pattern. A pattern still under way is dropped first, so
+  /// two never pile up into a buzz.
+  static void play(HapticPattern pattern) {
+    cancelPattern();
+    if (!_enabled) return;
+    for (final step in pattern.steps) {
+      if (step.atMs == 0) {
+        _pulse(step.pulse);
+        continue;
+      }
+      _pending.add(
+        Timer(Duration(milliseconds: step.atMs), () {
+          // The switch is read again: it may have been turned off meanwhile.
+          if (_enabled) _pulse(step.pulse);
+        }),
+      );
+    }
+  }
+
+  /// Drops the pulses of a pattern that have not come yet. Safe to call when
+  /// there are none.
+  static void cancelPattern() {
+    for (final timer in _pending) {
+      timer.cancel();
+    }
+    _pending.clear();
+  }
+
+  static void _pulse(HapticPulse pulse) {
+    unawaited(switch (pulse) {
+      HapticPulse.tick => HapticFeedback.selectionClick(),
+      HapticPulse.light => HapticFeedback.lightImpact(),
+      HapticPulse.medium => HapticFeedback.mediumImpact(),
+      HapticPulse.heavy => HapticFeedback.heavyImpact(),
+    });
   }
 }
