@@ -17,6 +17,79 @@ import Foundation
 /// Stop is on neither line. It silences the alarm and sets the phone's own
 /// next ring for the same incident, and the server never hears about it.
 
+/// The one thing native code knows about wake-up challenges: whether a
+/// topic owes one before its incident is closed.
+///
+/// Dart writes one flag per topic, and only when it is sure. Nothing here
+/// works a plan out. The app copies the flagged topics into the app group
+/// with the sound choices (`SoundLibrary.publishChoices`), because the
+/// Live Activity is drawn in the widget extension and cannot read the app's
+/// own defaults.
+///
+/// The flag is about the Done button on a card that is already
+/// acknowledged. It is never read on the way to stopping a ring. A flag
+/// that is missing, or that is not a boolean, is "nothing owed", so Done
+/// closes the incident as it always has.
+public enum ChallengeFlag {
+    static let appGroup = "group.app.critalarm"
+
+    /// Where Dart writes the flags: `topic_challenge_owed.<topic>` through
+    /// `shared_preferences`, which adds the `flutter.` prefix.
+    /// `ChallengeChoices.owedKeyPrefix` in
+    /// lib/features/challenges/domain/challenge_choices.dart.
+    static let appKeyPrefix = "flutter.topic_challenge_owed."
+
+    /// The copy in the app group, written on every publish: the names of
+    /// the topics that owe a challenge.
+    static let groupKey = "challenge_owed_topics"
+
+    static var groupDefaults: UserDefaults? { UserDefaults(suiteName: appGroup) }
+
+    /// The topics flagged in the app's own defaults, sorted. Only a real
+    /// `true` counts: a number or a string under the key does not.
+    static func owedTopics(in defaults: UserDefaults) -> [String] {
+        defaults.dictionaryRepresentation().compactMap { key, value -> String? in
+            guard key.hasPrefix(appKeyPrefix), isTrue(value) else { return nil }
+            let topic = String(key.dropFirst(appKeyPrefix.count))
+            return topic.isEmpty ? nil : topic
+        }.sorted()
+    }
+
+    private static func isTrue(_ value: Any) -> Bool {
+        guard CFGetTypeID(value as CFTypeRef) == CFBooleanGetTypeID() else { return false }
+        return (value as? Bool) == true
+    }
+
+    /// Copies the flags into the group. A topic that lost its flag is gone
+    /// from the copy.
+    static func publish(from defaults: UserDefaults, to shared: UserDefaults) {
+        shared.set(owedTopics(in: defaults), forKey: groupKey)
+    }
+
+    /// Whether [topic] owes a challenge, as last published. False when
+    /// nothing was published, and for a card with no topic.
+    static func owes(topic: String, in shared: UserDefaults?) -> Bool {
+        guard !topic.isEmpty, let topics = shared?.stringArray(forKey: groupKey) else {
+            return false
+        }
+        return topics.contains(topic)
+    }
+}
+
+/// What Done on an acknowledged card does.
+public enum DoneButton: Equatable {
+    /// Closes the incident from the card, with no app. What it always did.
+    case closes
+
+    /// Opens the app on the incident's acknowledged screen and closes
+    /// nothing. The challenge is asked there, with its way out on screen.
+    case opensApp
+
+    static func forCard(topic: String, shared: UserDefaults?) -> DoneButton {
+        ChallengeFlag.owes(topic: topic, in: shared) ? .opensApp : .closes
+    }
+}
+
 @available(iOS 16.2, *)
 struct StopAlarmIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Stop"
