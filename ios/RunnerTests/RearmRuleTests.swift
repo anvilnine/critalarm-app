@@ -221,6 +221,29 @@ final class SoundPublishTests: XCTestCase {
         XCTAssertEqual(DoneButton.forCard(topic: "prod", shared: group), .closes)
     }
 
+    /// Before the first unlock the app's defaults read as empty. That
+    /// must not wipe what an earlier publish left in the group.
+    func testDefaultsThatCouldNotBeReadPublishNothing() {
+        app.set(true, forKey: "flutter.alarm_sound_own_locked")
+        app.set(true, forKey: "flutter.topic_challenge_owed.prod")
+        XCTAssertTrue(SoundLibrary.publishChoices(defaults: app, to: group))
+        XCTAssertTrue(group.bool(forKey: "sound_own_locked"))
+        XCTAssertEqual(DoneButton.forCard(topic: "prod", shared: group), .opensApp)
+
+        // What a locked phone hands back: nothing at all.
+        app.removePersistentDomain(forName: appSuite)
+        XCTAssertFalse(SoundLibrary.defaultsWereRead(app))
+        XCTAssertFalse(SoundLibrary.publishChoices(defaults: app, to: group))
+
+        XCTAssertTrue(group.bool(forKey: "sound_own_locked"))
+        XCTAssertEqual(group.string(forKey: "sound_default_file"), "pager_beep.caf")
+        XCTAssertEqual(DoneButton.forCard(topic: "prod", shared: group), .opensApp)
+    }
+
+    func testDefaultsWithAnythingDartWroteCountAsRead() {
+        XCTAssertTrue(SoundLibrary.defaultsWereRead(app))
+    }
+
     func testThePublishWithNoChallengeFlagPublishesNone() {
         SoundLibrary.publishChoices(defaults: app, to: group)
         XCTAssertEqual(group.stringArray(forKey: "challenge_owed_topics"), [])

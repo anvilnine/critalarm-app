@@ -234,10 +234,13 @@ struct IncidentActionButton: View {
 
     @ViewBuilder
     private func done(_ title: String) -> some View {
-        switch DoneButton.forCard(topic: topic, shared: ChallengeFlag.groupDefaults) {
-        case .opensApp:
-            Button(intent: OpenIncidentIntent(incidentId: incident.id)) { label(title) }
-        case .closes:
+        if let url = WidgetLink.doneURL(
+            incidentId: incident.id, topic: topic, shared: ChallengeFlag.groupDefaults
+        ) {
+            // A deep link, the way the locked widget goes into the app. In
+            // the small widget the whole face carries the same link.
+            Link(destination: url) { label(title) }
+        } else {
             Button(intent: CloseIncidentIntent(incidentId: incident.id)) { label(title) }
         }
     }

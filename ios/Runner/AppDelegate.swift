@@ -1188,6 +1188,16 @@ enum SoundLibrary {
     return published
   }
 
+  /// Whether [defaults] holds anything Dart wrote. `shared_preferences`
+  /// writes every key with the `flutter.` prefix, and the app has written
+  /// some by the end of its first launch. None at all means the store
+  /// could not be read (the phone has not been unlocked since it started)
+  /// or nothing was ever written, and then there is nothing to publish
+  /// either way.
+  static func defaultsWereRead(_ defaults: UserDefaults) -> Bool {
+    defaults.dictionaryRepresentation().keys.contains { $0.hasPrefix("flutter.") }
+  }
+
   /// Writes the ringable file names into the group for the extension.
   ///
   /// The lock flag Dart wrote goes with them. While it is set no own sound
@@ -1197,6 +1207,15 @@ enum SoundLibrary {
   /// Not private, so the unit tests can hand it two defaults of their own.
   @discardableResult
   static func publishChoices(defaults: UserDefaults, to shared: UserDefaults) -> Bool {
+    // A launch before the phone's first unlock reads the app's defaults as
+    // empty. Publishing that would wipe the own sound lock and every
+    // challenge flag in the group until the next publish. What could not
+    // be read never replaces what is written: the group stays as it is,
+    // and the caller is told nothing was published so it tries again.
+    guard defaultsWereRead(defaults) else {
+      NSLog("CritAlarmSound: assignments_not_published reason=defaults_unread")
+      return false
+    }
     var perTopicIds: [String: String] = [:]
     if let raw = defaults.string(forKey: "flutter.alarm_sound_per_topic"),
        let data = raw.data(using: .utf8),

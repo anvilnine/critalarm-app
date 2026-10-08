@@ -19,6 +19,47 @@ final class WidgetLinkTests: XCTestCase {
         XCTAssertEqual(WidgetLink.tap(from: url), ["incident_id": "inc_9a8b7c"])
     }
 
+    // Done on a widget, while the topic owes a wake-up challenge.
+
+    private func group(owing topics: [String]) -> UserDefaults {
+        let name = "widget-link-done-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defaults.set(topics, forKey: ChallengeFlag.groupKey)
+        addTeardownBlock { defaults.removePersistentDomain(forName: name) }
+        return defaults
+    }
+
+    func testDoneIsALinkToTheIncidentWhileTheFlagIsSet() {
+        let url = WidgetLink.doneURL(
+            incidentId: "inc_9a8b7c", topic: "prod", shared: group(owing: ["prod"])
+        )
+        XCTAssertEqual(url?.absoluteString, "critalarm://incidents/inc_9a8b7c")
+        XCTAssertEqual(url.flatMap(WidgetLink.tap(from:)), ["incident_id": "inc_9a8b7c"])
+    }
+
+    func testDoneIsNoLinkWhileTheFlagIsNotSet() {
+        XCTAssertNil(WidgetLink.doneURL(incidentId: "inc_1", topic: "prod", shared: group(owing: [])))
+        XCTAssertNil(WidgetLink.doneURL(incidentId: "inc_1", topic: "prod", shared: group(owing: ["nas"])))
+        XCTAssertNil(WidgetLink.doneURL(incidentId: "inc_1", topic: "prod", shared: nil))
+    }
+
+    func testTheSmallWidgetGoesWhereDoneGoes() {
+        let owing = group(owing: ["prod"])
+        XCTAssertEqual(
+            WidgetLink.smallTopicURL(topic: "prod", ackedIncidentId: "inc_1", shared: owing).absoluteString,
+            "critalarm://incidents/inc_1"
+        )
+        // Nothing acknowledged on it, or nothing owed: the topic, as before.
+        XCTAssertEqual(
+            WidgetLink.smallTopicURL(topic: "prod", ackedIncidentId: nil, shared: owing).absoluteString,
+            "critalarm://topics/prod"
+        )
+        XCTAssertEqual(
+            WidgetLink.smallTopicURL(topic: "prod", ackedIncidentId: "inc_1", shared: group(owing: [])).absoluteString,
+            "critalarm://topics/prod"
+        )
+    }
+
     func testHomeRoundTrip() {
         XCTAssertEqual(WidgetLink.homeURL.absoluteString, "critalarm://home")
         XCTAssertEqual(WidgetLink.tap(from: WidgetLink.homeURL), ["open": "home"])
