@@ -24,6 +24,31 @@ enum WidgetLink {
         URL(string: "\(scheme)://incidents/\(escape(incidentId))")!
     }
 
+    /// Where Done on a home screen widget goes while the topic owes a
+    /// wake-up challenge: the incident, as a link. Nil when Done closes
+    /// from the widget, as it always has.
+    ///
+    /// A link and not `OpenIncidentIntent`: a widget's button can run in
+    /// the widget extension's process, where that intent would only note
+    /// the incident in memory the app never sees.
+    static func doneURL(incidentId: String, topic: String, shared: UserDefaults?) -> URL? {
+        DoneButton.forCard(topic: topic, shared: shared) == .opensApp
+            ? url(incidentId: incidentId) : nil
+    }
+
+    /// The one link the small topic widget has for its whole face. A small
+    /// widget cannot hold a link of its own inside it, so while Done opens
+    /// the app, the face goes where Done goes. Otherwise the topic.
+    static func smallTopicURL(
+        topic: String, ackedIncidentId: String?, shared: UserDefaults?
+    ) -> URL {
+        if let ackedIncidentId,
+           let done = doneURL(incidentId: ackedIncidentId, topic: topic, shared: shared) {
+            return done
+        }
+        return url(topic: topic)
+    }
+
     /// The tap map for [url], or nil for any other scheme or shape.
     static func tap(from url: URL) -> [String: String]? {
         guard url.scheme == scheme,
