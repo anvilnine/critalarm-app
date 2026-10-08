@@ -54,6 +54,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - The welcome screen shows what the app does: a phone that rings until you tap I'm up, which alerts ring and which stay quiet, and one command from your own tools ringing your phone. Tap I'm up in the picture to stop it yourself.
 - Pick a server draws the two ways an alert reaches your phone, through Crit Alarm Cloud or through your own server, and lights the one you pick.
 - The welcome screen is now three pages. Swipe between them or tap Next, and the last page starts setup. The curl that rings a phone is the third page, so the separate screen for it is gone.
+- A connect link only connects to a server you host yourself.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
@@ -71,6 +72,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - A list scrolled under the Topics, Settings or New topic title blurs more as it goes under, so it no longer runs sharp through the title.
 - At large text sizes, Home and Will it wake me? keep the first action in view and the title no longer draws over the list.
 - The Android back button closes search instead of leaving the app.
+- Connecting to your own server checks the admin token first. A token the server does not accept is no longer saved, and the server you were connected to stays connected.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.
