@@ -3,6 +3,7 @@ import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/features/challenges/domain/hold_to_skip.dart';
 import 'package:critalarm/features/challenges/domain/type_topic_name_match.dart';
 import 'package:critalarm/features/challenges/presentation/challenge.dart';
+import 'package:critalarm/features/challenges/presentation/type_topic_name_challenge.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -32,6 +33,28 @@ void main() {
     test('an empty topic name is never matched', () {
       expect(match('', ''), isFalse);
       expect(match(' ', '  '), isFalse);
+    });
+    test('a name of the full 64 characters', () {
+      final name = '${'a' * 31}--${'B_' * 15}9';
+      expect(name.length, 64);
+      expect(match(name, name), isTrue);
+      expect(match(' ${name.toUpperCase()} ', name), isTrue);
+      expect(match(name.substring(0, 63), name), isFalse);
+    });
+    test('two hyphens and an underscore are typed as they are', () {
+      expect(match('db--eu_1', 'db--eu_1'), isTrue);
+      // What iOS smart dashes would make of it does not pass, which is
+      // why the field turns them off.
+      expect(match('db\u2014eu_1', 'db--eu_1'), isFalse);
+      expect(match('db-eu_1', 'db--eu_1'), isFalse);
+      expect(match('db--eu-1', 'db--eu_1'), isFalse);
+    });
+    test('the shown name steps down in size and never below 17', () {
+      expect(topicNameFontSize('prod-db'), 24);
+      expect(topicNameFontSize('a' * 20), 24);
+      expect(topicNameFontSize('a' * 21), 20);
+      expect(topicNameFontSize('a' * 41), 17);
+      expect(topicNameFontSize('a' * 64), 17);
     });
     test('letters outside ASCII', () {
       expect(match('ÉCOLE', 'école'), isTrue);

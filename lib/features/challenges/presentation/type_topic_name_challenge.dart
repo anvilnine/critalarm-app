@@ -36,6 +36,16 @@ final class TypeTopicNameChallenge implements Challenge {
       _TypeTopicName(run: run);
 }
 
+/// The size the topic name is shown at: large for a short name, a step
+/// down for each of the two lengths where it would otherwise fill the
+/// screen above the keyboard.
+double topicNameFontSize(String topic) {
+  final length = topic.trim().length;
+  if (length <= 20) return 24;
+  if (length <= 40) return 20;
+  return 17;
+}
+
 class _TypeTopicName extends StatefulWidget {
   const _TypeTopicName({required this.run});
 
@@ -101,12 +111,16 @@ class _TypeTopicNameState extends State<_TypeTopicName> {
                 horizontal: Spacing.s4,
                 vertical: Spacing.s3,
               ),
+              // No line limit: a name runs to 64 characters and has to be
+              // read whole to be typed. A long one drops a size so it
+              // stays to a few lines.
               child: Text(
                 topic,
                 textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.monoBold(colors.onCanvas, fontSize: 24),
+                style: AppTypography.monoBold(
+                  colors.onCanvas,
+                  fontSize: topicNameFontSize(topic),
+                ),
               ),
             ),
           ),
@@ -144,6 +158,10 @@ class _TypeTopicNameState extends State<_TypeTopicName> {
                 canRequestFocus: !isPicture,
                 autocorrect: false,
                 enableSuggestions: false,
+                // iOS would turn "--" into a dash and straighten nothing
+                // back, and such a name could then never be typed.
+                smartDashesType: SmartDashesType.disabled,
+                smartQuotesType: SmartQuotesType.disabled,
                 keyboardType: TextInputType.visiblePassword,
                 textInputAction: TextInputAction.done,
                 textAlign: TextAlign.center,

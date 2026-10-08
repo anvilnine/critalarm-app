@@ -40,6 +40,8 @@ class CriticalAlarmState {
     this.setupFlowHasRealRing = false,
     this.firstToolIncidentId,
     this.isPreview = false,
+    this.unloadedIncidentId,
+    this.isCloseQueued = false,
   });
 
   final CriticalAlarmStatus status;
@@ -92,6 +94,18 @@ class CriticalAlarmState {
   /// A developer's look at a screen: nothing on it reaches the server.
   final bool isPreview;
 
+  /// The incident the screen was opened for and could not load, while it
+  /// can still be closed from here: the server did not answer, and this
+  /// phone is not ringing for it. Null in every other state.
+  ///
+  /// It is what keeps "At my desk" on screen with no signal. The Done
+  /// button on a card can open the app instead of closing, and a person
+  /// who lands here must still be able to close.
+  final String? unloadedIncidentId;
+
+  /// The close could not reach the server and is waiting in the ack queue.
+  final bool isCloseQueued;
+
   /// Whether the alarm on screen is the first tool alarm of a setup run.
   /// Matched by incident id and nothing else.
   bool get isFirstToolAlarm {
@@ -138,6 +152,7 @@ class CriticalAlarmState {
     bool? setupFlowHasRealRing,
     String? firstToolIncidentId,
     bool? isPreview,
+    bool? isCloseQueued,
     bool clearFirstTool = false,
     bool clearError = false,
     bool clearFeedback = false,
@@ -170,6 +185,8 @@ class CriticalAlarmState {
           ? null
           : (firstToolIncidentId ?? this.firstToolIncidentId),
       isPreview: isPreview ?? this.isPreview,
+      unloadedIncidentId: unloadedIncidentId,
+      isCloseQueued: isCloseQueued ?? this.isCloseQueued,
     );
   }
 
@@ -200,7 +217,9 @@ class CriticalAlarmState {
           setEquals(setupTestIncidentIds, other.setupTestIncidentIds) &&
           setupFlowHasRealRing == other.setupFlowHasRealRing &&
           firstToolIncidentId == other.firstToolIncidentId &&
-          isPreview == other.isPreview;
+          isPreview == other.isPreview &&
+          unloadedIncidentId == other.unloadedIncidentId &&
+          isCloseQueued == other.isCloseQueued;
 
   @override
   int get hashCode => Object.hash(
@@ -228,6 +247,8 @@ class CriticalAlarmState {
       firstToolIncidentId,
       isPreview,
       ringTimeSpoken,
+      unloadedIncidentId,
+      isCloseQueued,
     ),
   );
 }
