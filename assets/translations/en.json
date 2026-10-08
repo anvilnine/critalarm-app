@@ -2128,5 +2128,13 @@
       "field_label": "Type the topic name: {topic}",
       "hint": "Capitals do not matter."
     }
+  },
+  "alarm_styles": {
+    "standard": "Standard",
+    "minimal": "Minimal",
+    "strip_title": "Look",
+    "row_title": "Alarm look",
+    "row_default": "Phone default",
+    "sheet_note": "Only the look changes. The buttons stay where they are."
   }
 }
