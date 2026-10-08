@@ -7,12 +7,12 @@ import 'package:critalarm/core/telemetry/paywall_layout_analytics.dart';
 import 'package:critalarm/core/telemetry/telemetry_gate.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/doors_paywall_layout.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/false_alarm_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/hero_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_reporter.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/plain_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/proof_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/receipt_paywall_layout.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/reel_paywall_layout.dart';
@@ -32,8 +32,6 @@ typedef PaywallLayoutBuilder = Widget Function(BuildContext context);
 final Map<PaywallLayoutId, PaywallLayoutBuilder> paywallLayoutBuilders = {
   PaywallLayoutId.hero: (_) => const HeroPaywallLayout(),
   PaywallLayoutId.doors: (_) => const DoorsPaywallLayout(),
-  PaywallLayoutId.falseAlarm: (_) => const FalseAlarmPaywallLayout(),
-  PaywallLayoutId.plain: (_) => const PlainPaywallLayout(),
   PaywallLayoutId.proof: (_) => const ProofPaywallLayout(),
   PaywallLayoutId.receipt: (_) => const ReceiptPaywallLayout(),
   PaywallLayoutId.reel: (_) => const ReelPaywallLayout(),
@@ -58,8 +56,8 @@ bool paywallLayoutIsBuilt(PaywallLayoutId layout) =>
 /// Only a developer build reads it.
 const String paywallAllBenefits = 'all';
 
-/// The location that opens [layout] selling [product]. The one place this
-/// path is built.
+/// The location that opens [layout] selling [product], after [intro] when
+/// one is given. The one place this path is built.
 ///
 /// [sourceWire] replaces [source] for an entry point that is not a
 /// [PaywallSource], which is every Pro one. [showsUnbuilt] asks for the
@@ -67,6 +65,7 @@ const String paywallAllBenefits = 'all';
 String paywallLayoutLocation(
   PaywallLayoutId layout,
   PaywallProduct product, {
+  PaywallIntroId intro = PaywallIntroId.none,
   PaywallSource source = PaywallSource.direct,
   String? sourceWire,
   bool showsUnbuilt = false,
@@ -75,16 +74,44 @@ String paywallLayoutLocation(
   queryParameters: {
     'product': product.key,
     'source': sourceWire ?? source.wire,
+    if (intro != PaywallIntroId.none) 'intro': intro.key,
     if (showsUnbuilt) 'benefits': paywallAllBenefits,
   },
 ).toString();
 
-/// One paywall on screen: it provides the buy model for [product] and
-/// builds the layout registered for [layout].
+/// One layout with the intro that plays before it, and nothing else: no
+/// buy model, no route. `PaywallLayoutScreen` draws one for a user and a
+/// picker tile draws one small. Above it there must be a
+/// `BlocProvider<PaywallBuyCubit>` and a [PaywallRouteInfo].
+class PaywallLayoutView extends StatelessWidget {
+  const PaywallLayoutView({
+    required this.layout,
+    required this.product,
+    this.intro = PaywallIntroId.none,
+    super.key,
+  });
+
+  final PaywallLayoutId layout;
+  final PaywallProduct product;
+  final PaywallIntroId intro;
+
+  @override
+  Widget build(BuildContext context) => PaywallIntroHost(
+    intro: intro,
+    product: product,
+    child: Builder(
+      builder: paywallLayoutBuilders[paywallLayoutDrawnFor(layout)]!,
+    ),
+  );
+}
+
+/// One paywall on screen: it provides the buy model for [product], plays
+/// [intro] once, and builds the layout registered for [layout].
 class PaywallLayoutScreen extends StatelessWidget {
   const PaywallLayoutScreen({
     required this.layout,
     required this.product,
+    this.intro = PaywallIntroId.none,
     this.source = PaywallSource.direct,
     this.sourceWire,
     this.demoStatus,
@@ -94,6 +121,9 @@ class PaywallLayoutScreen extends StatelessWidget {
 
   final PaywallLayoutId layout;
   final PaywallProduct product;
+
+  /// The intro that plays before the layout, once.
+  final PaywallIntroId intro;
   final PaywallSource source;
 
   /// The `?source=` value as it arrived. A Pro entry point is not a
@@ -117,6 +147,7 @@ class PaywallLayoutScreen extends StatelessWidget {
         getIt<TelemetryGate>(),
         layout: layout,
         isHosted: isHosted,
+        intro: paywallIntroIsBuilt(intro) ? intro : PaywallIntroId.none,
       ),
       source: isHosted
           ? source.wire
@@ -130,8 +161,6 @@ class PaywallLayoutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final builder = paywallLayoutBuilders[paywallLayoutDrawnFor(layout)]!;
-
     return BlocProvider<PaywallBuyCubit>(
       create: (_) {
         final cubit = getIt<PaywallBuyCubit>(
@@ -156,7 +185,11 @@ class PaywallLayoutScreen extends StatelessWidget {
           layout: layout,
           source: source,
           showsUnbuilt: showsUnbuilt,
-          child: Builder(builder: builder),
+          child: PaywallLayoutView(
+            layout: layout,
+            product: product,
+            intro: intro,
+          ),
         ),
       ),
     );

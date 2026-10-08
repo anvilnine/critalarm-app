@@ -83,6 +83,8 @@ void main() {
               'onboarding_flow': '',
               'paywall_layout': '',
               'pro_paywall_layout': '',
+              'paywall_intro': '',
+              'pro_paywall_intro': '',
             },
           ),
         );
@@ -124,6 +126,8 @@ void main() {
             'onboarding_flow': '',
             'paywall_layout': '',
             'pro_paywall_layout': '',
+            'paywall_intro': '',
+            'pro_paywall_intro': '',
           }),
         ).called(1);
 

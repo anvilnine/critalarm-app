@@ -1,36 +1,56 @@
-import 'dart:ui';
-
-import 'package:critalarm/features/paywall/presentation/layouts/false_alarm/false_alarm_timeline.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
+import 'package:critalarm/features/paywall/presentation/intros/false_alarm/false_alarm_intro.dart';
+import 'package:critalarm/features/paywall/presentation/intros/false_alarm/false_alarm_timeline.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  const tl = FalseAlarmTimeline.restAt;
+  // Any second after the intro is over.
+  const tl = FalseAlarmTimeline.end + 1;
 
   group('the order of the joke', () {
-    test('ring, admit, reveal, buy block, the offer, gone', () {
+    test('ring, admit, reveal, hand over, gone', () {
       expect(FalseAlarmTimeline.ringEnd, lessThan(FalseAlarmTimeline.admit));
       expect(FalseAlarmTimeline.admit, lessThan(FalseAlarmTimeline.reveal));
-      expect(FalseAlarmTimeline.reveal, lessThan(FalseAlarmTimeline.prelude));
+      expect(FalseAlarmTimeline.reveal, lessThan(FalseAlarmTimeline.handover));
+      expect(FalseAlarmTimeline.handover, lessThan(FalseAlarmTimeline.end));
+      // The red has opened past the mascot before the layout starts.
       expect(
-        FalseAlarmTimeline.prelude,
-        lessThan(FalseAlarmTimeline.buyBlockAt),
-      );
-      expect(FalseAlarmTimeline.buyBlockAt, lessThan(FalseAlarmTimeline.end));
-      // The red is all but gone from the foot before the buy block shows.
-      expect(
-        FalseAlarmTimeline.wipe(FalseAlarmTimeline.buyBlockAt),
-        greaterThan(0.85),
+        FalseAlarmTimeline.wipe(FalseAlarmTimeline.handover),
+        greaterThan(0.5),
       );
       // About a second and a half of joke, never a long one.
       expect(FalseAlarmTimeline.end, lessThanOrEqualTo(1.8));
+    });
+
+    test('the intro is registered with the seconds of the timeline', () {
+      expect(falseAlarmIntro.isSound, isTrue);
+      expect(falseAlarmIntro.seconds, FalseAlarmTimeline.end);
+      expect(falseAlarmIntro.handover, FalseAlarmTimeline.handover);
+      expect(falseAlarmIntro.skipTo, FalseAlarmTimeline.reveal);
+      for (final t in [0.0, 0.7, 1.1, 1.25, 1.6, 3.0]) {
+        expect(
+          paywallIntroSkip(falseAlarmIntro, t),
+          FalseAlarmTimeline.skip(t),
+        );
+      }
+    });
+
+    test('the admission is read, then gone before the layout starts', () {
+      expect(FalseAlarmTimeline.words(FalseAlarmTimeline.admit), 1);
+      expect(FalseAlarmTimeline.words(FalseAlarmTimeline.reveal), 1);
+      expect(FalseAlarmTimeline.words(FalseAlarmTimeline.handover), 0);
+      expect(FalseAlarmTimeline.words(FalseAlarmTimeline.end), 0);
+      // The mascot is still there at the hand over: the layout comes in on it.
+      expect(
+        FalseAlarmTimeline.presence(FalseAlarmTimeline.handover),
+        greaterThan(0.8),
+      );
     });
 
     test('the first frame is the whole alarm', () {
       expect(FalseAlarmTimeline.wipe(0), 0);
       expect(FalseAlarmTimeline.presence(0), 1);
       expect(FalseAlarmTimeline.saysAlarm(0), isTrue);
-      expect(FalseAlarmTimeline.showsBuyBlock(0), isFalse);
       expect(FalseAlarmTimeline.face(0).from, FalseAlarmFace.alarmed);
       expect(FalseAlarmTimeline.face(0).blend, 0);
       expect(FalseAlarmTimeline.ring(0, 0), 0);
@@ -41,7 +61,7 @@ void main() {
       final admitted = FalseAlarmTimeline.face(FalseAlarmTimeline.admit);
       expect(admitted.to, FalseAlarmFace.sheepish);
       expect(admitted.blend, 1);
-      final done = FalseAlarmTimeline.face(FalseAlarmTimeline.prelude);
+      final done = FalseAlarmTimeline.face(FalseAlarmTimeline.handover);
       expect(done.to, FalseAlarmFace.glad);
       expect(done.blend, 1);
     });
@@ -119,45 +139,14 @@ void main() {
     });
   });
 
-  group('the resting frame', () {
-    test('is the offer, with nothing of the joke left', () {
+  group('after the intro', () {
+    test('nothing of the joke is left once it is over', () {
       expect(tl, greaterThan(FalseAlarmTimeline.end));
       expect(FalseAlarmTimeline.isOver(tl), isTrue);
       expect(FalseAlarmTimeline.wipe(tl), 1);
       expect(FalseAlarmTimeline.presence(tl), 0);
       expect(FalseAlarmTimeline.shake(tl), 0);
       expect(FalseAlarmTimeline.blink(tl), 0);
-      expect(FalseAlarmTimeline.showsBuyBlock(tl), isTrue);
-    });
-  });
-
-  group('room for the tag', () {
-    test('a tall stage keeps it under the cross, beside the mascot', () {
-      const stage = Size(390, 380);
-      final arrangement = heroArrangementFor(stage);
-      final room = falseAlarmTagRoom(stage: stage, arrangement: arrangement)!;
-      expect(room.left, greaterThan(arrangement.mascot.right));
-      expect(room.bottom, lessThan(arrangement.card.top));
-      expect(room.top, greaterThanOrEqualTo(48));
-      expect(room.right, lessThanOrEqualTo(stage.width - heroSideRoom));
-    });
-
-    test('a short stage keeps it beside the cross', () {
-      const stage = Size(375, 235);
-      final arrangement = heroArrangementFor(stage);
-      final room = falseAlarmTagRoom(stage: stage, arrangement: arrangement)!;
-      expect(room.right, lessThanOrEqualTo(stage.width - 48));
-      expect(room.bottom, lessThan(arrangement.card.top));
-    });
-
-    test('a stage with no card has no tag', () {
-      const stage = Size(375, 120);
-      final arrangement = heroArrangementFor(stage);
-      expect(arrangement.kind, isNot(HeroStageKind.pair));
-      expect(
-        falseAlarmTagRoom(stage: stage, arrangement: arrangement),
-        isNull,
-      );
     });
   });
 }
