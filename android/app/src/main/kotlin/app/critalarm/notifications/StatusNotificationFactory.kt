@@ -15,6 +15,9 @@ import app.critalarm.notifications.LiveUpdate.shortCriticalText
 import app.critalarm.push.FcmIncidentPayload
 import app.critalarm.push.IncidentContent
 import app.critalarm.push.IncidentContentFetcher
+import app.critalarm.storage.ChallengeFlagStore
+import app.critalarm.storage.DoneButton
+import app.critalarm.storage.DoneButtonRule
 import app.critalarm.storage.IncidentDeliveryStore
 import app.critalarm.storage.TopicTimerStore
 import app.critalarm.storage.TopicTimers
@@ -28,6 +31,9 @@ object StatusNotificationFactory {
      * are different PendingIntents and must not share a slot.
      */
     private const val ACTION_SALT = 0x41435401
+
+    /** The request code of a Done button that opens the app. */
+    private const val OPEN_SALT = 0x4F50454E
 
     fun notificationId(incidentId: String) = incidentId.hashCode() xor 0x5f3759df
 
@@ -137,21 +143,31 @@ object StatusNotificationFactory {
             // "acknowledge" trigger to IncidentAction.CLOSE, so the old
             // "Acknowledge" label named a different step than the one it ran.
             // iOS hit this and renamed it too, see IncidentActivityWidget.swift.
-            val done = Intent(context, IncidentActionReceiver::class.java).apply {
-                action = IncidentActionReceiver.ACTION_ACKNOWLEDGE
-                putExtra(IncidentActionReceiver.EXTRA_INCIDENT_ID, incidentId)
-                putExtra(IncidentActionReceiver.EXTRA_SERVER, payload.server.toString())
-            }
-            builder.addAction(
-                0,
-                "Done",
-                PendingIntent.getBroadcast(
+            //
+            // A topic that owes a wake-up challenge is the one exception:
+            // Done then opens the app on this incident, where the challenge
+            // and its way out are, and closes nothing here. Dart wrote that
+            // flag; nothing on this side works a plan out. The alarm is
+            // already stopped by the time this card exists.
+            val doneIntent = when (DoneButtonRule.forTopic(topic, ChallengeFlagStore(context))) {
+                DoneButton.OPENS_APP -> PendingIntent.getActivity(
+                    context,
+                    notificationId(incidentId) xor OPEN_SALT,
+                    incidentLaunchIntent(context, incidentId),
+                    immutable,
+                )
+                DoneButton.CLOSES -> PendingIntent.getBroadcast(
                     context,
                     notificationId(incidentId) xor ACTION_SALT,
-                    done,
+                    Intent(context, IncidentActionReceiver::class.java).apply {
+                        action = IncidentActionReceiver.ACTION_ACKNOWLEDGE
+                        putExtra(IncidentActionReceiver.EXTRA_INCIDENT_ID, incidentId)
+                        putExtra(IncidentActionReceiver.EXTRA_SERVER, payload.server.toString())
+                    },
                     immutable,
-                ),
-            )
+                )
+            }
+            builder.addAction(0, "Done", doneIntent)
         }
 
         applyChronometer(context, builder, topic, state, ackedAtMillis, countdownEndMillis)
