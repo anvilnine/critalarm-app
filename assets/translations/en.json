@@ -2011,6 +2011,10 @@
   },
   "paywall_picker": {
     "intro_row": "Intro",
+    "intro_sound_row": "Intro sound",
+    "intro_sound_note": "Which instruments every intro plays. Both have the same timing.",
+    "intro_sound_piano": "Piano",
+    "intro_sound_kalimba": "Kalimba",
     "paywall_row": "Paywall",
     "intro_sheet_title": "Pick an intro",
     "paywall_sheet_title": "Pick a paywall",
@@ -2025,7 +2029,7 @@
       "snooze": "Snooze Snack",
       "wake_up": "Rude Awakening",
       "curtain": "Curtain Call",
-      "countdown": "Countdown"
+      "alarm_snack": "Alarm Snack"
     },
     "layout_names": {
       "hero": "Hero",
@@ -2052,8 +2056,8 @@
     "line": "Oh, hi.",
     "tag": "Ta-da."
   },
-  "paywall_intro_countdown": {
-    "line": "Too slow."
+  "paywall_intro_alarm_snack": {
+    "line": "Just snacking."
   },
   "developer_options": {
     "section_plans": "Purchases and plans",
@@ -2083,7 +2087,7 @@
       "stamp": "Stamp",
       "limits": "Limits lifted",
       "key": "Key",
-      "lights": "Lights on"
+      "party": "Receipt party"
     }
   },
   "feature_lock": {
@@ -2128,5 +2132,11 @@
       "field_label": "Type the topic name: {topic}",
       "hint": "Capitals do not matter."
     }
+  },
+  "paywall_thanks_limits": {
+    "topics_cap": "{count} of {count}",
+    "pushes_label": "High priority pushes",
+    "a_day": "{count} a day",
+    "icons_cap": "Default only"
   }
 }

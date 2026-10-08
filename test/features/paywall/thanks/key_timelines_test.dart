@@ -5,8 +5,6 @@ import 'package:critalarm/features/paywall/presentation/thanks/confetti/confetti
 import 'package:critalarm/features/paywall/presentation/thanks/confetti/confetti_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/thanks/key/key_thanks.dart';
 import 'package:critalarm/features/paywall/presentation/thanks/key/key_timeline.dart';
-import 'package:critalarm/features/paywall/presentation/thanks/lights/lights_thanks.dart';
-import 'package:critalarm/features/paywall/presentation/thanks/lights/lights_timeline.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -126,105 +124,6 @@ void main() {
     });
   });
 
-  group('LightsTimeline', () {
-    test('the cord is tugged on the peak, at the top of the jump', () {
-      expect(LightsTimeline.leap, 0.4);
-      expect(LightsTimeline.pull, 0.6);
-      expect(
-        LightsTimeline.pull,
-        closeTo((LightsTimeline.leap + LightsTimeline.land) / 2, 1e-9),
-      );
-      expect(LightsTimeline.lampDown, lessThan(LightsTimeline.leap));
-      expect(LightsTimeline.button, lessThanOrEqualTo(paywallThanksButtonBy));
-      expect(LightsTimeline.lit(LightsTimeline.pull - 0.01), 0);
-      expect(LightsTimeline.lit(LightsTimeline.pull + 0.2), 1);
-      expect(LightsTimeline.tug(LightsTimeline.pull), closeTo(1, 1e-9));
-      final top = LightsTimeline.lift(LightsTimeline.pull, lines: 4);
-      for (var t = 0.0; t < LightsTimeline.end; t += 0.01) {
-        expect(LightsTimeline.lift(t, lines: 4), lessThanOrEqualTo(top + 1e-9));
-      }
-    });
-
-    test('the room is dark until the lamp is on, and never after', () {
-      expect(LightsTimeline.dark(0), 0);
-      expect(LightsTimeline.dark(LightsTimeline.cover), 1);
-      for (var t = LightsTimeline.pull + 0.16; t < 5; t += 0.05) {
-        expect(LightsTimeline.dark(t), 0);
-      }
-    });
-
-    test('the second tug and the bulbs wait for the purchase cue to end', () {
-      expect(
-        LightsTimeline.pullAgain,
-        greaterThanOrEqualTo(paywallBoughtCueSeconds),
-      );
-      // The tug's sound is over before the first bulb's starts.
-      expect(
-        LightsTimeline.firstBulb - LightsTimeline.pullAgain,
-        greaterThanOrEqualTo(0.42),
-      );
-      for (var lines = 1; lines <= paywallThanksMaxLines; lines++) {
-        for (var i = 1; i < lines; i++) {
-          expect(
-            LightsTimeline.bulbAt(i, lines),
-            greaterThan(LightsTimeline.bulbAt(i - 1, lines)),
-          );
-        }
-        expect(
-          LightsTimeline.bulbAt(lines - 1, lines) + 0.4,
-          lessThan(LightsTimeline.end),
-        );
-        expect(LightsTimeline.bulb(LightsTimeline.pullAgain, 0, lines), 0);
-      }
-    });
-
-    test('the resting frame is complete: lit, level and still', () {
-      for (final t in [LightsTimeline.end, LightsTimeline.end + 30]) {
-        expect(LightsTimeline.covered(t), 1);
-        expect(LightsTimeline.lamp(t), closeTo(1, 1e-9));
-        expect(LightsTimeline.lit(t), 1);
-        expect(LightsTimeline.flare(t), closeTo(0, 1e-9));
-        expect(LightsTimeline.dark(t), 0);
-        expect(LightsTimeline.tug(t), 0);
-        expect(LightsTimeline.travel(t), 1);
-        expect(LightsTimeline.stretch(t), closeTo(1, 1e-9));
-        expect(LightsTimeline.headlineIn(t), 1);
-        for (var lines = 1; lines <= paywallThanksMaxLines; lines++) {
-          expect(LightsTimeline.lift(t, lines: lines), 0);
-          for (var i = 0; i < lines; i++) {
-            expect(LightsTimeline.lineIn(t, i), 1);
-            expect(LightsTimeline.bulb(t, i, lines), 1);
-          }
-        }
-      }
-      expect(LightsTimeline.face(LightsTimeline.end).to, HeroFace.glad);
-    });
-
-    test('the lamp, the mascot and the words fit above the button', () {
-      for (final (size, padding) in _phones) {
-        for (var lines = 0; lines <= paywallThanksMaxLines; lines++) {
-          final place = LightsStage.of(
-            size: size,
-            padding: padding,
-            lines: lines,
-          );
-          final foot = size.height - padding.bottom - paywallThanksButtonRoom;
-          expect(place.shade.top, greaterThanOrEqualTo(padding.top));
-          expect(place.shade.bottom, lessThan(place.stage.crit.top));
-          expect(place.stage.crit.center.dx, size.width / 2);
-          expect(place.stage.words.top, greaterThan(place.floor));
-          expect(place.stage.words.bottom, foot);
-          // A jump reaches the knob and stays under the shade.
-          expect(place.knob.dy, lessThan(place.stage.crit.top));
-          expect(
-            place.stage.crit.top - place.edge * 0.3,
-            greaterThan(place.shade.bottom),
-          );
-        }
-      }
-    });
-  });
-
   group('what is heard after the purchase cue', () {
     test('the key version plays the key and then the lock', () {
       expect(keyThanks.isSound, isTrue);
@@ -232,17 +131,6 @@ void main() {
         (KeyTimeline.secondTurn, PaywallCue.key),
         (KeyTimeline.fall, PaywallCue.lock),
       ]);
-    });
-
-    test('the lights version plays the cord and then one bulb a line', () {
-      expect(lightsThanks.isSound, isTrue);
-      for (var lines = 1; lines <= paywallThanksMaxLines; lines++) {
-        expect(_heard(lightsBeats(lines)), [
-          (LightsTimeline.pullAgain, PaywallCue.cord),
-          for (var i = 0; i < lines; i++)
-            (LightsTimeline.bulbAt(i, lines), PaywallCue.bulb),
-        ]);
-      }
     });
 
     test('confetti plays its settle as the last piece lies still', () {
@@ -257,8 +145,8 @@ void main() {
     });
 
     test('no version plays a cue that may be taken for a ring: each cue '
-        'comes once, but the bulbs, which are apart', () {
-      for (final beats in [keyBeats(5), lightsBeats(5), confettiBeats(5)]) {
+        'comes once, and they are apart', () {
+      for (final beats in [keyBeats(5), confettiBeats(5)]) {
         final heard = _heard(beats);
         for (var i = 1; i < heard.length; i++) {
           expect(heard[i].$1 - heard[i - 1].$1, greaterThanOrEqualTo(0.17));

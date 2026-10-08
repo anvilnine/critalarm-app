@@ -393,9 +393,6 @@ class $AssetsTranslationsGen {
 class $AssetsUiSoundsGen {
   const $AssetsUiSoundsGen();
 
-  /// File path: assets/ui_sounds/ui_bulb.m4a
-  String get uiBulb => 'assets/ui_sounds/ui_bulb.m4a';
-
   /// File path: assets/ui_sounds/ui_buy.m4a
   String get uiBuy => 'assets/ui_sounds/ui_buy.m4a';
 
@@ -404,9 +401,6 @@ class $AssetsUiSoundsGen {
 
   /// File path: assets/ui_sounds/ui_close.m4a
   String get uiClose => 'assets/ui_sounds/ui_close.m4a';
-
-  /// File path: assets/ui_sounds/ui_cord.m4a
-  String get uiCord => 'assets/ui_sounds/ui_cord.m4a';
 
   /// File path: assets/ui_sounds/ui_drop.m4a
   String get uiDrop => 'assets/ui_sounds/ui_drop.m4a';
@@ -417,32 +411,18 @@ class $AssetsUiSoundsGen {
   /// File path: assets/ui_sounds/ui_flip.m4a
   String get uiFlip => 'assets/ui_sounds/ui_flip.m4a';
 
-  /// File path: assets/ui_sounds/ui_gag.m4a
-  String get uiGag => 'assets/ui_sounds/ui_gag.m4a';
+  /// File path: assets/ui_sounds/ui_intro_arrive_kalimba.m4a
+  String get uiIntroArriveKalimba =>
+      'assets/ui_sounds/ui_intro_arrive_kalimba.m4a';
 
-  /// File path: assets/ui_sounds/ui_intro_bounce.m4a
-  String get uiIntroBounce => 'assets/ui_sounds/ui_intro_bounce.m4a';
-
-  /// File path: assets/ui_sounds/ui_intro_gulp.m4a
-  String get uiIntroGulp => 'assets/ui_sounds/ui_intro_gulp.m4a';
+  /// File path: assets/ui_sounds/ui_intro_arrive_piano.m4a
+  String get uiIntroArrivePiano => 'assets/ui_sounds/ui_intro_arrive_piano.m4a';
 
   /// File path: assets/ui_sounds/ui_intro_knock.m4a
   String get uiIntroKnock => 'assets/ui_sounds/ui_intro_knock.m4a';
 
   /// File path: assets/ui_sounds/ui_intro_slide.m4a
   String get uiIntroSlide => 'assets/ui_sounds/ui_intro_slide.m4a';
-
-  /// File path: assets/ui_sounds/ui_intro_spring.m4a
-  String get uiIntroSpring => 'assets/ui_sounds/ui_intro_spring.m4a';
-
-  /// File path: assets/ui_sounds/ui_intro_swish.m4a
-  String get uiIntroSwish => 'assets/ui_sounds/ui_intro_swish.m4a';
-
-  /// File path: assets/ui_sounds/ui_intro_tease.m4a
-  String get uiIntroTease => 'assets/ui_sounds/ui_intro_tease.m4a';
-
-  /// File path: assets/ui_sounds/ui_intro_wink.m4a
-  String get uiIntroWink => 'assets/ui_sounds/ui_intro_wink.m4a';
 
   /// File path: assets/ui_sounds/ui_key.m4a
   String get uiKey => 'assets/ui_sounds/ui_key.m4a';
@@ -492,6 +472,45 @@ class $AssetsUiSoundsGen {
   /// File path: assets/ui_sounds/ui_roll.m4a
   String get uiRoll => 'assets/ui_sounds/ui_roll.m4a';
 
+  /// File path: assets/ui_sounds/ui_score_alarm_snack_kalimba.m4a
+  String get uiScoreAlarmSnackKalimba =>
+      'assets/ui_sounds/ui_score_alarm_snack_kalimba.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_alarm_snack_piano.m4a
+  String get uiScoreAlarmSnackPiano =>
+      'assets/ui_sounds/ui_score_alarm_snack_piano.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_curtain_kalimba.m4a
+  String get uiScoreCurtainKalimba =>
+      'assets/ui_sounds/ui_score_curtain_kalimba.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_curtain_piano.m4a
+  String get uiScoreCurtainPiano =>
+      'assets/ui_sounds/ui_score_curtain_piano.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_false_alarm_kalimba.m4a
+  String get uiScoreFalseAlarmKalimba =>
+      'assets/ui_sounds/ui_score_false_alarm_kalimba.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_false_alarm_piano.m4a
+  String get uiScoreFalseAlarmPiano =>
+      'assets/ui_sounds/ui_score_false_alarm_piano.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_snooze_kalimba.m4a
+  String get uiScoreSnoozeKalimba =>
+      'assets/ui_sounds/ui_score_snooze_kalimba.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_snooze_piano.m4a
+  String get uiScoreSnoozePiano => 'assets/ui_sounds/ui_score_snooze_piano.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_wake_up_kalimba.m4a
+  String get uiScoreWakeUpKalimba =>
+      'assets/ui_sounds/ui_score_wake_up_kalimba.m4a';
+
+  /// File path: assets/ui_sounds/ui_score_wake_up_piano.m4a
+  String get uiScoreWakeUpPiano =>
+      'assets/ui_sounds/ui_score_wake_up_piano.m4a';
+
   /// File path: assets/ui_sounds/ui_settle.m4a
   String get uiSettle => 'assets/ui_sounds/ui_settle.m4a';
 
@@ -518,23 +537,16 @@ class $AssetsUiSoundsGen {
 
   /// List of all assets
   List<String> get values => [
-    uiBulb,
     uiBuy,
     uiCheck,
     uiClose,
-    uiCord,
     uiDrop,
     uiError,
     uiFlip,
-    uiGag,
-    uiIntroBounce,
-    uiIntroGulp,
+    uiIntroArriveKalimba,
+    uiIntroArrivePiano,
     uiIntroKnock,
     uiIntroSlide,
-    uiIntroSpring,
-    uiIntroSwish,
-    uiIntroTease,
-    uiIntroWink,
     uiKey,
     uiLift,
     uiLine,
@@ -551,6 +563,16 @@ class $AssetsUiSoundsGen {
     uiRestore,
     uiRise,
     uiRoll,
+    uiScoreAlarmSnackKalimba,
+    uiScoreAlarmSnackPiano,
+    uiScoreCurtainKalimba,
+    uiScoreCurtainPiano,
+    uiScoreFalseAlarmKalimba,
+    uiScoreFalseAlarmPiano,
+    uiScoreSnoozeKalimba,
+    uiScoreSnoozePiano,
+    uiScoreWakeUpKalimba,
+    uiScoreWakeUpPiano,
     uiSettle,
     uiSnap,
     uiStamp,

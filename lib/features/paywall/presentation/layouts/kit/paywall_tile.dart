@@ -47,7 +47,8 @@ String paywallIntroNameKey(PaywallIntroId intro) => switch (intro) {
   PaywallIntroId.snooze => LocaleKeys.paywall_picker_intro_names_snooze,
   PaywallIntroId.wakeUp => LocaleKeys.paywall_picker_intro_names_wake_up,
   PaywallIntroId.curtain => LocaleKeys.paywall_picker_intro_names_curtain,
-  PaywallIntroId.countdown => LocaleKeys.paywall_picker_intro_names_countdown,
+  PaywallIntroId.alarmSnack =>
+    LocaleKeys.paywall_picker_intro_names_alarm_snack,
 };
 
 /// The key of the name a person reads for [thanks]. See
@@ -59,7 +60,7 @@ String paywallThanksNameKey(PaywallThanksId thanks) => switch (thanks) {
   PaywallThanksId.stamp => LocaleKeys.paywall_thanks_names_stamp,
   PaywallThanksId.limits => LocaleKeys.paywall_thanks_names_limits,
   PaywallThanksId.lockAndKey => LocaleKeys.paywall_thanks_names_key,
-  PaywallThanksId.lights => LocaleKeys.paywall_thanks_names_lights,
+  PaywallThanksId.receiptParty => LocaleKeys.paywall_thanks_names_party,
 };
 
 /// The names themselves.

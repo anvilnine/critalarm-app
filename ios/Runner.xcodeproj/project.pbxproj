@@ -78,6 +78,7 @@
 		A24A00000000000000000014 /* AckedIncidentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000001 /* AckedIncidentStore.swift */; };
 		A24A00000000000000000021 /* AlarmScheduleRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000002 /* AlarmScheduleRule.swift */; };
 		A24A00000000000000000022 /* AlarmScheduleRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000002 /* AlarmScheduleRule.swift */; };
+		A24A00000000000000000023 /* AlarmScheduleRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000002 /* AlarmScheduleRule.swift */; };
 		A24A00000000000000000031 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
 		A24A00000000000000000032 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
 		A24A00000000000000000033 /* NativeAckSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24A00000000000000000003 /* NativeAckSender.swift */; };
@@ -1070,6 +1071,7 @@
 				A28A00000000000000000203 /* RearmRule.swift in Sources */,
 				A24A00000000000000000035 /* NativeAckSender.swift in Sources */,
 				A24A00000000000000000013 /* AckedIncidentStore.swift in Sources */,
+				A24A00000000000000000023 /* AlarmScheduleRule.swift in Sources */,
 				BE4704C5DA9B9A1CAC9CBCAC /* NotificationService.swift in Sources */,
 				873108CBF1F3961B5574601E /* NseCredentials.swift in Sources */,
 				A436826ED21EEF1AB1E6333E /* NtfyEmoji.swift in Sources */,
