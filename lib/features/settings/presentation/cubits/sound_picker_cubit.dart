@@ -30,14 +30,15 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
     this.nameOf,
     SoundPackRepository? packs,
     this._readOwnSounds,
+    this._readOwnSoundsOnceReady,
     Stream<Object?>? ownSoundsChanges,
   }) : _platform = platform ?? defaultTargetPlatform,
        _packs = packs,
        super(const SoundPickerState()) {
-    _ownSoundsChanges = ownSoundsChanges?.listen((_) {
-      if (isClosed) return;
-      emit(state.copyWith(ownSounds: _ownSounds()));
-    });
+    _ownSoundsSeed = _seedOwnSounds();
+    _ownSoundsChanges = ownSoundsChanges?.listen(
+      (_) => unawaited(_followOwnSounds()),
+    );
     _previewEnded = _host.previewEnded.listen((path) {
       if (isClosed) return;
       final playing = state.previewingSoundId;
@@ -56,12 +57,53 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
   /// catalogue.
   final String Function(String id)? nameOf;
 
-  /// The access layer's decision for own sounds. Left out, they are open.
+  /// The access layer's decision for own sounds, as it stands right now.
+  /// Left out, they are open. Before the plan has been read it can say
+  /// "locked" to someone who holds Pro, so nothing here reads it until
+  /// [_ownSoundsSeed] is done.
   final FeatureDecision Function()? _readOwnSounds;
+
+  /// The same decision, asked once the plan has been read. Never throws.
+  /// Left out, [_readOwnSounds] is trusted from the start.
+  final Future<FeatureDecision> Function()? _readOwnSoundsOnceReady;
   StreamSubscription<Object?>? _ownSoundsChanges;
+
+  /// Done once the first answer that can be trusted is in the state. Until
+  /// then the state says open: no row is drawn locked and no paywall opens.
+  late final Future<void> _ownSoundsSeed;
 
   FeatureDecision _ownSounds() =>
       _readOwnSounds?.call() ?? const FeatureDecision.open();
+
+  Future<void> _seedOwnSounds() async {
+    FeatureDecision decision;
+    try {
+      decision = await _readOwnSoundsOnceReady?.call() ?? _ownSounds();
+    } on Object catch (_) {
+      // Nobody knows, so nothing is locked and nothing is sold.
+      decision = const FeatureDecision.open();
+    }
+    if (!isClosed && decision != state.ownSounds) {
+      emit(state.copyWith(ownSounds: decision));
+    }
+  }
+
+  /// A change is read only after the first trusted answer, and by then the
+  /// plan has been read, so the plain decision is right.
+  Future<void> _followOwnSounds() async {
+    await _ownSoundsSeed;
+    if (isClosed) return;
+    final decision = _ownSounds();
+    if (decision != state.ownSounds) emit(state.copyWith(ownSounds: decision));
+  }
+
+  /// The decision for own sounds, once it can be trusted, with the state
+  /// brought up to it. Every gate asks this: Pick a file, Record, a tap on
+  /// an own sound.
+  Future<FeatureDecision> ownSoundsOnceReady() async {
+    await _followOwnSounds();
+    return state.ownSounds;
+  }
 
   /// Null where the app offers no packs.
   final SoundPackRepository? _packs;
@@ -101,7 +143,6 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
             sound.copyWith(peaks: sound.peaks ?? _peaksCache.cached(sound.id)),
         ],
         isLoadingPeaks: true,
-        ownSounds: _ownSounds(),
         userSounds: userSounds,
         selectedSoundId: selected,
         defaultSoundId: defaultId,
@@ -303,14 +344,16 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
 
   /// Saves the choice. A locked own sound cannot be picked: the screen
   /// opens the paywall for it, and this saves nothing.
+  ///
+  /// While a locked own sound is the saved choice, the mark sits on the
+  /// sound standing in for it. A tap on that marked row saves nothing
+  /// either: it would write the stand-in over the own sound, which then
+  /// would not come back with Pro. A tap on any other row is a new pick.
   Future<void> select(String soundId) async {
-    final ownSounds = _ownSounds();
-    if (ownSoundsLockedBy(ownSounds) && isOwnSoundId(soundId)) {
-      if (ownSounds != state.ownSounds) {
-        emit(state.copyWith(ownSounds: ownSounds));
-      }
-      return;
-    }
+    final ownSounds = await ownSoundsOnceReady();
+    if (isClosed) return;
+    if (ownSoundsLockedBy(ownSounds) && isOwnSoundId(soundId)) return;
+    if (state.ringsSomethingElse && soundId == state.ringingSoundId) return;
     if (state.isPerTopic) {
       await _repository.setTopicSoundId(state.topicName!, soundId);
     } else {
@@ -355,13 +398,7 @@ class SoundPickerCubit extends Cubit<SoundPickerState> {
   /// With own sounds locked the platform picker never opens, and the
   /// screen opens the paywall instead.
   Future<PickedSoundFile?> pickFile() async {
-    final ownSounds = _ownSounds();
-    if (ownSoundsLockedBy(ownSounds)) {
-      if (!isClosed && ownSounds != state.ownSounds) {
-        emit(state.copyWith(ownSounds: ownSounds));
-      }
-      return null;
-    }
+    if (ownSoundsLockedBy(await ownSoundsOnceReady())) return null;
     final picked = await _picker.pickOne();
     if (picked == null) return null;
     final rejection = checkPickedSound(
