@@ -107,7 +107,10 @@ ChallengeDue challengeDueFor({
     return const ChallengeNotOwed(NoChallengeReason.alreadyCleared);
   }
   if (!canRun) return const ChallengeNotOwed(NoChallengeReason.cannotRun);
-  final isSureLocked = decision is FeatureLocked && isPlanRead;
+  // Not offered on this server is as sure as a lock that was read.
+  final isSureLocked =
+      decision is FeatureNotOffered ||
+      (decision is FeatureLocked && isPlanRead);
   if (isSureLocked) return const ChallengeNotOwed(NoChallengeReason.locked);
   final isUnknown = decision is FeatureUnread || decision is FeatureLocked;
   if (isUnknown && !wasOwedWhenLastSure) {
@@ -158,7 +161,7 @@ ChallengeFlagChanges challengeFlagChangesFor({
   switch (decision) {
     case FeatureOpen() || FeatureConfirming():
       set.addAll(topicsWithChoice.difference(written));
-    case FeatureLocked():
+    case FeatureLocked() || FeatureNotOffered():
       clear.addAll(written);
     case FeatureUnread() || null:
       break;

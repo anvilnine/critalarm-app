@@ -68,8 +68,8 @@ void main() {
     }
   });
 
-  test('Hosted lists the benefits in HostedBenefit.all, in its order: '
-      'widgets are listed under Pro', () {
+  test('Hosted lists the benefits of HostedBenefit.all that have a line '
+      'and a preview for a layout, in its order', () {
     final hosted = allPaywallBenefits
         .where((b) => b.product == PaywallProduct.hosted)
         .toList();
@@ -79,9 +79,14 @@ void main() {
       PaywallBenefitId.history,
       PaywallBenefitId.appIcons,
     ]);
+    // The weekly delivery check is a Hosted benefit with no line and
+    // preview for a layout yet. Every other one is listed, in order.
+    expect(HostedBenefit.all.last.id, HostedBenefitId.weeklyCheck);
     expect(
       hosted.map((b) => b.id.name),
-      HostedBenefit.all.map((b) => b.id.name),
+      HostedBenefit.all
+          .where((b) => b.id != HostedBenefitId.weeklyCheck)
+          .map((b) => b.id.name),
     );
     expect(hosted.every((b) => b.inThisBuild), isTrue);
     expect(paywallBenefitsFor(PaywallProduct.hosted), hasLength(4));
@@ -106,14 +111,14 @@ void main() {
     }
   });
 
-  test('Pro lists five benefits, in the order they are sold', () {
+  test('Pro lists four benefits, in the order they are sold', () {
     final pro = allPaywallBenefits
         .where((b) => b.product == PaywallProduct.pro)
         .toList();
     expect(pro.map((b) => b.id), [
       PaywallBenefitId.wakeUpChallenges,
       PaywallBenefitId.widgets,
-      PaywallBenefitId.reliabilityChecks,
+      // The weekly check left this list when Hosted began to unlock it.
       PaywallBenefitId.customSounds,
       PaywallBenefitId.customAlarmScreens,
     ]);
@@ -123,43 +128,47 @@ void main() {
       'today', () {
     expect(paywallBenefitsFor(PaywallProduct.pro).map((b) => b.id), [
       PaywallBenefitId.widgets,
-      PaywallBenefitId.reliabilityChecks,
+      // A file picked or a recording, as its line says.
+      PaywallBenefitId.customSounds,
       // Four fixed looks and the person's own photo are in the app.
       PaywallBenefitId.customAlarmScreens,
     ]);
     final waiting = allPaywallBenefits
         .where((b) => !b.inThisBuild)
         .map((b) => b.id);
-    expect(waiting, [
-      PaywallBenefitId.wakeUpChallenges,
-      PaywallBenefitId.customSounds,
-    ]);
+    // Wake-up challenges are built, and their line and preview still show
+    // a QR code scan the app does not have.
+    expect(waiting, [PaywallBenefitId.wakeUpChallenges]);
   });
 
   test('no benefit is listed under both products', () {
     final ids = allPaywallBenefits.map((b) => b.id).toList();
     expect(ids.toSet(), hasLength(ids.length));
-    expect(ids.toSet(), PaywallBenefitId.values.toSet());
+    // The weekly check has no entry on either layout list today: Pro does
+    // not unlock it, and Hosted has no line and preview for it yet.
+    expect(
+      ids.toSet(),
+      {...PaywallBenefitId.values}..remove(PaywallBenefitId.reliabilityChecks),
+    );
   });
 
-  test('reliability checks are drawn with the weekly check preview, and '
-      'widgets with the widgets one', () {
-    PaywallPreviewId previewOf(PaywallBenefitId id) =>
-        allPaywallBenefits.firstWhere((b) => b.id == id).previewId;
+  test('widgets are drawn with the widgets preview', () {
     expect(
-      previewOf(PaywallBenefitId.reliabilityChecks),
-      PaywallPreviewId.weeklyCheck,
+      allPaywallBenefits
+          .firstWhere((b) => b.id == PaywallBenefitId.widgets)
+          .previewId,
+      PaywallPreviewId.widgets,
     );
-    expect(previewOf(PaywallBenefitId.widgets), PaywallPreviewId.widgets);
   });
 
   test('every benefit has its own id and its own preview', () {
     final all = allPaywallBenefits;
     expect(all.map((b) => b.id).toSet(), hasLength(all.length));
     expect(all.map((b) => b.previewId).toSet(), hasLength(all.length));
+    // Every preview but the weekly check one is drawn by some benefit.
     expect(
       all.map((b) => b.previewId).toSet(),
-      PaywallPreviewId.values.toSet(),
+      {...PaywallPreviewId.values}..remove(PaywallPreviewId.weeklyCheck),
     );
   });
 

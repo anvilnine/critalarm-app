@@ -419,17 +419,6 @@ final class ProPackAccess {
     await _confirm();
   }
 
-  /// A route answered `403 {"error":"pack","pack":...}`: it needs a pack the
-  /// relay says this account does not hold.
-  ///
-  /// The app does not take the pack away on its own. It reads the relay's
-  /// list again, at once, and shows what that says. An id other than the
-  /// Pro pack is passed over.
-  Future<void> relayRefused(String? packId) async {
-    if (packId != proPackId) return;
-    await refresh(force: true);
-  }
-
   /// Runs the calls this class makes to the relay one after another, so
   /// their answers arrive in the order they were asked for.
   Future<T> _oneAtATime<T>(Future<T> Function() call) {
