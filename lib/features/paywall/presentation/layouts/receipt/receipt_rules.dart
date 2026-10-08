@@ -42,8 +42,8 @@ class ReceiptStamp {
 
 /// The print, in seconds on the layout's clock. The slot is there from the
 /// first frame, the mascot pops up beside it, the paper feeds out a line at
-/// a time, the stamp lands, and the first preview peeks out from behind
-/// the paper. Then the loop starts.
+/// a time, the stamp lands, and the first preview slides out from behind
+/// the paper to stand beside it. Then the loop starts.
 abstract final class ReceiptTimeline {
   /// The paper starts to feed, and has all of its length.
   static const double feedStart = 0.3;
@@ -120,10 +120,28 @@ abstract final class ReceiptTimeline {
   static double peek(double t) =>
       AppCurves.easeBack.transform(phase(t, peekStart, restAt - 0.05));
 
-  /// The mascot at [t], until the loop takes over at [restAt]: it lands
-  /// wide-eyed, watches the paper come out, hops as the stamp lands, and
-  /// is glad.
-  static ReceiptActor actor(double t) {
+  /// The second the total of a slip of [count] lines starts to print.
+  static double totalAt(int count) =>
+      feedStart + (count + 1.2) / (count + 3) * (feedEnd - feedStart);
+
+  /// How high the mascot's nod is at most, against the hop of a reaction.
+  static const double nodHeight = 0.3;
+
+  /// The small nod the mascot gives as each of the [count] lines comes
+  /// out, 0 to [nodHeight]. It is level between lines, and for the header,
+  /// the total and the foot.
+  static double nod(double t, int count) {
+    final at = fed(t) * (count + 3);
+    final step = at.floor();
+    if (step < 1 || step > count) return 0;
+    return nodHeight * math.sin(math.pi * phase(at - step, 0.15, 0.75));
+  }
+
+  /// The mascot at [t] beside a slip of [count] lines, until the loop
+  /// takes over at [restAt]: it lands wide-eyed, watches each line come
+  /// out with a nod, is glad at the total, is startled into a hop by the
+  /// stamp, and is glad again.
+  static ReceiptActor actor(double t, {required int count}) {
     final entrance = phase(t, 0, heroEntranceSeconds);
     if (t < 0.5) {
       return ReceiptActor(
@@ -134,13 +152,23 @@ abstract final class ReceiptTimeline {
         entrance: entrance,
       );
     }
-    if (t < stampAt) {
+    final total = totalAt(count);
+    if (t < total) {
       return ReceiptActor(
         face: HeroFace.watching,
         fromFace: HeroFace.arriving,
         faceBlend: phase(t, 0.5, 0.5 + heroFaceBlend),
-        hop: 0,
+        hop: nod(t, count),
         entrance: entrance,
+      );
+    }
+    if (t < stampAt) {
+      return ReceiptActor(
+        face: HeroFace.glad,
+        fromFace: HeroFace.watching,
+        faceBlend: phase(t, total, total + heroFaceBlend),
+        hop: 0,
+        entrance: 1,
       );
     }
     const gladAt = stampAt + 0.34;
@@ -148,8 +176,8 @@ abstract final class ReceiptTimeline {
     final hop = 4 * up * (1 - up);
     if (t < gladAt) {
       return ReceiptActor(
-        face: HeroFace.winning,
-        fromFace: HeroFace.watching,
+        face: HeroFace.startled,
+        fromFace: HeroFace.glad,
         faceBlend: phase(t, stampAt, stampAt + heroFaceBlend * 0.5),
         hop: hop,
         entrance: 1,
@@ -157,7 +185,7 @@ abstract final class ReceiptTimeline {
     }
     return ReceiptActor(
       face: HeroFace.glad,
-      fromFace: HeroFace.winning,
+      fromFace: HeroFace.startled,
       faceBlend: phase(t, gladAt, restAt),
       hop: hop,
       entrance: 1,
@@ -194,9 +222,11 @@ class ReceiptPlan {
   /// the screen. Its lines take the height the stage can give, between
   /// [rowMin] and [rowMax] each. The mascot and the card stand in the
   /// column to its right, under the close cross, and both give way before
-  /// the paper does.
+  /// the paper does. The card is whole beside the paper, never under it.
+  /// The mascot is as large as the column lets it be and leans [lean]
+  /// points over the paper's edge, in front of it.
   factory ReceiptPlan.of(Size stage, {required int count}) {
-    final paperWidth = (stage.width * 0.61).clamp(210.0, 250.0);
+    final paperWidth = (stage.width * 0.56).clamp(196.0, 226.0);
     final free = stage.height - margin * 2 - slotLap - _fixed;
     final row = count == 0 ? rowMin : (free / count).clamp(rowMin, rowMax);
     final paperHeight = _fixed + row * count;
@@ -212,12 +242,13 @@ class ReceiptPlan {
     );
 
     // The column beside the paper: the mascot over the card.
-    final left = paper.right + 2;
-    final width = stage.width - mascotRight - left;
+    final left = paper.right + cardGap;
+    final right = stage.width - mascotRight;
+    final width = right - left;
     final columnTop = math.max(top, crossRoom);
     final room = paper.bottom - columnTop;
-    var cardEdge = cardMax;
-    var mascot = math.min(width, mascotMax);
+    var cardEdge = math.min(cardMax, width);
+    var mascot = math.min(right - paper.right + lean, mascotMax);
     if (mascot + columnGap + cardEdge > room) {
       mascot = math.max(mascotMin, room - columnGap - cardEdge);
     }
@@ -233,14 +264,16 @@ class ReceiptPlan {
       paper: paper,
       row: row,
       count: count,
+      // A mascot wider than the column keeps the right edge and leans
+      // left, over the paper.
       mascot: Rect.fromLTWH(
-        left + (width - mascot) / 2,
+        mascot > width ? right - mascot : left + (width - mascot) / 2,
         blockTop,
         mascot,
         mascot,
       ),
       card: Rect.fromLTWH(
-        paper.right - cardTucked,
+        left + (width - cardEdge) / 2,
         blockTop + mascot + columnGap,
         cardEdge,
         cardEdge,
@@ -279,19 +312,33 @@ class ReceiptPlan {
   /// The words on the paper start this far in from its edges.
   static const double pad = 14;
 
+  /// A line's tick, and the gap between it and the words.
+  static const double tick = 12;
+  static const double tickGap = 7;
+
+  /// The type of a line, at its largest and at its smallest, and how wide
+  /// one letter of the mono face is against its size.
+  static const double fontMax = 13;
+  static const double fontMin = 9;
+  static const double monoAdvance = 0.602;
+
   /// The column: the close cross's room above it, the gap between the
-  /// mascot and the card, and how close the mascot may come to the edge.
+  /// mascot and the card, and how close the two may come to the edge.
   static const double crossRoom = 46;
   static const double columnGap = 12;
-  static const double mascotRight = 10;
-  static const double mascotMax = 150;
+  static const double mascotRight = 14;
+  static const double mascotMax = 168;
   static const double mascotMin = 72;
 
-  /// The card is a preview at its middle size. This much of it is behind
-  /// the paper.
+  /// How far the mascot may lean over the paper's edge. It is less than
+  /// [pad], so it never covers a word.
+  static const double lean = 10;
+
+  /// The card is a preview at its middle size, this far clear of the
+  /// paper.
   static const double cardMax = 120;
   static const double cardMin = 96;
-  static const double cardTucked = 12;
+  static const double cardGap = 4;
 
   /// The shortest stage a slip of [count] lines fits on.
   static double minHeight(int count) =>
@@ -310,6 +357,19 @@ class ReceiptPlan {
   final int count;
   final Rect mascot;
   final Rect card;
+
+  /// How far the card moves left to be wholly behind the paper.
+  double get cardTravel => card.right - paper.right;
+
+  /// The size of the type every line is set in, for a slip whose longest
+  /// line has [longest] letters: the largest at which that line fits the
+  /// paper, so all the lines are one size. A tight slip caps it lower.
+  double lineFont(int longest) {
+    final cap = row < 30 ? fontMax - 1 : (row < 40 ? fontMax - 0.5 : fontMax);
+    if (longest <= 0) return cap;
+    final room = paper.width - pad * 2 - tick - tickGap;
+    return (room / (longest * monoAdvance)).clamp(fontMin, cap);
+  }
 
   /// How far down the paper the lines start.
   double get rowsTop => lead + header + rule;
