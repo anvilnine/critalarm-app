@@ -6,6 +6,7 @@ import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/intros/false_alarm/false_alarm_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/intros/intro_parts.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -42,21 +43,26 @@ FaceShape _faceAt(double t) {
 /// mascot blinks and admits it, and the red opens from where the mascot
 /// stands to show the layout under it.
 ///
-/// A silent picture of an alarm. The app makes none. The gag cue is the
-/// only sound and owns the whole intro: nothing is felt while the screen
-/// rings, and its last three knocks, the wink, land on the reveal, where
-/// they are felt too. A tap that skips the joke plays the wink alone.
+/// A silent picture of an alarm. The app makes none. The score is the only
+/// sound and owns the whole intro: a soft ringing figure for as long as
+/// the screen rings, cut dead as the ringing stops, a beat of nothing, and
+/// the arrival from the reveal. Nothing is felt while the screen rings. A
+/// tap that skips the joke plays the arrival alone.
 const PaywallIntro falseAlarmIntro = PaywallIntro(
   seconds: FalseAlarmTimeline.end,
   handover: FalseAlarmTimeline.handover,
   skipTo: FalseAlarmTimeline.reveal,
   tone: PaywallTone.crit,
-  cue: PaywallEntranceCue.gag,
+  cue: PaywallEntranceCue.none,
+  score: PaywallCue.scoreFalseAlarm,
   beats: [
     PaywallIntroBeat.tap(FalseAlarmTimeline.reveal, HapticPattern.tripleRise),
   ],
-  skipCue: PaywallCue.introWink,
-  quietAfter: FalseAlarmTimeline.gagEnds - FalseAlarmTimeline.handover,
+  skipCue: PaywallCue.introArrive,
+  quietAfter:
+      FalseAlarmTimeline.reveal +
+      paywallIntroArrivalSeconds -
+      FalseAlarmTimeline.handover,
   tag: _tag,
   builder: _build,
 );

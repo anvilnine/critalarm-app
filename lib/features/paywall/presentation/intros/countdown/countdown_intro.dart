@@ -2,9 +2,11 @@ import 'dart:math' as math;
 
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/intros/countdown/countdown_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/intros/intro_parts.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -16,21 +18,28 @@ import 'package:flutter/material.dart';
 /// hand sweeps the screen away off the layout.
 ///
 /// The count is a picture of a film leader. It times nothing and nothing
-/// runs out.
+/// runs out. Its score plays a bar for each number, stops dead as the
+/// mascot lands and arrives from the reveal.
 const PaywallIntro countdownIntro = PaywallIntro(
   seconds: CountdownTimeline.end,
   handover: CountdownTimeline.handover,
   skipTo: CountdownTimeline.reveal,
   cue: PaywallEntranceCue.none,
+  score: PaywallCue.scoreCountdown,
   beats: [
     // A number comes up, twice.
-    PaywallIntroBeat(0, PaywallCue.tick),
-    PaywallIntroBeat(CountdownTimeline.two, PaywallCue.tick),
+    PaywallIntroBeat.tap(0, HapticPattern.tick),
+    PaywallIntroBeat.tap(CountdownTimeline.two, HapticPattern.tick),
     // The mascot lands on the one.
-    PaywallIntroBeat(CountdownTimeline.squash, PaywallCue.drop),
-    // Too slow: a tease as the hand sweeps the screen away.
-    PaywallIntroBeat(CountdownTimeline.reveal, PaywallCue.introTease),
+    PaywallIntroBeat.tap(CountdownTimeline.squash, HapticPattern.tripleFade),
+    // The hand sweeps the screen away.
+    PaywallIntroBeat.tap(CountdownTimeline.reveal, HapticPattern.light),
   ],
+  skipCue: PaywallCue.introArrive,
+  quietAfter:
+      CountdownTimeline.reveal +
+      paywallIntroArrivalSeconds -
+      CountdownTimeline.handover,
   tag: _tag,
   builder: _build,
 );
