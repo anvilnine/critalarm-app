@@ -338,7 +338,19 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     try {
       await alarm.closeFromDone(incidentId);
     } on Object catch (_) {
-      // Not handed over. The button stays, and the screen claims nothing.
+      // Not handed over: native refused because the incident is not
+      // acknowledged on this phone, or this platform has no such call, or
+      // the call failed. In every case the button goes, the plain failed
+      // screen stays, and nothing is claimed.
+      if (!isClosed && state.doneIncidentId == incidentId) {
+        emit(
+          state.copyWith(
+            clearDoneHandOff: true,
+            // Kept non-null, so the screen still reads as a failed load.
+            errorMessage: state.errorMessage ?? '',
+          ),
+        );
+      }
       return;
     } finally {
       _isHandingOff = false;

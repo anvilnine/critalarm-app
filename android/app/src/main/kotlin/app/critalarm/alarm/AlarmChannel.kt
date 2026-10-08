@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import app.critalarm.actions.DoneHandOffRule
 import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.notifications.AlarmNotificationFactory
 import app.critalarm.notifications.IncidentCards
@@ -97,6 +98,22 @@ class AlarmChannel(private val context: Context) {
                 val incidentId = call.argument<String>("incident_id")
                 if (incidentId.isNullOrEmpty()) {
                     result.error("bad_args", "incident_id required", null)
+                    return
+                }
+                // The link that brought the app here can be forged, so it is
+                // not what decides. This phone's own record is: only an
+                // incident acknowledged here and quiet has a Done to press.
+                val deliveries = IncidentDeliveryStore(context)
+                val mayClose = DoneHandOffRule.mayClose(
+                    acknowledged = deliveries.isAcknowledged(incidentId),
+                    closed = deliveries.isClosed(incidentId),
+                    active = deliveries.isActive(incidentId),
+                    ringing = AlarmForegroundService.isRinging(incidentId),
+                    rearmPending = deliveries.rearmFiresAtMillis(incidentId) != null,
+                )
+                if (!mayClose) {
+                    Log.w(TAG, "close_from_done_refused incident_id=$incidentId")
+                    result.error(NOT_ACKNOWLEDGED, "not acknowledged on this phone", null)
                     return
                 }
                 context.sendBroadcast(doneBroadcast(context, incidentId))
@@ -275,6 +292,9 @@ class AlarmChannel(private val context: Context) {
     companion object {
         const val NAME = "app.critalarm/alarm"
         private const val UNSUPPORTED = "unsupported"
+
+        /** Matches AlarmHost.notAcknowledgedCode in Dart and AppDelegate. */
+        private const val NOT_ACKNOWLEDGED = "not_acknowledged"
         private const val TAG = "CritAlarmAlarm"
     }
 

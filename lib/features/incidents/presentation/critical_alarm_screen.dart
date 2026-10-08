@@ -328,14 +328,35 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
             // The load failing does not stop the phone ringing, so this screen
             // keeps a way out even when it has no incident to acknowledge.
             bottomBar: isHandedOff
-                ? AppButton(
-                    label: LocaleKeys.critical_alarm_back_to_topics_button.tr(),
-                    variant: AppButtonVariant.ghost,
-                    isFullWidth: true,
-                    onPressed: () {
-                      AppHaptics.capture();
-                      context.go('/');
-                    },
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppButton(
+                        label: LocaleKeys.critical_alarm_back_to_topics_button
+                            .tr(),
+                        isFullWidth: true,
+                        onPressed: () {
+                          AppHaptics.capture();
+                          context.go('/');
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      // The phone may still be making sound, and this
+                      // screen has no incident to acknowledge either.
+                      AppButton(
+                        label: LocaleKeys.critical_alarm_silence_button.tr(),
+                        variant: AppButtonVariant.ghost,
+                        isFullWidth: true,
+                        onPressed: () {
+                          AppHaptics.capture();
+                          unawaited(
+                            context
+                                .read<CriticalAlarmCubit>()
+                                .silenceThisPhone(),
+                          );
+                        },
+                      ),
+                    ],
                   )
                 : didFail
                 ? Column(

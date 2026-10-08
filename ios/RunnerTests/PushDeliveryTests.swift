@@ -153,6 +153,64 @@ final class PushDeliveryTests: XCTestCase {
         XCTAssertEqual(DoneButton.forCard(topic: "", shared: group), .closes)
     }
 
+    // The gate in front of a close the app asks for on behalf of Done.
+
+    func testAcknowledgedAndQuietMayBeClosed() {
+        XCTAssertTrue(DoneHandOffRule.mayClose(acked: true, alarmUnderWay: false, cardState: .acked))
+        // Acknowledged elsewhere, or its card already swiped away.
+        XCTAssertTrue(DoneHandOffRule.mayClose(acked: true, alarmUnderWay: false, cardState: nil))
+    }
+
+    func testAnIdThisPhoneHasNeverSeenIsRefused() {
+        XCTAssertFalse(DoneHandOffRule.mayClose(acked: false, alarmUnderWay: false, cardState: nil))
+    }
+
+    func testOpenAndRingingAreRefused() {
+        XCTAssertFalse(DoneHandOffRule.mayClose(acked: false, alarmUnderWay: true, cardState: nil))
+        XCTAssertFalse(DoneHandOffRule.mayClose(acked: false, alarmUnderWay: true, cardState: .open))
+        // Even if a stale mark says acknowledged.
+        XCTAssertFalse(DoneHandOffRule.mayClose(acked: true, alarmUnderWay: true, cardState: .acked))
+    }
+
+    func testSilencedButNotAcknowledgedIsRefused() {
+        // The card Stop leaves: open, with "I'm up" on it, the alarm re-armed.
+        XCTAssertFalse(DoneHandOffRule.mayClose(acked: false, alarmUnderWay: true, cardState: .open))
+        XCTAssertFalse(DoneHandOffRule.mayClose(acked: false, alarmUnderWay: false, cardState: .open))
+    }
+
+    func testRungAgainAfterAnAcknowledgeIsRefused() {
+        // A reopen drops the mark, sets an alarm and turns the card open.
+        // Any one of the three is enough.
+        XCTAssertFalse(DoneHandOffRule.mayClose(acked: false, alarmUnderWay: false, cardState: .acked))
+        XCTAssertFalse(DoneHandOffRule.mayClose(acked: true, alarmUnderWay: true, cardState: .acked))
+        XCTAssertFalse(DoneHandOffRule.mayClose(acked: true, alarmUnderWay: false, cardState: .open))
+    }
+
+    func testAClosedOrExpiredCardIsRefused() {
+        XCTAssertFalse(DoneHandOffRule.mayClose(acked: true, alarmUnderWay: false, cardState: .closed))
+        XCTAssertFalse(DoneHandOffRule.mayClose(acked: true, alarmUnderWay: false, cardState: .expired))
+    }
+
+    /// The acked set under the key the app writes, read the way the gate
+    /// reads it: marked passes, cleared by a reopen does not.
+    func testTheGateReadsTheAckedSet() {
+        let name = "done-gate-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        addTeardownBlock { defaults.removePersistentDomain(forName: name) }
+        func mayClose(_ id: String) -> Bool {
+            DoneHandOffRule.mayClose(
+                acked: AckedIncidentStore.contains(incidentId: id, in: defaults),
+                alarmUnderWay: false, cardState: nil
+            )
+        }
+        XCTAssertFalse(mayClose("inc_1"))
+        AckedIncidentStore.mark(incidentId: "inc_1", in: defaults)
+        XCTAssertTrue(mayClose("inc_1"))
+        XCTAssertFalse(mayClose("inc_other"))
+        AckedIncidentStore.clear(incidentId: "inc_1", in: defaults)
+        XCTAssertFalse(mayClose("inc_1"))
+    }
+
     /// Whatever the flag says, the two buttons that stop a ring never open
     /// the app first.
     @available(iOS 16.2, *)
