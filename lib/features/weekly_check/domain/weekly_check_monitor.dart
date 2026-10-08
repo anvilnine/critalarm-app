@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/models/weekly_check.dart';
-import 'package:critalarm/features/pro_pack/domain/pro_pack.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_access.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_notice_rule.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_store.dart';
 import 'package:flutter/foundation.dart';
@@ -13,8 +13,13 @@ enum WeeklyCheckSwitchOutcome {
   /// The relay took the change.
   done,
 
-  /// The relay answered that the account does not hold the pack.
-  packRefused,
+  /// The relay answered that the account is not on the tier the check
+  /// needs.
+  tierRefused,
+
+  /// The phone is on a server of the user's own, where the check does not
+  /// exist. The relay was not asked.
+  notOffered,
 
   /// The relay could not be asked. Nothing changed.
   failed,
@@ -30,12 +35,22 @@ enum WeeklyCheckSwitchOutcome {
 ///
 /// A received check is never proof that alarms work, and nothing here says
 /// so: an alarm travels as an alert, at a higher priority, with a sound.
+///
+/// The check needs Hosted, and it does not exist on a server of the user's
+/// own (api.md §4.5). This class decides neither: [_readAccess] hands it
+/// the access layer's answer. It acts on that answer in three ways. It
+/// never enrols a phone the check is not offered to, and tells the relay
+/// to stop sending to one that was enrolled before. It never calls a check
+/// that did not arrive a miss while the relay is sending none. And it
+/// writes down when it saw that, so a clock that ran on through a lapse
+/// raises nothing when Hosted is back.
 final class WeeklyCheckMonitor {
   WeeklyCheckMonitor({
     required this._api,
     required this._store,
     required this._readDeviceId,
-    required this._onPackRefused,
+    required this._readAccess,
+    required this._onTierRefused,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
@@ -46,9 +61,15 @@ final class WeeklyCheckMonitor {
   final WeeklyCheckStore _store;
   final Future<String?> Function() _readDeviceId;
 
-  /// Told the pack a `403` named, so the app reads the account's packs
-  /// again and the row locks if the relay says the pack is gone.
-  final Future<void> Function(String? packId) _onPackRefused;
+  /// Where the check stands with the plan and the server, asked each time
+  /// it matters.
+  final WeeklyCheckAccess Function() _readAccess;
+
+  /// Called when the relay says the account is not on Hosted while this
+  /// phone still counts it as held, so the app reads the account's tier
+  /// again. The row locks when that read says Hosted is gone. Nothing is
+  /// taken away here.
+  final Future<void> Function() _onTierRefused;
   final DateTime Function() _now;
 
   final _changes = StreamController<void>.broadcast();
@@ -77,31 +98,106 @@ final class WeeklyCheckMonitor {
     return _reading = _read().whenComplete(() => _reading = null);
   }
 
+  static bool _saysNotHosted(WeeklyCheck? check) =>
+      check != null &&
+      check.state == WeeklyCheckState.off &&
+      check.reason == WeeklyCheckOffReason.tier;
+
   Future<void> _read() async {
     try {
+      await _notePlanAway();
       final deviceId = await _dropOtherDevice();
       _lastRead = _now();
+      final before = _store.readCheck()?.check;
       final check = await _api.getWeeklyCheck();
       await _keep(check, deviceId: deviceId);
-      // The relay says the pack is gone. The packs list is what locks the
-      // row, so it is read again rather than decided here.
-      if (check.state == WeeklyCheckState.off &&
-          check.reason == WeeklyCheckOffReason.pack) {
-        await _onPackRefused(proPackId);
+      // The relay says the account is not on Hosted and this phone still
+      // counts it as held. What is held is what locks the row, so the tier
+      // is read again rather than decided here. Asked once per change of
+      // the relay's answer, so a tier that trails does not mean a read of
+      // it on every resume.
+      if (_saysNotHosted(check) &&
+          !_saysNotHosted(before) &&
+          !_readAccess().isPlanAway) {
+        await _tierRefused();
       }
     } on Object catch (error) {
       // No server, no network, a relay that predates the route: all of them
       // leave the kept answer as it is.
       debugPrint('weekly_check_read_failed error=${error.runtimeType}');
     }
+    await _stopWhereNotOffered();
+  }
+
+  Future<void> _tierRefused() async {
+    try {
+      await _onTierRefused();
+    } on Object catch (error) {
+      debugPrint('weekly_check_tier_read_failed error=${error.runtimeType}');
+    }
+    await _notePlanAway();
+  }
+
+  /// What the plan or the server allows may have changed: Hosted bought,
+  /// lapsed or back, or the phone moved to or from a server of the user's
+  /// own. Reads the check again at once. Hosted coming back needs no tap:
+  /// the relay kept the device enrolled, and the read shows it.
+  Future<void> accessChanged() async {
+    await _notePlanAway();
+    await refresh(force: true);
+    // A read that was already running may have ended before the server
+    // was known.
+    await _stopWhereNotOffered();
+    _announce();
+  }
+
+  /// Writes down that the relay is sending this phone no check because of
+  /// the plan or the server, while that is so.
+  Future<void> _notePlanAway() async {
+    if (!_readAccess().isPlanAway) return;
+    final now = _nowSeconds();
+    if (_store.readPlanAwayAt() == now) return;
+    try {
+      await _store.writePlanAwayAt(now);
+    } on Object catch (error) {
+      debugPrint('weekly_check_store_failed error=${error.runtimeType}');
+    }
+  }
+
+  /// On a server of the user's own the check is not offered, and the relay
+  /// cannot see which server a phone is on (api.md §4.5). So a phone that
+  /// was enrolled before it moved there tells the relay to stop, with
+  /// `"enabled":false`.
+  ///
+  /// It is sent while the relay's last answer says the device is enrolled,
+  /// which is once: the answer to it says it is not. A send that fails is
+  /// tried again on the next read (launch, resume, the Reliability screen,
+  /// a change of server). Nothing waits on it.
+  Future<void> _stopWhereNotOffered() async {
+    if (_readAccess() != WeeklyCheckAccess.notOffered) return;
+    final kept = _store.readCheck();
+    if (kept == null || !kept.check.enabled) return;
+    try {
+      final deviceId = await _dropOtherDevice();
+      final answer = await _api.setWeeklyCheck(enabled: false);
+      await _keep(answer, deviceId: deviceId);
+    } on Object catch (error) {
+      debugPrint('weekly_check_stop_failed error=${error.runtimeType}');
+    }
   }
 
   /// Switches the check on or off with `PUT .../check`.
   ///
-  /// Enrolling without the pack answers `403`. The app does not decide the
-  /// pack is gone by itself: it hands the pack named to [_onPackRefused]
-  /// and reads the check back.
+  /// Never enrols a phone on a server of the user's own: the relay is not
+  /// asked. Enrolling without Hosted answers `403` with the tier the check
+  /// needs. The app does not decide Hosted is gone by itself: it has the
+  /// tier read again ([_onTierRefused]) and reads the check back. A `403`
+  /// that names no tier, as a relay before 1.19.0 sends, is a switch that
+  /// failed.
   Future<WeeklyCheckSwitchOutcome> setEnabled({required bool enabled}) async {
+    if (enabled && _readAccess() == WeeklyCheckAccess.notOffered) {
+      return WeeklyCheckSwitchOutcome.notOffered;
+    }
     try {
       final deviceId = await _dropOtherDevice();
       final answer = await _api.setWeeklyCheck(enabled: enabled);
@@ -109,10 +205,10 @@ final class WeeklyCheckMonitor {
       await _keep(answer, deviceId: deviceId);
       return WeeklyCheckSwitchOutcome.done;
     } on ApiException catch (error) {
-      if (error.statusCode == 403 && error.pack != null) {
-        await _onPackRefused(error.pack);
+      if (error.statusCode == 403 && error.tier != null) {
+        await _tierRefused();
         await refresh(force: true);
-        return WeeklyCheckSwitchOutcome.packRefused;
+        return WeeklyCheckSwitchOutcome.tierRefused;
       }
       debugPrint('weekly_check_switch_failed status=${error.statusCode}');
       return WeeklyCheckSwitchOutcome.failed;
@@ -127,6 +223,7 @@ final class WeeklyCheckMonitor {
   Future<WeeklyCheckNoticeFacts?> noticeFacts() async {
     final kept = _store.readCheck();
     if (kept == null) return null;
+    await _notePlanAway();
     WeeklyCheckArrival? arrival;
     try {
       arrival = await _store.readArrival();
@@ -151,6 +248,8 @@ final class WeeklyCheckMonitor {
       noticeAfterSeenAt: noticeAfterSeenAt,
       lastArrivalAt: arrival?.receivedAt,
       dismissedAt: _store.readDismissedAt(),
+      isPlanAway: _readAccess().isPlanAway,
+      planAwaySeenAt: _store.readPlanAwayAt(),
     );
   }
 

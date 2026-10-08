@@ -1,4 +1,5 @@
 import 'package:critalarm/core/models/weekly_check.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_access.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart';
 import 'package:critalarm/features/weekly_check/presentation/cubits/weekly_check_cubit.dart';
 import 'package:critalarm/features/weekly_check/presentation/cubits/weekly_check_rounds_cubit.dart';
@@ -9,45 +10,38 @@ import 'weekly_check_fakes.dart';
 void main() {
   late FakeWeeklyCheckApi api;
   late MemoryWeeklyCheckStore store;
-  late List<String?> refusedPacks;
-  late bool isSelfHosted;
+  late int tierReads;
 
   WeeklyCheckCubit build() => WeeklyCheckCubit(
     monitor: WeeklyCheckMonitor(
       api: api,
       store: store,
       readDeviceId: () async => 'dev_1',
-      onPackRefused: (pack) async => refusedPacks.add(pack),
+      readAccess: () => WeeklyCheckAccess.open,
+      onTierRefused: () async => tierReads++,
     ),
-    readIsSelfHosted: () async => isSelfHosted,
   );
 
   setUp(() {
     api = FakeWeeklyCheckApi();
     store = MemoryWeeklyCheckStore();
-    refusedPacks = [];
-    isSelfHosted = false;
+    tierReads = 0;
   });
 
   group('the row', () {
-    test(
-      'load reads the check and whether the server is self-hosted',
-      () async {
-        isSelfHosted = true;
-        api.check = const WeeklyCheck(
-          enabled: true,
-          state: WeeklyCheckState.received,
-        );
-        final cubit = build();
-        expect(cubit.state.check, isNull);
-        await cubit.load();
-        expect(cubit.state.check!.state, WeeklyCheckState.received);
-        expect(cubit.state.isSelfHosted, isTrue);
-        await cubit.close();
-      },
-    );
+    test('load reads the check', () async {
+      api.check = const WeeklyCheck(
+        enabled: true,
+        state: WeeklyCheckState.received,
+      );
+      final cubit = build();
+      expect(cubit.state.check, isNull);
+      await cubit.load();
+      expect(cubit.state.check!.state, WeeklyCheckState.received);
+      await cubit.close();
+    });
 
-    test('switching on with the pack turns the row on', () async {
+    test('switching on with Hosted turns the row on', () async {
       final cubit = build();
       final outcome = await cubit.setEnabled(enabled: true);
       expect(outcome, WeeklyCheckSwitchOutcome.done);
@@ -57,14 +51,15 @@ void main() {
       await cubit.close();
     });
 
-    test('switching on without the pack hands the 403 on', () async {
-      api.hasPack = false;
+    test('switching on without Hosted hands the 403 on', () async {
+      api.tier = 'free';
       final cubit = build();
       final outcome = await cubit.setEnabled(enabled: true);
-      expect(outcome, WeeklyCheckSwitchOutcome.packRefused);
-      expect(refusedPacks, ['pro']);
+      expect(outcome, WeeklyCheckSwitchOutcome.tierRefused);
+      expect(tierReads, 1);
       expect(cubit.state.check!.enabled, isFalse);
-      // It is the pack list that locks the row, so this is not a failure.
+      // It is what the account holds that locks the row, so this is not a
+      // failure.
       expect(cubit.state.didFail, isFalse);
       await cubit.close();
     });

@@ -60,6 +60,17 @@ abstract interface class WeeklyCheckStore {
 
   Future<void> writeDismissedAt(int at);
 
+  /// When this phone last saw that the relay sends it no check because of
+  /// the plan or the server: Hosted not held, or a server of the user's
+  /// own. By this phone's clock. Null when it never saw that.
+  ///
+  /// Anything the phone learned at or before this second describes a
+  /// schedule the relay has since stopped, so the notice rule sets it
+  /// aside.
+  int? readPlanAwayAt();
+
+  Future<void> writePlanAwayAt(int at);
+
   /// Forgets everything, the native record included.
   Future<void> clear();
 }

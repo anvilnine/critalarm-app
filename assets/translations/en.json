@@ -1218,13 +1218,9 @@
   },
   "pro_pack": {
     "badge": "Pro",
-    "weekly_title": "Weekly delivery check",
-    "weekly_locked_line": "Checks each week that a push still reaches this phone.",
-    "weekly_ready_line": "Ready to switch on.",
-    "weekly_locked_hint": "Opens Pro",
     "sheet_title": "Pro",
-    "sheet_what": "A weekly check that a push still reaches this phone.",
-    "sheet_why": "A relay runs these checks every week, and Pro pays for that.",
+    "sheet_what": "Widgets, your own sounds, wake-up challenges, alarm looks and extra app icons.",
+    "sheet_why": "Pro is its own purchase. Hosted does not include it.",
     "sheet_loading": "Asking the store",
     "sheet_not_on_sale": "Pro is not on sale yet.",
     "sheet_restore": "Restore",
@@ -1234,12 +1230,16 @@
     "sheet_paused_line": "The store is done. Crit Alarm is still confirming it.",
     "sheet_check_again": "Check again",
     "sheet_held_title": "Pro is on",
-    "sheet_held_line": "The weekly check is ready.",
+    "sheet_held_line": "Your Pro features are unlocked.",
     "sheet_done": "Done",
     "sheet_store_problem": "The store did not finish that. Try again.",
     "sheet_nothing_to_restore": "Nothing to restore for this account."
   },
   "weekly_check": {
+    "title": "Weekly delivery check",
+    "what_line": "Checks each week that a push still reaches this phone.",
+    "locked_hint": "Opens Hosted",
+    "own_server_line": "Not available on a server of your own.",
     "line_waiting": "Waiting for the first check.",
     "line_received": "Last check received {when}.",
     "line_received_plain": "The last check was received.",
@@ -1247,9 +1247,7 @@
     "line_missed_repeatedly": "Two or more checks missed in a row.",
     "line_token_refused": "The push relay refused this phone.",
     "line_no_token": "Not registered with the push relay yet.",
-    "line_pack_lost": "Pro is no longer on this account.",
     "next_due": "Next check due {when}.",
-    "self_hosted_line": "This checks the push relay to this phone, not your server.",
     "switch_failed": "Could not reach the push relay. Try again.",
     "rounds_link": "Past checks",
     "rounds_title": "Past checks",
@@ -1403,12 +1401,20 @@
       "phrase": "{hosted_history_days} days of history"
     },
     "app_icons": {
-      "short": "Three Hosted app icons: a crown, shades, or both.",
+      "short": "Three extra app icons: a crown, shades, or both.",
       "compare_label": "App icons",
       "compare_free": "Default",
       "compare_hosted": "Three extra",
       "lose": "App icons: back to the default",
       "phrase": "three extra app icons"
+    },
+    "weekly_check": {
+      "short": "A weekly check that a push still reaches this phone.",
+      "compare_label": "Weekly delivery check",
+      "compare_free": "No",
+      "compare_hosted": "Every week",
+      "lose": "Weekly delivery check: paused",
+      "phrase": "a weekly delivery check"
     }
   },
   "purchase_errors": {

@@ -18,7 +18,6 @@ import 'package:critalarm/core/access/access_override.dart';
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/core/access/dev_access_switches.dart';
 import 'package:critalarm/core/access/feature_access.dart';
-import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
@@ -341,6 +340,7 @@ import 'package:critalarm/features/topics/presentation/cubits/home_setup_cubit.d
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_cubit.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_tokens_cubit.dart';
 import 'package:critalarm/features/weekly_check/data/shared_prefs_weekly_check_store.dart';
+import 'package:critalarm/features/weekly_check/domain/weekly_check_access.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_monitor.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_source.dart';
 import 'package:critalarm/features/weekly_check/domain/weekly_check_store.dart';
@@ -623,22 +623,25 @@ Future<void> configureDependencies({
         store: getIt<WeeklyCheckStore>(),
         readDeviceId: () async =>
             (await getIt<DeviceIdentityStore>().readOrCreate()).deviceId,
-        onPackRefused: (packId) => getIt<ProPackAccess>().relayRefused(packId),
+        readAccess: _weeklyCheckAccess,
+        // The relay says the account is not on Hosted. A registration
+        // brings the tier the relay holds now, and the Hosted source reads
+        // it from the saved identity.
+        onTierRefused: () async {
+          await getIt<RegisterDeviceUsecase>()(appVersion: appVersion);
+        },
       );
-      // Gaining or losing the pack changes what the relay answers for the
-      // weekly check, so it is read again at once.
-      _proPackHeldChanges().listen(
-        (_) => unawaited(monitor.refresh(force: true)),
-      );
+      // Hosted bought, lapsed or back, or another kind of server: each
+      // changes what the relay sends this phone, so the check is read
+      // again at once. On a server of the user's own this is also what
+      // tells the relay to stop. Nothing waits on it.
+      getIt<FeatureAccess>().changes
+          .where((feature) => feature == AppFeature.weeklyCheck)
+          .listen((_) => unawaited(monitor.accessChanged()));
       return monitor;
     })
     ..registerLazySingleton<WeeklyCheckCubit>(
-      () => WeeklyCheckCubit(
-        monitor: getIt<WeeklyCheckMonitor>(),
-        // Words the row for a phone on its own server: the check covers
-        // the push relay and not that server.
-        readIsSelfHosted: () => getIt<FeatureAccess>().isOwnServerOnceReady(),
-      ),
+      () => WeeklyCheckCubit(monitor: getIt<WeeklyCheckMonitor>()),
     )
     ..registerFactory(() => WeeklyCheckRoundsCubit(getIt<WeeklyCheckApi>()))
     // The pack routes live on the same client. A client swapped in by a test
@@ -2096,7 +2099,6 @@ Future<void> configureDependencies({
     )
     ..registerFactory(
       () => SearchCubit(
-        featureAccess: getIt<FeatureAccess>(),
         sessionStore: getIt<ApiSessionStore>(),
         topics: getIt<TopicsCubit>(),
         incidents: getIt<IncidentsCubit>(),
@@ -2300,9 +2302,7 @@ Future<void> configureDependencies({
         // calls the relay: the row's own cubit does that.
         WeeklyCheckSource(
           readCheck: () => getIt<WeeklyCheckMonitor>().check,
-          isPackHeld: () =>
-              getIt<FeatureAccess>().decide(AppFeature.weeklyCheck)
-                  is FeatureOpen,
+          readAccess: _weeklyCheckAccess,
           readMissedByClock: () =>
               getIt<WeeklyCheckMonitor>().twoRoundsMissed(),
           testRouteName: AppRoute.testRing,
@@ -2382,7 +2382,6 @@ Future<void> configureDependencies({
     ..registerFactory(
       () => SettingsCubit(
         holdings: getIt<Holdings>(),
-        featureAccess: getIt<FeatureAccess>(),
         identityStore: getIt<DeviceIdentityStore>(),
         apiSessions: getIt<ApiSessionStore>(),
         getServerInfo: getIt<GetServerInfoUsecase>(),
@@ -2730,6 +2729,17 @@ Future<void> configureDependencies({
 
     devSwitch.addListener(applyToMock);
     applyToMock();
+
+    // The same for Hosted: the mock relay goes by the fixture account's
+    // tier for the weekly check, so the switch sets it.
+    final hostedSwitch = getIt<DevProSwitch>();
+    void applyTierToMock() {
+      getIt<MockServer>().accountTier = hostedSwitch.value ? 'hosted' : 'free';
+      unawaited(getIt<WeeklyCheckMonitor>().refresh(force: true));
+    }
+
+    hostedSwitch.addListener(applyTierToMock);
+    applyTierToMock();
   }
 }
 
@@ -2823,8 +2833,8 @@ Future<bool> _hostedByServer() {
   return hosted.readHeldByServer(); // access-ok: the named read, passed on
 }
 
-/// Every change of whether the Pro pack is held, for the weekly check
-/// monitor. Not a gate: nothing is decided on it, the relay is asked again.
-Stream<bool> _proPackHeldChanges() {
-  return getIt<ProPackAccess>().stream; // access-ok: re-asks the relay
-}
+/// What the access layer says for the weekly check, in the words the
+/// weekly check acts on.
+WeeklyCheckAccess _weeklyCheckAccess() => weeklyCheckAccessFor(
+  getIt<FeatureAccess>().decide(AppFeature.weeklyCheck),
+);

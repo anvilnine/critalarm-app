@@ -107,6 +107,18 @@ void main() {
     expect(await subject.readArrival(), isNull);
   });
 
+  test(
+    'the moment the plan was seen away is kept, and clear forgets it',
+    () async {
+      final subject = await store();
+      expect(subject.readPlanAwayAt(), isNull);
+      await subject.writePlanAwayAt(77);
+      expect(subject.readPlanAwayAt(), 77);
+      await subject.clear();
+      expect(subject.readPlanAwayAt(), isNull);
+    },
+  );
+
   test('nothing kept holds the id a check push carries', () async {
     final subject = await store();
     await subject.writeCheck(

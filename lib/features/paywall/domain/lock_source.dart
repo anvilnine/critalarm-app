@@ -30,10 +30,12 @@ enum LockSource {
   /// A locked icon on the App icon screen.
   appIcon(PaywallSource.appIcon, ProPackSheetSource.appIcon),
 
-  /// A locked row on the Reliability screen.
+  /// A locked row on the Reliability screen: the weekly delivery check,
+  /// which Hosted unlocks.
   ///
   /// `PaywallSource` has no value for it yet, so on the Hosted side it
-  /// reads as `direct`. Nothing on that screen sells Hosted today.
+  /// reads as `direct`. It gets one once the paywall layouts, which switch
+  /// over every value, can take a new case.
   reliability(PaywallSource.direct, ProPackSheetSource.reliability),
 
   /// The sound strip on the Personalize page, and the bar under its
