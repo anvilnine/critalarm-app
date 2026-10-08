@@ -124,20 +124,21 @@ void main() {
     ]);
   });
 
-  test('a store build lists only the two Pro benefits the app has '
+  test('a store build lists only the three Pro benefits the app has '
       'today', () {
     expect(paywallBenefitsFor(PaywallProduct.pro).map((b) => b.id), [
       PaywallBenefitId.widgets,
+      // A file picked or a recording, as its line says.
+      PaywallBenefitId.customSounds,
       // Four fixed looks and the person's own photo are in the app.
       PaywallBenefitId.customAlarmScreens,
     ]);
     final waiting = allPaywallBenefits
         .where((b) => !b.inThisBuild)
         .map((b) => b.id);
-    expect(waiting, [
-      PaywallBenefitId.wakeUpChallenges,
-      PaywallBenefitId.customSounds,
-    ]);
+    // Wake-up challenges are built, and their line and preview still show
+    // a QR code scan the app does not have.
+    expect(waiting, [PaywallBenefitId.wakeUpChallenges]);
   });
 
   test('no benefit is listed under both products', () {
