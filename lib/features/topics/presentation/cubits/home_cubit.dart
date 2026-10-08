@@ -5,23 +5,15 @@ import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/usecase/usecase.dart';
-import 'package:critalarm/design/components/chips.dart';
-import 'package:critalarm/design/faces/face_state.dart';
-import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
-import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart'
-    show defaultDeskTimerS;
 import 'package:critalarm/features/topics/domain/home_card/home_facts.dart';
 import 'package:critalarm/features/topics/domain/home_card/inbox_order.dart';
-import 'package:critalarm/features/topics/domain/home_face_rule.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/domain/topic_inbox.dart';
 import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
-import 'package:critalarm/gen/locale_keys.g.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Cubit managing state for HomeScreen.
@@ -68,9 +60,10 @@ class HomeCubit extends Cubit<HomeState> {
   /// Null in tests that do not care.
   final Set<String> Function()? _readSetupIncidentIds;
 
-  /// How often the face is worked out again from the lists already held, so a
-  /// countdown or a face that only lasts a while moves without a reload. A
-  /// test passes something short so it does not have to wait.
+  /// How often the state is worked out again from the lists already held, so
+  /// an acknowledged alarm's countdown or a close that only lasts a while
+  /// ends without a reload. A test passes something short so it does not have
+  /// to wait.
   final Duration tick;
 
   StreamSubscription<IncidentsState>? _incidentsSub;
@@ -80,7 +73,6 @@ class HomeCubit extends Cubit<HomeState> {
   List<Incident>? _lastIncidents;
   List<Topic>? _lastTopics;
   Set<String>? _lastWarningTopics;
-  Map<String, int>? _lastPriorities;
 
   /// Epoch seconds of every message the last build saw, per topic, for the
   /// unread count. Kept so a pin or a read mark redraws without a poll.
@@ -143,31 +135,19 @@ class HomeCubit extends Cubit<HomeState> {
   }
 
   /// Works the screen out again from the lists already held, without a poll.
-  /// [rowsOnly] leaves the face alone, for a pin or a read mark: those change
-  /// the rows and nothing else, and must not paint over a failure face.
+  /// [rowsOnly] leaves the facts alone, for a pin or a read mark: those change
+  /// the rows and nothing else, and must not paint over a failure.
   void _repaint({bool rowsOnly = false}) {
     if (isClosed) return;
     final incidents = _lastIncidents;
     final topics = _lastTopics;
     final warningTopics = _lastWarningTopics;
-    final priorities = _lastPriorities;
-    if (incidents == null ||
-        topics == null ||
-        warningTopics == null ||
-        priorities == null) {
+    if (incidents == null || topics == null || warningTopics == null) {
       return;
     }
     final now = _now();
-    final result = resolveHomeFace(
-      topics: topics,
-      incidents: incidents,
-      warningTopics: warningTopics,
-      now: now,
-    );
     final items = _buildTopicItems(
-      result.rows,
       topics,
-      priorities,
       _lastMessageTimes ?? const {},
       _lastPreviews ?? const {},
       incidents: incidents,
@@ -181,27 +161,29 @@ class HomeCubit extends Cubit<HomeState> {
       emit(state.copyWith(topicItems: items));
       return;
     }
+    final facts = homeFactsFrom(
+      topics: topics,
+      incidents: incidents,
+      warningTopics: warningTopics,
+      messageTimes: _lastMessageTimes ?? const {},
+      now: now,
+      setupIncidentIds: _setupIncidentIds(),
+    );
     emit(
       state.copyWith(
-        faceState: result.hero.faceState,
-        word: result.hero.word,
-        subText: result.hero.subText,
-        severity: result.hero.severity,
-        ringingIncidentId: result.hero.ringingIncidentId,
-        clearRinging: result.hero.ringingIncidentId == null,
+        ringingIncidentId: facts.ringing?.incidentId,
+        clearRinging: facts.ringing == null,
         topicItems: items,
-        facts: homeFactsFrom(
-          topics: topics,
-          incidents: incidents,
-          warningTopics: warningTopics,
-          messageTimes: _lastMessageTimes ?? const {},
-          now: now,
-          setupIncidentIds: _setupIncidentIds(),
-        ),
+        facts: facts,
       ),
     );
-    _syncTimer(result.needsTick);
+    _syncTimer(_needsTick(facts));
   }
+
+  /// Whether something on screen ends with the clock alone: an acknowledged
+  /// alarm's desk timer, or the moment after a close.
+  static bool _needsTick(HomeFacts facts) =>
+      facts.acknowledged != null || facts.handled != null;
 
   Set<String> _setupIncidentIds() =>
       _readSetupIncidentIds?.call() ?? const <String>{};
@@ -288,8 +270,7 @@ class HomeCubit extends Cubit<HomeState> {
   ///
   /// No server set up at all: the rows on screen came from a server the user
   /// has left, and nothing on the phone re-creates them, so drop them. This is
-  /// a setup problem, not an alarm, so the severity stays at none and the red
-  /// card above the stage carries the message.
+  /// a setup problem, not an alarm, and the status card carries the message.
   ///
   /// A server is set up but did not answer: the rows are still the user's,
   /// only old. Keep them, mark them old, and say when they were last true.
@@ -299,10 +280,6 @@ class HomeCubit extends Cubit<HomeState> {
         status: HomeStatus.failure,
         errorMessage: message,
         topicItems: const [],
-        faceState: FaceState.watching,
-        word: LocaleKeys.home_stage_word_no_server.tr(),
-        subText: LocaleKeys.home_stage_sub_no_server.tr(),
-        severity: SeverityMode.none,
         clearRinging: true,
         isStale: false,
         clearLastKnownGood: true,
@@ -315,16 +292,6 @@ class HomeCubit extends Cubit<HomeState> {
     return state.copyWith(
       status: HomeStatus.failure,
       errorMessage: message,
-      faceState: FaceState.watching,
-      word: LocaleKeys.home_stage_word_unreachable.tr(),
-      // No last good time means the list never loaded here, so there is
-      // nothing old on screen to put a time on.
-      subText: seenAt == null
-          ? LocaleKeys.home_load_failed.tr()
-          : LocaleKeys.home_stage_sub_unreachable.tr(
-              namedArgs: {'time': DateFormat.Hm().format(seenAt.toLocal())},
-            ),
-      severity: SeverityMode.none,
       clearRinging: true,
       isStale: seenAt != null,
       hasServer: true,
@@ -351,7 +318,6 @@ class HomeCubit extends Cubit<HomeState> {
       _lastIncidents = incidents;
       _lastTopics = topics;
       _lastWarningTopics = const {};
-      _lastPriorities = const {};
       _lastMessageTimes = const {};
       _lastPreviews = const {};
       _syncTimer(false);
@@ -359,10 +325,6 @@ class HomeCubit extends Cubit<HomeState> {
       return state.copyWith(
         status: HomeStatus.success,
         topicItems: const [],
-        faceState: FaceState.watching,
-        word: LocaleKeys.home_stage_word_no_topics.tr(),
-        subText: LocaleKeys.home_stage_sub_no_topics.tr(),
-        severity: SeverityMode.none,
         clearRinging: true,
         clearError: true,
         isStale: false,
@@ -388,7 +350,6 @@ class HomeCubit extends Cubit<HomeState> {
         .toSet();
 
     final warningTopics = <String>{};
-    final priorities = <String, int>{};
     final messageTimes = <String, List<int>>{};
     final previews = <String, String>{};
     for (final t in topics) {
@@ -405,7 +366,6 @@ class HomeCubit extends Cubit<HomeState> {
       final latest = msgs.isEmpty
           ? null
           : msgs.reduce((a, b) => a.time > b.time ? a : b);
-      priorities[t.name] = latest?.priority ?? 3;
       messageTimes[t.name] = [for (final m in msgs) m.time];
       if (latest != null) previews[t.name] = topicPreview(latest);
       if (msgs.any((m) {
@@ -422,17 +382,8 @@ class HomeCubit extends Cubit<HomeState> {
       }
     }
 
-    final result = resolveHomeFace(
-      topics: topics,
-      incidents: incidents,
-      warningTopics: warningTopics,
-      now: now,
-    );
-
     final items = _buildTopicItems(
-      result.rows,
       topics,
-      priorities,
       messageTimes,
       previews,
       incidents: incidents,
@@ -461,74 +412,58 @@ class HomeCubit extends Cubit<HomeState> {
     _lastIncidents = incidents;
     _lastTopics = topics;
     _lastWarningTopics = warningTopics;
-    _lastPriorities = priorities;
     _lastMessageTimes = messageTimes;
     _lastPreviews = previews;
-    _syncTimer(result.needsTick);
+
+    final facts = homeFactsFrom(
+      topics: topics,
+      incidents: incidents,
+      warningTopics: warningTopics,
+      messageTimes: messageTimes,
+      now: now,
+      setupIncidentIds: _setupIncidentIds(),
+    );
+    _syncTimer(_needsTick(facts));
 
     return state.copyWith(
       status: HomeStatus.success,
       topicItems: items,
-      faceState: result.hero.faceState,
-      word: result.hero.word,
-      subText: result.hero.subText,
-      severity: result.hero.severity,
-      ringingIncidentId: result.hero.ringingIncidentId,
-      clearRinging: result.hero.ringingIncidentId == null,
+      ringingIncidentId: facts.ringing?.incidentId,
+      clearRinging: facts.ringing == null,
       clearError: true,
       isStale: false,
       lastKnownGoodAt: now,
       hasServer: true,
-      facts: homeFactsFrom(
-        topics: topics,
-        incidents: incidents,
-        warningTopics: warningTopics,
-        messageTimes: messageTimes,
-        now: now,
-        setupIncidentIds: _setupIncidentIds(),
-      ),
+      facts: facts,
     );
   }
 
   List<HomeTopicItem> _buildTopicItems(
-    List<HomeTopicRow> rows,
     List<Topic> topics,
-    Map<String, int> priorities,
     Map<String, List<int>> messageTimes,
     Map<String, String> previews, {
     required List<Incident> incidents,
     required Set<String> warningTopics,
     required DateTime now,
   }) {
-    final topicByName = {for (final t in topics) t.name: t};
     final pinned = _listPrefs?.pinned() ?? const <String>{};
     final muted = _listPrefs?.muted() ?? const <String>{};
-    final items = rows.map((r) {
-      final t = topicByName[r.name];
-      final priority = priorities[r.name] ?? 3;
-      final isMuted = muted.contains(r.name);
-      final times = messageTimes[r.name] ?? const <int>[];
+    final items = topics.map((t) {
+      final isMuted = muted.contains(t.name);
+      final times = messageTimes[t.name] ?? const <int>[];
       return HomeTopicItem(
-        name: r.name,
-        meta: r.meta,
-        priority: _priority(priority),
-        isQuiet: priority <= 2,
-        faceState: r.faceState,
-        isCrit: r.faceState == FaceState.alarmed && (t?.critical ?? false),
-        isLive:
-            r.faceState == FaceState.alarmed ||
-            r.faceState == FaceState.worried,
-        ringsThroughSilent: t?.critical ?? false,
-        preview: previews[r.name],
+        name: t.name,
+        ringsThroughSilent: t.critical,
+        preview: previews[t.name],
         // A muted topic shows no count. Its messages still count as read or
         // unread underneath, so unmuting brings the number back.
         unreadCount: isMuted
             ? 0
             : unreadCount(
-                messageTimes[r.name] ?? const <int>[],
-                _listPrefs?.lastReadAt(r.name),
+                times,
+                _listPrefs?.lastReadAt(t.name),
               ),
-        isPinned: pinned.contains(r.name),
+        isPinned: pinned.contains(t.name),
         isMuted: isMuted,
         lastMessageAt: times.isEmpty
             ? null
@@ -536,11 +471,11 @@ class HomeCubit extends Cubit<HomeState> {
                 times.reduce((a, b) => a > b ? a : b) * 1000,
               ),
         rowKind: rowKindFor(
-          topic: r.name,
+          topic: t.name,
           incidents: incidents,
           warningTopics: warningTopics,
           now: now,
-          deskTimerS: t?.deskTimerS ?? defaultDeskTimerS,
+          deskTimerS: t.deskTimerS,
         ),
       );
     }).toList();
@@ -560,11 +495,3 @@ class HomeCubit extends Cubit<HomeState> {
     return [for (final name in order) byName[name]!];
   }
 }
-
-PriorityLevel _priority(int priority) => switch (priority) {
-  5 => PriorityLevel.critical,
-  4 => PriorityLevel.high,
-  2 => PriorityLevel.low,
-  1 => PriorityLevel.min,
-  _ => PriorityLevel.defaultPriority,
-};
