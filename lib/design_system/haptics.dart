@@ -15,8 +15,8 @@ enum HapticPulse { tick, light, medium, heavy }
 /// one comes, in milliseconds from the start.
 ///
 /// The gaps match the sounds they are played with: the second knock of
-/// [doubleKnock] and the bounces of [tripleFade] land where the sound has
-/// them.
+/// [doubleKnock], the bounces of [tripleFade] and the knocks of [tripleRise]
+/// land where the sound has them.
 enum HapticPattern {
   /// No haptic at all.
   none([]),
@@ -56,6 +56,14 @@ enum HapticPattern {
   fallingPair([
     (atMs: 0, pulse: HapticPulse.light),
     (atMs: 110, pulse: HapticPulse.tick),
+  ]),
+
+  /// Three pulses, each firmer, the last one after a breath. Knock, knock,
+  /// and the one that lands: a joke's punchline.
+  tripleRise([
+    (atMs: 0, pulse: HapticPulse.tick),
+    (atMs: 110, pulse: HapticPulse.light),
+    (atMs: 250, pulse: HapticPulse.medium),
   ]);
 
   const HapticPattern(this.steps);

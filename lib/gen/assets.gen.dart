@@ -423,20 +423,29 @@ class $AssetsUiSoundsGen {
   /// File path: assets/ui_sounds/ui_intro_bounce.m4a
   String get uiIntroBounce => 'assets/ui_sounds/ui_intro_bounce.m4a';
 
+  /// File path: assets/ui_sounds/ui_intro_gulp.m4a
+  String get uiIntroGulp => 'assets/ui_sounds/ui_intro_gulp.m4a';
+
   /// File path: assets/ui_sounds/ui_intro_knock.m4a
   String get uiIntroKnock => 'assets/ui_sounds/ui_intro_knock.m4a';
 
   /// File path: assets/ui_sounds/ui_intro_slide.m4a
   String get uiIntroSlide => 'assets/ui_sounds/ui_intro_slide.m4a';
 
+  /// File path: assets/ui_sounds/ui_intro_spring.m4a
+  String get uiIntroSpring => 'assets/ui_sounds/ui_intro_spring.m4a';
+
   /// File path: assets/ui_sounds/ui_intro_swish.m4a
   String get uiIntroSwish => 'assets/ui_sounds/ui_intro_swish.m4a';
 
+  /// File path: assets/ui_sounds/ui_intro_tease.m4a
+  String get uiIntroTease => 'assets/ui_sounds/ui_intro_tease.m4a';
+
+  /// File path: assets/ui_sounds/ui_intro_wink.m4a
+  String get uiIntroWink => 'assets/ui_sounds/ui_intro_wink.m4a';
+
   /// File path: assets/ui_sounds/ui_key.m4a
   String get uiKey => 'assets/ui_sounds/ui_key.m4a';
-
-  /// File path: assets/ui_sounds/ui_kidding.m4a
-  String get uiKidding => 'assets/ui_sounds/ui_kidding.m4a';
 
   /// File path: assets/ui_sounds/ui_lift.m4a
   String get uiLift => 'assets/ui_sounds/ui_lift.m4a';
@@ -519,11 +528,14 @@ class $AssetsUiSoundsGen {
     uiFlip,
     uiGag,
     uiIntroBounce,
+    uiIntroGulp,
     uiIntroKnock,
     uiIntroSlide,
+    uiIntroSpring,
     uiIntroSwish,
+    uiIntroTease,
+    uiIntroWink,
     uiKey,
-    uiKidding,
     uiLift,
     uiLine,
     uiLock,

@@ -344,6 +344,42 @@ void main() {
     });
   });
 
+  group('the punchlines of the intros', () {
+    const punchlines = [
+      PaywallCue.introWink,
+      PaywallCue.introGulp,
+      PaywallCue.introSpring,
+      PaywallCue.introTease,
+    ];
+
+    test('each has a sound of its own and a haptic in its rhythm', () {
+      expect(punchlines.map((cue) => cue.sound), [
+        'ui_intro_wink',
+        'ui_intro_gulp',
+        'ui_intro_spring',
+        'ui_intro_tease',
+      ]);
+      expect(PaywallCue.introWink.haptic, HapticPattern.tripleRise);
+      expect(PaywallCue.introGulp.haptic, HapticPattern.medium);
+      expect(PaywallCue.introSpring.haptic, HapticPattern.risingPair);
+      expect(PaywallCue.introTease.haptic, HapticPattern.light);
+    });
+
+    test('they are small files: none is long enough to ring', () {
+      for (final cue in punchlines) {
+        expect(File(cue.asset!).lengthSync(), lessThan(12 * 1024));
+      }
+    });
+
+    test('the one shared release is gone: no cue is named for it', () {
+      expect(
+        PaywallCue.values.map((cue) => cue.name),
+        isNot(contains('kidding')),
+      );
+      expect(File('assets/ui_sounds/ui_kidding.m4a').existsSync(), isFalse);
+    });
+  });
+
   group('cues that repeat fast', () {
     test('five receipt lines are all sent, each allowed to overlap', () {
       final cues = cuesWith();

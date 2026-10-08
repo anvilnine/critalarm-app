@@ -28,8 +28,8 @@ const PaywallIntro countdownIntro = PaywallIntro(
     PaywallIntroBeat(CountdownTimeline.two, PaywallCue.tick),
     // The mascot lands on the one.
     PaywallIntroBeat(CountdownTimeline.squash, PaywallCue.drop),
-    // The hand sweeps the screen away.
-    PaywallIntroBeat(CountdownTimeline.reveal, PaywallCue.kidding),
+    // Too slow: a tease as the hand sweeps the screen away.
+    PaywallIntroBeat(CountdownTimeline.reveal, PaywallCue.introTease),
   ],
   tag: _tag,
   builder: _build,

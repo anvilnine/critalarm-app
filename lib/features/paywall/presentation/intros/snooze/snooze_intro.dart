@@ -24,8 +24,8 @@ const PaywallIntro snoozeIntro = PaywallIntro(
     PaywallIntroBeat(SnoozeTimeline.dodgeRight, PaywallCue.introBounce),
     // The mascot swallows the button.
     PaywallIntroBeat(SnoozeTimeline.gulp, PaywallCue.pop),
-    // The screen drops away.
-    PaywallIntroBeat(SnoozeTimeline.reveal, PaywallCue.kidding),
+    // It went down well: a gulp and a hiccup as the screen drops away.
+    PaywallIntroBeat(SnoozeTimeline.reveal, PaywallCue.introGulp),
   ],
   tag: _tag,
   builder: _build,
