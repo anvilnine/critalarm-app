@@ -2,7 +2,6 @@
 // ignore_for_file: avoid_redundant_argument_values
 
 import 'package:critalarm/core/models/incident.dart';
-import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -172,43 +171,42 @@ void main() {
     });
   });
 
-  group('lastRealAlarmAt', () {
+  group('newestAlarmAt', () {
     test('is the newest start', () {
       final older = DateTime(2026, 10, 1);
       final newer = DateTime(2026, 10, 5);
       expect(
-        lastRealAlarmAt([
+        newestAlarmAt([
           incident(id: 'a', openedAt: older),
           incident(id: 'b', openedAt: newer),
-        ], setupIncidentIds: const {}),
+        ]),
         newer,
       );
     });
 
-    test('skips a setup test and the phone-only test', () {
-      final real = DateTime(2026, 10, 1);
+    test('counts an alarm that was answered', () {
+      final answered = DateTime(2026, 10, 8, 0, 45);
       expect(
-        lastRealAlarmAt(
-          [
-            incident(id: 'real', openedAt: real),
-            incident(id: 'setup', openedAt: DateTime(2026, 10, 8)),
-            incident(
-              id: phoneOnlyTestIncidentId,
-              openedAt: DateTime(2026, 10, 9),
-            ),
-          ],
-          setupIncidentIds: const {'setup'},
-        ),
-        real,
+        newestAlarmAt([
+          incident(
+            id: 'a',
+            state: IncidentStates.closed,
+            openedAt: DateTime(2026, 10, 8, 0, 44),
+          ),
+          incident(
+            id: 'b',
+            state: IncidentStates.acked,
+            openedAt: answered,
+            ackedAt: DateTime(2026, 10, 8, 0, 46),
+          ),
+        ]),
+        answered,
       );
     });
 
-    test('is null with nothing that counts', () {
-      expect(
-        lastRealAlarmAt([incident(id: 'x')], setupIncidentIds: const {}),
-        isNull,
-      );
-      expect(lastRealAlarmAt(const [], setupIncidentIds: const {}), isNull);
+    test('is null with no alarm that has a start', () {
+      expect(newestAlarmAt([incident(id: 'x')]), isNull);
+      expect(newestAlarmAt(const []), isNull);
     });
   });
 

@@ -421,7 +421,10 @@ class StatusCardsGallery extends StatelessWidget {
           ],
         ),
         const SizedBox(height: Spacing.s5),
-        const _Caption('strip: fine, look, broken'),
+        const _Caption(
+          'strip: fine, look, broken, and a long title that stacks the '
+          'numeral under it',
+        ),
         const Wrap(
           spacing: Spacing.s4,
           runSpacing: Spacing.s4,
@@ -474,6 +477,25 @@ class StatusCardsGallery extends StatelessWidget {
                 AppPipTone.fine,
                 AppPipTone.fine,
                 AppPipTone.broken,
+              ],
+            ),
+            _StripDemo(
+              face: FaceState.skeptical,
+              title:
+                  'Battery saver is on and the last push did not reach '
+                  'this phone',
+              foot: 'It can stop an alarm.',
+              numeral: '5/7',
+              numeralTone: AppStatusTone.orange,
+              action: 'Fix this',
+              tones: [
+                AppPipTone.fine,
+                AppPipTone.fine,
+                AppPipTone.fine,
+                AppPipTone.fine,
+                AppPipTone.fine,
+                AppPipTone.look,
+                AppPipTone.look,
               ],
             ),
           ],

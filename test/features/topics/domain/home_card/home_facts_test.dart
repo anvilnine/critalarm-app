@@ -16,14 +16,12 @@ HomeFacts _facts({
   List<Incident> incidents = const [],
   Set<String> warningTopics = const {},
   Map<String, List<int>> messageTimes = const {},
-  Set<String> setupIncidentIds = const {},
 }) => homeFactsFrom(
   topics: topics,
   incidents: incidents,
   warningTopics: warningTopics,
   messageTimes: messageTimes,
   now: now,
-  setupIncidentIds: setupIncidentIds,
 );
 
 void main() {
@@ -71,7 +69,7 @@ void main() {
       expect(facts.lastAlarmAt, now.subtract(const Duration(days: 3)));
     });
 
-    test('a test setup sent is not the last alarm', () {
+    test('a test setup sent is still the last alarm', () {
       final facts = _facts(
         incidents: [
           incident(
@@ -87,23 +85,36 @@ void main() {
             closedAt: now.subtract(const Duration(days: 1)),
           ),
         ],
-        setupIncidentIds: {'setup-test'},
       );
-      expect(facts.lastAlarmAt, now.subtract(const Duration(days: 5)));
+      expect(facts.lastAlarmAt, now.subtract(const Duration(days: 1)));
     });
 
-    test('no real alarm leaves the last alarm null', () {
+    test('two answered alarms yesterday are the last alarm', () {
       final facts = _facts(
         incidents: [
           incident(
-            id: 'setup-test',
+            id: 'first',
             state: IncidentStates.closed,
-            openedAt: now.subtract(const Duration(days: 1)),
+            openedAt: now.subtract(const Duration(hours: 24, minutes: 1)),
+            closedAt: now.subtract(const Duration(hours: 23)),
+          ),
+          incident(
+            id: 'second',
+            state: IncidentStates.closed,
+            openedAt: now.subtract(const Duration(hours: 24)),
+            closedAt: now.subtract(const Duration(hours: 23)),
           ),
         ],
-        setupIncidentIds: {'setup-test'},
       );
-      expect(facts.lastAlarmAt, isNull);
+      expect(facts.lastAlarmAt, now.subtract(const Duration(hours: 24)));
+    });
+
+    test('no incident leaves the last alarm null', () {
+      expect(_facts().lastAlarmAt, isNull);
+      expect(
+        _facts(incidents: [incident(id: 'no-start')]).lastAlarmAt,
+        isNull,
+      );
     });
   });
 
