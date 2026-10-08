@@ -296,6 +296,10 @@ void main() {
           if (shot == _Shot.trying) {
             final yours = find.byKey(const ValueKey('sound-yours'));
             await tester.tap(yours, warnIfMissed: false);
+            // The lock asks the access layer once it is ready, then tries.
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 100)),
+            );
             await tester.pump();
             await tester.pump(const Duration(milliseconds: 300));
           }
