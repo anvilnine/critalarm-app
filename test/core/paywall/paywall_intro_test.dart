@@ -9,7 +9,14 @@ void main() {
   test('every intro has the key it ships under', () {
     expect(
       {for (final i in PaywallIntroId.values) i.name: i.key},
-      {'none': 'none', 'falseAlarm': 'false_alarm'},
+      {
+        'none': 'none',
+        'falseAlarm': 'false_alarm',
+        'snooze': 'snooze',
+        'wakeUp': 'wake_up',
+        'curtain': 'curtain',
+        'countdown': 'countdown',
+      },
     );
   });
 

@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/intros/false_alarm/false_alarm_timeline.dart';
+import 'package:critalarm/features/paywall/presentation/intros/intro_parts.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
@@ -47,8 +49,19 @@ const PaywallIntro falseAlarmIntro = PaywallIntro(
   skipTo: FalseAlarmTimeline.reveal,
   tone: PaywallTone.crit,
   cue: PaywallEntranceCue.gag,
+  beats: [PaywallIntroBeat(FalseAlarmTimeline.admit, _onAdmit)],
+  tag: _tag,
   builder: _build,
 );
+
+/// The mascot admits it. The ringing before it is a silent picture: it
+/// has no sound and no touch of its own.
+void _onAdmit(PaywallCues cues) {
+  cues.tick();
+  AppHaptics.selection();
+}
+
+String _tag() => LocaleKeys.paywall_false_alarm_admission.tr();
 
 Widget _build(BuildContext context, PaywallIntroScope scope) =>
     FalseAlarmIntro(scope: scope);
@@ -78,8 +91,6 @@ class FalseAlarmIntro extends StatelessWidget {
       builder: (context, t, _) {
         if (FalseAlarmTimeline.isOver(t)) return const SizedBox.shrink();
         final ringing = FalseAlarmTimeline.ringing(t);
-        final presence = FalseAlarmTimeline.presence(t);
-        final leave = Curves.easeIn.transform(1 - presence);
         final saysAlarm = FalseAlarmTimeline.saysAlarm(t);
         final admit = AppCurves.easeBack.transform(
           FalseAlarmTimeline.admission(t),
@@ -104,20 +115,13 @@ class FalseAlarmIntro extends StatelessWidget {
                 ),
               ),
             ),
-            Positioned(
-              left: centre.dx - face / 2,
-              top: centre.dy - face / 2,
-              child: Transform.rotate(
-                angle: FalseAlarmTimeline.shake(t),
-                child: Transform.scale(
-                  scale: (1 + 0.05 * ringing) * (1 - leave),
-                  child: FaceWidget(
-                    state: FaceState.happy,
-                    shape: _faceAt(t),
-                    size: face,
-                  ),
-                ),
-              ),
+            IntroCrit(
+              box: Rect.fromCenter(center: centre, width: face, height: face),
+              scope: scope,
+              shape: _faceAt(t),
+              leave: FalseAlarmTimeline.leave(t),
+              angle: FalseAlarmTimeline.shake(t),
+              scale: 1 + 0.05 * ringing,
             ),
             Positioned(
               left: Spacing.s5,
