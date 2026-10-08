@@ -167,8 +167,6 @@ Message _at(
   time: at.millisecondsSinceEpoch ~/ 1000,
   title: title,
   message: 'Volume /data is at 94 percent.',
-  priority: 3,
-  tags: const [],
 );
 
 void _datesRecent(MockServer server, DateTime now) {
