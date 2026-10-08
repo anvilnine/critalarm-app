@@ -171,6 +171,7 @@ class _PersonalizeLookStripState extends State<PersonalizeLookStrip> {
               end: -6,
               top: PersonalizeLookStrip._pictureHeight - _editTarget + 6,
               child: _EditOwnLook(
+                key: const ValueKey('look-own-edit'),
                 onTap: () => unawaited(showOwnLookSheet(context)),
               ),
             ),
@@ -239,7 +240,7 @@ const double _editTarget = 44;
 /// The own look's edit button: a small ink disc with a pencil on the
 /// corner of the picture, inside a full-size target.
 class _EditOwnLook extends StatelessWidget {
-  const _EditOwnLook({required this.onTap});
+  const _EditOwnLook({required this.onTap, super.key});
 
   final VoidCallback onTap;
 
