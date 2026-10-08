@@ -11,6 +11,12 @@ import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 ///   with. No key means none.
 /// - `topic_challenge_owed.<topic>`: the flag native code reads. See
 ///   [flaggedTopics].
+///
+/// All of it belongs to the account the phone is on. [forgetAll] is what a
+/// sign-out, an account delete and a change of server call. The flags also
+/// carry the tag of the account they were written for, in
+/// `topic_challenge_owed_for`, because they say something about a plan:
+/// see [keepFlagsOnlyFor].
 abstract interface class ChallengeChoices {
   static const String choiceKeyPrefix = 'topic_challenge.';
   static const String defaultKey = 'topic_challenge_default';
@@ -20,6 +26,12 @@ abstract interface class ChallengeChoices {
   /// challenge. Android `ChallengeFlagStore` and iOS `ChallengeFlag` hold
   /// the same word. Keep the three in step.
   static const String owedKeyPrefix = 'topic_challenge_owed.';
+
+  /// The tag of the account every flag was written for (`accountTagFor`).
+  /// One key for all of them, and only Dart reads it: native keeps reading
+  /// the plain booleans. It does not start with [owedKeyPrefix], so it is
+  /// never taken for a topic's flag.
+  static const String owedAccountKey = 'topic_challenge_owed_for';
 
   /// The challenge chosen for [topic], or null for none.
   ChallengeKind? choiceFor(String topic);
@@ -43,12 +55,28 @@ abstract interface class ChallengeChoices {
   /// hears the change and takes the flag away, which needs no plan.
   Future<void> forgetTopic(String topic);
 
-  /// The topics flagged for native as owing a challenge. Only the flag
-  /// writer changes them, and only on a sure answer.
+  /// Everything here belongs to an account that this phone has left:
+  /// every choice, the default, every flag and the flags' tag all go.
+  Future<void> forgetAll();
+
+  /// Says which account this phone is on, and takes every flag away when
+  /// they were written for another one. True when a flag was taken away,
+  /// so the copy the iOS Live Activity reads has to be made again.
+  ///
+  /// With no account known ([accountTag] null) nothing is taken away, and
+  /// [flaggedTopics] answers none until an account is known.
+  Future<bool> keepFlagsOnlyFor(String? accountTag);
+
+  /// The topics flagged for native as owing a challenge, for the account
+  /// this phone is on. Flags written for another account, or read before
+  /// [keepFlagsOnlyFor] said which account that is, count as none. Only
+  /// the flag writer changes them, and only on a sure answer.
   Set<String> get flaggedTopics;
 
   bool isFlagged(String topic);
 
+  /// Writes or clears [topic]'s flag. Setting one throws when no account
+  /// is known: there is nobody to write it for.
   Future<void> writeFlag(String topic, {required bool isOwed});
 
   /// Fires after a choice or the default changed.

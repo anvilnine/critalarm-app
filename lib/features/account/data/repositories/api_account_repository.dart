@@ -1,19 +1,16 @@
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/access/holdings.dart';
-import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/storage/api_session_store.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
-import 'package:critalarm/core/sync/message_sync_service.dart';
 import 'package:critalarm/core/version/app_version.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/repositories/connection_repository.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/register_device_usecase.dart';
-import 'package:critalarm/features/search/domain/repositories/recent_searches_repository.dart';
 
 /// The account routes, plus the sign-out dance that needs four of them.
 final class ApiAccountRepository implements AccountRepository {
@@ -24,9 +21,7 @@ final class ApiAccountRepository implements AccountRepository {
     required this.register,
     required this.identities,
     required this.connections,
-    this.acks,
-    this.messageCursors,
-    this.recentSearches,
+    this.forgetAccountData,
     this.signOutBilling,
     this.stopAlarm,
     this.holdings,
@@ -39,15 +34,13 @@ final class ApiAccountRepository implements AccountRepository {
   final IdentityRepository identities;
   final ConnectionRepository connections;
 
-  /// Acknowledgements still waiting to be sent. Every one names an incident
-  /// on the account that is going, so none of them can ever land.
-  final AckQueue? acks;
-
-  /// Where the poll cursors live, one per topic.
-  final MessageSyncService? messageCursors;
-
-  /// The last few things typed into search. They can name a deleted topic.
-  final RecentSearchesRepository? recentSearches;
+  /// Drops everything on this phone that belongs to the account it is
+  /// leaving: acknowledgements still waiting, the poll cursors, the recent
+  /// searches, and what the paid features keep (challenge choices, alarm
+  /// looks and their notes). The list itself is `AccountData` in
+  /// `lib/app/account_data.dart`, which a connect to a different server
+  /// calls too.
+  final Future<void> Function()? forgetAccountData;
 
   /// Drops the store's idea of who this is, back to an anonymous user.
   ///
@@ -116,6 +109,13 @@ final class ApiAccountRepository implements AccountRepository {
     try {
       await signOutBilling?.call();
     } on Object catch (_) {}
+    // The device is deleted on the server, so this phone has left the
+    // account. What the account left here goes before the next one starts.
+    // A drop that fails never stops the registration below: without it the
+    // phone has no credential at all.
+    try {
+      await forgetAccountData?.call();
+    } on Object catch (_) {}
     await _startOverOnFreshAccount();
   }
 
@@ -135,9 +135,7 @@ final class ApiAccountRepository implements AccountRepository {
     // Everything here names something on the account that is gone: an
     // incident to acknowledge, a message id to poll since, a topic somebody
     // searched for.
-    await acks?.clear();
-    await messageCursors?.resetAllCursors();
-    await recentSearches?.clear();
+    await forgetAccountData?.call();
     await _startOverOnFreshAccount();
   }
 

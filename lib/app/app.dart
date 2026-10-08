@@ -28,6 +28,7 @@ import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/size_class.dart';
@@ -217,7 +218,10 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     // this. Re-plan from what is left right away.
     appAccountIdentityChanges
       ..addListener(_replan)
-      ..addListener(_checkAlarmLook);
+      ..addListener(_checkAccountNotes);
+    // A registration saved or an identity reset is the account changing
+    // under the notes the paid features keep.
+    getIt<DeviceIdentityStore>().changes.addListener(_checkAccountNotes);
     appPlanChanges.addListener(_replan);
     // Planning waits while a Feature Guide is up, so plan the
     // moment one ends rather than on the next resume.
@@ -248,7 +252,8 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_quickActions.dispose());
     appAccountIdentityChanges
       ..removeListener(_replan)
-      ..removeListener(_checkAlarmLook);
+      ..removeListener(_checkAccountNotes);
+    getIt<DeviceIdentityStore>().changes.removeListener(_checkAccountNotes);
     appPlanChanges.removeListener(_replan);
     unawaited(_guideSub?.cancel());
     unawaited(_incomingAudio.dispose());
@@ -259,9 +264,15 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     super.dispose();
   }
 
-  /// The note the alarm looks keep belongs to one account, so it is read
-  /// again when the account changes.
-  void _checkAlarmLook() => unawaited(getIt<AlarmStyleGate>().check());
+  /// The own sounds lock, the challenge flags and the note the alarm looks
+  /// keep each belong to one account, so they are read again when the
+  /// account changes. Each check starts by taking away what was written
+  /// for another account.
+  void _checkAccountNotes() {
+    unawaited(getIt<SoundLockSync>().check());
+    unawaited(getIt<ChallengeFlagSync>().check());
+    unawaited(getIt<AlarmStyleGate>().check());
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {

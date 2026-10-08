@@ -1,9 +1,7 @@
-import 'dart:convert';
-
 import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/core/account/account_tag.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_assignments.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.dart';
-import 'package:crypto/crypto.dart';
 
 /// Which look the alarm screen draws.
 ///
@@ -57,11 +55,9 @@ AlarmStyleId alarmStyleFor({
 
 /// The tag the note "the last sure answer was open" is kept under for
 /// [accountId]: a hash, so the account id itself is not written a second
-/// time. Null for an account that is not known.
-String? alarmStyleAccountTag(String? accountId) {
-  if (accountId == null || accountId.isEmpty) return null;
-  return sha256.convert(utf8.encode(accountId)).toString().substring(0, 16);
-}
+/// time. Null for an account that is not known. The same tag the own
+/// sounds lock and the challenge flags are kept under ([accountTagFor]).
+String? alarmStyleAccountTag(String? accountId) => accountTagFor(accountId);
 
 /// Whether the note counts for the account this phone is on now.
 ///
@@ -71,7 +67,7 @@ String? alarmStyleAccountTag(String? accountId) {
 bool openNoteCountsFor({
   required String? noteTag,
   required String? accountTag,
-}) => noteTag != null && accountTag != null && noteTag == accountTag;
+}) => noteIsForAccount(noteTag: noteTag, accountTag: accountTag);
 
 /// What the note "the last sure answer was open" becomes after [decision],
 /// given what is [written] now. The note is the tag of the account the
