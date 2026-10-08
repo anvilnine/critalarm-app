@@ -84,7 +84,7 @@ void main() {
           'buttons are backed by that canvas', () {
         for (final MapEntry(key: brightness, value: base) in _themes.entries) {
           for (final stage in AlarmStage.values) {
-            final profile = style.lookOf(stage).ambient(base);
+            final profile = style.lookOf(stage).ambient(base, brightness);
             expect(profile.shapes, hasLength(3));
             expect(profile.canvas.a, 1, reason: 'a see-through canvas');
             if (style.keepsThemeFace) continue;
@@ -189,13 +189,13 @@ void main() {
     });
 
     test('its canvases are the two alarm profiles', () {
-      for (final base in _themes.values) {
+      for (final MapEntry(key: brightness, value: base) in _themes.entries) {
         expect(
-          standardAlarmStyle.ringing.ambient(base),
+          standardAlarmStyle.ringing.ambient(base, brightness),
           AmbientAppProfiles.criticalAlarmRinging(base),
         );
         expect(
-          standardAlarmStyle.acknowledged.ambient(base),
+          standardAlarmStyle.acknowledged.ambient(base, brightness),
           AmbientAppProfiles.criticalAlarmAcknowledged(base),
         );
       }
@@ -221,9 +221,11 @@ void main() {
 
   group('Minimal takes things away:', () {
     test('no shapes, no pulse ring, a small face, large topic and time', () {
-      for (final base in _themes.values) {
+      for (final MapEntry(key: brightness, value: base) in _themes.entries) {
         for (final stage in AlarmStage.values) {
-          final profile = minimalAlarmStyle.lookOf(stage).ambient(base);
+          final profile = minimalAlarmStyle
+              .lookOf(stage)
+              .ambient(base, brightness);
           expect(profile.shapes.every((shape) => shape.opacity == 0), isTrue);
         }
       }
@@ -239,10 +241,35 @@ void main() {
       );
     });
 
+    test('the canvas follows the theme brightness, whatever palette the '
+        'app is in, so it cannot disagree with the colours', () {
+      for (final brightness in Brightness.values) {
+        for (final base in _themes.values) {
+          for (final stage in AlarmStage.values) {
+            expect(
+              minimalAlarmStyle.lookOf(stage).ambient(base, brightness).canvas,
+              minimalAlarmStyle
+                  .colorsFor(
+                    stage,
+                    base: base,
+                    severity: SeverityMode.crit,
+                    brightness: brightness,
+                  )
+                  .canvas,
+            );
+          }
+        }
+      }
+    });
+
     test('the canvas is near-white in the light theme and near-black in '
         'the dark one', () {
-      final light = minimalAlarmStyle.ringing.ambient(AppColors.light).canvas;
-      final dark = minimalAlarmStyle.ringing.ambient(AppColors.dark).canvas;
+      final light = minimalAlarmStyle.ringing
+          .ambient(AppColors.light, Brightness.light)
+          .canvas;
+      final dark = minimalAlarmStyle.ringing
+          .ambient(AppColors.dark, Brightness.dark)
+          .canvas;
       expect(light.computeLuminance(), greaterThan(0.85));
       expect(dark.computeLuminance(), lessThan(0.02));
     });

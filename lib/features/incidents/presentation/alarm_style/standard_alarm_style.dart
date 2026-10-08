@@ -61,6 +61,14 @@ AppColors _severityColors(
   Brightness brightness,
 ) => base.withSeverity(severity);
 
+AmbientProfile _ringingCanvas(AppColors appColors, Brightness brightness) =>
+    AmbientAppProfiles.criticalAlarmRinging(appColors);
+
+AmbientProfile _acknowledgedCanvas(
+  AppColors appColors,
+  Brightness brightness,
+) => AmbientAppProfiles.criticalAlarmAcknowledged(appColors);
+
 /// The look the alarm screen has always had, written as a look. Every
 /// value here is the one the screen used before looks existed, so it
 /// draws exactly what it drew.
@@ -70,12 +78,12 @@ final AlarmStyle standardAlarmStyle = AlarmStyle(
   keepsThemeFace: true,
   ringing: AlarmRingingLook(
     colors: _severityColors,
-    ambient: AmbientAppProfiles.criticalAlarmRinging,
+    ambient: _ringingCanvas,
     type: standardRingingType,
   ),
   acknowledged: AlarmAcknowledgedLook(
     colors: _severityColors,
-    ambient: AmbientAppProfiles.criticalAlarmAcknowledged,
+    ambient: _acknowledgedCanvas,
     type: standardAcknowledgedType,
   ),
 );

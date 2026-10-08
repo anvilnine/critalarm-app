@@ -1621,6 +1621,9 @@ Future<void> configureDependencies({
         decideOnceReady: () => getIt<FeatureAccess>().decideOnceReady(
           AppFeature.alarmScreenStyles,
         ),
+        // The note of the last sure answer belongs to one account.
+        readAccountId: () async =>
+            (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
         planRead: getIt<FeatureAccess>().ready,
         changes: [
           getIt<FeatureAccess>().changes.where(

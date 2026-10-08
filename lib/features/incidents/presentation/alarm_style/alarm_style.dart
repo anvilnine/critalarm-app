@@ -36,6 +36,8 @@ enum AlarmStage {
 ///   with `onCanvas` for the label.
 /// - "Back to topics" (`AppButtonVariant.paper`): `surface`, with `ink`
 ///   for the label.
+/// - "I'm up" while the acknowledge is on its way, and any other filled
+///   button that is off: `ash`, with `ink2` for the spinner or the label.
 /// - The topic pill and the pulse ring: `canvasGhostStrong`.
 /// - The ringing face: `faceFill`, `faceInk`, and `crit` for its outline.
 /// - The acknowledged face: `faceFill`.
@@ -50,12 +52,14 @@ typedef AlarmStageColors =
     );
 
 /// The canvas and its shapes for one stage, made from the app's own
-/// colours (before [AlarmStageColors] retints them).
+/// colours (before [AlarmStageColors] retints them) and the theme's
+/// brightness, the same one [AlarmStageColors] is handed.
 ///
 /// A profile always has three shapes, because the canvas blends one
 /// profile into the next shape by shape. A look with nothing behind it
 /// gives three shapes at opacity 0.
-typedef AlarmStageAmbient = AmbientProfile Function(AppColors appColors);
+typedef AlarmStageAmbient =
+    AmbientProfile Function(AppColors appColors, Brightness brightness);
 
 /// One frame of a look's background painter.
 @immutable

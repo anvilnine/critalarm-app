@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_assignments.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.dart';
+import 'package:crypto/crypto.dart';
 
 /// Which look the alarm screen draws.
 ///
@@ -16,7 +19,7 @@ import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.d
 ///   the saved server. Before that a "locked" can be wrong, so it counts
 ///   as "could not be read".
 /// - [wasOpenWhenLastSure] is the phone's note that the last sure answer
-///   was "open".
+///   was "open", for the account it is on now ([openNoteCountsFor]).
 /// - [isSetupAlarm] is true for an alarm setup itself caused, or a test
 ///   run again from Settings. Those screens have their own layout and
 ///   always draw the standard look.
@@ -52,18 +55,41 @@ AlarmStyleId alarmStyleFor({
   };
 }
 
+/// The tag the note "the last sure answer was open" is kept under for
+/// [accountId]: a hash, so the account id itself is not written a second
+/// time. Null for an account that is not known.
+String? alarmStyleAccountTag(String? accountId) {
+  if (accountId == null || accountId.isEmpty) return null;
+  return sha256.convert(utf8.encode(accountId)).toString().substring(0, 16);
+}
+
+/// Whether the note counts for the account this phone is on now.
+///
+/// The note belongs to one account. Preferences can travel to another
+/// phone in a backup, and a note that arrives that way, for another
+/// account or with no account known, is no note at all.
+bool openNoteCountsFor({
+  required String? noteTag,
+  required String? accountTag,
+}) => noteTag != null && accountTag != null && noteTag == accountTag;
+
 /// What the note "the last sure answer was open" becomes after [decision],
-/// given what is [written] now.
+/// given what is [written] now. The note is the tag of the account the
+/// answer was for, or null for no note.
 ///
 /// [decision] is the answer asked once the plan was read, or null when
-/// nobody knows. Only a sure answer changes the note: open or a purchase
-/// being confirmed sets it, locked clears it, and anything else leaves it
-/// as it is.
-bool openWhenLastSureAfter({
-  required bool written,
+/// nobody knows. Only a sure answer changes the note:
+///
+/// - Open, or a purchase being confirmed: the note is [accountTag]. With
+///   no account known there is nobody to note it for, and the note goes.
+/// - Locked: the note goes.
+/// - Anything else: the note stays as it is.
+String? openNoteAfter({
+  required String? written,
   required FeatureDecision? decision,
+  required String? accountTag,
 }) => switch (decision) {
-  FeatureOpen() || FeatureConfirming() => true,
-  FeatureLocked() => false,
+  FeatureOpen() || FeatureConfirming() => accountTag,
+  FeatureLocked() => null,
   FeatureUnread() || null => written,
 };

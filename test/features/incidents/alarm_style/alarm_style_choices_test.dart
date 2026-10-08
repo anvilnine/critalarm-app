@@ -6,12 +6,17 @@ import 'package:critalarm/features/incidents/data/shared_prefs_alarm_style_choic
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_assignments.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_rule.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _open = FeatureDecision.open();
 const _locked = FeatureDecision.locked(Holding.pro);
 const _unread = FeatureDecision.unread(Holding.pro);
+
+const _account = 'acct_mine';
+final String _mine = alarmStyleAccountTag(_account)!;
+final String _theirs = alarmStyleAccountTag('acct_theirs')!;
 
 void main() {
   late SharedPreferences prefs;
@@ -28,7 +33,7 @@ void main() {
     test('a phone starts with nothing saved', () async {
       await start();
       expect(choices.assignments, const AlarmStyleAssignments());
-      expect(choices.wasOpenWhenLastSure, isFalse);
+      expect(choices.openNote, isNull);
     });
 
     test('the default is kept under alarm_style_default', () async {
@@ -75,18 +80,18 @@ void main() {
       await start({
         'alarm_style_default': 7,
         'alarm_style_topic.prod-db': true,
-        'alarm_style_open_when_last_sure': 'yes',
+        'alarm_style_open_when_last_sure': true,
       });
       expect(choices.assignments, const AlarmStyleAssignments());
-      expect(choices.wasOpenWhenLastSure, isFalse);
+      expect(choices.openNote, isNull);
     });
 
     test('the note is one key, gone again when cleared', () async {
       await start();
-      await choices.writeOpenWhenLastSure(isOpen: true);
-      expect(prefs.getBool('alarm_style_open_when_last_sure'), isTrue);
-      expect(choices.wasOpenWhenLastSure, isTrue);
-      await choices.writeOpenWhenLastSure(isOpen: false);
+      await choices.writeOpenNote(_mine);
+      expect(prefs.getString('alarm_style_open_when_last_sure'), _mine);
+      expect(choices.openNote, _mine);
+      await choices.writeOpenNote(null);
       expect(prefs.containsKey('alarm_style_open_when_last_sure'), isFalse);
     });
 
@@ -97,7 +102,7 @@ void main() {
       addTearDown(subscription.cancel);
       await choices.setDefault('minimal');
       await choices.setTopicStyle('prod-db', 'minimal');
-      await choices.writeOpenWhenLastSure(isOpen: true);
+      await choices.writeOpenNote(_mine);
       await Future<void>.delayed(Duration.zero);
       expect(fired, 2);
     });
@@ -107,6 +112,7 @@ void main() {
     late FeatureDecision now;
     late Completer<void> planRead;
     late bool isUnreadable;
+    late String? account;
 
     AlarmStyleGate gate({Stream<Object?>? changes}) => AlarmStyleGate(
       choices: choices,
@@ -116,6 +122,7 @@ void main() {
         if (isUnreadable) throw const HoldingUnreadable(Holding.pro);
         return now;
       },
+      readAccountId: () async => account,
       planRead: planRead.future,
       changes: [?changes],
     );
@@ -124,6 +131,7 @@ void main() {
       now = _open;
       planRead = Completer<void>();
       isUnreadable = false;
+      account = _account;
     });
 
     test('draws what the rule says for a topic and for the phone', () async {
@@ -153,7 +161,7 @@ void main() {
       await styles.check();
       expect(styles.styleFor('prod-db'), AlarmStyleId.standard);
       expect(prefs.getString('alarm_style_topic.prod-db'), 'minimal');
-      expect(choices.wasOpenWhenLastSure, isFalse);
+      expect(choices.openNote, isNull);
 
       now = _open;
       expect(styles.styleFor('prod-db'), AlarmStyleId.minimal);
@@ -163,15 +171,19 @@ void main() {
         'whose last sure answer was open', () async {
       await start({
         'alarm_style_topic.prod-db': 'minimal',
-        'alarm_style_open_when_last_sure': true,
+        'alarm_style_open_when_last_sure': _mine,
       });
       now = _locked;
       final styles = gate();
+      // Until this phone's account is known the note counts for nobody.
+      expect(styles.styleFor('prod-db'), AlarmStyleId.standard);
+      final checking = styles.check();
+      await Future<void>.delayed(Duration.zero);
       expect(styles.styleFor('prod-db'), AlarmStyleId.minimal);
 
       // Read, and it really is locked: now it is sure.
       planRead.complete();
-      await styles.check();
+      await checking;
       expect(styles.styleFor('prod-db'), AlarmStyleId.standard);
     });
 
@@ -179,14 +191,14 @@ void main() {
         'leaves the note alone', () async {
       await start({
         'alarm_style_topic.prod-db': 'minimal',
-        'alarm_style_open_when_last_sure': true,
+        'alarm_style_open_when_last_sure': _mine,
       });
       now = _unread;
       isUnreadable = true;
       planRead.complete();
       final styles = gate();
       await styles.check();
-      expect(choices.wasOpenWhenLastSure, isTrue);
+      expect(choices.openNote, _mine);
       expect(styles.styleFor('prod-db'), AlarmStyleId.minimal);
     });
 
@@ -198,8 +210,47 @@ void main() {
       planRead.complete();
       final styles = gate();
       await styles.check();
-      expect(choices.wasOpenWhenLastSure, isFalse);
+      expect(choices.openNote, isNull);
       expect(styles.styleFor('prod-db'), AlarmStyleId.standard);
+    });
+
+    test('a note restored from a backup of another account gives '
+        'nothing', () async {
+      await start({
+        'alarm_style_topic.prod-db': 'minimal',
+        'alarm_style_open_when_last_sure': _theirs,
+      });
+      now = _unread;
+      isUnreadable = true;
+      planRead.complete();
+      final styles = gate();
+      await styles.check();
+      expect(styles.styleFor('prod-db'), AlarmStyleId.standard);
+      // Nobody knows, so the note itself is left as it was found.
+      expect(choices.openNote, _theirs);
+    });
+
+    test('a note restored onto a phone with no account gives '
+        'nothing', () async {
+      await start({
+        'alarm_style_topic.prod-db': 'minimal',
+        'alarm_style_open_when_last_sure': _mine,
+      });
+      account = null;
+      now = _unread;
+      isUnreadable = true;
+      planRead.complete();
+      final styles = gate();
+      await styles.check();
+      expect(styles.styleFor('prod-db'), AlarmStyleId.standard);
+    });
+
+    test('a sure open on this account replaces the note of another '
+        'account', () async {
+      await start({'alarm_style_open_when_last_sure': _theirs});
+      planRead.complete();
+      await gate().check();
+      expect(choices.openNote, _mine);
     });
 
     test('notes a sure open once the plan is read, and not before', () async {
@@ -207,10 +258,10 @@ void main() {
       final styles = gate();
       final checking = styles.check();
       await Future<void>.delayed(Duration.zero);
-      expect(choices.wasOpenWhenLastSure, isFalse);
+      expect(choices.openNote, isNull);
       planRead.complete();
       await checking;
-      expect(choices.wasOpenWhenLastSure, isTrue);
+      expect(choices.openNote, _mine);
     });
 
     test('checks again when the answer changes', () async {
@@ -222,13 +273,13 @@ void main() {
       addTearDown(styles.dispose);
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
-      expect(choices.wasOpenWhenLastSure, isTrue);
+      expect(choices.openNote, _mine);
 
       now = _locked;
       changes.add(null);
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
-      expect(choices.wasOpenWhenLastSure, isFalse);
+      expect(choices.openNote, isNull);
     });
 
     test('never throws: a decision that cannot be asked draws '
@@ -238,11 +289,12 @@ void main() {
         choices: choices,
         decide: () => throw StateError('no access layer'),
         decideOnceReady: () async => throw StateError('no access layer'),
+        readAccountId: () async => throw StateError('no identity'),
         planRead: Future<void>.error(StateError('never read')),
       );
       expect(styles.styleFor('prod-db'), AlarmStyleId.standard);
       await styles.check();
-      expect(choices.wasOpenWhenLastSure, isFalse);
+      expect(choices.openNote, isNull);
     });
   });
 }

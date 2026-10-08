@@ -14,12 +14,15 @@ import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_rule
 ///
 /// It also keeps the one note the rule reads while the plan cannot be
 /// read: whether the last sure answer was "open". [check] writes it, on a
-/// sure answer only.
+/// sure answer only, under the account the answer was for. A note for
+/// another account, or read before this phone's account is known, counts
+/// as no note.
 class AlarmStyleGate {
   AlarmStyleGate({
     required this._choices,
     required this._decide,
     required this._decideOnceReady,
+    required this._readAccountId,
     required Future<void> planRead,
     this._changes = const [],
   }) {
@@ -36,6 +39,12 @@ class AlarmStyleGate {
   /// The same answer, asked once the plan was read. Throws when nobody
   /// knows.
   final Future<FeatureDecision> Function() _decideOnceReady;
+
+  /// The account this phone is on, or null when it has none yet.
+  final Future<String?> Function() _readAccountId;
+
+  /// The tag of that account, once [check] has read it.
+  String? _accountTag;
 
   /// Each fires when the answer may have changed.
   final List<Stream<Object?>> _changes;
@@ -55,7 +64,10 @@ class AlarmStyleGate {
         topicName: topicName,
         decision: _decide(),
         isPlanRead: _isPlanRead,
-        wasOpenWhenLastSure: _choices.wasOpenWhenLastSure,
+        wasOpenWhenLastSure: openNoteCountsFor(
+          noteTag: _choices.openNote,
+          accountTag: _accountTag,
+        ),
         isSetupAlarm: isSetupAlarm,
       );
     } on Object catch (_) {
@@ -100,6 +112,14 @@ class AlarmStyleGate {
   }
 
   Future<void> _checkOnce() async {
+    // First, and on its own: the note counts only once the account is
+    // known, and that must not wait for the plan.
+    try {
+      _accountTag = alarmStyleAccountTag(await _readAccountId());
+    } on Object catch (_) {
+      // An account that cannot be read is not known. What was read before
+      // stays.
+    }
     FeatureDecision? decision;
     try {
       decision = await _decideOnceReady();
@@ -109,11 +129,13 @@ class AlarmStyleGate {
       decision = null;
     }
     try {
-      final written = _choices.wasOpenWhenLastSure;
-      final next = openWhenLastSureAfter(written: written, decision: decision);
-      if (next != written) {
-        await _choices.writeOpenWhenLastSure(isOpen: next);
-      }
+      final written = _choices.openNote;
+      final next = openNoteAfter(
+        written: written,
+        decision: decision,
+        accountTag: _accountTag,
+      );
+      if (next != written) await _choices.writeOpenNote(next);
     } on Object catch (_) {
       // A failed read or write leaves the old note, and the next change,
       // resume or launch tries again.

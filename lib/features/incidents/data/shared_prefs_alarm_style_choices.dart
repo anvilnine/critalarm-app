@@ -59,21 +59,18 @@ class SharedPrefsAlarmStyleChoices implements AlarmStyleChoices {
   Future<void> forgetTopic(String topic) => setTopicStyle(topic, null);
 
   @override
-  bool get wasOpenWhenLastSure {
-    try {
-      return _prefs.getBool(AlarmStyleChoices.openWhenLastSureKey) ?? false;
-    } on Object catch (_) {
-      return false;
-    }
-  }
+  String? get openNote => _string(AlarmStyleChoices.openWhenLastSureKey);
 
   @override
-  Future<void> writeOpenWhenLastSure({required bool isOpen}) async {
+  Future<void> writeOpenNote(String? accountTag) async {
     // No key reads as "not open", so a cleared note leaves nothing behind.
-    if (isOpen) {
-      await _prefs.setBool(AlarmStyleChoices.openWhenLastSureKey, true);
-    } else {
+    if (accountTag == null || accountTag.isEmpty) {
       await _prefs.remove(AlarmStyleChoices.openWhenLastSureKey);
+    } else {
+      await _prefs.setString(
+        AlarmStyleChoices.openWhenLastSureKey,
+        accountTag,
+      );
     }
   }
 

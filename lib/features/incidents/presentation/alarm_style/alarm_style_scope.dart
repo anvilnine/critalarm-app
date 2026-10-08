@@ -39,6 +39,11 @@ class AlarmStyleScope extends InheritedWidget {
 ///   touch and a screen reader never meets it;
 /// - sets the [AlarmStyleScope] the two screens read.
 ///
+/// The tree it builds has the same shape whatever the colours are, so a
+/// severity that changes mid-alarm keeps every widget under it mounted. A
+/// look whose colours throw is drawn as the standard look for that build,
+/// and a background that throws paints nothing: the alarm screen stays up.
+///
 /// The canvas is not drawn here. The owner hands the look's ambient
 /// profile to the canvas it already has.
 class AlarmStyleStage extends StatelessWidget {
@@ -68,12 +73,26 @@ class AlarmStyleStage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final base = context.appColors;
-    final colors = style.colorsFor(
-      stage,
-      base: base,
-      severity: severity,
-      brightness: theme.brightness,
-    );
+    var style = this.style;
+    AppColors colors;
+    try {
+      colors = style.colorsFor(
+        stage,
+        base: base,
+        severity: severity,
+        brightness: theme.brightness,
+      );
+    } on Object catch (_) {
+      // The owner checks a look before it gets here (`drawableAlarmStyle`).
+      // This is the same answer for one that slipped past.
+      style = standardAlarmStyle;
+      colors = style.colorsFor(
+        stage,
+        base: base,
+        severity: severity,
+        brightness: theme.brightness,
+      );
+    }
     final backdrop = style.backdrop;
     Widget content = AlarmStyleScope(style: style, child: child);
     if (backdrop != null) {
@@ -96,24 +115,68 @@ class AlarmStyleStage extends StatelessWidget {
         ],
       );
     }
-    // The palette a severity leaves alone is the app's own: nothing to
-    // retint, as with `SeverityScope`.
-    if (identical(colors, base)) return content;
+    // The palette a severity leaves alone is the app's own, and the theme
+    // goes on unchanged. The Theme stays in the tree all the same.
     return Theme(
-      data: theme.copyWith(
-        scaffoldBackgroundColor: colors.canvas,
-        colorScheme: theme.colorScheme.copyWith(
-          surface: colors.surface,
-          onSurface: colors.onCanvas,
-          primary: colors.highlight,
-        ),
-        extensions: [
-          ...theme.extensions.values.where((ext) => ext is! AppColors),
-          colors,
-        ],
-      ),
+      data: identical(colors, base)
+          ? theme
+          : theme.copyWith(
+              scaffoldBackgroundColor: colors.canvas,
+              colorScheme: theme.colorScheme.copyWith(
+                surface: colors.surface,
+                onSurface: colors.onCanvas,
+                primary: colors.highlight,
+              ),
+              extensions: [
+                ...theme.extensions.values.where((ext) => ext is! AppColors),
+                colors,
+              ],
+            ),
       child: content,
     );
+  }
+}
+
+/// The painter of a look's background for [frame], or null when making it
+/// throws. What it paints is guarded too: a throw in the middle of a paint
+/// ends that paint and nothing else.
+CustomPainter? guardedAlarmBackdrop(
+  AlarmBackdropPainter painter,
+  AlarmBackdropFrame frame,
+) {
+  try {
+    return _GuardedPainter(painter(frame));
+  } on Object catch (_) {
+    return null;
+  }
+}
+
+class _GuardedPainter extends CustomPainter {
+  const _GuardedPainter(this._inner);
+
+  final CustomPainter _inner;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Whatever the painter left half done (a save, a clip) is undone, so
+    // nothing of it reaches the alarm screen drawn over it.
+    final saves = canvas.getSaveCount();
+    try {
+      _inner.paint(canvas, size);
+    } on Object catch (_) {
+      // Nothing more is painted this frame.
+    } finally {
+      canvas.restoreToCount(saves);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GuardedPainter oldDelegate) {
+    try {
+      return _inner.shouldRepaint(oldDelegate._inner);
+    } on Object catch (_) {
+      return true;
+    }
   }
 }
 
@@ -179,7 +242,8 @@ class _BackdropState extends State<_Backdrop>
     final isStill = !_animating;
     return RepaintBoundary(
       child: CustomPaint(
-        painter: widget.painter(
+        painter: guardedAlarmBackdrop(
+          widget.painter,
           AlarmBackdropFrame(
             stage: widget.stage,
             colors: widget.colors,

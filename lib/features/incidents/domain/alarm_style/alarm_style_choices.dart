@@ -11,7 +11,7 @@ import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_assi
 ///   standard look.
 /// - `alarm_style_topic.<topic>`: a topic's own look. No key means the
 ///   topic follows the phone.
-/// - `alarm_style_open_when_last_sure`: see [wasOpenWhenLastSure].
+/// - `alarm_style_open_when_last_sure`: see [openNote].
 ///
 /// A lock never changes what is saved here. What is drawn is
 /// `alarmStyleFor`'s answer.
@@ -32,13 +32,16 @@ abstract interface class AlarmStyleChoices {
   /// The topic was deleted on this phone: its choice goes.
   Future<void> forgetTopic(String topic);
 
-  /// Whether the last sure answer of the access layer for alarm screen
-  /// styles was "open". While the plan cannot be read, a paid look keeps
-  /// drawing only then. Only `AlarmStyleGate` writes it, and only on a
-  /// sure answer.
-  bool get wasOpenWhenLastSure;
+  /// The note that the last sure answer of the access layer for alarm
+  /// screen styles was "open": the tag of the account it was for
+  /// (`alarmStyleAccountTag`), or null for no note. While the plan cannot
+  /// be read, a paid look keeps drawing only with a note for the account
+  /// the phone is on. Only `AlarmStyleGate` writes it, and only on a sure
+  /// answer.
+  String? get openNote;
 
-  Future<void> writeOpenWhenLastSure({required bool isOpen});
+  /// Saves the note. Null takes it away.
+  Future<void> writeOpenNote(String? accountTag);
 
   /// Fires after a choice changed.
   Stream<void> get changes;

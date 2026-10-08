@@ -20,6 +20,7 @@ import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_latch.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_screen_reader.dart';
@@ -256,20 +257,37 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  /// Keeps the look of the incident on screen still while it is on screen.
+  final AlarmStyleLatch _lookLatch = AlarmStyleLatch();
+
   /// The look this alarm is drawn in: the topic's own, or the phone's.
   ///
   /// Only an alarm that is ringing or acknowledged has one. The loading
   /// and failed screens, a setup test and the first tool alarm keep the
   /// standard look, and so does anything that goes wrong here: the alarm
   /// screen always draws.
+  ///
+  /// It is decided once per incident and held ([AlarmStyleLatch]): a plan
+  /// read that lands while the phone rings does not recolour "I'm up" or
+  /// resize the face under a reaching thumb.
   AlarmStyle _styleFor(CriticalAlarmState state) {
-    if (!state.isLive && !state.isAcknowledged) return alarmStyleOf(null);
+    if (!state.isLive && !state.isAcknowledged) {
+      _lookLatch.release();
+      return alarmStyleOf(null);
+    }
+    // Asked on every build and never held: which exits an alarm ends on
+    // can be learned after its first frame, and a setup screen is never
+    // drawn in another look.
+    if (state.isPreview || state.ackedExits != AckedExits.incident) {
+      return alarmStyleOf(null);
+    }
     try {
       return alarmStyleOf(
-        getIt<AlarmStyleGate>().styleFor(
-          state.topic.isEmpty ? null : state.topic,
-          isSetupAlarm:
-              state.isPreview || state.ackedExits != AckedExits.incident,
+        _lookLatch.styleFor(
+          state.incident?.id,
+          decide: () => getIt<AlarmStyleGate>().styleFor(
+            state.topic.isEmpty ? null : state.topic,
+          ),
         ),
       );
     } on Object catch (_) {
@@ -326,11 +344,19 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
       },
       builder: (context, state) {
         final colors = context.appColors;
-        final style = _styleFor(state);
+        final brightness = Theme.of(context).brightness;
+        // A look that cannot be drawn is the standard one for this build,
+        // canvas and screen alike.
+        final style = drawableAlarmStyle(
+          _styleFor(state),
+          base: colors,
+          severity: state.severityMode,
+          brightness: brightness,
+        );
         final stage = state.isAcknowledged
             ? AlarmStage.acknowledged
             : AlarmStage.ringing;
-        final profile = style.lookOf(stage).ambient(colors);
+        final profile = style.lookOf(stage).ambient(colors, brightness);
 
         Widget content;
         if (!state.isLive && !state.isAcknowledged) {

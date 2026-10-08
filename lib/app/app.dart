@@ -215,7 +215,9 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     _reminders.start();
     // Sign-in, sign-out, a linked provider and an account delete all bump
     // this. Re-plan from what is left right away.
-    appAccountIdentityChanges.addListener(_replan);
+    appAccountIdentityChanges
+      ..addListener(_replan)
+      ..addListener(_checkAlarmLook);
     appPlanChanges.addListener(_replan);
     // Planning waits while a Feature Guide is up, so plan the
     // moment one ends rather than on the next resume.
@@ -244,7 +246,9 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_push.dispose());
     unawaited(_reminders.dispose());
     unawaited(_quickActions.dispose());
-    appAccountIdentityChanges.removeListener(_replan);
+    appAccountIdentityChanges
+      ..removeListener(_replan)
+      ..removeListener(_checkAlarmLook);
     appPlanChanges.removeListener(_replan);
     unawaited(_guideSub?.cancel());
     unawaited(_incomingAudio.dispose());
@@ -254,6 +258,10 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(getIt<AlarmStyleGate>().dispose());
     super.dispose();
   }
+
+  /// The note the alarm looks keep belongs to one account, so it is read
+  /// again when the account changes.
+  void _checkAlarmLook() => unawaited(getIt<AlarmStyleGate>().check());
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
