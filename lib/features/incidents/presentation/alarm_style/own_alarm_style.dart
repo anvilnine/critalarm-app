@@ -17,9 +17,15 @@ import 'package:flutter/material.dart';
 // be at import (`ownLookScrimFor`), so they read on any photo. The
 // message card and the bar behind the acknowledged buttons are solid, as
 // in every look. "I'm up" is a solid fill brighter than anything the
-// scrim leaves, in the picked colour.
+// scrim leaves, in the picked colour, and the two quiet buttons are a
+// faint wash, so "I'm up" is the heaviest thing in the bar at rest and
+// while the acknowledge is on its way.
 //
-// The same dark canvas in both themes: the photo is the screen. The card
+// The same dark canvas in both themes: the photo is the screen. While
+// the phone rings the card is paper in both themes too. A dark card
+// would need a light second ink, the spinner in "I'm up" is drawn in that
+// ink, and a busy fill dark enough for a light spinner sinks into the
+// scrimmed photo. Once acknowledged there is no spinner, and the card
 // follows the theme.
 
 /// What is drawn where the photo does not reach, and what backs the
@@ -46,11 +52,19 @@ const Color _darkCard = Color(0xFF2A231E);
 const Color _darkRow = Color(0xFF1B1612);
 const Color _darkInk3 = Color(0xFFA99786);
 
-/// The fill of "I'm up" while the acknowledge is on its way. Each is
-/// brighter than anything the scrim leaves of a photo, so the button
-/// never sinks into it, and far enough from the spinner drawn on it.
-const Color _lightBusy = Color(0xFFB9B0A5);
-const Color _darkBusy = Color(0xFF8A827A);
+/// The fill of "I'm up" while the acknowledge is on its way: a light
+/// stone, far brighter than anything the scrim leaves of a photo, so the
+/// button stays the heaviest in the bar, with a dark spinner on it.
+const Color _busy = Color(0xFFCFC7BC);
+
+/// The fill of a button that is off on the acknowledged stage in the dark
+/// theme, where the inks are light. No button of that stage is off today.
+const Color _darkOff = Color(0xFF8A827A);
+
+/// How strong the wash of a quiet button is over the photo, 0 to 255:
+/// `AppButtonVariant.tinted` lays the card colour on at 22 percent, and
+/// while the phone rings the card is white. Rounded up.
+const int ownLookWashAlpha = 57;
 
 /// One colour "I'm up" can be filled with, and the label that reads on
 /// it.
@@ -141,6 +155,7 @@ OwnLookAccent ownLookAccentOf(String? id) {
 OwnLookScrim ownLookScrimOf(OwnPhotoMeasure measure) => ownLookScrimFor(
   measure,
   wordsLuminance: ColorContrast.relativeLuminance(ownLookWords),
+  washAlpha: ownLookWashAlpha,
 );
 
 /// A decoded photo, held in memory for the alarm screen.
@@ -166,9 +181,11 @@ class OwnLookPhoto {
 AppColors _ownColors(
   AppColors base,
   Brightness brightness,
-  OwnLookAccent accent,
-) {
-  final isDark = brightness == Brightness.dark;
+  OwnLookAccent accent, {
+  required bool isRinging,
+}) {
+  // Ringing, the card is paper in both themes. See the top of this file.
+  final isDark = !isRinging && brightness == Brightness.dark;
   final inks = isDark ? AppColors.dark : AppColors.light;
   return base.copyWith(
     canvas: _canvas,
@@ -179,10 +196,9 @@ AppColors _ownColors(
     onCanvasMuted: ownLookWords,
     surface: isDark ? _darkCard : AppColors.light.surface,
     cream: isDark ? _darkRow : AppColors.light.cream,
-    ash: isDark ? _darkBusy : _lightBusy,
+    ash: isDark ? _darkOff : _busy,
     ink: inks.ink,
-    // The spinner in "I'm up" is drawn in this, on the busy fill. In the
-    // dark theme the theme's own second ink is too close to that fill.
+    // Ringing, the spinner in "I'm up" is drawn in this on the busy fill.
     ink2: isDark ? AppColors.dark.ink : AppColors.light.ink2,
     ink3: isDark ? _darkInk3 : inks.ink3,
     highlight: accent.fill,
@@ -220,10 +236,12 @@ AmbientProfile _ownCanvas(AppColors appColors, Brightness brightness) {
   );
 }
 
-/// Everything the background can put behind a word of the own look, as
-/// flat colours: the bare canvas, and the darkest and the brightest grey
-/// the scrim leaves of the photo. Every pixel under the scrim is between
-/// those two greys, so words that read on both read on all of it.
+/// Everything the background can put behind the stage of the own look,
+/// as flat colours: the bare canvas, and the darkest and the brightest
+/// grey the scrim leaves of the photo. Every pixel under the scrim is
+/// between those two greys, so words that read on both read on all of
+/// it. The wash of a quiet button is laid over each by the contrast
+/// rule, as the button lays it.
 List<Color> ownLookBackdropTones(AppColors colors, OwnLookScrim scrim) => [
   colors.canvas,
   Color.fromARGB(
@@ -304,34 +322,40 @@ class _OwnBackdropPainter extends CustomPainter {
 /// bright it was measured to be, and the picked [accent].
 ///
 /// The type is the standard look's, the face is the yellow one, the pulse
-/// ring is left out so nothing light is laid over the photo, and the
-/// quiet buttons are outlines in the colour of the words.
+/// ring is left out, and the buttons keep the standard look's treatment:
+/// "I'm up" filled, the two quiet buttons washed.
 AlarmStyle buildOwnAlarmStyle({
   required OwnLookPhoto photo,
   required OwnPhotoMeasure measure,
   required OwnLookAccent accent,
 }) {
   final scrim = ownLookScrimOf(measure);
-  AppColors colors(
+  AppColors ringing(
     AppColors base,
     SeverityMode severity,
     Brightness brightness,
-  ) => _ownColors(base, brightness, accent);
+  ) => _ownColors(base, brightness, accent, isRinging: true);
+  AppColors acknowledged(
+    AppColors base,
+    SeverityMode severity,
+    Brightness brightness,
+  ) => _ownColors(base, brightness, accent, isRinging: false);
   return AlarmStyle(
     id: AlarmStyleId.own,
     nameKey: LocaleKeys.alarm_styles_own,
     backdrop: (frame) => _OwnBackdropPainter(photo: photo, keep: scrim.keep),
     ringing: AlarmRingingLook(
-      colors: colors,
+      colors: ringing,
       ambient: _ownCanvas,
       type: standardRingingType,
       showsPulseRing: false,
-      // An outline in the colour of the words, which the scrim is built
-      // for. A wash would be a light layer over the photo.
-      quietButton: AppButtonVariant.ghost,
+      // The quiet buttons keep the standard look's wash. An outline in
+      // the colour of the words would be a stronger shape than any
+      // coloured fill, and "I'm up" must be the heaviest. The scrim is
+      // built for the label on the wash (`ownLookWashAlpha`).
     ),
     acknowledged: AlarmAcknowledgedLook(
-      colors: colors,
+      colors: acknowledged,
       ambient: _ownCanvas,
       type: standardAcknowledgedType,
     ),

@@ -12,6 +12,12 @@ const double alarmStyleMinContrast = 4.5;
 /// graphics).
 const double alarmStyleMinGraphicContrast = 3;
 
+/// The smallest contrast the fill of "I'm up" may have against what is
+/// behind it, at rest and while the acknowledge is on its way. Under
+/// this the button is not a shape on the screen, whatever it is compared
+/// with.
+const double alarmStyleMinFillContrast = 2;
+
 /// One pair of colours a look puts on screen: [foreground] over
 /// [background], and how far apart they are.
 @immutable
@@ -168,6 +174,28 @@ class AlarmContrastReport {
   ),
 };
 
+/// How far a quiet button of [variant] stands off [background]: the
+/// weight "I'm up" has to beat.
+///
+/// A filled or washed button is weighed by its fill. An outlined one has
+/// no fill, and is weighed by its stroke, which is drawn in the colour of
+/// its label: an outline in a strong colour is a strong shape, and a
+/// see-through fill must not count as no shape at all.
+double alarmQuietButtonWeight(
+  AppButtonVariant variant,
+  ({Color fill, Color label}) colors,
+  Color background,
+) => switch (variant) {
+  AppButtonVariant.ghost => ColorContrast.contrastRatio(
+    colors.label,
+    background,
+  ),
+  _ => ColorContrast.contrastRatio(
+    Color.alphaBlend(colors.fill, background),
+    background,
+  ),
+};
+
 /// Measures what [style] puts on [stage] in the [brightness] theme: the
 /// buttons and the text against what is behind them.
 ///
@@ -247,6 +275,19 @@ AlarmContrastReport alarmStyleContrast(
               quiet.label,
               Color.alphaBlend(quiet.fill, background),
             ),
+            AlarmContrastLine(
+              'the fill of "I\'m up" against what is behind it, over $where',
+              Color.alphaBlend(acknowledge.fill, background),
+              background,
+              min: alarmStyleMinFillContrast,
+            ),
+            AlarmContrastLine(
+              'the fill of "I\'m up" while it spins against what is behind '
+              'it, over $where',
+              Color.alphaBlend(busy.fill, background),
+              background,
+              min: alarmStyleMinFillContrast,
+            ),
           ],
           AlarmContrastLine('message title on the card', colors.ink, card),
           AlarmContrastLine('message body on the card', colors.ink2, card),
@@ -272,13 +313,21 @@ AlarmContrastReport alarmStyleContrast(
             AlarmWeightLine(
               '"I\'m up" against the quiet buttons, over $where',
               heavy: off(acknowledge.fill, background),
-              light: off(quiet.fill, background),
+              light: alarmQuietButtonWeight(
+                look.quietButton,
+                quiet,
+                background,
+              ),
             ),
             AlarmWeightLine(
               '"I\'m up" while it spins against the quiet buttons, '
               'over $where',
               heavy: off(busy.fill, background),
-              light: off(quiet.fill, background),
+              light: alarmQuietButtonWeight(
+                look.quietButton,
+                quiet,
+                background,
+              ),
             ),
           ],
         ],
