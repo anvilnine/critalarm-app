@@ -95,7 +95,7 @@ private struct SmallTopic: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             if let incident = topic.incident {
-                IncidentActionButton(incident: incident)
+                IncidentActionButton(incident: incident, topic: topic.name)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -122,7 +122,7 @@ private struct MediumTopic: View {
                     HStack(alignment: .center) {
                         RunningTime(incident: incident)
                         Spacer(minLength: 8)
-                        IncidentActionButton(incident: incident)
+                        IncidentActionButton(incident: incident, topic: topic.name)
                     }
                 }
             }
