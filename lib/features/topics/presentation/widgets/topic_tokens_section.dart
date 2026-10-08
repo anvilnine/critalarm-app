@@ -26,6 +26,7 @@ class TopicTokensSection extends StatelessWidget {
   const TopicTokensSection({
     required this.topicName,
     this.startCurlFlow = false,
+    this.hasDivider = true,
     this.cubit,
     super.key,
   });
@@ -35,6 +36,10 @@ class TopicTokensSection extends StatelessWidget {
   /// Opens the "Get curl line" sheet once, as soon as this builds.
   final bool startCurlFlow;
 
+  /// A hairline above the header. A screen that sets the block apart some
+  /// other way turns it off.
+  final bool hasDivider;
+
   /// Optional cubit for testing.
   final TopicTokensCubit? cubit;
 
@@ -43,7 +48,10 @@ class TopicTokensSection extends StatelessWidget {
     if (cubit != null) {
       return BlocProvider.value(
         value: cubit!,
-        child: _TopicTokensSectionContent(startCurlFlow: startCurlFlow),
+        child: _TopicTokensSectionContent(
+          startCurlFlow: startCurlFlow,
+          hasDivider: hasDivider,
+        ),
       );
     }
     return BlocProvider(
@@ -52,15 +60,22 @@ class TopicTokensSection extends StatelessWidget {
         unawaited(cubit.load(topicName));
         return cubit;
       },
-      child: _TopicTokensSectionContent(startCurlFlow: startCurlFlow),
+      child: _TopicTokensSectionContent(
+        startCurlFlow: startCurlFlow,
+        hasDivider: hasDivider,
+      ),
     );
   }
 }
 
 class _TopicTokensSectionContent extends StatefulWidget {
-  const _TopicTokensSectionContent({required this.startCurlFlow});
+  const _TopicTokensSectionContent({
+    required this.startCurlFlow,
+    required this.hasDivider,
+  });
 
   final bool startCurlFlow;
+  final bool hasDivider;
 
   @override
   State<_TopicTokensSectionContent> createState() =>
@@ -196,7 +211,7 @@ class _TopicTokensSectionContentState
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const AppSectionDivider(),
+            if (widget.hasDivider) const AppSectionDivider(),
             AppSectionHeader(LocaleKeys.topic_tokens_header.tr()),
             AnimatedSize(
               duration: context.motion(AppDurations.base),

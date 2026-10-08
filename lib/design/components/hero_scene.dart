@@ -144,7 +144,10 @@ HeroDiscSpot heroDiscSpot({
 /// medium display, a list pane beside the detail on an expanded one), so the
 /// disc stays behind the face. Both the shell and the screen call it with the
 /// same context, so they agree on the answer.
-HeroDiscSpot heroDiscSpotOf(BuildContext context) {
+///
+/// A screen with something between the top bar and its scene (the Topic
+/// screen's name and summary) passes that height, with its gap, as [above].
+HeroDiscSpot heroDiscSpotOf(BuildContext context, {double above = 0}) {
   // Only the parts that matter, so a keyboard sliding up does not rebuild the
   // shell that calls this.
   final screen = MediaQuery.sizeOf(context);
@@ -167,7 +170,7 @@ HeroDiscSpot heroDiscSpotOf(BuildContext context) {
     screen: screen,
     sceneOrigin: Offset(
       gutter + (isPane && !railOnRight ? railGap : 0),
-      padding.top + AppScreenScaffold.topBarHeight + Spacing.s3,
+      padding.top + AppScreenScaffold.topBarHeight + Spacing.s3 + above,
     ),
     sceneWidth: paneWidth - 2 * gutter,
     textScale: textScale,
