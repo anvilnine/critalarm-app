@@ -2,7 +2,6 @@ import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/faces/face_shape.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
-import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
