@@ -79,6 +79,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Each intro plays one score from its first frame (PaywallIntro.score): a set up, a turn and an arrival, in a piano and a kalimba flavour (IntroSoundFlavour, developer row Intro sound, pref dev.paywall\_intro\_sound). A skipped intro plays introArrive. The gag, kidding and intro one shot cues are gone, intro beats are haptics alone, and the Crit call plays on a purchase alone.
 - The Alarm Snack intro (PaywallIntroId.alarmSnack) joins the fake alarm screen with the dodging Snooze button. The Countdown intro is gone; a stored or remote value countdown reads as no intro. Leaving a paywall without buying plays three music box notes that fall and lift.
 - The Receipt party step after a purchase (PaywallThanksId.receiptParty, key party): a slip of the lifted limits, a stamp and confetti. Lights on and its cord and bulb cues are gone; a value lights reads as no step. Limits lifted shows its before values as limits. Confetti, slip and limit row parts moved to thanks\_parts.dart.
+- MovedPhoneReset runs first at launch. On an iPhone whose install was restored onto another phone it runs AccountData.forget(), drops the device identity, the session and the connection that hold the old device token, and starts a background connect as a new device. BackupHost (channel app.critalarm/backup) answers where the install stands and flags a path as excluded from backup. Native side: ios/Runner/BackupGuard.swift.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -135,6 +136,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - A challenge try is drawn in the phone's saved alarm look
 - Plans and features lab shows each feature note whole and uses the app's names for Look and Wake-up challenge
 - Capture tools: the sound picker shot waits for its lock, try\_page\_pro, and the challenge keyboard comes up after the focus
+- Android manifest sets allowBackup false and points at res/xml/data\_extraction\_rules.xml and res/xml/backup\_rules.xml, which leave every domain out. On Android 12 and later allowBackup false alone does not stop a phone to phone transfer, so keep the rules files.
+- FileOwnLookStore flags alarm\_look as excluded from backup on an iPhone when the folder is made and at each launch sweep. Own sound files (user\_ prefix) are flagged one by one at import and at launch.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

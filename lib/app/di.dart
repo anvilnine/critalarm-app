@@ -8,6 +8,7 @@ import 'package:critalarm/app/access/sure_lock.dart';
 import 'package:critalarm/app/account_data.dart';
 import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
+import 'package:critalarm/app/moved_phone_reset.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/app/sound_lock_sync.dart';
@@ -41,6 +42,7 @@ import 'package:critalarm/core/api/packs_api.dart';
 import 'package:critalarm/core/api/weekly_check_api.dart';
 import 'package:critalarm/core/app_icon/app_icon_guard.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
+import 'package:critalarm/core/backup/backup_host.dart';
 import 'package:critalarm/core/device/device_build_mode.dart';
 import 'package:critalarm/core/device/device_form.dart';
 import 'package:critalarm/core/device/device_maker.dart';
@@ -584,6 +586,13 @@ Future<void> configureDependencies({
     )
     ..registerLazySingleton<DeviceIdentityStore>(
       () => identityStore,
+    )
+    // What the phone's backups do with this app. Only an iPhone restores
+    // anything, so only an iPhone has something to ask.
+    ..registerLazySingleton<BackupHost>(
+      () => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+          ? const ChannelBackupHost()
+          : const NoBackupHost(),
     )
     // api.md §5.1 has the relay pushing to APNs itself, so iOS registers the
     // raw APNs token. Android registers the FCM one (§5.2).
@@ -1608,6 +1617,31 @@ Future<void> configureDependencies({
         },
       ),
     )
+    // An install restored onto another phone starts as a phone the relay
+    // has never seen. Run once at launch, before anything reads the
+    // identity. It drops account data through the list above and nothing
+    // else, then the identity, then connects again as a new device.
+    ..registerLazySingleton(
+      () => MovedPhoneReset(
+        host: getIt<BackupHost>(),
+        forgetAccountData: () => getIt<AccountData>().forget(),
+        sessions: getIt<ApiSessionStore>(),
+        connections: getIt<ConnectionRepository>(),
+        devices: getIt<DeviceIdentityStore>(),
+        forgetSentPushToken: () async {
+          final prefs = getIt<SharedPreferences>();
+          await prefs.remove(DeviceTokenRegistry.lastTokenKey);
+          await prefs.remove(DeviceTokenRegistry.lastVersionKey);
+          await prefs.remove(DeviceTokenRegistry.lastKindKey);
+          // The old phone's Live Activity tokens: the ones the relay took,
+          // and any the old phone had not sent yet. iOS keeps the second
+          // list itself (`IncidentActivityCoordinator.pendingTokensKey`).
+          await prefs.remove(LiveActivityTokenRegistry.acceptedKey);
+          await prefs.remove('pending_activity_tokens');
+        },
+        reconnect: (serverUrl) => getIt<BackgroundConnect>().start(serverUrl),
+      ),
+    )
     // The one flag native code reads to know own sounds are locked. It
     // follows the own sounds decision: a purchase, a pack that ended, a
     // server that became known. It is written only on a sure answer, so
@@ -1680,11 +1714,13 @@ Future<void> configureDependencies({
     // The person's own alarm look: one photo in the app's own storage,
     // its record and its accent in the preferences. The keeper decodes
     // the photo at launch and holds it, so an alarm that rings loads
-    // nothing. The photo never leaves the phone.
+    // nothing. The photo is sent nowhere and is in no backup: the store
+    // keeps its folder out on an iPhone, and Android backs up nothing.
     ..registerLazySingleton<OwnLookStore>(
       () => FileOwnLookStore(
         getIt<SharedPreferences>(),
         getApplicationSupportDirectory,
+        excludeFromBackup: getIt<BackupHost>().excludeFromBackup,
       ),
     )
     ..registerLazySingleton(

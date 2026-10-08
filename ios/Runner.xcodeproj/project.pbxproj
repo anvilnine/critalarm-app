@@ -35,6 +35,8 @@
 		A92A00000000000000000011 /* CheckPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92A00000000000000000001 /* CheckPush.swift */; };
 		A92A00000000000000000012 /* CheckPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92A00000000000000000001 /* CheckPush.swift */; };
 		A92A00000000000000000021 /* WeeklyCheckResponder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92A00000000000000000002 /* WeeklyCheckResponder.swift */; };
+		A192A0000000000000000011 /* BackupGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A192A0000000000000000002 /* BackupGuard.swift */; };
+		A192A0000000000000000031 /* BackupGuardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A192A0000000000000000003 /* BackupGuardTests.swift */; };
 		A92A00000000000000000022 /* WeeklyCheckResponder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92A00000000000000000002 /* WeeklyCheckResponder.swift */; };
 		A93A00000000000000000011 /* UiSoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93A00000000000000000001 /* UiSoundPlayer.swift */; };
 		A191A0000000000000000011 /* MotionSensor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A191A0000000000000000001 /* MotionSensor.swift */; };
@@ -258,6 +260,8 @@
 		A84A00000000000000000002 /* AppLinkRuleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppLinkRuleTests.swift; sourceTree = "<group>"; };
 		A92A00000000000000000001 /* CheckPush.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CheckPush.swift; sourceTree = "<group>"; };
 		A92A00000000000000000002 /* WeeklyCheckResponder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyCheckResponder.swift; sourceTree = "<group>"; };
+		A192A0000000000000000002 /* BackupGuard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackupGuard.swift; sourceTree = "<group>"; };
+		A192A0000000000000000003 /* BackupGuardTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackupGuardTests.swift; sourceTree = "<group>"; };
 		A93A00000000000000000001 /* UiSoundPlayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UiSoundPlayer.swift; sourceTree = "<group>"; };
 		A191A0000000000000000001 /* MotionSensor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MotionSensor.swift; sourceTree = "<group>"; };
 		A191A0000000000000000002 /* MotionSensorChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MotionSensorChannel.swift; sourceTree = "<group>"; };
@@ -424,6 +428,7 @@
 				A31000000000000000000005 /* WidgetLinkTests.swift */,
 				A84A00000000000000000002 /* AppLinkRuleTests.swift */,
 				A92A00000000000000000003 /* WeeklyCheckTests.swift */,
+				A192A0000000000000000003 /* BackupGuardTests.swift */,
 				A191A0000000000000000003 /* MotionSensorTests.swift */,
 				A32000000000000000000002 /* LiveCardTextTests.swift */,
 				A31000000000000000000108 /* WidgetDisplayTests.swift */,
@@ -552,6 +557,7 @@
 				A84A00000000000000000001 /* AppLinkRule.swift */,
 				A92A00000000000000000001 /* CheckPush.swift */,
 				A92A00000000000000000002 /* WeeklyCheckResponder.swift */,
+				A192A0000000000000000002 /* BackupGuard.swift */,
 				A93A00000000000000000001 /* UiSoundPlayer.swift */,
 				A191A0000000000000000001 /* MotionSensor.swift */,
 				A191A0000000000000000002 /* MotionSensorChannel.swift */,
@@ -980,6 +986,7 @@
 				A92A00000000000000000012 /* CheckPush.swift in Sources */,
 				A92A00000000000000000022 /* WeeklyCheckResponder.swift in Sources */,
 				A92A00000000000000000031 /* WeeklyCheckTests.swift in Sources */,
+				A192A0000000000000000031 /* BackupGuardTests.swift in Sources */,
 				A191A0000000000000000012 /* MotionSensor.swift in Sources */,
 				A191A0000000000000000031 /* MotionSensorTests.swift in Sources */,
 				A31000000000000000000118 /* WidgetDisplayTests.swift in Sources */,
@@ -1046,6 +1053,7 @@
 				A84A00000000000000000011 /* AppLinkRule.swift in Sources */,
 				A92A00000000000000000011 /* CheckPush.swift in Sources */,
 				A92A00000000000000000021 /* WeeklyCheckResponder.swift in Sources */,
+				A192A0000000000000000011 /* BackupGuard.swift in Sources */,
 				A93A00000000000000000011 /* UiSoundPlayer.swift in Sources */,
 				A191A0000000000000000011 /* MotionSensor.swift in Sources */,
 				A191A0000000000000000021 /* MotionSensorChannel.swift in Sources */,
