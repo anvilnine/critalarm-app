@@ -1,6 +1,7 @@
 import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
+import 'package:critalarm/core/account/account_tag.dart';
 import 'package:critalarm/features/challenges/data/shared_prefs_challenge_choices.dart';
 import 'package:critalarm/features/challenges/domain/challenge_gate.dart';
 import 'package:critalarm/features/challenges/domain/challenge_incident.dart';
@@ -11,15 +12,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const ChallengeKind _kind = ChallengeKind.typeTopicName;
 
+/// The tag of the account these tests run on.
+final String _accountTag = accountTagFor('acc_1')!;
+
 void main() {
   late SharedPreferences prefs;
   late SharedPrefsChallengeChoices choices;
 
   Future<void> start([Map<String, Object> initial = const {}]) async {
-    SharedPreferences.setMockInitialValues(initial);
+    SharedPreferences.setMockInitialValues({
+      // Flags a test starts with were written for the account it is on.
+      if (initial.keys.any((key) => key.startsWith('topic_challenge_owed.')))
+        'topic_challenge_owed_for': _accountTag,
+      ...initial,
+    });
     prefs = await SharedPreferences.getInstance();
     choices = SharedPrefsChallengeChoices(prefs);
     addTearDown(choices.dispose);
+    await choices.keepFlagsOnlyFor(_accountTag);
   }
 
   group('the choice', () {
@@ -180,6 +190,75 @@ void main() {
   });
 
   group('the flag native reads', () {
+    test('carries the tag of the account it was written for in one key '
+        'next to it, which is never taken for a topic', () async {
+      await start();
+      await choices.writeFlag('prod-db', isOwed: true);
+      await choices.writeFlag('nas', isOwed: true);
+      expect(prefs.getString('topic_challenge_owed_for'), _accountTag);
+      // Native lists the keys under `topic_challenge_owed.` and reads each
+      // as a boolean. The tag is not under that prefix.
+      expect(
+        prefs.getKeys().where((k) => k.startsWith('topic_challenge_owed.')),
+        unorderedEquals([
+          'topic_challenge_owed.prod-db',
+          'topic_challenge_owed.nas',
+        ]),
+      );
+      expect(choices.flaggedTopics, {'prod-db', 'nas'});
+    });
+
+    test('written for another account: every flag goes, and the answer '
+        'says so', () async {
+      await start({'topic_challenge_owed.prod-db': true});
+      expect(await choices.keepFlagsOnlyFor(accountTagFor('acc_2')), isTrue);
+      expect(prefs.containsKey('topic_challenge_owed.prod-db'), isFalse);
+      expect(prefs.containsKey('topic_challenge_owed_for'), isFalse);
+      expect(choices.flaggedTopics, isEmpty);
+      // Nothing left to take away the second time.
+      expect(await choices.keepFlagsOnlyFor(accountTagFor('acc_2')), isFalse);
+    });
+
+    test('with no tag at all it belongs to nobody, and goes', () async {
+      await start({
+        'topic_challenge_owed.prod-db': true,
+        'topic_challenge_owed_for': 3,
+      });
+      expect(choices.isFlagged('prod-db'), isFalse);
+      expect(prefs.containsKey('topic_challenge_owed.prod-db'), isFalse);
+    });
+
+    test('with no account known nothing goes, nothing is trusted and '
+        'nothing can be set', () async {
+      await start({'topic_challenge_owed.prod-db': true});
+      expect(await choices.keepFlagsOnlyFor(null), isFalse);
+      expect(prefs.getBool('topic_challenge_owed.prod-db'), isTrue);
+      expect(choices.isFlagged('prod-db'), isFalse);
+      expect(choices.flaggedTopics, isEmpty);
+      await expectLater(
+        choices.writeFlag('nas', isOwed: true),
+        throwsStateError,
+      );
+      expect(prefs.containsKey('topic_challenge_owed.nas'), isFalse);
+    });
+
+    test('forgetAll takes every choice, the default, every flag and the '
+        'tag, and says a choice changed', () async {
+      await start({
+        'topic_challenge.prod-db': 'type_topic_name',
+        'topic_challenge_default': 'type_topic_name',
+        'topic_challenge_owed.prod-db': true,
+        'unrelated': 'stays',
+      });
+      final heard = <void>[];
+      final sub = choices.changes.listen(heard.add);
+      addTearDown(sub.cancel);
+      await choices.forgetAll();
+      await Future<void>.delayed(Duration.zero);
+      expect(prefs.getKeys(), {'unrelated'});
+      expect(heard, hasLength(1));
+    });
+
     test('is topic_challenge_owed.<topic>, true while owed', () async {
       await start();
       await choices.writeFlag('prod-db', isOwed: true);
