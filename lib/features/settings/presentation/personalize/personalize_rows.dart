@@ -27,7 +27,9 @@ Widget buildPersonalizeAppIconRow(BuildContext context) =>
     const PersonalizeAppIconRow();
 
 /// A plain row that leaves the page: a small picture, a title, and an
-/// arrow. Locked, the lock badge takes the arrow's place.
+/// arrow. Locked, the lock badge takes the arrow's place. The badge is
+/// part of the row's own layout, so a long title, a large text size or a
+/// narrow column wraps the title before the badge and never under it.
 class PersonalizeRow extends StatelessWidget {
   const PersonalizeRow({
     required this.picture,
@@ -76,15 +78,10 @@ class PersonalizeRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: Spacing.s2),
-              // The badge sits here when the row is locked.
-              Visibility.maintain(
-                visible: !isLocked,
-                child: AppGlyph(
-                  GlyphType.arrow,
-                  color: colors.ink3,
-                  size: 16,
-                ),
-              ),
+              if (isLocked)
+                const FeatureLockBadge()
+              else
+                AppGlyph(GlyphType.arrow, color: colors.ink3, size: 16),
             ],
           ),
         ),
@@ -93,8 +90,40 @@ class PersonalizeRow extends StatelessWidget {
   }
 }
 
-/// How far in from the row's right edge its lock badge sits.
-const double _rowBadgeInset = -14;
+/// The home screen widget as the phone draws it, small: the same drawing
+/// the paywall shows large, scaled down to the row's picture. It holds
+/// its resting frame, the ringing widget.
+class WidgetMiniature extends StatelessWidget {
+  const WidgetMiniature({required this.size, super.key});
+
+  /// The edge of the picture.
+  final double size;
+
+  /// The edge the widget is laid out at before it is scaled down: large
+  /// enough for it to be drawn as the widget and not as a mark.
+  static const double _drawnAt = 132;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: size,
+      child: FittedBox(
+        child: MediaQuery(
+          // A picture of a widget: its words do not follow the text size.
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.noScaling,
+            disableAnimations: true,
+          ),
+          child: const ExcludeSemantics(
+            child: IgnorePointer(
+              child: WidgetsPreview(size: Size.square(_drawnAt)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// Opens the widgets how-to. Locked, it opens the paywall. Drawn only where
 /// home screen widgets exist: iOS and Android.
@@ -112,13 +141,11 @@ class PersonalizeWidgetsRow extends StatelessWidget {
         feature: AppFeature.widgets,
         source: LockSource.personalizeWidgets,
         name: title,
-        badgeAlignment: AlignmentDirectional.centerEnd,
-        badgeOverhang: _rowBadgeInset,
+        // The row places the badge itself, after its title.
+        drawsBadge: false,
         child: PersonalizeRow(
           title: title,
-          picture: const WidgetsPreview(
-            size: Size.square(PersonalizeRow.pictureSize),
-          ),
+          picture: const WidgetMiniature(size: PersonalizeRow.pictureSize),
           onTap: () {
             final access = getIt<FeatureAccess>();
             unawaited(
@@ -183,8 +210,8 @@ class _PersonalizeAppIconRowState extends State<PersonalizeAppIconRow> {
       feature: AppFeature.appIcons,
       source: LockSource.personalizeAppIcon,
       name: title,
-      badgeAlignment: AlignmentDirectional.centerEnd,
-      badgeOverhang: _rowBadgeInset,
+      // The row places the badge itself, after its title.
+      drawsBadge: false,
       child: PersonalizeRow(
         title: title,
         picture: AppIconPreview(
