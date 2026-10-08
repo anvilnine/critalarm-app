@@ -85,7 +85,8 @@ class PersonalizeSoundStrip extends StatelessWidget {
                 onTry: yours == null
                     ? null
                     : () => unawaited(cubit.trySound(yours)),
-                badgeOverhang: PersonalizeStrip.badgeRoom,
+                badgeSeat: FeatureLockSeat.above,
+                badgeOverhang: PersonalizeStrip.badgeOverhang,
                 child: PersonalizeChip(
                   key: const ValueKey('sound-yours'),
                   label: yoursLabel,
