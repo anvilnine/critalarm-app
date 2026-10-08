@@ -73,6 +73,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - At large text sizes, Home and Will it wake me? keep the first action in view and the title no longer draws over the list.
 - The Android back button closes search instead of leaving the app.
 - Connecting to your own server checks the admin token first. A token the server does not accept is no longer saved, and the server you were connected to stays connected.
+- Editing your server in Settings checks the server and the admin token before it saves. If the check fails, the sheet says why and the server you were connected to stays connected.
 
 ### Removed
 - The QR button on the own-server form, until QR connect exists. Paste stays.
