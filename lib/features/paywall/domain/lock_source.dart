@@ -30,7 +30,14 @@ enum LockSource {
   ///
   /// `PaywallSource` has no value for it yet, so on the Hosted side it
   /// reads as `direct`. Nothing on that screen sells Hosted today.
-  reliability(PaywallSource.direct, ProPackSheetSource.reliability);
+  reliability(PaywallSource.direct, ProPackSheetSource.reliability),
+
+  /// An own alarm sound: Pick a file, Record, the cropper, a file shared
+  /// in from another app, and a locked own sound in the sound list.
+  ///
+  /// `PaywallSource` has no value for it, so on the Hosted side it reads
+  /// as `direct`. Own sounds are sold with Pro only.
+  sounds(PaywallSource.direct, ProPackSheetSource.sounds);
 
   const LockSource(this.hosted, this.pro);
 

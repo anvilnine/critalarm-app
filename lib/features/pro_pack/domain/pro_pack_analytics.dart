@@ -14,6 +14,9 @@ enum ProPackSheetSource {
   historyOlder('history_older'),
   homeWidgets('home_widgets'),
   appIcon('app_icon'),
+
+  // An own alarm sound, from any of the ways in.
+  sounds('sounds'),
   direct('direct');
 
   const ProPackSheetSource(this.wire);
