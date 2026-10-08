@@ -37,7 +37,9 @@ class AlarmStyleScope extends InheritedWidget {
 ///   the way `SeverityScope` does;
 /// - puts the look's background painter behind [child], where it takes no
 ///   touch and a screen reader never meets it;
-/// - sets the [AlarmStyleScope] the two screens read.
+/// - sets the [AlarmStyleScope] the two screens read;
+/// - tells the ringing face to keep its head yellow (`RingingFaceFill`)
+///   in every look but the standard one, whichever face is shuffled in.
 ///
 /// The tree it builds has the same shape whatever the colours are, so a
 /// severity that changes mid-alarm keeps every widget under it mounted. A
@@ -94,7 +96,11 @@ class AlarmStyleStage extends StatelessWidget {
       );
     }
     final backdrop = style.backdrop;
-    Widget content = AlarmStyleScope(style: style, child: child);
+    Widget content = AlarmStyleScope(
+      style: style,
+      // Always in the tree, so its shape does not depend on the look.
+      child: RingingFaceFill(keepsFill: !style.keepsThemeFace, child: child),
+    );
     if (backdrop != null) {
       content = Stack(
         fit: StackFit.passthrough,

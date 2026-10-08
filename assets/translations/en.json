@@ -2153,6 +2153,9 @@
   "alarm_styles": {
     "standard": "Standard",
     "minimal": "Minimal",
+    "terminal": "Terminal",
+    "red_alert": "Red Alert",
+    "crit_panic": "Crit Panic",
     "strip_title": "Look",
     "row_title": "Alarm look",
     "row_default": "Phone default",
