@@ -22,6 +22,7 @@ void main() {
   /// Every write, in order: `+topic` sets, `-topic` clears.
   late List<String> writes;
   late int publishes;
+  late int redraws;
 
   /// What the next publish answers. A test sets it to fail one.
   late Future<bool> Function() publishAnswer;
@@ -52,6 +53,7 @@ void main() {
         publishes++;
         return publishAnswer();
       },
+      redraw: () => redraws++,
     );
     addTearDown(sync.dispose);
     return sync;
@@ -62,6 +64,7 @@ void main() {
     written = {};
     writes = [];
     publishes = 0;
+    redraws = 0;
     publishAnswer = () async => true;
   });
 
@@ -249,6 +252,64 @@ void main() {
       publishAnswer = () async => true;
       await sync.check();
       expect(writes, ['+prod']);
+      expect(sync.isPublishOwed, isFalse);
+    });
+  });
+
+  group('redrawing what shows a Done button', () {
+    test('a flag that was set is followed by one redraw', () async {
+      await build(decide: () async => _open).check();
+      expect(redraws, 1);
+    });
+
+    test('a flag that was cleared is followed by one redraw', () async {
+      written = {'prod'};
+      await build(decide: () async => _locked).check();
+      expect(redraws, 1);
+    });
+
+    test('nothing written, nothing redrawn', () async {
+      written = {'prod'};
+      final sync = build(decide: () async => _open);
+      await sync.check();
+      await sync.check();
+      expect(redraws, 0);
+    });
+
+    test('a plan that could not be read redraws nothing', () async {
+      written = {'prod'};
+      await build(
+        decide: () async => throw const HoldingUnreadable(Holding.pro),
+      ).check();
+      expect(redraws, 0);
+    });
+
+    test('the redraw waits until the copy for native is made', () async {
+      publishAnswer = () async => false;
+      final sync = build(decide: () async => _open);
+      await sync.check();
+      expect(redraws, 0);
+
+      publishAnswer = () async => true;
+      await sync.check();
+      expect(redraws, 1);
+
+      await sync.check();
+      expect(redraws, 1);
+    });
+
+    test('a redraw that throws breaks nothing', () async {
+      final sync = ChallengeFlagSync(
+        decide: () async => _open,
+        changes: const [],
+        readChoices: () => chosen,
+        readWritten: () => {...written},
+        write: (topic, {required isOwed}) async => written.add(topic),
+        publish: () async => true,
+        redraw: () => throw StateError('widgets'),
+      );
+      await sync.check();
+      expect(written, {'prod'});
       expect(sync.isPublishOwed, isFalse);
     });
   });

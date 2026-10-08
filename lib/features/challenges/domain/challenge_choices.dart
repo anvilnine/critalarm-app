@@ -39,6 +39,10 @@ abstract interface class ChallengeChoices {
   /// an earlier topic of the same name left behind.
   Future<void> applyDefaultTo(String newTopic);
 
+  /// The topic was deleted on this phone: its choice goes. The flag writer
+  /// hears the change and takes the flag away, which needs no plan.
+  Future<void> forgetTopic(String topic);
+
   /// The topics flagged for native as owing a challenge. Only the flag
   /// writer changes them, and only on a sure answer.
   Set<String> get flaggedTopics;
