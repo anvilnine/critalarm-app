@@ -20,6 +20,7 @@ class DeviceIdentityStore {
   static const legacyKeys = [
     'device_id',
     'device_token',
+    'device_token_relay',
     'account_id',
     'account_join_token',
     'account_tier',
@@ -32,6 +33,7 @@ class DeviceIdentityStore {
     return DeviceIdentity(
       deviceId: id,
       deviceToken: _prefs.getString('device_token'),
+      tokenRelay: _prefs.getString('device_token_relay'),
       accountId: _prefs.getString('account_id'),
       accountJoinToken: _prefs.getString('account_join_token'),
       tier: _prefs.getString('account_tier') ?? 'free',
@@ -41,6 +43,10 @@ class DeviceIdentityStore {
       ),
     );
   }
+
+  /// What this phone holds now, or null when it holds nothing. Unlike
+  /// [readOrCreate] it never mints a device id.
+  Future<DeviceIdentity?> read() async => _readLegacy();
 
   Future<DeviceIdentity> readOrCreate() async {
     final existing = _readLegacy();
@@ -82,15 +88,21 @@ class DeviceIdentityStore {
     await _forgetRelayConfirmation();
   }
 
+  /// [relay] is the relay that answered. It is kept beside the token as its
+  /// issuer. Left out, the issuer already saved stands.
   Future<void> saveRegistration({
     required String deviceToken,
     required String accountId,
     required String tier,
     AccountCaps caps = const AccountCaps(),
     String? accountJoinToken,
+    Uri? relay,
   }) async {
     if (deviceToken.trim().isEmpty) throw StateError('Empty device token');
     await _prefs.setString('device_token', deviceToken);
+    if (relay != null) {
+      await _prefs.setString('device_token_relay', relay.toString());
+    }
     await _prefs.setString('account_id', accountId);
     await _prefs.setString('account_tier', tier);
     await _prefs.setString('account_caps', jsonEncode(caps.toJson()));
@@ -161,6 +173,8 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
         'value': jsonEncode({
           'device_id': identity.deviceId,
           'device_token': identity.deviceToken,
+          if (identity.tokenRelay != null)
+            'device_token_relay': identity.tokenRelay,
           'account_id': identity.accountId,
           'account_tier': identity.tier,
           'caps': identity.caps.toJson(),
@@ -182,6 +196,11 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
       'account_join_token': joinToken,
     }),
   });
+
+  /// A handset with no item of its own gets an id that is not written until
+  /// it registers, so this read mints nothing on disk either.
+  @override
+  Future<DeviceIdentity?> read() => readOrCreate();
 
   @override
   Future<DeviceIdentity> readOrCreate() async {
@@ -295,6 +314,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
   }) => DeviceIdentity(
     deviceId: data['device_id'] as String,
     deviceToken: data['device_token'] as String?,
+    tokenRelay: data['device_token_relay'] as String?,
     accountId: data['account_id'] as String? ?? account?.accountId,
     // The old single item never held one, so on the first read after an
     // update this comes from the synced item or from nowhere.
@@ -339,6 +359,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
     required String tier,
     AccountCaps caps = const AccountCaps(),
     String? accountJoinToken,
+    Uri? relay,
   }) async {
     if (deviceToken.trim().isEmpty) throw StateError('Empty device token');
     final identity = await readOrCreate();
@@ -355,6 +376,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
     final saved = DeviceIdentity(
       deviceId: identity.deviceId,
       deviceToken: deviceToken,
+      tokenRelay: relay?.toString() ?? identity.tokenRelay,
       accountId: accountId,
       accountJoinToken: join,
       tier: tier,
@@ -377,6 +399,7 @@ final class KeychainDeviceIdentityStore extends DeviceIdentityStore {
     final cleared = DeviceIdentity(
       deviceId: identity.deviceId,
       deviceToken: identity.deviceToken,
+      tokenRelay: identity.tokenRelay,
       accountId: identity.accountId,
       accountJoinToken: identity.accountJoinToken,
       tier: identity.tier,

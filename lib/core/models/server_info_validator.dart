@@ -31,6 +31,18 @@ abstract final class ServerInfoValidation {
     return trimmed;
   }
 
+  /// [a] and [b] are the same address when they differ at most by trailing
+  /// slashes, spaces around them, the letter case of scheme and host, and a
+  /// port written out that is the usual one for the scheme.
+  static bool isSameAddress(String a, String b) {
+    String norm(String url) {
+      final trimmed = normalizeBaseUrl(url);
+      return Uri.tryParse(trimmed)?.toString() ?? trimmed;
+    }
+
+    return norm(a) == norm(b);
+  }
+
   /// Checks if [version] has a supported major version.
   ///
   /// Server API contract §6 specifies:

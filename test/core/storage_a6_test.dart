@@ -39,6 +39,79 @@ void main() {
     });
   }
 
+  test('a session with the separator in a field is not saved, and the one '
+      'saved before stays readable', () async {
+    SharedPreferences.setMockInitialValues({
+      'api_session':
+          'https://canonical.example|https://relay.example|selfhosted|ad_old',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final store = SharedPrefsApiSessionStore(prefs);
+
+    await expectLater(
+      store.write(
+        ApiSession(
+          baseUri: Uri.parse('https://canonical.example'),
+          relayUri: Uri.parse('https://relay.example'),
+          mode: ServerMode.selfhosted,
+          managementCredential: 'ad_new|more',
+        ),
+      ),
+      throwsArgumentError,
+    );
+
+    expect((await store.read())!.managementCredential, 'ad_old');
+  });
+
+  test('the relay that issued the device token is kept beside it, on '
+      'Android and in the iOS Keychain', () async {
+    final relay = Uri.parse('https://relay.example');
+    final prefs = await SharedPreferences.getInstance();
+    for (final store in [
+      DeviceIdentityStore(prefs),
+      KeychainDeviceIdentityStore(prefs),
+    ]) {
+      expect((await store.read())?.deviceToken, isNull);
+      await store.readOrCreate();
+      await store.saveRegistration(
+        deviceToken: 'dv_1',
+        accountId: 'acc_1',
+        tier: 'free',
+        relay: relay,
+      );
+      expect((await store.read())!.tokenRelay, '$relay');
+      // A later save that names no relay keeps the issuer.
+      await store.saveRegistration(
+        deviceToken: 'dv_1',
+        accountId: 'acc_1',
+        tier: 'hosted',
+      );
+      expect((await store.readOrCreate()).tokenRelay, '$relay');
+      await store.clear();
+      expect((await store.read())?.tokenRelay, isNull);
+    }
+    // A new store over the same Keychain reads what the last one wrote.
+    final first = KeychainDeviceIdentityStore(prefs);
+    await first.readOrCreate();
+    await first.saveRegistration(
+      deviceToken: 'dv_2',
+      accountId: 'acc_2',
+      tier: 'free',
+      relay: relay,
+    );
+    expect(keychain.device!['device_token_relay'], '$relay');
+    expect(
+      (await KeychainDeviceIdentityStore(prefs).readOrCreate()).tokenRelay,
+      '$relay',
+    );
+  });
+
+  test('a phone that holds nothing reads as nothing and mints no id', () async {
+    final prefs = await SharedPreferences.getInstance();
+    expect(await DeviceIdentityStore(prefs).read(), isNull);
+    expect(prefs.getKeys(), isEmpty);
+  });
+
   test(
     'iOS identity round-trips through Keychain after preferences are lost',
     () async {

@@ -4,6 +4,7 @@ final class DeviceIdentity {
   const DeviceIdentity({
     required this.deviceId,
     this.deviceToken,
+    this.tokenRelay,
     this.accountId,
     this.accountJoinToken,
     this.tier = 'free',
@@ -13,6 +14,10 @@ final class DeviceIdentity {
   });
   final String deviceId;
   final String? deviceToken;
+
+  /// The address of the relay that issued [deviceToken]. Null for a token
+  /// saved by a version that did not keep it.
+  final String? tokenRelay;
   final String? accountId;
 
   /// The `aj_` token that attaches another handset to this account
