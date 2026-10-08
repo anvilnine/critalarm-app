@@ -22,6 +22,7 @@ import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_latch.dart';
 import 'package:critalarm/features/incidents/domain/real_use.dart';
+import 'package:critalarm/features/incidents/domain/ringing_layout_rules.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_screen_reader.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/alarm_style.dart';
@@ -364,7 +365,16 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
         final stage = state.isAcknowledged
             ? AlarmStage.acknowledged
             : AlarmStage.ringing;
-        final profile = style.lookOf(stage).ambient(colors, brightness);
+        // While it rings, the shape behind the face goes when the face
+        // does: a small phone at a large text size has no room for it.
+        final isRinging = stage == AlarmStage.ringing && state.isLive;
+        final profile = isRinging
+            ? style.ringing.ambientFor(
+                colors,
+                brightness,
+                drawsFace: _drawsRingingFace(context, state, style.ringing),
+              )
+            : style.lookOf(stage).ambient(colors, brightness);
 
         Widget content;
         if (!state.isLive && !state.isAcknowledged) {
@@ -596,6 +606,21 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
         );
       },
     );
+  }
+}
+
+/// Whether the ringing screen draws its face. Measuring the message must
+/// never take the alarm screen down, so a sum that throws counts as a
+/// face: the canvas is then the one it always was.
+bool _drawsRingingFace(
+  BuildContext context,
+  CriticalAlarmState state,
+  AlarmRingingLook look,
+) {
+  try {
+    return RingingScreen.drawsFace(context, state: state, look: look);
+  } on Object catch (_) {
+    return true;
   }
 }
 
@@ -965,47 +990,82 @@ class AcknowledgedScreen extends StatelessWidget {
     }
 
     if (isWide) {
+      // The row sits in the middle of the room above the pinned buttons,
+      // and scrolls when it is taller than that room. It is laid out at
+      // its own height: a sliver that fills what is left of the screen
+      // asks its child how tall it would like to be, and the title and
+      // the rows of the card cannot answer that (each is built by a
+      // LayoutBuilder), so the whole body went undrawn.
+      final wideMedia = MediaQuery.of(context);
+      final wideScale = wideMedia.textScaler.scale(16) / 16;
+      // A guess at the pinned block. A wrong one only moves the row off
+      // the middle or lets the page scroll a little: the scaffold
+      // measures the real block for the room it leaves under the list.
+      final wideRoom = math
+          .max(
+            0,
+            wideMedia.size.height -
+                wideMedia.padding.vertical -
+                ringingBarHeightFor(
+                  textScale: wideScale,
+                  pinnedButtons: isClosed ? 1 : 2,
+                ) -
+                (!isClosed && pinsHint ? 24 * wideScale + Spacing.s3 : 0) -
+                ringingBarClearance,
+          )
+          .toDouble();
       return AppScreenScaffold(
         hasTabBar: false,
         slivers: [
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Row(
-              children: [
-                Hero(
-                  tag: 'alarm-face-${state.incident?.id}',
-                  flightShuttleBuilder: faceFlightShuttleBuilder,
-                  child: FaceWidget(
-                    state: faceState,
-                    size: math.min(260, look.maxFace),
-                    overrideStrokeColor: facePalette.faceStroke,
-                    overrideInkColor: facePalette.faceInk,
-                  ),
-                ),
-                const SizedBox(width: 40),
-                Expanded(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 520),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _title(look, TextAlign.left),
-                        const SizedBox(height: Spacing.s2),
-                        _topic(context),
-                        const SizedBox(height: Spacing.s2),
-                        _sub(look, TextAlign.left, ackedSub),
-                        const SizedBox(height: Spacing.s4),
-                        _detailSheet(startedLabel, ackedLabel),
-                        if (hintInList) ...[
-                          const SizedBox(height: Spacing.s4),
-                          _sub(look, TextAlign.left, _deskTimerHint(context)),
-                        ],
-                      ],
+          SliverToBoxAdapter(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: wideRoom),
+              child: Row(
+                children: [
+                  Hero(
+                    tag: 'alarm-face-${state.incident?.id}',
+                    flightShuttleBuilder: faceFlightShuttleBuilder,
+                    child: FaceWidget(
+                      state: faceState,
+                      // On a phone on its side the face gives way to the
+                      // room there is.
+                      size: math.min(
+                        math.min<double>(260, look.maxFace),
+                        math.max(_minFace, wideRoom),
+                      ),
+                      overrideStrokeColor: facePalette.faceStroke,
+                      overrideInkColor: facePalette.faceInk,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 40),
+                  Expanded(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _title(look, TextAlign.left),
+                          const SizedBox(height: Spacing.s2),
+                          _topic(context),
+                          const SizedBox(height: Spacing.s2),
+                          _sub(look, TextAlign.left, ackedSub),
+                          const SizedBox(height: Spacing.s4),
+                          _detailSheet(startedLabel, ackedLabel),
+                          if (hintInList) ...[
+                            const SizedBox(height: Spacing.s4),
+                            _sub(
+                              look,
+                              TextAlign.left,
+                              _deskTimerHint(context),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
