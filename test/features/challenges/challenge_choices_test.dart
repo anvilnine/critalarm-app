@@ -8,7 +8,7 @@ import 'package:critalarm/features/challenges/domain/challenge_rule.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const _kind = ChallengeKind.typeTopicName;
+const ChallengeKind _kind = ChallengeKind.typeTopicName;
 
 void main() {
   late SharedPreferences prefs;
@@ -169,10 +169,14 @@ void main() {
       planRead: planRead ?? Future<void>.value(),
     );
 
-    ChallengeDue ask(ChallengeGate gate, {bool reader = false}) => gate.dueFor(
-      incidentId: 'inc_1',
+    ChallengeDue ask(
+      ChallengeGate gate, {
+      bool reader = false,
+      bool cleared = false,
+    }) => gate.dueFor(
       incident: incident,
       isScreenReaderOn: reader,
+      isCleared: cleared,
     );
 
     test('no choice, no challenge', () async {
@@ -247,18 +251,14 @@ void main() {
       );
     });
 
-    test('once cleared, the same incident is not asked again', () async {
+    test('cleared by the screen, it is not asked again', () async {
       await start({'topic_challenge.prod-db': 'type_topic_name'});
-      final g = gate()..markCleared('inc_1');
-      expect(ask(g), const ChallengeNotOwed(NoChallengeReason.alreadyCleared));
+      final g = gate();
       expect(
-        g.dueFor(
-          incidentId: 'inc_2',
-          incident: incident,
-          isScreenReaderOn: false,
-        ),
-        isA<ChallengeOwed>(),
+        ask(g, cleared: true),
+        const ChallengeNotOwed(NoChallengeReason.alreadyCleared),
       );
+      expect(ask(g), isA<ChallengeOwed>());
     });
 
     test('a failure anywhere reads as no challenge', () async {

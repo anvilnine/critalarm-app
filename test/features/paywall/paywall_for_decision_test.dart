@@ -16,6 +16,9 @@ import '../../core/access/access_fakes.dart';
 const Set<LockSource> _noHostedSource = {
   LockSource.reliability,
   LockSource.sounds,
+  // Wake-up challenges, on Personalize and on a topic's page.
+  LockSource.personalizeChallenge,
+  LockSource.topicChallenge,
 };
 
 void main() {
@@ -109,6 +112,11 @@ void main() {
       expect(LockSource.appIcon.hosted, PaywallSource.appIcon);
       expect(LockSource.reliability.pro, ProPackSheetSource.reliability);
       expect(LockSource.sounds.pro, ProPackSheetSource.sounds);
+      expect(
+        LockSource.personalizeChallenge.pro,
+        ProPackSheetSource.personalizeChallenge,
+      );
+      expect(LockSource.topicChallenge.pro, ProPackSheetSource.topicChallenge);
       // Neither has a `PaywallSource` of its own.
       for (final source in _noHostedSource) {
         expect(source.hosted, PaywallSource.direct, reason: source.name);

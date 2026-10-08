@@ -107,6 +107,12 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   ChallengeOwed? _challenge;
   String? _challengeIncidentId;
 
+  /// Incidents whose challenge was passed or left on this screen since
+  /// they were last acknowledged. If the close that followed failed, the
+  /// next "At my desk" closes with no second challenge. An incident that
+  /// rings again is taken out, so its next acknowledge owes one again.
+  final Set<String> _clearedIncidentIds = <String>{};
+
   /// "At my desk" on the acknowledged screen. With no challenge owed it
   /// closes the incident, as it always has. With one owed it opens the
   /// challenge, and passing or leaving that makes the same close.
@@ -119,9 +125,9 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
     if (incident != null && !state.isPreview) {
       try {
         due = getIt<ChallengeGate>().dueFor(
-          incidentId: incident.id,
           incident: _challengeIncident(state),
           isScreenReaderOn: MediaQuery.accessibleNavigationOf(context),
+          isCleared: _clearedIncidentIds.contains(incident.id),
         );
       } on Object catch (_) {
         // A challenge that cannot be worked out is no challenge.
@@ -172,13 +178,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   void _finishChallenge() {
     final id = _challengeIncidentId;
     final cubit = context.read<CriticalAlarmCubit>();
-    if (id != null) {
-      try {
-        getIt<ChallengeGate>().markCleared(id);
-      } on Object catch (_) {
-        // The close below does not depend on it.
-      }
-    }
+    if (id != null) _clearedIncidentIds.add(id);
     _leaveChallenge();
     // Only the incident the challenge was for. If another took the screen
     // in the same moment, that one is left alone.
@@ -247,13 +247,20 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
 
   @override
   Widget build(BuildContext context) {
-    // Another incident is on screen now, so a challenge opened for the one
-    // before is left. It is not carried over, and nothing is owed here
-    // until "At my desk" is tapped for this one.
+    // Another incident is on screen now, or this one rang again, so a
+    // challenge opened before is left. It is not carried over, and nothing
+    // is owed until "At my desk" is tapped again.
     return BlocListener<CriticalAlarmCubit, CriticalAlarmState>(
       listenWhen: (previous, current) =>
-          previous.incident?.id != current.incident?.id,
-      listener: (context, state) => _leaveChallenge(),
+          previous.incident?.id != current.incident?.id ||
+          (previous.isAcknowledged && !current.isAcknowledged),
+      listener: (context, state) {
+        // Ringing again: what was cleared for it is owed again.
+        if (!state.isAcknowledged) {
+          _clearedIncidentIds.remove(state.incident?.id);
+        }
+        _leaveChallenge();
+      },
       child: _buildAlarm(context),
     );
   }
