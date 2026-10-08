@@ -1,3 +1,4 @@
+import 'package:critalarm/core/access/dev_access_switches.dart';
 import 'package:critalarm/core/models/account_access.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
@@ -13,7 +14,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   Future<DevProSwitch> makeSwitch([Map<String, Object> seed = const {}]) async {
     SharedPreferences.setMockInitialValues(seed);
-    return DevProSwitch(await SharedPreferences.getInstance());
+    return DevProSwitch(
+      DevAccessSwitches(await SharedPreferences.getInstance()),
+    );
   }
 
   const freeIdentity = DeviceIdentity(
