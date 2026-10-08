@@ -10,7 +10,9 @@ import 'package:flutter/foundation.dart';
 //
 //   disc    breathes 1 -> 1.035 -> 1 over 9 s
 //   ring    the same breath, starting 1.2 s later
-//   dots    float up 9 points and back over 7 s, the second one 3.4 s later
+//   dots    float up [heroFloatRise] points and back over 7 s, the second one
+//           3.4 s later. The rise is 0 today: both dots are under 56 points,
+//           and small things do not move
 //   face    bobs up 3 points and back over 3.8 s
 //   blink   a lid closes for 0.16 s at gaps that look random and repeat
 //           every 19 s
@@ -28,8 +30,10 @@ const double heroRingDelaySeconds = 1.2;
 /// How long a dot takes to float up and back.
 const double heroFloatSeconds = 7;
 
-/// How far a dot floats up, in points.
-const double heroFloatRise = 9;
+/// How far a dot floats up, in points. Zero: the dots are 26 and 10 points
+/// wide, and the motion skill keeps anything of 56 points or less still.
+/// Raise this one number to let them drift again (the mockup used 9).
+const double heroFloatRise = 0;
 
 /// How long after the first dot the second one starts to float.
 const double heroSecondDotDelaySeconds = 3.4;
