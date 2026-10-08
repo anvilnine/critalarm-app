@@ -127,6 +127,8 @@ String get _partial => switch (_kind) {
   ChallengeKind.opsMath => '3',
   // Typed from the card itself: see [_shownCode].
   ChallengeKind.scratchCard => '',
+  // Nothing is typed: see [_isShake].
+  ChallengeKind.shake => '',
 };
 
 bool get _isScratch => _kind == ChallengeKind.scratchCard;

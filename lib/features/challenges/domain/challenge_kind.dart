@@ -17,7 +17,10 @@ enum ChallengeKind {
   opsMath('ops_math'),
 
   /// Rub the cover off a card and type the four digit code under it.
-  scratchCard('scratch_card');
+  scratchCard('scratch_card'),
+
+  /// Shake the phone thirty times.
+  shake('shake');
 
   const ChallengeKind(this.id);
 

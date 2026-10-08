@@ -2159,6 +2159,14 @@
       "field_label": "Type the code: {digits}",
       "hint_type": "Type the 4 numbers.",
       "wrong": "Not that code. Look at the card again."
+    },
+    "shake": {
+      "name": "Shake",
+      "prompt": "Shake the phone 30 times",
+      "count": "{count} of {target}",
+      "hint_shake": "Shake hard. Out and back is one.",
+      "hint_taps": "No shaking needed. Tap {target} times.",
+      "tap": "Tap"
     }
   },
   "alarm_styles": {
