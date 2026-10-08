@@ -4,25 +4,37 @@ import 'package:critalarm/features/topics/domain/home_card/home_card_kind.dart';
 // one is unit tested and the screen only draws the answer.
 
 /// The one cream card at the top of the list sheet.
-enum HomeCreamCard { widgets, day0, accountBackup }
+enum HomeCreamCard { widgets, day0 }
 
 /// Which cream card the sheet shows, or null. One at a time: the widgets card
-/// first, then the day-0 card, then the sign-in reminder.
-HomeCreamCard? creamCardFor({
-  required bool widgets,
-  required bool day0,
-  required bool accountBackup,
-}) {
+/// first, then the day-0 card.
+HomeCreamCard? creamCardFor({required bool widgets, required bool day0}) {
   if (widgets) return HomeCreamCard.widgets;
   if (day0) return HomeCreamCard.day0;
-  if (accountBackup) return HomeCreamCard.accountBackup;
   return null;
 }
 
-/// The saved flag for the "One topic so far" card being closed.
+/// The one bar pinned above the tab bar.
+enum HomePinnedBar { hostedEnding, accountBackup, oneTopic }
+
+/// Which bar is pinned above the tab bar, or null. One at a time: the Hosted
+/// plan ending first, then the account backup reminder, then "One topic so
+/// far".
+HomePinnedBar? pinnedBarFor({
+  required bool hostedEnding,
+  required bool accountBackup,
+  required bool oneTopic,
+}) {
+  if (hostedEnding) return HomePinnedBar.hostedEnding;
+  if (accountBackup) return HomePinnedBar.accountBackup;
+  if (oneTopic) return HomePinnedBar.oneTopic;
+  return null;
+}
+
+/// The saved flag for the "One topic so far" bar being closed.
 const String oneTopicCardClosedKey = 'home_one_topic_card_closed';
 
-/// Whether the "One topic so far" card shows under the only row.
+/// Whether the "One topic so far" bar shows.
 ///
 /// Once per install: closing it keeps it away for good. Never before setup
 /// has finished, and never while the dark card is already asking for the

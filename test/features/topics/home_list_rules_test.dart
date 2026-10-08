@@ -4,26 +4,49 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('creamCardFor', () {
-    test('the widgets card goes first, then day 0, then the sign-in card', () {
+    test('the widgets card goes first, then day 0', () {
       expect(
-        creamCardFor(widgets: true, day0: true, accountBackup: true),
+        creamCardFor(widgets: true, day0: true),
         HomeCreamCard.widgets,
       );
       expect(
-        creamCardFor(widgets: false, day0: true, accountBackup: true),
+        creamCardFor(widgets: false, day0: true),
         HomeCreamCard.day0,
-      );
-      expect(
-        creamCardFor(widgets: false, day0: false, accountBackup: true),
-        HomeCreamCard.accountBackup,
       );
     });
 
     test('nothing due shows nothing', () {
+      expect(creamCardFor(widgets: false, day0: false), isNull);
+    });
+  });
+
+  group('pinnedBarFor', () {
+    HomePinnedBar? bar({
+      bool ending = false,
+      bool backup = false,
+      bool oneTopic = false,
+    }) => pinnedBarFor(
+      hostedEnding: ending,
+      accountBackup: backup,
+      oneTopic: oneTopic,
+    );
+
+    test('the Hosted ending goes first, then the backup, then one topic', () {
       expect(
-        creamCardFor(widgets: false, day0: false, accountBackup: false),
-        isNull,
+        bar(ending: true, backup: true, oneTopic: true),
+        HomePinnedBar.hostedEnding,
       );
+      expect(bar(backup: true, oneTopic: true), HomePinnedBar.accountBackup);
+      expect(bar(oneTopic: true), HomePinnedBar.oneTopic);
+    });
+
+    test('each one shows alone', () {
+      expect(bar(ending: true), HomePinnedBar.hostedEnding);
+      expect(bar(backup: true), HomePinnedBar.accountBackup);
+    });
+
+    test('nothing due shows no bar', () {
+      expect(bar(), isNull);
     });
   });
 
