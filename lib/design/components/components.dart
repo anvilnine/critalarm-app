@@ -15,6 +15,7 @@ export 'empty_state.dart';
 export 'fitted_title.dart';
 export 'floating_tab_bar.dart';
 export 'glyphs.dart';
+export 'hero_scene.dart';
 export 'highlight_card.dart';
 export 'inputs.dart';
 export 'key_value_rows.dart';
