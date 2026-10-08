@@ -6,6 +6,7 @@ import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/account_pack.dart';
+import 'package:critalarm/features/pro_pack/domain/pro_pack.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_access.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_override.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_store.dart';
@@ -16,6 +17,8 @@ import '../../features/pro_pack/pro_pack_fakes.dart';
 
 const _kept = StoredPacks(accountId: 'acc_1', packs: [proPack]);
 const _heldAnswer = PacksRefreshAnswer(confirmed: true, packs: [proPack]);
+const _unknownAnswer = PacksRefreshAnswer(confirmed: false, packs: []);
+const _readEmptyAnswer = PacksRefreshAnswer(confirmed: true, packs: []);
 
 void main() {
   late FakePacksApi api;
@@ -52,7 +55,7 @@ void main() {
 
     test('not held with nothing from anywhere', () async {
       final access = await buildAccess();
-      expect(access.isPurchaseWaiting, isFalse);
+      expect(access.isStoreAcceptedAwaitingRelay, isFalse);
       expect(ProHoldingSource(access).state, HoldingState.notHeld);
     });
 
@@ -67,37 +70,96 @@ void main() {
       expect(source.state, HoldingState.held);
     });
 
-    test('pending while a purchase waits for the relay', () async {
+    test('a purchase that was only started is not held', () async {
       final access = await buildAccess();
       final source = ProHoldingSource(access);
       await access.purchaseStarted();
+      expect(store.pending, isNotNull);
+      expect(access.isStoreAcceptedAwaitingRelay, isFalse);
+      expect(source.state, HoldingState.notHeld);
+    });
+
+    test('a started purchase left behind never becomes pending', () async {
+      // The payment failed, or the app was killed at the store sheet.
+      final access = await buildAccess();
+      final source = ProHoldingSource(access);
+      await access.purchaseStarted();
+      now = now.add(const Duration(hours: 5));
+      expect(source.state, HoldingState.notHeld);
+    });
+
+    test('pending once the store accepted it and the relay has not listed '
+        'the pack', () async {
+      final access = await buildAccess();
+      final source = ProHoldingSource(access);
+      await access.purchaseStarted();
+      await access.purchaseAccepted();
       expect(access.isHeld, isFalse);
-      expect(access.isPurchaseWaiting, isTrue);
+      expect(access.isStoreAcceptedAwaitingRelay, isTrue);
       expect(source.state, HoldingState.pending);
+    });
+
+    test('accepting keeps the time the purchase was started', () async {
+      final access = await buildAccess();
+      await access.purchaseStarted();
+      final started = now;
+      now = now.add(const Duration(minutes: 2));
+      await access.purchaseAccepted();
+      expect(store.pending?.since, started);
+      expect(store.pending?.storeAccepted, isTrue);
+    });
+
+    test('pending while the relay still says nothing', () async {
+      final access = await buildAccess();
+      final source = ProHoldingSource(access);
+      await access.purchaseStarted();
+      await access.purchaseAccepted();
+      api.refreshes = [_unknownAnswer];
+      expect(await access.confirmWithStore(), ProPackRefreshOutcome.unknown);
+      expect(source.state, HoldingState.pending);
+    });
+
+    test('held once the relay lists the pack', () async {
+      final access = await buildAccess();
+      final source = ProHoldingSource(access);
+      await access.purchaseStarted();
+      await access.purchaseAccepted();
+      api.refreshes = [_heldAnswer];
+      await access.confirmWithStore();
+      expect(source.state, HoldingState.held);
+      expect(access.isStoreAcceptedAwaitingRelay, isFalse);
+    });
+
+    test('not held once the relay read the store and lists no pack', () async {
+      final access = await buildAccess();
+      final source = ProHoldingSource(access);
+      await access.purchaseStarted();
+      await access.purchaseAccepted();
+      api.refreshes = [_readEmptyAnswer];
+      expect(await access.confirmWithStore(), ProPackRefreshOutcome.notHeld);
+      expect(access.isStoreAcceptedAwaitingRelay, isFalse);
+      expect(source.state, HoldingState.notHeld);
+      // The record stays, so launch and resume keep asking as before.
+      expect(store.pending, isNotNull);
+      expect(store.pending?.storeAccepted, isFalse);
     });
 
     test('not held again when the person backed out of the store', () async {
       final access = await buildAccess();
       final source = ProHoldingSource(access);
       await access.purchaseStarted();
+      await access.purchaseAccepted();
       await access.purchaseAbandoned();
+      expect(store.pending, isNull);
       expect(source.state, HoldingState.notHeld);
     });
 
-    test('held once the relay confirms the purchase', () async {
+    test('an accepted purchase stops counting once the app gives up '
+        'asking', () async {
       final access = await buildAccess();
       final source = ProHoldingSource(access);
       await access.purchaseStarted();
-      api.refreshes = [_heldAnswer];
-      await access.confirmWithStore();
-      expect(source.state, HoldingState.held);
-      expect(access.isPurchaseWaiting, isFalse);
-    });
-
-    test('a purchase stops waiting once the app gives up asking', () async {
-      final access = await buildAccess();
-      final source = ProHoldingSource(access);
-      await access.purchaseStarted();
+      await access.purchaseAccepted();
       now = now.add(
         ProPackAccess.pendingConfirmGivesUpAfter - const Duration(minutes: 1),
       );
@@ -106,13 +168,14 @@ void main() {
       expect(source.state, HoldingState.notHeld);
     });
 
-    test('a purchase waiting on another account is not pending here', () async {
+    test('an accepted purchase on another account is ignored here', () async {
       store.pending = PendingProPackConfirm(
         scope: const ProPackScope(accountId: 'acc_other', relay: ''),
         since: now,
+        storeAccepted: true,
       );
       final access = await buildAccess();
-      expect(access.isPurchaseWaiting, isFalse);
+      expect(access.isStoreAcceptedAwaitingRelay, isFalse);
       expect(ProHoldingSource(access).state, HoldingState.notHeld);
     });
 
@@ -121,9 +184,17 @@ void main() {
       store.pending = PendingProPackConfirm(
         scope: const ProPackScope(accountId: 'acc_1', relay: ''),
         since: now,
+        storeAccepted: true,
       );
       final access = await buildAccess();
-      expect(access.isPurchaseWaiting, isFalse);
+      expect(access.isStoreAcceptedAwaitingRelay, isFalse);
+    });
+
+    test('accepting with no account known writes nothing', () async {
+      accountId = null;
+      final access = await buildAccess();
+      await access.purchaseAccepted();
+      expect(store.pending, isNull);
     });
   });
 
@@ -139,14 +210,31 @@ void main() {
       source.changes.addListener(() => rings++);
     });
 
-    test('fires when a purchase starts waiting', () async {
+    test('is quiet when a purchase is only started', () async {
       await access.purchaseStarted();
-      expect(rings, 1);
+      expect(rings, 0);
     });
 
-    test('fires when a waiting purchase is dropped', () async {
+    test('fires when the store accepts the purchase', () async {
       await access.purchaseStarted();
+      await access.purchaseAccepted();
+      expect(rings, 1);
+      await access.purchaseAccepted();
+      expect(rings, 1, reason: 'already accepted');
+    });
+
+    test('fires when an accepted purchase is dropped', () async {
+      await access.purchaseStarted();
+      await access.purchaseAccepted();
       await access.purchaseAbandoned();
+      expect(rings, 2);
+    });
+
+    test('fires when the relay read the store and lists no pack', () async {
+      await access.purchaseStarted();
+      await access.purchaseAccepted();
+      api.refreshes = [_readEmptyAnswer];
+      await access.confirmWithStore();
       expect(rings, 2);
     });
 
@@ -172,6 +260,7 @@ void main() {
       final heard = <bool>[];
       access.stream.listen(heard.add);
       await access.purchaseStarted();
+      await access.purchaseAccepted();
       await access.purchaseAbandoned();
       await settle();
       expect(heard, isEmpty);
@@ -213,8 +302,24 @@ void main() {
       );
     });
 
-    test('a waiting purchase shows as confirming, then open', () async {
+    test('a started purchase opens nothing', () async {
       await packs.purchaseStarted();
+      for (final feature in AppFeature.values) {
+        if (!featureTable[feature]!.unlockedBy.contains(Holding.pro)) continue;
+        expect(
+          access.decide(feature),
+          const FeatureDecision.locked(Holding.pro),
+          reason: feature.name,
+        );
+        expect(access.can(feature), isFalse, reason: feature.name);
+      }
+      await settle();
+      expect(heard, isEmpty);
+    });
+
+    test('an accepted purchase shows as confirming, then open', () async {
+      await packs.purchaseStarted();
+      await packs.purchaseAccepted();
       expect(
         access.decide(AppFeature.weeklyCheck),
         const FeatureDecision.confirming(Holding.pro),

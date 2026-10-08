@@ -72,6 +72,8 @@ final class SharedPrefsProPackStore implements ProPackStore {
     return PendingProPackConfirm(
       scope: ProPackScope(accountId: account, relay: relay),
       since: since,
+      // Anything but a written true is a purchase that was only started.
+      storeAccepted: json['store_accepted'] == true,
     );
   }
 
@@ -82,6 +84,7 @@ final class SharedPrefsProPackStore implements ProPackStore {
       'account_id': pending.scope.accountId,
       'relay': pending.scope.relay,
       'since': _seconds(pending.since),
+      if (pending.storeAccepted) 'store_accepted': true,
     }),
   );
 

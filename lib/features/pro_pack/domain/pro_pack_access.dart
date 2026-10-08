@@ -43,7 +43,7 @@ final class ProPackAccess {
   }) : _override = override ?? appProPackOverride,
        _now = now ?? DateTime.now {
     _last = isHeld;
-    _lastWaiting = isPurchaseWaiting;
+    _lastWaiting = isStoreAcceptedAwaitingRelay;
     _override.listenable?.addListener(_announce);
     for (final changes in _identityChanges) {
       changes.addListener(_identityChanged);
@@ -120,15 +120,21 @@ final class ProPackAccess {
   /// value to start from.
   Stream<bool> get stream => _changes.stream;
 
-  /// Whether a purchase on this account is still waiting for the relay to
-  /// confirm it. Read only: it is the record [purchaseStarted] wrote, while
-  /// it is for this account and younger than [pendingConfirmGivesUpAfter].
-  bool get isPurchaseWaiting {
+  /// Whether the store finished a purchase on this account that the relay
+  /// has not answered for yet.
+  ///
+  /// Read only. True for the record [purchaseAccepted] marked, while it is
+  /// for this account and younger than [pendingConfirmGivesUpAfter]. A
+  /// purchase that was only started, was cancelled, failed, or is held by
+  /// the store for an approval or a payment never makes it true. Neither
+  /// does a restore.
+  bool get isStoreAcceptedAwaitingRelay {
     final scope = _scope;
     if (scope == null) return false;
     try {
       final pending = _store.readPending();
       if (pending == null || pending.scope != scope) return false;
+      if (!pending.storeAccepted) return false;
       final age = _now().difference(pending.since);
       return !age.isNegative && age < pendingConfirmGivesUpAfter;
     } on Object catch (_) {
@@ -136,7 +142,7 @@ final class ProPackAccess {
     }
   }
 
-  /// Fires when [isHeld] or [isPurchaseWaiting] changed.
+  /// Fires when [isHeld] or [isStoreAcceptedAwaitingRelay] changed.
   Listenable get changes => _anyChange;
 
   /// The address of a relay as the scope keeps it.
@@ -290,7 +296,14 @@ final class ProPackAccess {
         scope: scope,
         request: ++_requests,
       );
-      return applied ? outcome : ProPackRefreshOutcome.unknown;
+      if (!applied) return ProPackRefreshOutcome.unknown;
+      // The relay read the store and found no pack, so the purchase no
+      // longer counts as accepted. The record stays, and launch and resume
+      // keep asking as before.
+      if (outcome == ProPackRefreshOutcome.notHeld) {
+        await _markPending(scope, isAccepted: false);
+      }
+      return outcome;
     } on Object catch (error) {
       debugPrint('pro_pack_refresh_failed error=${error.runtimeType}');
       return ProPackRefreshOutcome.unknown;
@@ -312,6 +325,44 @@ final class ProPackAccess {
     } on Object catch (error) {
       debugPrint('pro_pack_pending_failed error=${error.runtimeType}');
     }
+  }
+
+  /// The store finished the purchase. Marks the record [purchaseStarted]
+  /// wrote, so [isStoreAcceptedAwaitingRelay] is true until the relay
+  /// answers. Only a purchase calls it, never a restore.
+  Future<void> purchaseAccepted() async {
+    try {
+      await _syncScope();
+      final scope = _scope;
+      if (scope == null) return;
+      await _markPending(scope, isAccepted: true);
+    } on Object catch (error) {
+      debugPrint('pro_pack_pending_failed error=${error.runtimeType}');
+    }
+  }
+
+  /// Sets or drops the accepted mark on the pending record for [scope],
+  /// keeping the time it was started. Dropping it from a record that does
+  /// not have it, or that is not there, writes nothing.
+  Future<void> _markPending(
+    ProPackScope scope, {
+    required bool isAccepted,
+  }) async {
+    try {
+      final pending = _store.readPending();
+      final mine = pending != null && pending.scope == scope ? pending : null;
+      if ((mine?.storeAccepted ?? false) == isAccepted) return;
+      await _store.writePending(
+        PendingProPackConfirm(
+          scope: scope,
+          since: mine?.since ?? _now(),
+          storeAccepted: isAccepted,
+        ),
+      );
+    } on Object catch (error) {
+      debugPrint('pro_pack_pending_failed error=${error.runtimeType}');
+    }
+    _announce();
   }
 
   /// The person backed out of the store, so there is nothing to confirm.
@@ -460,7 +511,7 @@ final class ProPackAccess {
   void _announce() {
     if (_changes.isClosed) return;
     final held = isHeld;
-    final waiting = isPurchaseWaiting;
+    final waiting = isStoreAcceptedAwaitingRelay;
     final heldChanged = held != _last;
     if (!heldChanged && waiting == _lastWaiting) return;
     _last = held;

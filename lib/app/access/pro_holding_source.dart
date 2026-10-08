@@ -13,12 +13,13 @@ final class ProHoldingSource implements HoldingSource {
   @override
   Holding get holding => Holding.pro;
 
-  /// Held when the pack is held. Pending while a purchase waits for the
-  /// relay and the pack is not held yet.
+  /// Held when the pack is held. Pending while the store has finished a
+  /// purchase and the relay has not listed the pack yet. A purchase that
+  /// was only started is not held.
   @override
   HoldingState get state {
     if (_access.isHeld) return HoldingState.held;
-    if (_access.isPurchaseWaiting) return HoldingState.pending;
+    if (_access.isStoreAcceptedAwaitingRelay) return HoldingState.pending;
     return HoldingState.notHeld;
   }
 
