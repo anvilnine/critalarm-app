@@ -2095,6 +2095,11 @@
     "try_hint": "Double tap to try",
     "sell_hint": "Opens {plan}"
   },
+  "settings_card": {
+    "numeral_label": "{fine} of {total} checks fine",
+    "plan_upgrade": "See Hosted",
+    "value_keep_all": "Keep all"
+  },
   "personalize": {
     "title": "Personalize",
     "row_subtitle": "Alarm sound, widgets and app icon",
