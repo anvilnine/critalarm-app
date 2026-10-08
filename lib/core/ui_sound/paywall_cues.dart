@@ -101,6 +101,21 @@ enum PaywallCue {
   /// Finger down on the main button.
   press(sound: 'ui_press', haptic: HapticPattern.medium),
 
+  /// The last confetti comes to rest. For after the purchase cue is over.
+  settle(sound: 'ui_settle', haptic: HapticPattern.tick),
+
+  /// A padlock gives: the catch, the body, the shackle springing up.
+  lock(sound: 'ui_lock', haptic: HapticPattern.medium),
+
+  /// A key turns in a lock, or comes out of one.
+  key(sound: 'ui_key', haptic: HapticPattern.light),
+
+  /// A pull cord and the light it turns on: a click, then one warm chord.
+  cord(sound: 'ui_cord', haptic: HapticPattern.risingPair),
+
+  /// One bulb of a sign comes on. Small enough for five in a row.
+  bulb(sound: 'ui_bulb', haptic: HapticPattern.tick, mayRepeat: true),
+
   /// An intro sting: a slow slide up and down, like a yawn.
   introSlide(sound: 'ui_intro_slide'),
 

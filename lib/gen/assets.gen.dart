@@ -393,6 +393,9 @@ class $AssetsTranslationsGen {
 class $AssetsUiSoundsGen {
   const $AssetsUiSoundsGen();
 
+  /// File path: assets/ui_sounds/ui_bulb.m4a
+  String get uiBulb => 'assets/ui_sounds/ui_bulb.m4a';
+
   /// File path: assets/ui_sounds/ui_buy.m4a
   String get uiBuy => 'assets/ui_sounds/ui_buy.m4a';
 
@@ -401,6 +404,9 @@ class $AssetsUiSoundsGen {
 
   /// File path: assets/ui_sounds/ui_close.m4a
   String get uiClose => 'assets/ui_sounds/ui_close.m4a';
+
+  /// File path: assets/ui_sounds/ui_cord.m4a
+  String get uiCord => 'assets/ui_sounds/ui_cord.m4a';
 
   /// File path: assets/ui_sounds/ui_drop.m4a
   String get uiDrop => 'assets/ui_sounds/ui_drop.m4a';
@@ -426,6 +432,9 @@ class $AssetsUiSoundsGen {
   /// File path: assets/ui_sounds/ui_intro_swish.m4a
   String get uiIntroSwish => 'assets/ui_sounds/ui_intro_swish.m4a';
 
+  /// File path: assets/ui_sounds/ui_key.m4a
+  String get uiKey => 'assets/ui_sounds/ui_key.m4a';
+
   /// File path: assets/ui_sounds/ui_kidding.m4a
   String get uiKidding => 'assets/ui_sounds/ui_kidding.m4a';
 
@@ -434,6 +443,9 @@ class $AssetsUiSoundsGen {
 
   /// File path: assets/ui_sounds/ui_line.m4a
   String get uiLine => 'assets/ui_sounds/ui_line.m4a';
+
+  /// File path: assets/ui_sounds/ui_lock.m4a
+  String get uiLock => 'assets/ui_sounds/ui_lock.m4a';
 
   /// File path: assets/ui_sounds/ui_next.m4a
   String get uiNext => 'assets/ui_sounds/ui_next.m4a';
@@ -471,6 +483,9 @@ class $AssetsUiSoundsGen {
   /// File path: assets/ui_sounds/ui_roll.m4a
   String get uiRoll => 'assets/ui_sounds/ui_roll.m4a';
 
+  /// File path: assets/ui_sounds/ui_settle.m4a
+  String get uiSettle => 'assets/ui_sounds/ui_settle.m4a';
+
   /// File path: assets/ui_sounds/ui_snap.m4a
   String get uiSnap => 'assets/ui_sounds/ui_snap.m4a';
 
@@ -494,9 +509,11 @@ class $AssetsUiSoundsGen {
 
   /// List of all assets
   List<String> get values => [
+    uiBulb,
     uiBuy,
     uiCheck,
     uiClose,
+    uiCord,
     uiDrop,
     uiError,
     uiFlip,
@@ -505,9 +522,11 @@ class $AssetsUiSoundsGen {
     uiIntroKnock,
     uiIntroSlide,
     uiIntroSwish,
+    uiKey,
     uiKidding,
     uiLift,
     uiLine,
+    uiLock,
     uiNext,
     uiOpen,
     uiPage,
@@ -520,6 +539,7 @@ class $AssetsUiSoundsGen {
     uiRestore,
     uiRise,
     uiRoll,
+    uiSettle,
     uiSnap,
     uiStamp,
     uiSwap,

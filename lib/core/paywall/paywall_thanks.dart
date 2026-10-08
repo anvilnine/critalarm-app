@@ -23,7 +23,15 @@ enum PaywallThanksId {
 
   /// The free plan's limits stand at their caps, each one is lifted, and
   /// the mascot grows a size.
-  limits('limits');
+  limits('limits'),
+
+  /// The pressed button becomes a key. The mascot turns it in one big
+  /// lock, the lock falls open and what was bought comes out of it.
+  lockAndKey('key'),
+
+  /// The screen goes dark from the button. The mascot pulls a cord, a lamp
+  /// comes on, and each line lights up like a bulb on a sign.
+  lights('lights');
 
   const PaywallThanksId(this.key);
 

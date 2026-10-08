@@ -2085,7 +2085,9 @@
       "confetti": "Confetti",
       "unlock": "Unlock",
       "stamp": "Stamp",
-      "limits": "Limits lifted"
+      "limits": "Limits lifted",
+      "key": "Key",
+      "lights": "Lights on"
     }
   }
 }

@@ -14,6 +14,8 @@ void main() {
         'unlock': 'unlock',
         'stamp': 'stamp',
         'limits': 'limits',
+        'lockAndKey': 'key',
+        'lights': 'lights',
       },
     );
   });
