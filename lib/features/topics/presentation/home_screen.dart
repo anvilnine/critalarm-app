@@ -403,7 +403,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         context: context,
         platform: setup.platform,
         plan: plan,
-        onSeeHosted: () {
+        onSeePro: () {
           if (!mounted) return;
           unawaited(
             openPaywallForFeature(
@@ -785,7 +785,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                           hasRowsBelow: true,
                           onShowWidgetsHowTo: () =>
                               _showWidgetsHowTo(setupState.widgetsPlan),
-                          onSeeHosted: _openWidgetsPaywall,
+                          onSeePro: _openWidgetsPaywall,
                           onDismissWidgetsCard: () => unawaited(
                             context
                                 .read<HomeSetupCubit>()
