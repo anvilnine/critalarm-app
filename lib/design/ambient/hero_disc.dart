@@ -32,6 +32,14 @@ class HeroDiscSpot {
     ringScale: 1.51256,
   );
 
+  /// A 390 by 844 phone with the History tab's small face: a disc about 340
+  /// points across behind a face near the top left.
+  static const HeroDiscSpot historyPhone = HeroDiscSpot(
+    anchor: Alignment(-0.7436, -0.6564),
+    discScale: 0.8718,
+    ringScale: 0,
+  );
+
   @override
   bool operator ==(Object other) =>
       other is HeroDiscSpot &&
