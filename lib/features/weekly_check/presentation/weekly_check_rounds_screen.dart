@@ -14,7 +14,7 @@ import 'package:go_router/go_router.dart';
 /// The weekly check rounds, newest first: each with how it ended in a few
 /// words and when it opened. A missed or refused round wears the face of a
 /// broken check, a received one a tick, and the rest nothing. The list is
-/// the relay's, and reading it needs no pack.
+/// the relay's, and reading it needs no plan.
 class WeeklyCheckRoundsScreen extends StatelessWidget {
   const WeeklyCheckRoundsScreen({super.key});
 

@@ -893,17 +893,41 @@ offer whose screen went away under it is not counted as declined.
   such offering, or in a build that skips the store, it says Pro is not on
   sale yet and offers nothing to buy. Restore is there whenever the sheet
   rests, on sale or not.
-- The Reliability screen draws `ProPackReliabilityGroup` through
-  `reliabilityExtraGroups`: one row, the weekly delivery check. Locked, it
-  opens the sheet. Unlocked, it draws its `weeklyCheckBody` builder.
+- The pack unlocks features built into the app (`featureTable`). It has
+  no row on the Reliability screen: the weekly delivery check there needs
+  Hosted (see "Weekly check").
 - Developer options has a switch for the pack beside the Hosted one, in a
   `SKIP_PAYWALL` build only (`dev.pro_pack`). In a mock build it also makes
   the mock relay hold the pack (`MockServer.grantedPacks`).
 
 **Weekly check.** Once a week the relay sends an enrolled phone a push that
 shows nothing, and the phone answers with a receipt (api.md §4.5 and §5.4).
-It needs the Pro pack. The code is in `lib/features/weekly_check/`, plus the
-native handlers.
+It needs Hosted, because the relay runs it, and it does not exist on a
+server of the user's own. The Pro pack does not unlock it. The code is in
+`lib/features/weekly_check/`, plus the native handlers.
+
+- `featureTable` holds the rule: `weeklyCheck` is unlocked by Hosted and is
+  `OwnServerRule.notOffered`. `FeatureAccess.decide` answers
+  `FeatureDecision.notOffered` there, which is its own answer: not open,
+  and not a lock. A screen says in plain words that the feature is not
+  available and opens no paywall. `weeklyCheckAccessFor` turns the decision
+  into the four words this feature acts on (`WeeklyCheckAccess`).
+- The Reliability row (`WeeklyCheckGroup`) is one of three: the switch
+  with Hosted held, a locked row that opens the Hosted paywall through
+  `AccessLock`, or one line saying it is not available on a server of your
+  own.
+- A lapse takes nothing away. The relay keeps the device enrolled and
+  answers `off` with the reason `tier`. The row locks from what is held,
+  and when Hosted is back the check goes on with no new tap. A reason the
+  app does not know, `pack` from before 1.19.0 included, is no reason.
+- A lapse is never a miss. `WeeklyCheckNoticeRule` answers no while the
+  plan is away, and sets aside what the phone learned before it last saw
+  the plan away (`weekly_check.plan_away_at`), so a clock that ran on
+  through a lapse raises nothing when Hosted is back.
+- On a server of the user's own the app never sends `"enabled":true`. A
+  phone that was enrolled before sends `"enabled":false` once
+  (`WeeklyCheckMonitor.accessChanged`). A send that fails is tried again on
+  the next read, and nothing waits on it.
 
 - Native code answers the push, with no Dart running. Android:
   `CheckPush.fromData` is the first thing `PushRouter.route` asks, and a check
@@ -936,10 +960,9 @@ native handlers.
   item `app.critalarm.device_identity`.
 - `WeeklyCheckMonitor` reads `GET .../check` on launch and resume, once a
   minute at most, and keeps the answer on the phone. The switch calls
-  `PUT .../check`. A `403` pack error goes to `ProPackAccess.relayRefused`.
-- A received check is never shown as proof that alarms work. On a phone
-  connected to a self-hosted server the row adds that it checks the relay to
-  this phone, not that server.
+  `PUT .../check`. A `403` tier error has the tier read again through a
+  device registration, and what is held then locks the row.
+- A received check is never shown as proof that alarms work.
 - One missed round changes the row and nothing else. Home shows one notice
   at two misses in a row, or when the phone's own clock passes
   `notice_after` with no check received since (`WeeklyCheckNoticeRule`). A
@@ -948,9 +971,11 @@ native handlers.
   is `InAppNoticeType.weeklyCheck`, goes through `SetupGate`, and after it is
   closed it comes back only for a later run of misses.
 - The list of rounds is its own page (`AppRoute.weeklyCheckRounds`) and
-  needs no pack.
+  needs no plan.
 - `MockServer.seedWeeklyCheck(state)` puts the mock relay in one state, and
-  `openWeeklyCheckRound()` returns the id a push would carry.
+  `openWeeklyCheckRound()` returns the id a push would carry. The mock
+  gates the check on `MockServer.accountTier`, which the developer switch
+  for Hosted sets in a mock build.
 
 **Motion.** One large living thing per screen, and everything under it quiet. A screen that
 persuades or welcomes (a setup step, a paywall, an empty state, a first success) gets a hero:
