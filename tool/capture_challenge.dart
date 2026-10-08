@@ -19,7 +19,10 @@
 //   strip_locked         Personalize, nothing held
 //   strip_trying         Personalize, nothing held, the locked chip tapped
 //   strip_open           Personalize, Pro held, the challenge picked
-//   try_page             the try on the whole screen
+//   try_page             the try on the whole screen, nothing held: a
+//                        saved look is not drawn without its plan, so this
+//                        is the standard look whatever STYLE says
+//   try_page_pro         the same with Pro held: the try in the saved look
 //
 // For KIND=scratch_card, `challenge_keyboard` is the card rubbed until it
 // is revealed, with the number pad up, and there are three more:
@@ -469,12 +472,17 @@ Future<GlobalKey> _openChallenge(
   await tester.runAsync(() => CriticalAlarmCubit.current!.acknowledge());
   await _settle(tester, 3);
   expect(find.byType(ChallengeStep), findsNothing);
-  // The keyboard, as the screen sees it.
-  tester.view.viewInsets = FakeViewPadding(bottom: keyboard * 2);
-  shown.value = keyboard;
   await tester.tap(
     find.text(LocaleKeys.critical_alarm_at_my_desk_button.tr()),
   );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+  // The keyboard, as the screen sees it. It comes up once the step's
+  // field has the focus, as on a phone: the acknowledged screen has no
+  // field, so no keyboard is up before the step is. Raised earlier, the
+  // field was never brought into view over it.
+  tester.view.viewInsets = FakeViewPadding(bottom: keyboard * 2);
+  shown.value = keyboard;
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 300));
   await tester.pump(const Duration(milliseconds: 300));
@@ -654,6 +662,9 @@ void main() {
               _isScratch ? _shownCode(tester).substring(0, 2) : _partial,
             );
             await tester.pump();
+            // Typing brings the field back into view, which takes a few
+            // frames. One pump caught it part of the way there.
+            await tester.pump(const Duration(milliseconds: 300));
             await _save(
               tester,
               key,
@@ -802,10 +813,17 @@ void main() {
           });
         }
 
-        for (final state in ['locked', 'trying', 'open', 'try_page']) {
-          final name = state == 'try_page' ? 'try_page' : 'strip_$state';
+        for (final state in [
+          'locked',
+          'trying',
+          'open',
+          'try_page',
+          'try_page_pro',
+        ]) {
+          final isTryPage = state.startsWith('try_page');
+          final name = isTryPage ? state : 'strip_$state';
           capture('${name}_$tail', (tester, errors) async {
-            final isPro = state == 'open';
+            final isPro = state == 'open' || state == 'try_page_pro';
             await _hold(isPro: isPro);
             if (isPro) {
               await getIt<ChallengeChoices>().setDefaultForNewTopics(_kind);
@@ -836,7 +854,7 @@ void main() {
               await tester.pump(const Duration(milliseconds: 300));
               expect(find.byType(ChallengePicture), findsOneWidget);
             }
-            if (state == 'try_page') {
+            if (isTryPage) {
               await tester.tap(find.byType(ChallengePicture));
               await tester.pump();
               await tester.pump(const Duration(milliseconds: 400));

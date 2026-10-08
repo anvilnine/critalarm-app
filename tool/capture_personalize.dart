@@ -45,7 +45,14 @@
 //
 // It also writes the surfaces that moved onto the one lock, free and with
 // both held: the App icon screen on a paid icon, the Reliability screen
-// with the weekly check row, and the Home widgets card's badge.
+// with the weekly check row, the sound picker with one own sound saved,
+// and the Home widgets card's badge.
+//
+// The sound picker shot is of a phone that can bring in a sound, scrolled
+// so the own sound and both ways to add one (Pick a file, Record) are in
+// it. With nothing held it waits for the plan badge on the own sound and
+// fails without it: a picker that draws that sound as open is a bug, and
+// was one.
 //
 // Optional:
 //   --dart-define=OUT=<folder>   where the PNGs go (default
@@ -74,6 +81,7 @@ import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
+import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
@@ -89,6 +97,8 @@ import 'package:critalarm/features/settings/presentation/personalize/own_look_fl
 import 'package:critalarm/features/settings/presentation/personalize/own_photo_crop_screen.dart';
 import 'package:critalarm/features/settings/presentation/personalize/ringing_preview.dart';
 import 'package:critalarm/features/settings/presentation/personalize/try_bar.dart';
+import 'package:critalarm/gen/locale_keys.g.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -799,6 +809,23 @@ void main() {
       ) async {
         await _hold(isPro: held, isHosted: held);
         await _ownSoundSaved(isSaved: true);
+        // A phone that can bring in a sound, so the two ways in show.
+        const soundChannel = MethodChannel(SoundHost.channelName);
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              ..setMockMethodCallHandler(
+                soundChannel,
+                (call) async => switch (call.method) {
+                  'capabilities' => <String, Object?>{
+                    'can_import_sounds': true,
+                  },
+                  'readPeaks' => <double>[],
+                  _ => true,
+                },
+              );
+        addTearDown(
+          () => messenger.setMockMethodCallHandler(soundChannel, null),
+        );
         final key = await _open(
           tester,
           location: '/sounds',
@@ -808,12 +835,32 @@ void main() {
           mode: mode,
           scale: 1,
         );
-        // Down to the own sound and the two ways to add one.
-        final own = find.text(_ownSound.name);
-        if (own.evaluate().isNotEmpty) {
-          await tester.ensureVisible(own.first);
-          await tester.pump(const Duration(milliseconds: 200));
+        final own = find.byWidgetPredicate(
+          (w) => w is AppRadioRow && w.title == _ownSound.name,
+        );
+        final badge = find.descendant(of: own, matching: find.byType(ProBadge));
+        if (!held) {
+          // The row settles to its lock once the plan is read.
+          for (var i = 0; i < 10 && badge.evaluate().isEmpty; i++) {
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 100)),
+            );
+            await tester.pump(const Duration(milliseconds: 200));
+          }
+          expect(
+            badge,
+            findsOneWidget,
+            reason: 'The locked own sound has no plan badge.',
+          );
+        } else {
+          expect(badge, findsNothing);
         }
+        // Down to the own sound and the two ways to add one.
+        final record = find.text(LocaleKeys.sound_picker_record.tr());
+        expect(record, findsOneWidget);
+        await tester.ensureVisible(record);
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(own.hitTestable(), findsOneWidget);
         await _save(
           tester,
           key,
