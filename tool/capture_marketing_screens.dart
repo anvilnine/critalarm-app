@@ -622,6 +622,17 @@ void main() {
           await tester.pump(const Duration(seconds: 1));
           await screen.after?.call(tester);
 
+          // A screen that threw while it was laid out or painted is not the
+          // app as a user sees it. It gets no file and no manifest entry,
+          // and the run fails so the gap is noticed.
+          final broken = tester.takeException();
+          if (broken != null) {
+            debugDefaultTargetPlatformOverride = null;
+            final why = '$broken'.split('\n').first;
+            print('skipped $rel: $why');
+            fail('$rel did not draw cleanly: $why');
+          }
+
           await tester.runAsync(() async {
             final render =
                 boundary.currentContext!.findRenderObject()
