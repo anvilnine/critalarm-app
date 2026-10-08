@@ -63,6 +63,13 @@ class PaywallBenefit {
 /// Hosted. A benefit of `HostedBenefit.all` with no entry here is not
 /// listed. A benefit taken out of `HostedBenefit.all` drops off every
 /// layout too.
+///
+/// The weekly delivery check is such a benefit today: it is in
+/// `HostedBenefit.all`, so the shipped Hosted paywall, the ask sheet and
+/// the notices name it, and it has no entry here yet. A layout lists it
+/// once it has one, and once the step after a purchase has plan facts for
+/// it (`limitsHostedFor`), which needs a row for every Hosted benefit a
+/// layout lists.
 const _hostedParts =
     <HostedBenefitId, (PaywallBenefitId, String, PaywallPreviewId)>{
       HostedBenefitId.topics: (
@@ -92,9 +99,18 @@ const _hostedParts =
 /// listed under Pro while Pro unlocks its feature.
 ///
 /// [PaywallBenefit.inThisBuild] is true only for what the app has today:
-/// the widgets, the weekly delivery check and the alarm screen looks (four
-/// fixed ones and the person's own photo). The other two are written and
-/// drawn, and a layout picks each one up the day its switch is turned on.
+/// the widgets and the alarm screen looks (four fixed ones and the
+/// person's own photo). Two more are written and drawn, and a layout picks
+/// each one up the day its switch is turned on.
+///
+/// The weekly delivery check keeps its entry here and the table leaves it
+/// out, because Hosted is what unlocks it now.
+///
+/// The app icons have no entry here yet, though Pro unlocks them too. A
+/// layout lists them under Hosted only. An entry for them needs the step
+/// after a purchase to tell the two products apart first: it reads a
+/// benefit's plan facts by id (`limitsHostedFor`) and expects none for a
+/// Pro benefit.
 const _proDisplayOrder = <PaywallBenefit>[
   PaywallBenefit(
     id: PaywallBenefitId.wakeUpChallenges,
