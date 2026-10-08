@@ -11,6 +11,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../core/access/access_fakes.dart';
 
+/// Places that sell Pro only. `PaywallSource` has no value for them, so
+/// their Hosted side reads as `direct`.
+const _noHostedSource = {LockSource.reliability, LockSource.sounds};
+
 void main() {
   group('paywallLocationFor', () {
     test('a decision that offers Hosted opens the Hosted paywall', () {
@@ -101,18 +105,23 @@ void main() {
       expect(LockSource.homeWidgets.hosted, PaywallSource.homeWidgets);
       expect(LockSource.appIcon.hosted, PaywallSource.appIcon);
       expect(LockSource.reliability.pro, ProPackSheetSource.reliability);
+      expect(LockSource.sounds.pro, ProPackSheetSource.sounds);
+      // Neither has a `PaywallSource` of its own.
+      for (final source in _noHostedSource) {
+        expect(source.hosted, PaywallSource.direct, reason: source.name);
+      }
     });
 
     test('a place has the same wire name on both paywalls', () {
       for (final source in LockSource.values) {
-        if (source == LockSource.reliability) continue;
+        if (_noHostedSource.contains(source)) continue;
         expect(source.pro.wire, source.hosted.wire, reason: source.name);
       }
     });
 
     test('a place opens the same kind of layout on both paywalls', () {
       for (final source in LockSource.values) {
-        if (source == LockSource.reliability) continue;
+        if (_noHostedSource.contains(source)) continue;
         expect(
           paywallEntryOfProSheet(source.pro),
           paywallEntryOf(source.hosted),
