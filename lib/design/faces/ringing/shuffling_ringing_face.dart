@@ -59,6 +59,8 @@ class ShufflingRingingFace extends StatefulWidget {
   const ShufflingRingingFace({
     this.size = 160,
     this.isLive = true,
+    this.strokeColor,
+    this.canvasInkColor,
     super.key,
   });
 
@@ -67,6 +69,13 @@ class ShufflingRingingFace extends StatefulWidget {
 
   /// False holds the face still.
   final bool isLive;
+
+  /// The head outline. Null takes the palette's `crit`.
+  final Color? strokeColor;
+
+  /// The sound waves beside the head. Null takes the features' ink. See
+  /// [RingingFacePainter.canvasInkColor].
+  final Color? canvasInkColor;
 
   @override
   State<ShufflingRingingFace> createState() => _ShufflingRingingFaceState();
@@ -173,9 +182,10 @@ class _ShufflingRingingFaceState extends State<ShufflingRingingFace>
         painter: RingingFacePainter(
           frame: _frame,
           fillColor: colors.faceFill,
-          strokeColor: colors.crit,
+          strokeColor: widget.strokeColor ?? colors.crit,
           inkColor: colors.faceInk,
           accentColor: colors.crit,
+          canvasInkColor: widget.canvasInkColor,
           keepsFill: RingingFaceFill.keepsFillOf(context),
         ),
       ),
