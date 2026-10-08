@@ -85,6 +85,7 @@ class PaywallIntro {
     double? skipTo,
     this.tone = PaywallTone.canvas,
     this.cue = PaywallEntranceCue.open,
+    this.score,
     this.beats = const [],
     this.skipCue,
     this.quietAfter = paywallQuietAfterIntro,
@@ -107,7 +108,14 @@ class PaywallIntro {
   final PaywallTone tone;
 
   /// The cue played once as the intro starts, in place of the layout's.
+  /// Not played when the intro has a [score].
   final PaywallEntranceCue cue;
+
+  /// The intro's own music, started on its first frame and timed to it,
+  /// or null for none. It has the player for the whole intro, so the
+  /// [beats] of an intro with a score are haptics alone, and [skipCue] is
+  /// its last part alone. See [paywallIntroArrivalSeconds].
+  final PaywallCue? score;
 
   /// What is heard and felt on the way, in order. See [PaywallIntroBeat].
   final List<PaywallIntroBeat> beats;
@@ -243,8 +251,6 @@ void playPaywallEntranceCue(PaywallCues cues, PaywallEntranceCue cue) {
   switch (cue) {
     case PaywallEntranceCue.open:
       cues.open();
-    case PaywallEntranceCue.gag:
-      cues.gag();
     case PaywallEntranceCue.print:
       cues.print();
     case PaywallEntranceCue.rise:
@@ -497,7 +503,13 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
       final intro = _intro;
       _handle.quietFor = intro?.quietAfter ?? 0;
       if (intro != null && !PaywallMuted.of(context)) {
-        playPaywallEntranceCue(getIt<PaywallCues>(), intro.cue);
+        final cues = getIt<PaywallCues>();
+        final score = intro.score;
+        if (score == null) {
+          playPaywallEntranceCue(cues, intro.cue);
+        } else {
+          cues.play(score);
+        }
       }
     } else if (isStill && _intro != null && !_isOver) {
       // Motion was turned off half way: the intro goes at once.

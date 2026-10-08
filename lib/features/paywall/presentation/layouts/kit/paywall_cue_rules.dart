@@ -90,6 +90,13 @@ bool paywallTurnCues({
 /// sounding.
 const double paywallQuietAfterIntro = 0.5;
 
+/// How long the last part of an intro's score takes, in seconds from the
+/// reveal: a pickup of 0.4, the chord it lands on, and that chord ringing
+/// until it is all but gone. A layout under an intro with a score keeps
+/// its own entrance quiet until then, so the intro says
+/// `reveal + paywallIntroArrivalSeconds - handover` as its quiet.
+const double paywallIntroArrivalSeconds = 1.25;
+
 /// Whether a paywall that is leaving plays the close cue, the small let
 /// down sound for a paywall left without buying.
 ///

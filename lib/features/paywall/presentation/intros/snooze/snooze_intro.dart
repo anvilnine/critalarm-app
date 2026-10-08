@@ -1,8 +1,10 @@
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/intros/intro_parts.dart';
 import 'package:critalarm/features/paywall/presentation/intros/snooze/snooze_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -12,21 +14,30 @@ import 'package:flutter/material.dart';
 /// The snooze snack: a finger goes for a Snooze button, the button hops
 /// out of the way twice, and on the third go the mascot eats it. Then the
 /// screen drops away off the layout.
+///
+/// Its score grows with each hop, stops dead on the gulp and arrives from
+/// the reveal. The hand still feels each hop, the gulp and the reveal.
 const PaywallIntro snoozeIntro = PaywallIntro(
   seconds: SnoozeTimeline.end,
   handover: SnoozeTimeline.handover,
   skipTo: SnoozeTimeline.reveal,
   tone: PaywallTone.surface,
   cue: PaywallEntranceCue.none,
+  score: PaywallCue.scoreSnooze,
   beats: [
     // The button hops away from the finger, twice.
-    PaywallIntroBeat(SnoozeTimeline.dodgeLeft, PaywallCue.introBounce),
-    PaywallIntroBeat(SnoozeTimeline.dodgeRight, PaywallCue.introBounce),
+    PaywallIntroBeat.tap(SnoozeTimeline.dodgeLeft, HapticPattern.tripleFade),
+    PaywallIntroBeat.tap(SnoozeTimeline.dodgeRight, HapticPattern.tripleFade),
     // The mascot swallows the button.
-    PaywallIntroBeat(SnoozeTimeline.gulp, PaywallCue.pop),
-    // It went down well: a gulp and a hiccup as the screen drops away.
-    PaywallIntroBeat(SnoozeTimeline.reveal, PaywallCue.introGulp),
+    PaywallIntroBeat.tap(SnoozeTimeline.gulp, HapticPattern.medium),
+    // The screen drops away.
+    PaywallIntroBeat.tap(SnoozeTimeline.reveal, HapticPattern.light),
   ],
+  skipCue: PaywallCue.introArrive,
+  quietAfter:
+      SnoozeTimeline.reveal +
+      paywallIntroArrivalSeconds -
+      SnoozeTimeline.handover,
   tag: _tag,
   builder: _build,
 );

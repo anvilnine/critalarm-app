@@ -69,7 +69,7 @@ void main() {
       beats: [
         PaywallIntroBeat(0, PaywallCue.tick),
         PaywallIntroBeat(0.5, PaywallCue.tick),
-        PaywallIntroBeat(1.2, PaywallCue.introWink),
+        PaywallIntroBeat(1.2, PaywallCue.pop),
       ],
       builder: _nothing,
     );

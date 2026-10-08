@@ -2,9 +2,11 @@ import 'dart:math' as math;
 
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/intros/curtain/curtain_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/intros/intro_parts.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -14,20 +16,27 @@ import 'package:flutter/material.dart';
 /// The curtain call: a closed curtain, the mascot peeking out between its
 /// halves, a look left, a look right, and then it sees you and throws the
 /// curtain open on the layout.
+///
+/// Its score is a hush with a note for each look, stops dead as the mascot
+/// sees you and arrives from the reveal.
 const PaywallIntro curtainIntro = PaywallIntro(
   seconds: CurtainTimeline.end,
   handover: CurtainTimeline.handover,
   skipTo: CurtainTimeline.reveal,
   tone: PaywallTone.cobalt,
   cue: PaywallEntranceCue.none,
+  score: PaywallCue.scoreCurtain,
   beats: [
-    // The halves part and the mascot looks out.
-    PaywallIntroBeat(CurtainTimeline.peek, PaywallCue.introSwish),
     // The mascot sees you.
-    PaywallIntroBeat(CurtainTimeline.spot, PaywallCue.pop),
+    PaywallIntroBeat.tap(CurtainTimeline.spot, HapticPattern.light),
     // The curtain is thrown open.
-    PaywallIntroBeat(CurtainTimeline.reveal, PaywallCue.introSwish),
+    PaywallIntroBeat.tap(CurtainTimeline.reveal, HapticPattern.light),
   ],
+  skipCue: PaywallCue.introArrive,
+  quietAfter:
+      CurtainTimeline.reveal +
+      paywallIntroArrivalSeconds -
+      CurtainTimeline.handover,
   tag: _tag,
   builder: _build,
 );
