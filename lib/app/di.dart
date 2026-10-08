@@ -1521,6 +1521,11 @@ Future<void> configureDependencies({
         getIt<GetTopicsUsecase>(),
         deleteTopic: getIt<DeleteTopicUsecase>(),
         incidents: getIt<IncidentsCubit>(),
+        // A deleted topic takes its wake-up challenge and its flag along.
+        onDeleted: (name) async {
+          await getIt<ChallengeChoices>().forgetTopic(name);
+          await getIt<ChallengeFlagSync>().check();
+        },
       ),
     )
     // "Is an alarm under way on this phone", read off the shared list. Every
@@ -1629,6 +1634,10 @@ Future<void> configureDependencies({
         publish: () async =>
             !getIt<PlatformCapabilities>().isIos ||
             await getIt<SoundHost>().publishSoundAssignments(),
+        // A widget showing an acknowledged incident draws its Done button
+        // from the flag, so it is drawn again when a flag changes. The
+        // snapshot rewrite is the refresh the widgets already have.
+        redraw: () => getIt<WidgetSync>().rewrite(),
       ),
     )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and

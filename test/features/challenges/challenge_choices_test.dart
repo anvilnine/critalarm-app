@@ -1,3 +1,4 @@
+import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/features/challenges/data/shared_prefs_challenge_choices.dart';
@@ -79,6 +80,66 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(heard, 2);
       await sub.cancel();
+    });
+  });
+
+  group('a deleted topic', () {
+    test('loses its choice and says so', () async {
+      await start({
+        'topic_challenge.prod-db': 'type_topic_name',
+        'topic_challenge.nas': 'type_topic_name',
+      });
+      var heard = 0;
+      final sub = choices.changes.listen((_) => heard++);
+      await choices.forgetTopic('prod-db');
+      await Future<void>.delayed(Duration.zero);
+      expect(choices.choices.keys, ['nas']);
+      expect(heard, 1);
+      await sub.cancel();
+    });
+
+    test('loses its flag on the check that follows, Pro or not', () async {
+      for (final decision in <FeatureDecision>[
+        const FeatureDecision.open(),
+        const FeatureDecision.locked(Holding.pro),
+        const FeatureDecision.unread(Holding.pro),
+      ]) {
+        await start({
+          'topic_challenge.prod-db': 'type_topic_name',
+          'topic_challenge_owed.prod-db': true,
+          'topic_challenge.nas': 'type_topic_name',
+          'topic_challenge_owed.nas': true,
+        });
+        var publishes = 0;
+        final sync = ChallengeFlagSync(
+          decide: () async => decision,
+          changes: const [],
+          readChoices: () => choices.choices.keys.toSet(),
+          readWritten: () => choices.flaggedTopics,
+          write: choices.writeFlag,
+          publish: () async {
+            publishes++;
+            return true;
+          },
+        );
+        // What the app does when a topic is deleted.
+        await choices.forgetTopic('prod-db');
+        await sync.check();
+        expect(choices.choiceFor('prod-db'), isNull, reason: '$decision');
+        expect(choices.isFlagged('prod-db'), isFalse, reason: '$decision');
+        expect(
+          prefs.getKeys().where((key) => key.contains('prod-db')),
+          isEmpty,
+          reason: '$decision',
+        );
+        expect(publishes, 1, reason: '$decision');
+        // A locked plan clears the other one too. Otherwise it stays.
+        expect(
+          choices.isFlagged('nas'),
+          decision is! FeatureLocked,
+          reason: '$decision',
+        );
+      }
     });
   });
 
@@ -198,6 +259,23 @@ void main() {
         ask(gate(), reader: true),
         const ChallengeOwed(_kind, wayOut: ChallengeWayOut.tap),
       );
+    });
+
+    // A card drawn while the flag was set can still open the app after
+    // the flag's reason is gone. The screen it opens owes nothing.
+    test('a flag left over with no choice asks nothing', () async {
+      await start({'topic_challenge_owed.prod-db': true});
+      for (final decision in <FeatureDecision>[
+        const FeatureDecision.open(),
+        const FeatureDecision.unread(Holding.pro),
+        const FeatureDecision.locked(Holding.pro),
+      ]) {
+        expect(
+          ask(gate(decision: decision)),
+          const ChallengeNotOwed(NoChallengeReason.noneSet),
+          reason: '$decision',
+        );
+      }
     });
 
     test('a choice on another topic asks nothing here', () async {

@@ -30,6 +30,7 @@ class ChallengeFlagSync {
     required this._readWritten,
     required this._write,
     required this._publish,
+    this._redraw,
   });
 
   /// The decision for wake-up challenges, asked once the access layer is
@@ -52,6 +53,12 @@ class ChallengeFlagSync {
   /// app's own preferences. True once that copy is made, and true where
   /// there is no copy to make.
   final Future<bool> Function() _publish;
+
+  /// Asks the surfaces that draw a Done button from the flag to draw it
+  /// again, once a changed flag has reached where they read it. Today that
+  /// is the home screen widgets, through the snapshot rewrite they already
+  /// have. Null where there is nothing to redraw.
+  final void Function()? _redraw;
 
   final List<StreamSubscription<Object?>> _subscriptions = [];
   bool _running = false;
@@ -133,9 +140,17 @@ class ChallengeFlagSync {
     }
     if (!_publishOwed) return;
     try {
-      if (await _publish()) _publishOwed = false;
+      if (!await _publish()) return;
+      _publishOwed = false;
     } on Object catch (_) {
       // Still owed. The next check tries again.
+      return;
+    }
+    try {
+      _redraw?.call();
+    } on Object catch (_) {
+      // A surface that could not be redrawn keeps the button it has until
+      // its next redraw of its own.
     }
   }
 

@@ -77,6 +77,9 @@ class SharedPrefsChallengeChoices implements ChallengeChoices {
       setChoice(newTopic, defaultForNewTopics);
 
   @override
+  Future<void> forgetTopic(String topic) => setChoice(topic, null);
+
+  @override
   Set<String> get flaggedTopics {
     const prefix = ChallengeChoices.owedKeyPrefix;
     return {
