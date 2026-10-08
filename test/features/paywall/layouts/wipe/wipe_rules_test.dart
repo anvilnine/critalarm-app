@@ -77,6 +77,64 @@ void main() {
     });
   });
 
+  group('the sweep after an intro', () {
+    test('starts part of the way in and ends on the same place', () {
+      expect(wipeLeadFor(followsIntro: false), 0);
+      final lead = wipeLeadFor(followsIntro: true);
+      expect(lead, greaterThan(0));
+      expect(
+        wipeDividerAt(wipeSweepStart - lead, settle: 0.3, lead: lead),
+        1,
+      );
+      expect(
+        wipeDividerAt(wipeSweepEnd - lead, settle: 0.3, lead: lead),
+        closeTo(0.3, 1e-9),
+      );
+    });
+  });
+
+  group('the landing', () {
+    test('is when the divider is on the mascot to the eye', () {
+      expect(wipeLandsAt, inExclusiveRange(wipeSweepStart, wipeSweepEnd));
+      final at = wipeDividerAt(wipeLandsAt, settle: 0.3);
+      expect(at, closeTo(0.3, 0.03));
+    });
+
+    test('its cue plays once', () {
+      expect(wipeReached(wipeLandsAt - 0.016, wipeLandsAt, wipeLandsAt), true);
+      expect(wipeReached(wipeLandsAt, wipeLandsAt + 0.016, wipeLandsAt), false);
+    });
+  });
+
+  group('the lean', () {
+    test('both sides are one mascot: the same entrance and idle', () {
+      expect(wipeMotion.entrance, wipeFreeMotion.entrance);
+      expect(wipeMotion.idle, wipeFreeMotion.idle);
+      expect(wipeMotion.idle, HeroIdleStyle.lean);
+      expect(wipeMotion.entrance, HeroEntranceStyle.pop);
+    });
+
+    test('bubbles rise on the product side only', () {
+      expect(wipeMotion.atmosphere, HeroAtmosphereStyle.bubbles);
+      expect(wipeFreeMotion.atmosphere, isNot(HeroAtmosphereStyle.bubbles));
+    });
+
+    test('the divider stays put at rest and between leans', () {
+      expect(wipeLeanShiftAt(0, mascot: 160), 0);
+      expect(wipeLeanShiftAt(0.5, mascot: 160), closeTo(0, 1e-9));
+      expect(wipeLeanShiftAt(heroLeanEvery, mascot: 160), closeTo(0, 1e-9));
+    });
+
+    test('it goes toward the product with the mascot, and comes back', () {
+      const peak = (1.4 + 3.2) / 2;
+      final shift = wipeLeanShiftAt(peak, mascot: 160);
+      expect(shift, greaterThan(4));
+      expect(shift, lessThan(160 * 0.12));
+      expect(wipeLeanShiftAt(peak - 0.5, mascot: 160), lessThan(shift));
+      expect(wipeLeanShiftAt(peak + 0.5, mascot: 160), lessThan(shift));
+    });
+  });
+
   group('where it settles', () {
     test('down the middle of the mascot', () {
       const size = Size(390, 380);

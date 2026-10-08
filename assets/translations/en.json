@@ -1941,7 +1941,6 @@
     }
   },
   "paywall_doors": {
-    "free": "Free",
     "headline_hosted": "Step into Hosted",
     "headline_pro": "Step into Pro",
     "headline_ending": "Keep the door open",
@@ -1965,7 +1964,6 @@
     "headline_hosted": "See what Hosted changes",
     "headline_pro": "See what Pro adds",
     "tag_free": "Free",
-    "tag_standard": "Standard",
     "compare_label": "Compare {before} and {name}"
   },
   "paywall_bento": {
