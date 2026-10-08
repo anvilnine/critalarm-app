@@ -1,4 +1,4 @@
-import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/home_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
@@ -54,7 +54,7 @@ class ProAskRules {
     return decide(
       isSetupDone: isSetupDone,
       holdsHosted: holdsHosted,
-      isSelfHosted: serverMode == ServerMode.selfhosted,
+      isSelfHosted: isOwnServerMode(serverMode),
       dismissCount: noticeRepository.getProAskDismissCount(),
       lastAskedAt: noticeRepository.getProAskedAt(),
       otherAskedAt: [

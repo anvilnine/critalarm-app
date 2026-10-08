@@ -79,13 +79,14 @@ final class RegisterDeviceUsecase {
     await _identity.saveRegistration(
       deviceToken: token,
       accountId: response.accountId,
-      tier: response.tier,
+      tier: response.tier, // access-ok: saves what the server answered
       caps: response.caps,
       accountJoinToken: response.accountJoinToken,
     );
     // Screens that read the tier once, like Settings and History, reload on
     // this. Only a real change bumps, so the launch registration stays quiet.
-    if (response.tier != identity.tier || response.caps != identity.caps) {
+    final tierMoved = response.tier != identity.tier; // access-ok: announces
+    if (tierMoved || response.caps != identity.caps) {
       _planChanges.bump();
     }
     try {

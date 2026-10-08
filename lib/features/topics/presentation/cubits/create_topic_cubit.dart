@@ -84,7 +84,7 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
   /// Whether the cap on critical topics applies here. Waits for the plan
   /// to be read, so a paying person never sees the free count first.
   Future<bool> _isCapped() async =>
-      !(await _featureAccess?.canOnceReady(
+      !(await _featureAccess?.usableOnceReady(
             AppFeature.unlimitedCriticalTopics,
           ) ??
           false);
@@ -382,7 +382,7 @@ class CreateTopicCubit extends Cubit<CreateTopicState> {
             capReached: cap,
             // The store says Pro but the server has not caught up, so a cap
             // here means "wait a moment", not "go Pro".
-            isProPending:
+            isPlanConfirming:
                 _featureAccess?.decide(AppFeature.unlimitedCriticalTopics)
                     is FeatureConfirming,
           ),

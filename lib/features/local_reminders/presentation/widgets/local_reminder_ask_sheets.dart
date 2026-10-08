@@ -1,5 +1,5 @@
 import 'package:critalarm/app/di.dart';
-import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/telemetry/local_reminder_analytics.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
@@ -21,7 +21,7 @@ Future<void> askLocalRemindersSheet(BuildContext context) async {
   await showLocalRemindersSheet(
     context: context,
     store: getIt<LocalReminderStore>(),
-    isSelfHosted: mode == ServerMode.selfhosted,
+    isSelfHosted: isOwnServerMode(mode),
     holdsHosted: holdsHosted,
     onAnswered: getIt<LocalReminderPlanTrigger>().run,
   );

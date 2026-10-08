@@ -1,3 +1,4 @@
+import 'package:critalarm/core/access/own_server.dart';
 import 'package:critalarm/core/alarm/quiet_hours_store.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/incident.dart';
@@ -178,8 +179,10 @@ final class LocalReminderInputsReader {
 
     final now = zone.toWall(_clock());
     // An unknown mode counts as self-hosted: no offers and no backup nudge.
-    final isSelfHosted = modeFailed || mode == ServerMode.selfhosted;
-    final isHosted = mode == ServerMode.hosted;
+    final isSelfHosted = modeFailed || isOwnServerMode(mode);
+    // About what the server is: the backup nudge is for Crit Alarm Cloud
+    // accounts.
+    final isHosted = mode == ServerMode.hosted; // access-ok: cloud only
     final skipRules = _store.readSkipRules();
 
     final createdHere = {

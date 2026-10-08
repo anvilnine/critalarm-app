@@ -108,7 +108,7 @@ class HistoryCubit extends Cubit<HistoryState> {
     if (identityStore != null && identity?.accountId == null) return false;
     _caps = identity?.caps ?? AccountCaps.free;
     _hasLongHistory =
-        await featureAccess?.canOnceReady(AppFeature.longHistory) ?? false;
+        await featureAccess?.usableOnceReady(AppFeature.longHistory) ?? false;
     if (!isClosed) {
       emit(
         state.copyWith(

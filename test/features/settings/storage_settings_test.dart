@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/api/api_session.dart';
+import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
+import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:critalarm/core/store/local_store.dart';
 import 'package:critalarm/features/settings/data/repositories/shared_prefs_storage_settings_repository.dart';
 import 'package:critalarm/features/settings/domain/entities/storage_settings.dart';
 import 'package:critalarm/features/settings/domain/usecases/auto_delete_history_usecase.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
+import 'package:critalarm/features/settings/presentation/cubits/settings_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -35,6 +40,15 @@ Incident _incident(String id, {required int daysAgo, int priority = 4}) {
       ),
     ],
   );
+}
+
+/// An identity that never comes back, the way a slow first read looks to
+/// Settings. Everything after it in the load waits.
+class _HangingIdentityStore extends DeviceIdentityStore {
+  _HangingIdentityStore(super.prefs);
+
+  @override
+  Future<DeviceIdentity> readOrCreate() => Completer<DeviceIdentity>().future;
 }
 
 void main() {
@@ -68,6 +82,26 @@ void main() {
         await drawnFor(TestAccess(serverMode: ServerMode.selfhosted)),
         isTrue,
       );
+    });
+
+    test('at once, before the identity and the topics have answered', () async {
+      final access = TestAccess(held: {Holding.hosted});
+      addTearDown(access.dispose);
+      final cubit = SettingsCubit(
+        identityStore: _HangingIdentityStore(
+          await SharedPreferences.getInstance(),
+        ),
+        holdings: access.holdings,
+        featureAccess: access.features,
+      );
+      addTearDown(cubit.close);
+      // The rest of the load never finishes: no network, no topics.
+      unawaited(cubit.load());
+      await pumpEventQueue();
+
+      expect(cubit.state.status, SettingsStatus.loading);
+      expect(cubit.state.hasStorageSection, isTrue);
+      expect(cubit.state.holdsHosted, isTrue);
     });
 
     test('a purchase that lands while Settings is open', () async {

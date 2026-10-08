@@ -150,6 +150,26 @@ class SettingsCubit extends Cubit<SettingsState> {
     );
   }
 
+  /// Draws the plan row and the Storage section as soon as the plan has
+  /// been read from the phone. No network call is involved.
+  Future<void> _drawPlanOnceRead() async {
+    await holdings?.ready;
+    await featureAccess?.ready;
+    if (isClosed) return;
+    final holdsHosted = _holdsHosted;
+    final hasStorageSection = _hasStorageSection;
+    if (state.holdsHosted == holdsHosted &&
+        state.hasStorageSection == hasStorageSection) {
+      return;
+    }
+    emit(
+      state.copyWith(
+        holdsHosted: holdsHosted,
+        hasStorageSection: hasStorageSection,
+      ),
+    );
+  }
+
   bool get _holdsHosted => holdings?.holds(Holding.hosted) ?? false;
   bool get _hasStorageSection =>
       featureAccess?.can(AppFeature.storageRules) ?? false;
@@ -210,6 +230,14 @@ class SettingsCubit extends Cubit<SettingsState> {
     if (session != null) {
       emit(state.copyWith(serverMode: session.mode));
     }
+
+    // The plan row and the Storage section come from what the phone holds
+    // already: the saved tier, the store flag, the saved server mode. They
+    // are drawn here, before anything that waits on the network, so they
+    // do not pop in late and are there with no connection at all.
+    // Not waited for: the saved server and the connection card below must
+    // not wait on it either.
+    unawaited(_drawPlanOnceRead());
 
     final storage = storageSettings?.read();
     if (storage != null) emit(state.copyWith(storage: storage));
@@ -305,7 +333,6 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> _loadAccess() async {
     final identity = await identityStore?.readOrCreate();
     final result = await getTopics?.call(const NoParams());
-    // The plan is read before the row says Free or the section is left out.
     await holdings?.ready;
     await featureAccess?.ready;
     if (isClosed) return;

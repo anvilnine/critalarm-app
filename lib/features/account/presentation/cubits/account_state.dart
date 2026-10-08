@@ -84,7 +84,11 @@ class AccountState {
 
   /// Sign-in exists everywhere except on a self-hosted server, which has one
   /// operator and no accounts.
-  bool get isAvailable => mode != null && mode != ServerMode.selfhosted;
+  /// About what the server is, not about plans.
+  bool get isAvailable {
+    if (mode == null) return false;
+    return mode != ServerMode.selfhosted; // access-ok: accounts exist
+  }
 
   bool get isBusy => status == AccountStatus.working;
 

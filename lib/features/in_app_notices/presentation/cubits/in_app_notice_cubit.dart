@@ -369,8 +369,11 @@ class InAppNoticeCubit extends Cubit<InAppNoticeState> {
     }
 
     // Priority 8: Account Backup Notice
-    final serverMode = await accountRepository.readServerMode();
-    final canHaveAccounts = serverMode != ServerMode.selfhosted;
+    // About what the server is, not about plans: a self-hosted server has
+    // no accounts to back topics up to.
+    final mode = await accountRepository.readServerMode();
+    final canHaveAccounts =
+        mode != ServerMode.selfhosted; // access-ok: accounts exist
     final firstTopicAt = noticeRepository.getFirstTopicOwnedAt();
     final waitedLongEnough =
         firstTopicAt != null && _clock().difference(firstTopicAt) >= backupWait;
