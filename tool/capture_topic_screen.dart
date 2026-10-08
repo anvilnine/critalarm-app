@@ -139,6 +139,20 @@ void _manyMessages(MockServer server, DateTime now) {
     );
 }
 
+/// Five messages stored out of order. The screen must show the newest three,
+/// newest first: "Newest", "Second", "Third".
+void _unsortedMessages(MockServer server, DateTime now) {
+  const names = ['Newest', 'Second', 'Third', 'Fourth', 'Fifth'];
+  server
+    ..seedCalm()
+    ..seedState(
+      messages: [
+        for (final i in const [1, 0, 4, 2, 3])
+          _msg('prod-db', i, now, title: names[i], body: 'Message number $i.'),
+      ],
+    );
+}
+
 void _seedLongName(MockServer server, DateTime now) {
   server
     ..seedCalm()
@@ -164,6 +178,7 @@ const _scenes = <_Scene>[
   _Scene('off', 'nas-backup', seed: _offWithMessages, extra: true),
   _Scene('empty', 'home-ha'),
   _Scene('many', 'prod-db', seed: _manyMessages),
+  _Scene('unsorted', 'prod-db', seed: _unsortedMessages),
   _Scene('longname', _longName, seed: _seedLongName),
   _Scene('warning', 'nas-backup', seed: _worried),
   _Scene('pane', 'prod-db', isPane: true),

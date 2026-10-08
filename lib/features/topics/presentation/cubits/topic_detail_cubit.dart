@@ -16,6 +16,7 @@ import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/entities/message.dart';
 import 'package:critalarm/features/incidents/domain/repositories/incident_repository.dart';
 import 'package:critalarm/features/topics/domain/entities/topic.dart';
+import 'package:critalarm/features/topics/domain/topic_message_order.dart';
 import 'package:critalarm/features/topics/domain/usecases/update_topic_usecase.dart';
 import 'package:critalarm/features/topics/presentation/cubits/topic_detail_state.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -211,9 +212,8 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         errorMessage: pollResult.exceptionOrNull()?.message,
       );
     }
-    final polled = _insideWindow(
-      pollResult.getOrNull() ?? <Message>[],
-      await _lowerBound(),
+    final polled = newestFirst(
+      _insideWindow(pollResult.getOrNull() ?? <Message>[], await _lowerBound()),
     );
 
     final openIncidents = _incidents.state
@@ -251,7 +251,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         : hasHigh
         ? 'high'
         : 'default';
-    final messages = polled.reversed
+    final messages = polled
         .map(
           (m) => TopicDetailMessageItem(
             title: m.title ?? m.topic,
@@ -297,7 +297,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
       subText: subText,
       messages: messages,
       messageTimes: [
-        for (final m in polled.reversed)
+        for (final m in polled)
           DateTime.fromMillisecondsSinceEpoch(m.time * 1000),
       ],
       lastAlarmAt: lastAlarmAt,
