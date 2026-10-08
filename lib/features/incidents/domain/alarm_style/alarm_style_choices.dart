@@ -32,6 +32,10 @@ abstract interface class AlarmStyleChoices {
   /// The topic was deleted on this phone: its choice goes.
   Future<void> forgetTopic(String topic);
 
+  /// Everything here belongs to an account that this phone has left: the
+  /// phone's look, every topic's look and the note all go.
+  Future<void> forgetAll();
+
   /// The note that the last sure answer of the access layer for alarm
   /// screen styles was "open": the tag of the account it was for
   /// (`alarmStyleAccountTag`), or null for no note. While the plan cannot
