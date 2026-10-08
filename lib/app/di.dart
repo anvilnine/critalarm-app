@@ -5,6 +5,7 @@ import 'package:critalarm/app/access/hosted_holding_source.dart';
 import 'package:critalarm/app/access/observed_api_session_store.dart';
 import 'package:critalarm/app/access/pro_holding_source.dart';
 import 'package:critalarm/app/access/sure_lock.dart';
+import 'package:critalarm/app/account_data.dart';
 import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/router.dart';
@@ -21,6 +22,7 @@ import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/access/holding.dart';
 import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
+import 'package:critalarm/core/account/account_tag.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
 import 'package:critalarm/core/alarm/alarm_build_mode.dart';
@@ -66,6 +68,7 @@ import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/push/relay_confirmation_store.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
+import 'package:critalarm/core/sound/own_sound_lock_flag.dart';
 import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
@@ -886,9 +889,7 @@ Future<void> configureDependencies({
         register: getIt<RegisterDeviceUsecase>(),
         identities: getIt<IdentityRepository>(),
         connections: getIt<ConnectionRepository>(),
-        acks: getIt<AckQueue>(),
-        messageCursors: getIt<MessageSyncService>(),
-        recentSearches: getIt<RecentSearchesRepository>(),
+        forgetAccountData: () => getIt<AccountData>().forget(),
         signOutBilling: buildSkipsPaywall
             ? null
             : () => getIt<RevenueCatService>().logOut(),
@@ -1491,12 +1492,10 @@ Future<void> configureDependencies({
                 .getOrNull()
                 ?.serverUrl,
         // A connect to a different server drops what belongs to the old
-        // one: the same four things an account wipe drops, plus the
-        // archive. Settings, sounds, permissions and the rest stay.
+        // one: everything an account wipe drops, plus the archive.
+        // Settings, sounds, permissions and the rest stay.
         forgetServerData: () async {
-          await getIt<AckQueue>().clear();
-          await getIt<MessageSyncService>().resetAllCursors();
-          await getIt<RecentSearchesRepository>().clear();
+          await getIt<AccountData>().forget();
           await localStore?.clearServerData();
         },
       ),
@@ -1574,11 +1573,36 @@ Future<void> configureDependencies({
           .listen((_) => sync.rewrite());
       return sync;
     })
+    // The one list of what belongs to an account on this phone. A sign-out,
+    // an account delete and a connect to a different server all call it.
+    ..registerLazySingleton(
+      () => AccountData(
+        acks: getIt<AckQueue>(),
+        messageCursors: getIt<MessageSyncService>(),
+        recentSearches: getIt<RecentSearchesRepository>(),
+        challenges: getIt<ChallengeChoices>(),
+        alarmStyles: getIt<AlarmStyleChoices>(),
+        soundLock: getIt<OwnSoundLockFlag>(),
+        // Not waited for: each check asks the access layer, and neither a
+        // wipe nor a connect waits on a plan.
+        afterForget: () async {
+          unawaited(getIt<SoundLockSync>().checkAfterWipe());
+          unawaited(getIt<ChallengeFlagSync>().checkAfterWipe());
+          unawaited(getIt<AlarmStyleGate>().check());
+        },
+      ),
+    )
     // The one flag native code reads to know own sounds are locked. It
     // follows the own sounds decision: a purchase, a pack that ended, a
     // server that became known. It is written only on a sure answer, so
     // this waits for the plan and the saved server to be read, and a plan
     // that cannot be read leaves the last value alone.
+    //
+    // The flag is kept with the tag of the account it was written for, and
+    // a flag for another account is taken away at the start of every check.
+    ..registerLazySingleton(
+      () => OwnSoundLockFlag(getIt<SharedPreferences>()),
+    )
     ..registerLazySingleton(
       () => SoundLockSync(
         isLocked: () async =>
@@ -1586,11 +1610,14 @@ Future<void> configureDependencies({
         changes: getIt<FeatureAccess>().changes.where(
           (feature) => feature == AppFeature.ownSounds,
         ),
-        readWritten: () =>
-            getIt<SharedPreferences>().getBool(ownSoundsLockedKey),
-        write: ({required locked}) async {
-          await getIt<SharedPreferences>().setBool(ownSoundsLockedKey, locked);
-        },
+        keepOnlyOurs: () async => getIt<OwnSoundLockFlag>().keepOnlyFor(
+          accountTagFor(
+            (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
+          ),
+        ),
+        readWritten: () => getIt<OwnSoundLockFlag>().written,
+        write: ({required locked}) =>
+            getIt<OwnSoundLockFlag>().write(locked: locked),
         // The iOS notification extension reads its own copy of the choices.
         // Android reads the flag where it is written, so there is nothing
         // to copy and nothing to retry.
@@ -1674,6 +1701,13 @@ Future<void> configureDependencies({
         // from the flag, so it is drawn again when a flag changes. The
         // snapshot rewrite is the refresh the widgets already have.
         redraw: () => getIt<WidgetSync>().rewrite(),
+        // The flags are kept with the tag of the account they were written
+        // for, and flags for another account go before any is trusted.
+        keepOnlyOurs: () async => getIt<ChallengeChoices>().keepFlagsOnlyFor(
+          accountTagFor(
+            (await getIt<DeviceIdentityStore>().readOrCreate()).accountId,
+          ),
+        ),
       ),
     )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and
