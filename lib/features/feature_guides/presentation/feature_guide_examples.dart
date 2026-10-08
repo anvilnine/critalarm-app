@@ -72,6 +72,7 @@ abstract final class FeatureGuideExamples {
     alarm: AlarmAuthorization.authorized,
     word: LocaleKeys.topic_detail_stage_word_clear.tr(),
     subText: LocaleKeys.feature_guides_example_topic_sub.tr(),
+    messageTimes: [DateTime.now()],
     messages: [
       TopicDetailMessageItem(
         title: LocaleKeys.feature_guides_example_message_title.tr(),
