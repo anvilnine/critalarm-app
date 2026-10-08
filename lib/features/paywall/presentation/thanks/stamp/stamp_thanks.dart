@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/haptics.dart';
@@ -73,7 +71,6 @@ class StampThanks extends StatelessWidget {
     final origin = scope.origin;
     // The slip comes out of the middle of the button, from behind it.
     final slot = scope.source.dy;
-    final mitt = plan.crit.width * 0.085;
 
     return PaywallClockBuilder(
       clock: scope.clock,
@@ -117,7 +114,7 @@ class StampThanks extends StatelessWidget {
             if (fed > 0)
               Positioned.fill(
                 child: ClipRect(
-                  clipper: isOut ? null : _AboveClipper(slot),
+                  clipper: isOut ? null : ThanksAboveClipper(slot),
                   child: Stack(
                     children: [
                       Positioned.fromRect(
@@ -141,26 +138,7 @@ class StampThanks extends StatelessWidget {
               ),
             // The mascot's two hands on the slip's top edge.
             if (fed >= 1)
-              for (final side in const [-1.0, 1.0])
-                Positioned.fromRect(
-                  rect: Rect.fromCircle(
-                    center: Offset(
-                      paper.center.dx + side * plan.crit.width * 0.3,
-                      paper.top + mitt * 0.2,
-                    ),
-                    radius: mitt,
-                  ),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: colors.faceFill,
-                      border: Border.all(
-                        color: colors.faceStroke,
-                        width: plan.crit.width * 0.034,
-                      ),
-                    ),
-                  ),
-                ),
+              ...thanksHands(context, paper: paper, edge: plan.crit.width),
             // The pressed button, which the slip comes out of.
             if (origin != null && button > 0)
               Positioned.fromRect(
@@ -188,19 +166,6 @@ class StampThanks extends StatelessWidget {
       },
     );
   }
-}
-
-/// Keeps what is above a line [y] points down the box.
-class _AboveClipper extends CustomClipper<Rect> {
-  const _AboveClipper(this.y);
-
-  final double y;
-
-  @override
-  Rect getClip(Size size) => Rect.fromLTWH(0, 0, size.width, math.max(0, y));
-
-  @override
-  bool shouldReclip(_AboveClipper old) => y != old.y;
 }
 
 /// The slip: the app's name, one ticked line a benefit in the mono face,
@@ -245,7 +210,7 @@ class _Slip extends StatelessWidget {
         children: [
           Positioned.fill(
             child: CustomPaint(
-              painter: _PaperPainter(
+              painter: ThanksPaperPainter(
                 color: paper,
                 tooth: 5 * u,
                 shadows: AppShadows.shadowLg(isDark: isDark),
@@ -317,7 +282,7 @@ class _Slip extends StatelessWidget {
                     angle: stamp.angle,
                     child: Transform.scale(
                       scale: stamp.scale,
-                      child: _StampMark(
+                      child: ThanksStampMark(
                         text: stampText,
                         color: colors.crit,
                         unit: u,
@@ -337,105 +302,6 @@ class _Slip extends StatelessWidget {
     right: pad,
     top: top,
     height: StampPlan.rule * plan.unit,
-    child: CustomPaint(painter: _DashPainter(color)),
+    child: CustomPaint(painter: ThanksDashPainter(color)),
   );
-}
-
-/// The rubber stamp: the product's name in a double frame.
-class _StampMark extends StatelessWidget {
-  const _StampMark({
-    required this.text,
-    required this.color,
-    required this.unit,
-  });
-
-  final String text;
-  final Color color;
-  final double unit;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: EdgeInsets.all(2.5 * unit),
-    decoration: BoxDecoration(
-      border: Border.all(color: color, width: 3 * unit),
-      borderRadius: BorderRadius.circular(Radii.xs + 4),
-    ),
-    child: Container(
-      padding: EdgeInsets.symmetric(horizontal: 16 * unit, vertical: 5 * unit),
-      decoration: BoxDecoration(
-        border: Border.all(color: color, width: 1.2 * unit),
-        borderRadius: BorderRadius.circular(Radii.xs + 1),
-      ),
-      child: Text(
-        text.toUpperCase(),
-        maxLines: 1,
-        style: AppTypography.monoBold(
-          color,
-          fontSize: 27 * unit,
-        ).copyWith(letterSpacing: 4, height: 1.2),
-      ),
-    ),
-  );
-}
-
-/// The paper, with a torn edge along its foot, on its shadow.
-class _PaperPainter extends CustomPainter {
-  const _PaperPainter({
-    required this.color,
-    required this.tooth,
-    required this.shadows,
-  });
-
-  final Color color;
-  final double tooth;
-  final List<BoxShadow> shadows;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final teeth = (size.width / 9).round();
-    final step = size.width / teeth;
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width, size.height - tooth);
-    for (var i = teeth - 1; i >= 0; i--) {
-      path
-        ..lineTo(step * (i + 0.5), size.height)
-        ..lineTo(step * i, size.height - tooth);
-    }
-    path.close();
-    for (final shadow in shadows) {
-      canvas.drawPath(path.shift(shadow.offset), shadow.toPaint());
-    }
-    canvas.drawPath(path, Paint()..color = color);
-  }
-
-  @override
-  bool shouldRepaint(_PaperPainter old) =>
-      color != old.color || tooth != old.tooth || shadows != old.shadows;
-}
-
-/// A dashed rule across the middle of the box.
-class _DashPainter extends CustomPainter {
-  const _DashPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.2;
-    final y = size.height / 2;
-    for (var x = 0.0; x < size.width; x += 7) {
-      canvas.drawLine(
-        Offset(x, y),
-        Offset(math.min(x + 4, size.width), y),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashPainter old) => color != old.color;
 }
