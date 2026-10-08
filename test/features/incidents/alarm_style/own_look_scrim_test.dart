@@ -15,6 +15,11 @@ Color _grey(int value) => Color.fromARGB(255, value, value, value);
 /// rounds it.
 int _under(int value, int alpha) => (value * (255 - alpha) / 255).round();
 
+/// What a value becomes under the white wash of a quiet button, as the
+/// engine rounds it.
+int _washed(int value) =>
+    ((255 * ownLookWashAlpha + value * (255 - ownLookWashAlpha)) / 255).round();
+
 void main() {
   final photos = syntheticPhotos();
 
@@ -136,8 +141,23 @@ void main() {
           '$scrim, words on the brightest ${brightest.toStringAsFixed(2)}, '
           'on the darkest ${darkest.toStringAsFixed(2)}',
         );
+        final washed = ColorContrast.contrastRatio(
+          ownLookWords,
+          _grey(scrim.brightestUnderWash),
+        );
+        // Printed so the numbers are in the test log.
+        // ignore: avoid_print
+        print(
+          '${photo.name}: words on a quiet button over the brightest '
+          '${washed.toStringAsFixed(2)}',
+        );
+        // The label of a quiet button has the wash behind it too, and it
+        // is the hardest word on the screen: the scrim is built for it.
+        expect(washed, greaterThanOrEqualTo(ownLookScrimTarget));
+        expect(washed, greaterThanOrEqualTo(alarmStyleMinContrast));
+        expect(scrim.brightestUnderWash, greaterThan(scrim.brightestBehind));
         expect(scrim.alpha, inInclusiveRange(ownLookMinScrim, 255));
-        expect(brightest, greaterThanOrEqualTo(ownLookScrimTarget));
+        expect(brightest, greaterThanOrEqualTo(washed));
         expect(brightest, greaterThanOrEqualTo(alarmStyleMinContrast));
         expect(darkest, greaterThanOrEqualTo(brightest));
 
@@ -155,15 +175,20 @@ void main() {
               value,
               inInclusiveRange(scrim.darkestBehind, scrim.brightestBehind),
             );
+            expect(
+              _washed(value),
+              lessThanOrEqualTo(scrim.brightestUnderWash),
+            );
           }
+          // Under a quiet button, which is the worse of the two.
           final ratio = ColorContrast.contrastRatio(
             ownLookWords,
-            Color.fromARGB(255, r, g, b),
+            Color.fromARGB(255, _washed(r), _washed(g), _washed(b)),
           );
           if (ratio < worst) worst = ratio;
         }
         expect(worst, greaterThanOrEqualTo(alarmStyleMinContrast));
-        expect(worst, greaterThanOrEqualTo(brightest));
+        expect(worst, greaterThanOrEqualTo(washed));
       });
     }
 
@@ -186,8 +211,9 @@ void main() {
         of('a mid grey with one white dot').alpha,
         of('all white').alpha,
       );
-      // The photo is still there under the strongest scrim.
-      expect(of('all white').alpha, lessThan(160));
+      // The photo is still there under the strongest scrim: over a
+      // quarter of it shows.
+      expect(of('all white').alpha, lessThan(255 * 3 ~/ 4));
     });
 
     test('every peak from black to white gives a scrim the words read '
@@ -196,14 +222,19 @@ void main() {
         final scrim = ownLookScrimFor(
           OwnPhotoMeasure(columns: 1, rows: 1, peaks: [peak], lows: const [0]),
           wordsLuminance: words,
+          washAlpha: ownLookWashAlpha,
         );
         expect(
           ColorContrast.contrastRatio(
             ownLookWords,
-            _grey(scrim.brightestBehind),
+            _grey(scrim.brightestUnderWash),
           ),
           greaterThanOrEqualTo(ownLookScrimTarget),
           reason: 'peak $peak',
+        );
+        expect(
+          _washed(_under(peak, scrim.alpha)),
+          lessThanOrEqualTo(scrim.brightestUnderWash),
         );
         expect(
           _under(peak, scrim.alpha),
@@ -215,16 +246,48 @@ void main() {
     });
 
     test('the scrim is the lightest that works: one step lighter and the '
-        'brightest pixel is under the target', () {
+        'label of a quiet button over the brightest pixel is under the '
+        'target', () {
       final scrim = ownLookScrimFor(
         const OwnPhotoMeasure(columns: 1, rows: 1, peaks: [255], lows: [255]),
         wordsLuminance: words,
+        washAlpha: ownLookWashAlpha,
       );
-      final lighter = (255 * (255 - (scrim.alpha - 1)) / 255).ceil() + 1;
+      final behind = (255 * (255 - (scrim.alpha - 1)) / 255).ceil() + 1;
+      final washed =
+          ((255 * ownLookWashAlpha + behind * (255 - ownLookWashAlpha)) / 255)
+              .ceil() +
+          1;
       expect(
-        ColorContrast.contrastRatio(ownLookWords, _grey(lighter)),
+        ColorContrast.contrastRatio(ownLookWords, _grey(washed)),
         lessThan(ownLookScrimTarget),
       );
+    });
+
+    test('with no wash to count, the scrim is built for the bare photo', () {
+      final bare = ownLookScrimFor(
+        const OwnPhotoMeasure(columns: 1, rows: 1, peaks: [255], lows: [255]),
+        wordsLuminance: words,
+      );
+      final washed = ownLookScrimFor(
+        const OwnPhotoMeasure(columns: 1, rows: 1, peaks: [255], lows: [255]),
+        wordsLuminance: words,
+        washAlpha: ownLookWashAlpha,
+      );
+      expect(bare.brightestUnderWash, bare.brightestBehind);
+      expect(washed.alpha, greaterThan(bare.alpha));
+    });
+
+    test('the wash the scrim is built for is the one a quiet button '
+        'draws', () {
+      // AppButtonVariant.tinted: the card colour at 22 percent, and the
+      // card is white while the phone rings.
+      final fill = alarmButtonColors(
+        AppButtonVariant.tinted,
+        AppColors.light.copyWith(surface: const Color(0xFFFFFFFF)),
+      ).fill;
+      expect(ownLookWashAlpha, greaterThanOrEqualTo((fill.a * 255).ceil()));
+      expect(ownLookWashAlpha - fill.a * 255, lessThan(1));
     });
   });
 }

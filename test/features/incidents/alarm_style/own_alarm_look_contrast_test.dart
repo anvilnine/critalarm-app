@@ -90,6 +90,25 @@ void main() {
                 );
                 if (stage == AlarmStage.ringing) {
                   expect(report.weights, hasLength(4), reason: where);
+                  // "I'm up" is the heaviest thing in the bar by a clear
+                  // margin, at rest and while it spins: at least twice
+                  // the stand-out of a quiet button, and never under the
+                  // floor.
+                  for (final weight in report.weights) {
+                    expect(
+                      weight.heavy,
+                      greaterThanOrEqualTo(alarmStyleMinFillContrast),
+                      reason: '$where: $weight',
+                    );
+                    expect(
+                      weight.heavy,
+                      greaterThanOrEqualTo(weight.light * 2),
+                      reason: '$where: $weight',
+                    );
+                  }
+                  // The card and the wash of the quiet buttons are the
+                  // same in both themes while the phone rings.
+                  expect(colors.surface, const Color(0xFFFFFFFF));
                 }
               }
             }
@@ -220,7 +239,7 @@ void main() {
       expect(style.backdropMoves, isFalse);
       expect(style.ringing.maxFace, double.infinity);
       expect(style.ringing.acknowledgeButton, AppButtonVariant.primary);
-      expect(style.ringing.quietButton, AppButtonVariant.ghost);
+      expect(style.ringing.quietButton, AppButtonVariant.tinted);
     });
 
     test('the face is the yellow one in both themes and both stages', () {
