@@ -429,6 +429,36 @@ void main() {
       await cubit.close();
     });
 
+    const lines = <ConnectOutcome, String>{
+      AdminTokenRefused():
+          'The server did not accept this admin token. Not connected.',
+      LinkServerNotSelfHosted():
+          'A link only connects to a server you host yourself. Not connected.',
+      ServerAnswerInvalid():
+          'This address did not answer like a Crit Alarm server. '
+          'Not connected.',
+      RelayDiffers():
+          'This server uses another relay than the one this phone is '
+          'registered with. Disconnect first, then connect again.',
+      RelayUnchecked():
+          "This phone cannot check this server's relay. Enter the address "
+          'by hand instead.',
+    };
+
+    for (final MapEntry(key: outcome, value: line) in lines.entries) {
+      test(
+        '${outcome.runtimeType} has a line of its own and no retry',
+        () async {
+          final cubit = await failWith(outcome);
+          expect(cubit.state.isFailed, isTrue);
+          expect(cubit.state.errorMessage, line);
+          expect(cubit.state.canRetry, isFalse);
+          expect(connectedCalls, 0);
+          await cubit.close();
+        },
+      );
+    }
+
     test('an ordinary failure can be retried', () async {
       final cubit = await failWith(
         const ServerUnreachable(Failure.unexpected()),

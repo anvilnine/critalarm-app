@@ -133,7 +133,16 @@ class ConnectLinkCubit extends Cubit<ConnectLinkState> {
           LocaleKeys.onboarding_connect_admin_token_error_empty.tr(),
       token,
       // Asking the same server again gets the same answer.
-      canRetry: outcome is! ServerAddressDiffers && outcome is! ServerDowngrade,
+      canRetry: switch (outcome) {
+        ServerAddressDiffers() ||
+        ServerDowngrade() ||
+        ServerAnswerInvalid() ||
+        LinkServerNotSelfHosted() ||
+        AdminTokenRefused() ||
+        RelayDiffers() ||
+        RelayUnchecked() => false,
+        _ => true,
+      },
     );
   }
 

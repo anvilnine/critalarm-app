@@ -114,6 +114,9 @@
     "server_url_error_empty": "Server URL cannot be empty",
     "server_url_error_invalid": "Enter a valid URL (e.g. https://api.critalarm.app)",
     "admin_token_error_empty": "Admin token cannot be empty",
+    "admin_token_error_wrong": "The server did not accept this admin token. Not connected.",
+    "answer_invalid": "This address did not answer like a Crit Alarm server. Not connected.",
+    "relay_differs": "This server uses another relay than the one this phone is registered with. Disconnect first, then connect again.",
     "version_incompatible": "Your server is {version}. Update it to 0.x, then connect again.",
     "connected_status": "Connected: {serverUrl}",
     "hook_title": "Test your alarm",
@@ -193,6 +196,8 @@
     "not_encrypted": "This address is not encrypted.",
     "address_differs": "This server says its address is {host}. Not connected.",
     "downgrade": "This server answered with an unencrypted address. Not connected.",
+    "not_self_hosted": "A link only connects to a server you host yourself. Not connected.",
+    "relay_unchecked": "This phone cannot check this server's relay. Enter the address by hand instead.",
     "close": "Close"
   },
   "onboarding_real_ring": {

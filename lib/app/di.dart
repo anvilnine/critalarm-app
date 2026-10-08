@@ -22,6 +22,7 @@ import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/api/http_api_client.dart';
+import 'package:critalarm/core/api/management_credential_probe.dart';
 import 'package:critalarm/core/api/mock_api_client.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/api/packs_api.dart';
@@ -726,6 +727,8 @@ Future<void> configureDependencies({
         getIt<PushTokenProvider>(),
         identifyAccount: getIt<RevenueCatService>().identifyAccount,
         beforePacksRequest: () => getIt<ProPackAccess>().beginRelayRequest(),
+        readSessionRelay: () async =>
+            (await getIt<ApiSessionStore>().read())?.relayUri,
         onPacks: (response, {relayUri, request}) =>
             getIt<ProPackAccess>().relayAnswered(
               accountId: response.accountId,
@@ -1376,6 +1379,15 @@ Future<void> configureDependencies({
           await getIt<RecentSearchesRepository>().clear();
           await localStore?.clearServerData();
         },
+        // A client that cannot ask refuses, so no token is saved unproved.
+        proveAdminToken: (baseUri, adminToken) {
+          final Object api = getIt<ApiClient>();
+          if (api is! ManagementCredentialProbe) {
+            throw StateError('This client cannot check an admin token');
+          }
+          return api.checkManagementCredential(baseUri, adminToken);
+        },
+        readRelayTrust: getIt<EstablishApiSessionUsecase>().relayTrust,
       ),
     )
     ..registerLazySingleton(

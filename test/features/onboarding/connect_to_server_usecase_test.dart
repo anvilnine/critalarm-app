@@ -1,6 +1,8 @@
+import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/connect_to_server_usecase.dart';
@@ -360,6 +362,286 @@ void main() {
       );
       expect(downgrade, isA<ServerDowngrade>());
       expect(calls, isNot(contains('forget')));
+    });
+  });
+
+  group('the whole answer is checked', () {
+    Future<ConnectOutcome> run(ServerInfo info, {bool pin = false}) {
+      when(() => getInfo(any())).thenAnswer((_) async => info.toSuccess());
+      return connect(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+        pinToAddress: pin,
+      );
+    }
+
+    final bad = <String, ServerInfo>{
+      'a mode this app does not know': _info.copyWith(mode: 'cluster'),
+      'a mode in other letter case': _info.copyWith(mode: 'Hosted'),
+      'an empty mode': _info.copyWith(mode: ''),
+      'no relay address': _info.copyWith(relayUrl: ''),
+      'a relay address that is not http': _info.copyWith(
+        relayUrl: 'ftp://relay.example.com',
+      ),
+      'a relay address with no host': _info.copyWith(relayUrl: 'https://'),
+      'a relay address with a user name': _info.copyWith(
+        relayUrl: 'https://relay.example.com@other.example.net',
+      ),
+      'a relay address with a query': _info.copyWith(
+        relayUrl: 'https://relay.example.com?to=other',
+      ),
+      'a base address that is not http': _info.copyWith(
+        baseUrl: 'file://alarm.example.com',
+      ),
+    };
+
+    for (final MapEntry(key: name, value: info) in bad.entries) {
+      for (final pin in [false, true]) {
+        test('$name is refused, ${pin ? 'from a link' : 'typed'}', () async {
+          final outcome = await run(info, pin: pin);
+          expect(
+            outcome,
+            pin ? isNot(isA<Connected>()) : isA<ServerAnswerInvalid>(),
+          );
+          verifyNever(() => establish(any(), any()));
+          verifyNever(() => save(any()));
+        });
+      }
+    }
+
+    test('each of the three modes is a good answer when typed', () async {
+      for (final mode in ServerModes.validModes) {
+        expect(await run(_info.copyWith(mode: mode)), isA<Connected>());
+      }
+    });
+  });
+
+  group('a link connects to a self-hosted server only', () {
+    for (final mode in [ServerModes.hosted, ServerModes.relay]) {
+      test('a $mode server is refused before anything is registered or '
+          'saved', () async {
+        when(() => getInfo(any())).thenAnswer(
+          (_) async => _info.copyWith(mode: mode).toSuccess(),
+        );
+        final outcome = await connect(
+          serverUrl: 'https://alarm.example.com',
+          adminToken: 'tk_one',
+          pinToAddress: true,
+        );
+        expect(outcome, isA<LinkServerNotSelfHosted>());
+        verifyNever(() => establish(any(), any()));
+        verifyNever(() => save(any()));
+      });
+    }
+
+    test('a self-hosted server connects', () async {
+      final outcome = await connect(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+        pinToAddress: true,
+      );
+      expect(outcome, isA<Connected>());
+    });
+  });
+
+  group('the admin token is proved before anything is saved', () {
+    late Future<void> Function(Uri, String) answer;
+
+    ConnectToServerUsecase proving() => ConnectToServerUsecase(
+      getInfo,
+      establish,
+      save,
+      proveAdminToken: (baseUri, token) {
+        calls.add('prove $baseUri $token');
+        return answer(baseUri, token);
+      },
+    );
+
+    setUp(() => answer = (_, _) async {});
+
+    test('one read on the address the server reported, with the trimmed '
+        'token, between the answer and the session', () async {
+      final outcome = await proving()(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: ' tk_one ',
+      );
+      expect(outcome, isA<Connected>());
+      expect(calls, [
+        'info',
+        'prove https://alarm.example.com tk_one',
+        'session',
+        'save',
+      ]);
+    });
+
+    for (final status in [401, 403]) {
+      test('a $status is a wrong token, and nothing is saved', () async {
+        answer = (_, _) async =>
+            throw ApiException(statusCode: status, message: 'no');
+        for (final pin in [false, true]) {
+          final outcome = await proving()(
+            serverUrl: 'https://alarm.example.com',
+            adminToken: 'tk_one',
+            pinToAddress: pin,
+          );
+          expect(outcome, isA<AdminTokenRefused>());
+        }
+        verifyNever(() => establish(any(), any()));
+        verifyNever(() => save(any()));
+      });
+    }
+
+    test('any other status is a server that could not be asked, and what '
+        'the server wrote is dropped', () async {
+      answer = (_, _) async => throw const ApiException(
+        statusCode: 503,
+        message: 'down for tk_one',
+      );
+      final outcome = await proving()(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+      );
+      expect(outcome, isA<ServerUnreachable>());
+      expect(
+        (outcome as ServerUnreachable).failure.toString(),
+        isNot(contains('tk_one')),
+      );
+      verifyNever(() => establish(any(), any()));
+      verifyNever(() => save(any()));
+    });
+
+    test('a throw is a transport error, as before', () async {
+      answer = (_, _) async => throw Exception('socket');
+      final outcome = await proving()(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+      );
+      expect(outcome, isA<ConnectTransportError>());
+      verifyNever(() => establish(any(), any()));
+      verifyNever(() => save(any()));
+    });
+
+    test('a hosted server takes no admin token, so none is tried', () async {
+      when(() => getInfo(any())).thenAnswer(
+        (_) async => _info.copyWith(mode: ServerModes.hosted).toSuccess(),
+      );
+      final outcome = await proving()(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+      );
+      expect(outcome, isA<Connected>());
+      expect(calls, ['session', 'save']);
+    });
+
+    test('a token the saved session cannot hold is a wrong token and is '
+        'sent nowhere', () async {
+      for (final pin in [false, true]) {
+        final outcome = await proving()(
+          serverUrl: 'https://alarm.example.com',
+          adminToken: 'tk_one|two',
+          pinToAddress: pin,
+        );
+        expect(outcome, isA<AdminTokenRefused>());
+      }
+      expect(calls, ['info', 'info']);
+    });
+
+    test('no outcome of a refused token holds the token', () async {
+      answer = (_, _) async => throw const ApiException(
+        statusCode: 401,
+        message: 'bad token tk_s3cret',
+      );
+      final outcome = await proving()(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_s3cret',
+      );
+      expect(outcome, isA<AdminTokenRefused>());
+      expect(outcome.toString(), isNot(contains('tk_s3cret')));
+    });
+  });
+
+  group('the relay the server names', () {
+    ConnectToServerUsecase trusting(DeviceTokenRelayTrust trust) =>
+        ConnectToServerUsecase(
+          getInfo,
+          establish,
+          save,
+          proveAdminToken: (_, _) async => calls.add('prove'),
+          readRelayTrust: (relay) async {
+            calls.add('trust $relay');
+            return trust;
+          },
+        );
+
+    test('is asked about before the token is tried', () async {
+      final outcome = await trusting(DeviceTokenRelayTrust.issuer)(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+        pinToAddress: true,
+      );
+      expect(outcome, isA<Connected>());
+      expect(calls, [
+        'info',
+        'trust https://relay.example.com',
+        'prove',
+        'session',
+        'save',
+      ]);
+    });
+
+    test('another relay than the one that issued the device token is '
+        'refused, typed or from a link', () async {
+      for (final pin in [false, true]) {
+        final outcome = await trusting(DeviceTokenRelayTrust.otherRelay)(
+          serverUrl: 'https://alarm.example.com',
+          adminToken: 'tk_one',
+          pinToAddress: pin,
+        );
+        expect(outcome, isA<RelayDiffers>());
+      }
+      expect(calls.where((call) => call == 'prove'), isEmpty);
+      verifyNever(() => establish(any(), any()));
+      verifyNever(() => save(any()));
+    });
+
+    test('a token with no known issuer refuses a link', () async {
+      final outcome = await trusting(DeviceTokenRelayTrust.unknownIssuer)(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+        pinToAddress: true,
+      );
+      expect(outcome, isA<RelayUnchecked>());
+      verifyNever(() => establish(any(), any()));
+      verifyNever(() => save(any()));
+    });
+
+    test('a token with no known issuer still connects when typed', () async {
+      final outcome = await trusting(DeviceTokenRelayTrust.unknownIssuer)(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+      );
+      expect(outcome, isA<Connected>());
+    });
+
+    test('a phone with no device token connects', () async {
+      final outcome = await trusting(DeviceTokenRelayTrust.noToken)(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+        pinToAddress: true,
+      );
+      expect(outcome, isA<Connected>());
+    });
+
+    test('a session that refuses the relay is the same outcome', () async {
+      when(
+        () => establish(any(), any()),
+      ).thenThrow(const DeviceTokenRelayMismatch());
+      final outcome = await connect(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'tk_one',
+      );
+      expect(outcome, isA<RelayDiffers>());
+      verifyNever(() => save(any()));
     });
   });
 }

@@ -11,6 +11,7 @@ import 'package:critalarm/features/onboarding/domain/connect/background_connect.
 import 'package:critalarm/features/onboarding/domain/connect/connect_privacy_line.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/complete_onboarding_usecase.dart';
+import 'package:critalarm/features/onboarding/domain/usecases/connect_to_server_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/establish_api_session_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_server_info_usecase.dart';
@@ -33,6 +34,8 @@ class MockCompleteOnboardingUsecase extends Mock
 class MockEstablishSession extends Mock implements EstablishApiSessionUsecase {}
 
 class MockGetConnectionUsecase extends Mock implements GetConnectionUsecase {}
+
+class MockConnectToServer extends Mock implements ConnectToServerUsecase {}
 
 class MockBackgroundConnect extends Mock implements BackgroundConnect {}
 
@@ -214,6 +217,44 @@ void main() {
           adminToken: '   ',
           requiresAdminToken: true,
           adminTokenError: 'Admin token cannot be empty',
+        ),
+      ],
+    );
+
+    blocTest<OnboardingConnectCubit, OnboardingConnectState>(
+      'a token the server refuses is said under the token field, and the '
+      'form stays open',
+      build: () {
+        final connect = MockConnectToServer();
+        when(
+          () => connect(
+            serverUrl: any(named: 'serverUrl'),
+            adminToken: any(named: 'adminToken'),
+          ),
+        ).thenAnswer((_) async => const AdminTokenRefused());
+        return OnboardingConnectCubit(
+          mockGetServerInfo,
+          mockSaveConnection,
+          establishSession: mockEstablishSession,
+          connectToServer: connect,
+        );
+      },
+      seed: () => const OnboardingConnectState(
+        serverUrl: 'https://alarm.example.com',
+        adminToken: 'ad_mistyped',
+      ),
+      act: (cubit) => cubit.connect(),
+      expect: () => [
+        const OnboardingConnectState(
+          serverUrl: 'https://alarm.example.com',
+          adminToken: 'ad_mistyped',
+          status: OnboardingConnectStatus.connecting,
+        ),
+        const OnboardingConnectState(
+          serverUrl: 'https://alarm.example.com',
+          adminToken: 'ad_mistyped',
+          adminTokenError:
+              'The server did not accept this admin token. Not connected.',
         ),
       ],
     );
