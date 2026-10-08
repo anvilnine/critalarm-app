@@ -51,6 +51,7 @@ import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubi
 import 'package:critalarm/features/settings/presentation/developer_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/dialog_sheet_gallery_screen.dart';
 import 'package:critalarm/features/settings/presentation/face_gallery_screen.dart';
+import 'package:critalarm/features/settings/presentation/personalize/personalize_screen.dart';
 import 'package:critalarm/features/settings/presentation/priorities_screen.dart';
 import 'package:critalarm/features/settings/presentation/privacy_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/ringing_faces_screen.dart';
@@ -106,6 +107,7 @@ abstract final class AppRoute {
   static const deleteAccount = 'deleteAccount';
   static const privacySettings = 'privacySettings';
   static const appearanceSettings = 'appearanceSettings';
+  static const personalize = 'personalize';
   static const appIcon = 'appIcon';
   static const localReminderSettings = 'localReminderSettings';
   static const about = 'about';
@@ -485,6 +487,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                       ),
                     ),
                   ],
+                ),
+                GoRoute(
+                  path: 'personalize',
+                  parentNavigatorKey: _rootKey,
+                  name: AppRoute.personalize,
+                  pageBuilder: (context, state) => AmbientPage(
+                    key: state.pageKey,
+                    opaque: true,
+                    child: const PersonalizeScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'appearance',

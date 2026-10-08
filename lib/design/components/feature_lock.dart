@@ -92,7 +92,8 @@ class FeatureLock extends StatelessWidget {
   /// The corner the badge sits on.
   final AlignmentGeometry badgeAlignment;
 
-  /// How far the badge hangs past the child's edge.
+  /// How far the badge hangs past the child's edge. Negative sets it in
+  /// from the edge instead.
   final double badgeOverhang;
 
   final bool _isScopeOnly;

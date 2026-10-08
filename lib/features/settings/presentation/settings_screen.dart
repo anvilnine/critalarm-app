@@ -313,6 +313,13 @@ class _SettingsScreenContent extends StatelessWidget {
                       ),
                       _buildNavRow(
                         context,
+                        title: LocaleKeys.personalize_title.tr(),
+                        subtitle: LocaleKeys.personalize_row_subtitle.tr(),
+                        path: '/settings/personalize',
+                      ),
+                      const SizedBox(height: 8),
+                      _buildNavRow(
+                        context,
                         title: LocaleKeys.settings_appearance_row_title.tr(),
                         subtitle: LocaleKeys.settings_appearance_row_subtitle
                             .tr(),

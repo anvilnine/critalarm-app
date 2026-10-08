@@ -66,6 +66,7 @@ class AccessLock extends StatefulWidget {
     this.onTry,
     this.isSelfHosted = false,
     this.badgeAlignment = AlignmentDirectional.topEnd,
+    this.badgeOverhang = 6,
     this.decide,
     super.key,
   }) : _isInline = false;
@@ -81,6 +82,7 @@ class AccessLock extends StatefulWidget {
        tap = LockTap.sell,
        onTry = null,
        badgeAlignment = AlignmentDirectional.topEnd,
+       badgeOverhang = 0,
        _isInline = true;
 
   final AppFeature feature;
@@ -104,6 +106,9 @@ class AccessLock extends StatefulWidget {
   final bool isSelfHosted;
 
   final AlignmentGeometry badgeAlignment;
+
+  /// How far the badge hangs past the child's edge. Negative sets it in.
+  final double badgeOverhang;
 
   /// The decision to draw, for a surface that is locked by something
   /// besides the holdings, such as a row the relay refused. Left out, it
@@ -178,6 +183,7 @@ class _AccessLockState extends State<AccessLock> {
       onLockedTap: tries ? widget.onTry : unlock,
       onUnlock: unlock,
       badgeAlignment: widget.badgeAlignment,
+      badgeOverhang: widget.badgeOverhang,
       child: widget.child,
     );
   }

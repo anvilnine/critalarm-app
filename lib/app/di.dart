@@ -286,6 +286,7 @@ import 'package:critalarm/features/settings/domain/usecases/set_theme_mode_useca
 import 'package:critalarm/features/settings/presentation/cubits/alarm_debug_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/app_icon_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/appearance_cubit.dart';
+import 'package:critalarm/features/settings/presentation/cubits/personalize_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/priorities_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/recorder_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/settings_cubit.dart';
@@ -2228,6 +2229,14 @@ Future<void> configureDependencies({
         getIt<DeleteUserSoundUsecase>(),
         getIt<SoundFilePicker>(),
         getIt<SoundPeaksCache>(),
+        nameOf: (id) => 'sound_library.names.$id'.tr(),
+        packs: getIt<SoundPackRepository>(),
+      ),
+    )
+    ..registerFactory(
+      () => PersonalizeCubit(
+        getIt<AlarmSoundRepository>(),
+        getIt<SoundHost>(),
         nameOf: (id) => 'sound_library.names.$id'.tr(),
         packs: getIt<SoundPackRepository>(),
       ),
