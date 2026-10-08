@@ -79,6 +79,8 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Each intro plays one score from its first frame (PaywallIntro.score): a set up, a turn and an arrival, in a piano and a kalimba flavour (IntroSoundFlavour, developer row Intro sound, pref dev.paywall\_intro\_sound). A skipped intro plays introArrive. The gag, kidding and intro one shot cues are gone, intro beats are haptics alone, and the Crit call plays on a purchase alone.
 - The Alarm Snack intro (PaywallIntroId.alarmSnack) joins the fake alarm screen with the dodging Snooze button. The Countdown intro is gone; a stored or remote value countdown reads as no intro. Leaving a paywall without buying plays three music box notes that fall and lift.
 - The Receipt party step after a purchase (PaywallThanksId.receiptParty, key party): a slip of the lifted limits, a stamp and confetti. Lights on and its cord and bulb cues are gone; a value lights reads as no step. Limits lifted shows its before values as limits. Confetti, slip and limit row parts moved to thanks\_parts.dart.
+- Design system: AppHeroScene, AppStatusCard (full and strip), AppReadinessPips, AppInboxSheet and AppInboxRow, AppCreamCard, AppStatCard and the HeroDisc painter, each with a gallery section, a reduce motion switch and tool/capture\_topics\_components.dart.
+- AppDurations.ambient (9 s) for the slowest loop, and GlyphType.moon.
 
 ### Changed
 - A successful connect finishes the connect step and moves on. `/onboarding/connect` no longer turns into the test screen, and `OnboardingConnectCubit` saves the half-typed form only.
@@ -128,6 +130,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Welcome is a three page pager (rings, priorities, curl) with page dots, swipe and a Next button. The rules are in welcome\_pages.dart: the button per page, where a finished story hands on, and which page is in front. Only the page in front starts its story and plays haptic cues (\_HeroStage). The tools story is gone, and flow 2026-10-b no longer lists how\_it\_rings. 2026-10-a and legacy-1 still do. PermissionStepDots takes its own screen reader label.
 - Paywall layouts and intros play the cue palette at every moment: PaywallCueScore plays a layout's beats from its clock, the loop marks its own changes through the first pass only, the buy block has press, restore, error and refuse cues, and AppButton takes an optional onPressDown.
 - Developer options is one grouped list of about two screens. A choice from a list is one row that shows its value and opens a bottom sheet (AppPickerRow, AppValueRow in the design system). The paywall route rows are gone: the Paywall layouts page is the one way in and has a Pin by key row for every layout id. Prefs keys are unchanged.
+- The animation clock moved to lib/design\_system/screen\_clock.dart and now stops while the app is not resumed. The paywall's paywall\_clock.dart re-exports it.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
