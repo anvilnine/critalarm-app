@@ -244,7 +244,7 @@ void main() {
       expect(time(InboxRowKind.handled), 'Handled');
     });
 
-    test('a quiet row shows the hour, Yesterday, a weekday, then a date', () {
+    test('a quiet row shows the hour, Yesterday, then a date', () {
       String time(Duration ago) => inboxTimeText(
         state: InboxRowKind.normal,
         lastMessageAt: now.subtract(ago),
@@ -252,7 +252,7 @@ void main() {
       );
       expect(time(const Duration(hours: 3)), '09:00');
       expect(time(const Duration(days: 1)), 'Yesterday');
-      expect(time(const Duration(days: 3)), 'Tue');
+      expect(time(const Duration(days: 3)), '6 Oct');
       expect(time(const Duration(days: 30)), '9 Sep');
       expect(
         inboxTimeText(

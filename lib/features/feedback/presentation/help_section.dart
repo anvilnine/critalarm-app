@@ -19,7 +19,13 @@ import 'package:url_launcher/url_launcher.dart';
 /// A form row stays hidden while its address in [FeedbackLinks] is blank.
 /// The Rate row never shows on web, and on iOS waits for the App Store id.
 class HelpSection extends StatelessWidget {
-  const HelpSection({super.key});
+  const HelpSection({
+    this.headerPadding = const EdgeInsets.fromLTRB(4, 10, 4, 6),
+    super.key,
+  });
+
+  /// The padding of the "Help" label, so it lines up with the rows around it.
+  final EdgeInsetsGeometry headerPadding;
 
   static bool _canRate(PlatformCapabilities on) =>
       !on.isWeb &&
@@ -65,7 +71,10 @@ class HelpSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        AppSectionHeader(LocaleKeys.settings_help_header.tr()),
+        AppSectionHeader(
+          LocaleKeys.settings_help_header.tr(),
+          padding: headerPadding,
+        ),
         for (var i = 0; i < rows.length; i++) ...[
           if (i > 0) const SizedBox(height: 8),
           rows[i],
