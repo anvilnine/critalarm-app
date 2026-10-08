@@ -20,8 +20,9 @@ enum PaywallIntroId {
   /// The mascot peeks out of a curtain, then throws it open.
   curtain('curtain'),
 
-  /// A film leader counts down and the mascot will not wait for one.
-  countdown('countdown');
+  /// The screen looks like an alarm with a Snooze button, the button dodges
+  /// a finger, and the mascot eats it: the ringing stops.
+  alarmSnack('alarm_snack');
 
   const PaywallIntroId(this.key);
 
@@ -36,7 +37,8 @@ enum PaywallIntroId {
   }
 
   /// Reads a remote value or a route's `intro`. Empty means [none], and so
-  /// does a value this build does not know.
+  /// does a value this build does not know. That covers the key of an intro
+  /// that was taken out, such as `countdown`: it plays nothing.
   static PaywallIntroId parse(String? value) => fromKey(value?.trim()) ?? none;
 }
 

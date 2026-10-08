@@ -15,7 +15,7 @@ void main() {
         'snooze': 'snooze',
         'wakeUp': 'wake_up',
         'curtain': 'curtain',
-        'countdown': 'countdown',
+        'alarmSnack': 'alarm_snack',
       },
     );
   });
@@ -28,6 +28,21 @@ void main() {
     expect(PaywallIntroId.parse('none'), PaywallIntroId.none);
     expect(PaywallIntroId.parse(' false_alarm '), PaywallIntroId.falseAlarm);
     expect(PaywallIntroId.fromKey('drumroll'), isNull);
+  });
+
+  test('the key of an intro that was taken out reads as no intro', () {
+    expect(PaywallIntroId.fromKey('countdown'), isNull);
+    expect(PaywallIntroId.parse('countdown'), PaywallIntroId.none);
+    expect(PaywallIntroId.parse(' countdown '), PaywallIntroId.none);
+  });
+
+  test('a stored developer pick of it follows the remote value', () async {
+    SharedPreferences.setMockInitialValues({'dev.paywall_intro': 'countdown'});
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      DevPaywallIntroSwitch(prefs, DevPaywallIntroSwitch.hostedKey).value,
+      isNull,
+    );
   });
 
   group('the key the false alarm had as a layout', () {

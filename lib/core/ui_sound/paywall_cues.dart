@@ -33,9 +33,11 @@ enum PaywallCue {
   /// into the app's three note call and land home.
   bought(sound: 'ui_buy', haptic: HapticPattern.risingPair),
 
-  /// The paywall was closed without buying. A soft voiced slide down, a
-  /// little let down and kind about it, left open. Unlike [error], which is
-  /// two struck notes for a thing that did not work.
+  /// The paywall was closed without buying. A small musical sigh on a
+  /// music box: one note held, a fall of a third, and a lift of a step at
+  /// the very end, like a shrug. A little let down and kind about it, left
+  /// open. Unlike [error], which is two low struck notes stepping down for
+  /// a thing that did not work.
   close(sound: 'ui_close', haptic: HapticPattern.fallingPair),
 
   /// The mascot, or anything round, lands at the end of an entrance.
@@ -137,11 +139,12 @@ enum PaywallCue {
   /// The score of the rude awakening: soft and slow, then a start.
   scoreWakeUp(sound: 'ui_score_wake_up', hasFlavours: true),
 
-  /// The score of the countdown: a bar for each number.
-  scoreCountdown(sound: 'ui_score_countdown', hasFlavours: true),
-
   /// The score of the curtain call: a hush, a look each way.
   scoreCurtain(sound: 'ui_score_curtain', hasFlavours: true),
+
+  /// The score of the alarm snack: the soft ringing figure with a nudge on
+  /// each hop of the button, cut dead on the gulp.
+  scoreAlarmSnack(sound: 'ui_score_alarm_snack', hasFlavours: true),
 
   /// The arrival alone, the last part of every score: a short pickup and
   /// the chord it lands on. What a skipped intro plays.

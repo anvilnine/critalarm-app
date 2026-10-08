@@ -51,7 +51,9 @@ with `PaywallClockBuilder`), `size` (the whole screen), `padding` (the safe area
 from `scope.clock` alone and hold no timer.
 
 `intros/intro_parts.dart` has the parts the intros share: `IntroCrit` (the mascot, with its way
-out), `IntroWord` (the one line), `introFaceShape` and `introStageFor`.
+out), `IntroWord` (the one line), `introFaceShape` and `introStageFor`, and the props two jokes
+use: `IntroAlarmRedPainter` (the red of a ringing screen, which opens in a circle),
+`IntroPillButton` (a button drawn as a picture) and `IntroTouchMark` (a finger).
 
 **The hand over is one move.** Two faces never show together. The intro's mascot is whole until
 `skipTo`, then travels to `scope.landing` and shrinks to nothing at its foot, and is gone at
@@ -85,8 +87,9 @@ beats of an intro with a score are haptics alone: `PaywallIntroBeat.tap(seconds,
 for each moment the hand should feel (a hop, a knock, the reveal). `PaywallIntroBeat(seconds, cue)`
 is for an intro with no score, whose beats are its sound. The host plays each as the clock passes,
 never in a tile, and never for a moment a tap skipped. The beat at the reveal is what the hand
-over feels like, so the host adds no tap of its own. Nothing is felt while a picture of an alarm
-rings.
+over feels like, so the host adds no tap of its own. While a picture of an alarm rings the hand
+feels nothing of the ringing: at most one light pulse for a thing that moves on it (a button
+hopping), well apart, never a run.
 
 **Quiet after.** The layout plays no cue of its own entrance for `quietAfter` seconds from the
 hand over (`paywallQuietAfterIntro` by default), because the intro's last sound still has the
@@ -353,15 +356,18 @@ be able to name the moment with eyes shut:
 |---|---|---|---|---|---|
 | `open` | The paywall arrives and asks | A tine, struck once | Level: one strike, all of it in the first 30 ms | Hanging, on the second and the fifth | `light` |
 | `bought` | The purchase is confirmed | Mallets, with a bell on top | Rising, into the three note call | Home, on the tonic | `risingPair` |
-| `close` | Left without buying | A soft voice, sliding | Falling a fourth, with a sigh of air | Open, on the fifth | `fallingPair` |
+| `close` | Left without buying | A music box, three single notes | Held, a fall of a third, a lift of a step at the very end | Open, on the second | `fallingPair` |
 
 - `open` is never a reward: no mallet, nothing that climbs, no tonic, no sparkle. Six layouts
   play their next cue about 0.3 s later, so its identity sits at the very start.
 - `bought` is the only celebration and the one place the call plays in full. Its clock is fixed,
   because the step after a purchase is drawn to it: a click at 0, a swell from 0.40 s to a peak
   at 0.60 s, silence by 2.15 s.
-- `close` is a little let down and kind about it: "oh, okay". It is a slide where `error` is two
-  struck mallet notes ("that did not work"), so the two are never confused. It never mocks.
+- `close` is a little let down and kind about it: a small musical sigh, "oh... okay". F sharp 5
+  held, D5, then E5, each softer, the last a lift like a shrug. Every note is above 500 Hz, so a
+  phone speaker plays it, and it sits just under `open` in loudness. `error` is two low mallet
+  notes stepping down, E4 then C sharp 4 ("that did not work"), so the two are never confused.
+  It never mocks: nothing minor, nothing low, no last thud.
 
 An intro has a score, one for each intro, in each flavour. All of one flavour end on the same
 arrival, which is also `introArrive`:
@@ -371,8 +377,8 @@ arrival, which is also `introArrive`:
 | `scoreFalseAlarm` | False alarm | The soft ringing figure, in two bursts as the picture rings | The tap as the ringing stops |
 | `scoreSnooze` | Snooze snack | The figure growing, a new bar on each hop of the button | The tap on the gulp |
 | `scoreWakeUp` | Rude awakening | One bar, soft and slow | The tap as the message lands, then one bright note |
-| `scoreCountdown` | Countdown | A bar for each number | The tap as the mascot lands |
 | `scoreCurtain` | Curtain call | A hush, a note for each look | The tap as it sees you |
+| `scoreAlarmSnack` | Alarm snack | The soft ringing figure three times, a nudge on each hop of the button | The tap on the gulp |
 
 | Flavour | Set up voice | Arrival | Lead of the arrival |
 |---|---|---|---|
@@ -382,8 +388,8 @@ arrival, which is also `introArrive`:
 - Neither arrival is the three note call (A4 B4 D5 on mallets, climbing): that is `bought`, and it
   plays nowhere else. The piano's steps down, the kalimba's turns back down onto its last note,
   and neither leads on a mallet.
-- Neither is `error` or `close` either: both of those are bare and end open, and an arrival ends
-  on a full tonic chord.
+- Neither is `error` or `close` either: both of those are bare single notes and end open, and an
+  arrival ends on a full tonic chord.
 - The set up sits about 3 to 6 dB under the arrival, softer still for the two quiet intros.
 - `introKnock` is still Doors' knock. No intro plays it.
 

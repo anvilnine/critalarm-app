@@ -2033,7 +2033,7 @@
       "snooze": "Snooze Snack",
       "wake_up": "Rude Awakening",
       "curtain": "Curtain Call",
-      "countdown": "Countdown"
+      "alarm_snack": "Alarm Snack"
     },
     "layout_names": {
       "hero": "Hero",
@@ -2060,8 +2060,8 @@
     "line": "Oh, hi.",
     "tag": "Ta-da."
   },
-  "paywall_intro_countdown": {
-    "line": "Too slow."
+  "paywall_intro_alarm_snack": {
+    "line": "Just snacking."
   },
   "developer_options": {
     "section_plans": "Purchases and plans",
