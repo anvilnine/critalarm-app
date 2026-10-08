@@ -76,6 +76,7 @@ class _DeleteAccountViewState extends State<DeleteAccountView> {
       },
       builder: (context, state) {
         return AppScreenScaffold(
+          hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.account_delete_header.tr(),
             leading: AppIconButton(

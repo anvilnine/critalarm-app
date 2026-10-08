@@ -59,17 +59,4 @@ void main() {
       );
     });
   });
-
-  group('EdgeEffect.fromKey', () {
-    test('reads back every key it writes', () {
-      for (final effect in EdgeEffect.values) {
-        expect(EdgeEffect.fromKey(effect.key), effect);
-      }
-    });
-
-    test('returns null for a missing or unknown key', () {
-      expect(EdgeEffect.fromKey(null), isNull);
-      expect(EdgeEffect.fromKey('sparkles'), isNull);
-    });
-  });
 }

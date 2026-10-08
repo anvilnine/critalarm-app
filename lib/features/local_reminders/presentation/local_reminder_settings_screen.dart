@@ -68,6 +68,7 @@ class _LocalReminderSettingsContentState
         final cubit = context.read<LocalReminderSettingsCubit>();
 
         return AppScreenScaffold(
+          hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.local_reminders_screen_title.tr(),
             leading: AppIconButton(

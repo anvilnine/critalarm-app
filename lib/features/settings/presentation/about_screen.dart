@@ -18,6 +18,7 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScreenScaffold(
+      hasTabBar: false,
       topBar: AppTopBar(
         title: LocaleKeys.settings_about_header.tr(),
         leading: AppIconButton(

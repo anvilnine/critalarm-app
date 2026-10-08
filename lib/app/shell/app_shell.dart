@@ -306,52 +306,59 @@ class _AppShellContentState extends State<_AppShellContent>
           ),
         ];
 
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: widget.navigationShell,
-            ),
-
-            if (_isSearching) ...[
-              Positioned.fill(child: _scrim()),
-              // Results run edge to edge, the full height of the display. The
-              // panel pads its first row below the status bar and its last
-              // row above the bar, and scrolls under both rather than being
-              // cut off short of them.
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _panel(width, screen.height, panelBottom),
+        // The system back button closes search before it leaves the app.
+        return PopScope(
+          canPop: !_isSearching,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop) _closeSearch();
+          },
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: widget.navigationShell,
               ),
-            ],
 
-            // On its side or wide enough for two panes, the rail stands up
-            // down one edge and leaves the content the full height of the
-            // display. The search bar still comes up at the bottom, where the
-            // thumb is.
-            if (size.hasRail && !_isSearching)
-              _rail(items, size, padding, hideTabBar)
-            else
-              AnimatedPositioned(
-                duration: context.motion(AppDurations.slow),
-                curve: AppCurves.easeOut,
-                left: 0,
-                right: 0,
-                bottom: hideTabBar ? -100 : barBottom,
-                child: Center(
-                  child: IgnorePointer(
-                    ignoring: hideTabBar,
-                    child: AnimatedOpacity(
-                      duration: context.motion(AppDurations.slow),
-                      curve: AppCurves.easeOut,
-                      opacity: hideTabBar ? 0.0 : 1.0,
-                      child: _bar(items, size, width),
+              if (_isSearching) ...[
+                Positioned.fill(child: _scrim()),
+                // Results run edge to edge, the full height of the display. The
+                // panel pads its first row below the status bar and its last
+                // row above the bar, and scrolls under both rather than being
+                // cut off short of them.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _panel(width, screen.height, panelBottom),
+                ),
+              ],
+
+              // On its side or wide enough for two panes, the rail stands up
+              // down one edge and leaves the content the full height of the
+              // display. The search bar still comes up at the bottom, where the
+              // thumb is.
+              if (size.hasRail && !_isSearching)
+                _rail(items, size, padding, hideTabBar)
+              else
+                AnimatedPositioned(
+                  duration: context.motion(AppDurations.slow),
+                  curve: AppCurves.easeOut,
+                  left: 0,
+                  right: 0,
+                  bottom: hideTabBar ? -100 : barBottom,
+                  child: Center(
+                    child: IgnorePointer(
+                      ignoring: hideTabBar,
+                      child: AnimatedOpacity(
+                        duration: context.motion(AppDurations.slow),
+                        curve: AppCurves.easeOut,
+                        opacity: hideTabBar ? 0.0 : 1.0,
+                        child: _bar(items, size, width),
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
     );

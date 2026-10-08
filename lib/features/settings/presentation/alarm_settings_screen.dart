@@ -41,6 +41,7 @@ class _AlarmSettingsView extends StatelessWidget {
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) {
         return AppScreenScaffold(
+          hasTabBar: false,
           topBar: AppTopBar(
             title: LocaleKeys.settings_storage_header.tr(),
             leading: AppIconButton(
@@ -103,8 +104,7 @@ class _StorageSection extends StatelessWidget {
   static String _label(HistoryRetention retention) => switch (retention) {
     HistoryRetention.never => LocaleKeys.settings_storage_delete_never.tr(),
     HistoryRetention.oneMonth => LocaleKeys.settings_storage_delete_1m.tr(),
-    HistoryRetention.threeMonths =>
-      LocaleKeys.settings_storage_delete_3m.tr(),
+    HistoryRetention.threeMonths => LocaleKeys.settings_storage_delete_3m.tr(),
     HistoryRetention.oneYear => LocaleKeys.settings_storage_delete_1y.tr(),
   };
 

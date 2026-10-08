@@ -417,7 +417,6 @@ class _RingingScreen extends StatelessWidget {
     // colour, so no line of it shows through a tinted button.
     return AppBarBackingScope(
       color: colors.canvas,
-      coversBottomBar: true,
       child: isWide ? _wide(context, bottomBar) : _tall(bottomBar),
     );
   }

@@ -1,35 +1,21 @@
-import 'dart:convert';
-
 import 'package:flutter/widgets.dart';
 
 /// What a screen draws behind a bar while a row of its list is under it.
 enum BarBackingMode {
   /// The progressive blur and nothing over it.
-  blur('blur'),
+  blur,
 
   /// The progressive blur with a fade of the canvas colour over it.
-  blurAndGradient('blur_and_gradient'),
+  blurAndGradient,
 
   /// A fade of the canvas colour and no blur.
-  gradient('gradient'),
+  gradient,
 
   /// A solid band of the canvas colour. Kept to compare against.
-  solid('solid'),
+  solid,
 
   /// Nothing. Rows show through the bar.
-  none('none');
-
-  const BarBackingMode(this.key);
-
-  /// Stored in preferences by the developer override.
-  final String key;
-
-  static BarBackingMode? fromKey(Object? key) {
-    for (final mode in values) {
-      if (mode.key == key) return mode;
-    }
-    return null;
-  }
+  none;
 
   bool get blurs => this == blur || this == blurAndGradient;
   bool get fadesCanvas => this == blurAndGradient || this == gradient;
@@ -37,8 +23,7 @@ enum BarBackingMode {
 
 /// How one bar is backed: the mode and its three numbers.
 ///
-/// Every number is clamped to its range when the style is made, so a value
-/// read back from preferences or typed by a slider can never be out of it.
+/// Every number is clamped to its range when the style is made.
 @immutable
 class BarBackingStyle {
   BarBackingStyle({
@@ -57,30 +42,13 @@ class BarBackingStyle {
     required this.blurSigma,
     required this.fadeLength,
     required this.gradientPeak,
-  }) : plateau = 0;
+    required this.plateau,
+  });
 
-  /// Reads a stored style. Anything missing or of the wrong kind takes its
-  /// value from [fallback].
-  factory BarBackingStyle.fromJson(Object? json, BarBackingStyle fallback) {
-    if (json is! Map) return fallback;
-    double number(String key, double otherwise) {
-      final value = json[key];
-      return value is num && value.isFinite ? value.toDouble() : otherwise;
-    }
-
-    return BarBackingStyle(
-      mode: BarBackingMode.fromKey(json['mode']) ?? fallback.mode,
-      blurSigma: number('blur', fallback.blurSigma),
-      fadeLength: number('fade', fallback.fadeLength),
-      gradientPeak: number('peak', fallback.gradientPeak),
-      plateau: number('plateau', fallback.plateau),
-    );
-  }
-
-  /// The strongest blur a slider reaches.
+  /// The strongest blur a style may ask for.
   static const double maxBlurSigma = 40;
 
-  /// The longest fade a slider reaches, in logical pixels.
+  /// The longest fade a style may ask for, in logical pixels.
   static const double maxFadeLength = 96;
 
   final BarBackingMode mode;
@@ -118,14 +86,6 @@ class BarBackingStyle {
     plateau: plateau ?? this.plateau,
   );
 
-  Map<String, Object> toJson() => {
-    'mode': mode.key,
-    'blur': blurSigma,
-    'fade': fadeLength,
-    'peak': gradientPeak,
-    'plateau': plateau,
-  };
-
   @override
   bool operator ==(Object other) =>
       other is BarBackingStyle &&
@@ -141,7 +101,7 @@ class BarBackingStyle {
 
   @override
   String toString() =>
-      'BarBackingStyle(${mode.key}, blur $blurSigma, fade $fadeLength, '
+      'BarBackingStyle(${mode.name}, blur $blurSigma, fade $fadeLength, '
       'peak $gradientPeak, plateau $plateau)';
 }
 
@@ -150,41 +110,24 @@ class BarBackingStyle {
 class BarBackingConfig {
   const BarBackingConfig({required this.top, required this.bottom});
 
-  /// Reads [encode]'s text back. Null, text that is not what [encode] made,
-  /// or a missing half, gives the [defaults] for what is missing.
-  factory BarBackingConfig.decode(String? text) {
-    if (text == null || text.isEmpty) return defaults;
-    final Object? json;
-    try {
-      json = jsonDecode(text);
-    } on FormatException {
-      return defaults;
-    }
-    if (json is! Map) return defaults;
-    return BarBackingConfig(
-      top: BarBackingStyle.fromJson(json['top'], defaults.top),
-      bottom: BarBackingStyle.fromJson(json['bottom'], defaults.bottom),
-    );
-  }
-
-  /// What every build ships with: the progressive blur and nothing over
-  /// it. It is about twice as strong at the screen edge as the quiet edge
-  /// blur (which is 4), over a longer zone, so it rises about as gently. It
-  /// starts at nothing a short way past the bar and gets steadily softer
-  /// towards the edge of the screen. The gradient peak is only what the
-  /// gradient modes start from in Developer options.
+  /// What every screen draws with: the progressive blur with a fade of the
+  /// canvas colour over it. The top fade is nearly solid at the screen edge,
+  /// so a row never shows through the title. The bottom one is light, so a
+  /// card pinned there still floats over the list.
   static const BarBackingConfig defaults = BarBackingConfig(
     top: BarBackingStyle._(
-      mode: BarBackingMode.blur,
-      blurSigma: 8,
-      fadeLength: 48,
-      gradientPeak: 0.3,
+      mode: BarBackingMode.blurAndGradient,
+      blurSigma: 40,
+      fadeLength: 45,
+      gradientPeak: 0.9,
+      plateau: 0.1,
     ),
     bottom: BarBackingStyle._(
-      mode: BarBackingMode.blur,
-      blurSigma: 9,
-      fadeLength: 40,
-      gradientPeak: 0.3,
+      mode: BarBackingMode.blurAndGradient,
+      blurSigma: 34.5,
+      fadeLength: 38,
+      gradientPeak: 0.15,
+      plateau: 0.1,
     ),
   );
 
@@ -193,10 +136,6 @@ class BarBackingConfig {
 
   BarBackingConfig copyWith({BarBackingStyle? top, BarBackingStyle? bottom}) =>
       BarBackingConfig(top: top ?? this.top, bottom: bottom ?? this.bottom);
-
-  /// The text the developer override keeps in preferences.
-  String encode() =>
-      jsonEncode({'top': top.toJson(), 'bottom': bottom.toJson()});
 
   @override
   bool operator ==(Object other) =>
@@ -222,34 +161,4 @@ double barBackingRamp(double position, {double plateau = 0}) {
   if (hold >= 1) return 1;
   final t = (position / (1 - hold)).clamp(0.0, 1.0);
   return t * t * (3 - 2 * t);
-}
-
-/// The config every screen draws with. It holds [BarBackingConfig.defaults]
-/// for the whole run of a store build. A build with Developer options moves
-/// it when the developer override changes.
-final ValueNotifier<BarBackingConfig> appBarBacking = ValueNotifier(
-  BarBackingConfig.defaults,
-);
-
-/// Hands the [BarBackingConfig] down the tree. The app puts one at its root,
-/// fed by [appBarBacking], so a change reaches every screen at once.
-class BarBackingConfigScope extends InheritedWidget {
-  const BarBackingConfigScope({
-    required this.config,
-    required super.child,
-    super.key,
-  });
-
-  final BarBackingConfig config;
-
-  /// The config for [context], or the defaults with no scope above it.
-  static BarBackingConfig of(BuildContext context) =>
-      context
-          .dependOnInheritedWidgetOfExactType<BarBackingConfigScope>()
-          ?.config ??
-      BarBackingConfig.defaults;
-
-  @override
-  bool updateShouldNotify(BarBackingConfigScope oldWidget) =>
-      config != oldWidget.config;
 }

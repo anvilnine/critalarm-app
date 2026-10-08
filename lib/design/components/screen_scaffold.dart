@@ -140,8 +140,8 @@ class AppScreenScaffold extends StatefulWidget {
   static const double bodyBarClearance = 12;
 
   /// How far a row runs under the pinned bar before a backing from an
-  /// [AppBarBackingScope] is fully solid. Shorter than the room above a
-  /// button's label, so a label never has a row showing through it.
+  /// [AppBarBackingScope] is fully in. Shorter than the room above a
+  /// button's label, so a label never has a sharp row showing through it.
   static const double _underBarRun = 8;
 
   /// How much of the top backing shows, 0 to 1, with the list scrolled by
@@ -284,13 +284,11 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         widget.barBacking ??
         (scope == null ? null : (canvas.a == 0 ? scope.color : canvas));
     final backsBottomAlways = widget.barBacking != null;
-    final backsBottomWhenUnder =
-        !backsBottomAlways && (scope?.coversBottomBar ?? false);
     final topBarMaxTextScale = scope?.topBarMaxTextScale;
-    // How a backing from the scope is drawn: a blur, a fade of the canvas
-    // colour, or both. A backing the screen asked for itself stays solid.
-    final backingConfig = BarBackingConfigScope.of(context);
-    final scopedTop = widget.barBacking == null && backing != null;
+    // A backing from the scope is the blur with a fade of the canvas colour
+    // over it. A backing the screen asked for itself stays solid.
+    const backingConfig = BarBackingConfig.defaults;
+    final isScoped = widget.barBacking == null && backing != null;
 
     // On its side, or wide enough for two panes, the tab bar stands up as a
     // rail down one edge, so the screen keeps clear of it sideways instead of
@@ -379,6 +377,31 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
         );
       }
 
+      // The backing from the scope behind whatever is pinned at the bottom,
+      // [bar] tall from the edge of the display.
+      Widget scopedBottomBacking(double bar) => ValueListenableBuilder<double>(
+        valueListenable: _underBottomBar,
+        builder: (context, amount, _) => Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            if (widget.withEdgeBlur)
+              _BarBlur(
+                style: backingConfig.bottom,
+                amount: amount,
+                bar: bar,
+                isTop: false,
+              ),
+            _BarTint(
+              style: backingConfig.bottom,
+              color: backing!,
+              amount: amount,
+              bar: bar,
+              isTop: false,
+            ),
+          ],
+        ),
+      );
+
       return Stack(
         children: [
           Positioned.fill(
@@ -407,7 +430,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
               top: 0,
               left: 0,
               right: 0,
-              child: scopedTop && widget.topBar != null
+              child: isScoped && widget.topBar != null
                   // At rest this is the quiet edge blur every screen has.
                   // Once a row is under the bar the same blur reaches a
                   // little further and gets stronger at the screen edge.
@@ -428,9 +451,12 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                       ),
                     ),
             ),
-            // A pinned bottom bar brings its own blur (AppScrollScrim), so
-            // skip this one there or the two stack.
-            if (widget.bottomBar == null || !widget.withFades)
+            // Only where something is pinned at the bottom. With nothing
+            // there the list runs sharp to the edge of the screen. A pinned
+            // bar brings its own blur (AppScrollScrim), and so does a backing
+            // from the scope, so skip this one there or the two stack.
+            if (!isScoped &&
+                (widget.bottomBar == null ? tabBarRoom > 0 : !widget.withFades))
               Positioned(
                 bottom: 0,
                 left: 0,
@@ -442,6 +468,14 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                 ),
               ),
           ],
+          // The tab bar on its own, with a row under it.
+          if (isScoped && widget.bottomBar == null && tabBarRoom > 0)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: scopedBottomBacking(padding.bottom + tabBarRoom),
+            ),
           // The tab bar floats over every branch screen, so the fade behind it
           // lives here rather than in the shell: this side of the tree is
           // inside the screen's SeverityScope, so the wash follows the retint.
@@ -480,7 +514,7 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                 valueListenable: _scrolledUnderTop,
                 builder: (context, amount, _) => _BarTint(
                   // A screen's own backing is the solid band it asked for.
-                  style: scopedTop ? backingConfig.top : null,
+                  style: isScoped ? backingConfig.top : null,
                   color: backing,
                   amount: amount,
                   bar: topInset,
@@ -537,6 +571,15 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                           AppScreenScaffold.bottomBarGap,
                       isTop: false,
                     )
+                  // Only while a row is under the bar: a screen that fits
+                  // looks the way it did without a backing.
+                  else if (isScoped)
+                    scopedBottomBacking(
+                      padding.bottom +
+                          tabBarRoom +
+                          barHeight +
+                          AppScreenScaffold.bottomBarGap,
+                    )
                   else if (widget.withFades)
                     AppScrollScrim(
                       height:
@@ -552,38 +595,6 @@ class _AppScreenScaffoldState extends State<AppScreenScaffold> {
                       tint: canvas.a == 0
                           ? colors.canvas.withValues(alpha: 0.55)
                           : canvas,
-                    ),
-                  // Over the wash, and only while a row is under the bar:
-                  // then nothing may show through a button.
-                  if (backsBottomWhenUnder && backing != null)
-                    ValueListenableBuilder<double>(
-                      valueListenable: _underBottomBar,
-                      builder: (context, amount, _) {
-                        final bar =
-                            padding.bottom +
-                            tabBarRoom +
-                            barHeight +
-                            AppScreenScaffold.bottomBarGap;
-                        return Stack(
-                          alignment: Alignment.bottomCenter,
-                          children: [
-                            if (widget.withEdgeBlur)
-                              _BarBlur(
-                                style: backingConfig.bottom,
-                                amount: amount,
-                                bar: bar,
-                                isTop: false,
-                              ),
-                            _BarTint(
-                              style: backingConfig.bottom,
-                              color: backing,
-                              amount: amount,
-                              bar: bar,
-                              isTop: false,
-                            ),
-                          ],
-                        );
-                      },
                     ),
                   SafeArea(
                     top: false,
@@ -679,18 +690,12 @@ class AppBarBackingScope extends InheritedWidget {
   const AppBarBackingScope({
     required this.color,
     required super.child,
-    this.coversBottomBar = false,
     this.topBarMaxTextScale,
     super.key,
   });
 
   /// The colour of the canvas behind the screens.
   final Color color;
-
-  /// Whether the pinned bottom bar gets the backing too, while a row is
-  /// under it. Off, only the top bar does: a pinned card that is meant to
-  /// float over the list keeps the list behind it.
-  final bool coversBottomBar;
 
   /// The most the system text size may grow what is in the top bar. Null
   /// leaves the top bar the full scale.
@@ -702,7 +707,6 @@ class AppBarBackingScope extends InheritedWidget {
   @override
   bool updateShouldNotify(AppBarBackingScope oldWidget) =>
       color != oldWidget.color ||
-      coversBottomBar != oldWidget.coversBottomBar ||
       topBarMaxTextScale != oldWidget.topBarMaxTextScale;
 }
 
