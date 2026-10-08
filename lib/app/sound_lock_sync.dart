@@ -32,18 +32,30 @@ class SoundLockSync {
   /// Fires when the answer may have changed.
   final Stream<Object?> _changes;
 
-  /// The flag as last written. Null when it never was.
+  /// The flag as last written. Null when it never was. A read that throws
+  /// (the key holds something that is not a boolean) counts as never
+  /// written, and the next sure answer writes over it.
   final bool? Function() _readWritten;
 
   final Future<void> Function({required bool locked}) _write;
 
   /// Hands the new value on to the iOS notification extension, which
-  /// cannot read the app's own preferences.
-  final Future<void> Function() _publish;
+  /// cannot read the app's own preferences. True once that copy is made,
+  /// and true where there is no copy to make.
+  final Future<bool> Function() _publish;
 
   StreamSubscription<Object?>? _subscription;
   bool _running = false;
   bool _askedAgain = false;
+
+  /// A value was written and the extension's copy of it was not made yet.
+  /// Every check tries again until it is, or the extension would keep the
+  /// old value until the next cold start. Kept in memory only: a cold start
+  /// makes the copy by itself, from the written value.
+  bool _publishOwed = false;
+
+  /// Whether a written value still has to reach the extension.
+  bool get isPublishOwed => _publishOwed;
 
   /// Checks now, and again on every change.
   void start() {
@@ -56,7 +68,8 @@ class SoundLockSync {
     _subscription = null;
   }
 
-  /// Writes the flag if a sure answer differs from what is written. One
+  /// Writes the flag if a sure answer differs from what is written, and
+  /// makes a copy that is still owed. One
   /// run at a time: a change that lands during a run starts one more run
   /// after it, so the last answer is the one written.
   Future<void> check() async {
@@ -88,13 +101,29 @@ class SoundLockSync {
       // The question itself failed. Same answer: change nothing.
       return;
     }
-    if (_readWritten() == locked) return;
+    if (_written() != locked) {
+      try {
+        await _write(locked: locked);
+      } on Object catch (_) {
+        // A failed write leaves the old value, and the next change, resume
+        // or launch tries again.
+        return;
+      }
+      _publishOwed = true;
+    }
+    if (!_publishOwed) return;
     try {
-      await _write(locked: locked);
-      await _publish();
+      if (await _publish()) _publishOwed = false;
     } on Object catch (_) {
-      // A failed write leaves the old value, and the next change or
-      // launch tries again.
+      // Still owed. The next check tries again.
+    }
+  }
+
+  bool? _written() {
+    try {
+      return _readWritten();
+    } on Object catch (_) {
+      return null;
     }
   }
 }

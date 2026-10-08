@@ -1570,7 +1570,11 @@ Future<void> configureDependencies({
           await getIt<SharedPreferences>().setBool(ownSoundsLockedKey, locked);
         },
         // The iOS notification extension reads its own copy of the choices.
-        publish: () => getIt<SoundHost>().publishSoundAssignments(),
+        // Android reads the flag where it is written, so there is nothing
+        // to copy and nothing to retry.
+        publish: () async =>
+            !getIt<PlatformCapabilities>().isIos ||
+            await getIt<SoundHost>().publishSoundAssignments(),
       ),
     )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and
@@ -2288,6 +2292,10 @@ Future<void> configureDependencies({
         packs: getIt<SoundPackRepository>(),
         readOwnSounds: () =>
             getIt<FeatureAccess>().decide(AppFeature.ownSounds),
+        // The first answer waits for the plan to be read, so someone who
+        // holds Pro never sees a lock or a paywall at a cold start.
+        readOwnSoundsOnceReady: () =>
+            ownSoundsOnceReady(getIt<FeatureAccess>()),
         ownSoundsChanges: getIt<FeatureAccess>().changes.where(
           (feature) => feature == AppFeature.ownSounds,
         ),

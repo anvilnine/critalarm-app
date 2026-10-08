@@ -571,9 +571,21 @@ final class OwnSoundLockTests: XCTestCase {
         XCTAssertEqual(rings(nil), "\(own).caf")
     }
 
-    func testAFlagThatIsNotABooleanIsNotLocked() {
+    /// What `UserDefaults.bool(forKey:)` does with a value of another type.
+    /// A dictionary has no boolean reading, so it is "not locked". A number
+    /// or a string that Foundation reads as a boolean ("YES", "true", 1)
+    /// still reads as one, so this is not a type check: the flag is safe
+    /// because the app is its only writer and always writes a Bool.
+    func testAValueWithNoBooleanReadingIsNotLocked() {
         defaults.set(["not": "a boolean"], forKey: OwnSoundLock.groupKey)
         XCTAssertFalse(OwnSoundLock.isLocked(in: defaults))
+        defaults.set("no such word", forKey: OwnSoundLock.groupKey)
+        XCTAssertFalse(OwnSoundLock.isLocked(in: defaults))
+
+        defaults.set("YES", forKey: OwnSoundLock.groupKey)
+        XCTAssertTrue(OwnSoundLock.isLocked(in: defaults))
+        defaults.set(1, forKey: OwnSoundLock.groupKey)
+        XCTAssertTrue(OwnSoundLock.isLocked(in: defaults))
     }
 
     /// Every way out of a locked own sound is a file that ships in the app:
