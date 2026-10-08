@@ -71,9 +71,6 @@ class SettingsReadinessView {
   ReliabilityFix? get fix => summary.fix;
 }
 
-/// The largest text scale the card follows.
-const double kReadinessCardMaxTextScale = 1.6;
-
 /// The first letter of [text] in capitals. The card's title is a sentence, and
 /// the check lines are written to sit after a label.
 String sentenceCase(String text) =>
@@ -149,7 +146,7 @@ class _SettingsReadinessCardState extends State<SettingsReadinessCard>
             : view.titleIsMissingCheck
             ? sentenceCase(LocaleKeys.home_card_foot_check_could_not_run.tr())
             : sentenceCase(readinessCheckLine(view.titleCheck));
-        final card = AppStatusCard.strip(
+        return AppStatusCard.strip(
           face: view.face,
           label: LocaleKeys.home_card_label_will_it_wake_me.tr().toUpperCase(),
           title: title,
@@ -172,17 +169,6 @@ class _SettingsReadinessCardState extends State<SettingsReadinessCard>
           onAction: fix == null ? null : () => unawaited(_fix(fix)),
           onTap: () => unawaited(_open()),
           liveRegion: true,
-        );
-        // The strip has a face, a numeral and the title side by side, and
-        // there is no room for a title at twice the text size. Past this
-        // scale the card stops growing and the title keeps its words.
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: MediaQuery.textScalerOf(
-              context,
-            ).clamp(maxScaleFactor: kReadinessCardMaxTextScale),
-          ),
-          child: card,
         );
       },
     );
