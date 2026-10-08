@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/receipt/receipt_rules.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -132,12 +133,69 @@ void main() {
       expect(ReceiptTimeline.peek(tl), closeTo(1, 1e-9));
     });
 
-    test('one preview gives way to the next behind the paper', () {
-      expect(receiptTuck(0), closeTo(0, 1e-9));
-      expect(receiptTuck(0.5), closeTo(1, 1e-9));
-      expect(receiptTuck(1), closeTo(0, 1e-9));
-      expect(receiptShowsNext(0.49), isFalse);
-      expect(receiptShowsNext(0.5), isTrue);
+    test('after an intro the mascot is not dropped in again', () {
+      expect(ReceiptTimeline.actor(0, count: 4).entrance, 0);
+      expect(
+        ReceiptTimeline.actor(0, count: 4, followsIntro: true).entrance,
+        1,
+      );
+    });
+  });
+
+  group('the motion of the receipt', () {
+    test('the stage picks its own variants', () {
+      expect(receiptMotion.atmosphere, HeroAtmosphereStyle.confetti);
+      expect(receiptMotion.entrance, HeroEntranceStyle.drop);
+      expect(receiptMotion.idle, HeroIdleStyle.bob);
+      expect(receiptMotion.arrival, HeroCardArrival.slideThrough);
+    });
+
+    test('the loop brings a preview out from behind the paper', () {
+      expect(receiptCardWay(0), -1);
+      expect(receiptCardWay(1), 1);
+      expect(receiptCardWay(-1), -1);
+      // From the left, where the paper is, and home at the end.
+      final start = heroCardArrivalPose(
+        receiptMotion.arrival,
+        0,
+        width: 120,
+        direction: receiptCardWay(0),
+      );
+      expect(start.incoming.dx, lessThan(-120));
+      final done = heroCardArrivalPose(
+        receiptMotion.arrival,
+        1,
+        width: 120,
+        direction: receiptCardWay(0),
+      );
+      expect(done.incoming.dx, 0);
+      expect(done.incoming.opacity, 1);
+      expect(done.outgoing.opacity, 0);
+    });
+
+    test('there is no confetti until the stamp has landed', () {
+      expect(receiptConfettiSeconds(0, isStill: false), isNull);
+      expect(
+        receiptConfettiSeconds(ReceiptTimeline.stampAt, isStill: false),
+        isNull,
+      );
+      final falling = receiptConfettiSeconds(
+        ReceiptTimeline.stampLanded,
+        isStill: false,
+      );
+      expect(falling, greaterThan(0));
+      expect(
+        receiptConfettiSeconds(ReceiptTimeline.stampLanded + 1, isStill: false),
+        closeTo(1, 1e-9),
+      );
+    });
+
+    test('a still slip has its confetti landed', () {
+      expect(receiptConfettiSeconds(0, isStill: true), 0);
+      expect(receiptConfettiSeconds(tl, isStill: true), 0);
+      for (var i = 0; i < heroConfettiCount; i++) {
+        expect(heroConfettiAt(i, 0).angle, 0);
+      }
     });
   });
 

@@ -1,6 +1,9 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
@@ -112,8 +115,46 @@ class _ReelCompositionState extends State<ReelComposition> {
 
   PaywallLayoutScope get scope => widget.scope;
 
+  PaywallClock? _watched;
+
+  /// The clock second the page on stage began, as last seen.
+  double? _pageBegan;
+  bool _isMuted = false;
+
+  void _watch(PaywallClock clock) {
+    if (identical(clock, _watched)) return;
+    _watched?.removeListener(_onClock);
+    _watched = clock..addListener(_onClock);
+  }
+
+  void _onClock() {
+    final clock = _watched;
+    if (clock == null || clock.isStill) return;
+    final began = _player.frameAt(clock.value).turn;
+    final was = _pageBegan;
+    _pageBegan = began;
+    final cues = reelCuesPush(
+      began: began,
+      was: was,
+      entranceEnd: _player.loop.entranceEnd,
+      period: _player.loop.period,
+      touched: _player.hand != null,
+    );
+    if (!cues || _isMuted) return;
+    // The reel pushed a page by itself.
+    AppHaptics.selection();
+    getIt<PaywallCues>().tick();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _isMuted = PaywallMuted.of(context);
+  }
+
   @override
   void dispose() {
+    _watched?.removeListener(_onClock);
     _player.dispose();
     super.dispose();
   }
@@ -188,9 +229,14 @@ class _ReelCompositionState extends State<ReelComposition> {
 
     final player = _player
       ..clock = scope.clock
-      ..loop = HeroLoop([
-        for (final b in benefits) b.previewId,
-      ], holdSeconds: reelHoldSeconds);
+      ..loop = HeroLoop(
+        [
+          for (final b in benefits) b.previewId,
+        ],
+        prelude: reelPreludeFor(followsIntro: scope.followsIntro),
+        holdSeconds: reelHoldSeconds,
+      );
+    _watch(scope.clock);
 
     Widget panel(
       HeroFrame frame,
@@ -215,12 +261,14 @@ class _ReelCompositionState extends State<ReelComposition> {
           style: headlineStyle.copyWith(color: colors.ink),
         ),
         rise: isLeaving ? null : scope.clock,
+        riseAfter: player.loop.prelude,
         pull: pull,
         stage: HeroStage(
           size: stage,
           frame: frame,
           seconds: player.stageSeconds(t),
           tone: reelAirFor(tone),
+          motion: reelMotion,
         ),
       );
     }
@@ -278,7 +326,9 @@ class _ReelCompositionState extends State<ReelComposition> {
                   builder: (context, t, _) {
                     final frame = player.frameAt(t);
                     final leaving = reelLeaving(frame);
-                    final eased = AppCurves.easeOut.transform(frame.cardEnter);
+                    final eased = Curves.easeInOutCubic.transform(
+                      frame.cardEnter,
+                    );
                     final push = leaving == null
                         ? const ReelPush(into: 0, out: 0)
                         : reelPushAt(eased, frame.direction);
@@ -358,7 +408,11 @@ class _ReelCompositionState extends State<ReelComposition> {
                               progress: frame.progress,
                               show: player.isStill
                                   ? 1
-                                  : phase(t, 0.2, heroEntranceSeconds * 0.7),
+                                  : phase(
+                                      t - player.loop.prelude,
+                                      0.2,
+                                      heroEntranceSeconds * 0.7,
+                                    ),
                               color: barInk,
                             ),
                           ),
@@ -407,6 +461,7 @@ class _ReelPanel extends StatelessWidget {
     required this.headline,
     required this.stage,
     required this.rise,
+    required this.riseAfter,
     required this.pull,
   });
 
@@ -425,6 +480,9 @@ class _ReelPanel extends StatelessWidget {
   /// The clock the words rise on during the entrance. Null for a scene on
   /// its way out, whose words are already there.
   final PaywallClock? rise;
+
+  /// The loop's prelude: how long the words wait before they rise.
+  final double riseAfter;
 
   /// How far the finger holds the scene's content off its place, in
   /// points. The ground stays where it is.
@@ -461,7 +519,12 @@ class _ReelPanel extends StatelessWidget {
               top: top,
               child: clock == null
                   ? text
-                  : HeroRise(clock: clock, index: 0, child: text),
+                  : HeroRise(
+                      clock: clock,
+                      index: 0,
+                      after: riseAfter,
+                      child: text,
+                    ),
             ),
           ],
         ),

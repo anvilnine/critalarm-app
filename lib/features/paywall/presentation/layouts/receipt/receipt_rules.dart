@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
 
@@ -141,8 +142,15 @@ abstract final class ReceiptTimeline {
   /// takes over at [restAt]: it lands wide-eyed, watches each line come
   /// out with a nod, is glad at the total, is startled into a hop by the
   /// stamp, and is glad again.
-  static ReceiptActor actor(double t, {required int count}) {
-    final entrance = phase(t, 0, heroEntranceSeconds);
+  ///
+  /// After an intro ([followsIntro]) the mascot is already in its place:
+  /// the intro ended on it, so it is not dropped in a second time.
+  static ReceiptActor actor(
+    double t, {
+    required int count,
+    bool followsIntro = false,
+  }) {
+    final entrance = followsIntro ? 1.0 : phase(t, 0, heroEntranceSeconds);
     if (t < 0.5) {
       return ReceiptActor(
         face: HeroFace.arriving,
@@ -193,14 +201,32 @@ abstract final class ReceiptTimeline {
   }
 }
 
-/// How far the card is tucked behind the paper while one preview gives way
-/// to the next, 0 to 1, for a change that is [enter] of the way through.
-/// It goes in with the old one and comes out with the new.
-double receiptTuck(double enter) => math.sin(math.pi * enter.clamp(0.0, 1.0));
+/// How the receipt's stage moves, where it is not the print itself. The
+/// mascot is dropped beside the slot, as the paper drops out of it, and
+/// keeps the plain bob. One preview slides out as the next slides in.
+/// The air is the approved drift until the stamp lands, which throws the
+/// confetti once.
+const HeroMotion receiptMotion = HeroMotion(
+  atmosphere: HeroAtmosphereStyle.confetti,
+  entrance: HeroEntranceStyle.drop,
+  arrival: HeroCardArrival.slideThrough,
+);
 
-/// Whether the card shows the new preview yet, for a change that is
-/// [enter] of the way through: the swap happens while it is tucked away.
-bool receiptShowsNext(double enter) => enter >= 0.5;
+/// Which way a new preview travels, for a change the hand sent in
+/// [direction] (1 the next, -1 the previous, 0 the loop's own). The loop
+/// brings each one out from behind the paper, as the print brought the
+/// first, so it reads as -1.
+int receiptCardWay(int direction) => direction == 0 ? -1 : direction;
+
+/// The seconds the confetti reads at clock second [t]: null before the
+/// stamp has landed, when there is none, and then the time since. It is
+/// never zero while it falls, because zero is the frame where every piece
+/// has landed. When nothing may move that landed frame is the one drawn.
+double? receiptConfettiSeconds(double t, {required bool isStill}) {
+  if (isStill) return 0;
+  if (t < ReceiptTimeline.stampLanded) return null;
+  return math.max(0.001, t - ReceiptTimeline.stampLanded);
+}
 
 /// Where everything stands on a stage, for one size and one number of
 /// lines. All boxes are in the stage's own points.
