@@ -140,6 +140,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - PaywallClockHold takes isWaiting instead of isHeld, so make check-access stops flagging the screen clock.
 - Home shows the account backup reminder and the one-topic reminder as a pinned bar above the tab bar, one at a time, instead of cream cards in the list.
 - The Topics hero's disc and ring are drawn by the app's ambient canvas (AmbientAppProfiles.topicsHero), so tab changes and pushes morph them. Home registers its profile with AmbientRouteProfile and changes it with the card state; AppHeroScene draws its own disc only outside an ambient scope.
+- Settings drops the Will it wake me? row for AppStatusCard.strip, fed by ReadinessSummary, the same rule the Topics card reads. The count, pips, check lines and fix come from reliability, and tool/capture\_settings\_screen.dart captures every state.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
