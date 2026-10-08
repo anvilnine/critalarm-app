@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/core/ui_sound/interface_sounds_setting.dart';
+import 'package:critalarm/core/ui_sound/intro_sound_flavour.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/core/ui_sound/playing_paywall_cues.dart';
 import 'package:critalarm/core/ui_sound/ui_sound_host.dart';
@@ -98,10 +99,10 @@ void main() {
     test('an alarm that starts stops the cue in flight', () async {
       final arrivals = StreamController<String>.broadcast();
       final focus = StreamController<bool>.broadcast();
-      cuesWith(alarmStarts: [arrivals.stream, focus.stream]).gag();
+      cuesWith(alarmStarts: [arrivals.stream, focus.stream]).print();
       arrivals.add('inc_1');
       await Future<void>.delayed(Duration.zero);
-      expect(player.calls, ['play assets/ui_sounds/ui_gag.m4a', 'stop']);
+      expect(player.calls, ['play assets/ui_sounds/ui_print.m4a', 'stop']);
       // What is left of the cue's haptic goes with it.
       expect(cancels, 1);
       focus.add(true);
@@ -183,7 +184,6 @@ void main() {
     test('the named methods are the general call', () {
       cuesWith()
         ..open()
-        ..gag()
         ..print()
         ..tick()
         ..pickPlan(yearly: true)
@@ -198,7 +198,6 @@ void main() {
       );
       [
         PaywallCue.open,
-        PaywallCue.gag,
         PaywallCue.print,
         PaywallCue.tick,
         PaywallCue.pickYearly,
@@ -207,7 +206,7 @@ void main() {
         PaywallCue.close,
       ].forEach(cues.play);
       expect(player.calls, viaPlay.calls);
-      expect(player.calls, hasLength(8));
+      expect(player.calls, hasLength(7));
     });
 
     test('a cue gives its sound and its haptic in the same call', () {
@@ -263,7 +262,6 @@ void main() {
         PaywallCue.ratchet,
         PaywallCue.roll,
         PaywallCue.check,
-        PaywallCue.bulb,
       });
       for (final cue in PaywallCue.values) {
         expect(cue.voices, cue.mayRepeat ? PaywallCue.maxVoices : 1);
@@ -309,13 +307,7 @@ void main() {
 
   group('the cues of the step after a purchase', () {
     test('each has a sound of its own and one short haptic', () {
-      const cues = [
-        PaywallCue.settle,
-        PaywallCue.lock,
-        PaywallCue.key,
-        PaywallCue.cord,
-        PaywallCue.bulb,
-      ];
+      const cues = [PaywallCue.settle, PaywallCue.lock, PaywallCue.key];
       for (final cue in cues) {
         expect(cue.sound, 'ui_${cue.name}');
         expect(cue.haptic, isNot(HapticPattern.none));
@@ -324,59 +316,160 @@ void main() {
     });
 
     test('they are small files: none is long enough to ring', () {
-      for (final cue in [
-        PaywallCue.settle,
-        PaywallCue.lock,
-        PaywallCue.key,
-        PaywallCue.cord,
-        PaywallCue.bulb,
-      ]) {
+      for (final cue in [PaywallCue.settle, PaywallCue.lock, PaywallCue.key]) {
         expect(File(cue.asset!).lengthSync(), lessThan(12 * 1024));
       }
     });
 
-    test('the settle and the bulb are the quiet kind, the cord is felt '
-        'as a click and then the light', () {
+    test('the settle is the quiet kind and the lock is one solid press', () {
       expect(PaywallCue.settle.haptic, HapticPattern.tick);
-      expect(PaywallCue.bulb.haptic, HapticPattern.tick);
-      expect(PaywallCue.cord.haptic, HapticPattern.risingPair);
       expect(PaywallCue.lock.haptic, HapticPattern.medium);
     });
   });
 
-  group('the punchlines of the intros', () {
-    const punchlines = [
-      PaywallCue.introWink,
-      PaywallCue.introGulp,
-      PaywallCue.introSpring,
-      PaywallCue.introTease,
+  group('the scores of the intros', () {
+    const scores = [
+      PaywallCue.scoreFalseAlarm,
+      PaywallCue.scoreSnooze,
+      PaywallCue.scoreWakeUp,
+      PaywallCue.scoreCurtain,
+      PaywallCue.scoreAlarmSnack,
     ];
 
-    test('each has a sound of its own and a haptic in its rhythm', () {
-      expect(punchlines.map((cue) => cue.sound), [
+    test('each is sound only and comes in every flavour', () {
+      for (final cue in scores) {
+        expect(cue.haptic, HapticPattern.none, reason: cue.name);
+        expect(cue.hasFlavours, isTrue, reason: cue.name);
+        expect(cue.mayRepeat, isFalse, reason: cue.name);
+      }
+      expect(PaywallCue.introArrive.hasFlavours, isTrue);
+      expect(PaywallCue.introArrive.haptic, HapticPattern.light);
+    });
+
+    test('a flavour is a suffix on the file name, and the file is there', () {
+      expect(
+        PaywallCue.scoreFalseAlarm.assetIn(IntroSoundFlavour.piano),
+        'assets/ui_sounds/ui_score_false_alarm_piano.m4a',
+      );
+      expect(
+        PaywallCue.scoreFalseAlarm.assetIn(IntroSoundFlavour.kalimba),
+        'assets/ui_sounds/ui_score_false_alarm_kalimba.m4a',
+      );
+      for (final cue in [...scores, PaywallCue.introArrive]) {
+        for (final flavour in IntroSoundFlavour.values) {
+          expect(
+            File(cue.assetIn(flavour)!).existsSync(),
+            isTrue,
+            reason: '${cue.name} ${flavour.name}',
+          );
+        }
+      }
+    });
+
+    test('only the intro cues have flavours, and the rest ignore one', () {
+      for (final cue in PaywallCue.values) {
+        final isIntro = scores.contains(cue) || cue == PaywallCue.introArrive;
+        expect(cue.hasFlavours, isIntro, reason: cue.name);
+        if (!isIntro) {
+          expect(cue.assetIn(IntroSoundFlavour.kalimba), cue.asset);
+        }
+      }
+    });
+
+    test('with no flavour named, the piano plays', () {
+      expect(
+        PaywallCue.introArrive.asset,
+        PaywallCue.introArrive.assetIn(IntroSoundFlavour.piano),
+      );
+      cuesWith().play(PaywallCue.scoreSnooze);
+      expect(player.calls, ['play assets/ui_sounds/ui_score_snooze_piano.m4a']);
+    });
+
+    test('the flavour is read at every cue', () {
+      var flavour = IntroSoundFlavour.kalimba;
+      final cues = PlayingPaywallCues(
+        player: player,
+        isSwitchOn: () => true,
+        isAlarmUp: () => false,
+        introFlavour: () => flavour,
+      )..play(PaywallCue.scoreCurtain);
+      flavour = IntroSoundFlavour.piano;
+      cues
+        ..play(PaywallCue.introArrive)
+        ..play(PaywallCue.open);
+      expect(player.calls, [
+        'play assets/ui_sounds/ui_score_curtain_kalimba.m4a',
+        'play assets/ui_sounds/ui_intro_arrive_piano.m4a',
+        'play assets/ui_sounds/ui_open.m4a',
+      ]);
+    });
+
+    test('a score is a short piece, and the arrival is its last part', () {
+      for (final flavour in IntroSoundFlavour.values) {
+        final arrival = File(
+          PaywallCue.introArrive.assetIn(flavour)!,
+        ).lengthSync();
+        expect(arrival, lessThan(16 * 1024));
+        for (final cue in scores) {
+          final size = File(cue.assetIn(flavour)!).lengthSync();
+          expect(size, lessThan(28 * 1024), reason: cue.name);
+          expect(size, greaterThan(arrival), reason: cue.name);
+        }
+      }
+    });
+
+    test('the cues the scores replaced are gone, files and all', () {
+      final names = PaywallCue.values.map((cue) => cue.name);
+      for (final gone in [
+        'kidding',
+        'gag',
+        'introWink',
+        'introGulp',
+        'introSpring',
+        'introTease',
+        'introBounce',
+        'introSwish',
+      ]) {
+        expect(names, isNot(contains(gone)));
+      }
+      for (final file in [
+        'ui_kidding',
+        'ui_gag',
         'ui_intro_wink',
         'ui_intro_gulp',
         'ui_intro_spring',
         'ui_intro_tease',
-      ]);
-      expect(PaywallCue.introWink.haptic, HapticPattern.tripleRise);
-      expect(PaywallCue.introGulp.haptic, HapticPattern.medium);
-      expect(PaywallCue.introSpring.haptic, HapticPattern.risingPair);
-      expect(PaywallCue.introTease.haptic, HapticPattern.light);
-    });
-
-    test('they are small files: none is long enough to ring', () {
-      for (final cue in punchlines) {
-        expect(File(cue.asset!).lengthSync(), lessThan(12 * 1024));
+        'ui_intro_bounce',
+        'ui_intro_swish',
+      ]) {
+        expect(File('assets/ui_sounds/$file.m4a').existsSync(), isFalse);
       }
+      // Doors knocks with this one.
+      expect(PaywallCue.introKnock.sound, 'ui_intro_knock');
+    });
+  });
+
+  group('the flavour switch', () {
+    test('is the piano until a developer says otherwise', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      expect(DevIntroSoundSwitch(prefs).value, IntroSoundFlavour.piano);
     });
 
-    test('the one shared release is gone: no cue is named for it', () {
-      expect(
-        PaywallCue.values.map((cue) => cue.name),
-        isNot(contains('kidding')),
-      );
-      expect(File('assets/ui_sounds/ui_kidding.m4a').existsSync(), isFalse);
+    test('remembers the pick under its own key', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      await DevIntroSoundSwitch(prefs).setFlavour(IntroSoundFlavour.kalimba);
+      expect(prefs.getString('dev.paywall_intro_sound'), 'kalimba');
+      expect(DevIntroSoundSwitch(prefs).value, IntroSoundFlavour.kalimba);
+    });
+
+    test('a word it does not know is the piano', () async {
+      SharedPreferences.setMockInitialValues({
+        'dev.paywall_intro_sound': 'harp',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      expect(DevIntroSoundSwitch(prefs).value, IntroSoundFlavour.piano);
     });
   });
 
@@ -554,7 +647,10 @@ void main() {
     });
 
     test('every file in the folder belongs to a cue', () {
-      final used = PaywallCue.values.map((cue) => cue.asset).nonNulls.toSet();
+      final used = {
+        for (final cue in PaywallCue.values)
+          for (final flavour in IntroSoundFlavour.values) ?cue.assetIn(flavour),
+      };
       final onDisk = Directory(UiSoundHost.assetFolder)
           .listSync()
           .map((file) => file.path)
@@ -576,7 +672,9 @@ void main() {
           .listSync()
           .whereType<File>()
           .fold<int>(0, (sum, file) => sum + file.lengthSync());
-      expect(bytes, lessThan(400 * 1024));
+      // The intro scores are music, a few seconds each in two flavours,
+      // and are most of what is over the first 400 kB.
+      expect(bytes, lessThan(560 * 1024));
     });
 
     test('no cue is one of the alarm sounds', () {

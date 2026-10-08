@@ -306,6 +306,129 @@ final class NotificationServiceTests: XCTestCase {
         XCTAssertEqual(content.body, "Cached body", "not the placeholder")
     }
 
+    // MARK: - The acknowledged mark and a reopen
+
+    /// Ids no other test uses. The extension reads the mark from the app
+    /// group and takes no other store, so these tests write there and take
+    /// their own ids back out.
+    private let reopenedId = "inc_nse_reopen_test"
+    private let otherId = "inc_nse_reopen_test_other"
+
+    private func forgetReopenMarks() {
+        AckedIncidentStore.clear(incidentId: reopenedId)
+        AckedIncidentStore.clear(incidentId: otherId)
+    }
+
+    /// Runs a hosted alarm push that carries a sound, the way a critical
+    /// topic's does (api.md §5.1), and answers what the extension delivered.
+    private func runAlarmPush(kind: String, incidentId: String) throws -> UNNotificationContent {
+        let payload = hostedPush(kind: kind, incidentId: incidentId)
+        let content = UNMutableNotificationContent()
+        content.title = "Crit Alarm"
+        content.body = "Critical alert, open to see details"
+        content.sound = UNNotificationSound(named: UNNotificationSoundName("alarm.caf"))
+        content.userInfo = payload
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString, content: content, trigger: nil
+        )
+
+        let service = NotificationService()
+        let delivered = expectation(description: "\(kind) delivered")
+        var result: UNNotificationContent?
+        service.didReceive(request) { content in
+            result = content
+            delivered.fulfill()
+        }
+        wait(for: [delivered], timeout: 20)
+        withExtendedLifetime(service) {}
+        return try XCTUnwrap(result)
+    }
+
+    func testAReopenClearsTheMark() throws {
+        forgetReopenMarks()
+        defer { forgetReopenMarks() }
+        AckedIncidentStore.mark(incidentId: reopenedId)
+
+        let content = try runAlarmPush(kind: "reopen", incidentId: reopenedId)
+
+        XCTAssertFalse(AckedIncidentStore.contains(incidentId: reopenedId))
+        XCTAssertFalse(AckedIncidentStore.locallyAcknowledged().contains(reopenedId))
+        XCTAssertNotNil(content.sound, "the reopen itself rings")
+    }
+
+    func testARepeatAfterAReopenKeepsItsSound() throws {
+        forgetReopenMarks()
+        defer { forgetReopenMarks() }
+        AckedIncidentStore.mark(incidentId: reopenedId)
+
+        _ = try runAlarmPush(kind: "reopen", incidentId: reopenedId)
+        let content = try runAlarmPush(kind: "repeat", incidentId: reopenedId)
+
+        XCTAssertNotNil(content.sound, "the app never ran, and the repeat still rings")
+    }
+
+    func testARepeatForAnIncidentStillAcknowledgedLosesItsSound() throws {
+        forgetReopenMarks()
+        defer { forgetReopenMarks() }
+        AckedIncidentStore.mark(incidentId: reopenedId)
+
+        let content = try runAlarmPush(kind: "repeat", incidentId: reopenedId)
+
+        XCTAssertNil(content.sound)
+        XCTAssertTrue(AckedIncidentStore.contains(incidentId: reopenedId), "a repeat clears nothing")
+    }
+
+    func testAnOpenPushLeavesTheMark() throws {
+        forgetReopenMarks()
+        defer { forgetReopenMarks() }
+        AckedIncidentStore.mark(incidentId: reopenedId)
+
+        _ = try runAlarmPush(kind: "open", incidentId: reopenedId)
+
+        XCTAssertTrue(AckedIncidentStore.contains(incidentId: reopenedId))
+    }
+
+    func testAReopenForAnIncidentNeverMarkedChangesNothing() throws {
+        forgetReopenMarks()
+        defer { forgetReopenMarks() }
+        AckedIncidentStore.mark(incidentId: otherId)
+        let before = AckedIncidentStore.all()
+
+        let content = try runAlarmPush(kind: "reopen", incidentId: reopenedId)
+
+        XCTAssertEqual(AckedIncidentStore.all(), before)
+        XCTAssertNotNil(content.sound)
+        let repeatForTheOther = try runAlarmPush(kind: "repeat", incidentId: otherId)
+        XCTAssertNil(repeatForTheOther.sound, "another incident's mark still holds")
+    }
+
+    func testASecondAcknowledgeAfterTheReopenMarksItAgain() throws {
+        forgetReopenMarks()
+        defer { forgetReopenMarks() }
+        AckedIncidentStore.mark(incidentId: reopenedId)
+        _ = try runAlarmPush(kind: "reopen", incidentId: reopenedId)
+
+        AckedIncidentStore.mark(incidentId: reopenedId)
+        let content = try runAlarmPush(kind: "repeat", incidentId: reopenedId)
+
+        XCTAssertTrue(AckedIncidentStore.contains(incidentId: reopenedId))
+        XCTAssertNil(content.sound, "acknowledged again, so quiet again")
+    }
+
+    func testARepeatHandledBeforeItsReopenIsTheOnlyQuietOne() throws {
+        forgetReopenMarks()
+        defer { forgetReopenMarks() }
+        AckedIncidentStore.mark(incidentId: reopenedId)
+
+        let early = try runAlarmPush(kind: "repeat", incidentId: reopenedId)
+        let reopen = try runAlarmPush(kind: "reopen", incidentId: reopenedId)
+        let next = try runAlarmPush(kind: "repeat", incidentId: reopenedId)
+
+        XCTAssertNil(early.sound, "the mark was still there when this one was handled")
+        XCTAssertNotNil(reopen.sound)
+        XCTAssertNotNil(next.sound)
+    }
+
     // MARK: - Keychain
 
     func testCredentialsRoundTrip() {

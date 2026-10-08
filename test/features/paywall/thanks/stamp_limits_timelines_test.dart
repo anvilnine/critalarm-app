@@ -9,6 +9,7 @@ import 'package:critalarm/features/paywall/presentation/thanks/limits/limits_tha
 import 'package:critalarm/features/paywall/presentation/thanks/limits/limits_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/thanks/stamp/stamp_thanks.dart';
 import 'package:critalarm/features/paywall/presentation/thanks/stamp/stamp_timeline.dart';
+import 'package:critalarm/features/paywall/presentation/thanks/thanks_parts.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -175,6 +176,22 @@ void main() {
       expect(LimitsTimeline.size(before, count: 4), LimitsTimeline.small);
     });
 
+    test('a bar is heavy at its cap and rests light once it is lifted', () {
+      const before = LimitsTimeline.firstLift - 0.01;
+      for (var count = 1; count <= paywallThanksMaxLines; count++) {
+        for (var i = 0; i < count; i++) {
+          expect(LimitsTimeline.eased(before, i, count), 0);
+          // It lets go only once it has run to its end.
+          final at = LimitsTimeline.liftAt(i, count);
+          expect(LimitsTimeline.eased(at + 0.3, i, count), 0);
+          expect(LimitsTimeline.filled(at + 0.4, i, count), greaterThan(0.99));
+          expect(LimitsTimeline.eased(LimitsTimeline.end, i, count), 1);
+        }
+      }
+      expect(LimitsTimeline.restThick, lessThan(0.5));
+      expect(LimitsTimeline.restInk, lessThan(0.5));
+    });
+
     test('a number only goes up, from the cap to the one the product has', () {
       var last = 50;
       for (var t = 0.0; t < LimitsTimeline.end; t += 0.01) {
@@ -307,8 +324,47 @@ void main() {
         );
         expect(open.valueAt(0, 2), '2');
         expect(open.valueAt(0.5, 2), 'No limit');
+        // An allowance keeps its words and rolls its number.
+        const daily = LimitsRow(
+          label: 'High priority pushes',
+          free: '50 a day',
+          now: '1,000 a day',
+          freeCount: 50,
+          nowCount: 1000,
+        );
+        expect(daily.rolls, isTrue);
+        expect(open.rolls, isFalse);
+        expect(daily.valueAt(0, 50), '50 a day');
+        expect(daily.valueAt(0.5, 400), '400 a day');
+        expect(daily.valueAt(1, 1000), '1,000 a day');
       },
     );
+
+    test('each free value reads as the limit it is, and each number is '
+        'the plan fact', () {
+      final benefits = paywallBenefitsFor(PaywallProduct.hosted);
+      final plain = limitsRowsFor(benefits)!;
+      final caps = limitsCapRowsFor(benefits)!;
+      expect(caps, hasLength(plain.length));
+      final free = {
+        for (final (i, benefit) in benefits.indexed)
+          benefit.id: (caps[i].free, caps[i].now),
+      };
+      expect(free[PaywallBenefitId.topics], ('2 of 2', 'No limit'));
+      expect(free[PaywallBenefitId.pushes], ('50 a day', '1,000 a day'));
+      expect(free[PaywallBenefitId.history], ('7 days', '90 days'));
+      expect(free[PaywallBenefitId.appIcons], ('Default only', 'Three extra'));
+      for (final (i, row) in caps.indexed) {
+        expect(row.freeCount, plain[i].freeCount);
+        expect(row.nowCount, plain[i].nowCount);
+        // A row that rolls ends on its own product value.
+        if (row.rolls) {
+          expect(row.valueAt(0.5, row.nowCount!), row.now);
+        }
+      }
+      // The slip of the receipt party reads the compare table as it is.
+      expect(plain.map((row) => row.free), ['2', '50', '7 days', 'Default']);
+    });
 
     test('every Hosted benefit a layout lists has its plan facts, and the '
         'numbers are the ones the caps hold', () {
@@ -326,6 +382,7 @@ void main() {
       for (final benefit in paywallBenefitsFor(PaywallProduct.pro)) {
         expect(limitsHostedFor(benefit), isNull, reason: benefit.id.key);
       }
+      expect(limitsCapRowsFor(paywallBenefitsFor(PaywallProduct.pro)), isNull);
     });
   });
 }

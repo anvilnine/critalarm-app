@@ -1,8 +1,10 @@
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/intros/intro_parts.dart';
 import 'package:critalarm/features/paywall/presentation/intros/snooze/snooze_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -12,21 +14,30 @@ import 'package:flutter/material.dart';
 /// The snooze snack: a finger goes for a Snooze button, the button hops
 /// out of the way twice, and on the third go the mascot eats it. Then the
 /// screen drops away off the layout.
+///
+/// Its score grows with each hop, stops dead on the gulp and arrives from
+/// the reveal. The hand still feels each hop, the gulp and the reveal.
 const PaywallIntro snoozeIntro = PaywallIntro(
   seconds: SnoozeTimeline.end,
   handover: SnoozeTimeline.handover,
   skipTo: SnoozeTimeline.reveal,
   tone: PaywallTone.surface,
   cue: PaywallEntranceCue.none,
+  score: PaywallCue.scoreSnooze,
   beats: [
     // The button hops away from the finger, twice.
-    PaywallIntroBeat(SnoozeTimeline.dodgeLeft, PaywallCue.introBounce),
-    PaywallIntroBeat(SnoozeTimeline.dodgeRight, PaywallCue.introBounce),
+    PaywallIntroBeat.tap(SnoozeTimeline.dodgeLeft, HapticPattern.tripleFade),
+    PaywallIntroBeat.tap(SnoozeTimeline.dodgeRight, HapticPattern.tripleFade),
     // The mascot swallows the button.
-    PaywallIntroBeat(SnoozeTimeline.gulp, PaywallCue.pop),
-    // It went down well: a gulp and a hiccup as the screen drops away.
-    PaywallIntroBeat(SnoozeTimeline.reveal, PaywallCue.introGulp),
+    PaywallIntroBeat.tap(SnoozeTimeline.gulp, HapticPattern.medium),
+    // The screen drops away.
+    PaywallIntroBeat.tap(SnoozeTimeline.reveal, HapticPattern.light),
   ],
+  skipCue: PaywallCue.introArrive,
+  quietAfter:
+      SnoozeTimeline.reveal +
+      paywallIntroArrivalSeconds -
+      SnoozeTimeline.handover,
   tag: _tag,
   builder: _build,
 );
@@ -94,28 +105,13 @@ class SnoozeIntro extends StatelessWidget {
               scale: 1 + 0.06 * SnoozeTimeline.swell(t),
             ),
             if (swallowed < 1)
-              Positioned(
-                left: at.dx - button.width / 2,
-                top: at.dy - button.height / 2,
-                width: button.width,
-                height: button.height,
-                child: Transform.scale(
-                  scale: 1 - swallowed,
-                  child: DecoratedBox(
-                    decoration: ShapeDecoration(
-                      color: tone.ink,
-                      shape: const StadiumBorder(),
-                    ),
-                    child: Center(
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        textScaler: TextScaler.noScaling,
-                        style: AppTypography.title(tone.background),
-                      ),
-                    ),
-                  ),
-                ),
+              IntroPillButton(
+                label: label,
+                centre: at,
+                size: button,
+                scale: 1 - swallowed,
+                color: tone.ink,
+                labelColor: tone.background,
               ),
             IntroWord(
               text: line,
@@ -129,24 +125,10 @@ class SnoozeIntro extends StatelessWidget {
             ),
             // The finger: a touch mark, as a screen recording shows one.
             if (fingerShows > 0)
-              Positioned(
-                left: fingerAt.dx - 24,
-                top: fingerAt.dy - 24,
-                width: 48,
-                height: 48,
-                child: Opacity(
-                  opacity: fingerShows,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: tone.ink.withValues(alpha: 0.18),
-                      border: Border.all(
-                        color: tone.ink.withValues(alpha: 0.5),
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
+              IntroTouchMark(
+                centre: fingerAt,
+                color: tone.ink,
+                opacity: fingerShows,
               ),
           ],
         );

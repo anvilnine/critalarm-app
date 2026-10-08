@@ -36,8 +36,10 @@ const PaywallIntro falseAlarmIntro = PaywallIntro(
   handover: FalseAlarmTimeline.handover, // 1.5: the layout's clock starts at zero
   skipTo: FalseAlarmTimeline.reveal, // 1.25: where a tap jumps to
   tone: PaywallTone.crit, // colours the close cross while it covers the screen
-  cue: PaywallEntranceCue.gag, // played once, in place of the layout's cue
-  beats: [PaywallIntroBeat(FalseAlarmTimeline.admit, _onAdmit)], // heard and felt on the way
+  score: PaywallCue.scoreFalseAlarm, // its music, started on the first frame
+  beats: [PaywallIntroBeat.tap(FalseAlarmTimeline.reveal, HapticPattern.tripleRise)], // felt on the way
+  skipCue: PaywallCue.introArrive, // what a tap that skips it plays
+  quietAfter: FalseAlarmTimeline.reveal + paywallIntroArrivalSeconds - FalseAlarmTimeline.handover,
   tag: _tag, // () => the few words left by the layout's mascot afterwards
   builder: _build, // (context, PaywallIntroScope scope) => FalseAlarmIntro(scope: scope)
 );
@@ -49,7 +51,9 @@ with `PaywallClockBuilder`), `size` (the whole screen), `padding` (the safe area
 from `scope.clock` alone and hold no timer.
 
 `intros/intro_parts.dart` has the parts the intros share: `IntroCrit` (the mascot, with its way
-out), `IntroWord` (the one line), `introFaceShape` and `introStageFor`.
+out), `IntroWord` (the one line), `introFaceShape` and `introStageFor`, and the props two jokes
+use: `IntroAlarmRedPainter` (the red of a ringing screen, which opens in a circle),
+`IntroPillButton` (a button drawn as a picture) and `IntroTouchMark` (a finger).
 
 **The hand over is one move.** Two faces never show together. The intro's mascot is whole until
 `skipTo`, then travels to `scope.landing` and shrinks to nothing at its foot, and is gone at
@@ -58,25 +62,40 @@ same spot as its clock starts. The screen the intro painted is all but gone by `
 the pop is in the open. The host finds the landing itself: the largest `FaceWidget` in the layout,
 where the layout laid it out. A layout does nothing for it.
 
-**Beats.** `PaywallIntroBeat(seconds, cue)` is one moment that is heard or felt: one cue of the
-palette, which carries its own haptic. `PaywallIntroBeat.tap(seconds, pattern)` is a haptic alone,
-for a moment inside a sound that is still playing. The host plays each as the clock passes, never
-in a tile, and never for a moment a tap skipped. `skipCue` is played when a tap skips the intro,
-in place of the beat it lands on. The beat at the reveal is what the hand over feels like, so the
-host adds no tap of its own.
+**The score.** An intro's sound is one short piece of music, a `PaywallCue` named as `score`,
+started on the first frame and timed to the intro's timeline. It has three parts:
 
-**The punchline.** The beat at the reveal is the joke landing, and each intro has a cue of its
-own for it (see Cues). A tap lands on that beat, so a skipped intro plays the same punchline. An
-intro whose sound is one long cue has no such beat: it ends the long cue on its punchline and
-names the punchline alone as `skipCue`. A new intro gets a new punchline: never borrow one, and
-never use a sound that falls. Keep them few and single: nothing may ring or buzz like an alarm,
-and nothing is felt while a picture of an alarm rings.
+- The set up: the soft figure the joke is built on, for as long as the picture builds.
+- The turn: the joke lands and the music stops dead on one tap, then a beat of nothing.
+- The arrival: a short pickup from `skipTo` (the reveal) that lands on a warm chord 0.4 s later,
+  as the layout starts, and rings on over its first moments.
+
+The arrival is the same phrase for every intro and is also a cue of its own, `introArrive`. Name
+it as `skipCue`, so a skipped intro plays the last part alone. A score never rings or buzzes like
+an alarm: the set up is a soft musical figure. It never uses the three note call, which is
+`bought`'s alone.
+
+**Flavours.** Every score and `introArrive` comes in each `IntroSoundFlavour` (`piano`,
+`kalimba`), with the same timing and one file each: `ui_score_<intro>_<flavour>.m4a`. A cue with
+`hasFlavours` gets the flavour as a suffix on its file name when it is played
+(`PaywallCue.assetIn`). Which flavour plays is a developer pref, `dev.paywall_intro_sound`, set by
+the "Intro sound" row of the Paywall layouts screen. There is no remote value: a build with no
+Developer options plays `piano`.
+
+**Beats.** The score has the player for the whole intro, and a cue would cut it off. So the
+beats of an intro with a score are haptics alone: `PaywallIntroBeat.tap(seconds, pattern)`, one
+for each moment the hand should feel (a hop, a knock, the reveal). `PaywallIntroBeat(seconds, cue)`
+is for an intro with no score, whose beats are its sound. The host plays each as the clock passes,
+never in a tile, and never for a moment a tap skipped. The beat at the reveal is what the hand
+over feels like, so the host adds no tap of its own. While a picture of an alarm rings the hand
+feels nothing of the ringing: at most one light pulse for a thing that moves on it (a button
+hopping), well apart, never a run.
 
 **Quiet after.** The layout plays no cue of its own entrance for `quietAfter` seconds from the
-hand over (`paywallQuietAfterIntro` by default), because the intro's last cue is still sounding.
-An intro that opens on a long cue says how much of it is left by then. The frame's own `open`
-is not played after an intro either, so from the reveal the punchline has the player alone for
-about 0.8 s. Keep a punchline under 0.6 s.
+hand over (`paywallQuietAfterIntro` by default), because the intro's last sound still has the
+room. An intro with a score says `reveal + paywallIntroArrivalSeconds - handover`: the arrival
+takes 1.25 s from the reveal to ring out, played through or skipped. The frame's own `open` is not
+played after an intro either.
 
 **The tag.** `tag` is what the mascot is left saying ("Just kidding."). The host draws it as a
 small tag by the layout's mascot for `paywallIntroTagSeconds` after the hand over, above its head
@@ -96,7 +115,7 @@ What `PaywallIntroHost` does, so an intro does not:
   layout takes the touch.
 - Reduce motion, or a `PaywallStill`, plays no intro at all: the layout opens as it does alone.
 - It plays once for each open. A rebuild does not start it again.
-- One light haptic at the hand over, the intro's `cue` and its beats. None is an alarm: an intro makes
+- The intro's `score` (or its `cue`) and its beats. None is an alarm: an intro makes
   no alarm sound, no notification and no vibration like one. A picture of a ringing screen is a
   silent picture.
 
@@ -158,7 +177,11 @@ paints every pixel. The buy block does not change to its done state under a vers
 
 `thanks/thanks_parts.dart` has the shared parts: `ThanksStage` (where the mascot stands and the
 words go), `ThanksCrit`, `ThanksDisc`, `ThanksCover`, `ThanksWords` (the headline and one line a
-benefit, each led by a mark you draw), `ThanksCheck`, `thanksIdleFace` and `ThanksQuiet`.
+benefit, each led by a mark you draw), `ThanksCheck`, `thanksIdleFace` and `ThanksQuiet`. It also
+has what more than one version draws: confetti thrown from a point (`ThanksConfetti`,
+`ThanksConfettiPainter`), a slip the mascot holds (`ThanksSlipPlan`, `ThanksPaperPainter`,
+`ThanksDashPainter`, `ThanksStampMark`, `thanksHands`), and the plan's limits as rows
+(`limitsRowsFor`, `LimitsRow`).
 
 What the host does, so a version does not:
 
@@ -190,7 +213,7 @@ the close cross on screen from the first frame, and pins the buy block at the bo
 - `buyStyle`: a `PaywallBuyBlockStyle` with `tone`, `buttonVariant`, `pickerStyle` (`segments`,
   the default, or `rows`, one plan per row and 60 points taller) and `showsPicker` (false only
   when you place a `PaywallPlanPicker` yourself). A layout does not choose what the button says.
-- `entranceCue`: `open` (the default), `gag`, `print`, `none`. `restAt`: the clock's resting second.
+- `entranceCue`: `open` (the default), `print`, `rise`, `none`. `restAt`: the clock's resting second.
 
 A sheet-style layout puts `PaywallFrameBody` (same options, no full screen) in its own sheet.
 What it draws outside that body reads `PaywallOffer.of(context)` (`product`, `benefits`,
@@ -337,32 +360,42 @@ be able to name the moment with eyes shut:
 |---|---|---|---|---|---|
 | `open` | The paywall arrives and asks | A tine, struck once | Level: one strike, all of it in the first 30 ms | Hanging, on the second and the fifth | `light` |
 | `bought` | The purchase is confirmed | Mallets, with a bell on top | Rising, into the three note call | Home, on the tonic | `risingPair` |
-| `close` | Left without buying | A soft voice, sliding | Falling a fourth, with a sigh of air | Open, on the fifth | `fallingPair` |
+| `close` | Left without buying | A music box, three single notes | Held, a fall of a third, a lift of a step at the very end | Open, on the second | `fallingPair` |
 
 - `open` is never a reward: no mallet, nothing that climbs, no tonic, no sparkle. Six layouts
   play their next cue about 0.3 s later, so its identity sits at the very start.
 - `bought` is the only celebration and the one place the call plays in full. Its clock is fixed,
   because the step after a purchase is drawn to it: a click at 0, a swell from 0.40 s to a peak
   at 0.60 s, silence by 2.15 s.
-- `close` is a little let down and kind about it: "oh, okay". It is a slide where `error` is two
-  struck mallet notes ("that did not work"), so the two are never confused. It never mocks.
+- `close` is a little let down and kind about it: a small musical sigh, "oh... okay". F sharp 5
+  held, D5, then E5, each softer, the last a lift like a shrug. Every note is above 500 Hz, so a
+  phone speaker plays it, and it sits just under `open` in loudness. `error` is two low mallet
+  notes stepping down, E4 then C sharp 4 ("that did not work"), so the two are never confused.
+  It never mocks: nothing minor, nothing low, no last thud.
 
-An intro's joke lands on a punchline, one for each intro, so no two jokes land the same way:
+An intro has a score, one for each intro, in each flavour. All of one flavour end on the same
+arrival, which is also `introArrive`:
 
-| Cue | Intro | Lead voice | Shape | Ends | Haptic |
-|---|---|---|---|---|---|
-| `introWink` | False alarm, "Just kidding." | Knocks on wood | Dips a third, then jumps up | Up, on the fifth | `tripleRise` |
-| `introGulp` | Snooze snack, "Nice try." | A voiced gulp | Dips and swoops up, then a hiccup higher | Up, on the tonic above | `medium` |
-| `introSpring` | Rude awakening, "I'm up!" | A spring | Leaps an octave and wobbles there | Level, on the third | `risingPair` |
-| `introTease` | Countdown, "Too slow." | Pitched pops | A quick run up the scale, then a flick | Up, on the third above | `light` |
+| Cue | Intro | Set up | The turn |
+|---|---|---|---|
+| `scoreFalseAlarm` | False alarm | The soft ringing figure, in two bursts as the picture rings | The tap as the ringing stops |
+| `scoreSnooze` | Snooze snack | The figure growing, a new bar on each hop of the button | The tap on the gulp |
+| `scoreWakeUp` | Rude awakening | One bar, soft and slow | The tap as the message lands, then one bright note |
+| `scoreCurtain` | Curtain call | A hush, a note for each look | The tap as it sees you |
+| `scoreAlarmSnack` | Alarm snack | The soft ringing figure three times, a nudge on each hop of the button | The tap on the gulp |
 
-- A punchline never falls. A fall is a failure (`error`) or a let down (`close`). These hop,
-  spring, dip and come up, or climb.
-- None is the three note call or mallets climbing home: that is `bought`, and it plays nowhere
-  else. `gag` rings on the mallet for as long as the picture rings and ends on the wink.
-- Each is three or four quick events, over in half a second, and shares neither its lead voice
-  nor its shape with another punchline or with `open`, `bought`, `close` and `error`.
-- `introBounce` is a hop, a spring up and three bounces on one note. It does not rattle out.
+| Flavour | Set up voice | Arrival | Lead of the arrival |
+|---|---|---|---|
+| `piano` | A low piano figure on Bm, G, D, A with octaves on top | A rolled D major chord on piano, two glockenspiel notes above | A5, G5, then F sharp 5: a step down onto the third |
+| `kalimba` | Kalimba pairs on Bm, G, A with a bell and a low tine | A music box D6 over a rolled Dmaj7 celesta | G5, A5, E6, then D6 |
+
+- Neither arrival is the three note call (A4 B4 D5 on mallets, climbing): that is `bought`, and it
+  plays nowhere else. The piano's steps down, the kalimba's turns back down onto its last note,
+  and neither leads on a mallet.
+- Neither is `error` or `close` either: both of those are bare single notes and end open, and an
+  arrival ends on a full tonic chord.
+- The set up sits about 3 to 6 dB under the arrival, softer still for the two quiet intros.
+- `introKnock` is still Doors' knock. No intro plays it.
 
 The frame plays `close` once, when the paywall goes without the product in hand
 (`paywallSaysClose`): from the cross, and from back or a swipe as the route starts to go. It

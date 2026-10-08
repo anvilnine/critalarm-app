@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/core/platform/platform_capabilities.dart';
+import 'package:critalarm/core/ui_sound/intro_sound_flavour.dart';
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/core/ui_sound/ui_sound_host.dart';
 import 'package:critalarm/design_system/haptics.dart';
@@ -64,6 +65,7 @@ final class PlayingPaywallCues extends PaywallCues {
     Iterable<Stream<Object?>> alarmStarts = const [],
     this.haptic,
     this.cancelHaptic,
+    this.introFlavour,
     Duration Function()? clock,
   }) : _clock = clock ?? _stopwatchClock() {
     for (final starts in alarmStarts) {
@@ -90,6 +92,10 @@ final class PlayingPaywallCues extends PaywallCues {
   /// Drops what is left of a haptic under way, when an alarm starts.
   final void Function()? cancelHaptic;
 
+  /// Which flavour the intro scores play in, read at every cue. Null plays
+  /// the first one.
+  final IntroSoundFlavour Function()? introFlavour;
+
   final Duration Function() _clock;
   final _subs = <StreamSubscription<Object?>>[];
 
@@ -109,7 +115,9 @@ final class PlayingPaywallCues extends PaywallCues {
       isAlarmUp: isAlarmUp(),
     );
     if (!mayPlay) return;
-    final asset = cue.asset;
+    final asset = cue.hasFlavours && introFlavour != null
+        ? cue.assetIn(introFlavour!())
+        : cue.asset;
     // Not awaited and not held back: the player cuts off whatever is still
     // playing, so a second cue never waits for the first.
     if (asset != null) player.play(asset, voices: cue.voices);
