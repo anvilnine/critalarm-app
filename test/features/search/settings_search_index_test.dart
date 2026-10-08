@@ -31,7 +31,6 @@ void main() {
     test('the priorities page is found by priority and by p5', () {
       final release = SettingsSearchIndex.forBuild(
         includeDevOnly: false,
-        showsStorage: false,
       );
       final priorities = release.singleWhere((d) => d.id == 'priorities');
 
@@ -68,7 +67,6 @@ void main() {
     test('a release build cannot find the developer screen', () {
       final release = SettingsSearchIndex.forBuild(
         includeDevOnly: false,
-        showsStorage: true,
       );
 
       expect(release.any((d) => d.devOnly), isFalse);
@@ -80,49 +78,38 @@ void main() {
 
     test('a build that skips the paywall gets everything', () {
       expect(
-        SettingsSearchIndex.forBuild(includeDevOnly: true, showsStorage: true),
+        SettingsSearchIndex.forBuild(includeDevOnly: true),
         hasLength(SettingsSearchIndex.all.length),
       );
       expect(
         SettingsSearchIndex.forBuild(
           includeDevOnly: false,
-          showsStorage: true,
         ).length,
         lessThan(SettingsSearchIndex.all.length),
       );
     });
 
-    test('a free relay account cannot find the Storage rows', () {
-      final free = SettingsSearchIndex.forBuild(
-        includeDevOnly: true,
-        showsStorage: false,
-      );
-
-      expect(free.map((d) => d.id), isNot(contains('storage-delete-after')));
-      expect(free.map((d) => d.id), isNot(contains('storage-keep-critical')));
-    });
-
-    test('a paid or self-hosted account finds the Storage rows', () {
-      final paid = SettingsSearchIndex.forBuild(
-        includeDevOnly: false,
-        showsStorage: true,
-      );
-
-      expect(
-        paid.map((d) => d.id),
-        containsAll(['storage-delete-after', 'storage-keep-critical']),
-      );
+    test('everyone finds the Storage rows, on any plan and any server', () {
+      for (final isSelfHosted in [false, true]) {
+        final found = SettingsSearchIndex.forBuild(
+          includeDevOnly: false,
+          isSelfHosted: isSelfHosted,
+        );
+        expect(
+          found.map((d) => d.id),
+          containsAll(['storage-delete-after', 'storage-keep-critical']),
+          reason: 'own server: $isSelfHosted',
+        );
+      }
     });
 
     test('a phone on its own server cannot find the plan row', () {
       final own = SettingsSearchIndex.forBuild(
         includeDevOnly: false,
-        showsStorage: true,
         isSelfHosted: true,
       );
       final hosted = SettingsSearchIndex.forBuild(
         includeDevOnly: false,
-        showsStorage: true,
       );
 
       expect(own.map((d) => d.id), isNot(contains('plan')));

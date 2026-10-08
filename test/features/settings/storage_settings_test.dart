@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:critalarm/core/access/holding.dart';
-import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/models/incident.dart';
 import 'package:critalarm/core/models/message.dart';
@@ -55,36 +54,12 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
 
-  group('the Storage section is drawn for', () {
-    // The rule is the storageRules row of the feature table. Settings asks
-    // feature access and keeps no rule of its own.
-    Future<bool> drawnFor(TestAccess access) async {
-      addTearDown(access.dispose);
-      final cubit = SettingsCubit(
-        holdings: access.holdings,
-        featureAccess: access.features,
-      );
-      addTearDown(cubit.close);
-      await cubit.load();
-      return cubit.state.hasStorageSection;
-    }
-
-    test('nobody on a free relay account', () async {
-      expect(await drawnFor(TestAccess()), isFalse);
-    });
-
-    test('a paid account', () async {
-      expect(await drawnFor(TestAccess(held: {Holding.hosted})), isTrue);
-    });
-
-    test('a self-hosted server, which has no tier', () async {
-      expect(
-        await drawnFor(TestAccess(serverMode: ServerMode.selfhosted)),
-        isTrue,
-      );
-    });
-
-    test('at once, before the identity and the topics have answered', () async {
+  // The Storage section has no plan rule any more: it only removes rows
+  // from this phone's own copy, so Settings draws it for everyone and keeps
+  // no flag for it. What is left to read from the plan is the plan row.
+  group('the plan row', () {
+    test('is drawn at once, before the identity and the topics have '
+        'answered', () async {
       final access = TestAccess(held: {Holding.hosted});
       addTearDown(access.dispose);
       final cubit = SettingsCubit(
@@ -92,7 +67,6 @@ void main() {
           await SharedPreferences.getInstance(),
         ),
         holdings: access.holdings,
-        featureAccess: access.features,
       );
       addTearDown(cubit.close);
       // The rest of the load never finishes: no network, no topics.
@@ -100,26 +74,20 @@ void main() {
       await pumpEventQueue();
 
       expect(cubit.state.status, SettingsStatus.loading);
-      expect(cubit.state.hasStorageSection, isTrue);
       expect(cubit.state.holdsHosted, isTrue);
     });
 
-    test('a purchase that lands while Settings is open', () async {
+    test('follows a purchase that lands while Settings is open', () async {
       final access = TestAccess();
       addTearDown(access.dispose);
-      final cubit = SettingsCubit(
-        holdings: access.holdings,
-        featureAccess: access.features,
-      );
+      final cubit = SettingsCubit(holdings: access.holdings);
       addTearDown(cubit.close);
       await cubit.load();
-      expect(cubit.state.hasStorageSection, isFalse);
       expect(cubit.state.holdsHosted, isFalse);
 
       access.hosted.set(HoldingState.pending);
       await pumpEventQueue();
 
-      expect(cubit.state.hasStorageSection, isTrue);
       expect(cubit.state.holdsHosted, isTrue);
     });
   });
