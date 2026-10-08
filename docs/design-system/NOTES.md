@@ -146,7 +146,10 @@ All in `lib/design/components/`, each in the gallery at `/gallery` with a reduce
   topic that needs a look. The bell and moon labels come from the caller.
 - `AppCreamCard` (in `notice_card.dart`): title, body, an outline action and an optional bare cross.
   On the white sheet it takes the ink stroke.
-- `AppStatCard`: History's week of seven bars and two numbers on the same dark surface.
+- `AppStatCard`: History's week of seven bars and two numbers on the same dark surface. The numbers
+  sit in a column on the left and the bars fill the right. On a narrow card or above the chrome text
+  limit the bars go on top, spread across the width. A day the plan does not reach (`isHidden`)
+  has a letter and no bar.
 
 ## Glyphs and motion curves
 

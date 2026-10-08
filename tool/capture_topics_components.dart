@@ -5,7 +5,8 @@
 //
 // It writes one PNG per section, phone, theme and text size, each the full
 // height of its section: 390 by 844 and 375 by 667 phones, light and dark,
-// at text scale 1.0 and 1.3, plus 2.0 for the hero scene, the inbox rows and the stat card.
+// at text scale 1.0 and 1.3, plus 2.0 for the hero scene, the inbox rows and
+// the stat card.
 // Every file is named <section>_<phone>_<theme>_<scale>x_<frame>.png and its
 // path is printed. A section that overflows fails its capture.
 //
