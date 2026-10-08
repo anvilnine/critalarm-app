@@ -51,7 +51,7 @@ import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:critalarm/features/topics/presentation/home_card_view.dart';
 import 'package:critalarm/features/topics/presentation/home_inbox_view.dart';
 import 'package:critalarm/features/topics/presentation/topic_detail_screen.dart';
-import 'package:critalarm/features/topics/presentation/widgets/home_setup_section.dart';
+import 'package:critalarm/features/topics/presentation/widgets/home_setup_confetti.dart';
 import 'package:critalarm/features/topics/presentation/widgets/home_widgets_sheet.dart';
 import 'package:critalarm/features/topics/presentation/widgets/setup_glow.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -80,9 +80,7 @@ class HomeScreen extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) {
-            final cubit = getIt<InAppNoticeCubit>(
-              param1: context.read<ShellCubit>(),
-            );
+            final cubit = getIt<InAppNoticeCubit>();
             unawaited(cubit.load());
             return cubit;
           },
@@ -761,7 +759,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         onFaceRefresh: () async {
           final noticeCubit = context.read<InAppNoticeCubit>();
           final homeCubit = context.read<HomeCubit>();
+          final shell = context.read<ShellCubit>();
           _refreshReadiness();
+          await shell.refresh();
           await noticeCubit.refresh();
           return homeCubit.refresh();
         },

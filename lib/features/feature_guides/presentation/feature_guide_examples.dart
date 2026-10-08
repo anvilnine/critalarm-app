@@ -1,5 +1,4 @@
 import 'package:critalarm/core/alarm/alarm_host.dart';
-import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
@@ -21,16 +20,12 @@ abstract final class FeatureGuideExamples {
     return [
       HomeTopicItem(
         name: FeatureGuideCubit.exampleTopicName,
-        meta: LocaleKeys.home_meta_quiet.tr(),
-        priority: PriorityLevel.defaultPriority,
         ringsThroughSilent: true,
         preview: LocaleKeys.home_card_example_message_quiet.tr(),
         lastMessageAt: at.subtract(const Duration(hours: 3)),
       ),
       HomeTopicItem(
         name: 'nightly-backup',
-        meta: LocaleKeys.home_meta_quiet.tr(),
-        priority: PriorityLevel.defaultPriority,
         preview: LocaleKeys.home_card_example_message_quiet.tr(),
         lastMessageAt: at.subtract(const Duration(days: 1)),
       ),
@@ -42,11 +37,6 @@ abstract final class FeatureGuideExamples {
   /// something going wrong on it to point at.
   static HomeTopicItem troubleTopic({DateTime? now}) => HomeTopicItem(
     name: 'payments-api',
-    meta: LocaleKeys.home_meta_alert_active.tr(),
-    priority: PriorityLevel.critical,
-    faceState: FaceState.alarmed,
-    isCrit: true,
-    isLive: true,
     ringsThroughSilent: true,
     preview: LocaleKeys.home_card_example_message_ringing.tr(),
     lastMessageAt: (now ?? DateTime.now()).subtract(

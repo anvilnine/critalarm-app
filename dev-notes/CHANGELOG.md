@@ -140,6 +140,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - PaywallClockHold takes isWaiting instead of isHeld, so make check-access stops flagging the screen clock.
 - Home shows the account backup reminder and the one-topic reminder as a pinned bar above the tab bar, one at a time, instead of cream cards in the list.
 - The Topics hero's disc and ring are drawn by the app's ambient canvas (AmbientAppProfiles.topicsHero), so tab changes and pushes morph them. Home registers its profile with AmbientRouteProfile and changes it with the card state; AppHeroScene draws its own disc only outside an ambient scope.
+- InAppNoticeCubit picks only the Hosted ending and the account backup reminder, and no longer takes a ShellCubit. Pull to refresh on Home refreshes the shell health itself. HomeState drops the face, word, sub line and severity, and HomeTopicItem drops meta, priority, face, isCrit, isQuiet and isLive. resolveHomeFace and orderTopics are removed: HomeFacts, rowKindFor and orderInbox replace them.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.
@@ -159,6 +160,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - OnboardingPermissionsCubit and OnboardingConnectCubit.ringTestAlarm, both unused and holding hardcoded English.
 - Setup strings that said a thing twice: permission badges, dialog hints, helper lines, the steps header. Their keys are gone from en.json.
 - Developer options no longer has the Bar backing lab or the List edges picker. DevBarBackingSwitch, DevEdgeEffectSwitch, BarBackingLabScreen and AppBarBackingScope.coversBottomBar are gone.
+- Home's notice slot and the cards only it drew (no server, missed alarm, phone update, weekly check, setup health), the setup pill, the setup section and the day-0 card widget. The status card, the pinned bars and the cream cards say all of it now. AppNoticeCard and AppNoticeTone go with them.
 
 ## 1.0.0+12 - 2026-10-03
 ### Added

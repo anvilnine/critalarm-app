@@ -2,21 +2,11 @@
 
 import 'dart:async';
 
-import 'package:critalarm/app/shell/shell_cubit.dart';
-import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/models/incident.dart';
-import 'package:critalarm/core/models/topic.dart';
-import 'package:critalarm/core/result/result.dart';
-import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart' show SeverityMode;
 import 'package:critalarm/features/in_app_notices/domain/missed_alarm_notice_rule.dart';
-import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
-import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_state.dart';
-import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
-import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
-import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
 import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
@@ -41,13 +31,6 @@ import 'package:critalarm/features/topics/presentation/cubits/home_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../helpers/fake_in_app_notice_repository.dart';
-import '../in_app_notices/in_app_notice_cubit_test.dart'
-    show
-        FakeAccountRepo,
-        FakeGetConnectionUsecase,
-        FakeIdentityRepo,
-        FakeShellCubit;
 import 'domain/home_card/home_card_fixtures.dart'
     show
         androidChecks,
@@ -134,8 +117,6 @@ class _FakeTimer implements Timer {
 
 const _topic = HomeTopicItem(
   name: 'prod-db',
-  meta: '',
-  priority: PriorityLevel.defaultPriority,
   ringsThroughSilent: true,
 );
 
@@ -334,7 +315,7 @@ void main() {
       addTearDown(sub.cancel);
 
       // Things the card does not draw.
-      rig.home.set(_loaded().copyWith(word: 'Clear', subText: 'No alarm'));
+      rig.home.set(_loaded().copyWith(errorMessage: 'Not drawn'));
       rig.setup.set(const HomeSetupState());
       await rig.settle();
       expect(emitted, isEmpty);
@@ -373,8 +354,6 @@ void main() {
           items: const [
             HomeTopicItem(
               name: 'plain',
-              meta: '',
-              priority: PriorityLevel.defaultPriority,
             ),
           ],
         ),
@@ -738,7 +717,7 @@ void main() {
     });
 
     test(
-      'reaches the card while the notice slot shows a different notice',
+      'reads the missed alarm from the feed and follows a close',
       () async {
         final missed = [
           MissedAlarm(
@@ -768,49 +747,6 @@ void main() {
         );
         addTearDown(feed.close);
 
-        // The notice cubit, with a permission that blocks alarms. That
-        // notice outranks the missed alarm, so the slot shows it.
-        final shell = FakeShellCubit()
-          ..setHealth(
-            const ShellHealth(
-              missing: [
-                DevicePermissionItem(
-                  type: DevicePermissionType.notifications,
-                  status: DevicePermissionStatus.denied,
-                  title: 'Notifications',
-                  description: 'No page reaches you',
-                  canFix: true,
-                ),
-              ],
-            ),
-          );
-        final getConnection = FakeGetConnectionUsecase()
-          ..result = const ServerConnection(
-            serverUrl: 'https://api.critalarm.app',
-            adminToken: 'token123',
-          ).toSuccess();
-        final identityChanges = AccountIdentityChanges();
-        final notices = InAppNoticeCubit(
-          getConnectionUsecase: getConnection,
-          shellCubit: shell,
-          identityRepository: FakeIdentityRepo(identityChanges),
-          accountRepository: FakeAccountRepo(),
-          noticeRepository: FakeInAppNoticeRepository()..now = (() => now),
-          readTopics: () async => const [
-            Topic(name: 'prod-db', critical: true),
-          ],
-          clock: () => now,
-          identityChanges: identityChanges,
-          isSetupDone: () async => true,
-          readMissedAlarms: () async => missed,
-          readDismissedMissedAlarms: () => dismissed,
-          dismissMissedAlarms: feed.dismiss,
-          missedAlarmChanges: feed.changes,
-        );
-        addTearDown(notices.close);
-        await notices.load();
-        expect(notices.state.noticeType, InAppNoticeType.criticalHealth);
-
         final rig = _Rig();
         addTearDown(rig.dispose);
         final cubit = HomeCardCubit(
@@ -836,10 +772,7 @@ void main() {
             time: now.subtract(const Duration(hours: 1)),
           ),
         );
-        // Still the health notice in the slot.
-        expect(notices.state.noticeType, InAppNoticeType.criticalHealth);
-
-        // Closing it from the card writes the record the notice reads.
+        // Closing it from the card writes the record the feed reads.
         await feed.dismiss(['m1']);
         await rig.settle();
         expect(dismissed, {'m1'});
@@ -847,59 +780,6 @@ void main() {
       },
     );
   });
-
-  test(
-    'closing the entry from the card closes the notice too',
-    () async {
-      final missed = [
-        MissedAlarm(
-          incidentId: 'm1',
-          topic: 'prod-db',
-          at: now.subtract(const Duration(hours: 1)),
-          reason: MissedReason.rangUnanswered,
-        ),
-      ];
-      final dismissed = <String>{};
-      final feed = ReaderMissedAlarmFeed(
-        readMissed: () async => missed,
-        readDismissed: () => dismissed,
-        writeDismissed: (ids) async => dismissed.addAll(ids),
-        readIncidents: () => const [],
-        isSetupDone: () async => true,
-        clock: () => now,
-      );
-      addTearDown(feed.close);
-      final getConnection = FakeGetConnectionUsecase()
-        ..result = const ServerConnection(
-          serverUrl: 'https://api.critalarm.app',
-          adminToken: 'token123',
-        ).toSuccess();
-      final identityChanges = AccountIdentityChanges();
-      final notices = InAppNoticeCubit(
-        getConnectionUsecase: getConnection,
-        shellCubit: FakeShellCubit(),
-        identityRepository: FakeIdentityRepo(identityChanges),
-        accountRepository: FakeAccountRepo(),
-        noticeRepository: FakeInAppNoticeRepository()..now = (() => now),
-        readTopics: () async => const [Topic(name: 'prod-db', critical: true)],
-        clock: () => now,
-        identityChanges: identityChanges,
-        isSetupDone: () async => true,
-        readMissedAlarms: () async => missed,
-        readDismissedMissedAlarms: () => dismissed,
-        dismissMissedAlarms: feed.dismiss,
-        missedAlarmChanges: feed.changes,
-      );
-      addTearDown(notices.close);
-      await notices.load();
-      expect(notices.state.noticeType, InAppNoticeType.missedAlarm);
-
-      // The card closes it. The notice hears of it through the feed.
-      await feed.dismiss(['m1']);
-      await pumpEventQueue();
-      expect(notices.state.noticeType, InAppNoticeType.none);
-    },
-  );
 
   group('actionFor', () {
     test('a ringing alarm opens its incident', () async {

@@ -461,22 +461,9 @@
     "waiting_short": "Waiting for your phone to ring.",
     "waiting_long": "Sent. Waiting for your phone to ring. On a slow connection this can take a few seconds, so keep the app open."
   },
-  "home_setup": {
-    "title": "Finish setting up",
-    "progress": "{done} of {count}",
-    "progress_aria_label": "{done} of {count} steps done",
-    "row_done": "Done",
-    "row_open": "Not done yet",
-    "server_title": "Connect a server",
-    "critical_title": "Create a critical topic",
-    "critical_line_off": "Turn on Critical delivery on a topic.",
-    "done_title": "All set",
-    "dismiss_button": "Hide the setup list"
-  },
   "home_day0": {
     "title": "Your first alarm worked",
     "free_line": "On Free, alarms ring until you acknowledge them. That does not change.",
-    "hosted_line": "Hosted adds {list}.",
     "plans_button": "See Hosted plans",
     "dismiss_button": "Close card"
   },
@@ -504,57 +491,18 @@
     "settings_aria_label": "Settings",
     "new_topic_button": "New topic",
     "stage_word_no_topics": "No topics yet",
-    "stage_sub_no_topics": "Create one, then point a script, cron job or monitor at its endpoint.",
-    "stage_word_critical": "CRITICAL",
-    "stage_sub_critical": "{topic} is ringing.",
-    "stage_word_warning": {
-      "one": "{} warning",
-      "other": "{} warnings"
-    },
-    "stage_sub_warning": {
-      "one": "{count} topics. 1 warning.",
-      "other": "{count} topics. {warnings} warnings."
-    },
     "stage_word_clear": "All clear",
-    "stage_sub_clear": {
-      "one": "1 topic. Nothing has rung yet.",
-      "other": "{} topics. Nothing has rung yet."
-    },
-    "stage_sub_clear_last": {
-      "one": "1 topic. Last alert {time}, acknowledged.",
-      "other": "{count} topics. Last alert {time}, acknowledged."
-    },
-    "meta_quiet_6h": "Quiet for 6 h",
-    "meta_finished_warnings": "Finished 02:04, 2 warnings",
-    "meta_finished_size": "Finished 02:00, 412 GB",
-    "meta_today": "3 today",
-    "meta_yesterday": "Yesterday 18:40",
-    "meta_alert_active": "Alert active",
-    "meta_warning": "1 warning",
     "meta_quiet": "Quiet",
     "delivery_rings": "rings",
     "loading_title": "Loading your topics",
-    "load_failed": "Could not reach your server.",
     "retry_button": "Try again",
     "delivery_normal": "normal",
     "detail_empty_title": "No topic selected",
     "detail_empty_body": "Pick a topic to see its details.",
     "empty_body": "Create one, point a script at it, and this face will tell you when something breaks.",
     "empty_button": "Create a topic",
-    "stage_word_no_server": "Nothing can reach you",
-    "stage_sub_no_server": "Connect a server and your topics load from it.",
-    "stage_word_unreachable": "Out of touch",
-    "stage_sub_unreachable": "This is what it looked like at {time}.",
     "unreachable_strip": "Cannot reach the server. Last seen {time}.",
     "stale_list_label": "Last seen {time}",
-    "stage_word_acknowledged": "ACKNOWLEDGED",
-    "stage_sub_acknowledged": "{topic}, at your desk in {minutes} min.",
-    "stage_word_handled": "HANDLED",
-    "stage_sub_handled": "{topic} closed at {time}.",
-    "meta_acknowledged": "Acknowledged {time} ago",
-    "meta_handled": "Handled {time}",
-    "no_alarm_body": "Nothing is ringing.",
-    "no_alarm_last": "Last alarm handled at {time}.",
     "swipe_pin": "Pin",
     "swipe_unpin": "Unpin",
     "swipe_mute": "Mute",
@@ -563,20 +511,10 @@
     "unread_aria_label": "{count} unread"
   },
   "notices": {
-    "no_server_title": "No server connected",
-    "no_server_body": "Crit Alarm cannot receive alarms without a server. Connect to Crit Alarm Cloud or point to your own.",
-    "no_server_button": "Connect server",
     "account_backup_title": "Back up your topics",
     "account_backup_body": "Sign in to keep your topics safe if you switch or lose your device.",
     "account_backup_button": "Sign in",
-    "battery_title": "Battery saver may delay alarms",
-    "battery_body": "Battery optimization is on for Crit Alarm. Your phone may delay an alarm to save power. Turn it off under Permissions in Settings.",
-    "battery_button": "Fix it",
     "why": "Why?",
-    "system_update_title": "Your phone was updated",
-    "system_update_body": "Ring a test to check that alarms still ring.",
-    "system_update_button": "Ring a test",
-    "system_update_dismiss": "Dismiss",
     "missed_alarm_title": "Missed alarm",
     "missed_alarm_title_many": "{count} missed alarms",
     "missed_alarm_when": "{topic}, {time}",
@@ -587,7 +525,6 @@
     "missed_alarm_button_test": "Ring a test",
     "missed_alarm_button_incident": "See the alarm",
     "missed_alarm_latest": "Latest: {topic}, {time}",
-    "missed_alarm_dismiss": "Dismiss",
     "pro_ending_title": "Hosted ends {weekday}, {date}",
     "pro_ending_pill": "Hosted ends {weekday}",
     "pro_ending_intro": "After that:",
@@ -596,13 +533,7 @@
     "pro_ended_title": "Your Hosted plan ended",
     "pro_ended_intro": "Your alarms keep ringing.\n\nWhat changed:",
     "pro_ended_action": "See plans",
-    "pro_ended_dismiss": "OK",
-    "setup_health_title": "Crit Alarm cannot reach you yet",
-    "setup_health_warning_title": "Pages may arrive late",
-    "setup_health_warning_battery": "Battery optimization is on. Turn off to receive alarms without delay.",
-    "setup_health_one": "{name} is off.",
-    "setup_health_many": "{count} settings are off.",
-    "setup_health_button": "Fix this"
+    "pro_ended_dismiss": "OK"
   },
   "asks": {
     "pro_title": "Hosted adds:",
@@ -1265,11 +1196,7 @@
     "result_skipped_off": "Skipped, switched off",
     "result_open": "Waiting",
     "result_open_due": "Due by {time}",
-    "result_closed": "Closed",
-    "notice_title": "Two weekly checks missed",
-    "notice_body": "Ring a test to check delivery.",
-    "notice_button": "Ring a test",
-    "notice_dismiss": "Dismiss"
+    "result_closed": "Closed"
   },
   "paywall": {
     "welcome": {

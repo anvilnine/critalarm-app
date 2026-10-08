@@ -1,4 +1,3 @@
-import 'package:critalarm/app/shell/shell_cubit.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/api/account_results.dart';
 import 'package:critalarm/core/api/api_session.dart';
@@ -11,15 +10,10 @@ import 'package:critalarm/features/account/domain/entities/identity_provider.dar
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
 import 'package:critalarm/features/account/domain/repositories/identity_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ending.dart';
-import 'package:critalarm/features/in_app_notices/domain/system_update_notice_rule.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_cubit.dart';
 import 'package:critalarm/features/in_app_notices/presentation/cubits/in_app_notice_state.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
 import 'package:critalarm/features/onboarding/domain/usecases/get_connection_usecase.dart';
-import 'package:critalarm/features/permissions/domain/entities/device_permission_item.dart';
-import 'package:critalarm/features/permissions/domain/entities/device_permission_status.dart';
-import 'package:critalarm/features/permissions/domain/entities/device_permission_type.dart';
-import 'package:critalarm/features/permissions/domain/usecases/get_device_permissions_usecase.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/fake_in_app_notice_repository.dart';
@@ -31,20 +25,6 @@ class FakeGetConnectionUsecase implements GetConnectionUsecase {
 
   @override
   Future<AppResult<ServerConnection>> call(NoParams input) async => result;
-}
-
-class FakeShellCubit extends ShellCubit {
-  FakeShellCubit() : super(FakeGetDevicePermissionsUsecase());
-
-  void setHealth(ShellHealth health) {
-    emit(health);
-  }
-}
-
-class FakeGetDevicePermissionsUsecase implements GetDevicePermissionsUsecase {
-  @override
-  Future<AppResult<List<DevicePermissionItem>>> call(NoParams input) async =>
-      const Success([]);
 }
 
 class FakeIdentityRepo implements IdentityRepository {
@@ -153,7 +133,6 @@ class _FakeProEnding implements ProEnding {
 void main() {
   late FakeInAppNoticeRepository promptRepo;
   late FakeGetConnectionUsecase getConnection;
-  late FakeShellCubit shellCubit;
   late FakeIdentityRepo identityRepo;
   late FakeAccountRepo accountRepo;
   late AccountIdentityChanges identityChanges;
@@ -171,7 +150,6 @@ void main() {
       ..now = (() => clockNow)
       ..firstTopicOwnedAt = clockNow.subtract(const Duration(days: 2));
     getConnection = FakeGetConnectionUsecase();
-    shellCubit = FakeShellCubit();
     identityChanges = AccountIdentityChanges();
     identityRepo = FakeIdentityRepo(identityChanges);
     accountRepo = FakeAccountRepo();
@@ -181,11 +159,9 @@ void main() {
   InAppNoticeCubit buildCubit({
     Duration cooldown = const Duration(seconds: 45),
     Future<bool> Function()? isSetupDone,
-    Future<SystemUpdateReading?> Function()? readSystemUpdate,
   }) {
     return InAppNoticeCubit(
       getConnectionUsecase: getConnection,
-      shellCubit: shellCubit,
       identityRepository: identityRepo,
       accountRepository: accountRepo,
       noticeRepository: promptRepo,
@@ -195,87 +171,45 @@ void main() {
       cooldownDuration: cooldown,
       identityChanges: identityChanges,
       isSetupDone: isSetupDone,
-      readSystemUpdate: readSystemUpdate,
     );
   }
 
   group('InAppNoticeCubit Priority & Orchestration', () {
-    test('Priority 1: emits noServer when no connection saved', () async {
+    test('no server saved shows nothing', () async {
       final cubit = buildCubit();
       await cubit.load();
 
-      expect(cubit.state.noticeType, InAppNoticeType.noServer);
+      expect(cubit.state.noticeType, InAppNoticeType.none);
       await cubit.close();
     });
 
-    test(
-      'Priority 2: emits criticalHealth when notifications missing',
-      () async {
-        getConnection.result = const ServerConnection(
-          serverUrl: 'https://api.critalarm.app',
-          adminToken: 'token123',
-        ).toSuccess();
-
-        shellCubit.setHealth(
-          const ShellHealth(
-            missing: [
-              DevicePermissionItem(
-                type: DevicePermissionType.notifications,
-                status: DevicePermissionStatus.denied,
-                title: 'Notifications',
-                description: 'Required for alerts',
-                canFix: true,
-              ),
-            ],
-          ),
-        );
-
-        final cubit = buildCubit();
-        await cubit.load();
-
-        expect(cubit.state.noticeType, InAppNoticeType.criticalHealth);
-        expect(cubit.state.missingPermissions.length, 1);
-        await cubit.close();
-      },
-    );
-
-    test('Cadence: operational issue resolution triggers cooldown', () async {
+    test('a dismissal starts the cooldown and it ends by itself', () async {
       getConnection.result = const ServerConnection(
         serverUrl: 'https://api.critalarm.app',
         adminToken: 'token123',
       ).toSuccess();
-
-      // Start with a blocker the notice does show
-      shellCubit.setHealth(
-        const ShellHealth(
-          missing: [
-            DevicePermissionItem(
-              type: DevicePermissionType.notifications,
-              status: DevicePermissionStatus.denied,
-              title: 'Notifications',
-              description: 'No page reaches you',
-              canFix: true,
-            ),
-          ],
-        ),
+      proEnding.view = ProEndingView(
+        showPill: true,
+        endsAt: DateTime(2026, 10, 20),
       );
 
-      final cubit = buildCubit(cooldown: const Duration(milliseconds: 50));
+      // The dismissal itself takes 300 ms, so the cooldown has 200 ms left
+      // when it ends.
+      final cubit = buildCubit(cooldown: const Duration(milliseconds: 500));
       await cubit.load();
-      expect(cubit.state.noticeType, InAppNoticeType.criticalHealth);
+      expect(cubit.state.noticeType, InAppNoticeType.proEnding);
 
-      // Now resolve it
-      shellCubit.setHealth(const ShellHealth());
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-
-      // Should be in cooldown (none) and mark notice resolved
+      await cubit.dismissCurrent();
       expect(cubit.state.noticeType, InAppNoticeType.none);
       expect(promptRepo.markResolvedCalls, 1);
 
-      // Wait for cooldown to expire (50ms)
-      await Future<void>.delayed(const Duration(milliseconds: 60));
+      // Still inside the cooldown: a pass shows nothing.
+      proEnding.view = ProEndingView.nothing;
+      await cubit.load();
+      expect(cubit.state.noticeType, InAppNoticeType.none);
 
-      // Now Account prompt should appear (signed out)
+      // Wait for the cooldown to end: the backup notice is next.
+      await Future<void>.delayed(const Duration(milliseconds: 300));
       expect(cubit.state.noticeType, InAppNoticeType.accountBackup);
       await cubit.close();
     });
@@ -285,27 +219,16 @@ void main() {
         serverUrl: 'https://api.critalarm.app',
         adminToken: 'token123',
       ).toSuccess();
-
-      shellCubit.setHealth(
-        const ShellHealth(
-          missing: [
-            DevicePermissionItem(
-              type: DevicePermissionType.notifications,
-              status: DevicePermissionStatus.denied,
-              title: 'Notifications',
-              description: 'No page reaches you',
-              canFix: true,
-            ),
-          ],
-        ),
+      proEnding.view = ProEndingView(
+        showPill: true,
+        endsAt: DateTime(2026, 10, 20),
       );
 
       final cubit = buildCubit();
       await cubit.load();
-
-      // Clear health issue
-      shellCubit.setHealth(const ShellHealth());
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await cubit.dismissCurrent();
+      proEnding.view = ProEndingView.nothing;
+      await cubit.load();
       expect(cubit.state.noticeType, InAppNoticeType.none);
 
       // Call onAppResumed -> bypasses remaining 45s cooldown
@@ -321,7 +244,6 @@ void main() {
           serverUrl: 'https://api.critalarm.app',
           adminToken: 'token123',
         ).toSuccess();
-        shellCubit.setHealth(const ShellHealth());
 
         final cubit = buildCubit(cooldown: const Duration(milliseconds: 50));
         await cubit.load();
@@ -349,7 +271,6 @@ void main() {
           serverUrl: 'https://api.critalarm.app',
           adminToken: 'token123',
         ).toSuccess();
-        shellCubit.setHealth(const ShellHealth());
 
         final cubit = buildCubit();
         await cubit.load();
@@ -377,7 +298,6 @@ void main() {
         serverUrl: 'https://api.critalarm.app',
         adminToken: 'token123',
       ).toSuccess();
-      shellCubit.setHealth(const ShellHealth());
 
       // User already signed in, nothing dismissed, not paying
       identityRepo.identity = const AccountIdentity(
@@ -399,7 +319,6 @@ void main() {
         serverUrl: 'https://api.critalarm.app',
         adminToken: 'token123',
       ).toSuccess();
-      shellCubit.setHealth(const ShellHealth());
 
       // User signed in and paid
       identityRepo.identity = const AccountIdentity(
@@ -420,7 +339,6 @@ void main() {
         serverUrl: 'https://selfhost.critalarm.test',
         adminToken: 'token123',
       ).toSuccess();
-      shellCubit.setHealth(const ShellHealth());
       accountRepo.serverMode = ServerMode.selfhosted;
 
       final cubit = buildCubit();
@@ -440,7 +358,6 @@ void main() {
         serverUrl: 'https://api.critalarm.app',
         adminToken: 'token123',
       ).toSuccess();
-      shellCubit.setHealth(const ShellHealth());
       identityRepo.identity = null;
       accountRepo
         ..serverMode = ServerMode.hosted
@@ -512,28 +429,6 @@ void main() {
       expect(cubit.state.noticeType, InAppNoticeType.accountBackup);
       await cubit.close();
     });
-
-    test('a blocker fixed during a guide still starts the cooldown', () async {
-      var isDone = true;
-      final cubit = buildCubit(isSetupDone: () async => isDone);
-      await cubit.load();
-      expect(cubit.state.noticeType, InAppNoticeType.noServer);
-
-      // A guide starts, and the server gets connected while it is up.
-      isDone = false;
-      getConnection.result = connected.toSuccess();
-      await cubit.load();
-      expect(cubit.state.noticeType, InAppNoticeType.noServer);
-      expect(promptRepo.markResolvedCalls, 0);
-
-      // The guide ends: the blocker counts as resolved, and the sign-in
-      // notice waits out the cooldown instead of following at once.
-      isDone = true;
-      await cubit.load();
-      expect(cubit.state.noticeType, InAppNoticeType.none);
-      expect(promptRepo.markResolvedCalls, 1);
-      await cubit.close();
-    });
   });
 
   group('account backup waits for a topic and a day', () {
@@ -542,7 +437,6 @@ void main() {
         serverUrl: 'https://api.critalarm.app',
         adminToken: 'token123',
       ).toSuccess();
-      shellCubit.setHealth(const ShellHealth());
       promptRepo.firstTopicOwnedAt = null;
     });
 
@@ -619,246 +513,6 @@ void main() {
       await cubit.load();
 
       expect(cubit.state.noticeType, InAppNoticeType.proEnding);
-      await cubit.close();
-    });
-
-    test('critical health wins over the backup notice', () async {
-      promptRepo.firstTopicOwnedAt = clockNow.subtract(const Duration(days: 3));
-      shellCubit.setHealth(
-        const ShellHealth(
-          missing: [
-            DevicePermissionItem(
-              type: DevicePermissionType.notifications,
-              status: DevicePermissionStatus.denied,
-              title: 'Notifications',
-              description: 'No page reaches you',
-              canFix: true,
-            ),
-          ],
-        ),
-      );
-      final cubit = buildCubit();
-      await cubit.load();
-
-      expect(cubit.state.noticeType, InAppNoticeType.criticalHealth);
-      await cubit.close();
-    });
-  });
-
-  group('battery optimisation notice', () {
-    const batteryOff = ShellHealth(
-      missing: [
-        DevicePermissionItem(
-          type: DevicePermissionType.batteryOptimization,
-          status: DevicePermissionStatus.denied,
-          title: 'Battery optimization',
-          description: 'May delay alerts',
-          canFix: true,
-        ),
-      ],
-    );
-
-    setUp(() {
-      getConnection.result = const ServerConnection(
-        serverUrl: 'https://api.critalarm.app',
-        adminToken: 'token123',
-      ).toSuccess();
-      shellCubit.setHealth(batteryOff);
-      topics = [const Topic(name: 'prod-db', critical: true)];
-    });
-
-    test('shows with a critical topic and battery optimisation on', () async {
-      final cubit = buildCubit();
-      await cubit.load();
-
-      expect(cubit.state.noticeType, InAppNoticeType.batteryOptimization);
-      await cubit.close();
-    });
-
-    test('absent with no critical topic', () async {
-      topics = [const Topic(name: 'prod-db')];
-      final cubit = buildCubit();
-      await cubit.load();
-
-      expect(
-        cubit.state.noticeType,
-        isNot(InAppNoticeType.batteryOptimization),
-      );
-      await cubit.close();
-    });
-
-    test('absent with no topics at all', () async {
-      topics = [];
-      final cubit = buildCubit();
-      await cubit.load();
-
-      expect(cubit.state.noticeType, InAppNoticeType.none);
-      await cubit.close();
-    });
-
-    test('absent when battery optimisation is already off', () async {
-      shellCubit.setHealth(const ShellHealth());
-      final cubit = buildCubit();
-      await cubit.load();
-
-      expect(
-        cubit.state.noticeType,
-        isNot(InAppNoticeType.batteryOptimization),
-      );
-      await cubit.close();
-    });
-
-    test('beats Pro ending and the backup notice', () async {
-      proEnding.view = ProEndingView(
-        showPill: true,
-        endsAt: DateTime(2026, 10, 20),
-      );
-      final cubit = buildCubit();
-      await cubit.load();
-
-      expect(cubit.state.noticeType, InAppNoticeType.batteryOptimization);
-      await cubit.close();
-    });
-
-    test('critical health beats it', () async {
-      shellCubit.setHealth(
-        const ShellHealth(
-          missing: [
-            DevicePermissionItem(
-              type: DevicePermissionType.notifications,
-              status: DevicePermissionStatus.denied,
-              title: 'Notifications',
-              description: 'No page reaches you',
-              canFix: true,
-            ),
-          ],
-        ),
-      );
-      final cubit = buildCubit();
-      await cubit.load();
-
-      expect(cubit.state.noticeType, InAppNoticeType.criticalHealth);
-      await cubit.close();
-    });
-
-    test('shows once: after a dismiss it never returns on Home', () async {
-      final cubit = buildCubit(cooldown: const Duration(milliseconds: 20));
-      await cubit.load();
-      expect(cubit.state.noticeType, InAppNoticeType.batteryOptimization);
-
-      await cubit.dismissCurrent();
-      expect(promptRepo.batteryDismissedAt, isNotNull);
-      expect(cubit.state.noticeType, InAppNoticeType.none);
-
-      await Future<void>.delayed(const Duration(milliseconds: 40));
-      await cubit.onAppResumed();
-      expect(
-        cubit.state.noticeType,
-        isNot(InAppNoticeType.batteryOptimization),
-      );
-      await cubit.close();
-
-      // A fresh cubit (a new app launch) agrees.
-      final next = buildCubit();
-      await next.load();
-      expect(next.state.noticeType, isNot(InAppNoticeType.batteryOptimization));
-      await next.close();
-    });
-  });
-
-  group('system update notice', () {
-    const updated = SystemUpdateReading(needsLook: true, osMajor: 27);
-
-    setUp(() {
-      getConnection.result = const ServerConnection(
-        serverUrl: 'https://api.critalarm.app',
-        adminToken: 'token123',
-      ).toSuccess();
-    });
-
-    test('shows when the check needs a look', () async {
-      final cubit = buildCubit(readSystemUpdate: () async => updated);
-      await cubit.load();
-
-      expect(cubit.state.noticeType, InAppNoticeType.systemUpdate);
-      await cubit.close();
-    });
-
-    test('absent when the check is fine', () async {
-      final cubit = buildCubit(
-        readSystemUpdate: () async =>
-            const SystemUpdateReading(needsLook: false, osMajor: 27),
-      );
-      await cubit.load();
-
-      expect(cubit.state.noticeType, isNot(InAppNoticeType.systemUpdate));
-      await cubit.close();
-    });
-
-    test('absent while setup is not done', () async {
-      final cubit = buildCubit(
-        isSetupDone: () async => false,
-        readSystemUpdate: () async => updated,
-      );
-      await cubit.load();
-
-      expect(cubit.state.noticeType, InAppNoticeType.none);
-      await cubit.close();
-    });
-
-    test('a failed read shows nothing and breaks nothing', () async {
-      final cubit = buildCubit(
-        readSystemUpdate: () async => throw StateError('no plugin'),
-      );
-      await cubit.load();
-
-      expect(cubit.state.noticeType, isNot(InAppNoticeType.systemUpdate));
-      await cubit.close();
-    });
-
-    test('closing it keeps it gone for the same OS version', () async {
-      final cubit = buildCubit(
-        cooldown: const Duration(milliseconds: 20),
-        readSystemUpdate: () async => updated,
-      );
-      await cubit.load();
-      await cubit.dismissCurrent();
-
-      expect(promptRepo.systemUpdateDismissedFor, 27);
-      expect(cubit.state.noticeType, InAppNoticeType.none);
-
-      await Future<void>.delayed(const Duration(milliseconds: 40));
-      await cubit.onAppResumed();
-      expect(cubit.state.noticeType, isNot(InAppNoticeType.systemUpdate));
-      await cubit.close();
-
-      // A new launch agrees.
-      final next = buildCubit(readSystemUpdate: () async => updated);
-      await next.load();
-      expect(next.state.noticeType, isNot(InAppNoticeType.systemUpdate));
-      await next.close();
-    });
-
-    test('a later update shows it once more', () async {
-      promptRepo.systemUpdateDismissedFor = 27;
-      final cubit = buildCubit(
-        readSystemUpdate: () async =>
-            const SystemUpdateReading(needsLook: true, osMajor: 28),
-      );
-      await cubit.load();
-
-      expect(cubit.state.noticeType, InAppNoticeType.systemUpdate);
-      await cubit.close();
-    });
-
-    test('a blocker comes before it', () async {
-      getConnection.result = const Failure.notFound(
-        message: 'No saved connection',
-      ).toFailure();
-      final cubit = buildCubit(readSystemUpdate: () async => updated);
-      await cubit.load();
-
-      expect(cubit.state.noticeType, InAppNoticeType.noServer);
       await cubit.close();
     });
   });
