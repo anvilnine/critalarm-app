@@ -43,6 +43,7 @@ import 'package:critalarm/features/reliability/presentation/maker/maker_guide_sc
 import 'package:critalarm/features/reliability/presentation/reliability_screen.dart';
 import 'package:critalarm/features/settings/domain/usecases/import_sound_usecase.dart';
 import 'package:critalarm/features/settings/presentation/about_screen.dart';
+import 'package:critalarm/features/settings/presentation/access_lab_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_debug_screen.dart';
 import 'package:critalarm/features/settings/presentation/alarm_settings_screen.dart';
 import 'package:critalarm/features/settings/presentation/app_icon_screen.dart';
@@ -115,6 +116,7 @@ abstract final class AppRoute {
   static const faceGallery = 'faceGallery';
   static const ringingFaces = 'ringingFaces';
   static const localReminderLab = 'localReminderLab';
+  static const accessLab = 'accessLab';
   static const paywall = 'paywall';
   static const paywallLayout = 'paywallLayout';
   static const paywallLayoutsDev = 'paywallLayoutsDev';
@@ -550,6 +552,20 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
                           key: state.pageKey,
                           opaque: true,
                           child: const PaywallLayoutsDevScreen(),
+                        ),
+                      ),
+                    // The Plans and features lab. It writes the developer
+                    // plan switches, which only a build that skips the
+                    // store has, so a store build holds no such route.
+                    if (buildSkipsPaywall)
+                      GoRoute(
+                        path: 'access',
+                        parentNavigatorKey: _rootKey,
+                        name: AppRoute.accessLab,
+                        pageBuilder: (context, state) => AmbientPage(
+                          key: state.pageKey,
+                          opaque: true,
+                          child: const AccessLabScreen(),
                         ),
                       ),
                     GoRoute(

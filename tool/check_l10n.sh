@@ -29,6 +29,7 @@ skip_file() {
     lib/core/api/mock_server.dart|lib/core/api/mock_api_client.dart) return 0 ;;
     lib/design/gallery/*) return 0 ;;
     lib/features/settings/presentation/dialog_sheet_gallery_screen.dart) return 0 ;;
+    lib/features/settings/presentation/access_lab_screen.dart) return 0 ;;
     lib/features/settings/presentation/face_gallery_screen.dart) return 0 ;;
     lib/features/settings/presentation/ringing_faces_screen.dart) return 0 ;;
     *) return 1 ;;
