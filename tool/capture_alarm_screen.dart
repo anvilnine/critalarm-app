@@ -41,6 +41,15 @@
 // screen reader walks the same things in the same order, and whether every
 // button and its label sit where they did.
 //
+// The person's own look is
+//   --dart-define=STYLE=own --dart-define=PHOTO=bright
+// with PHOTO one of `bright`, `dark` and `busy`, three photos the tool
+// draws itself (`own_look_photos.dart`). The photo goes in through the
+// app's own import and is held by the keeper before the first frame, as
+// at launch. `--dart-define=ACCENT=mint` picks the colour of "I'm up".
+// `--dart-define=PHOTO=missing` saves a photo and then deletes its file,
+// which draws the standard look.
+//
 // By default the screen is captured bare, on its own background. The app
 // draws it on the canvas of its ambient shell, with the shapes of the
 // alarm's ambient profile behind it. To capture it that way:
@@ -72,6 +81,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/helpers/load_translations.dart';
+import 'own_look_photos.dart';
 
 const _out = String.fromEnvironment('OUT', defaultValue: 'build/alarm_shots');
 const _against = String.fromEnvironment('AGAINST');
@@ -81,6 +91,8 @@ const _isAcking = _stage == 'acking';
 const _style = String.fromEnvironment('STYLE');
 const _isHeld = bool.fromEnvironment('HELD', defaultValue: true);
 const _inShell = bool.fromEnvironment('SHELL');
+const _photo = String.fromEnvironment('PHOTO', defaultValue: 'bright');
+const _accent = String.fromEnvironment('ACCENT', defaultValue: 'yellow');
 
 /// Where the phone's look is saved (`AlarmStyleChoices.defaultKey`).
 const _styleKey = 'alarm_style_default';
@@ -237,7 +249,25 @@ void main() {
       await getIt<SharedPreferences>().setString(_styleKey, _style);
       await getIt<ProPackDevSwitch>().setHeld(isHeld: _isHeld);
     }
+    if (_style == 'own') {
+      await useCaptureOwnLookStore();
+      const isMissing = _photo == 'missing';
+      await importCaptureOwnLook(
+        isMissing ? CapturePhoto.bright : CapturePhoto.values.byName(_photo),
+        // The largest screen captured here, at the capture's two pixels a
+        // point.
+        screen: const Size(390, 844) * 2,
+        // ignore: avoid_redundant_argument_values, set by ACCENT
+        accent: _accent,
+        // With the plan not held the picture is not kept in memory.
+        // ignore: avoid_redundant_argument_values, set by HELD
+        isHeld: _isHeld,
+      );
+      if (isMissing) await loseCaptureOwnLookFile();
+    }
   });
+
+  tearDownAll(dropCaptureOwnLookStore);
 
   for (final (sizeName, size, topInset, bottomInset) in _screens) {
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {

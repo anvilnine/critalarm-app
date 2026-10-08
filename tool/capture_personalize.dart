@@ -26,6 +26,23 @@
 // and the topic page's Alarm look row, `topic_look_locked_...` and
 // `topic_look_open_...` (Pro held, Minimal picked for the topic).
 //
+// The person's own look has its own shots too, with photos the tool draws
+// itself (`own_look_photos.dart`):
+//   look6_locked   nothing held, no photo: the sixth tile with its lock
+//   look6_empty    Pro held, no photo: the sixth tile offers the picker
+//   look6_open     Pro held, a photo saved and picked: the tile with its
+//                  edit button, and the preview drawing the look
+//   look6_lapsed   nothing held, the photo still on the phone: locked,
+//                  Standard is what rings, the picture is not in memory,
+//                  and the cross on the tile's corner removes it
+//   own_remove     the sheet behind that cross: Remove photo and nothing
+//                  else
+//   own_crop       the crop step on a busy photo
+//   own_accent     the sheet behind the edit button, on a dark photo
+//   topic_sheet_own   the topic page's sheet with a photo saved: it lists
+//                     Yours
+//   topic_sheet_none  the same sheet with no photo: it does not
+//
 // It also writes the surfaces that moved onto the one lock, free and with
 // both held: the App icon screen on a paid icon, the Reliability screen
 // with the weekly check row, and the Home widgets card's badge.
@@ -59,6 +76,7 @@ import 'package:critalarm/core/sound/alarm_sound.dart';
 import 'package:critalarm/core/sound/bundled_sounds.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/topic_alarm_style_row.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
 import 'package:critalarm/features/paywall/presentation/widgets/access_lock.dart';
@@ -67,6 +85,8 @@ import 'package:critalarm/features/settings/domain/personalize/personalize_rules
 import 'package:critalarm/features/settings/domain/repositories/alarm_sound_repository.dart';
 import 'package:critalarm/features/settings/presentation/cubits/personalize_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
+import 'package:critalarm/features/settings/presentation/personalize/own_look_flow.dart';
+import 'package:critalarm/features/settings/presentation/personalize/own_photo_crop_screen.dart';
 import 'package:critalarm/features/settings/presentation/personalize/ringing_preview.dart';
 import 'package:critalarm/features/settings/presentation/personalize/try_bar.dart';
 import 'package:flutter/material.dart';
@@ -77,6 +97,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/helpers/load_translations.dart';
+import 'own_look_photos.dart';
 
 const _out = String.fromEnvironment(
   'OUT',
@@ -260,6 +281,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await loadTestTranslations();
     await configureDependencies();
+    await useCaptureOwnLookStore();
     await _loadFonts();
     // The phone can change its icon and shows the standard one.
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -269,6 +291,8 @@ void main() {
               call.method == 'current' ? AppIcon.standard.platformName : true,
         );
   });
+
+  tearDownAll(dropCaptureOwnLookStore);
 
   void capture(
     String name,
@@ -463,6 +487,247 @@ void main() {
               'topic_look_${state}_$tail',
               isGood: errors.isEmpty,
             );
+          });
+        }
+      }
+    }
+  }
+
+  // The own look: the sixth tile, the crop step, the accent sheet and the
+  // topic page's sheet.
+  for (final (sizeName, size, top, bottom) in _phones) {
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      for (final scale in [1.0, 1.3]) {
+        final tail = '${sizeName}_${mode.name}_${scale}x';
+
+        /// Puts [photo] on the phone as the own look, or takes the photo
+        /// off when it is null.
+        Future<void> ownLook(
+          WidgetTester tester,
+          CapturePhoto? photo, {
+          String accent = 'yellow',
+          bool isDefault = false,
+          bool isHeld = true,
+        }) => tester.runAsync(() async {
+          if (photo == null) {
+            await getIt<OwnAlarmLookKeeper>().removePhoto();
+            return;
+          }
+          await importCaptureOwnLook(
+            photo,
+            screen: size * 2,
+            accent: accent,
+            isHeld: isHeld,
+          );
+          if (isDefault) await getIt<AlarmStyleChoices>().setDefault('own');
+        });
+
+        for (final state in ['locked', 'empty', 'open', 'lapsed']) {
+          capture('look6_${state}_$tail', (tester, errors) async {
+            final hasPhoto = state == 'open' || state == 'lapsed';
+            await _hold(
+              isPro: state == 'empty' || state == 'open',
+              isHosted: false,
+            );
+            await ownLook(
+              tester,
+              hasPhoto ? CapturePhoto.bright : null,
+              isDefault: hasPhoto,
+              isHeld: state == 'open',
+            );
+            try {
+              final key = await _open(
+                tester,
+                location: '/settings/personalize',
+                size: size,
+                topInset: top,
+                bottomInset: bottom,
+                mode: mode,
+                scale: scale,
+              );
+              // Lapsed, the picture is not in memory, so the tile is the
+              // empty one.
+              final tile = find.byKey(
+                ValueKey(state == 'open' ? 'look-own' : 'look-own-add'),
+              );
+              expect(tile, findsOneWidget, reason: 'No sixth tile.');
+              // Along the strip to its last tile, and down to the strip
+              // where the phone is too short to show it.
+              await tester.ensureVisible(tile);
+              await tester.pump(const Duration(milliseconds: 300));
+              expect(
+                find.byKey(const ValueKey('look-own-edit')),
+                state == 'open' ? findsOneWidget : findsNothing,
+              );
+              // A saved photo can be removed whatever the plan.
+              expect(
+                find.byKey(const ValueKey('look-own-remove')),
+                state == 'lapsed' ? findsOneWidget : findsNothing,
+              );
+              expect(
+                getIt<OwnAlarmLookKeeper>().isReady,
+                state == 'open',
+                reason: 'what is held in memory',
+              );
+              await _save(
+                tester,
+                key,
+                'look6_${state}_$tail',
+                isGood: errors.isEmpty,
+              );
+            } finally {
+              await ownLook(tester, null);
+            }
+          });
+        }
+
+        capture('own_remove_$tail', (tester, errors) async {
+          await _hold(isPro: false, isHosted: false);
+          await ownLook(
+            tester,
+            CapturePhoto.bright,
+            isDefault: true,
+            isHeld: false,
+          );
+          try {
+            final key = await _open(
+              tester,
+              location: '/settings/personalize',
+              size: size,
+              topInset: top,
+              bottomInset: bottom,
+              mode: mode,
+              scale: scale,
+            );
+            final remove = find.byKey(const ValueKey('look-own-remove'));
+            await tester.ensureVisible(remove);
+            await tester.pump(const Duration(milliseconds: 300));
+            await tester.tap(remove, warnIfMissed: false);
+            for (var i = 0; i < 4; i++) {
+              await tester.pump(const Duration(milliseconds: 200));
+            }
+            expect(find.byType(OwnLookSheetContent), findsOneWidget);
+            // Nothing to buy and nothing to edit in it: one button.
+            expect(
+              find.descendant(
+                of: find.byType(OwnLookSheetContent),
+                matching: find.byType(AppButton),
+              ),
+              findsOneWidget,
+            );
+            await _save(
+              tester,
+              key,
+              'own_remove_$tail',
+              isGood: errors.isEmpty,
+            );
+          } finally {
+            await ownLook(tester, null);
+          }
+        });
+
+        capture('own_crop_$tail', (tester, errors) async {
+          final picture = (await tester.runAsync(
+            () => capturePhotoImage(CapturePhoto.busy),
+          ))!;
+          addTearDown(picture.dispose);
+          final key = await _open(
+            tester,
+            location: '/',
+            size: size,
+            topInset: top,
+            bottomInset: bottom,
+            mode: mode,
+            scale: scale,
+            home: OwnPhotoCropScreen(
+              picture: picture,
+              onUse: (crop) async => null,
+            ),
+          );
+          expect(find.byType(InteractiveViewer), findsOneWidget);
+          await _save(tester, key, 'own_crop_$tail', isGood: errors.isEmpty);
+        });
+
+        capture('own_accent_$tail', (tester, errors) async {
+          await _hold(isPro: true, isHosted: false);
+          await ownLook(
+            tester,
+            CapturePhoto.dark,
+            accent: 'mint',
+            isDefault: true,
+          );
+          try {
+            final key = await _open(
+              tester,
+              location: '/settings/personalize',
+              size: size,
+              topInset: top,
+              bottomInset: bottom,
+              mode: mode,
+              scale: scale,
+            );
+            final edit = find.byKey(const ValueKey('look-own-edit'));
+            await tester.ensureVisible(edit);
+            await tester.pump(const Duration(milliseconds: 300));
+            await tester.tap(edit, warnIfMissed: false);
+            for (var i = 0; i < 4; i++) {
+              await tester.pump(const Duration(milliseconds: 200));
+            }
+            expect(find.byType(OwnLookSheetContent), findsOneWidget);
+            await _save(
+              tester,
+              key,
+              'own_accent_$tail',
+              isGood: errors.isEmpty,
+            );
+          } finally {
+            await ownLook(tester, null);
+          }
+        });
+
+        for (final hasPhoto in [true, false]) {
+          final state = hasPhoto ? 'own' : 'none';
+          capture('topic_sheet_${state}_$tail', (tester, errors) async {
+            getIt<MockServer>().loadFixture(FaceState.calm);
+            await _hold(isPro: true, isHosted: false);
+            await ownLook(tester, hasPhoto ? CapturePhoto.bright : null);
+            if (hasPhoto) {
+              await getIt<AlarmStyleChoices>().setTopicStyle(_topic, 'own');
+            }
+            try {
+              final key = await _open(
+                tester,
+                location: '/topics/$_topic',
+                size: size,
+                topInset: top,
+                bottomInset: bottom,
+                mode: mode,
+                scale: scale,
+                // See the topic row above.
+                isStill: false,
+              );
+              await tester.ensureVisible(find.byType(TopicAlarmStyleRow));
+              await tester.pump(const Duration(milliseconds: 300));
+              await tester.tap(
+                find.byType(TopicAlarmStyleRow),
+                warnIfMissed: false,
+              );
+              for (var i = 0; i < 4; i++) {
+                await tester.pump(const Duration(milliseconds: 200));
+              }
+              expect(
+                find.byType(AppSheetOptionRow<int>),
+                findsNWidgets(hasPhoto ? 7 : 6),
+              );
+              await _save(
+                tester,
+                key,
+                'topic_sheet_${state}_$tail',
+                isGood: errors.isEmpty,
+              );
+            } finally {
+              await ownLook(tester, null);
+            }
           });
         }
       }

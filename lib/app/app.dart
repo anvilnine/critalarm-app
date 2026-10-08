@@ -42,6 +42,7 @@ import 'package:critalarm/features/feedback/domain/feedback_links.dart';
 import 'package:critalarm/features/feedback/presentation/open_feedback_form.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
+import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
 import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_plan_trigger.dart';
 import 'package:critalarm/features/local_reminders/domain/local_reminder_scheduler.dart';
@@ -241,6 +242,9 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     getIt<ChallengeFlagSync>().start();
     // Made now too, and it notes each sure answer about the plan.
     getIt<AlarmStyleGate>().start();
+    // The own photo is decoded now, ahead of any alarm: the alarm screen
+    // never reads a file or decodes while it rings.
+    unawaited(getIt<OwnAlarmLookKeeper>().start());
     _autoDelete();
   }
 

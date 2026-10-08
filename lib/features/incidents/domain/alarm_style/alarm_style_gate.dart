@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:critalarm/core/access/feature_decision.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_assignments.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_choices.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_id.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_rule.dart';
@@ -25,9 +26,13 @@ class AlarmStyleGate {
     required this._readAccountId,
     required Future<void> planRead,
     this._changes = const [],
+    this._isOwnLookReady,
   }) {
     unawaited(
-      planRead.then<void>((_) => _isPlanRead = true, onError: (Object _) {}),
+      planRead.then<void>((_) {
+        _isPlanRead = true;
+        if (!_checked.isClosed) _checked.add(null);
+      }, onError: (Object _) {}),
     );
   }
 
@@ -46,10 +51,47 @@ class AlarmStyleGate {
   /// The tag of that account, once [check] has read it.
   String? _accountTag;
 
+  /// Whether the person's own photo is decoded and held in memory right
+  /// now. Left out, the own look is never ready. It must answer at once:
+  /// the alarm screen asks it while it rings.
+  final bool Function()? _isOwnLookReady;
+
   /// Each fires when the answer may have changed.
   final List<Stream<Object?>> _changes;
 
   final List<StreamSubscription<Object?>> _subscriptions = [];
+  final _checked = StreamController<void>.broadcast();
+
+  /// Fires after every [check], whether it changed the note or not. What
+  /// [drawsPaidLooks] answers can have changed by then: the account is
+  /// known, or the plan was read.
+  Stream<void> get checked => _checked.stream;
+
+  /// Whether a paid look would be drawn right now if one were saved: the
+  /// plan is held, a purchase is being confirmed, or the plan cannot be
+  /// read and the last sure answer for this account was "open". The same
+  /// rule [styleFor] follows, asked with no look in mind.
+  ///
+  /// The own look's photo is held in memory only while this is true.
+  bool get drawsPaidLooks {
+    try {
+      return alarmStyleFor(
+            saved: AlarmStyleAssignments(
+              defaultStyleId: AlarmStyleId.minimal.id,
+            ),
+            decision: _decide(),
+            isPlanRead: _isPlanRead,
+            wasOpenWhenLastSure: openNoteCountsFor(
+              noteTag: _choices.openNote,
+              accountTag: _accountTag,
+            ),
+          ) !=
+          AlarmStyleId.standard;
+    } on Object catch (_) {
+      return false;
+    }
+  }
+
   bool _isPlanRead = false;
   bool _running = false;
   bool _askedAgain = false;
@@ -69,6 +111,7 @@ class AlarmStyleGate {
           accountTag: _accountTag,
         ),
         isSetupAlarm: isSetupAlarm,
+        isOwnLookReady: _isOwnLookReady?.call() ?? false,
       );
     } on Object catch (_) {
       return AlarmStyleId.standard;
@@ -90,6 +133,7 @@ class AlarmStyleGate {
       await subscription.cancel();
     }
     _subscriptions.clear();
+    await _checked.close();
   }
 
   /// Writes the note when a sure answer changes it. One run at a time: a
@@ -108,6 +152,7 @@ class AlarmStyleGate {
       } while (_askedAgain);
     } finally {
       _running = false;
+      if (!_checked.isClosed) _checked.add(null);
     }
   }
 

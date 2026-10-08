@@ -404,7 +404,11 @@ void main() {
           AlarmStyleId.terminal => terminalBackdropTones(colors),
           AlarmStyleId.redAlert => redAlertBackdropTones(colors, stage),
           AlarmStyleId.critPanic => critPanicBackdropTones(colors),
-          AlarmStyleId.standard || AlarmStyleId.minimal => const [],
+          // The own look's tones depend on its photo. Its own test
+          // measures them.
+          AlarmStyleId.standard ||
+          AlarmStyleId.minimal ||
+          AlarmStyleId.own => const [],
         };
 
     for (final style in _painted) {

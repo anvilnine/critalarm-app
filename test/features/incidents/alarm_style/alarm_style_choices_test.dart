@@ -114,7 +114,10 @@ void main() {
     late bool isUnreadable;
     late String? account;
 
+    var isOwnLookReady = false;
+
     AlarmStyleGate gate({Stream<Object?>? changes}) => AlarmStyleGate(
+      isOwnLookReady: () => isOwnLookReady,
       choices: choices,
       decide: () => now,
       decideOnceReady: () async {
@@ -128,6 +131,7 @@ void main() {
     );
 
     setUp(() {
+      isOwnLookReady = false;
       now = _open;
       planRead = Completer<void>();
       isUnreadable = false;
@@ -147,6 +151,63 @@ void main() {
         styles.styleFor('prod-db', isSetupAlarm: true),
         AlarmStyleId.standard,
       );
+    });
+
+    test('the own look draws only while its photo is held, and is asked '
+        'each time', () async {
+      await start({'alarm_style_default': 'own'});
+      final styles = gate();
+      expect(styles.styleFor('prod-db'), AlarmStyleId.standard);
+      isOwnLookReady = true;
+      expect(styles.styleFor('prod-db'), AlarmStyleId.own);
+      // The photo was removed, or the account left.
+      isOwnLookReady = false;
+      expect(styles.styleFor('prod-db'), AlarmStyleId.standard);
+      // What is saved was never touched.
+      expect(choices.assignments.defaultStyleId, 'own');
+    });
+
+    test('says whether a paid look would draw at all, by the same rule, '
+        'and tells when that may have changed', () async {
+      await start({});
+      final styles = gate();
+      var checks = 0;
+      final subscription = styles.checked.listen((_) => checks++);
+      addTearDown(subscription.cancel);
+
+      // Open: yes, with nothing saved and nothing noted.
+      expect(styles.drawsPaidLooks, isTrue);
+      // A lock from before the plan is read, with no note: no.
+      now = _locked;
+      expect(styles.drawsPaidLooks, isFalse);
+      // The same lock for an account whose last sure answer was open.
+      await choices.writeOpenNote(_mine);
+      expect(styles.drawsPaidLooks, isFalse, reason: 'account not read yet');
+      isUnreadable = true;
+      planRead.complete();
+      await styles.check();
+      await Future<void>.delayed(Duration.zero);
+      expect(checks, greaterThanOrEqualTo(1));
+      // The plan was read and says locked: no, note or no note.
+      expect(styles.drawsPaidLooks, isFalse);
+      // Unreadable, with the note for this account: yes.
+      now = _unread;
+      expect(styles.drawsPaidLooks, isTrue);
+      await choices.writeOpenNote(null);
+      expect(styles.drawsPaidLooks, isFalse);
+    });
+
+    test('a gate that is told nothing about the photo never draws the own '
+        'look', () async {
+      await start({'alarm_style_default': 'own'});
+      final styles = AlarmStyleGate(
+        choices: choices,
+        decide: () => _open,
+        decideOnceReady: () async => _open,
+        readAccountId: () async => _account,
+        planRead: Future<void>.value(),
+      );
+      expect(styles.styleFor(null), AlarmStyleId.standard);
     });
 
     test('a sure lock draws Standard and keeps what is saved, and the plan '

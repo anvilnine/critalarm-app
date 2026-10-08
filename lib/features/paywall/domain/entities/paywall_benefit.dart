@@ -92,9 +92,9 @@ const _hostedParts =
 /// listed under Pro while Pro unlocks its feature.
 ///
 /// [PaywallBenefit.inThisBuild] is true only for what the app has today:
-/// the widgets and the weekly delivery check. The other three are written
-/// and drawn, and a layout picks each one up the day its switch is turned
-/// on.
+/// the widgets, the weekly delivery check and the alarm screen looks (four
+/// fixed ones and the person's own photo). The other two are written and
+/// drawn, and a layout picks each one up the day its switch is turned on.
 const _proDisplayOrder = <PaywallBenefit>[
   PaywallBenefit(
     id: PaywallBenefitId.wakeUpChallenges,
@@ -139,7 +139,7 @@ const _proDisplayOrder = <PaywallBenefit>[
     titleKey: LocaleKeys.paywall_kit_benefits_custom_alarm_screens_title,
     lineKey: LocaleKeys.paywall_kit_benefits_custom_alarm_screens_line,
     previewId: PaywallPreviewId.customAlarmScreens,
-    inThisBuild: false,
+    inThisBuild: true,
   ),
 ];
 
