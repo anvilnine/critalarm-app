@@ -259,6 +259,9 @@ void main() {
         screen: const Size(390, 844) * 2,
         // ignore: avoid_redundant_argument_values, set by ACCENT
         accent: _accent,
+        // With the plan not held the picture is not kept in memory.
+        // ignore: avoid_redundant_argument_values, set by HELD
+        isHeld: _isHeld,
       );
       if (isMissing) await loseCaptureOwnLookFile();
     }

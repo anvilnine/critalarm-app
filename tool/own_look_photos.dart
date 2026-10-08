@@ -15,6 +15,7 @@ import 'dart:ui' as ui;
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/features/incidents/data/own_look/file_own_look_store.dart';
 import 'package:critalarm/features/incidents/data/own_look/ui_own_photo_codec.dart';
+import 'package:critalarm/features/incidents/domain/alarm_style/alarm_style_gate.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/own_photo_import.dart';
 import 'package:critalarm/features/incidents/presentation/alarm_style/own_alarm_look_keeper.dart';
@@ -169,14 +170,26 @@ Future<void> dropCaptureOwnLookStore() async {
   if (root != null && root.existsSync()) await root.delete(recursive: true);
 }
 
+/// [photo] decoded, for a capture of the crop step.
+Future<ui.Image> capturePhotoImage(CapturePhoto photo) async {
+  final codec = await ui.instantiateImageCodec(await capturePhotoPng(photo));
+  final image = (await codec.getNextFrame()).image;
+  codec.dispose();
+  return image;
+}
+
 /// Puts [photo] on the phone as the own look, the way the app does: the
-/// file is checked and kept by the import, at the size of a screen
-/// [screen] pixels, then decoded and held by the keeper. Prints the scrim
-/// it got.
+/// file is checked, decoded once and kept by the import, at the size of a
+/// screen [screen] pixels, then decoded and held by the keeper. Prints
+/// the scrim it got.
+///
+/// [isHeld] false is a phone whose plan does not open alarm looks: the
+/// photo is saved and the keeper must not hold it.
 Future<void> importCaptureOwnLook(
   CapturePhoto photo, {
   required ui.Size screen,
   String accent = 'yellow',
+  bool isHeld = true,
 }) async {
   final file = File('${_root!.path}/picked_${photo.name}.png');
   await file.writeAsBytes(await capturePhotoPng(photo));
@@ -189,29 +202,33 @@ Future<void> importCaptureOwnLook(
     getIt<OwnLookStore>(),
     isLocked: () async => false,
   );
-  final checked = (await usecase.check(
+  final working = (await usecase.open(
     PickedOwnPhoto(
       path: file.path,
       name: 'picked_${photo.name}.png',
       sizeBytes: await file.length(),
     ),
   )).getOrThrow();
+  await file.delete();
   final record = (await usecase.save(
-    source: checked,
+    photo: working,
     crop: OwnPhotoCrop.whole,
     screenWidth: screen.width,
     screenHeight: screen.height,
   )).getOrThrow();
-  await file.delete();
+  working.dispose();
   final keeper = getIt<OwnAlarmLookKeeper>();
   await keeper.setAccent(ownLookAccentOf(accent));
   await keeper.start();
-  if (!keeper.isReady) throw StateError('the own look is not held');
+  if (keeper.isReady != isHeld) {
+    throw StateError('the own look is held: ${keeper.isReady}');
+  }
   print(
     '     own look: ${photo.name} photo kept at '
     '${record.width}x${record.height}, measured '
     '${record.measure.darkest} to ${record.measure.brightest} of 255, '
-    '${ownLookScrimOf(record.measure)}, accent ${keeper.accent.id}',
+    '${ownLookScrimOf(record.measure)}, accent ${keeper.accent.id}, '
+    'held in memory: ${keeper.isReady}',
   );
 }
 
@@ -226,7 +243,12 @@ Future<void> loseCaptureOwnLookFile() async {
   final keeper = getIt<OwnAlarmLookKeeper>();
   await keeper.dispose();
   await getIt.unregister<OwnAlarmLookKeeper>();
-  getIt.registerSingleton(OwnAlarmLookKeeper(getIt<OwnLookStore>()));
+  getIt.registerSingleton(
+    OwnAlarmLookKeeper(
+      getIt<OwnLookStore>(),
+      mayHold: () => getIt<AlarmStyleGate>().drawsPaidLooks,
+    ),
+  );
   await getIt<OwnAlarmLookKeeper>().start();
   print(
     '     own look: file deleted, record kept, held: '
