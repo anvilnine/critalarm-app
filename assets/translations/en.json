@@ -1990,5 +1990,9 @@
       "custom_sounds": "Sounds",
       "custom_alarm_screens": "Screens"
     }
+  },
+  "paywall_sounds": {
+    "settings_title": "Interface sounds",
+    "settings_subtitle": "Short sounds on the plans screen. They follow silent mode and the media volume. They are never an alarm."
   }
 }
