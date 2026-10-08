@@ -118,11 +118,7 @@ class _AppListRowState extends State<AppListRow> {
       nameColor = colors.ink;
       metaColor = colors.ink3;
       faceFill = colors.canvas;
-      faceStroke =
-          widget.faceStrokeColor ??
-          (widget.faceState == FaceState.worried
-              ? colors.high
-              : colors.faceStroke);
+      faceStroke = widget.faceStrokeColor ?? colors.faceStroke;
       faceInk = colors.faceInk;
       shadows = _isHovered ? AppShadows.lightMd : const [];
     }
