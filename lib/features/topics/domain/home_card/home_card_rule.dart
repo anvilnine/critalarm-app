@@ -2,12 +2,11 @@ import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart' show SeverityMode;
 import 'package:critalarm/features/reliability/domain/attention_order.dart';
-import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
+import 'package:critalarm/features/reliability/domain/readiness_pips.dart';
 import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_kind.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_model.dart';
-import 'package:critalarm/features/topics/domain/home_card/readiness_pips.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
 
 /// Picks what Home's dark card shows.
@@ -66,15 +65,17 @@ bool _isLoadFailed(HomeCardInput i) => i.loadFailed;
 
 bool _isNoTopics(HomeCardInput i) => i.topicCount == 0;
 
-/// Health only counts once the first read has ended.
-bool _isIssueBroken(HomeCardInput i) =>
-    i.readiness.loaded &&
-    i.readiness.checks.any((c) => c.state == ReliabilityState.broken);
+/// Health only counts once the first read has ended. The rule is the one the
+/// Settings card reads too ([readinessKindOf]).
+ReadinessKind _readiness(HomeCardInput i) => readinessKindOf(
+  loaded: i.readiness.loaded,
+  incomplete: i.readiness.incomplete,
+  checks: i.readiness.checks,
+);
 
-bool _isIssueLook(HomeCardInput i) =>
-    i.readiness.loaded &&
-    (i.readiness.incomplete ||
-        i.readiness.checks.any((c) => c.state == ReliabilityState.needsLook));
+bool _isIssueBroken(HomeCardInput i) => _readiness(i) == ReadinessKind.broken;
+
+bool _isIssueLook(HomeCardInput i) => _readiness(i) == ReadinessKind.look;
 
 bool _isWarning(HomeCardInput i) => i.warningCount > 0;
 

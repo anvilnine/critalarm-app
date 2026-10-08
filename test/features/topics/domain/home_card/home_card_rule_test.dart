@@ -7,12 +7,12 @@ import 'package:critalarm/design/tokens/colors.dart' show SeverityMode;
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_fix.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_state.dart';
+import 'package:critalarm/features/reliability/domain/readiness_pips.dart';
 import 'package:critalarm/features/topics/domain/home_card/handled_window.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_input.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_kind.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_model.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_rule.dart';
-import 'package:critalarm/features/topics/domain/home_card/readiness_pips.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
 import 'package:flutter_test/flutter_test.dart';
 

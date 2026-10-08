@@ -4,9 +4,10 @@ import 'package:critalarm/design/components/readiness_pips.dart';
 import 'package:critalarm/design/components/status_card.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/reliability/domain/entities/reliability_check.dart';
+import 'package:critalarm/features/reliability/domain/readiness_pips.dart';
+import 'package:critalarm/features/reliability/presentation/readiness_view.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_kind.dart';
 import 'package:critalarm/features/topics/domain/home_card/home_card_model.dart';
-import 'package:critalarm/features/topics/domain/home_card/readiness_pips.dart';
 import 'package:critalarm/features/topics/domain/setup_checklist.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -225,23 +226,9 @@ String _setupRow(SetupChecklistRow row) => switch (row) {
     LocaleKeys.home_card_setup_row_first_message.tr(),
 };
 
-/// The short line for a failing check.
-String homeCardCheckFoot(ReliabilityCheckId? id) {
-  final key = switch (id?.value) {
-    'notifications' => LocaleKeys.home_card_check_notifications,
-    'full_screen_alarm' => LocaleKeys.home_card_check_full_screen_alarm,
-    'battery_optimization' => LocaleKeys.home_card_check_battery_optimization,
-    'alarms' => LocaleKeys.home_card_check_alarms,
-    'time_sensitive' => LocaleKeys.home_card_check_time_sensitive,
-    'push_token_confirmed' => LocaleKeys.home_card_check_push_token_confirmed,
-    'last_push_received' => LocaleKeys.home_card_check_last_push_received,
-    'system_update' => LocaleKeys.home_card_check_system_update,
-    'phone_maker' => LocaleKeys.home_card_check_phone_maker,
-    'missed_alarm' => LocaleKeys.home_card_check_missed_alarm,
-    _ => LocaleKeys.home_card_check_other,
-  };
-  return key.tr();
-}
+/// The short line for a failing check. The Settings card reads the same
+/// line ([readinessCheckLine]).
+String homeCardCheckFoot(ReliabilityCheckId? id) => readinessCheckLine(id);
 
 String _actionLabel(HomeCardAction action) => switch (action) {
   OpenAlarm() => LocaleKeys.home_card_action_open_alarm.tr(),
@@ -279,9 +266,4 @@ AppHeroTone _heroTone(HomeCardDiscTone tone) => switch (tone) {
   HomeCardDiscTone.cobalt => AppHeroTone.calm,
 };
 
-AppPipTone _pip(PipTone tone) => switch (tone) {
-  PipTone.fine => AppPipTone.fine,
-  PipTone.look => AppPipTone.look,
-  PipTone.broken => AppPipTone.broken,
-  PipTone.open => AppPipTone.open,
-};
+AppPipTone _pip(PipTone tone) => readinessPipTone(tone);
