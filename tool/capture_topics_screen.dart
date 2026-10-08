@@ -118,8 +118,6 @@ HomeState _staleHome() {
   final now = DateTime.now();
   HomeTopicItem row(String name, String preview, Duration ago) => HomeTopicItem(
     name: name,
-    meta: '',
-    priority: PriorityLevel.defaultPriority,
     preview: preview,
     lastMessageAt: now.subtract(ago),
     ringsThroughSilent: name == 'prod-db',

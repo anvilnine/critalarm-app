@@ -3,7 +3,6 @@
 import 'dart:async';
 
 import 'package:critalarm/core/models/incident.dart';
-import 'package:critalarm/design/components/chips.dart';
 import 'package:critalarm/design/faces/face_meaning.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart' show SeverityMode;
@@ -118,8 +117,6 @@ class _FakeTimer implements Timer {
 
 const _topic = HomeTopicItem(
   name: 'prod-db',
-  meta: '',
-  priority: PriorityLevel.defaultPriority,
   ringsThroughSilent: true,
 );
 
@@ -318,7 +315,7 @@ void main() {
       addTearDown(sub.cancel);
 
       // Things the card does not draw.
-      rig.home.set(_loaded().copyWith(word: 'Clear', subText: 'No alarm'));
+      rig.home.set(_loaded().copyWith(errorMessage: 'Not drawn'));
       rig.setup.set(const HomeSetupState());
       await rig.settle();
       expect(emitted, isEmpty);
@@ -357,8 +354,6 @@ void main() {
           items: const [
             HomeTopicItem(
               name: 'plain',
-              meta: '',
-              priority: PriorityLevel.defaultPriority,
             ),
           ],
         ),
