@@ -224,13 +224,13 @@ Rect? _differs(Uint8List a, Uint8List b, int width, List<Rect> skip) {
 
 void main() {
   setUpAll(() async {
-    SharedPreferences.setMockInitialValues({
-      if (_style.isNotEmpty) _styleKey: _style,
-    });
+    SharedPreferences.setMockInitialValues({});
     await loadTestTranslations();
     await configureDependencies();
     await _loadFonts();
     if (_style.isNotEmpty) {
+      // Written to the store the app reads, once the app has set it up.
+      await getIt<SharedPreferences>().setString(_styleKey, _style);
       await getIt<ProPackDevSwitch>().setHeld(isHeld: _isHeld);
     }
   });
