@@ -51,6 +51,7 @@ import 'package:critalarm/core/device/platform_os_version_reader.dart';
 import 'package:critalarm/core/env/env.dart';
 import 'package:critalarm/core/links/connect_link_holder.dart';
 import 'package:critalarm/core/models/account_access.dart';
+import 'package:critalarm/core/motion/motion_sensor.dart';
 import 'package:critalarm/core/net/launch_call_log.dart';
 import 'package:critalarm/core/notifications/app_badge.dart';
 import 'package:critalarm/core/paywall/dev_paywall_variant_switch.dart';
@@ -566,6 +567,10 @@ Future<void> configureDependencies({
     ..registerLazySingleton<NseCredentialStore>(NseCredentialStore.new)
     ..registerLazySingleton<WidgetHost>(WidgetHost.new)
     ..registerLazySingleton<AppIconHost>(AppIconHost.new)
+    // The accelerometer, for the shake challenge. On the web and in a test
+    // the channel has no native side, the stream says so, and the
+    // challenge offers taps.
+    ..registerLazySingleton<MotionSensor>(MotionSensorHost.new)
     ..registerLazySingleton<AppBadge>(() => AppBadge(getIt<PushHost>()))
     // The same store as before, wrapped so feature access hears the server
     // mode of every session that is read or written.
