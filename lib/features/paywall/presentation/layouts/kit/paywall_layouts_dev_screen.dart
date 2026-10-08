@@ -10,6 +10,8 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tile.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -18,10 +20,12 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:go_router/go_router.dart';
 
 /// Developer options, Paywall layouts: what each product's paywall opens,
-/// picked in two steps. An intro, then a paywall, each from a sheet of
-/// small phones that play the real thing. "Open it" plays the pair as a
-/// user would see it. Under them, the routing choices that are not one
-/// named layout, and a list of every layout id to pin one by its key.
+/// picked in three steps. An intro, a paywall, then what plays after a
+/// purchase, each from a sheet of small phones that play the real thing.
+/// "Open it" plays all three as a user would see them: in a build that
+/// skips the store its buy button confirms at once. Under them, the
+/// routing choices that are not one named layout, and a list of every
+/// layout id to pin one by its key.
 ///
 /// The picks are the developer switches, so what is chosen here is also
 /// what every entry point in this build opens.
@@ -43,6 +47,12 @@ List<PaywallLayoutId> get _layouts => [
 List<PaywallIntroId> get _intros => [
   for (final intro in PaywallIntroId.values)
     if (paywallIntroIsBuilt(intro)) intro,
+];
+
+/// What this build can play after a purchase, `none` first.
+List<PaywallThanksId> get _allThanks => [
+  for (final thanks in PaywallThanksId.values)
+    if (paywallThanksIsBuilt(thanks)) thanks,
 ];
 
 String _introLabel(PaywallIntroId intro) => paywallIntroName(intro);
@@ -74,6 +84,11 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
   DevPaywallIntroSwitch get _introSwitch => switch (_product) {
     PaywallProduct.hosted => _switches.hostedIntro,
     PaywallProduct.pro => _switches.proIntro,
+  };
+
+  DevPaywallThanksSwitch get _thanksSwitch => switch (_product) {
+    PaywallProduct.hosted => _switches.hostedThanks,
+    PaywallProduct.pro => _switches.proThanks,
   };
 
   /// The layout "Open it" opens: the one pinned, or the fallback while the
@@ -126,6 +141,53 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
     );
   }
 
+  Future<void> _pickThanks() async {
+    final product = _product;
+    final thanksSwitch = _thanksSwitch;
+    final layout = _layout;
+    await showAppSheet<void>(
+      context: context,
+      title: LocaleKeys.paywall_thanks_picker_sheet_title.tr(),
+      subtitle: LocaleKeys.paywall_picker_sheet_note.tr(),
+      content: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _TileRow(
+            count: _allThanks.length,
+            selected: _allThanks.indexOf(
+              thanksSwitch.value ?? PaywallThanksId.none,
+            ),
+            tileBuilder: (context, index) {
+              final thanks = _allThanks[index];
+              return PaywallThanksTile(
+                thanks: thanks,
+                layout: layout,
+                product: product,
+                label: paywallThanksName(thanks),
+                isSelected: thanks == thanksSwitch.value,
+                onTap: () {
+                  unawaited(thanksSwitch.setThanks(thanks));
+                  Navigator.of(sheetContext).pop();
+                },
+              );
+            },
+          ),
+          const SizedBox(height: Spacing.s3),
+          AppButton(
+            label: LocaleKeys.settings_developer_paywall_route_follow.tr(),
+            variant: AppButtonVariant.ghost,
+            isFullWidth: true,
+            onPressed: () {
+              unawaited(thanksSwitch.setThanks(null));
+              Navigator.of(sheetContext).pop();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _pickLayout() async {
     final product = _product;
     final layoutSwitch = _layoutSwitch;
@@ -164,7 +226,9 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
         _layout,
         _product,
         intro: _introSwitch.value ?? PaywallIntroId.none,
+        thanks: _thanksSwitch.value ?? PaywallThanksId.none,
         showsUnbuilt: true,
+        isTryOut: true,
       ),
     ),
   );
@@ -196,10 +260,13 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                 _switches.pro,
                 _switches.hostedIntro,
                 _switches.proIntro,
+                _switches.hostedThanks,
+                _switches.proThanks,
               ]),
               builder: (context, _) {
                 final setting = _layoutSwitch.value;
                 final intro = _introSwitch.value;
+                final thanks = _thanksSwitch.value;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
@@ -235,6 +302,16 @@ class _PaywallLayoutsDevScreenState extends State<PaywallLayoutsDevScreen> {
                             faceState: null,
                             trailing: arrow,
                             onTap: _pickLayout,
+                          ),
+                          const SizedBox(height: Spacing.s2),
+                          AppListRow(
+                            name: LocaleKeys.paywall_thanks_picker_row.tr(),
+                            meta: thanks == null
+                                ? LocaleKeys.paywall_picker_follows_remote.tr()
+                                : paywallThanksName(thanks),
+                            faceState: null,
+                            trailing: arrow,
+                            onTap: _pickThanks,
                           ),
                           const SizedBox(height: Spacing.s3),
                           AppButton(

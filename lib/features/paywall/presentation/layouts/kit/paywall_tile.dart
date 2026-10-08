@@ -10,6 +10,8 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intr
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_registry.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_thanks_registry.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -48,11 +50,21 @@ String paywallIntroNameKey(PaywallIntroId intro) => switch (intro) {
   PaywallIntroId.countdown => LocaleKeys.paywall_picker_intro_names_countdown,
 };
 
+/// The key of the name a person reads for [thanks]. See
+/// [paywallLayoutNameKey].
+String paywallThanksNameKey(PaywallThanksId thanks) => switch (thanks) {
+  PaywallThanksId.none => LocaleKeys.paywall_thanks_names_none,
+  PaywallThanksId.confetti => LocaleKeys.paywall_thanks_names_confetti,
+  PaywallThanksId.unlock => LocaleKeys.paywall_thanks_names_unlock,
+};
+
 /// The names themselves.
 String paywallLayoutName(PaywallLayoutId layout) =>
     paywallLayoutNameKey(layout).tr();
 String paywallIntroName(PaywallIntroId intro) =>
     paywallIntroNameKey(intro).tr();
+String paywallThanksName(PaywallThanksId thanks) =>
+    paywallThanksNameKey(thanks).tr();
 
 /// A small phone playing one layout, live, to pick it by.
 ///
@@ -136,7 +148,58 @@ class PaywallIntroTile extends StatelessWidget {
   }
 }
 
-/// The tile both pickers are made of: a phone shape with a paywall playing
+/// A small phone playing what comes after a purchase: the layout for a
+/// moment, a purchase on the made-up buy model, the show, its resting
+/// frame, and round again.
+///
+/// `PaywallThanksId.none` plays what a purchase ends on with no step of
+/// its own. See [PaywallLayoutTile] for what a tile is.
+class PaywallThanksTile extends StatelessWidget {
+  const PaywallThanksTile({
+    required this.thanks,
+    required this.product,
+    required this.label,
+    this.layout = PaywallLayoutId.hero,
+    this.isSelected = false,
+    this.onTap,
+    this.width = PaywallPhoneTile.defaultWidth,
+    super.key,
+  });
+
+  final PaywallThanksId thanks;
+  final PaywallLayoutId layout;
+  final PaywallProduct product;
+  final String label;
+  final bool isSelected;
+  final VoidCallback? onTap;
+  final double width;
+
+  /// How long the layout shows before the purchase, and how long the
+  /// resting frame shows before it plays again.
+  static const double secondsBefore = 1.6;
+  static const double secondsAfter = 2.6;
+
+  /// How long one round of the tile is.
+  static double roundFor(PaywallThanksId thanks) =>
+      secondsBefore +
+      (paywallThanksBuilders[thanks]?.seconds ?? 0) +
+      secondsAfter;
+
+  @override
+  Widget build(BuildContext context) => PaywallPhoneTile(
+    layout: layout,
+    thanks: thanks,
+    buysAfter: const Duration(milliseconds: 1600),
+    product: product,
+    label: label,
+    isSelected: isSelected,
+    onTap: onTap,
+    width: width,
+    replayEvery: Duration(milliseconds: (roundFor(thanks) * 1000).round()),
+  );
+}
+
+/// The tile every picker is made of: a phone shape with a paywall playing
 /// in it, a label under it, and a mark when it is the one chosen.
 class PaywallPhoneTile extends StatefulWidget {
   const PaywallPhoneTile({
@@ -144,6 +207,8 @@ class PaywallPhoneTile extends StatefulWidget {
     required this.product,
     required this.label,
     this.intro = PaywallIntroId.none,
+    this.thanks = PaywallThanksId.none,
+    this.buysAfter,
     this.isSelected = false,
     this.onTap,
     this.width = defaultWidth,
@@ -163,6 +228,11 @@ class PaywallPhoneTile extends StatefulWidget {
 
   final PaywallLayoutId layout;
   final PaywallIntroId intro;
+  final PaywallThanksId thanks;
+
+  /// Buys on the made-up buy model this long after the paywall appears,
+  /// to show what comes after. Null never buys.
+  final Duration? buysAfter;
   final PaywallProduct product;
   final String label;
   final bool isSelected;
@@ -276,6 +346,12 @@ class _PaywallPhoneTileState extends State<PaywallPhoneTile> {
                                         key: ValueKey(_showing),
                                         layout: widget.layout,
                                         intro: widget.intro,
+                                        thanks: widget.thanks,
+                                        // Nothing may move: the frame
+                                        // after the purchase, at once.
+                                        buysAfter: (_wasStill ?? false)
+                                            ? Duration.zero
+                                            : widget.buysAfter,
                                         product: widget.product,
                                       ),
                                     ),
@@ -338,30 +414,62 @@ class _PaywallPhoneTileState extends State<PaywallPhoneTile> {
 }
 
 /// One paywall on a made-up buy model: what a tile scales down.
-class _TilePaywall extends StatelessWidget {
+class _TilePaywall extends StatefulWidget {
   const _TilePaywall({
     required this.layout,
     required this.intro,
+    required this.thanks,
+    required this.buysAfter,
     required this.product,
     super.key,
   });
 
   final PaywallLayoutId layout;
   final PaywallIntroId intro;
+  final PaywallThanksId thanks;
+  final Duration? buysAfter;
   final PaywallProduct product;
 
   @override
-  Widget build(BuildContext context) => BlocProvider<PaywallBuyCubit>(
-    create: (_) {
-      final cubit = DemoPaywallBuyCubit(product);
-      unawaited(cubit.load());
-      return cubit;
-    },
+  State<_TilePaywall> createState() => _TilePaywallState();
+}
+
+class _TilePaywallState extends State<_TilePaywall> {
+  late final DemoPaywallBuyCubit _cubit = DemoPaywallBuyCubit(widget.product)
+    ..isTryOut = true;
+  Timer? _buys;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_cubit.load());
+    final after = widget.buysAfter;
+    if (after == null) return;
+    // Nothing is charged and nothing unlocked: the made-up model only
+    // walks the states a purchase does.
+    _buys = Timer(after, () => unawaited(_cubit.buy()));
+  }
+
+  @override
+  void dispose() {
+    _buys?.cancel();
+    unawaited(_cubit.close());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => BlocProvider<PaywallBuyCubit>.value(
+    value: _cubit,
     child: PaywallRouteInfo(
-      layout: layout,
+      layout: widget.layout,
       source: PaywallSource.direct,
       showsUnbuilt: true,
-      child: PaywallLayoutView(layout: layout, product: product, intro: intro),
+      child: PaywallLayoutView(
+        layout: widget.layout,
+        product: widget.product,
+        intro: widget.intro,
+        thanks: widget.thanks,
+      ),
     ),
   );
 }

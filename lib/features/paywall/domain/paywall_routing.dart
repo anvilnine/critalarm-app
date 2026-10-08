@@ -2,6 +2,7 @@ import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
 import 'package:flutter/foundation.dart';
@@ -70,29 +71,43 @@ PaywallLayoutId _autoLayout(PaywallEntry entry) => switch (entry) {
   PaywallEntry.lapse => PaywallLayoutId.doors,
 };
 
-/// What opens: a layout, and the intro that plays before it.
+/// What opens: a layout, the intro that plays before it and the thanks
+/// that plays after a confirmed purchase.
 @immutable
 class PaywallOpening {
-  const PaywallOpening(this.layout, {this.intro = PaywallIntroId.none});
+  const PaywallOpening(
+    this.layout, {
+    this.intro = PaywallIntroId.none,
+    this.thanks = PaywallThanksId.none,
+  });
 
   final PaywallLayoutId layout;
 
   /// `none` when the layout opens with its own entrance alone.
   final PaywallIntroId intro;
 
+  /// `none` when a purchase ends with nothing of its own.
+  final PaywallThanksId thanks;
+
   @override
   bool operator ==(Object other) =>
-      other is PaywallOpening && other.layout == layout && other.intro == intro;
+      other is PaywallOpening &&
+      other.layout == layout &&
+      other.intro == intro &&
+      other.thanks == thanks;
 
   @override
-  int get hashCode => Object.hash(layout, intro);
+  int get hashCode => Object.hash(layout, intro, thanks);
 
   @override
-  String toString() => 'PaywallOpening(${layout.key}, intro: ${intro.key})';
+  String toString() =>
+      'PaywallOpening(${layout.key}, intro: ${intro.key}, '
+      'thanks: ${thanks.key})';
 }
 
-/// What opens for [product] from [entry]: a layout and its intro, or null
-/// for the surface that ships today (the Hosted paywall, the Pro sheet).
+/// What opens for [product] from [entry]: a layout with its intro and its
+/// thanks, or null for the surface that ships today (the Hosted paywall,
+/// the Pro sheet).
 ///
 /// [remote] is the product's remote layout value and [developer] what
 /// Developer options set in its place, null in a store build. With [remote]
@@ -105,6 +120,10 @@ class PaywallOpening {
 ///
 /// The false alarm intro plays once on an install. While
 /// [hasSeenFalseAlarm] is true no setting plays it again.
+///
+/// The thanks is a third value with no rule of its own: [developerThanks]
+/// outranks [remoteThanks]. It never opens a layout, so the shipped
+/// surface is still null whatever the thanks says.
 PaywallOpening? paywallOpeningFor({
   required PaywallProduct product,
   required PaywallEntry entry,
@@ -114,6 +133,8 @@ PaywallOpening? paywallOpeningFor({
   PaywallIntroId remoteIntro = PaywallIntroId.none,
   PaywallIntroId? developerIntro,
   PaywallIntroId? legacyIntro,
+  PaywallThanksId remoteThanks = PaywallThanksId.none,
+  PaywallThanksId? developerThanks,
 }) {
   final setting = developer ?? remote;
   if (setting.isShipped) return null;
@@ -133,5 +154,9 @@ PaywallOpening? paywallOpeningFor({
   if (intro == PaywallIntroId.falseAlarm && hasSeenFalseAlarm) {
     intro = PaywallIntroId.none;
   }
-  return PaywallOpening(layout, intro: intro);
+  return PaywallOpening(
+    layout,
+    intro: intro,
+    thanks: developerThanks ?? remoteThanks,
+  );
 }
