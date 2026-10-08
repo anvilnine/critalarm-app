@@ -26,7 +26,10 @@
 // captured the same way with
 //   --dart-define=STAGE=acked
 // The alarm is acknowledged through the cubit and the files are named
-// `acked_...`.
+// `acked_...`. The moment between the two, while the acknowledge is on its
+// way and "I'm up" is off and holds a spinner, is
+//   --dart-define=STAGE=acking
+// with files named `acking_...`.
 //
 // To capture another look of the alarm screen:
 //   --dart-define=STYLE=minimal
@@ -74,6 +77,7 @@ const _out = String.fromEnvironment('OUT', defaultValue: 'build/alarm_shots');
 const _against = String.fromEnvironment('AGAINST');
 const _stage = String.fromEnvironment('STAGE', defaultValue: 'ringing');
 const _isAcked = _stage == 'acked';
+const _isAcking = _stage == 'acking';
 const _style = String.fromEnvironment('STYLE');
 const _isHeld = bool.fromEnvironment('HELD', defaultValue: true);
 const _inShell = bool.fromEnvironment('SHELL');
@@ -238,7 +242,11 @@ void main() {
   for (final (sizeName, size, topInset, bottomInset) in _screens) {
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
       for (final scale in [1.0, 1.3]) {
-        const stage = _isAcked ? 'acked' : 'alarm';
+        const stage = _isAcked
+            ? 'acked'
+            : _isAcking
+            ? 'acking'
+            : 'alarm';
         final name = '${stage}_${sizeName}_${mode.name}_${scale}x';
         testWidgets('capture $name', (tester) async {
           final errors = <String>[];
@@ -324,6 +332,14 @@ void main() {
             // Past the wait before the announcement.
             await tester.pump(const Duration(milliseconds: 1200));
             await tester.pump();
+            if (_isAcking) {
+              // What the cubit shows from the tap on "I'm up" until the
+              // server answers.
+              final cubit = CriticalAlarmCubit.current!;
+              cubit.emit(cubit.state.copyWith(isAcknowledging: true));
+              await tester.pump();
+              await tester.pump(const Duration(milliseconds: 200));
+            }
             if (_isAcked) {
               // "I'm up", through the same call the button makes.
               await tester.runAsync(
