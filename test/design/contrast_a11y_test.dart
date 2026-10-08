@@ -6,8 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('Delete topic text', () {
     test('passes 4.5 to 1 on the white sheet and on the dark sheet', () {
-      final light = AppColors.light;
-      final dark = AppColors.dark;
+      const light = AppColors.light;
+      const dark = AppColors.dark;
       expect(
         ColorContrast.contrastRatio(light.critText, light.surface),
         greaterThanOrEqualTo(4.5),
@@ -21,7 +21,7 @@ void main() {
     test(
       'the plain critical red does not, which is why the text uses a step',
       () {
-        final light = AppColors.light;
+        const light = AppColors.light;
         expect(
           ColorContrast.contrastRatio(light.crit, light.surface),
           lessThan(4.5),
@@ -40,8 +40,8 @@ void main() {
     }
 
     test('is at least 3 to 1 against the card in both themes', () {
-      final light = AppColors.light;
-      final dark = AppColors.dark;
+      const light = AppColors.light;
+      const dark = AppColors.dark;
       // The card is the dark panel in the light theme and the elevated
       // surface in the dark theme.
       expect(ratioOn(light, light.panel), greaterThanOrEqualTo(3));
