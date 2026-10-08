@@ -11,6 +11,11 @@ import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/haptics.dart';
 import 'package:critalarm/design/size_class.dart';
+import 'package:critalarm/features/challenges/domain/challenge_gate.dart';
+import 'package:critalarm/features/challenges/domain/challenge_incident.dart';
+import 'package:critalarm/features/challenges/domain/challenge_rule.dart';
+import 'package:critalarm/features/challenges/presentation/challenge.dart';
+import 'package:critalarm/features/challenges/presentation/challenge_step.dart';
 import 'package:critalarm/features/in_app_notices/domain/pro_ask_rules.dart';
 import 'package:critalarm/features/in_app_notices/domain/repositories/in_app_notice_repository.dart';
 import 'package:critalarm/features/in_app_notices/domain/setup_gate.dart';
@@ -96,6 +101,93 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
   /// refused.
   bool _didAnnounceRinging = false;
 
+  /// The challenge on screen, and the incident it belongs to. It shows
+  /// only while that incident is the acknowledged one on screen, so
+  /// another alarm taking the screen over leaves it.
+  ChallengeOwed? _challenge;
+  String? _challengeIncidentId;
+
+  /// "At my desk" on the acknowledged screen. With no challenge owed it
+  /// closes the incident, as it always has. With one owed it opens the
+  /// challenge, and passing or leaving that makes the same close.
+  ///
+  /// Nothing here runs before "I'm up": the ring is already stopped.
+  void _atMyDesk(CriticalAlarmState state) {
+    final cubit = context.read<CriticalAlarmCubit>();
+    final incident = state.incident;
+    ChallengeDue due = const ChallengeNotOwed(NoChallengeReason.cannotRun);
+    if (incident != null && !state.isPreview) {
+      try {
+        due = getIt<ChallengeGate>().dueFor(
+          incidentId: incident.id,
+          incident: _challengeIncident(state),
+          isScreenReaderOn: MediaQuery.accessibleNavigationOf(context),
+        );
+      } on Object catch (_) {
+        // A challenge that cannot be worked out is no challenge.
+      }
+    }
+    final owed = due;
+    if (owed is ChallengeOwed &&
+        incident != null &&
+        challengeOf(owed.kind) != null) {
+      setState(() {
+        _challenge = owed;
+        _challengeIncidentId = incident.id;
+      });
+      return;
+    }
+    unawaited(cubit.closeIncident());
+  }
+
+  /// The words the acknowledged screen shows, which is all a challenge may
+  /// compare against.
+  ChallengeIncident _challengeIncident(CriticalAlarmState state) =>
+      ChallengeIncident(
+        topic: state.topic,
+        alertTitle: state.title.isEmpty ? null : state.title,
+      );
+
+  /// The challenge to draw for [state], or null. Only for the incident it
+  /// was opened for, and only while that one waits for "At my desk".
+  ChallengeOwed? _challengeFor(CriticalAlarmState state) {
+    final challenge = _challenge;
+    if (challenge == null) return null;
+    if (state.incident?.id != _challengeIncidentId) return null;
+    if (state.status != CriticalAlarmStatus.acknowledged) return null;
+    if (state.ackedExits != AckedExits.incident) return null;
+    return challenge;
+  }
+
+  void _leaveChallenge() {
+    if (_challenge == null) return;
+    setState(() {
+      _challenge = null;
+      _challengeIncidentId = null;
+    });
+  }
+
+  /// The challenge was passed, or the way out was used. Either way the
+  /// incident is closed through the call "At my desk" always made.
+  void _finishChallenge() {
+    final id = _challengeIncidentId;
+    final cubit = context.read<CriticalAlarmCubit>();
+    if (id != null) {
+      try {
+        getIt<ChallengeGate>().markCleared(id);
+      } on Object catch (_) {
+        // The close below does not depend on it.
+      }
+    }
+    _leaveChallenge();
+    // Only the incident the challenge was for. If another took the screen
+    // in the same moment, that one is left alone.
+    if (id != null && cubit.state.incident?.id == id) {
+      AppHaptics.capture();
+      unawaited(cubit.closeIncident());
+    }
+  }
+
   /// The alarm just stopped, which is the moment the app proved it works.
   /// Waits for the acknowledged screen to settle, then lets
   /// `AfterAckDecider` pick at most one follow-up: the Reminders sheet after
@@ -155,6 +247,18 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
 
   @override
   Widget build(BuildContext context) {
+    // Another incident is on screen now, so a challenge opened for the one
+    // before is left. It is not carried over, and nothing is owed here
+    // until "At my desk" is tapped for this one.
+    return BlocListener<CriticalAlarmCubit, CriticalAlarmState>(
+      listenWhen: (previous, current) =>
+          previous.incident?.id != current.incident?.id,
+      listener: (context, state) => _leaveChallenge(),
+      child: _buildAlarm(context),
+    );
+  }
+
+  Widget _buildAlarm(BuildContext context) {
     return BlocConsumer<CriticalAlarmCubit, CriticalAlarmState>(
       listenWhen: (previous, current) =>
           !previous.isAcknowledged && current.isAcknowledged,
@@ -264,7 +368,24 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
               builder: (context) {
                 final colors = context.appColors;
                 if (state.isAcknowledged) {
-                  return AcknowledgedScreen(state: state, colors: colors);
+                  final owed = _challengeFor(state);
+                  final challenge = challengeOf(owed?.kind);
+                  if (owed != null && challenge != null) {
+                    return ChallengeStep(
+                      key: ValueKey('challenge-${state.incident?.id}'),
+                      challenge: challenge,
+                      incident: _challengeIncident(state),
+                      wayOut: owed.wayOut,
+                      onPassed: _finishChallenge,
+                      onSkip: _finishChallenge,
+                      onLeave: _leaveChallenge,
+                    );
+                  }
+                  return AcknowledgedScreen(
+                    state: state,
+                    colors: colors,
+                    onAtMyDesk: () => _atMyDesk(state),
+                  );
                 }
                 // Back is not an acknowledge. It silences the phone and sets
                 // the next ring for the same incident, the same as Stop on the
@@ -472,11 +593,16 @@ class AcknowledgedScreen extends StatelessWidget {
   const AcknowledgedScreen({
     required this.state,
     required this.colors,
+    this.onAtMyDesk,
     super.key,
   });
 
   final CriticalAlarmState state;
   final AppColors colors;
+
+  /// Takes over the tap on "At my desk", for an owner that may ask for a
+  /// wake-up challenge first. Left out, the button closes the incident.
+  final VoidCallback? onAtMyDesk;
 
   @override
   Widget build(BuildContext context) {
@@ -628,6 +754,11 @@ class AcknowledgedScreen extends StatelessWidget {
                   isFullWidth: true,
                   onPressed: () {
                     AppHaptics.capture();
+                    final onAtMyDesk = this.onAtMyDesk;
+                    if (onAtMyDesk != null) {
+                      onAtMyDesk();
+                      return;
+                    }
                     unawaited(
                       context.read<CriticalAlarmCubit>().closeIncident(),
                     );

@@ -1,5 +1,6 @@
 import 'package:critalarm/core/access/app_feature.dart';
 import 'package:critalarm/features/paywall/domain/lock_source.dart';
+import 'package:critalarm/features/settings/presentation/personalize/challenge_strip.dart';
 import 'package:critalarm/features/settings/presentation/personalize/personalize_rows.dart';
 import 'package:critalarm/features/settings/presentation/personalize/sound_strip.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -72,6 +73,14 @@ const List<PersonalizeSection> personalizeSections = [
     feature: AppFeature.ownSounds,
     lockSource: LockSource.personalizeSound,
     builder: buildPersonalizeSoundStrip,
+  ),
+  PersonalizeSection(
+    id: 'challenge',
+    kind: PersonalizeSectionKind.strip,
+    titleKey: LocaleKeys.challenges_strip_title,
+    feature: AppFeature.wakeUpChallenges,
+    lockSource: LockSource.personalizeChallenge,
+    builder: buildPersonalizeChallengeStrip,
   ),
   PersonalizeSection(
     id: 'widgets',

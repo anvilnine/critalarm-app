@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
+import 'package:critalarm/app/challenge_flag_sync.dart';
 import 'package:critalarm/app/connect_link_host.dart';
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/incoming_audio_bindings.dart';
@@ -32,6 +33,7 @@ import 'package:critalarm/design/components/floating_tab_bar.dart';
 import 'package:critalarm/design/size_class.dart';
 import 'package:critalarm/design_system/theme.dart';
 import 'package:critalarm/features/account/domain/repositories/account_repository.dart';
+import 'package:critalarm/features/challenges/domain/challenge_gate.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_state.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_host.dart';
@@ -224,6 +226,9 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     _incomingAudio.start();
     getIt<WidgetSync>().start();
     getIt<SoundLockSync>().start();
+    // Made now, so it knows the plan was read before an alarm asks it.
+    getIt<ChallengeGate>();
+    getIt<ChallengeFlagSync>().start();
     _autoDelete();
   }
 
@@ -239,6 +244,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_incomingAudio.dispose());
     unawaited(getIt<WidgetSync>().dispose());
     unawaited(getIt<SoundLockSync>().dispose());
+    unawaited(getIt<ChallengeFlagSync>().dispose());
     super.dispose();
   }
 
@@ -252,6 +258,7 @@ class _CritAlarmAppState extends State<CritAlarmApp>
     unawaited(_incomingAudio.onResumed());
     // A plan that could not be read at a background launch can be read now.
     unawaited(getIt<SoundLockSync>().check());
+    unawaited(getIt<ChallengeFlagSync>().check());
     unawaited(_retryFailedLaunchCalls());
     // Coming back to the front is when wifi was just turned on, or a system
     // permission prompt was just answered: a connect still waiting tries now.

@@ -7,9 +7,11 @@ import 'package:critalarm/core/access/feature_decision.dart';
 import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/size_class.dart';
+import 'package:critalarm/features/challenges/presentation/challenge_try.dart';
 import 'package:critalarm/features/settings/domain/personalize/personalize_rules.dart';
 import 'package:critalarm/features/settings/presentation/cubits/personalize_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/personalize_state.dart';
+import 'package:critalarm/features/settings/presentation/personalize/challenge_strip.dart';
 import 'package:critalarm/features/settings/presentation/personalize/personalize_section.dart';
 import 'package:critalarm/features/settings/presentation/personalize/ringing_preview.dart';
 import 'package:critalarm/features/settings/presentation/personalize/try_bar.dart';
@@ -114,8 +116,25 @@ class _PersonalizeViewState extends State<_PersonalizeView> {
             return null;
           },
         );
+        // A challenge being shown takes the frame: it is not a look of the
+        // ringing screen, it is what comes after "I'm up".
+        final challenge = challengeShownBy(state);
         RingingPreviewFrame preview(double maxHeight) => RingingPreviewFrame(
           maxHeight: maxHeight,
+          picture: challenge == null
+              ? null
+              : (screen) =>
+                    ChallengePicture(challenge: challenge, screen: screen),
+          pictureLabel: challenge?.nameKey.tr(),
+          pictureHint: LocaleKeys.challenges_try_hint.tr(),
+          onOpenPicture: challenge == null
+              ? null
+              : () => unawaited(
+                  Navigator.of(
+                    context,
+                    rootNavigator: true,
+                  ).push(ChallengeTryPage.route(challenge)),
+                ),
           isPlaying: state.isPlaying,
           // Asked once the plan is read, so right after a cold start a
           // Pro holder hears their own sound and not its stand-in.

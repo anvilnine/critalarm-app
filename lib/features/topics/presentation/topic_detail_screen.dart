@@ -6,6 +6,7 @@ import 'package:critalarm/core/alarm/ring_claim.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design/faces/refresh_face.dart';
 import 'package:critalarm/design/haptics.dart';
+import 'package:critalarm/features/challenges/presentation/topic_challenge_row.dart';
 import 'package:critalarm/features/feature_guides/presentation/cubits/feature_guide_cubit.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_anchor.dart';
 import 'package:critalarm/features/feature_guides/presentation/feature_guide_examples.dart';
@@ -551,6 +552,10 @@ class _TopicDetailScreenContent extends StatelessWidget {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        // Per-topic wake-up challenge. Kept on the device
+                        // only, like the sound.
+                        TopicChallengeRow(topicName: state.topicName),
                         const AppSectionDivider(),
                         // Last on the sheet, so nothing is reached past to
                         // get to it.

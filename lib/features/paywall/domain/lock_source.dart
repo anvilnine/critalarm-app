@@ -54,6 +54,17 @@ enum LockSource {
     ProPackSheetSource.personalizeAppIcon,
   ),
 
+  /// The Challenge strip on the Personalize page, and the bar under its
+  /// preview while a locked challenge is being tried. Wake-up challenges
+  /// are sold with Pro only, so on the Hosted side it reads as `direct`.
+  personalizeChallenge(
+    PaywallSource.direct,
+    ProPackSheetSource.personalizeChallenge,
+  ),
+
+  /// The Wake-up challenge row on a topic's page.
+  topicChallenge(PaywallSource.direct, ProPackSheetSource.topicChallenge),
+
   /// An own alarm sound: Pick a file, Record, the cropper, a file shared
   /// in from another app, and a locked own sound in the sound list.
   ///
