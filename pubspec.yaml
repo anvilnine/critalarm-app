@@ -68,6 +68,7 @@ flutter:
   assets:
     - assets/translations/
     - assets/sounds/
+    - assets/ui_sounds/
     - assets/docs/
     - assets/reminder_faces/
     - assets/app_icons/

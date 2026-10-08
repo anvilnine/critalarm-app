@@ -1,8 +1,13 @@
 import 'dart:math' as math;
+import 'dart:ui';
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_preview_id.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 
 // The Proof layout's turns, as numbers. Every benefit plays as two beats:
 // first as it is on Free, then the lift. The preview, the face and the tag
@@ -194,14 +199,128 @@ ProofTurn proofTurnFor(PaywallPreviewId preview, {required int count}) {
   };
 }
 
-/// The Proof loop for a product's [previews], in order.
-HeroLoop proofLoopFor(List<PaywallPreviewId> previews) => HeroLoop.turns([
+/// How much of the entrance is already over when the layout opens after
+/// an intro, in seconds. The intro ends on the mascot, so it is in its
+/// place from the first frame and only the card and the words still come.
+const double proofAfterIntroLead = 0.6;
+
+/// The Proof loop for a product's [previews], in order. After an intro
+/// ([followsIntro]) its entrance has a head start.
+HeroLoop proofLoopFor(
+  List<PaywallPreviewId> previews, {
+  bool followsIntro = false,
+}) => HeroLoop.turns([
   for (final preview in previews)
     HeroTurn(
       proofTurnFor(preview, count: previews.length).script,
       preview: preview,
     ),
-]);
+], prelude: followsIntro ? -proofAfterIntroLead : 0);
+
+/// How the Proof stage moves. The mascot is dropped in, leans toward the
+/// preview as it watches, and the card turns over from one benefit to the
+/// next, as the tag on its corner does. The air is rings.
+const HeroMotion proofMotion = HeroMotion(
+  atmosphere: HeroAtmosphereStyle.rings,
+  entrance: HeroEntranceStyle.drop,
+  idle: HeroIdleStyle.lean,
+  arrival: HeroCardArrival.flip,
+);
+
+/// The refusal: the second of a turn the card shakes its head, how long
+/// for, how far to each side in points, and how many times.
+const double proofShakeAt = 0.42;
+const double proofShakeSeconds = 0.44;
+const double proofShakeReach = 6;
+const int proofShakeTurns = 3;
+
+/// The lift: how long the card's jump lasts, how high it goes in points,
+/// and how much larger the tag is at the top of it.
+const double proofPopSeconds = 0.36;
+const double proofPopHeight = 10;
+const double proofPopSwell = 0.2;
+
+/// Whether [turn] has a refusal to shake at: Free stops it, or does not
+/// have it. A plain default is not a refusal.
+bool proofShakes(ProofTurn turn) =>
+    turn.start != ProofStart.plain && turn.liftAt > proofShakeAt;
+
+/// How far the card and its tag are off their place [seconds] into
+/// [turn], in points.
+///
+/// At the refusal the card shakes sideways, less each time, and is back
+/// in its place before the lift. At the lift it jumps and lands. Between
+/// the two, and when the turn is over, it is at zero.
+Offset proofNudgeAt(ProofTurn turn, double seconds) {
+  if (seconds >= turn.liftAt) {
+    final p = phase(seconds, turn.liftAt, turn.liftAt + proofPopSeconds);
+    return Offset(0, -proofPopHeight * 4 * p * (1 - p));
+  }
+  if (!proofShakes(turn)) return Offset.zero;
+  final end = math.min(proofShakeAt + proofShakeSeconds, turn.liftAt);
+  final p = phase(seconds, proofShakeAt, end);
+  if (p <= 0 || p >= 1) return Offset.zero;
+  return Offset(
+    proofShakeReach * (1 - p) * math.sin(2 * math.pi * proofShakeTurns * p),
+    0,
+  );
+}
+
+/// How much larger than itself the tag is [seconds] into [turn]: it
+/// swells as the lift lands and is back at its own size after it.
+double proofTagSwellAt(ProofTurn turn, double seconds) {
+  final p = phase(seconds, turn.liftAt, turn.liftAt + proofPopSeconds);
+  return 1 + proofPopSwell * 4 * p * (1 - p);
+}
+
+/// A moment of a turn that is felt and heard.
+enum ProofMoment { refusal, lift }
+
+/// The moments of [turn] the clock passed between [from] and [to] seconds
+/// into it. A clock that went backwards passed none.
+Set<ProofMoment> proofMomentsBetween(ProofTurn turn, double from, double to) {
+  if (to <= from) return const {};
+  bool passed(double at) => from < at && to >= at;
+  return {
+    if (proofShakes(turn) && passed(proofShakeAt)) ProofMoment.refusal,
+    if (passed(turn.liftAt)) ProofMoment.lift,
+  };
+}
+
+/// What [moment] sounds and feels like, or null for nothing.
+///
+/// A turn the hand asked for ([byHand]) is the whole story: the refusal
+/// knocks and the lift answers it. A turn the loop plays by itself marks
+/// only the lift, with the tag turning over, and only [inFirstPass]
+/// (`paywallLoopCues`): a screen left open does not keep sounding.
+PaywallCue? proofCueFor(
+  ProofMoment moment, {
+  required bool byHand,
+  required bool inFirstPass,
+}) => switch (moment) {
+  ProofMoment.refusal => byHand ? PaywallCue.refuse : null,
+  ProofMoment.lift =>
+    byHand
+        ? PaywallCue.lift
+        : inFirstPass
+        ? PaywallCue.flip
+        : null,
+};
+
+/// How far through the entrance the Free tag starts to show on the card's
+/// corner: after the card has landed.
+const double proofTagAppearsAt = 0.7;
+
+/// What the entrance sounds like, by clock second, for a loop with
+/// [prelude]: the mascot is dropped in, and the Free tag turns up on the
+/// card.
+List<PaywallCueBeat> proofEntranceCues({double prelude = 0}) => [
+  heroLandingBeat(proofMotion.entrance, prelude: prelude),
+  PaywallCueBeat(
+    prelude + proofTagAppearsAt * heroEntranceSeconds,
+    PaywallCue.flip,
+  ),
+];
 
 /// The clock second to cue a preview at, so it holds its Free frame.
 ///

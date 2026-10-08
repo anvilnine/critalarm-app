@@ -84,6 +84,8 @@ void main() {
               'onboarding_offer': '',
               'paywall_layout': '',
               'pro_paywall_layout': '',
+              'paywall_intro': '',
+              'pro_paywall_intro': '',
             },
           ),
         );
@@ -126,6 +128,8 @@ void main() {
             'onboarding_offer': '',
             'paywall_layout': '',
             'pro_paywall_layout': '',
+            'paywall_intro': '',
+            'pro_paywall_intro': '',
           }),
         ).called(1);
 

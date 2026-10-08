@@ -11,19 +11,19 @@ const _on = OnboardingOfferConfig(
   enabled: true,
   cloudProduct: PaywallProduct.pro,
   selfHostedProduct: PaywallProduct.pro,
-  layoutKey: 'plain',
+  layoutKey: 'hero',
 );
 
 const _onJson = '{"enabled": true}';
 
 void main() {
   group('the bundled switches', () {
-    test('are off, Pro on both kinds of server, the plain layout', () {
+    test('are off, Pro on both kinds of server, the hero layout', () {
       const bundled = OnboardingOfferConfig.bundled;
       expect(bundled.enabled, isFalse);
       expect(bundled.cloudProduct, PaywallProduct.pro);
       expect(bundled.selfHostedProduct, PaywallProduct.pro);
-      expect(bundled.layoutKey, 'plain');
+      expect(bundled.layoutKey, 'hero');
     });
 
     test('the default flow lists the step between real ring and hook up', () {
@@ -62,7 +62,7 @@ void main() {
           enabled: false,
           cloudProduct: null,
           selfHostedProduct: PaywallProduct.pro,
-          layoutKey: 'plain',
+          layoutKey: 'hero',
         ),
       );
     });
@@ -164,7 +164,7 @@ void main() {
     OfferDecision decide({
       OnboardingOfferConfig config = _on,
       bool isSelfHosted = false,
-      Set<String> builtLayoutKeys = const {'plain', 'sheet'},
+      Set<String> builtLayoutKeys = const {'hero', 'sheet'},
       bool hasAccountId = true,
       bool holdsPro = false,
       bool holdsHosted = false,
@@ -183,7 +183,7 @@ void main() {
       bool enabled = true,
       PaywallProduct? cloud = PaywallProduct.pro,
       PaywallProduct? selfHosted = PaywallProduct.pro,
-      String layout = 'plain',
+      String layout = 'hero',
     }) => OnboardingOfferConfig(
       enabled: enabled,
       cloudProduct: cloud,
@@ -208,7 +208,7 @@ void main() {
         ),
         const OfferDecision.show(
           product: PaywallProduct.pro,
-          layoutKey: 'plain',
+          layoutKey: 'hero',
         ),
       );
     });
@@ -305,7 +305,7 @@ void main() {
         decision,
         const OfferDecision.show(
           product: PaywallProduct.pro,
-          layoutKey: 'plain',
+          layoutKey: 'hero',
         ),
       );
     });
@@ -371,7 +371,7 @@ void main() {
         readDeveloperJson: fail,
         readRemoteJson: fail,
         readServerMode: () async => ServerMode.hosted,
-        builtLayoutKeys: () => const {'plain'},
+        builtLayoutKeys: () => const {'hero'},
         readAccountId: () async => 'acct_1',
         holdsPro: () => false,
         readHoldsHosted: () async => false,
@@ -388,7 +388,7 @@ void main() {
         readDeveloperJson: () => null,
         readRemoteJson: () => _onJson,
         readServerMode: () async => fail(),
-        builtLayoutKeys: () => const {'plain'},
+        builtLayoutKeys: () => const {'hero'},
         readAccountId: () async => fail(),
         holdsPro: () => false,
         readHoldsHosted: () async => false,
@@ -407,7 +407,7 @@ void main() {
   group('the offer step is still ahead', () {
     const show = OfferDecision.show(
       product: PaywallProduct.pro,
-      layoutKey: 'plain',
+      layoutKey: 'hero',
     );
     final steps = BundledOnboardingFlows.defaultFlow.steps;
 

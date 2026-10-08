@@ -1350,10 +1350,6 @@
     "nothing_to_restore": "Nothing to restore for this account.",
     "done_hosted": "Crit Alarm Hosted is on.",
     "done_pro": "Pro is on.",
-    "plain": {
-      "headline_hosted": "Hosted raises your limits",
-      "headline_pro": "Pro adds to your alarm"
-    },
     "benefits": {
       "topics": {
         "line": "No limit. Free stops at {free_critical_topics}."
@@ -1390,10 +1386,8 @@
     },
     "dev": {
       "row_title": "Paywall layouts",
-      "row_subtitle": "Every layout, for Hosted and for Pro",
-      "page_title": "Paywall layouts",
-      "note": "A layout that is not built yet opens the hero one.",
-      "not_built": "not built"
+      "row_subtitle": "Pick an intro and a paywall, and open them",
+      "page_title": "Paywall layouts"
     }
   },
   "hosted_benefits": {
@@ -1888,11 +1882,6 @@
     "sound_name": "My rooster",
     "screen_wake_up": "Wake up"
   },
-  "paywall_bento": {
-    "brand": "Crit Alarm {name}",
-    "headline_hosted": "Your limits, lifted.",
-    "headline_pro": "More for your alarm."
-  },
   "paywall_proof": {
     "headline_hosted": "Hit the limit. Lift it.",
     "headline_pro": "From default to yours",
@@ -1951,8 +1940,7 @@
   },
   "paywall_false_alarm": {
     "word": "ALARM",
-    "admission": "Just kidding.",
-    "tag": "False alarm.\nJust kidding."
+    "admission": "Just kidding."
   },
   "paywall_reel": {
     "eyebrow": "With {name}",
@@ -1997,7 +1985,6 @@
     }
   },
   "paywall_doors": {
-    "free": "Free",
     "headline_hosted": "Step into Hosted",
     "headline_pro": "Step into Pro",
     "headline_ending": "Keep the door open",
@@ -2021,7 +2008,72 @@
     "headline_hosted": "See what Hosted changes",
     "headline_pro": "See what Pro adds",
     "tag_free": "Free",
-    "tag_standard": "Standard",
     "compare_label": "Compare {before} and {name}"
+  },
+  "paywall_bento": {
+    "brand": "Crit Alarm {name}",
+    "headline_hosted": "Your limits, lifted.",
+    "headline_pro": "More for your alarm.",
+    "names": {
+      "topics": "Topics",
+      "pushes": "Pushes",
+      "history": "History",
+      "widgets": "Widgets",
+      "app_icons": "Icons",
+      "wake_up_challenges": "Challenges",
+      "reliability_checks": "Checks",
+      "custom_sounds": "Sounds",
+      "custom_alarm_screens": "Screens"
+    }
+  },
+  "paywall_sounds": {
+    "settings_title": "Interface sounds",
+    "settings_subtitle": "Short sounds on the plans screen. They follow silent mode and the media volume. They are never an alarm."
+  },
+  "paywall_picker": {
+    "intro_row": "Intro",
+    "paywall_row": "Paywall",
+    "intro_sheet_title": "Pick an intro",
+    "paywall_sheet_title": "Pick a paywall",
+    "sheet_note": "Each one plays as it does on a phone.",
+    "intro_none": "No intro",
+    "follows_remote": "Follows the remote value",
+    "open": "Open it",
+    "routing_header": "What the app opens",
+    "selected": "{name}, selected",
+    "intro_names": {
+      "false_alarm": "False Alarm",
+      "snooze": "Snooze Snack",
+      "wake_up": "Rude Awakening",
+      "curtain": "Curtain Call",
+      "countdown": "Countdown"
+    },
+    "layout_names": {
+      "hero": "Hero",
+      "sheet": "Sheet",
+      "proof": "Proof",
+      "bento": "Bento",
+      "reel": "Reel",
+      "stage": "Stage",
+      "sentence": "Sentence",
+      "wipe": "Wipe",
+      "doors": "Doors",
+      "receipt": "Receipt"
+    }
+  },
+  "paywall_intro_snooze": {
+    "button": "Snooze",
+    "line": "Nice try."
+  },
+  "paywall_intro_wake_up": {
+    "ping": "ping",
+    "line": "I'm up!"
+  },
+  "paywall_intro_curtain": {
+    "line": "Oh, hi.",
+    "tag": "Ta-da."
+  },
+  "paywall_intro_countdown": {
+    "line": "Too slow."
   }
 }

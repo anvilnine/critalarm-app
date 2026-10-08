@@ -108,6 +108,8 @@ void main() {
             'onboarding_offer': '',
             'paywall_layout': '',
             'pro_paywall_layout': '',
+            'paywall_intro': '',
+            'pro_paywall_intro': '',
           }),
         ).called(1);
 
@@ -191,6 +193,22 @@ void main() {
       expect(defaults['pro_paywall_layout'], isEmpty);
       expect(FirebaseTelemetryGate().paywallLayoutKey, isEmpty);
       expect(FirebaseTelemetryGate().proPaywallLayoutKey, isEmpty);
+    });
+
+    test('the intro values default to empty, which is no intro', () {
+      const defaults = FirebaseTelemetryGate.remoteConfigDefaults;
+      expect(defaults['paywall_intro'], isEmpty);
+      expect(defaults['pro_paywall_intro'], isEmpty);
+      expect(FirebaseTelemetryGate().paywallIntroKey, isEmpty);
+      expect(FirebaseTelemetryGate().proPaywallIntroKey, isEmpty);
+
+      when(
+        () => remoteConfig.getString('paywall_intro'),
+      ).thenReturn('false_alarm');
+      when(() => remoteConfig.getString('pro_paywall_intro')).thenReturn('');
+      expect(gate.paywallIntroKey, 'false_alarm');
+      expect(gate.proPaywallIntroKey, isEmpty);
+      verifyNever(() => remoteConfig.fetchAndActivate());
     });
 
     test('each reads its own key, already activated, with no fetch', () {

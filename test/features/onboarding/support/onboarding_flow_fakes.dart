@@ -123,7 +123,7 @@ OnboardingOfferGate offerGateFor({
   String? developerJson,
   String? remoteJson,
   ServerMode? serverMode = ServerMode.hosted,
-  Set<String> builtLayoutKeys = const {'plain'},
+  Set<String> builtLayoutKeys = const {'hero'},
   String? accountId = 'acct_1',
   bool holdsPro = false,
   bool holdsHosted = false,
