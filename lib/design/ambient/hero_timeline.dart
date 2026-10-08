@@ -58,8 +58,8 @@ const double heroGlanceOutSeconds = 0.45;
 
 /// What the ambient layer looks like at one moment.
 @immutable
-class HeroFrame {
-  const HeroFrame({
+class HeroSceneFrame {
+  const HeroSceneFrame({
     required this.discScale,
     required this.ringScale,
     required this.firstDotRise,
@@ -88,7 +88,7 @@ class HeroFrame {
 
   @override
   bool operator ==(Object other) =>
-      other is HeroFrame &&
+      other is HeroSceneFrame &&
       other.discScale == discScale &&
       other.ringScale == ringScale &&
       other.firstDotRise == firstDotRise &&
@@ -108,13 +108,13 @@ class HeroFrame {
 
   @override
   String toString() =>
-      'HeroFrame(disc $discScale, ring $ringScale, dots $firstDotRise '
+      'HeroSceneFrame(disc $discScale, ring $ringScale, dots $firstDotRise '
       '$secondDotRise, face $faceRise, blink $blink)';
 }
 
 /// The frame the scene holds when nothing moves: reduce motion, a still
 /// above, or a scene told it has no motion.
-const HeroFrame heroRestFrame = HeroFrame(
+const HeroSceneFrame heroRestFrame = HeroSceneFrame(
   discScale: 1,
   ringScale: 1,
   firstDotRise: 0,
@@ -152,7 +152,7 @@ double heroBlink(double t) {
 }
 
 /// The ambient layer at second [t] of the scene's clock.
-HeroFrame heroTimeline(double t) => HeroFrame(
+HeroSceneFrame heroTimeline(double t) => HeroSceneFrame(
   discScale: 1 + heroBreatheGrow * _swell(t, heroBreatheSeconds),
   ringScale:
       1 +
