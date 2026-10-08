@@ -12,7 +12,7 @@ final class WeeklyCheckRowState {
     this.check,
     this.missedByClock = false,
     this.isBusy = false,
-    this.didFail = false,
+    this.switchOutcome,
   });
 
   /// The relay's last answer, or null when it never answered on this phone.
@@ -26,18 +26,24 @@ final class WeeklyCheckRowState {
   final bool isBusy;
 
   /// The last tap on the switch could not reach the relay.
-  final bool didFail;
+  bool get didFail => switchOutcome == WeeklyCheckSwitchOutcome.failed;
+
+  /// How the last tap on the switch ended, while that still has something
+  /// to say: the relay refused it, or could not be reached. Null after a
+  /// tap that worked and before any tap. The row words one line from it
+  /// (`weeklyCheckSwitchLineKey`), so a refused tap never ends in silence.
+  final WeeklyCheckSwitchOutcome? switchOutcome;
 
   WeeklyCheckRowState copyWith({
     WeeklyCheck? Function()? check,
     bool? missedByClock,
     bool? isBusy,
-    bool? didFail,
+    WeeklyCheckSwitchOutcome? Function()? switchOutcome,
   }) => WeeklyCheckRowState(
     check: check == null ? this.check : check(),
     missedByClock: missedByClock ?? this.missedByClock,
     isBusy: isBusy ?? this.isBusy,
-    didFail: didFail ?? this.didFail,
+    switchOutcome: switchOutcome == null ? this.switchOutcome : switchOutcome(),
   );
 
   @override
@@ -46,10 +52,10 @@ final class WeeklyCheckRowState {
       other.check == check &&
       other.missedByClock == missedByClock &&
       other.isBusy == isBusy &&
-      other.didFail == didFail;
+      other.switchOutcome == switchOutcome;
 
   @override
-  int get hashCode => Object.hash(check, missedByClock, isBusy, didFail);
+  int get hashCode => Object.hash(check, missedByClock, isBusy, switchOutcome);
 }
 
 /// The weekly check row on the Reliability screen: what the relay last
@@ -65,7 +71,10 @@ class WeeklyCheckCubit extends Cubit<WeeklyCheckRowState> {
 
   /// What the monitor holds now. An extra emit can change the outcome of
   /// nothing: it is the same read every time.
-  Future<void> _show({bool? isBusy, bool? didFail}) async {
+  Future<void> _show({
+    bool? isBusy,
+    WeeklyCheckSwitchOutcome? Function()? switchOutcome,
+  }) async {
     var missedByClock = false;
     try {
       missedByClock = await _monitor.twoRoundsMissed();
@@ -78,7 +87,7 @@ class WeeklyCheckCubit extends Cubit<WeeklyCheckRowState> {
         check: () => _monitor.check,
         missedByClock: missedByClock,
         isBusy: isBusy,
-        didFail: didFail,
+        switchOutcome: switchOutcome,
       ),
     );
   }
@@ -93,11 +102,12 @@ class WeeklyCheckCubit extends Cubit<WeeklyCheckRowState> {
   /// The switch was tapped. One tap at a time.
   Future<WeeklyCheckSwitchOutcome?> setEnabled({required bool enabled}) async {
     if (state.isBusy) return null;
-    emit(state.copyWith(isBusy: true, didFail: false));
+    emit(state.copyWith(isBusy: true, switchOutcome: () => null));
     final outcome = await _monitor.setEnabled(enabled: enabled);
     await _show(
       isBusy: false,
-      didFail: outcome == WeeklyCheckSwitchOutcome.failed,
+      switchOutcome: () =>
+          outcome == WeeklyCheckSwitchOutcome.done ? null : outcome,
     );
     return outcome;
   }

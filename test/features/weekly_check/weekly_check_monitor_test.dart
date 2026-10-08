@@ -124,15 +124,16 @@ void main() {
     });
 
     test('a 403 that names no tier, as a relay before 1.19.0 sends, is a '
-        'switch that failed', () async {
+        'refusal and never "could not reach the relay"', () async {
       api
         ..tier = 'free'
         ..answersAsBefore119 = true;
       final subject = monitor();
       final outcome = await subject.setEnabled(enabled: true);
-      expect(outcome, WeeklyCheckSwitchOutcome.failed);
+      expect(outcome, WeeklyCheckSwitchOutcome.refused);
       expect(tierReads, 0);
-      expect(subject.check, isNull);
+      // Read back: the switch shows what the relay holds, which is off.
+      expect(subject.check!.enabled, isFalse);
     });
 
     test('a tier read that throws does not break the switch', () async {

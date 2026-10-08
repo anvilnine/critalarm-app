@@ -165,7 +165,9 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
                   ),
                   needsLook: needsLook,
                   isSwitchBusy: state.isBusy,
-                  didSwitchFail: state.didFail,
+                  switchLineKey: weeklyCheckSwitchLineKey(
+                    state.switchOutcome,
+                  ),
                   onSwitch: (value) {
                     AppHaptics.capture();
                     unawaited(
@@ -288,7 +290,7 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
     required this.needsLook,
     required this.onSwitch,
     this.isSwitchBusy = false,
-    this.didSwitchFail = false,
+    this.switchLineKey,
     this.actionLabel,
     this.isActionPrimary = false,
     this.isActionBusy = false,
@@ -302,7 +304,10 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
   final bool needsLook;
   final ValueChanged<bool> onSwitch;
   final bool isSwitchBusy;
-  final bool didSwitchFail;
+
+  /// The line for a tap on the switch that did not go through, as a
+  /// `LocaleKeys` key, or null.
+  final String? switchLineKey;
 
   /// The one thing to do, or null when there is nothing.
   final String? actionLabel;
@@ -321,9 +326,7 @@ class WeeklyCheckUnlockedRow extends StatelessWidget {
     final line = when == null
         ? view.lineKey.tr()
         : view.lineKey.tr(namedArgs: {'when': when});
-    final failedLine = didSwitchFail
-        ? LocaleKeys.weekly_check_switch_failed.tr()
-        : null;
+    final failedLine = switchLineKey?.tr();
     final toggle = AppSwitch(
       value: view.isOn,
       semanticLabel: title,
