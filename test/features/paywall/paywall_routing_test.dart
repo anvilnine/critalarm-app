@@ -2,6 +2,7 @@ import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/paywall_routing.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
@@ -19,6 +20,8 @@ PaywallOpening? _open(
   String remoteIntro = '',
   PaywallLayoutSetting? developer,
   PaywallIntroId? developerIntro,
+  String remoteThanks = '',
+  PaywallThanksId? developerThanks,
   bool hasSeenFalseAlarm = false,
 }) => paywallOpeningFor(
   product: product,
@@ -28,6 +31,8 @@ PaywallOpening? _open(
   remoteIntro: PaywallIntroId.parse(remoteIntro),
   developerIntro: developerIntro,
   legacyIntro: developer == null ? paywallIntroInLayoutValue(remote) : null,
+  remoteThanks: PaywallThanksId.parse(remoteThanks),
+  developerThanks: developerThanks,
   hasSeenFalseAlarm: hasSeenFalseAlarm,
 );
 
@@ -450,6 +455,160 @@ void main() {
           developer: const PaywallLayoutSetting.pinned(PaywallLayoutId.sheet),
         ),
         PaywallIntroId.none,
+      );
+    });
+  });
+
+  group('the thanks value', () {
+    test('goes with any layout, from any entry, for both products', () {
+      for (final product in PaywallProduct.values) {
+        for (final entry in PaywallEntry.values) {
+          for (final layout in ['hero', 'sheet', 'doors', 'auto']) {
+            expect(
+              _open(
+                product,
+                entry,
+                remote: layout,
+                remoteThanks: 'confetti',
+              )?.thanks,
+              PaywallThanksId.confetti,
+              reason: '$product $entry $layout',
+            );
+          }
+        }
+      }
+    });
+
+    test('empty, and a value this build does not know, is no thanks', () {
+      for (final value in ['', '  ', 'Confetti', 'fireworks', 'none']) {
+        expect(
+          _open(
+            _hosted,
+            PaywallEntry.capHit,
+            remote: 'hero',
+            remoteThanks: value,
+          )?.thanks,
+          PaywallThanksId.none,
+          reason: value,
+        );
+      }
+    });
+
+    test('what Developer options set outranks the remote value', () {
+      expect(
+        _open(
+          _hosted,
+          PaywallEntry.capHit,
+          remote: 'hero',
+          remoteThanks: 'confetti',
+          developerThanks: PaywallThanksId.unlock,
+        )?.thanks,
+        PaywallThanksId.unlock,
+      );
+      // No thanks, set by hand, is a choice too.
+      expect(
+        _open(
+          _pro,
+          PaywallEntry.lockedRow,
+          remote: 'sheet',
+          remoteThanks: 'confetti',
+          developerThanks: PaywallThanksId.none,
+        )?.thanks,
+        PaywallThanksId.none,
+      );
+      expect(
+        _open(
+          _hosted,
+          PaywallEntry.capHit,
+          remote: 'hero',
+          developerThanks: PaywallThanksId.unlock,
+        )?.thanks,
+        PaywallThanksId.unlock,
+      );
+    });
+
+    test('alone it opens nothing: the shipped surface is still null', () {
+      for (final product in PaywallProduct.values) {
+        for (final entry in PaywallEntry.values) {
+          expect(
+            _open(
+              product,
+              entry,
+              remoteThanks: 'confetti',
+              developerThanks: PaywallThanksId.unlock,
+            ),
+            isNull,
+            reason: '$product $entry',
+          );
+          expect(
+            _open(
+              product,
+              entry,
+              remote: 'hero',
+              developer: PaywallLayoutSetting.shipped,
+              remoteThanks: 'confetti',
+            ),
+            isNull,
+            reason: '$product $entry',
+          );
+        }
+      }
+    });
+
+    test('it leaves the intro alone, and the intro leaves it alone', () {
+      expect(
+        _open(
+          _hosted,
+          PaywallEntry.settingsPlan,
+          remote: 'auto',
+          remoteThanks: 'unlock',
+        ),
+        const PaywallOpening(
+          PaywallLayoutId.hero,
+          intro: PaywallIntroId.falseAlarm,
+          thanks: PaywallThanksId.unlock,
+        ),
+      );
+      expect(
+        _open(
+          _hosted,
+          PaywallEntry.settingsPlan,
+          remote: 'auto',
+          remoteThanks: 'unlock',
+          hasSeenFalseAlarm: true,
+        ),
+        const PaywallOpening(
+          PaywallLayoutId.hero,
+          thanks: PaywallThanksId.unlock,
+        ),
+      );
+    });
+
+    test('two openings are the same only with the same thanks', () {
+      const plain = PaywallOpening(PaywallLayoutId.hero);
+      const confetti = PaywallOpening(
+        PaywallLayoutId.hero,
+        thanks: PaywallThanksId.confetti,
+      );
+      expect(plain, isNot(confetti));
+      expect(
+        confetti,
+        const PaywallOpening(
+          PaywallLayoutId.hero,
+          thanks: PaywallThanksId.confetti,
+        ),
+      );
+      expect(
+        confetti.hashCode,
+        const PaywallOpening(
+          PaywallLayoutId.hero,
+          thanks: PaywallThanksId.confetti,
+        ).hashCode,
+      );
+      expect(plain.thanks, PaywallThanksId.none);
+      expect(
+        confetti.toString(),
+        'PaywallOpening(hero, intro: none, thanks: confetti)',
       );
     });
   });
