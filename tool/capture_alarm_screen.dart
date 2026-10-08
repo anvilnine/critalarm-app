@@ -103,6 +103,41 @@ final _clock = RegExp(
   r'\d+:\d\d|\d+ (seconds?|minutes?|min|s\b)( \d+ (seconds?|s\b))?',
 );
 
+/// What two runs of the acknowledged stage can be compared on.
+///
+/// That screen shows two times of day to the second and how long the alarm
+/// rang, all read off the wall clock, so they differ from run to run and
+/// the centred line they sit in changes width with them. This takes the
+/// seconds out, and the left and right edge of any line that holds a
+/// clock. Where the line sits from top to bottom, and its height, stay.
+/// The ringing stage is compared as it always was.
+String _calm(String text) {
+  if (!_isAcked) return text;
+  final lines = text.replaceAll(RegExp(r'CLOCK:\d\d'), 'CLOCK').split('\n');
+  final box = RegExp(r'^(\w+) [\d.]+ ([\d.]+) [\d.]+ ([\d.]+) (.*CLOCK.*)$');
+  final rect = RegExp(
+    r'Rect\.fromLTRB\([\d.]+, ([\d.]+), [\d.]+, ([\d.]+)\)',
+  );
+  int? lastRect;
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i];
+    final inList = box.firstMatch(line);
+    if (inList != null) {
+      lines[i] =
+          '${inList[1]} ~ ${inList[2]} ~ ${inList[3]} ${inList[4]}';
+      continue;
+    }
+    if (rect.hasMatch(line)) lastRect = i;
+    if (line.contains('label:') && line.contains('CLOCK') && lastRect != null) {
+      lines[lastRect] = lines[lastRect].replaceFirstMapped(
+        rect,
+        (m) => 'Rect.fromLTRB(~, ${m[1]}, ~, ${m[2]})',
+      );
+    }
+  }
+  return lines.join('\n');
+}
+
 Future<Uint8List> _rgba(ui.Image image) async =>
     (await image.toByteData())!.buffer.asUint8List();
 
@@ -147,8 +182,8 @@ void main() {
   for (final (sizeName, size, topInset, bottomInset) in _screens) {
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
       for (final scale in [1.0, 1.3]) {
-        final name =
-            '${_isAcked ? 'acked' : 'alarm'}_${sizeName}_${mode.name}_${scale}x';
+        const stage = _isAcked ? 'acked' : 'alarm';
+        final name = '${stage}_${sizeName}_${mode.name}_${scale}x';
         testWidgets('capture $name', (tester) async {
           final errors = <String>[];
           final oldHandler = FlutterError.onError;
@@ -267,6 +302,7 @@ void main() {
                       // The wide acknowledged layout fills what is left of
                       // a viewport, and the walk that leaves offstage
                       // children out trips over that sliver.
+                      // ignore: avoid_redundant_argument_values, set by STAGE
                       skipOffstage: !_isAcked,
                     )
                     .evaluate()) {
@@ -328,10 +364,11 @@ void main() {
               final oldGeometry = File('$_against/$name.geometry.txt');
               final sameGeometry =
                   oldGeometry.existsSync() &&
-                  oldGeometry.readAsStringSync() == geometry;
+                  _calm(oldGeometry.readAsStringSync()) == _calm(geometry);
               final oldPng = File('$_against/$name.png');
               final sameTree =
-                  oldTree.existsSync() && oldTree.readAsStringSync() == tree;
+                  oldTree.existsSync() &&
+                  _calm(oldTree.readAsStringSync()) == _calm(tree);
               final sameReader =
                   oldReader.existsSync() &&
                   oldReader.readAsStringSync() == reader;
