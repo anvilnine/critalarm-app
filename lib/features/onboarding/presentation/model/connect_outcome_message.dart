@@ -13,6 +13,12 @@ String? connectOutcomeMessage(ConnectOutcome outcome) => switch (outcome) {
   ServerAddressDiffers(:final host) =>
     LocaleKeys.connect_link_address_differs.tr(namedArgs: {'host': host}),
   ServerDowngrade() => LocaleKeys.connect_link_downgrade.tr(),
+  ServerAnswerInvalid() => LocaleKeys.onboarding_connect_answer_invalid.tr(),
+  LinkServerNotSelfHosted() => LocaleKeys.connect_link_not_self_hosted.tr(),
+  AdminTokenRefused() =>
+    LocaleKeys.onboarding_connect_admin_token_error_wrong.tr(),
+  RelayDiffers() => LocaleKeys.onboarding_connect_relay_differs.tr(),
+  RelayUnchecked() => LocaleKeys.connect_link_relay_unchecked.tr(),
   ServerIncompatible(:final version) =>
     LocaleKeys.onboarding_connect_version_incompatible.tr(
       namedArgs: {'version': version},

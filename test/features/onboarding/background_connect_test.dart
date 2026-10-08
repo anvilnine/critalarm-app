@@ -4,6 +4,7 @@ import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/features/onboarding/domain/connect/background_connect.dart';
@@ -388,6 +389,25 @@ void main() {
     // The network is fine, so the line keeps saying "connecting".
     expect(connect.state.status, BackgroundConnectStatus.connecting);
     expect(intents.read()!.attempts, 1);
+  });
+
+  test('a relay other than the one this phone is registered with fails and '
+      'is not tried again', () async {
+    when(
+      () => establishSession(
+        any(),
+        any(),
+        pushToken: any(named: 'pushToken'),
+      ),
+    ).thenThrow(const DeviceTokenRelayMismatch());
+    final connect = build();
+
+    await connect.start(cloudUrl);
+    await connect.settled;
+
+    expect(connect.state.failure, BackgroundConnectFailure.refused);
+    expect(intents.read(), isNull);
+    verifyNever(() => saveConnection(any()));
   });
 
   test(

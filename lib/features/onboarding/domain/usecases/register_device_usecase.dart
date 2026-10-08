@@ -3,6 +3,7 @@ import 'package:critalarm/core/api/api_client.dart';
 import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/models/device_identity.dart';
 import 'package:critalarm/core/models/device_registration.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/storage/device_identity_store.dart';
 import 'package:flutter/foundation.dart';
@@ -20,6 +21,7 @@ final class RegisterDeviceUsecase {
     this.identifyAccount,
     this.onPacks,
     this.beforePacksRequest,
+    this.readSessionRelay,
     PlanChanges? planChanges,
   }) : _platform = platform ?? defaultPushPlatform,
        _planChanges = planChanges ?? appPlanChanges;
@@ -45,6 +47,10 @@ final class RegisterDeviceUsecase {
   /// request, so the keeper of the packs can tell an answer that came back
   /// late from a newer one.
   final int Function()? beforePacksRequest;
+
+  /// The relay of the saved session, or null when no server is saved. It is
+  /// where a call that names no relay goes.
+  final Future<Uri?> Function()? readSessionRelay;
   final ApiClient _api;
   final DeviceIdentityStore _identity;
   final PushTokenProvider _tokens;
@@ -55,6 +61,19 @@ final class RegisterDeviceUsecase {
     String? pushToken,
     Uri? relayUri,
   }) async {
+    final sessionRelay = await readSessionRelay?.call();
+    final target = relayUri ?? sessionRelay;
+    // A held device token goes to the relay that issued it and to no other.
+    // Checked before anything is read for sending or written.
+    if (target != null &&
+        deviceTokenRelayTrust(
+              identity: await _identity.read(),
+              sessionRelay: sessionRelay,
+              relay: target,
+            ) ==
+            DeviceTokenRelayTrust.otherRelay) {
+      throw const DeviceTokenRelayMismatch();
+    }
     final identity = await _identity.readOrCreate();
     final registration = DeviceRegistration(
       deviceId: identity.deviceId,
@@ -82,6 +101,7 @@ final class RegisterDeviceUsecase {
       tier: response.tier,
       caps: response.caps,
       accountJoinToken: response.accountJoinToken,
+      relay: target,
     );
     // Screens that read the tier once, like Settings and History, reload on
     // this. Only a real change bumps, so the launch registration stays quiet.

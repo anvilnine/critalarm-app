@@ -4,6 +4,7 @@ import 'package:critalarm/core/api/api_exception.dart';
 import 'package:critalarm/core/api/api_session.dart';
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/models/server_info_validator.dart';
+import 'package:critalarm/core/push/device_token_relay.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/features/onboarding/domain/connect/connect_intent_store.dart';
 import 'package:critalarm/features/onboarding/domain/entities/server_connection.dart';
@@ -420,7 +421,9 @@ class BackgroundConnect {
       if (isStale()) return;
       // The relay answered without a device token. Asking again gets the
       // same answer.
-      if (error is StateError) {
+      // A relay other than the one this phone is registered with is the
+      // same: nothing was sent and a retry changes nothing.
+      if (error is StateError || error is DeviceTokenRelayMismatch) {
         return _fail(BackgroundConnectFailure.refused, isStale);
       }
       // Offline, DNS failure, timeout: keep it and try later.
