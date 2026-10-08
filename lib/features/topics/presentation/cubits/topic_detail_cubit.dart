@@ -256,7 +256,7 @@ class TopicDetailCubit extends Cubit<TopicDetailState> {
         .map(
           (m) => TopicDetailMessageItem(
             title: m.title ?? m.topic,
-            timestamp: formatWhen(
+            timestamp: formatWhenWithTime(
               at: DateTime.fromMillisecondsSinceEpoch(m.time * 1000),
               now: DateTime.now(),
               yesterday: LocaleKeys.home_card_row_yesterday.tr(),
