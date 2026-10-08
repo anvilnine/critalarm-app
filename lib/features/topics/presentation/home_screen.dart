@@ -733,13 +733,27 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
         : creamCardFor(
             widgets: setupState.phase == HomeSetupPhase.widgetsCard,
             day0: showsDay0Card,
-            accountBackup:
-                !guide.isActive &&
-                notice.noticeType == InAppNoticeType.accountBackup,
           );
 
-    // The one card floating above the tab bar: the Hosted-ends line.
-    final noticeBar = guide.isActive ? null : _noticeBar(context, notice);
+    // The one bar floating above the tab bar. A running guide holds it back.
+    final oneTopicDue =
+        showsSetup &&
+        !showExamples &&
+        _sheetShows(state) &&
+        showsOneTopicCard(
+          topicCount: state.topicItems.length,
+          isClosed: _isOneTopicClosed,
+          isSetupDone: getIt<SetupChecklistStore>().isDone,
+          cardKind: card.kind,
+        );
+    final pinned = guide.isActive
+        ? null
+        : pinnedBarFor(
+            hostedEnding: notice.noticeType == InAppNoticeType.proEnding,
+            accountBackup: notice.noticeType == InAppNoticeType.accountBackup,
+            oneTopic: oneTopicDue,
+          );
+    final noticeBar = pinned == null ? null : _pinnedBar(pinned, notice);
 
     final screen = SeverityScope(
       severity: card.severity,
@@ -817,9 +831,6 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
                           rows,
                           cream: cream,
                           setup: setupState,
-                          notice: notice,
-                          card: card,
-                          showExamples: showExamples,
                         ),
                       ),
                     ),
@@ -833,13 +844,25 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
 
     // One short throw of confetti when the checklist finishes, over the
     // whole screen and dead to the touch.
-    return Stack(
+    final content = Stack(
       fit: StackFit.passthrough,
       children: [
         screen,
         if (setupState.phase == HomeSetupPhase.celebration)
           const Positioned.fill(child: HomeSetupConfetti()),
       ],
+    );
+
+    // The canvas behind the screen is the ambient one. It gets the profile
+    // for the card, and morphs to the next one when the card changes.
+    return AmbientRouteProfile(
+      path: '/',
+      profile: homeAmbientProfile(
+        card,
+        context.appColors,
+        spot: heroDiscSpotOf(context),
+      ),
+      child: content,
     );
   }
 
@@ -901,9 +924,6 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
     List<Widget> rows, {
     required HomeCreamCard? cream,
     required HomeSetupState setup,
-    required InAppNoticeState notice,
-    required HomeCardModel card,
-    required bool showExamples,
   }) {
     final colors = context.appColors;
     // Loading: the sheet holds placeholder rows until the list answers.
@@ -937,32 +957,11 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
       );
     }
 
-    final oneTopic =
-        !showExamples &&
-        showsOneTopicCard(
-          topicCount: state.topicItems.length,
-          isClosed: _isOneTopicClosed,
-          isSetupDone: getIt<SetupChecklistStore>().isDone,
-          cardKind: card.kind,
-        );
     return SlidableAutoCloseBehavior(
       child: AppInboxSheet(
         children: [
-          if (cream != null) _creamCard(cream, setup, notice),
+          if (cream != null) _creamCard(cream, setup),
           ...rows,
-          if (oneTopic)
-            Padding(
-              padding: const EdgeInsets.all(4),
-              child: AppCreamCard(
-                title: LocaleKeys.home_card_one_topic_title.tr(),
-                body: LocaleKeys.home_card_one_topic_body.tr(),
-                actionLabel: LocaleKeys.home_card_one_topic_button.tr(),
-                onAction: _newTopic,
-                isOnSheet: true,
-                onClose: _closeOneTopic,
-                closeLabel: LocaleKeys.home_card_close.tr(),
-              ),
-            ),
         ],
       ),
     );
@@ -975,12 +974,7 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
   );
 
   /// The one cream card at the top of the sheet.
-  Widget _creamCard(
-    HomeCreamCard which,
-    HomeSetupState setup,
-    InAppNoticeState notice,
-  ) {
-    final close = LocaleKeys.home_card_close.tr();
+  Widget _creamCard(HomeCreamCard which, HomeSetupState setup) {
     final Widget card;
     switch (which) {
       case HomeCreamCard.widgets:
@@ -1009,41 +1003,58 @@ class _HomeScreenContentState extends State<_HomeScreenContent>
           onClose: () => unawaited(context.read<Day0CardCubit>().dismiss()),
           closeLabel: LocaleKeys.home_day0_dismiss_button.tr(),
         );
-      case HomeCreamCard.accountBackup:
-        final cubit = context.read<InAppNoticeCubit>();
-        card = AppCreamCard(
-          title: LocaleKeys.notices_account_backup_title.tr(),
-          body: LocaleKeys.notices_account_backup_body.tr(),
-          actionLabel: LocaleKeys.notices_account_backup_button.tr(),
-          onAction: () => openAppPath(context, '/settings/account'),
-          isOnSheet: true,
-          onClose: () => unawaited(cubit.dismissCurrent()),
-          closeLabel: close,
-        );
     }
     return Padding(padding: const EdgeInsets.all(4), child: card);
   }
 
-  /// The one pill floating above the tab bar: the Hosted-ends line.
-  Widget? _noticeBar(BuildContext context, InAppNoticeState notice) {
+  /// The one bar floating above the tab bar.
+  Widget _pinnedBar(HomePinnedBar which, InAppNoticeState notice) {
     final cubit = context.read<InAppNoticeCubit>();
-    if (notice.noticeType != InAppNoticeType.proEnding) return null;
-    final endsAt = notice.proEndsAt!;
-    return AppPinnedNoticeBar(
-      face: FaceState.watching,
-      title: LocaleKeys.notices_pro_ending_pill.tr(
-        namedArgs: {'weekday': DateFormat('EEEE').format(endsAt)},
-      ),
-      linkLabel: LocaleKeys.notices_why.tr(),
-      onTap: () => unawaited(
-        showProPlanSheet(
-          context,
-          ProEndingView(sheet: ProPlanSheet.ending, endsAt: endsAt),
+    switch (which) {
+      case HomePinnedBar.hostedEnding:
+        final endsAt = notice.proEndsAt!;
+        return AppPinnedNoticeBar(
+          face: FaceState.watching,
+          title: LocaleKeys.notices_pro_ending_pill.tr(
+            namedArgs: {'weekday': DateFormat('EEEE').format(endsAt)},
+          ),
+          linkLabel: LocaleKeys.notices_why.tr(),
+          onTap: () => unawaited(
+            showProPlanSheet(
+              context,
+              ProEndingView(sheet: ProPlanSheet.ending, endsAt: endsAt),
+              onDismiss: () => unawaited(cubit.dismissCurrent()),
+            ),
+          ),
           onDismiss: () => unawaited(cubit.dismissCurrent()),
-        ),
-      ),
-      onDismiss: () => unawaited(cubit.dismissCurrent()),
-    );
+        );
+      case HomePinnedBar.accountBackup:
+        return AppPinnedNoticeBar(
+          face: FaceState.watching,
+          title: LocaleKeys.notices_account_backup_title.tr(),
+          linkLabel: LocaleKeys.notices_why.tr(),
+          onTap: () => unawaited(
+            showNoticeDetailSheet(
+              context: context,
+              face: FaceState.watching,
+              title: LocaleKeys.notices_account_backup_title.tr(),
+              body: LocaleKeys.notices_account_backup_body.tr(),
+              actionLabel: LocaleKeys.notices_account_backup_button.tr(),
+              onAction: () => openAppPath(context, '/settings/account'),
+              onDismiss: () => unawaited(cubit.dismissCurrent()),
+            ),
+          ),
+          onDismiss: () => unawaited(cubit.dismissCurrent()),
+        );
+      case HomePinnedBar.oneTopic:
+        return AppPinnedNoticeBar(
+          face: FaceState.watching,
+          title: LocaleKeys.home_card_one_topic_title.tr(),
+          linkLabel: LocaleKeys.home_card_one_topic_button.tr(),
+          onTap: _newTopic,
+          onDismiss: _closeOneTopic,
+        );
+    }
   }
 }
 
