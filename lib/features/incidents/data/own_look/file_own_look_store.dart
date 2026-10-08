@@ -30,7 +30,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// The record is in the preferences, which an iPhone backup does copy. So
 /// after a restore the record can name a file that did not come along.
-/// [sweep] drops such a record, and the phone is back to having no photo.
+/// That is the same as a file that went missing: nothing is drawn, and
+/// picking a photo again replaces the record.
 ///
 /// A save that is cut short (the app is killed between the file and its
 /// record, or a delete fails) can leave a file no record names. [sweep]
@@ -178,15 +179,9 @@ class FileOwnLookStore implements OwnLookStore {
       stamp = null;
     }
     try {
+      // A folder made before the flag existed gets it now.
       final dir = await _dir();
       if (dir.existsSync()) await _keepOutOfBackup(dir);
-      // A backup carries the record and not the photo. A record with no
-      // file behind it is a photo this phone does not have.
-      if (stamp != null && !(await _fileFor(stamp)).existsSync()) {
-        await _prefs.remove(OwnLookStore.photoKey);
-        stamp = null;
-        _changes.add(null);
-      }
     } on Object catch (_) {
       // The next launch tries again.
     }

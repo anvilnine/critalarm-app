@@ -130,7 +130,7 @@ Changes developers need to know about: new tokens and components, prefs keys, bu
 - Paywall layouts and intros play the cue palette at every moment: PaywallCueScore plays a layout's beats from its clock, the loop marks its own changes through the first pass only, the buy block has press, restore, error and refuse cues, and AppButton takes an optional onPressDown.
 - Developer options is one grouped list of about two screens. A choice from a list is one row that shows its value and opens a bottom sheet (AppPickerRow, AppValueRow in the design system). The paywall route rows are gone: the Paywall layouts page is the one way in and has a Pin by key row for every layout id. Prefs keys are unchanged.
 - Android manifest sets allowBackup false and points at res/xml/data\_extraction\_rules.xml and res/xml/backup\_rules.xml, which leave every domain out. On Android 12 and later allowBackup false alone does not stop a phone to phone transfer, so keep the rules files.
-- FileOwnLookStore flags alarm\_look as excluded from backup on an iPhone when the folder is made and at each launch sweep, and the sweep drops a photo record whose file is gone. Own sound files (user\_ prefix) are flagged one by one at import and at launch.
+- FileOwnLookStore flags alarm\_look as excluded from backup on an iPhone when the folder is made and at each launch sweep. Own sound files (user\_ prefix) are flagged one by one at import and at launch.
 
 ### Fixed
 - A setup screen opened after setup is over (`OnboardingEntryPoint.connectServer` from Server settings and the no-server card, `OnboardingEntryPoint.testAlarm` from Health) saves nothing, pins nothing and closes back to the screen that opened it. Health opens `/onboarding/test`.

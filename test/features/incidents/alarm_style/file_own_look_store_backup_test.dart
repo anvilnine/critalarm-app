@@ -3,13 +3,12 @@ import 'dart:typed_data';
 
 import 'package:critalarm/features/incidents/data/own_look/file_own_look_store.dart';
 import 'package:critalarm/features/incidents/domain/alarm_style/own_look_scrim.dart';
-import 'package:critalarm/features/incidents/domain/alarm_style/own_look_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// The own photo is in no backup: its folder is flagged when it is made
-/// and at every launch, and a record that outlived its file is dropped.
+/// and at every launch.
 void main() {
   late Directory root;
   late SharedPreferences prefs;
@@ -123,37 +122,16 @@ void main() {
     expect(store.photo, isNotNull);
   });
 
-  group('after a restore', () {
-    test('a record whose photo did not come along is dropped', () async {
-      final store = storeWith(excludeFromBackup: note);
-      await save(store);
-      await store.setAccent('mint');
-      // What a backup brings back: the preferences, and not the folder.
-      await Directory(folder()).delete(recursive: true);
-      expect(store.photo, isNotNull);
-      final changes = <void>[];
-      final sub = store.changes.listen(changes.add);
-      addTearDown(sub.cancel);
+  test('after a restore the record stays, as for any missing file', () async {
+    final store = storeWith(excludeFromBackup: note);
+    await save(store);
+    // What a backup brings back: the preferences, and not the folder.
+    await Directory(folder()).delete(recursive: true);
 
-      await store.sweep();
-      await pumpEventQueue();
+    await store.sweep();
 
-      expect(store.photo, isNull);
-      expect(prefs.getString(OwnLookStore.photoKey), isNull);
-      expect(changes, hasLength(1));
-      // The colour is taste and holds nothing private.
-      expect(store.accentId, 'mint');
-    });
-
-    test('a record whose photo is there is kept', () async {
-      final store = storeWith();
-      await save(store);
-      final stamp = store.photo!.stamp;
-
-      await store.sweep();
-
-      expect(store.photo?.stamp, stamp);
-      expect(await store.readPhoto(stamp), isNotNull);
-    });
+    // The keeper draws nothing for it, and picking again replaces it.
+    expect(store.photo, isNotNull);
+    expect(await store.readPhoto(store.photo!.stamp), isNull);
   });
 }

@@ -1013,7 +1013,8 @@ never seen, and a person's own alarm photo and own sounds are in no backup.
   (`BackupExclusion.excludeOwnSounds`). A file that is written again has
   lost the flag, which is why both run at every launch.
 - A backup carries the photo record and the own sound list but not the
-  files. The launch sweep drops a photo record whose file is gone.
+  files. Both then name a file that is not there, which the app already
+  treats as nothing to draw and nothing to ring.
 
 **Motion.** One large living thing per screen, and everything under it quiet. A screen that
 persuades or welcomes (a setup step, a paywall, an empty state, a first success) gets a hero:
