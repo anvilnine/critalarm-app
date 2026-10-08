@@ -1,6 +1,6 @@
-// When things happen in the three welcome stories, in seconds on each
-// story's own clock. Every value is read by the drawings and by the haptic
-// cues, so the two cannot drift.
+// When things happen in the welcome stories, in seconds on each story's own
+// clock. Every value is read by the drawings and by the haptic cues, so the
+// two cannot drift.
 
 // ---------------------------------------------------------------------------
 // Story 1: it rings until you answer.
@@ -85,31 +85,6 @@ double ladderCardShownAt(int index) =>
 /// When the last card starts to ring.
 double get ladderRingStartsAt =>
     ladderCardShownAt(ladderCardCount - 1) + ladderRingPause;
-
-// ---------------------------------------------------------------------------
-// Story 3: works with what you run. Three tools, one alert each.
-
-/// How many tools send an alert.
-const int toolsStoryToolCount = 3;
-
-/// When the first tool sends.
-const double toolsFirstSendAt = 0.6;
-
-/// The gap between one tool sending and the next.
-const double toolsSendGap = 1.3;
-
-/// How long an alert travels from its tool to the phone.
-const double toolsSendTakes = 0.7;
-
-/// How long the whole story plays.
-const double toolsStoryTakes = 6.4;
-
-/// When tool [index] (0 is the first) sends its alert.
-double toolsSendStartsAt(int index) => toolsFirstSendAt + index * toolsSendGap;
-
-/// When the alert from tool [index] lands on the phone.
-double toolsAlertLandsAt(int index) =>
-    toolsSendStartsAt(index) + toolsSendTakes;
 
 // ---------------------------------------------------------------------------
 // The sleeping face. No longer part of first launch: Developer options still

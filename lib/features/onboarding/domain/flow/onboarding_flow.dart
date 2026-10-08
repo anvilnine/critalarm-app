@@ -87,7 +87,6 @@ abstract final class BundledOnboardingFlows {
     id: '2026-10-b',
     steps: [
       OnboardingStepId.welcome,
-      OnboardingStepId.howItRings,
       OnboardingStepId.connect,
       OnboardingStepId.permissions,
       OnboardingStepId.firstTopic,

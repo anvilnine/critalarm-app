@@ -41,8 +41,10 @@ void main() {
       expect(fill.position, 0);
     });
 
-    test('the first bar is half full on how it rings', () {
-      expect(fillAt('how_it_rings').bars, [0.5, 0, 0]);
+    test('the first bar is half full on how it rings in 2026-10-a', () {
+      final steps = BundledOnboardingFlows.october2026A.steps;
+      expect(fillAt('welcome', steps).bars, [0, 0, 0]);
+      expect(fillAt('how_it_rings', steps).bars, [0.5, 0, 0]);
     });
 
     test('a bar is full once its chapter is behind the user', () {

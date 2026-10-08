@@ -152,7 +152,7 @@ void main() {
     test('marks the step completed and opens the next open one', () async {
       final h = EngineHarness(
         repository: FakeOnboardingFlowRepository(
-          pinned: flow,
+          pinned: BundledOnboardingFlows.october2026A,
           completed: {'welcome'},
         ),
       );
@@ -176,7 +176,6 @@ void main() {
 
       expect(seen, [
         '/onboarding/welcome',
-        '/onboarding/how-it-rings',
         '/onboarding/connect',
         '/onboarding',
         '/onboarding/first-topic',
@@ -256,7 +255,7 @@ void main() {
         h.events.map((e) => (e.kind, e.stepId, e.flowId, e.isReplay)),
         [
           (OnboardingStepEventKind.finished, 'welcome', '2026-10-b', false),
-          (OnboardingStepEventKind.entered, 'how_it_rings', '2026-10-b', false),
+          (OnboardingStepEventKind.entered, 'connect', '2026-10-b', false),
         ],
       );
     });
@@ -280,7 +279,6 @@ void main() {
       }
 
       expect(seen, [
-        '/onboarding/how-it-rings',
         '/onboarding/connect',
         '/onboarding',
         '/onboarding/first-topic',
@@ -349,7 +347,7 @@ void main() {
 
       final next = await h.engine.resume();
 
-      expect(next.route, '/onboarding/how-it-rings');
+      expect(next.route, '/onboarding/connect');
       expect(h.progress.completed, isFalse);
       expect(h.repository.pinned, BundledOnboardingFlows.defaultFlow);
       expect(h.repository.completed, {'welcome'});
@@ -439,7 +437,7 @@ void main() {
 
       final next = await h.engine.finishStep('welcome', isReplay: true);
 
-      expect(next.route, '/onboarding/how-it-rings');
+      expect(next.route, '/onboarding/connect');
       expect(h.repository.writes, 0);
     });
   });
