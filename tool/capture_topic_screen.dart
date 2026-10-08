@@ -153,6 +153,60 @@ void _unsortedMessages(MockServer server, DateTime now) {
     );
 }
 
+/// Message rows over the date forms: one from today, two from yesterday a
+/// minute apart with a title long enough to wrap, then (in `datesold`) one
+/// from earlier this year and two from other years.
+Message _at(
+  String topic,
+  int n,
+  DateTime at, {
+  String title = 'Disk almost full',
+}) => Message(
+  id: 'm_cap_${topic}_at_$n',
+  topic: topic,
+  time: at.millisecondsSinceEpoch ~/ 1000,
+  title: title,
+  message: 'Volume /data is at 94 percent.',
+);
+
+void _datesRecent(MockServer server, DateTime now) {
+  final local = now.toLocal();
+  final midnight = DateTime(local.year, local.month, local.day);
+  const long = 'Replica lag over 30 seconds on the primary replica in eu-west';
+  server
+    ..seedCalm()
+    ..seedState(
+      messages: [
+        _at('prod-db', 0, midnight.add(const Duration(minutes: 1))),
+        _at(
+          'prod-db',
+          1,
+          midnight.subtract(const Duration(hours: 23, minutes: 15)),
+          title: long,
+        ),
+        _at(
+          'prod-db',
+          2,
+          midnight.subtract(const Duration(hours: 23, minutes: 16)),
+          title: long,
+        ),
+      ],
+    );
+}
+
+void _datesOld(MockServer server, DateTime utcNow) {
+  final now = utcNow.toLocal();
+  server
+    ..seedCalm()
+    ..seedState(
+      messages: [
+        _at('prod-db', 0, DateTime(now.year, now.month, now.day - 9, 0, 45)),
+        _at('prod-db', 1, DateTime(now.year - 1, now.month, now.day, 0, 45)),
+        _at('prod-db', 2, DateTime(now.year - 1, now.month, now.day, 0, 44)),
+      ],
+    );
+}
+
 void _seedLongName(MockServer server, DateTime now) {
   server
     ..seedCalm()
@@ -179,6 +233,8 @@ const _scenes = <_Scene>[
   _Scene('empty', 'home-ha'),
   _Scene('many', 'prod-db', seed: _manyMessages),
   _Scene('unsorted', 'prod-db', seed: _unsortedMessages),
+  _Scene('dates', 'prod-db', seed: _datesRecent, extra: true),
+  _Scene('datesold', 'prod-db', seed: _datesOld),
   _Scene('longname', _longName, seed: _seedLongName, extra: true),
   _Scene('warning', 'nas-backup', seed: _worried),
   _Scene('pane', 'prod-db', isPane: true),
@@ -199,6 +255,7 @@ List<(String, Size, ThemeMode, double)> _variants(_Scene scene) => scene.isPane
         if (scene.extra) ...[
           ('375x667', const Size(375, 667), ThemeMode.light, 1.0),
           ('390x844', const Size(390, 844), ThemeMode.light, 1.3),
+          ('375x667', const Size(375, 667), ThemeMode.light, 1.3),
           ('390x844', const Size(390, 844), ThemeMode.light, 2.0),
         ],
       ];
