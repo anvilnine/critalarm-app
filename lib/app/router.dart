@@ -861,6 +861,8 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
           opaque: true,
           child: CriticalAlarmScreen(
             incidentId: id,
+            // A native Done button opened it. See `PushDeepLink.fromDone`.
+            cameFromDone: PushDeepLink.cameFromDone(state.uri),
             // A developer build can look at one screen with made-up values.
             previewsFirstToolAcked:
                 buildHasOnboardingDeveloperTools &&

@@ -9,6 +9,7 @@ import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
 import app.critalarm.MainActivity
 import app.critalarm.R
+import app.critalarm.TapRoute
 import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.notifications.LiveUpdate.requestPromotion
 import app.critalarm.notifications.LiveUpdate.shortCriticalText
@@ -153,7 +154,12 @@ object StatusNotificationFactory {
                 DoneButton.OPENS_APP -> PendingIntent.getActivity(
                     context,
                     notificationId(incidentId) xor OPEN_SALT,
-                    incidentLaunchIntent(context, incidentId),
+                    // Marked as coming from Done, so the app can still hand
+                    // the close back here when it cannot reach the server.
+                    incidentLaunchIntent(context, incidentId).apply {
+                        data = Uri.parse(TapRoute.doneLink(Uri.encode(incidentId)))
+                        putExtra(MainActivity.EXTRA_FROM, MainActivity.FROM_DONE)
+                    },
                     immutable,
                 )
                 DoneButton.CLOSES -> PendingIntent.getBroadcast(

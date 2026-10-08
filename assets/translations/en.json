@@ -835,7 +835,7 @@
     "no_alarm_body": "There is no open page on this device right now.",
     "load_failed_title": "Could not load the alarm",
     "close_queued_title": "Closing when your server answers",
-    "close_queued_body": "The close is saved on this phone and is sent as soon as the server can be reached. Until then the alarm can ring again.",
+    "close_queued_body": "The close is sent as soon as this phone can reach your server. Until then the alarm can ring again.",
     "load_failed_body": "The page is still open on the server. Try again, or stop the noise on this phone and open it from your topics.",
     "retry_button": "Try again",
     "silence_button": "Stop the noise on this phone",

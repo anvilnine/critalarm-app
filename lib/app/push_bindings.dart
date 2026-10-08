@@ -70,7 +70,14 @@ class AppPushBindings {
       return;
     }
     final incidentId = _incidentIdFrom(location);
-    if (incidentId != null && _onAlarm()) {
+    // A native Done always opens its own screen: the marker it carries is
+    // read by the route, and a swap on the screen already up would lose it.
+    final cameFromDone =
+        switch (Uri.tryParse(location)) {
+          final Uri uri => PushDeepLink.cameFromDone(uri),
+          null => false,
+        };
+    if (incidentId != null && _onAlarm() && !cameFromDone) {
       _selectIncident(incidentId);
       return;
     }
@@ -81,11 +88,8 @@ class AppPushBindings {
       location == '/alarm' || location.startsWith('/incidents/');
 
   /// The incident id a tap route points at, or null when it points elsewhere.
-  String? _incidentIdFrom(String location) {
-    const prefix = '/incidents/';
-    if (!location.startsWith(prefix)) return null;
-    return Uri.decodeComponent(location.substring(prefix.length));
-  }
+  String? _incidentIdFrom(String location) =>
+      PushDeepLink.incidentIdIn(location);
 
   /// True when the alarm screen is what the user is looking at.
   bool _onAlarm() {

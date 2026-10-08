@@ -10,6 +10,36 @@ class TapRouteTest {
         assertEquals("/incidents/inc_1", TapRoute.routeFor(mapOf("incident_id" to "inc_1", "topic" to "prod")))
     }
 
+    // The marker a Done button puts on its tap, and Dart reads back.
+
+    @Test
+    fun `a Done tap carries the marker to Dart and into the route`() {
+        val tap = TapRoute.tapFor(7, "inc_1", null, null, null, "done")
+        assertEquals("done", tap["from"])
+        assertEquals("inc_1", tap["incident_id"])
+        assertEquals("/incidents/inc_1?from=done", TapRoute.routeFor(tap))
+    }
+
+    @Test
+    fun `a plain tap on a card carries no marker`() {
+        val tap = TapRoute.tapFor(7, "inc_1", null, null, null)
+        assertNull(tap["from"])
+        assertEquals("/incidents/inc_1", TapRoute.routeFor(tap))
+    }
+
+    @Test
+    fun `the marker means nothing without an incident, and no other word is one`() {
+        assertNull(TapRoute.tapFor(7, null, "prod", null, null, "done")["from"])
+        assertNull(TapRoute.tapFor(7, "inc_1", null, null, null, "card")["from"])
+        assertEquals("/topics/prod", TapRoute.routeFor(mapOf("topic" to "prod", "from" to "done")))
+        assertEquals("/incidents/inc_1", TapRoute.routeFor(mapOf("incident_id" to "inc_1", "from" to "card")))
+    }
+
+    @Test
+    fun `the link a Done button opens names the incident and the marker`() {
+        assertEquals("critalarm://incidents/inc_1?from=done", TapRoute.doneLink("inc_1"))
+    }
+
     @Test
     fun `a topic opens that topic`() {
         assertEquals("/topics/prod", TapRoute.routeFor(mapOf("topic" to "prod")))

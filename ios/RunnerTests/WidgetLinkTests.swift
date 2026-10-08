@@ -33,8 +33,12 @@ final class WidgetLinkTests: XCTestCase {
         let url = WidgetLink.doneURL(
             incidentId: "inc_9a8b7c", topic: "prod", shared: group(owing: ["prod"])
         )
-        XCTAssertEqual(url?.absoluteString, "critalarm://incidents/inc_9a8b7c")
-        XCTAssertEqual(url.flatMap(WidgetLink.tap(from:)), ["incident_id": "inc_9a8b7c"])
+        XCTAssertEqual(url?.absoluteString, "critalarm://incidents/inc_9a8b7c?from=done")
+        // The tap Dart gets says it came from Done.
+        XCTAssertEqual(
+            url.flatMap(WidgetLink.tap(from:)),
+            ["incident_id": "inc_9a8b7c", "from": "done"]
+        )
     }
 
     func testDoneIsNoLinkWhileTheFlagIsNotSet() {
@@ -47,7 +51,7 @@ final class WidgetLinkTests: XCTestCase {
         let owing = group(owing: ["prod"])
         XCTAssertEqual(
             WidgetLink.smallTopicURL(topic: "prod", ackedIncidentId: "inc_1", shared: owing).absoluteString,
-            "critalarm://incidents/inc_1"
+            "critalarm://incidents/inc_1?from=done"
         )
         // Nothing acknowledged on it, or nothing owed: the topic, as before.
         XCTAssertEqual(
@@ -57,6 +61,20 @@ final class WidgetLinkTests: XCTestCase {
         XCTAssertEqual(
             WidgetLink.smallTopicURL(topic: "prod", ackedIncidentId: "inc_1", shared: group(owing: [])).absoluteString,
             "critalarm://topics/prod"
+        )
+    }
+
+    func testAPlainIncidentLinkCarriesNoMarker() {
+        let tap = WidgetLink.tap(from: WidgetLink.url(incidentId: "inc_1"))
+        XCTAssertEqual(tap, ["incident_id": "inc_1"])
+        // No other word is the marker, and it means nothing on a topic.
+        XCTAssertEqual(
+            WidgetLink.tap(from: URL(string: "critalarm://incidents/inc_1?from=card")!),
+            ["incident_id": "inc_1"]
+        )
+        XCTAssertEqual(
+            WidgetLink.tap(from: URL(string: "critalarm://topics/prod?from=done")!),
+            ["topic": "prod"]
         )
     }
 

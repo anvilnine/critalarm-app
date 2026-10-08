@@ -166,6 +166,26 @@ void main() {
     expect(log, ['select inc_9a8b7c']);
   });
 
+  test('a Done tap while an incident is up opens its own screen, so the '
+      'marker it carries reaches the route', () async {
+    currentLocation = '/incidents/inc_showing';
+    await sendFromPlatform('onNotificationTap', {
+      'incident_id': 'inc_9a8b7c',
+      'from': 'done',
+      'tap_id': '1',
+    });
+    expect(log, ['go /incidents/inc_9a8b7c?from=done']);
+  });
+
+  test('a Done tap opens the incident, marked', () async {
+    await sendFromPlatform('onNotificationTap', {
+      'incident_id': 'inc_9a8b7c',
+      'from': 'done',
+      'tap_id': '1',
+    });
+    expect(log, ['go /incidents/inc_9a8b7c?from=done']);
+  });
+
   test('a tap on another topic is dropped while an alarm is up', () async {
     await ringOne();
     await sendFromPlatform('onNotificationTap', {

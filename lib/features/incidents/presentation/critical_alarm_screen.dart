@@ -49,10 +49,15 @@ class CriticalAlarmScreen extends StatelessWidget {
   const CriticalAlarmScreen({
     this.incidentId,
     this.previewsFirstToolAcked = false,
+    this.cameFromDone = false,
     super.key,
   });
 
   final String? incidentId;
+
+  /// A native Done button opened this screen: the link carried
+  /// `PushDeepLink.fromDone`. See `CriticalAlarmCubit.load`.
+  final bool cameFromDone;
 
   /// Opens on the acknowledged screen of a made-up first tool alarm. Only
   /// the router of a developer build sets it. Nothing is loaded or sent.
@@ -74,7 +79,9 @@ class CriticalAlarmScreen extends StatelessWidget {
         if (previewsFirstToolAcked) {
           cubit.previewFirstToolAlarm();
         } else {
-          unawaited(cubit.load(incidentId: incidentId));
+          unawaited(
+            cubit.load(incidentId: incidentId, cameFromDone: cameFromDone),
+          );
         }
         return cubit;
       },
@@ -301,12 +308,12 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
         Widget content;
         if (!state.isLive && !state.isAcknowledged) {
           final isLoading = state.status == CriticalAlarmStatus.loading;
-          final didFail = !isLoading && state.errorMessage != null;
-          // The incident this screen was opened for could not be loaded,
-          // and can still be closed from here.
-          final unloadedId = didFail ? state.unloadedIncidentId : null;
-          // That close is waiting for the server.
-          final isQueued = !isLoading && !didFail && state.isCloseQueued;
+          // Set only when a native Done opened the screen and the server
+          // gave no answer. Without it this screen is what it always was.
+          final doneId = isLoading ? null : state.doneIncidentId;
+          final isHandedOff = !isLoading && state.isDoneHandedOff;
+          final didFail =
+              !isLoading && (state.errorMessage != null || doneId != null);
 
           content = AppScreenScaffold(
             hasTabBar: false,
@@ -320,7 +327,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
             ),
             // The load failing does not stop the phone ringing, so this screen
             // keeps a way out even when it has no incident to acknowledge.
-            bottomBar: isQueued
+            bottomBar: isHandedOff
                 ? AppButton(
                     label: LocaleKeys.critical_alarm_back_to_topics_button.tr(),
                     variant: AppButtonVariant.ghost,
@@ -334,11 +341,11 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
                 ? Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // With no server to ask, "At my desk" is still here.
-                      // A card's Done button can open the app instead of
-                      // closing, and no signal must not hold a person on
-                      // this screen.
-                      if (unloadedId != null) ...[
+                      // Done on the card would have closed this with no
+                      // signal. It opened the app instead, so the close is
+                      // still one tap away, handed back to the same native
+                      // code.
+                      if (doneId != null) ...[
                         AppButton(
                           label: LocaleKeys.critical_alarm_at_my_desk_button
                               .tr(),
@@ -349,7 +356,7 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
                             unawaited(
                               context
                                   .read<CriticalAlarmCubit>()
-                                  .closeUnloaded(),
+                                  .handCloseToNative(),
                             );
                           },
                         ),
@@ -358,10 +365,17 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
                       AppButton(
                         label: LocaleKeys.critical_alarm_retry_button.tr(),
                         isFullWidth: true,
+                        // A try again from the screen a Done button opened
+                        // asks for the same incident, so one more failure
+                        // does not take "At my desk" away. Any other try
+                        // again is what it always was.
                         onPressed: () => unawaited(
-                          context.read<CriticalAlarmCubit>().load(
-                            incidentId: unloadedId,
-                          ),
+                          doneId == null
+                              ? context.read<CriticalAlarmCubit>().load()
+                              : context.read<CriticalAlarmCubit>().load(
+                                  incidentId: doneId,
+                                  cameFromDone: true,
+                                ),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -388,12 +402,12 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
                   child: AppEmptyState(
                     title: isLoading
                         ? LocaleKeys.critical_alarm_loading_title.tr()
-                        : isQueued
+                        : isHandedOff
                         ? LocaleKeys.critical_alarm_close_queued_title.tr()
                         : didFail
                         ? LocaleKeys.critical_alarm_load_failed_title.tr()
                         : LocaleKeys.critical_alarm_no_alarm_title.tr(),
-                    description: isQueued
+                    description: isHandedOff
                         ? LocaleKeys.critical_alarm_close_queued_body.tr()
                         : didFail
                         ? LocaleKeys.critical_alarm_load_failed_body.tr()

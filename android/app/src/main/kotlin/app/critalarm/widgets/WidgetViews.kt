@@ -9,6 +9,7 @@ import android.view.View
 import android.widget.RemoteViews
 import app.critalarm.MainActivity
 import app.critalarm.R
+import app.critalarm.TapRoute
 import app.critalarm.actions.IncidentActionReceiver
 import app.critalarm.notifications.CritAlarmFace
 import app.critalarm.notifications.FaceBitmap
@@ -252,8 +253,11 @@ object WidgetViews {
         // and closes nothing here. "I'm up" never asks anything.
         if (!ack && DoneButtonRule.forTopic(topic, ChallengeFlagStore(context)) == DoneButton.OPENS_APP) {
             val open = Intent(context, MainActivity::class.java).apply {
-                data = Uri.parse("critalarm://incidents/${Uri.encode(incident.id)}")
+                // Marked as coming from Done, so the app can still hand the
+                // close back to the receiver when it cannot reach the server.
+                data = Uri.parse(TapRoute.doneLink(Uri.encode(incident.id)))
                 putExtra(MainActivity.EXTRA_INCIDENT_ID, incident.id)
+                putExtra(MainActivity.EXTRA_FROM, MainActivity.FROM_DONE)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
             return PendingIntent.getActivity(context, requestCode("challenge:$appWidgetId"), open, FLAGS)

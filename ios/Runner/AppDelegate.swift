@@ -483,6 +483,24 @@ import AlarmKit
         delaySeconds: args["delay_seconds"] as? Int
       ) { ok in result(ok) }
 
+    case "closeFromDone":
+      // "At my desk" on the screen a Done button opened and could not load.
+      // This is that Done button, pressed late: the same intent, which
+      // queues the close, sends it, and updates the card and the widgets
+      // when the server says the incident is over. Nothing else happens
+      // here. The answer goes back once it is handed over: the intent
+      // writes the queue first and may then wait on the network.
+      guard let incidentId = args["incident_id"] as? String, !incidentId.isEmpty else {
+        result(FlutterError(code: "bad_args", message: "incident_id required", details: nil))
+        return
+      }
+      if #available(iOS 16.2, *) {
+        Task { _ = try? await CloseIncidentIntent(incidentId: incidentId).perform() }
+        result(nil)
+      } else {
+        result(FlutterMethodNotImplemented)
+      }
+
     case "cancelAlarm":
       guard let incidentId = args["incident_id"] as? String else {
         result(FlutterError(code: "bad_args", message: "incident_id required", details: nil))

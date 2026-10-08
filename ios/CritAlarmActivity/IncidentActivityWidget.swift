@@ -258,11 +258,15 @@ private struct CardButton: View {
             // this incident, where the challenge and its way out are, and
             // closes nothing here. Dart wrote that flag. The alarm is
             // already stopped by the time this button exists.
+            //
+            // It is a link, marked as coming from Done, so the app can
+            // still hand the close back when it cannot reach the server.
             Group {
-                switch DoneButton.forCard(topic: topic, shared: ChallengeFlag.groupDefaults) {
-                case .opensApp:
-                    Button(intent: OpenIncidentIntent(incidentId: incidentId)) { label("Done") }
-                case .closes:
+                if let url = WidgetLink.doneURL(
+                    incidentId: incidentId, topic: topic, shared: ChallengeFlag.groupDefaults
+                ) {
+                    Link(destination: url) { label("Done") }
+                } else {
                     Button(intent: CloseIncidentIntent(incidentId: incidentId)) { label("Done") }
                 }
             }

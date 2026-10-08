@@ -397,14 +397,16 @@ class MainActivity : FlutterFragmentActivity() {
         val topic = intent.getStringExtra(EXTRA_TOPIC)
         val open = intent.getStringExtra(EXTRA_OPEN)
         val link = intent.getStringExtra(EXTRA_LINK)
+        val from = intent.getStringExtra(EXTRA_FROM)
         if (incidentId == null && topic == null && open == null && link == null) return null
         intent.removeExtra(EXTRA_ALARM_INCIDENT_ID)
         intent.removeExtra(EXTRA_INCIDENT_ID)
         intent.removeExtra(EXTRA_TOPIC)
         intent.removeExtra(EXTRA_OPEN)
         intent.removeExtra(EXTRA_LINK)
+        intent.removeExtra(EXTRA_FROM)
         tapSequence += 1
-        return TapRoute.tapFor(tapSequence, incidentId, topic, open, link)
+        return TapRoute.tapFor(tapSequence, incidentId, topic, open, link, from)
     }
 
     companion object {
@@ -422,6 +424,18 @@ class MainActivity : FlutterFragmentActivity() {
          * Matches PushHost.linkKey in Dart.
          */
         const val EXTRA_LINK = "link"
+
+        /**
+         * `from=done` rides on an incident tap that a Done button made: the
+         * Done on an acknowledged card or widget whose topic owes a wake-up
+         * challenge, which opens the app where it used to close. Done is
+         * only ever drawn on an acknowledged incident, so the marker tells
+         * Dart "native holds this one as acknowledged". A plain tap on a
+         * card never carries it. Matches PushDeepLink.fromKey and fromDone
+         * in Dart.
+         */
+        const val EXTRA_FROM = "from"
+        const val FROM_DONE = "done"
 
         /** open=paywall comes from a locked widget. */
         const val OPEN_PAYWALL = "paywall"
