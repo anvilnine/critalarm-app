@@ -32,6 +32,82 @@ void main() {
     );
   });
 
+  group('the marker a native Done button puts on its link', () {
+    test('a tap map with it opens the incident, marked', () {
+      final location = PushDeepLink.fromNotificationData({
+        'incident_id': 'inc_1',
+        'from': 'done',
+        'tap_id': '4',
+      })!;
+      expect(location, '/incidents/inc_1?from=done');
+      expect(PushDeepLink.cameFromDone(Uri.parse(location)), isTrue);
+      expect(PushDeepLink.incidentIdIn(location), 'inc_1');
+    });
+
+    test('an app link with it opens the incident, marked', () {
+      final location = PushDeepLink.fromAppUri(
+        Uri.parse('critalarm://incidents/inc_1?from=done'),
+      )!;
+      expect(location, '/incidents/inc_1?from=done');
+      expect(PushDeepLink.cameFromDone(Uri.parse(location)), isTrue);
+    });
+
+    test('a plain tap on a card carries none, in either form', () {
+      final tapped = PushDeepLink.fromNotificationData({
+        'incident_id': 'inc_1',
+      })!;
+      final linked = PushDeepLink.fromAppUri(
+        Uri.parse('critalarm://incidents/inc_1'),
+      )!;
+      expect(tapped, '/incidents/inc_1');
+      expect(linked, '/incidents/inc_1');
+      expect(PushDeepLink.cameFromDone(Uri.parse(tapped)), isFalse);
+      expect(PushDeepLink.cameFromDone(Uri.parse(linked)), isFalse);
+    });
+
+    test('no other word is the marker', () {
+      expect(
+        PushDeepLink.fromNotificationData({
+          'incident_id': 'inc_1',
+          'from': 'card',
+        }),
+        '/incidents/inc_1',
+      );
+      expect(
+        PushDeepLink.fromAppUri(
+          Uri.parse('critalarm://incidents/inc_1?from=card'),
+        ),
+        '/incidents/inc_1',
+      );
+      expect(
+        PushDeepLink.cameFromDone(Uri.parse('/incidents/inc_1?from=card')),
+        isFalse,
+      );
+    });
+
+    test('it means nothing on a topic', () {
+      expect(
+        PushDeepLink.fromNotificationData({'topic': 'prod', 'from': 'done'}),
+        '/topics/prod',
+      );
+      expect(
+        PushDeepLink.fromAppUri(
+          Uri.parse('critalarm://topics/prod?from=done'),
+        ),
+        '/topics/prod',
+      );
+    });
+
+    test('the incident id never takes the marker with it', () {
+      expect(PushDeepLink.incidentIdIn('/incidents/inc_1?from=done'), 'inc_1');
+      expect(PushDeepLink.incidentIdIn('/incidents/inc_1'), 'inc_1');
+      expect(PushDeepLink.incidentIdIn('/incidents/a%20b'), 'a b');
+      expect(PushDeepLink.incidentIdIn('/alarm'), isNull);
+      expect(PushDeepLink.incidentIdIn('/topics/prod'), isNull);
+      expect(PushDeepLink.incidentIdIn('/incidents/'), isNull);
+    });
+  });
+
   test('a priority 1-3 notification opens its topic', () {
     expect(
       PushDeepLink.fromNotificationData({'topic': 'prod'}),

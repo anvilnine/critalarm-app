@@ -153,6 +153,26 @@ final class PushDeliveryTests: XCTestCase {
         XCTAssertEqual(DoneButton.forCard(topic: "", shared: group), .closes)
     }
 
+    /// What "At my desk" hands back to when the app could not load the
+    /// incident: the intent Done always ran. It writes the close to the
+    /// queue Dart drains before anything goes on the wire.
+    @available(iOS 16.2, *)
+    func testTheCloseIntentQueuesTheCloseDartReads() async throws {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: AckQueueStore.key)
+        addTeardownBlock { defaults.removeObject(forKey: AckQueueStore.key) }
+
+        _ = try await CloseIncidentIntent(incidentId: "inc_done_1").perform()
+
+        let raw = try XCTUnwrap(defaults.string(forKey: AckQueueStore.key))
+        let rows = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [[String: Any]]
+        )
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertEqual(rows[0]["action"] as? String, "close")
+        XCTAssertEqual(rows[0]["incident_id"] as? String, "inc_done_1")
+    }
+
     /// Whatever the flag says, the two buttons that stop a ring never open
     /// the app first.
     @available(iOS 16.2, *)

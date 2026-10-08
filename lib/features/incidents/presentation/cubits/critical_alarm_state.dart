@@ -40,8 +40,8 @@ class CriticalAlarmState {
     this.setupFlowHasRealRing = false,
     this.firstToolIncidentId,
     this.isPreview = false,
-    this.unloadedIncidentId,
-    this.isCloseQueued = false,
+    this.doneIncidentId,
+    this.isDoneHandedOff = false,
   });
 
   final CriticalAlarmStatus status;
@@ -94,17 +94,18 @@ class CriticalAlarmState {
   /// A developer's look at a screen: nothing on it reaches the server.
   final bool isPreview;
 
-  /// The incident the screen was opened for and could not load, while it
-  /// can still be closed from here: the server did not answer, and this
-  /// phone is not ringing for it. Null in every other state.
+  /// Set only on a failed load, and only when both are true: the screen
+  /// was opened by a native Done button, and the server gave no answer.
+  /// It is the incident that Done was for, and the failed screen then
+  /// offers "At my desk", which hands the close back to native.
   ///
-  /// It is what keeps "At my desk" on screen with no signal. The Done
-  /// button on a card can open the app instead of closing, and a person
-  /// who lands here must still be able to close.
-  final String? unloadedIncidentId;
+  /// Null in every other state, and cleared the moment an incident is
+  /// applied.
+  final String? doneIncidentId;
 
-  /// The close could not reach the server and is waiting in the ack queue.
-  final bool isCloseQueued;
+  /// That close was handed to native. Nothing else is known: native sends
+  /// it, or keeps it until the server can be reached.
+  final bool isDoneHandedOff;
 
   /// Whether the alarm on screen is the first tool alarm of a setup run.
   /// Matched by incident id and nothing else.
@@ -152,7 +153,7 @@ class CriticalAlarmState {
     bool? setupFlowHasRealRing,
     String? firstToolIncidentId,
     bool? isPreview,
-    bool? isCloseQueued,
+    bool clearDoneHandOff = false,
     bool clearFirstTool = false,
     bool clearError = false,
     bool clearFeedback = false,
@@ -185,8 +186,8 @@ class CriticalAlarmState {
           ? null
           : (firstToolIncidentId ?? this.firstToolIncidentId),
       isPreview: isPreview ?? this.isPreview,
-      unloadedIncidentId: unloadedIncidentId,
-      isCloseQueued: isCloseQueued ?? this.isCloseQueued,
+      doneIncidentId: clearDoneHandOff ? null : doneIncidentId,
+      isDoneHandedOff: !clearDoneHandOff && isDoneHandedOff,
     );
   }
 
@@ -218,8 +219,8 @@ class CriticalAlarmState {
           setupFlowHasRealRing == other.setupFlowHasRealRing &&
           firstToolIncidentId == other.firstToolIncidentId &&
           isPreview == other.isPreview &&
-          unloadedIncidentId == other.unloadedIncidentId &&
-          isCloseQueued == other.isCloseQueued;
+          doneIncidentId == other.doneIncidentId &&
+          isDoneHandedOff == other.isDoneHandedOff;
 
   @override
   int get hashCode => Object.hash(
@@ -247,8 +248,8 @@ class CriticalAlarmState {
       firstToolIncidentId,
       isPreview,
       ringTimeSpoken,
-      unloadedIncidentId,
-      isCloseQueued,
+      doneIncidentId,
+      isDoneHandedOff,
     ),
   );
 }

@@ -88,6 +88,21 @@ class AlarmChannel(private val context: Context) {
                 result.success(null)
             }
 
+            // "At my desk" on the screen a Done button opened and could not
+            // load. This is that Done button, pressed late: the same
+            // broadcast to the same receiver, which sends the close, queues
+            // it with no signal, and clears the card when the server says
+            // the incident is over. Nothing else happens here.
+            "closeFromDone" -> {
+                val incidentId = call.argument<String>("incident_id")
+                if (incidentId.isNullOrEmpty()) {
+                    result.error("bad_args", "incident_id required", null)
+                    return
+                }
+                context.sendBroadcast(doneBroadcast(context, incidentId))
+                result.success(null)
+            }
+
             "cancelAlarm" -> {
                 val incidentId = call.argument<String>("incident_id")
                 if (incidentId.isNullOrEmpty()) {
@@ -262,4 +277,17 @@ class AlarmChannel(private val context: Context) {
         private const val UNSUPPORTED = "unsupported"
         private const val TAG = "CritAlarmAlarm"
     }
+
+    /**
+     * The broadcast Done on an acknowledged card sends, as
+     * StatusNotificationFactory and the widgets build it.
+     */
+    private fun doneBroadcast(context: Context, incidentId: String): Intent =
+        Intent(context, IncidentActionReceiver::class.java).apply {
+            action = IncidentActionReceiver.ACTION_ACKNOWLEDGE
+            putExtra(IncidentActionReceiver.EXTRA_INCIDENT_ID, incidentId)
+            NativeConnectionStore(context).canonicalServer()?.let {
+                putExtra(IncidentActionReceiver.EXTRA_SERVER, it.toString())
+            }
+        }
 }
