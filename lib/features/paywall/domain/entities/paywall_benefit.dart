@@ -98,10 +98,16 @@ const _hostedParts =
 /// order. The table picks from it and never reorders it: a benefit is
 /// listed under Pro while Pro unlocks its feature.
 ///
-/// [PaywallBenefit.inThisBuild] is true only for what the app has today:
-/// the widgets and the alarm screen looks (four fixed ones and the
-/// person's own photo). Two more are written and drawn, and a layout picks
-/// each one up the day its switch is turned on.
+/// [PaywallBenefit.inThisBuild] is true only for what the app has today,
+/// as its line and its preview show it: the widgets, the person's own
+/// alarm sounds (a file picked or a recording) and the alarm screen looks
+/// (four fixed ones and the person's own photo).
+///
+/// Wake-up challenges are built too, and stay switched off here. Their
+/// line and their preview show a QR code scan that holds the stop button,
+/// and the four challenges the app has are typing a topic name, typing an
+/// alert title, a sum and a scratch card, with "I'm up" always stopping
+/// the ring. The switch goes on once the line and the preview show those.
 ///
 /// The weekly delivery check keeps its entry here and the table leaves it
 /// out, because Hosted is what unlocks it now.
@@ -146,7 +152,7 @@ const _proDisplayOrder = <PaywallBenefit>[
     titleKey: LocaleKeys.paywall_kit_benefits_custom_sounds_title,
     lineKey: LocaleKeys.paywall_kit_benefits_custom_sounds_line,
     previewId: PaywallPreviewId.customSounds,
-    inThisBuild: false,
+    inThisBuild: true,
   ),
   PaywallBenefit(
     id: PaywallBenefitId.customAlarmScreens,
