@@ -62,10 +62,14 @@ const _frame = Duration(milliseconds: 16);
 /// Sections that are also captured at the largest text size.
 const _largestToo = {'hero', 'inbox'};
 
-Widget _section(String name, double scale) => switch (name) {
+Widget _section(String name, double scale, double phoneWidth) => switch (name) {
   'status' => const StatusCardsGallery(),
   'pips' => const ReadinessPipsGallery(),
-  'hero' => HeroSceneGallery(scales: [scale]),
+  'hero' => HeroSceneGallery(
+    scales: [scale],
+    // Each scene at its real width: 320, this phone and a 360 point pane.
+    widths: [(320, false), (phoneWidth, false), (360, true)],
+  ),
   'inbox' => const InboxRowsGallery(),
   'cream' => const CreamCardGallery(),
   'stat' => const StatCardGallery(),
@@ -150,7 +154,8 @@ void main() {
             final oldHandler = FlutterError.onError;
             FlutterError.onError = (d) => errors.add(d.exceptionAsString());
 
-            tester.view.physicalSize = Size(phone.width, 14000) * 2;
+            tester.view.physicalSize =
+                Size(phone.width + 2 * Spacing.s4, 14000) * 2;
             tester.view.devicePixelRatio = 2;
             addTearDown(tester.view.reset);
             final key = GlobalKey();
@@ -175,7 +180,9 @@ void main() {
                       body: Align(
                         alignment: Alignment.topLeft,
                         child: SizedBox(
-                          width: phone.width,
+                          width: section == 'hero'
+                              ? phone.width + 2 * Spacing.s4
+                              : phone.width,
                           child: SingleChildScrollView(
                             child: RepaintBoundary(
                               key: key,
@@ -183,7 +190,7 @@ void main() {
                                 color: context.appColors.canvas,
                                 child: Padding(
                                   padding: const EdgeInsets.all(Spacing.s4),
-                                  child: _section(section, scale),
+                                  child: _section(section, scale, phone.width),
                                 ),
                               ),
                             ),

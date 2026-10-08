@@ -24,14 +24,25 @@ void main() {
       );
     });
 
-    test('the first dot floats 9 points over 7 seconds', () {
-      expect(heroTimeline(3.5).firstDotRise, closeTo(9, 1e-9));
+    test('the dots are small, so they stay still', () {
+      expect(heroFloatRise, 0);
+      for (var t = 0.0; t < 30; t += 0.5) {
+        expect(heroTimeline(t).firstDotRise, 0);
+        expect(heroTimeline(t).secondDotRise, 0);
+      }
+    });
+
+    test('the first dot floats heroFloatRise over 7 seconds', () {
+      expect(heroTimeline(3.5).firstDotRise, closeTo(heroFloatRise, 1e-9));
       expect(heroTimeline(7).firstDotRise, closeTo(0, 1e-9));
     });
 
     test('the second dot waits 3.4 seconds and then floats', () {
       expect(heroTimeline(3.3).secondDotRise, 0);
-      expect(heroTimeline(3.4 + 3.5).secondDotRise, closeTo(9, 1e-9));
+      expect(
+        heroTimeline(3.4 + 3.5).secondDotRise,
+        closeTo(heroFloatRise, 1e-9),
+      );
     });
 
     test('the face bobs 3 points over 3.8 seconds', () {
@@ -54,8 +65,8 @@ void main() {
         final f = heroTimeline(t);
         expect(f.discScale, inInclusiveRange(1, 1.035 + 1e-9));
         expect(f.ringScale, inInclusiveRange(1, 1.035 + 1e-9));
-        expect(f.firstDotRise, inInclusiveRange(0, 9 + 1e-9));
-        expect(f.secondDotRise, inInclusiveRange(0, 9 + 1e-9));
+        expect(f.firstDotRise, inInclusiveRange(0, heroFloatRise + 1e-9));
+        expect(f.secondDotRise, inInclusiveRange(0, heroFloatRise + 1e-9));
         expect(f.faceRise, inInclusiveRange(0, 3 + 1e-9));
         expect(f.blink, inInclusiveRange(0, 1));
       }

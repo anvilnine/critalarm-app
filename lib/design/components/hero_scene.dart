@@ -110,7 +110,7 @@ Offset heroGazeOffset(AppHeroGaze gaze, AppHeroLayout layout) => switch (gaze) {
   AppHeroGaze.list => _listGaze,
 };
 
-const Offset _listGaze = Offset(2, 9);
+const Offset _listGaze = Offset(1, 8);
 
 /// Faces whose eyes are shut or squeezed already, or that move on their own.
 /// They keep their own pose: no blink, no bob.
@@ -134,6 +134,30 @@ const Set<FaceState> _facesThatStayPut = {
   FaceState.confused,
   FaceState.cheeky,
 };
+
+EyeShape _attentiveEye(Offset at) => EyeShape(
+  centre: at,
+  ballRadius: 20,
+  pupilRadius: 9.5,
+  lidPoints: restingLid(at),
+);
+
+/// The calm face with wide white eyes. A plain calm face has dot eyes, so
+/// moving its pupils shows nothing; these eyes let the face be seen looking
+/// at the card or down at the list. The head, the mouth and the colours are
+/// calm's own, and the state stays calm: all is well, and it is keeping an
+/// eye on things. The paywall's mascot looks at its prop with the same eyes.
+final FaceShape heroAttentiveCalmFace = FaceShape(
+  leftEye: _attentiveEye(const Offset(74, 92)),
+  rightEye: _attentiveEye(const Offset(126, 92)),
+  mouth: calmFace.mouth,
+);
+
+/// The pose the hero draws for [state] when the caller gives none. Calm is
+/// the attentive calm face, so a look is readable. Every other state is the
+/// face rig's own pose.
+FaceShape heroBaseShape(FaceState state) =>
+    state == FaceState.calm ? heroAttentiveCalmFace : faceFor(state);
 
 /// True when [state] blinks and looks around in the hero scene.
 bool heroFaceBlinks(FaceState state) => !_facesThatStayPut.contains(state);
@@ -523,13 +547,15 @@ class _HeroFace extends StatelessWidget {
         final moves = heroFaceBlinks(state);
         final looks = moves && gaze != Offset.zero;
         final blinks = moves && blink > 0;
-        final isShaped = shape != null;
+        // A calm hero always wears the attentive eyes, whether or not it is
+        // looking at anything this frame.
+        final isShaped = shape != null || state == FaceState.calm;
 
         if (refreshing || !(looks || blinks || isShaped)) {
           return stageFace(context, state: state, size: size, isLive: isLive);
         }
 
-        var pose = shape ?? faceFor(state);
+        var pose = shape ?? heroBaseShape(state);
         if (looks) pose = heroLookedShape(pose, gaze);
         if (blinks) pose = FaceShape.lerp(pose, pose.blinking, blink);
         return FaceWidget(state: state, size: size, shape: pose);

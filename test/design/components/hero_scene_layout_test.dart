@@ -55,6 +55,12 @@ void main() {
       );
     });
 
+    test('side by side at the phone widths the hero is drawn at', () {
+      expect(heroFaceSizeFor(AppHeroLayout.sideBySide, 375), 165);
+      expect(heroFaceSizeFor(AppHeroLayout.sideBySide, 360), 158.4);
+      expect(heroFaceSizeFor(AppHeroLayout.sideBySide, 390), 170);
+    });
+
     test('stacked is 120', () {
       expect(heroFaceSizeFor(AppHeroLayout.stacked, 390), 120);
       expect(heroFaceSizeFor(AppHeroLayout.stacked, 320), 120);
@@ -82,6 +88,21 @@ void main() {
         heroGazeOffset(AppHeroGaze.list, AppHeroLayout.sideBySide).dy,
         greaterThan(5),
       );
+    });
+  });
+
+  group('heroBaseShape', () {
+    test('calm wears wide white eyes so a look can be seen', () {
+      final calm = heroBaseShape(FaceState.calm);
+      expect(calm.leftEye.ball, greaterThan(calm.leftEye.pupilRadius));
+      expect(calm.rightEye.ball, greaterThan(calm.rightEye.pupilRadius));
+      // Its mouth and head are calm's own.
+      expect(calm.mouth, faceFor(FaceState.calm).mouth);
+    });
+
+    test('every other state is the face rig pose', () {
+      expect(heroBaseShape(FaceState.skeptical), faceFor(FaceState.skeptical));
+      expect(heroBaseShape(FaceState.sad), faceFor(FaceState.sad));
     });
   });
 
