@@ -59,8 +59,10 @@ import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/core/paywall/dev_pro_switch.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/challenges/domain/challenge_choices.dart';
+import 'package:critalarm/features/challenges/domain/challenge_incident.dart';
 import 'package:critalarm/features/challenges/domain/challenge_kind.dart';
 import 'package:critalarm/features/challenges/presentation/challenge.dart';
+import 'package:critalarm/features/challenges/domain/challenge_rule.dart';
 import 'package:critalarm/features/challenges/presentation/challenge_step.dart';
 import 'package:critalarm/features/challenges/presentation/challenge_try.dart';
 import 'package:critalarm/features/challenges/presentation/hold_to_skip_button.dart';
@@ -598,6 +600,70 @@ void main() {
     expect(_status(), CriticalAlarmStatus.closed);
     print('FLOW typing the first words of the title closed the incident');
   });
+
+  // A title of many words, to show the first three set apart from the rest.
+  // Only for type_alert_title.
+  if (_kind == ChallengeKind.typeAlertTitle) {
+    for (final (mode, scale) in [
+      (ThemeMode.light, 1.0),
+      (ThemeMode.dark, 1.3),
+    ]) {
+      final name = 'challenge_longtitle_375x667_${mode.name}_${scale}x';
+      capture(name, (tester, errors) async {
+        const size = Size(375, 667);
+        tester.view.physicalSize = size * 2;
+        tester.view.devicePixelRatio = 2;
+        tester.view.padding = const FakeViewPadding(top: 40);
+        tester.view.viewPadding = tester.view.padding;
+        tester.view.viewInsets = const FakeViewPadding(bottom: 520);
+        addTearDown(tester.view.reset);
+        final key = GlobalKey();
+        await tester.pumpWidget(
+          MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: buildLightTheme(),
+            darkTheme: buildDarkTheme(),
+            themeMode: mode,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(scale),
+                disableAnimations: true,
+              ),
+              child: RepaintBoundary(key: key, child: child),
+            ),
+            home: SeverityScope(
+              mode: SeverityMode.ack,
+              child: Builder(
+                builder: (context) => Material(
+                  color: context.appColors.canvas,
+                  child: AmbientScope(
+                    child: ChallengeStep(
+                      challenge: challengeOf(ChallengeKind.typeAlertTitle)!,
+                      incident: const ChallengeIncident(
+                        topic: 'prod-db',
+                        alertTitle:
+                            'Replication lag above 300 seconds on the '
+                            'primary database in eu-west-1 after the '
+                            'nightly vacuum job started late',
+                      ),
+                      wayOut: ChallengeWayOut.hold,
+                      onPassed: () {},
+                      onSkip: () {},
+                      onLeave: () {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await _settle(tester);
+        await tester.enterText(find.byType(TextField), 'replication lag');
+        await tester.pump();
+        await _save(tester, key, name, isGood: errors.isEmpty);
+      });
+    }
+  }
 
   capture('flow_hold_closes', (tester, errors) async {
     await flow(tester);

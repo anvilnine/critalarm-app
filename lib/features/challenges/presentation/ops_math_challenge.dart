@@ -87,19 +87,21 @@ class _OpsMathState extends State<_OpsMath> {
   /// then wrong whatever its length.
   void _check(String typed, {bool isFinal = false}) {
     if (_didPass) return;
-    if (opsMathAnswerMatches(typed: typed, answer: _question.answer)) {
-      _didPass = true;
-      widget.run.onPassed();
-      return;
-    }
     // A number pad has no done key on iOS, so an answer as long as the
     // right one is judged as soon as it is typed.
-    final isFull = typed.length >= '${_question.answer}'.length;
-    if (typed.isNotEmpty && (isFull || isFinal)) {
-      _controller.clear();
-      setState(() => _wasWrong = true);
-    } else if (_wasWrong && typed.isNotEmpty) {
-      setState(() => _wasWrong = false);
+    switch (opsMathJudge(
+      typed: typed,
+      answer: _question.answer,
+      isFinal: isFinal,
+    )) {
+      case OpsMathVerdict.right:
+        _didPass = true;
+        widget.run.onPassed();
+      case OpsMathVerdict.wrong:
+        _controller.clear();
+        setState(() => _wasWrong = true);
+      case OpsMathVerdict.waiting:
+        if (_wasWrong && typed.isNotEmpty) setState(() => _wasWrong = false);
     }
   }
 
