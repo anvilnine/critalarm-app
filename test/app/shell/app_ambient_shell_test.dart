@@ -1,5 +1,6 @@
 import 'package:critalarm/app/shell/app_ambient_shell.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
+import 'package:critalarm/design/components/hero_scene.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,6 +34,24 @@ void main() {
 
     test('the app icon picker keeps the Settings detail backdrop', () {
       expect(at('/app-icon'), AmbientAppProfiles.settingsDetail(colors));
+    });
+
+    test('the Topics tab gets the hero profile, its topic keeps the blobs', () {
+      expect(at('/'), AmbientAppProfiles.topicsHero(colors));
+      expect(at('/topics/prod-db'), AmbientAppProfiles.topicDetail(colors));
+      expect(at('/'), isNot(at('/topics/prod-db')));
+    });
+
+    test('the hero profile follows the spot it is given', () {
+      const spot = HeroDiscSpot(
+        anchor: Alignment(0.2, -0.5),
+        discScale: 1,
+        ringScale: 1.3,
+      );
+      expect(
+        AppAmbientShell.profileForPath('/', colors, heroSpot: spot),
+        AmbientAppProfiles.topicsHero(colors, spot: spot),
+      );
     });
 
     test('alarm and incident paths default to criticalAlarmRinging', () {
@@ -95,9 +114,14 @@ void main() {
         router.go('/');
         await tester.pumpAndSettle();
 
-        // Canvas remains mounted and profile reverts to topics
+        // Canvas remains mounted and profile reverts to the Topics hero, with
+        // the disc where this display puts it.
         final homeCanvasWidget = tester.widget<AmbientCanvas>(canvasFinder);
-        expect(homeCanvasWidget.profile, AmbientAppProfiles.topics(colors));
+        final spot = heroDiscSpotOf(tester.element(canvasFinder));
+        expect(
+          homeCanvasWidget.profile,
+          AmbientAppProfiles.topicsHero(colors, spot: spot),
+        );
         expect(find.text('Home Screen'), findsOneWidget);
       },
     );
