@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 
@@ -89,22 +90,15 @@ const double reelAfterIntroLead = 0.6;
 double reelPreludeFor({required bool followsIntro}) =>
     followsIntro ? -reelAfterIntroLead : 0;
 
-/// Whether a push the reel made by itself gets a tap and a tick. Only the
-/// pages of the first pass do, and none once the hand has taken over: a
-/// reel left open does not keep clicking, and a touch has its own cue.
+/// What the entrance sounds like, by clock second, for a loop with
+/// [prelude]: the mascot slides in and lands. After an intro the mascot
+/// is already there and nothing is played.
 ///
-/// [began] is the clock second the page on stage began and [was] the one
-/// before it. [entranceEnd] and [period] are the loop's.
-bool reelCuesPush({
-  required double began,
-  required double? was,
-  required double entranceEnd,
-  required double period,
-  required bool touched,
-}) {
-  if (touched || was == null || began <= was) return false;
-  return began > entranceEnd && began < entranceEnd + period;
-}
+/// Every page after that has the page cue: the hand's own, and the reel's
+/// through its first pass (`paywallTurnCues`).
+List<PaywallCueBeat> reelCues({required double prelude}) => [
+  heroLandingBeat(reelMotion.entrance, prelude: prelude),
+];
 
 /// [frame] for the scene on stage, with nothing fading under its picture.
 /// The push shows the scene before it, so the stage must not.

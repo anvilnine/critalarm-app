@@ -95,78 +95,84 @@ class _WipeCompositionState extends State<WipeComposition> {
         for (final b in benefits) b.previewId,
       ], prelude: -lead);
 
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          WipeStage(
-            player: player,
-            size: Size(scope.size.width, room.stage),
-            before: before,
-            after: name,
-            lead: lead,
-            label: LocaleKeys.paywall_wipe_compare_label.tr(
-              namedArgs: {'before': before, 'name': name},
-            ),
-            showing: (frame) => frame.activeIndex >= lines.length
-                ? null
-                : LocaleKeys.paywall_hero_stage_label.tr(
-                    namedArgs: {'benefit': lines[frame.activeIndex]},
-                  ),
-          ),
-          SizedBox(
-            height: room.gap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: heroSideInset),
-              child: HeroPips(
-                player: player,
-                count: lines.length,
-                color: tones.ink,
+    return PaywallCueScore(
+      clock: scope.clock,
+      beats: wipeEntranceCues(lead: lead),
+      player: player,
+      turnCue: PaywallCue.next,
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            WipeStage(
+              player: player,
+              size: Size(scope.size.width, room.stage),
+              before: before,
+              after: name,
+              lead: lead,
+              label: LocaleKeys.paywall_wipe_compare_label.tr(
+                namedArgs: {'before': before, 'name': name},
               ),
-            ),
-          ),
-          // The room under the last line counts as that line, so it has
-          // its full tap area.
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTapUp: (details) {
-              final line = heroLineAt(details.localPosition.dy, centres);
-              if (line != null) player.touch(index: line);
-            },
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: heroSideInset,
-                right: heroSideInset,
-                bottom: math.max(0, room.under),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  HeroRise(
-                    clock: scope.clock,
-                    index: 0,
-                    after: -lead,
-                    child: Semantics(
-                      header: true,
-                      child: Text(headline, style: headlineStyle),
+              showing: (frame) => frame.activeIndex >= lines.length
+                  ? null
+                  : LocaleKeys.paywall_hero_stage_label.tr(
+                      namedArgs: {'benefit': lines[frame.activeIndex]},
                     ),
-                  ),
-                  SizedBox(height: sizes.headlineGap),
-                  HeroBenefitLines(
-                    player: player,
-                    metrics: metrics,
-                    labels: [for (final b in benefits) b.line],
-                    handlesTaps: false,
-                  ),
-                ],
+            ),
+            SizedBox(
+              height: room.gap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: heroSideInset),
+                child: HeroPips(
+                  player: player,
+                  count: lines.length,
+                  color: tones.ink,
+                ),
               ),
             ),
-          ),
-        ],
+            // The room under the last line counts as that line, so it has
+            // its full tap area.
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTapUp: (details) {
+                final line = heroLineAt(details.localPosition.dy, centres);
+                if (line != null) player.touch(index: line);
+              },
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: heroSideInset,
+                  right: heroSideInset,
+                  bottom: math.max(0, room.under),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    HeroRise(
+                      clock: scope.clock,
+                      index: 0,
+                      after: -lead,
+                      child: Semantics(
+                        header: true,
+                        child: Text(headline, style: headlineStyle),
+                      ),
+                    ),
+                    SizedBox(height: sizes.headlineGap),
+                    HeroBenefitLines(
+                      player: player,
+                      metrics: metrics,
+                      labels: [for (final b in benefits) b.line],
+                      handlesTaps: false,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

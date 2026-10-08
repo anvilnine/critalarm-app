@@ -9,8 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 Widget _nothing(BuildContext context, PaywallIntroScope scope) =>
     const SizedBox.shrink();
 
-void _quiet(PaywallCues cues) {}
-
 void main() {
   group('the registry', () {
     test('no intro has no line and always counts as built', () {
@@ -69,9 +67,9 @@ void main() {
       handover: 1.6,
       skipTo: 1.2,
       beats: [
-        PaywallIntroBeat(0, _quiet),
-        PaywallIntroBeat(0.5, _quiet),
-        PaywallIntroBeat(1.2, _quiet),
+        PaywallIntroBeat(0, PaywallCue.tick),
+        PaywallIntroBeat(0.5, PaywallCue.tick),
+        PaywallIntroBeat(1.2, PaywallCue.kidding),
       ],
       builder: _nothing,
     );
@@ -94,13 +92,16 @@ void main() {
       const backwards = PaywallIntro(
         seconds: 2,
         handover: 1.6,
-        beats: [PaywallIntroBeat(1, _quiet), PaywallIntroBeat(0.5, _quiet)],
+        beats: [
+          PaywallIntroBeat(1, PaywallCue.tick),
+          PaywallIntroBeat(0.5, PaywallCue.tick),
+        ],
         builder: _nothing,
       );
       const late = PaywallIntro(
         seconds: 2,
         handover: 1.6,
-        beats: [PaywallIntroBeat(2.5, _quiet)],
+        beats: [PaywallIntroBeat(2.5, PaywallCue.tick)],
         builder: _nothing,
       );
       expect(intro.isSound, isTrue);

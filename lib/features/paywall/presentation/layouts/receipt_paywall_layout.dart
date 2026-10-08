@@ -30,11 +30,15 @@ class ReceiptPaywallLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasSlip = PaywallOffer.of(context).benefits.length >= 2;
     return PaywallFrame(
       // The slot and the paper hang on the left, so the cross takes the
       // right.
       closeOnLeft: false,
-      entranceCue: PaywallEntranceCue.print,
+      // The print is heard a line at a time, from the stage's own
+      // timeline, so the frame opens it with no cue of its own. A product
+      // with one benefit has no slip and opens as the Hero layout does.
+      entranceCue: hasSlip ? PaywallEntranceCue.none : PaywallEntranceCue.open,
       restAt: ReceiptTimeline.restAt,
       builder: (context, scope) => scope.benefits.length < 2
           ? HeroComposition(scope: scope)

@@ -1,10 +1,13 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:flutter/animation.dart';
 
 // The door as numbers: when it opens, how far it stands open for each
@@ -75,10 +78,19 @@ const double doorsIntroHeadStart = 0.5;
 double doorsLeadFor({required bool followsIntro}) =>
     followsIntro ? doorsIntroHeadStart : 0;
 
-/// Whether a clock that read [before] and now reads [now] has just passed
-/// the moment [at]. A cue is played on the frame this turns true, once.
-bool doorsReached(double before, double now, double at) =>
-    before < at && now >= at;
+/// What the entrance sounds like, by clock second: a knock as the door
+/// gives, a whoosh as it starts to swing, the mascot's landing, and a
+/// snap as the door ends square. [lead] is the head start after an intro
+/// (see [doorsLeadFor]), which every moment is that much sooner by.
+List<PaywallCueBeat> doorsCues({double lead = 0}) => [
+  PaywallCueBeat(DoorsTimeline.nudgeStart - lead, PaywallCue.introKnock),
+  PaywallCueBeat(DoorsTimeline.prelude - lead, PaywallCue.whoosh),
+  heroLandingBeat(
+    doorsMotion.entrance,
+    prelude: DoorsTimeline.prelude - lead,
+  ),
+  PaywallCueBeat(DoorsTimeline.swingEnd - lead, PaywallCue.snap),
+];
 
 /// How far the open door lies out over the wall, as a share of its own
 /// width, for the first benefit and for the last. Each benefit between

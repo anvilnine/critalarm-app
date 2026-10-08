@@ -1,7 +1,9 @@
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_loop.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 
 /// Every time in the Sheet layout that is its own, worked out from the
 /// clock's one number.
@@ -50,15 +52,12 @@ abstract final class SheetMotion {
     return landHopHeight * 4 * p * (1 - p);
   }
 
-  /// Whether the lit row's answer is felt and heard at clock second [t]:
-  /// only through the loop's first pass, and never once the hand has taken
-  /// over. A sheet left open does not keep tapping.
-  static bool cuesAt(
-    double t, {
-    required double entranceEnd,
-    required double period,
-    required bool touched,
-  }) => !touched && t >= entranceEnd && t < entranceEnd + period;
+  /// What the sheet's own entrance sounds like, by clock second: the
+  /// mascot pops as the sheet lands under it. The rise itself is the
+  /// frame's entrance cue, played as the sheet appears.
+  static const List<PaywallCueBeat> cues = [
+    PaywallCueBeat(landAt, PaywallCue.pop),
+  ];
 
   /// How long the sheet has to itself before the approved entrance starts:
   /// the loop's `prelude`.

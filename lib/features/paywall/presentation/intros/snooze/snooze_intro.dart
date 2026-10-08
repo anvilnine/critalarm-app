@@ -1,6 +1,5 @@
 import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/intros/intro_parts.dart';
 import 'package:critalarm/features/paywall/presentation/intros/snooze/snooze_timeline.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
@@ -20,26 +19,17 @@ const PaywallIntro snoozeIntro = PaywallIntro(
   tone: PaywallTone.surface,
   cue: PaywallEntranceCue.none,
   beats: [
-    PaywallIntroBeat(SnoozeTimeline.dodgeLeft, _onDodge),
-    PaywallIntroBeat(SnoozeTimeline.dodgeRight, _onDodge),
-    PaywallIntroBeat(SnoozeTimeline.gulp, _onGulp),
-    PaywallIntroBeat(SnoozeTimeline.reveal, _onReveal),
+    // The button hops away from the finger, twice.
+    PaywallIntroBeat(SnoozeTimeline.dodgeLeft, PaywallCue.introBounce),
+    PaywallIntroBeat(SnoozeTimeline.dodgeRight, PaywallCue.introBounce),
+    // The mascot swallows the button.
+    PaywallIntroBeat(SnoozeTimeline.gulp, PaywallCue.pop),
+    // The screen drops away.
+    PaywallIntroBeat(SnoozeTimeline.reveal, PaywallCue.kidding),
   ],
   tag: _tag,
   builder: _build,
 );
-
-/// The button hops away from the finger.
-void _onDodge(PaywallCues cues) => cues.tick();
-
-/// The mascot swallows the button.
-void _onGulp(PaywallCues cues) {
-  cues.gag();
-  AppHaptics.capture();
-}
-
-/// The screen drops away.
-void _onReveal(PaywallCues cues) => cues.open();
 
 String _tag() => LocaleKeys.paywall_intro_snooze_line.tr();
 

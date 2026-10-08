@@ -1,23 +1,11 @@
-import 'package:critalarm/app/di.dart';
-import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
-import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_score.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/wipe/wipe_rules.dart';
 import 'package:flutter/material.dart';
-
-/// The divider lands on the mascot at the end of its sweep: one tick and
-/// one light tap, once.
-void wipeLandCue() {
-  AppHaptics.selection();
-  getIt<PaywallCues>().tick();
-}
-
-/// A finger takes hold of the divider: one light tap.
-void wipeGrabCue() => AppHaptics.selection();
 
 /// The kit's stage drawn twice in one box and split by a divider. Left of
 /// it is Free: the same scene with the colour taken out, the preview held
@@ -79,41 +67,6 @@ class _WipeStageState extends State<WipeStage> {
 
   WipeGrip? _hand;
   double _settle = wipeSettleAlone;
-  late double _before = _player.clock.value;
-  late final bool _isMuted = PaywallMuted.of(context);
-
-  // The landing's cue, on the frame the sweep is home. After an intro the
-  // hand over has its own cue, and a divider the hand holds has not landed.
-  void _onTick() {
-    final clock = _player.clock;
-    final now = clock.value;
-    final landed = wipeReached(_before, now, wipeLandsAt - widget.lead);
-    _before = now;
-    final isOwn = widget.lead == 0 && _hand == null;
-    if (landed && isOwn && !clock.isStill && !_isMuted) wipeLandCue();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _player.clock.addListener(_onTick);
-  }
-
-  @override
-  void didUpdateWidget(WipeStage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final was = oldWidget.player.clock;
-    if (identical(was, _player.clock)) return;
-    was.removeListener(_onTick);
-    _player.clock.addListener(_onTick);
-    _before = _player.clock.value;
-  }
-
-  @override
-  void dispose() {
-    _player.clock.removeListener(_onTick);
-    super.dispose();
-  }
 
   HeroPlayer get _player => widget.player;
 
@@ -125,8 +78,9 @@ class _WipeStageState extends State<WipeStage> {
     lead: widget.lead,
   );
 
+  // A finger takes hold of the divider: one tick of the ratchet.
   void _grab(DragStartDetails details) {
-    wipeGrabCue();
+    playPaywallCue(PaywallCue.ratchet);
     setState(() {
       _hand = WipeGrip(
         at: _at(_player.clock.value).clamp(wipeMin, wipeMax),
@@ -137,23 +91,28 @@ class _WipeStageState extends State<WipeStage> {
   void _drag(DragUpdateDetails details) {
     final hand = _hand;
     if (hand == null || widget.size.width <= 0) return;
-    setState(() {
-      _hand = hand.moved((details.primaryDelta ?? 0) / widget.size.width);
-    });
+    final moved = hand.moved((details.primaryDelta ?? 0) / widget.size.width);
+    // A tick at every tenth of the width, a knock at either stop.
+    final cue = wipeDragCue(hand.at, moved.at);
+    if (cue != null) playPaywallCue(cue);
+    setState(() => _hand = moved);
   }
 
+  // The finger lets go and the divider stays where it was left.
   void _letGo() {
     final hand = _hand;
-    if (hand == null) return;
+    if (hand == null || hand.releasedAt != null) return;
+    playPaywallCue(PaywallCue.snap);
     setState(() => _hand = hand.released(_player.clock.value));
   }
 
   /// A screen reader moves the divider a tenth of the stage at a time.
   void _nudge(double by) {
     final at = _at(_player.clock.value).clamp(wipeMin, wipeMax);
-    setState(() {
-      _hand = WipeGrip(at: at).moved(by).released(_player.clock.value);
-    });
+    final moved = WipeGrip(at: at).moved(by);
+    final cue = wipeDragCue(at, moved.at);
+    if (cue != null) playPaywallCue(cue);
+    setState(() => _hand = moved.released(_player.clock.value));
   }
 
   String _share(double at) =>
@@ -228,137 +187,142 @@ class _WipeStageState extends State<WipeStage> {
     final wash = colors.yellow.withValues(alpha: isDark ? 0.14 : 0);
     final lead = widget.lead;
 
-    return HeroTouchArea(
-      player: _player,
-      swipes: false,
-      child: RawGestureDetector(
-        behavior: HitTestBehavior.opaque,
-        excludeFromSemantics: true,
-        gestures: {
-          HeroStageDragRecognizer:
-              GestureRecognizerFactoryWithHandlers<HeroStageDragRecognizer>(
-                HeroStageDragRecognizer.new,
-                (drag) => drag
-                  ..onStart = _grab
-                  ..onUpdate = _drag
-                  ..onEnd = ((_) => _letGo())
-                  ..onCancel = _letGo,
-              ),
-        },
-        child: RepaintBoundary(
-          child: PaywallClockBuilder(
-            clock: _player.clock,
-            builder: (context, t, _) {
-              final frame = _player.frameAt(t);
-              final seconds = _player.stageSeconds(t);
-              final isStill = _player.isStill;
-              final home = _at(t);
-              // Home on the mascot, the divider leans with it.
-              final leans = !isStill && (home - _settle).abs() < 1e-6;
-              final x =
-                  home * size.width +
-                  (leans
-                      ? wipeLeanShiftAt(
-                          frame.bob,
-                          mascot: arrangement.mascot.width,
-                        )
-                      : 0);
-              final at = size.width <= 0 ? home : x / size.width;
-              // The line and its grip come in as the sweep starts, the
-              // tags as it ends.
-              final line = isStill || _hand != null
-                  ? 1.0
-                  : phase(
-                      t + lead,
-                      wipeSweepStart - 0.1,
-                      wipeSweepStart + 0.1,
-                    );
-              final tags = isStill || _hand != null
-                  ? 1.0
-                  : phase(t + lead, wipeSweepEnd - 0.3, wipeSweepEnd);
+    return PaywallCueScore(
+      clock: _player.clock,
+      // A divider the hand has taken does not sweep in.
+      beats: _hand == null ? wipeSweepCues(lead: lead) : const [],
+      child: HeroTouchArea(
+        player: _player,
+        swipes: false,
+        child: RawGestureDetector(
+          behavior: HitTestBehavior.opaque,
+          excludeFromSemantics: true,
+          gestures: {
+            HeroStageDragRecognizer:
+                GestureRecognizerFactoryWithHandlers<HeroStageDragRecognizer>(
+                  HeroStageDragRecognizer.new,
+                  (drag) => drag
+                    ..onStart = _grab
+                    ..onUpdate = _drag
+                    ..onEnd = ((_) => _letGo())
+                    ..onCancel = _letGo,
+                ),
+          },
+          child: RepaintBoundary(
+            child: PaywallClockBuilder(
+              clock: _player.clock,
+              builder: (context, t, _) {
+                final frame = _player.frameAt(t);
+                final seconds = _player.stageSeconds(t);
+                final isStill = _player.isStill;
+                final home = _at(t);
+                // Home on the mascot, the divider leans with it.
+                final leans = !isStill && (home - _settle).abs() < 1e-6;
+                final x =
+                    home * size.width +
+                    (leans
+                        ? wipeLeanShiftAt(
+                            frame.bob,
+                            mascot: arrangement.mascot.width,
+                          )
+                        : 0);
+                final at = size.width <= 0 ? home : x / size.width;
+                // The line and its grip come in as the sweep starts, the
+                // tags as it ends.
+                final line = isStill || _hand != null
+                    ? 1.0
+                    : phase(
+                        t + lead,
+                        wipeSweepStart - 0.1,
+                        wipeSweepStart + 0.1,
+                      );
+                final tags = isStill || _hand != null
+                    ? 1.0
+                    : phase(t + lead, wipeSweepEnd - 0.3, wipeSweepEnd);
 
-              return Semantics(
-                container: true,
-                slider: true,
-                label: [widget.label, ?widget.showing(frame)].join('. '),
-                // How much of the stage is the product's.
-                value: _share(at),
-                increasedValue: _share(at - 0.1),
-                decreasedValue: _share(at + 0.1),
-                onIncrease: () => _nudge(-0.1),
-                onDecrease: () => _nudge(0.1),
-                child: ExcludeSemantics(
-                  child: SizedBox.fromSize(
-                    size: size,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        if (isDark)
+                return Semantics(
+                  container: true,
+                  slider: true,
+                  label: [widget.label, ?widget.showing(frame)].join('. '),
+                  // How much of the stage is the product's.
+                  value: _share(at),
+                  increasedValue: _share(at - 0.1),
+                  decreasedValue: _share(at + 0.1),
+                  onIncrease: () => _nudge(-0.1),
+                  onDecrease: () => _nudge(0.1),
+                  child: ExcludeSemantics(
+                    child: SizedBox.fromSize(
+                      size: size,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          if (isDark)
+                            Positioned(
+                              left: 0,
+                              top: -bleed,
+                              width: size.width,
+                              height: full,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      wash,
+                                      wash,
+                                      wash.withValues(alpha: 0),
+                                    ],
+                                    stops: tailStops,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          HeroStage(
+                            size: size,
+                            frame: frame,
+                            seconds: seconds,
+                            bleedTop: bleed,
+                            arrange: wipeArrangementFor,
+                            motion: wipeMotion,
+                          ),
                           Positioned(
                             left: 0,
                             top: -bleed,
                             width: size.width,
                             height: full,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
+                            child: ClipRect(
+                              clipper: _LeftOf(x),
+                              child: ShaderMask(
+                                blendMode: BlendMode.dstIn,
+                                shaderCallback: (bounds) => LinearGradient(
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
-                                  colors: [
-                                    wash,
-                                    wash,
-                                    wash.withValues(alpha: 0),
-                                  ],
+                                  colors: tail,
                                   stops: tailStops,
-                                ),
-                              ),
-                            ),
-                          ),
-                        HeroStage(
-                          size: size,
-                          frame: frame,
-                          seconds: seconds,
-                          bleedTop: bleed,
-                          arrange: wipeArrangementFor,
-                          motion: wipeMotion,
-                        ),
-                        Positioned(
-                          left: 0,
-                          top: -bleed,
-                          width: size.width,
-                          height: full,
-                          child: ClipRect(
-                            clipper: _LeftOf(x),
-                            child: ShaderMask(
-                              blendMode: BlendMode.dstIn,
-                              shaderCallback: (bounds) => LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: tail,
-                                stops: tailStops,
-                              ).createShader(bounds),
-                              child: ColorFiltered(
-                                colorFilter: muted,
-                                child: ColoredBox(
-                                  color: tones.background,
-                                  child: Padding(
-                                    padding: EdgeInsets.only(top: bleed),
-                                    child: MediaQuery(
-                                      data: media,
-                                      child: PaywallStill(
-                                        isStill: false,
-                                        child: PaywallLayoutScopeProvider(
-                                          scope: frozenScope,
-                                          child: HeroStage(
-                                            size: size,
-                                            frame: wipeFreeFrame(frame),
-                                            seconds: seconds,
-                                            bleedTop: bleed,
-                                            arrange: wipeArrangementFor,
-                                            // The disc alone: nothing
-                                            // rises on this side.
-                                            showsShapes: false,
-                                            motion: wipeFreeMotion,
+                                ).createShader(bounds),
+                                child: ColorFiltered(
+                                  colorFilter: muted,
+                                  child: ColoredBox(
+                                    color: tones.background,
+                                    child: Padding(
+                                      padding: EdgeInsets.only(top: bleed),
+                                      child: MediaQuery(
+                                        data: media,
+                                        child: PaywallStill(
+                                          isStill: false,
+                                          child: PaywallLayoutScopeProvider(
+                                            scope: frozenScope,
+                                            child: HeroStage(
+                                              size: size,
+                                              frame: wipeFreeFrame(frame),
+                                              seconds: seconds,
+                                              bleedTop: bleed,
+                                              arrange: wipeArrangementFor,
+                                              // The disc alone: nothing
+                                              // rises on this side.
+                                              showsShapes: false,
+                                              motion: wipeFreeMotion,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -368,82 +332,82 @@ class _WipeStageState extends State<WipeStage> {
                               ),
                             ),
                           ),
-                        ),
-                        Positioned(
-                          left: x - 1,
-                          top: -bleed,
-                          width: 2,
-                          height: full,
-                          child: Opacity(
-                            opacity: line,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: tail,
-                                  stops: tailStops,
+                          Positioned(
+                            left: x - 1,
+                            top: -bleed,
+                            width: 2,
+                            height: full,
+                            child: Opacity(
+                              opacity: line,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: tail,
+                                    stops: tailStops,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        Positioned(
-                          right: size.width - x + _tagGap,
-                          top: _tagTop,
-                          child: Opacity(
-                            opacity:
-                                tags *
-                                wipeTagShow(
-                                  x - _tagEdge,
-                                  beforeWidth + _tagGap,
-                                ),
-                            child: Text(
-                              widget.before,
-                              style: tagStyle,
-                              textScaler: scaler,
-                              maxLines: 1,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: x + _tagGap,
-                          top: _tagTop,
-                          child: Opacity(
-                            opacity:
-                                tags *
-                                wipeTagShow(
-                                  size.width - _crossRoom - x,
-                                  afterWidth + _tagGap * 2,
-                                ),
-                            child: Text(
-                              widget.after,
-                              style: tagStyle,
-                              textScaler: scaler,
-                              maxLines: 1,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: x - _grip / 2,
-                          top: gripY - _grip / 2,
-                          child: Opacity(
-                            opacity: line,
-                            child: CustomPaint(
-                              size: const Size.square(_grip),
-                              painter: _GripPainter(
-                                fill: colors.cream,
-                                ink: colors.ink,
+                          Positioned(
+                            right: size.width - x + _tagGap,
+                            top: _tagTop,
+                            child: Opacity(
+                              opacity:
+                                  tags *
+                                  wipeTagShow(
+                                    x - _tagEdge,
+                                    beforeWidth + _tagGap,
+                                  ),
+                              child: Text(
+                                widget.before,
+                                style: tagStyle,
+                                textScaler: scaler,
+                                maxLines: 1,
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                          Positioned(
+                            left: x + _tagGap,
+                            top: _tagTop,
+                            child: Opacity(
+                              opacity:
+                                  tags *
+                                  wipeTagShow(
+                                    size.width - _crossRoom - x,
+                                    afterWidth + _tagGap * 2,
+                                  ),
+                              child: Text(
+                                widget.after,
+                                style: tagStyle,
+                                textScaler: scaler,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: x - _grip / 2,
+                            top: gripY - _grip / 2,
+                            child: Opacity(
+                              opacity: line,
+                              child: CustomPaint(
+                                size: const Size.square(_grip),
+                                painter: _GripPainter(
+                                  fill: colors.cream,
+                                  ink: colors.ink,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),

@@ -67,7 +67,8 @@ class _BentoCompositionState extends State<_BentoComposition> {
 
   HeroPlayer get _playing => _player ??= HeroPlayer(
     clock: scope.clock,
-    onChange: bentoTradeCue,
+    // The hand trades a small tile with the stage tile.
+    onChange: () => playPaywallCue(PaywallCue.swap),
   )..addListener(_onPlayer);
 
   @override
@@ -130,66 +131,73 @@ class _BentoCompositionState extends State<_BentoComposition> {
         for (final b in benefits) b.previewId,
       ], prelude: prelude);
 
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: heroSideInset),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: plan.top,
-              child: Align(
-                alignment: AlignmentDirectional.topStart,
-                child: SizedBox(
-                  height: bentoCrossRow,
-                  child: Padding(
-                    // Clear of the cross.
-                    padding: const EdgeInsetsDirectional.only(
-                      end: PaywallLayoutScope.closeCrossSize,
-                    ),
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
+    return PaywallCueScore(
+      clock: scope.clock,
+      beats: bentoCues(small: plan.small.length, lead: lead),
+      player: player,
+      // A trade the board makes by itself is the quiet one.
+      turnCue: PaywallCue.next,
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: heroSideInset),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: plan.top,
+                child: Align(
+                  alignment: AlignmentDirectional.topStart,
+                  child: SizedBox(
+                    height: bentoCrossRow,
+                    child: Padding(
+                      // Clear of the cross.
+                      padding: const EdgeInsetsDirectional.only(
+                        end: PaywallLayoutScope.closeCrossSize,
+                      ),
+                      child: Align(
                         alignment: AlignmentDirectional.centerStart,
-                        child: Text(
-                          LocaleKeys.paywall_bento_brand.tr(
-                            namedArgs: {
-                              'name': paywallProductName(scope.product),
-                            },
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text(
+                            LocaleKeys.paywall_bento_brand.tr(
+                              namedArgs: {
+                                'name': paywallProductName(scope.product),
+                              },
+                            ),
+                            maxLines: 1,
+                            style: AppTypography.title(tones.ink, fontSize: 15),
                           ),
-                          maxLines: 1,
-                          style: AppTypography.title(tones.ink, fontSize: 15),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-            BentoBoardView(
-              player: player,
-              benefits: benefits,
-              plan: plan,
-              sizes: sizes,
-              labelStyle: labelStyle,
-              captionStyle: captionStyle,
-              lead: lead,
-            ),
-            SizedBox(height: plan.gap),
-            HeroRise(
-              clock: scope.clock,
-              index: 1,
-              after: prelude,
-              child: Semantics(
-                header: true,
-                child: Text(headline, style: headlineStyle),
+              BentoBoardView(
+                player: player,
+                benefits: benefits,
+                plan: plan,
+                sizes: sizes,
+                labelStyle: labelStyle,
+                captionStyle: captionStyle,
+                lead: lead,
               ),
-            ),
-            SizedBox(height: plan.under),
-          ],
+              SizedBox(height: plan.gap),
+              HeroRise(
+                clock: scope.clock,
+                index: 1,
+                after: prelude,
+                child: Semantics(
+                  header: true,
+                  child: Text(headline, style: headlineStyle),
+                ),
+              ),
+              SizedBox(height: plan.under),
+            ],
+          ),
         ),
       ),
     );

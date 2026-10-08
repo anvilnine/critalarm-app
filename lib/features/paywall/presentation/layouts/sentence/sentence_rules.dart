@@ -1,7 +1,10 @@
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 
 // The sentence as rules: which ending each benefit gives it, which short
@@ -114,7 +117,10 @@ const double sentenceFirstRollEnd = 0.9;
   return (arriving: 1 - AppCurves.easeOut.transform(p), shown: p);
 }
 
-/// Whether a clock that read [before] and now reads [now] has just passed
-/// the moment [at]. A cue is played on the frame this turns true, once.
-bool sentenceReached(double before, double now, double at) =>
-    before < at && now >= at;
+/// What the entrance sounds like, by clock second, for a loop with
+/// [prelude]: the mascot slides in and lands, then the first ending rolls
+/// into the sentence.
+List<PaywallCueBeat> sentenceCues({required double prelude}) => [
+  heroLandingBeat(sentenceMotion.entrance, prelude: prelude),
+  PaywallCueBeat(prelude + sentenceFirstRollStart, PaywallCue.roll),
+];

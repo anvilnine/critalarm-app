@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_arrangement.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:flutter/widgets.dart';
 
 // The bento board as numbers: which benefit sits in which tile, where the
@@ -229,10 +231,26 @@ const double bentoStageLands = 0.36;
 /// How long the stage tile takes to drop and settle.
 const double bentoStageDropSeconds = 0.5;
 
+/// When the first small tile starts to drop, how long after it each of
+/// the others starts, and how long one takes.
+const double bentoSmallFirst = 0.04;
+
+/// The kit's own stagger, which [bentoSmallLandAt] takes by default.
+const double bentoSmallEach = 0.08;
+const double bentoSmallDropSeconds = 0.4;
+
 /// How far the small tile at [index] has dropped at clock second [t], 0
 /// to 1. They drop left to right, one after another.
-double bentoSmallLandAt(double t, int index) =>
-    phase(stagger(index, t, start: 0.04), 0, 0.4);
+double bentoSmallLandAt(double t, int index) => phase(
+  stagger(index, t, start: bentoSmallFirst),
+  0,
+  bentoSmallDropSeconds,
+);
+
+/// The second the small tile at [index] first touches its place: the
+/// first contact of its bounce.
+double bentoSmallThudAt(int index) =>
+    bentoSmallFirst + index * bentoSmallEach + bentoSmallDropSeconds / 2.75;
 
 /// How far the stage tile has dropped at clock second [t], 0 to 1. It is
 /// the last tile down and the heaviest.
@@ -277,10 +295,20 @@ const double bentoIntroHeadStart = 0.5;
 double bentoLeadFor({required bool followsIntro}) =>
     followsIntro ? bentoIntroHeadStart : 0;
 
-/// Whether a clock that read [before] and now reads [now] has just passed
-/// the moment [at]. A cue is played on the frame this turns true, once.
-bool bentoReached(double before, double now, double at) =>
-    before < at && now >= at;
+/// What the entrance sounds like, by clock second, on a board with
+/// [small] small tiles: a check as each small tile touches down, then the
+/// stage tile's heavier landing.
+///
+/// A small tile that would touch down after the stage tile has no check,
+/// so the landing is the last thing heard and nothing cuts it short.
+/// [lead] is the head start after an intro (see [bentoLeadFor]), which
+/// every moment is that much sooner by.
+List<PaywallCueBeat> bentoCues({required int small, double lead = 0}) => [
+  for (var i = 0; i < small; i++)
+    if (bentoSmallThudAt(i) < bentoStageThudAt)
+      PaywallCueBeat(bentoSmallThudAt(i) - lead, PaywallCue.check),
+  PaywallCueBeat(bentoStageThudAt - lead, PaywallCue.drop),
+];
 
 /// Room kept clear inside the stage tile: above the mascot for what it
 /// wears, and at the sides.

@@ -1,3 +1,4 @@
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/domain/entities/plan_saving.dart';
 import 'package:critalarm/features/paywall/domain/entities/subscription_tier.dart';
@@ -258,6 +259,43 @@ PaywallBuyState afterStore(PaywallBuyState state, PaywallStoreResult result) {
     case PaywallStoreResult.done:
       return state.copyWith(status: PaywallBuyStatus.checking);
   }
+}
+
+/// What a change of the buy state sounds like, or null for nothing.
+///
+/// Only a change that ends a trip to the store or its confirming is heard:
+/// [before] is the store busy or the app checking. [action] is the trip
+/// the buyer last asked for (`PaywallBuyCubit.lastAction`).
+///
+/// - The product is held: the purchase cue, or the restore cue when the
+///   trip was a restore.
+/// - The store reported a problem: the error cue.
+/// - A restore found nothing, or the store is holding the payment: a
+///   refusal.
+/// - The buyer backed out, or a check paused with nothing known: silence.
+PaywallCue? paywallBuyCue(
+  PaywallBuyState before,
+  PaywallBuyState after, {
+  required PaywallBuyAction? action,
+}) {
+  final wasAtStore =
+      before.status == PaywallBuyStatus.purchasing ||
+      (before.status == PaywallBuyStatus.checking && !before.isPaused);
+  final wasPaused =
+      before.status == PaywallBuyStatus.checking && before.isPaused;
+  if (after.status == PaywallBuyStatus.done) {
+    if (!wasAtStore && !wasPaused) return null;
+    return action == PaywallBuyAction.restore
+        ? PaywallCue.restore
+        : PaywallCue.bought;
+  }
+  if (!wasAtStore || after.isBusy) return null;
+  return switch (after.messageKey) {
+    LocaleKeys.paywall_kit_failed => PaywallCue.error,
+    LocaleKeys.paywall_kit_nothing_to_restore ||
+    LocaleKeys.purchase_errors_payment_pending => PaywallCue.refuse,
+    _ => null,
+  };
 }
 
 /// One answer to "does this install have the product now".
