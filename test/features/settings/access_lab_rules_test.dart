@@ -83,6 +83,13 @@ void main() {
 
       tearDown(getIt.reset);
 
+      test('each page is a route the app has', () {
+        expect(accessLabPages.map((page) => page.label), ['Personalize']);
+        for (final page in accessLabPages) {
+          expect(paths, contains(page.location), reason: page.label);
+        }
+      });
+
       test('each one is a route the app has', () {
         for (final entry in accessLabJumps.entries) {
           expect(

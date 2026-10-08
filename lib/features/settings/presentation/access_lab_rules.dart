@@ -51,6 +51,14 @@ const Map<AppFeature, AccessLabJump> accessLabJumps = {
   ),
 };
 
+/// Pages that show several features at once, so they belong to no one row
+/// of [accessLabJumps]: Personalize draws own sounds, widgets and app
+/// icons, each with its lock. A task that adds a section there adds
+/// nothing here.
+const List<AccessLabJump> accessLabPages = [
+  AccessLabJump('Personalize', '/settings/personalize'),
+];
+
 /// Features in the table that have no screen yet. Their row says so and
 /// has no button.
 const Set<AppFeature> accessLabNotBuilt = {
