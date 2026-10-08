@@ -72,7 +72,7 @@ final class FeatureAccess {
     if (rule == null || rule.unlockedBy.isEmpty) {
       return const FeatureDecision.open();
     }
-    if (_isOwnServer && rule.onOwnServer == OwnServerRule.open) {
+    if (isOwnServer && rule.onOwnServer == OwnServerRule.open) {
       return const FeatureDecision.open();
     }
     Holding? waiting;
@@ -91,6 +91,23 @@ final class FeatureAccess {
         : FeatureDecision.confirming(waiting);
   }
 
+  /// What [decide] answers for [feature] here when nothing is held: the
+  /// lock, with the holding to sell.
+  ///
+  /// For a place that is locked by something other than the holdings and
+  /// still has to open the right paywall: a row the relay refused, a row
+  /// drawn locked while a purchase is being confirmed.
+  FeatureDecision decideHoldingNothing(AppFeature feature) {
+    final rule = _table[feature];
+    if (rule == null || rule.unlockedBy.isEmpty) {
+      return const FeatureDecision.open();
+    }
+    if (isOwnServer && rule.onOwnServer == OwnServerRule.open) {
+      return const FeatureDecision.open();
+    }
+    return FeatureDecision.locked(rule.unlockedBy.first);
+  }
+
   /// Each feature whose [decide] answer changed, once per change. Read
   /// [decide] for the value to start from.
   Stream<AppFeature> get changes => _changes.stream;
@@ -103,9 +120,12 @@ final class FeatureAccess {
     _announce();
   }
 
-  /// Only Crit Alarm Cloud has plans. Every other known mode is a server of
-  /// the user's own.
-  bool get _isOwnServer =>
+  /// Whether this phone is on a server of the user's own. Only Crit Alarm
+  /// Cloud has plans, and every other known mode is such a server.
+  ///
+  /// For wording only ("no plans on your own server"). Whether a feature
+  /// is open there is [decide]'s answer, from the table.
+  bool get isOwnServer =>
       _serverMode != null && _serverMode != ServerMode.hosted;
 
   Map<AppFeature, FeatureDecision> _decideAll() => {
