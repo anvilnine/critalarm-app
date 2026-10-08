@@ -8,6 +8,7 @@ import 'package:critalarm/app/access/sure_lock.dart';
 import 'package:critalarm/app/initial_route_resolver.dart';
 import 'package:critalarm/app/router.dart';
 import 'package:critalarm/app/shell/shell_cubit.dart';
+import 'package:critalarm/app/sound_lock_sync.dart';
 import 'package:critalarm/app/state/incidents_cubit.dart';
 import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/app/widget_sync.dart';
@@ -62,6 +63,7 @@ import 'package:critalarm/core/push/push_host.dart';
 import 'package:critalarm/core/push/push_token_provider.dart';
 import 'package:critalarm/core/push/relay_confirmation_store.dart';
 import 'package:critalarm/core/sound/incoming_audio.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/sound/sound_pack_host.dart';
@@ -1417,6 +1419,9 @@ Future<void> configureDependencies({
       () => ImportSoundUsecase(
         getIt<AlarmSoundRepository>(),
         getIt<SoundHost>(),
+        isLocked: () async => ownSoundsLockedBy(
+          await ownSoundsOnceReady(getIt<FeatureAccess>()),
+        ),
       ),
     )
     ..registerLazySingleton(
@@ -1518,12 +1523,34 @@ Future<void> configureDependencies({
           .listen((_) => sync.rewrite());
       return sync;
     })
+    // The one flag native code reads to know own sounds are locked. It
+    // follows the own sounds decision: a purchase, a pack that ended, a
+    // server that became known. It is written only on a sure answer, so
+    // this waits for the plan and the saved server to be read, and a plan
+    // that cannot be read leaves the last value alone.
+    ..registerLazySingleton(
+      () => SoundLockSync(
+        isLocked: () async =>
+            !await getIt<FeatureAccess>().canOnceReady(AppFeature.ownSounds),
+        changes: getIt<FeatureAccess>().changes.where(
+          (feature) => feature == AppFeature.ownSounds,
+        ),
+        readWritten: () =>
+            getIt<SharedPreferences>().getBool(ownSoundsLockedKey),
+        write: ({required locked}) async {
+          await getIt<SharedPreferences>().setBool(ownSoundsLockedKey, locked);
+        },
+        // The iOS notification extension reads its own copy of the choices.
+        publish: () => getIt<SoundHost>().publishSoundAssignments(),
+      ),
+    )
     // "Share to Crit Alarm". Holds a shared file until onboarding is done and
     // no alarm is going off.
     ..registerLazySingleton(
       () => IncomingAudio(
         canImportSounds: () async =>
             (await getIt<SoundHost>().capabilities()).canImportSounds,
+        readOwnSounds: () => ownSoundsOnceReady(getIt<FeatureAccess>()),
         isOnboardingDone: () async =>
             (await getIt<GetOnboardingCompletedUsecase>()(
               const NoParams(),
@@ -2230,6 +2257,11 @@ Future<void> configureDependencies({
         getIt<SoundPeaksCache>(),
         nameOf: (id) => 'sound_library.names.$id'.tr(),
         packs: getIt<SoundPackRepository>(),
+        readOwnSounds: () =>
+            getIt<FeatureAccess>().decide(AppFeature.ownSounds),
+        ownSoundsChanges: getIt<FeatureAccess>().changes.where(
+          (feature) => feature == AppFeature.ownSounds,
+        ),
       ),
     )
     ..registerFactory(
@@ -2241,6 +2273,9 @@ Future<void> configureDependencies({
         platform: getIt<PlatformCapabilities>().platform,
         isWeb: getIt<PlatformCapabilities>().isWeb,
         nameOf: (id) => 'sound_library.names.$id'.tr(),
+        ownSoundsLocked: () => ownSoundsLockedBy(
+          getIt<FeatureAccess>().decide(AppFeature.ownSounds),
+        ),
       ),
     )
     ..registerFactory(
