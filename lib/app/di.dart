@@ -319,12 +319,14 @@ import 'package:critalarm/features/topics/data/api_first_message_source.dart';
 import 'package:critalarm/features/topics/data/prefs_first_message_store.dart';
 import 'package:critalarm/features/topics/data/prefs_first_topic_handoff.dart';
 import 'package:critalarm/features/topics/data/prefs_setup_checklist_store.dart';
+import 'package:critalarm/features/topics/data/reader_missed_alarm_feed.dart';
 import 'package:critalarm/features/topics/data/repositories/in_memory_topic_repository.dart';
 import 'package:critalarm/features/topics/data/repositories/shared_prefs_topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/data/shared_prefs_tool_template_store.dart';
 import 'package:critalarm/features/topics/domain/first_message/first_message_store.dart';
 import 'package:critalarm/features/topics/domain/first_message/first_message_watcher.dart';
 import 'package:critalarm/features/topics/domain/first_topic_handoff.dart';
+import 'package:critalarm/features/topics/domain/missed_alarm_feed.dart';
 import 'package:critalarm/features/topics/domain/repositories/tool_template_store.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_list_prefs_repository.dart';
 import 'package:critalarm/features/topics/domain/repositories/topic_repository.dart';
@@ -2233,6 +2235,22 @@ Future<void> configureDependencies({
             getIt<PlatformCapabilities>().platform == TargetPlatform.android,
       ),
     )
+    // The missed alarm entry for Home's card. It reads the reader and the
+    // record of closed entries the notice reads, so closing it from either
+    // place closes it in both.
+    ..registerLazySingleton<MissedAlarmFeed>(
+      () => ReaderMissedAlarmFeed(
+        readMissed: getIt<MissedAlarmReader>().read,
+        readDismissed: () =>
+            getIt<MissedAlarmStore>().readDismissed().keys.toSet(),
+        writeDismissed: getIt<MissedAlarmReader>().dismiss,
+        readIncidents: () => getIt<IncidentsCubit>().state.incidents,
+        isSetupDone: () => getIt<SetupGate>().isDone(),
+        // Asked again when an incident runs out, and only then: the list
+        // changes far more often than that.
+        incidentChanges: _expiredIncidentChanges(getIt<IncidentsCubit>()),
+      ),
+    )
     ..registerLazySingleton(
       () => ReliabilityFixRunner(
         openSystemSettings: (permission) async {
@@ -2696,10 +2714,10 @@ Future<void> configureDependencies({
         readMissedAlarms: getIt<MissedAlarmReader>().read,
         readDismissedMissedAlarms: () =>
             getIt<MissedAlarmStore>().readDismissed().keys.toSet(),
-        dismissMissedAlarms: getIt<MissedAlarmReader>().dismiss,
-        // Asked again when an incident runs out, and only then: the list
-        // changes far more often than that.
-        missedAlarmChanges: _expiredIncidentChanges(getIt<IncidentsCubit>()),
+        // Closing goes through the feed, so the card on Home hears of it.
+        dismissMissedAlarms: getIt<MissedAlarmFeed>().dismiss,
+        // An alarm ran out, or an entry was closed from the card.
+        missedAlarmChanges: getIt<MissedAlarmFeed>().changes,
         // Two weekly check rounds missed in a row, by the relay's count or
         // by this phone's own clock. A card on Home, never a notification.
         readWeeklyCheckStopped: () async =>
