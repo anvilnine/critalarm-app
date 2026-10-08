@@ -10,8 +10,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('AmbientPage route creation', () {
-    testWidgets('creates route with expected defaults and properties',
-        (tester) async {
+    testWidgets('creates route with expected defaults and properties', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -137,8 +138,9 @@ void main() {
       expect(find.text('Detail Screen'), findsOneWidget);
     });
 
-    testWidgets('fullscreenDialog routes do not allow swipe back on iOS',
-        (tester) async {
+    testWidgets('fullscreenDialog routes do not allow swipe back on iOS', (
+      tester,
+    ) async {
       final router = GoRouter(
         initialLocation: '/',
         routes: [
@@ -231,8 +233,9 @@ void main() {
       expect(find.text('Detail Screen'), findsOneWidget);
     });
 
-    testWidgets('AmbientPageRoute also supports edge swipe on iOS',
-        (tester) async {
+    testWidgets('AmbientPageRoute also supports edge swipe on iOS', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData(platform: TargetPlatform.iOS),
