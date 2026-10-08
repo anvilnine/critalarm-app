@@ -11,15 +11,11 @@ enum PaywallLayoutId {
   proof('proof'),
   bento('bento'),
   reel('reel'),
-  falseAlarm('false_alarm'),
   stage('stage'),
   sentence('sentence'),
   wipe('wipe'),
   doors('doors'),
-  receipt('receipt'),
-
-  /// The reference layout: a face, a headline and the benefit rows.
-  plain('plain');
+  receipt('receipt');
 
   const PaywallLayoutId(this.key);
 

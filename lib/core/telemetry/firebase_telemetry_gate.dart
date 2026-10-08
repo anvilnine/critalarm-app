@@ -33,6 +33,10 @@ class FirebaseTelemetryGate implements TelemetryGate {
   static const String onboardingOfferKey = 'onboarding_offer';
   static const String paywallLayoutKeyName = 'paywall_layout';
   static const String proPaywallLayoutKeyName = 'pro_paywall_layout';
+  static const String paywallIntroKeyName = 'paywall_intro';
+  static const String proPaywallIntroKeyName = 'pro_paywall_intro';
+  static const String paywallThanksKeyName = 'paywall_thanks';
+  static const String proPaywallThanksKeyName = 'pro_paywall_thanks';
 
   static const Map<String, dynamic> remoteConfigDefaults = {
     paywallEnabledKey: false,
@@ -41,6 +45,10 @@ class FirebaseTelemetryGate implements TelemetryGate {
     onboardingOfferKey: '',
     paywallLayoutKeyName: '',
     proPaywallLayoutKeyName: '',
+    paywallIntroKeyName: '',
+    proPaywallIntroKeyName: '',
+    paywallThanksKeyName: '',
+    proPaywallThanksKeyName: '',
   };
 
   bool _isInitialized = false;
@@ -206,6 +214,18 @@ class FirebaseTelemetryGate implements TelemetryGate {
 
   @override
   String get proPaywallLayoutKey => _layoutValue(proPaywallLayoutKeyName);
+
+  @override
+  String get paywallIntroKey => _layoutValue(paywallIntroKeyName);
+
+  @override
+  String get proPaywallIntroKey => _layoutValue(proPaywallIntroKeyName);
+
+  @override
+  String get paywallThanksKey => _layoutValue(paywallThanksKeyName);
+
+  @override
+  String get proPaywallThanksKey => _layoutValue(proPaywallThanksKeyName);
 
   /// Empty when Firebase is missing or the read fails: the shipped paywall.
   String _layoutValue(String key) {

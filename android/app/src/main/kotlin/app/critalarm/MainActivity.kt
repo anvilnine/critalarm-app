@@ -23,6 +23,7 @@ import app.critalarm.makersettings.MakerSettingsChannel
 import app.critalarm.sound.IncomingAudioHolder
 import app.critalarm.sound.SoundChannel
 import app.critalarm.sound.SoundPackChannel
+import app.critalarm.uisound.UiSoundChannel
 import app.critalarm.widgets.WidgetChannel
 import io.flutter.plugin.common.MethodChannel
 
@@ -34,6 +35,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var soundChannel: SoundChannel? = null
     private var soundMethods: MethodChannel? = null
     private var soundPacks: SoundPackChannel? = null
+    private var uiSounds: UiSoundChannel? = null
 
     /**
      * A tap the activity has read off an intent but Dart has not taken yet.
@@ -78,6 +80,10 @@ class MainActivity : FlutterFragmentActivity() {
         val packs = SoundPackChannel(applicationContext, packMethods) { this }
         soundPacks = packs
         packMethods.setMethodCallHandler(packs::handle)
+        val interfaceSounds = UiSoundChannel(applicationContext)
+        uiSounds = interfaceSounds
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UiSoundChannel.NAME)
+            .setMethodCallHandler(interfaceSounds::handle)
         val alarms = AlarmChannel(applicationContext)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AlarmChannel.NAME)
             .setMethodCallHandler(alarms::handle)
@@ -283,12 +289,15 @@ class MainActivity : FlutterFragmentActivity() {
         soundMethods = null
         soundPacks?.dispose()
         soundPacks = null
+        uiSounds?.stop()
+        uiSounds = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
     override fun onStop() {
         // Leaving the picker on screen must not leave a preview ringing.
         soundChannel?.endPreview()
+        uiSounds?.stop()
         super.onStop()
     }
 

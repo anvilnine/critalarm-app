@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/receipt/receipt_rules.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -80,19 +81,51 @@ void main() {
       expect(ReceiptTimeline.stampAngle.abs(), lessThan(0.15));
     });
 
-    test('the mascot lands, watches, hops at the stamp and is glad', () {
-      expect(ReceiptTimeline.actor(0).entrance, 0);
-      expect(ReceiptTimeline.actor(0.2).face, HeroFace.arriving);
-      expect(ReceiptTimeline.actor(1).face, HeroFace.watching);
-      expect(ReceiptTimeline.actor(1).hop, 0);
-      final hit = ReceiptTimeline.actor(ReceiptTimeline.stampAt + 0.2);
-      expect(hit.face, HeroFace.winning);
-      expect(hit.hop, greaterThan(0.5));
-      final rest = ReceiptTimeline.actor(tl);
-      expect(rest.face, HeroFace.glad);
-      expect(rest.faceBlend, 1);
-      expect(rest.hop, 0);
-      expect(rest.entrance, 1);
+    test('the mascot watches the lines, is glad at the total, and is '
+        'startled by the stamp', () {
+      for (final count in [2, 4, 5]) {
+        ReceiptActor at(double t) => ReceiptTimeline.actor(t, count: count);
+        final total = ReceiptTimeline.totalAt(count);
+        expect(total, greaterThan(0.5));
+        expect(total, lessThan(ReceiptTimeline.stampAt - 0.2));
+
+        expect(at(0).entrance, 0);
+        expect(at(0.2).face, HeroFace.arriving);
+        expect(at(total - 0.05).face, HeroFace.watching);
+        expect(at(total + 0.05).face, HeroFace.glad);
+        expect(at(ReceiptTimeline.stampAt - 0.01).hop, 0);
+        final hit = at(ReceiptTimeline.stampAt + 0.2);
+        expect(hit.face, HeroFace.startled);
+        expect(hit.fromFace, HeroFace.glad);
+        expect(hit.hop, greaterThan(0.5));
+        final rest = at(tl);
+        expect(rest.face, HeroFace.glad);
+        expect(rest.faceBlend, 1);
+        expect(rest.hop, 0);
+        expect(rest.entrance, 1);
+      }
+    });
+
+    test('the mascot nods once for each line and for nothing else', () {
+      for (final count in [2, 4, 5]) {
+        var nods = 0;
+        var wasUp = false;
+        var highest = 0.0;
+        for (var t = 0.0; t <= tl; t += 0.002) {
+          final nod = ReceiptTimeline.nod(t, count);
+          expect(nod, greaterThanOrEqualTo(0));
+          if (nod > highest) highest = nod;
+          final isUp = nod > 0.01;
+          if (isUp && !wasUp) nods++;
+          wasUp = isUp;
+        }
+        expect(nods, count);
+        expect(highest, closeTo(ReceiptTimeline.nodHeight, 0.01));
+        // Level before the first line and once the total prints.
+        expect(ReceiptTimeline.nod(ReceiptTimeline.feedStart, count), 0);
+        expect(ReceiptTimeline.nod(ReceiptTimeline.totalAt(count), count), 0);
+        expect(ReceiptTimeline.nod(tl, count), 0);
+      }
     });
 
     test('the card is hidden until the peek and out at rest', () {
@@ -100,12 +133,69 @@ void main() {
       expect(ReceiptTimeline.peek(tl), closeTo(1, 1e-9));
     });
 
-    test('one preview gives way to the next behind the paper', () {
-      expect(receiptTuck(0), closeTo(0, 1e-9));
-      expect(receiptTuck(0.5), closeTo(1, 1e-9));
-      expect(receiptTuck(1), closeTo(0, 1e-9));
-      expect(receiptShowsNext(0.49), isFalse);
-      expect(receiptShowsNext(0.5), isTrue);
+    test('after an intro the mascot is not dropped in again', () {
+      expect(ReceiptTimeline.actor(0, count: 4).entrance, 0);
+      expect(
+        ReceiptTimeline.actor(0, count: 4, followsIntro: true).entrance,
+        1,
+      );
+    });
+  });
+
+  group('the motion of the receipt', () {
+    test('the stage picks its own variants', () {
+      expect(receiptMotion.atmosphere, HeroAtmosphereStyle.confetti);
+      expect(receiptMotion.entrance, HeroEntranceStyle.drop);
+      expect(receiptMotion.idle, HeroIdleStyle.bob);
+      expect(receiptMotion.arrival, HeroCardArrival.slideThrough);
+    });
+
+    test('the loop brings a preview out from behind the paper', () {
+      expect(receiptCardWay(0), -1);
+      expect(receiptCardWay(1), 1);
+      expect(receiptCardWay(-1), -1);
+      // From the left, where the paper is, and home at the end.
+      final start = heroCardArrivalPose(
+        receiptMotion.arrival,
+        0,
+        width: 120,
+        direction: receiptCardWay(0),
+      );
+      expect(start.incoming.dx, lessThan(-120));
+      final done = heroCardArrivalPose(
+        receiptMotion.arrival,
+        1,
+        width: 120,
+        direction: receiptCardWay(0),
+      );
+      expect(done.incoming.dx, 0);
+      expect(done.incoming.opacity, 1);
+      expect(done.outgoing.opacity, 0);
+    });
+
+    test('there is no confetti until the stamp has landed', () {
+      expect(receiptConfettiSeconds(0, isStill: false), isNull);
+      expect(
+        receiptConfettiSeconds(ReceiptTimeline.stampAt, isStill: false),
+        isNull,
+      );
+      final falling = receiptConfettiSeconds(
+        ReceiptTimeline.stampLanded,
+        isStill: false,
+      );
+      expect(falling, greaterThan(0));
+      expect(
+        receiptConfettiSeconds(ReceiptTimeline.stampLanded + 1, isStill: false),
+        closeTo(1, 1e-9),
+      );
+    });
+
+    test('a still slip has its confetti landed', () {
+      expect(receiptConfettiSeconds(0, isStill: true), 0);
+      expect(receiptConfettiSeconds(tl, isStill: true), 0);
+      for (var i = 0; i < heroConfettiCount; i++) {
+        expect(heroConfettiAt(i, 0).angle, 0);
+      }
     });
   });
 
@@ -134,14 +224,59 @@ void main() {
             );
             expect(box.right, lessThanOrEqualTo(stage.width));
           }
-          // The mascot keeps clear of the close cross and of the paper.
+          // The mascot keeps clear of the close cross, and leans over the
+          // paper's edge by less than the paper's own margin.
           expect(plan.mascot.top, greaterThanOrEqualTo(ReceiptPlan.crossRoom));
-          expect(plan.mascot.left, greaterThanOrEqualTo(plan.paper.right));
-          // The card is tucked a little behind the paper, beside it.
-          expect(plan.card.left, lessThan(plan.paper.right));
+          expect(
+            plan.mascot.left,
+            greaterThanOrEqualTo(plan.paper.right - ReceiptPlan.lean),
+          );
+          expect(ReceiptPlan.lean, lessThan(ReceiptPlan.pad));
+          // The card is whole beside the paper, under the mascot, at a
+          // size its scene reads at.
+          expect(plan.card.left, greaterThanOrEqualTo(plan.paper.right));
           expect(plan.card.top, greaterThanOrEqualTo(plan.mascot.bottom));
           expect(plan.card.bottom, lessThanOrEqualTo(plan.paper.bottom + 0.01));
+          expect(
+            plan.card.width,
+            greaterThanOrEqualTo(ReceiptPlan.cardMin - 1e-6),
+          );
+          // To change previews it goes wholly behind the paper.
+          expect(
+            plan.card.right - plan.cardTravel,
+            closeTo(plan.paper.right, 1e-6),
+          );
         }
+      }
+    });
+
+    test('the mascot is large where the stage has the room', () {
+      final tall = ReceiptPlan.of(const Size(390, 358), count: 4);
+      expect(tall.mascot.width, greaterThanOrEqualTo(145));
+      expect(tall.card.width, closeTo(ReceiptPlan.cardMax, 1e-6));
+      final small = ReceiptPlan.of(const Size(375, 352), count: 4);
+      expect(small.mascot.width, greaterThanOrEqualTo(138));
+      expect(small.card.width, closeTo(ReceiptPlan.cardMax, 1e-6));
+    });
+
+    test('every line is one size, the one the longest fits at', () {
+      for (final width in [375.0, 390.0, 430.0]) {
+        final plan = ReceiptPlan.of(Size(width, 400), count: 5);
+        final room =
+            plan.paper.width -
+            ReceiptPlan.pad * 2 -
+            ReceiptPlan.tick -
+            ReceiptPlan.tickGap;
+        for (final longest in [18, 25, 26]) {
+          final font = plan.lineFont(longest);
+          expect(font, lessThanOrEqualTo(ReceiptPlan.fontMax));
+          expect(font, greaterThanOrEqualTo(ReceiptPlan.fontMin));
+          expect(
+            font * ReceiptPlan.monoAdvance * longest,
+            lessThanOrEqualTo(room + 0.01),
+          );
+        }
+        expect(plan.lineFont(26), lessThanOrEqualTo(plan.lineFont(18)));
       }
     });
 

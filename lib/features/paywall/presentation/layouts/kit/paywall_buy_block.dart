@@ -8,6 +8,7 @@ import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart'
 import 'package:critalarm/features/paywall/domain/entities/store_account_label.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_rules.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_plan_picker.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -84,83 +85,88 @@ class PaywallBuyBlock extends StatelessWidget {
   /// over the legal line, to make 44 points.
   static const double linksTapOverlap = 44 - linksHeight;
 
-  static bool _wasBuying(PaywallBuyState state) =>
-      state.status == PaywallBuyStatus.purchasing ||
-      state.status == PaywallBuyStatus.checking;
-
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<PaywallBuyCubit, PaywallBuyState>(
-      listenWhen: (before, after) =>
-          _wasBuying(before) && after.status == PaywallBuyStatus.done,
-      listener: (_, _) => getIt<PaywallCues>().bought(),
-      builder: (context, state) {
-        final tone = PaywallToneColors.of(context, style.tone);
-        final side = EdgeInsets.symmetric(horizontal: style.horizontalPadding);
+    return _BuyCues(
+      child: BlocBuilder<PaywallBuyCubit, PaywallBuyState>(
+        builder: (context, held) {
+          // With a step of its own after the purchase, the block keeps
+          // the look it had while confirming: that step grows out of the
+          // button, so nothing here may move under it.
+          final state =
+              held.status == PaywallBuyStatus.done &&
+                  PaywallThanksPlay.takesOver(context)
+              ? held.copyWith(status: PaywallBuyStatus.checking)
+              : held;
+          final tone = PaywallToneColors.of(context, style.tone);
+          final side = EdgeInsets.symmetric(
+            horizontal: style.horizontalPadding,
+          );
 
-        return MediaQuery.withClampedTextScaling(
-          maxScaleFactor: paywallBuyMaxTextScale,
-          child: Builder(
-            builder: (context) {
-              final linksLine =
-                  linksHeight * MediaQuery.textScalerOf(context).scale(1);
+          return MediaQuery.withClampedTextScaling(
+            maxScaleFactor: paywallBuyMaxTextScale,
+            child: Builder(
+              builder: (context) {
+                final linksLine =
+                    linksHeight * MediaQuery.textScalerOf(context).scale(1);
 
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Padding(
-                    padding: side,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _Offer(
-                          state: state,
-                          style: style,
-                          tone: tone,
-                          onDone: onDone,
-                        ),
-                        if (_showsLegal(state))
-                          _LegalLine(state: state, color: tone.muted)
-                        else
-                          // The links' tap area must not reach the button.
-                          const SizedBox(height: linksTapOverlap),
-                        SizedBox(height: linksLine),
-                      ],
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Padding(
+                      padding: side,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _Offer(
+                            state: state,
+                            style: style,
+                            tone: tone,
+                            onDone: onDone,
+                          ),
+                          if (_showsLegal(state))
+                            _LegalLine(state: state, color: tone.muted)
+                          else
+                            // The links' tap area must not reach the button.
+                            const SizedBox(height: linksTapOverlap),
+                          SizedBox(height: linksLine),
+                        ],
+                      ),
                     ),
-                  ),
-                  // Over the bottom of the column, so each link gets its
-                  // full tap area and the line still draws short.
-                  Positioned(
-                    left: style.horizontalPadding,
-                    right: style.horizontalPadding,
-                    bottom: 0,
-                    height: linksLine + linksTapOverlap,
-                    child: _LinksLine(
-                      state: state,
-                      color: tone.muted,
-                      lineHeight: linksLine,
-                    ),
-                  ),
-                  // A message floats over the bottom of the layout and
-                  // takes no room, so a failed purchase never squeezes
-                  // what is above.
-                  if (state.messageKey case final key?)
+                    // Over the bottom of the column, so each link gets its
+                    // full tap area and the line still draws short.
                     Positioned(
                       left: style.horizontalPadding,
                       right: style.horizontalPadding,
-                      top: -Spacing.s2,
-                      child: FractionalTranslation(
-                        translation: const Offset(0, -1),
-                        child: _Message(text: key.tr()),
+                      bottom: 0,
+                      height: linksLine + linksTapOverlap,
+                      child: _LinksLine(
+                        state: state,
+                        color: tone.muted,
+                        lineHeight: linksLine,
                       ),
                     ),
-                ],
-              );
-            },
-          ),
-        );
-      },
+                    // A message floats over the bottom of the layout and
+                    // takes no room, so a failed purchase never squeezes
+                    // what is above.
+                    if (state.messageKey case final key?)
+                      Positioned(
+                        left: style.horizontalPadding,
+                        right: style.horizontalPadding,
+                        top: -Spacing.s2,
+                        child: FractionalTranslation(
+                          translation: const Offset(0, -1),
+                          child: _Message(text: key.tr()),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -258,6 +264,8 @@ class _Offer extends StatelessWidget {
             variant: variant,
             isFullWidth: true,
             isLoading: state.isBusy,
+            // Finger down on the main button.
+            onPressDown: () => getIt<PaywallCues>().play(PaywallCue.press),
             onPressed: isPaused
                 ? () => unawaited(cubit.checkAgain())
                 : state.canBuy
@@ -490,4 +498,38 @@ class _Message extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Plays the cue of each change of the buy state that has one: the
+/// product bought or restored, a problem at the store, a restore that
+/// found nothing. `paywallBuyCue` is the rule. Silent in a thumbnail.
+class _BuyCues extends StatefulWidget {
+  const _BuyCues({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_BuyCues> createState() => _BuyCuesState();
+}
+
+class _BuyCuesState extends State<_BuyCues> {
+  late PaywallBuyState _before = context.read<PaywallBuyCubit>().state;
+
+  void _onChange(BuildContext context, PaywallBuyState after) {
+    final cue = paywallBuyCue(
+      _before,
+      after,
+      action: context.read<PaywallBuyCubit>().lastAction,
+    );
+    _before = after;
+    if (cue == null || PaywallMuted.of(context)) return;
+    getIt<PaywallCues>().play(cue);
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      BlocListener<PaywallBuyCubit, PaywallBuyState>(
+        listener: _onChange,
+        child: widget.child,
+      );
 }

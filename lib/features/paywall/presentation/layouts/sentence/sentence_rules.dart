@@ -1,4 +1,10 @@
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
+import 'package:critalarm/design/tokens/curves.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_cues.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 
 // The sentence as rules: which ending each benefit gives it, which short
@@ -76,3 +82,45 @@ SentenceRoll sentenceRollAt({
   final way = direction < 0 ? -1.0 : 1.0;
   return SentenceRoll(arriving: way * (1 - p), leaving: -way * p);
 }
+
+/// How the stage moves under the sentence: rays turn behind the mascot, it
+/// comes in from the side it stands on, and it hops as each new ending
+/// rolls in, so the word and the mascot land together.
+const HeroMotion sentenceMotion = HeroMotion(
+  atmosphere: HeroAtmosphereStyle.rays,
+  entrance: HeroEntranceStyle.slide,
+  idle: HeroIdleStyle.benefitHop,
+);
+
+/// How far into its entrance the layout starts when an intro has just
+/// handed over, in seconds. The intro ends on the mascot, so the mascot is
+/// already in its place and only the preview and the words are left to
+/// arrive.
+const double sentenceIntroHeadStart = 0.6;
+
+/// The loop's `prelude` for a layout that does or does not follow an
+/// intro: a head start is a prelude under zero.
+double sentencePreludeFor({required bool followsIntro}) =>
+    followsIntro ? -sentenceIntroHeadStart : 0;
+
+/// When the first ending rolls into the sentence, in seconds since the
+/// entrance began: after the stem has started up, so the sentence is read
+/// in order.
+const double sentenceFirstRollStart = 0.5;
+const double sentenceFirstRollEnd = 0.9;
+
+/// Where the first ending is at [seconds] of the entrance: it comes up
+/// from one box below, as every ending after it does, and is in place
+/// from [sentenceFirstRollEnd] on. `shown` is how solid it is.
+({double arriving, double shown}) sentenceFirstRollAt(double seconds) {
+  final p = phase(seconds, sentenceFirstRollStart, sentenceFirstRollEnd);
+  return (arriving: 1 - AppCurves.easeOut.transform(p), shown: p);
+}
+
+/// What the entrance sounds like, by clock second, for a loop with
+/// [prelude]: the mascot slides in and lands, then the first ending rolls
+/// into the sentence.
+List<PaywallCueBeat> sentenceCues({required double prelude}) => [
+  heroLandingBeat(sentenceMotion.entrance, prelude: prelude),
+  PaywallCueBeat(prelude + sentenceFirstRollStart, PaywallCue.roll),
+];

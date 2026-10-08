@@ -14,6 +14,7 @@ import 'package:critalarm/design/components/ladder_rows.dart';
 import 'package:critalarm/design/components/list_rows.dart';
 import 'package:critalarm/design/components/message_cards.dart';
 import 'package:critalarm/design/components/notification_cards.dart';
+import 'package:critalarm/design/components/picker_rows.dart';
 import 'package:critalarm/design/components/preview_button.dart';
 import 'package:critalarm/design/components/radios.dart';
 import 'package:critalarm/design/components/sheets.dart';
@@ -1316,6 +1317,18 @@ class _GalleryScreenState extends State<GalleryScreen> {
           ),
           child: Column(
             children: [
+              AppValueRow(title: 'Opens a page', value: 'value', onTap: () {}),
+              const SizedBox(height: 8),
+              AppPickerRow<String>(
+                title: 'Opens a sheet of choices',
+                selected: 'b',
+                options: const [
+                  AppPickerOption(value: 'a', label: 'First'),
+                  AppPickerOption(value: 'b', label: 'Second'),
+                ],
+                onPick: (_) {},
+              ),
+              const SizedBox(height: 8),
               AppListRow(
                 name: 'prod-db',
                 meta: 'Primary database down. Ringing 2 min 14 s.',

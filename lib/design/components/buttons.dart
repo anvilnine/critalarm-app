@@ -77,11 +77,17 @@ class AppButton extends StatefulWidget {
     this.trailingIcon,
     this.isFocused = false,
     this.foregroundColor,
+    this.onPressDown,
     super.key,
   });
 
   final String label;
   final VoidCallback? onPressed;
+
+  /// Called as a finger goes down on an enabled button, before the tap is
+  /// known to be one. For feedback on the press, such as a sound. It is
+  /// never an action: a press that slides off still called it.
+  final VoidCallback? onPressDown;
   final AppButtonVariant variant;
   final AppButtonSize size;
   final bool isLoading;
@@ -333,7 +339,9 @@ class _AppButtonState extends State<AppButton> {
         },
         child: GestureDetector(
           onTapDown: (_) {
-            if (_isEnabled) setState(() => _isActive = true);
+            if (!_isEnabled) return;
+            widget.onPressDown?.call();
+            setState(() => _isActive = true);
           },
           onTapUp: (_) {
             if (_isEnabled) setState(() => _isActive = false);

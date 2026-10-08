@@ -1,3 +1,4 @@
+import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/design/tokens/spacing.dart';
@@ -62,6 +63,7 @@ class PaywallLayoutScope {
     required this.clock,
     required this.closeOnLeft,
     required this.close,
+    this.intro = PaywallIntroId.none,
   });
 
   /// Edge of the square the close cross takes in a top corner of the
@@ -99,6 +101,15 @@ class PaywallLayoutScope {
   /// Closes the paywall, as a tap on the cross does.
   final VoidCallback close;
 
+  /// The intro that plays before this layout on this open. `none` when
+  /// there is none, and when nothing may move, since an intro is then
+  /// skipped. The layout's clock starts at zero as the intro hands over.
+  final PaywallIntroId intro;
+
+  /// True when the layout comes in under the end of an intro, which ends
+  /// on the mascot. A layout may then shorten or skip its own entrance pop.
+  bool get followsIntro => intro != PaywallIntroId.none;
+
   bool get isHosted => product == PaywallProduct.hosted;
   bool get isPro => product == PaywallProduct.pro;
 
@@ -129,6 +140,7 @@ class PaywallLayoutScopeProvider extends InheritedWidget {
       scope.isCompact != oldWidget.scope.isCompact ||
       scope.source != oldWidget.scope.source ||
       scope.closeOnLeft != oldWidget.scope.closeOnLeft ||
+      scope.intro != oldWidget.scope.intro ||
       scope.benefits.length != oldWidget.scope.benefits.length;
 }
 
@@ -158,4 +170,59 @@ class PaywallRouteInfo extends InheritedWidget {
       layout != oldWidget.layout ||
       source != oldWidget.source ||
       showsUnbuilt != oldWidget.showsUnbuilt;
+}
+
+/// No cue and no haptic from anything below it. A thumbnail that plays a
+/// layout puts one above it, so opening a picker makes no sound.
+class PaywallMuted extends InheritedWidget {
+  const PaywallMuted({required super.child, super.key});
+
+  /// Whether what is under [context] stays silent. Safe in `initState`.
+  static bool of(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<PaywallMuted>() != null;
+
+  @override
+  bool updateShouldNotify(PaywallMuted oldWidget) => false;
+}
+
+/// What the step after a purchase tells the layout under it.
+class PaywallThanksHandle {
+  /// True from the frame the product is known to be held: the step after
+  /// the purchase has the screen and the sound from then on, so the layout
+  /// under it plays no cue of its own.
+  bool hasBegun = false;
+}
+
+/// Says that something of its own plays after a purchase on the layout
+/// below. `PaywallThanksHost` puts it there, and only when a version is
+/// set and built.
+///
+/// The buy block reads it: with one above, the block does not change to
+/// its own done state when the purchase is confirmed, so nothing under the
+/// show moves as it starts.
+class PaywallThanksPlay extends InheritedWidget {
+  const PaywallThanksPlay({
+    required this.handle,
+    required super.child,
+    super.key,
+  });
+
+  final PaywallThanksHandle handle;
+
+  /// Whether a step after the purchase takes over from the buy block
+  /// under [context].
+  static bool takesOver(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PaywallThanksPlay>() != null;
+
+  /// Whether that step has begun. It does not listen, so it is safe on a
+  /// tick.
+  static bool hasBegun(BuildContext context) =>
+      context
+          .getInheritedWidgetOfExactType<PaywallThanksPlay>()
+          ?.handle
+          .hasBegun ??
+      false;
+
+  @override
+  bool updateShouldNotify(PaywallThanksPlay oldWidget) => false;
 }

@@ -6,6 +6,8 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_cubit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_intro.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
@@ -13,6 +15,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -21,6 +24,7 @@ export 'package:critalarm/core/ui_sound/paywall_cues.dart'
     show PaywallEntranceCue;
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_buy_block.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_score.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_layout_scope.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_measure.dart';
 export 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_one_benefit.dart';
@@ -112,6 +116,8 @@ class PaywallFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // An intro over this layout keeps its own cross in the same corner.
+    PaywallIntroPlay.maybeOf(context)?.handle.closeOnLeft = closeOnLeft;
     final background = PaywallToneColors.of(context, tone).background;
     final isDarkBackground =
         ThemeData.estimateBrightnessForColor(background) == Brightness.dark;
@@ -196,6 +202,9 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
   /// True once the close cue played, so leaving plays it once.
   bool _saidClose = false;
 
+  /// True in a thumbnail: no cue is played.
+  bool _isMuted = false;
+
   @override
   double get restAt => widget.restAt;
 
@@ -210,23 +219,27 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
     _cues = getIt<PaywallCues>();
     _buy = context.read<PaywallBuyCubit>();
     widget.controller?._body = this;
-    switch (widget.entranceCue) {
-      case PaywallEntranceCue.open:
-        _cues.open();
-      case PaywallEntranceCue.gag:
-        _cues.gag();
-      case PaywallEntranceCue.print:
-        _cues.print();
-      case PaywallEntranceCue.none:
-        break;
+    _isMuted = PaywallMuted.of(context);
+    // An intro plays its own cue, and that is the entrance's sound.
+    final play = PaywallIntroPlay.peek(context);
+    final followsIntro = play != null && play.intro != PaywallIntroId.none;
+    if (!_isMuted && !followsIntro) {
+      playPaywallEntranceCue(_cues, widget.entranceCue);
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Stillness may have changed, and with it what the clock reads.
-    _clock.tell();
+    // Stillness may have changed, and with it what the clock reads. So may
+    // an intro have let the clock go. A layout that listens from outside
+    // this body cannot be told while a build is under way.
+    if (!_clock.isHeard) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase != SchedulerPhase.persistentCallbacks) return _clock.tell();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _clock.tell();
+    });
   }
 
   @override
@@ -240,8 +253,11 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
   void _sayClose() {
     if (_saidClose) return;
     _saidClose = true;
-    // Leaving with the product in hand is not a dismissal.
-    if (_buy.state.status != PaywallBuyStatus.done) _cues.close();
+    final says = paywallSaysClose(
+      status: _buy.state.status,
+      isMuted: _isMuted,
+    );
+    if (says) _cues.close();
   }
 
   void _close() {
@@ -260,7 +276,7 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
 
   @override
   void dispose() {
-    // Back and a swipe leave without the cross.
+    // A route taken away without a pop, such as a jump to another screen.
     _sayClose();
     if (widget.controller?._body == this) widget.controller?._body = null;
     _clock.dispose();
@@ -272,7 +288,26 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
     final tone = PaywallToneColors.of(context, widget.tone);
     final offer = PaywallOffer.of(context);
     final isCompact = PaywallFrame.isCompactOf(context);
+    final intro =
+        PaywallIntroPlay.maybeOf(context)?.intro ?? PaywallIntroId.none;
 
+    return PopScope<Object?>(
+      // Back and a swipe leave without the cross. The cue plays as the
+      // route starts to go, so it is heard with the leaving and not after.
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _sayClose();
+      },
+      child: _buildBody(context, tone, offer, isCompact, intro),
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    PaywallToneColors tone,
+    PaywallOffer offer,
+    bool isCompact,
+    PaywallIntroId intro,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -292,6 +327,7 @@ class _PaywallFrameBodyState extends PaywallClockState<PaywallFrameBody> {
                       clock: _clock,
                       closeOnLeft: widget.closeOnLeft,
                       close: _close,
+                      intro: intro,
                     );
                     return PaywallLayoutScopeProvider(
                       scope: scope,
@@ -426,6 +462,9 @@ class _FrameClock extends ChangeNotifier implements PaywallClock {
 
   @override
   void restart() => onRestart();
+
+  /// Whether anything listens yet.
+  bool get isHeard => hasListeners;
 
   void tell() => notifyListeners();
 }

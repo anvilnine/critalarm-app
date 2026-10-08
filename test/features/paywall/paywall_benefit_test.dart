@@ -181,7 +181,6 @@ void main() {
       'paywall_kit.button_get',
       'paywall_kit.button_get_price',
       'paywall_kit.not_on_sale',
-      'paywall_kit.plain.headline_pro',
       'paywall_hero.headline_pro',
     ]) {
       expect(banned.hasMatch(strings[key]!), isFalse, reason: key);

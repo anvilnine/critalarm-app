@@ -18,6 +18,53 @@ class ReceiptLine {
   final VoidCallback onTap;
 }
 
+/// The colours of the slip and its slot. Paper is light in both themes:
+/// on the dark canvas a dark slip did not read as paper. So in the dark
+/// theme the paper takes the canvas's light ink colour and its type the
+/// fixed dark ink.
+class ReceiptInks {
+  const ReceiptInks({
+    required this.paper,
+    required this.ink,
+    required this.quiet,
+    required this.faint,
+    required this.slot,
+    required this.slit,
+  });
+
+  factory ReceiptInks.of(BuildContext context) {
+    final colors = context.appColors;
+    if (Theme.of(context).brightness != Brightness.dark) {
+      return ReceiptInks(
+        paper: colors.cream,
+        ink: colors.ink,
+        quiet: colors.ink2,
+        faint: colors.ink3,
+        slot: colors.onCanvas,
+        slit: colors.canvas.withValues(alpha: 0.36),
+      );
+    }
+    return ReceiptInks(
+      paper: colors.onCanvas,
+      ink: colors.inkFixed,
+      quiet: colors.inkFixed.withValues(alpha: 0.82),
+      faint: colors.inkFixed.withValues(alpha: 0.55),
+      slot: colors.ink3,
+      slit: colors.inkFixed.withValues(alpha: 0.5),
+    );
+  }
+
+  /// The paper, and the type on it from strongest to faintest.
+  final Color paper;
+  final Color ink;
+  final Color quiet;
+  final Color faint;
+
+  /// The slot the paper hangs from, and the opening along it.
+  final Color slot;
+  final Color slit;
+}
+
 /// The printed slip: a header, one ticked line per benefit in the mono
 /// face, a dashed rule, the product's name and the price as the total, and
 /// a stamp.
@@ -65,33 +112,48 @@ class ReceiptPaper extends StatelessWidget {
   final double marker;
   final ReceiptStamp stamp;
 
+  /// The slip's type grows this much with the text size and no further.
+  static const double maxTextScale = 1.3;
+
   double _ink(int part) => inks == null ? 1 : inks![part];
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final inks = ReceiptInks.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final size = plan.paper.size;
     final shown = math.min(out ?? size.height, size.height);
     const pad = ReceiptPlan.pad;
-    final fontSize = plan.row < 30 ? 12.0 : (plan.row < 40 ? 12.5 : 13.0);
+    // Every line is one size: the one the longest line fits at. The lines
+    // have no room to grow into, so the text size is taken back out of
+    // them. The header and the total still grow with it.
+    final grown = math.min(
+      MediaQuery.textScalerOf(context).scale(10) / 10,
+      maxTextScale,
+    );
+    final longest = lines.fold<int>(
+      0,
+      (most, line) => math.max(most, line.text.length),
+    );
+    final fontSize = plan.lineFont(longest) / math.max(1, grown);
     final strong = AppTypography.monoBold(
-      colors.ink,
+      inks.ink,
       fontSize: fontSize,
     ).copyWith(height: 1.2);
     final quiet = AppTypography.mono(
-      colors.ink2,
+      inks.quiet,
       fontSize: fontSize,
     ).copyWith(height: 1.2);
     final totalStyle = AppTypography.monoBold(
-      colors.ink,
+      inks.ink,
       fontSize: 14.5,
     ).copyWith(height: 1.2);
 
     // The slip is a picture of a slip: its type grows a little with the
     // text size and no further, and every line says itself to a reader.
     return MediaQuery.withClampedTextScaling(
-      maxScaleFactor: 1.3,
+      maxScaleFactor: maxTextScale,
       child: SizedBox.fromSize(
         size: size,
         child: Stack(
@@ -102,7 +164,7 @@ class ReceiptPaper extends StatelessWidget {
                 child: CustomPaint(
                   painter: _PaperPainter(
                     out: shown,
-                    color: colors.cream,
+                    color: inks.paper,
                     shadows: AppShadows.shadowLg(isDark: isDark),
                   ),
                 ),
@@ -126,9 +188,7 @@ class ReceiptPaper extends StatelessWidget {
                           opacity: marker,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: colors.yellow.withValues(
-                                alpha: isDark ? 0.24 : 0.7,
-                              ),
+                              color: colors.yellow.withValues(alpha: 0.7),
                               borderRadius: BorderRadius.circular(Radii.xs),
                             ),
                           ),
@@ -148,7 +208,7 @@ class ReceiptPaper extends StatelessWidget {
                               title.toUpperCase(),
                               maxLines: 1,
                               style: AppTypography.monoBold(
-                                colors.ink2,
+                                inks.quiet,
                                 fontSize: 10.5,
                               ).copyWith(letterSpacing: 2.4, height: 1.2),
                             ),
@@ -156,7 +216,7 @@ class ReceiptPaper extends StatelessWidget {
                         ),
                       ),
                     ),
-                    _rule(plan.rowsTop - ReceiptPlan.rule, colors.ink3, 0),
+                    _rule(plan.rowsTop - ReceiptPlan.rule, inks.faint, 0),
                     for (final (i, line) in lines.indexed)
                       Positioned(
                         left: pad,
@@ -175,11 +235,11 @@ class ReceiptPaper extends StatelessWidget {
                               children: [
                                 AppGlyph(
                                   GlyphType.check,
-                                  size: 12,
-                                  color: colors.ink,
+                                  size: ReceiptPlan.tick,
+                                  color: inks.ink,
                                   strokeWidth: 2.4,
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: ReceiptPlan.tickGap),
                                 Expanded(
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
@@ -200,7 +260,7 @@ class ReceiptPaper extends StatelessWidget {
                       ),
                     _rule(
                       plan.totalTop - ReceiptPlan.rule,
-                      colors.ink3,
+                      inks.faint,
                       lines.length + 1,
                     ),
                     Positioned(

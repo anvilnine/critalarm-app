@@ -1,6 +1,8 @@
+import 'package:critalarm/core/paywall/paywall_intro.dart';
 import 'package:critalarm/core/paywall/paywall_layout.dart';
 import 'package:critalarm/core/paywall/paywall_layout_setting.dart';
 import 'package:critalarm/core/paywall/paywall_source.dart';
+import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_product.dart';
 import 'package:critalarm/features/paywall/presentation/paywall_door.dart';
 import 'package:critalarm/features/pro_pack/domain/pro_pack_analytics.dart';
@@ -9,6 +11,14 @@ import 'package:flutter_test/flutter_test.dart';
 class _Install {
   String hosted = '';
   String pro = '';
+  String hostedIntro = '';
+  String proIntro = '';
+  PaywallIntroId? devHostedIntro;
+  String hostedThanks = '';
+  String proThanks = '';
+  PaywallThanksId? devHostedThanks;
+  PaywallThanksId? devProThanks;
+  bool thanksAreBuilt = true;
   PaywallLayoutSetting? devHosted;
   PaywallLayoutSetting? devPro;
   bool seen = false;
@@ -28,8 +38,17 @@ class _Install {
       seen = true;
       marks++;
     },
-    isBuilt: (layout) =>
-        layout != PaywallLayoutId.falseAlarm || falseAlarmIsBuilt,
+    remoteIntroValue: (product) =>
+        product == PaywallProduct.hosted ? hostedIntro : proIntro,
+    developerIntro: (product) =>
+        product == PaywallProduct.hosted ? devHostedIntro : null,
+    isIntroBuilt: (intro) =>
+        intro != PaywallIntroId.falseAlarm || falseAlarmIsBuilt,
+    remoteThanksValue: (product) =>
+        product == PaywallProduct.hosted ? hostedThanks : proThanks,
+    developerThanks: (product) =>
+        product == PaywallProduct.hosted ? devHostedThanks : devProThanks,
+    isThanksBuilt: (thanks) => thanks == PaywallThanksId.none || thanksAreBuilt,
   );
 }
 
@@ -203,12 +222,12 @@ void main() {
     });
   });
 
-  group('the False alarm layout', () {
-    test('opens once from the Settings plan row, then hero', () {
+  group('the false alarm intro', () {
+    test('plays once from the Settings plan row, then hero alone', () {
       final install = _Install()..hosted = 'auto';
       expect(
         install.door.hostedLocation(PaywallSource.settingsPlan),
-        '/plans/false_alarm?product=hosted&source=settings_plan',
+        '/plans/hero?product=hosted&source=settings_plan&intro=false_alarm',
       );
       expect(install.marks, 1);
       expect(
@@ -218,7 +237,19 @@ void main() {
       expect(install.marks, 1);
     });
 
-    test('other entries neither open it nor use up its showing', () {
+    test('a stored value that names it as a layout opens hero with it', () {
+      final install = _Install()..hosted = 'false_alarm';
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan&intro=false_alarm',
+      );
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history',
+      );
+    });
+
+    test('other entries neither play it nor use up its showing', () {
       final install = _Install()..hosted = 'auto';
       for (final source in PaywallSource.values) {
         if (source == PaywallSource.settingsPlan) continue;
@@ -230,7 +261,7 @@ void main() {
       expect(install.marks, 0);
     });
 
-    test('a build that cannot draw it opens hero and keeps the showing', () {
+    test('a build that cannot play it opens hero and keeps the showing', () {
       final install = _Install()
         ..hosted = 'auto'
         ..falseAlarmIsBuilt = false;
@@ -239,6 +270,174 @@ void main() {
         '/plans/hero?product=hosted&source=settings_plan',
       );
       expect(install.marks, 0);
+    });
+  });
+
+  group('the intro value', () {
+    test('goes in the location beside any layout, for both products', () {
+      final install = _Install()
+        ..hosted = 'sheet'
+        ..hostedIntro = 'false_alarm'
+        ..pro = 'proof'
+        ..proIntro = 'false_alarm';
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/sheet?product=hosted&source=history&intro=false_alarm',
+      );
+      expect(install.marks, 1);
+      // Its one showing is used up, for either product.
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.direct),
+        '/plans/proof?product=pro&source=direct',
+      );
+    });
+
+    test('alone it changes nothing: empty layout is the shipped surface', () {
+      final install = _Install()..hostedIntro = 'false_alarm';
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/paywall?source=history',
+      );
+      expect(install.marks, 0);
+    });
+
+    test('Developer options outrank it', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedIntro = 'false_alarm'
+        ..devHostedIntro = PaywallIntroId.none;
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history',
+      );
+      expect(install.marks, 0);
+    });
+  });
+
+  group('the thanks value', () {
+    test('goes in the location beside any layout, for both products', () {
+      final install = _Install()
+        ..hosted = 'sheet'
+        ..hostedThanks = 'confetti'
+        ..pro = 'proof'
+        ..proThanks = ' unlock ';
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/sheet?product=hosted&source=history&thanks=confetti',
+      );
+      expect(
+        install.door.resolve('/paywall?source=history'),
+        '/plans/sheet?product=hosted&source=history&thanks=confetti',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.direct),
+        '/plans/proof?product=pro&source=direct&thanks=unlock',
+      );
+    });
+
+    test('goes after the intro, and neither drops the other', () {
+      final install = _Install()
+        ..hosted = 'auto'
+        ..hostedThanks = 'unlock';
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan'
+        '&intro=false_alarm&thanks=unlock',
+      );
+      // The intro has had its one showing. The thanks has no such rule.
+      expect(
+        install.door.hostedLocation(PaywallSource.settingsPlan),
+        '/plans/hero?product=hosted&source=settings_plan&thanks=unlock',
+      );
+    });
+
+    test('an intro this build cannot play keeps the thanks', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedIntro = 'false_alarm'
+        ..hostedThanks = 'confetti'
+        ..falseAlarmIsBuilt = false;
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history&thanks=confetti',
+      );
+      expect(install.marks, 0);
+    });
+
+    test('a thanks this build cannot play is no thanks', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedIntro = 'false_alarm'
+        ..hostedThanks = 'confetti'
+        ..pro = 'sheet'
+        ..proThanks = 'unlock'
+        ..thanksAreBuilt = false;
+      // The intro still plays.
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history&intro=false_alarm',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.reliability),
+        '/plans/sheet?product=pro&source=reliability',
+      );
+    });
+
+    test('a value this build does not know is no thanks', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedThanks = 'fireworks';
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history',
+      );
+    });
+
+    test('alone it changes nothing: empty layout is the shipped surface', () {
+      final install = _Install()
+        ..hostedThanks = 'confetti'
+        ..proThanks = 'unlock'
+        ..devHostedThanks = PaywallThanksId.unlock;
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/paywall?source=history',
+      );
+      expect(
+        install.door.resolve('/paywall?source=history'),
+        '/paywall?source=history',
+      );
+      expect(install.door.proLayoutLocation(ProPackSheetSource.direct), isNull);
+      expect(install.door.opensLayouts(PaywallProduct.hosted), isFalse);
+    });
+
+    test('Developer options outrank it', () {
+      final install = _Install()
+        ..hosted = 'hero'
+        ..hostedThanks = 'confetti'
+        ..devHostedThanks = PaywallThanksId.none
+        ..pro = 'hero'
+        ..devProThanks = PaywallThanksId.unlock;
+      expect(
+        install.door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history',
+      );
+      expect(
+        install.door.proLayoutLocation(ProPackSheetSource.direct),
+        '/plans/hero?product=pro&source=direct&thanks=unlock',
+      );
+    });
+
+    test('with nothing injected a door has no thanks', () {
+      final door = PaywallDoor(
+        remoteValue: (_) => 'hero',
+        developer: (_) => null,
+        hasSeenFalseAlarm: () => false,
+        markFalseAlarmSeen: () async {},
+      );
+      expect(
+        door.hostedLocation(PaywallSource.history),
+        '/plans/hero?product=hosted&source=history',
+      );
     });
   });
 }

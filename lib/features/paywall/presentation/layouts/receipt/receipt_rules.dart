@@ -1,9 +1,12 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_motion.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/hero/hero_turns.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_cue_rules.dart';
 
 // The receipt as numbers: when each part of the print happens, and where
 // the slot, the paper, the mascot and the card stand on the stage. No
@@ -42,8 +45,8 @@ class ReceiptStamp {
 
 /// The print, in seconds on the layout's clock. The slot is there from the
 /// first frame, the mascot pops up beside it, the paper feeds out a line at
-/// a time, the stamp lands, and the first preview peeks out from behind
-/// the paper. Then the loop starts.
+/// a time, the stamp lands, and the first preview slides out from behind
+/// the paper to stand beside it. Then the loop starts.
 abstract final class ReceiptTimeline {
   /// The paper starts to feed, and has all of its length.
   static const double feedStart = 0.3;
@@ -120,11 +123,46 @@ abstract final class ReceiptTimeline {
   static double peek(double t) =>
       AppCurves.easeBack.transform(phase(t, peekStart, restAt - 0.05));
 
-  /// The mascot at [t], until the loop takes over at [restAt]: it lands
-  /// wide-eyed, watches the paper come out, hops as the stamp lands, and
-  /// is glad.
-  static ReceiptActor actor(double t) {
-    final entrance = phase(t, 0, heroEntranceSeconds);
+  /// The second part [step] of a slip of [count] lines starts to print,
+  /// which is as it leaves the slot. Part 0 is the header, parts 1 to
+  /// [count] are the lines, and the total is the part after them.
+  static double printsAt(int step, int count) =>
+      feedStart + (step + 0.2) / (count + 3) * (feedEnd - feedStart);
+
+  /// The second the total of a slip of [count] lines starts to print.
+  static double totalAt(int count) => printsAt(count + 1, count);
+
+  /// The second the first preview is heard coming out from behind the
+  /// paper. It starts out at [peekStart], while the stamp is still
+  /// sounding, so its own cue waits until the stamp's is over.
+  static const double peekCueAt = stampAt + 0.35;
+
+  /// How high the mascot's nod is at most, against the hop of a reaction.
+  static const double nodHeight = 0.3;
+
+  /// The small nod the mascot gives as each of the [count] lines comes
+  /// out, 0 to [nodHeight]. It is level between lines, and for the header,
+  /// the total and the foot.
+  static double nod(double t, int count) {
+    final at = fed(t) * (count + 3);
+    final step = at.floor();
+    if (step < 1 || step > count) return 0;
+    return nodHeight * math.sin(math.pi * phase(at - step, 0.15, 0.75));
+  }
+
+  /// The mascot at [t] beside a slip of [count] lines, until the loop
+  /// takes over at [restAt]: it lands wide-eyed, watches each line come
+  /// out with a nod, is glad at the total, is startled into a hop by the
+  /// stamp, and is glad again.
+  ///
+  /// After an intro ([followsIntro]) the mascot is already in its place:
+  /// the intro ended on it, so it is not dropped in a second time.
+  static ReceiptActor actor(
+    double t, {
+    required int count,
+    bool followsIntro = false,
+  }) {
+    final entrance = followsIntro ? 1.0 : phase(t, 0, heroEntranceSeconds);
     if (t < 0.5) {
       return ReceiptActor(
         face: HeroFace.arriving,
@@ -134,13 +172,23 @@ abstract final class ReceiptTimeline {
         entrance: entrance,
       );
     }
-    if (t < stampAt) {
+    final total = totalAt(count);
+    if (t < total) {
       return ReceiptActor(
         face: HeroFace.watching,
         fromFace: HeroFace.arriving,
         faceBlend: phase(t, 0.5, 0.5 + heroFaceBlend),
-        hop: 0,
+        hop: nod(t, count),
         entrance: entrance,
+      );
+    }
+    if (t < stampAt) {
+      return ReceiptActor(
+        face: HeroFace.glad,
+        fromFace: HeroFace.watching,
+        faceBlend: phase(t, total, total + heroFaceBlend),
+        hop: 0,
+        entrance: 1,
       );
     }
     const gladAt = stampAt + 0.34;
@@ -148,8 +196,8 @@ abstract final class ReceiptTimeline {
     final hop = 4 * up * (1 - up);
     if (t < gladAt) {
       return ReceiptActor(
-        face: HeroFace.winning,
-        fromFace: HeroFace.watching,
+        face: HeroFace.startled,
+        fromFace: HeroFace.glad,
         faceBlend: phase(t, stampAt, stampAt + heroFaceBlend * 0.5),
         hop: hop,
         entrance: 1,
@@ -157,7 +205,7 @@ abstract final class ReceiptTimeline {
     }
     return ReceiptActor(
       face: HeroFace.glad,
-      fromFace: HeroFace.winning,
+      fromFace: HeroFace.startled,
       faceBlend: phase(t, gladAt, restAt),
       hop: hop,
       entrance: 1,
@@ -165,14 +213,44 @@ abstract final class ReceiptTimeline {
   }
 }
 
-/// How far the card is tucked behind the paper while one preview gives way
-/// to the next, 0 to 1, for a change that is [enter] of the way through.
-/// It goes in with the old one and comes out with the new.
-double receiptTuck(double enter) => math.sin(math.pi * enter.clamp(0.0, 1.0));
+/// What the print sounds like, by clock second, for a slip of [count]
+/// lines: one small line cue as each line and then the total leaves the
+/// slot, the stamp as it comes down, and a rise as the first preview comes
+/// out. The frame plays no entrance cue under these: one long printing
+/// sound would talk over them.
+List<PaywallCueBeat> receiptCues(int count) => [
+  for (var step = 1; step <= count + 1; step++)
+    PaywallCueBeat(ReceiptTimeline.printsAt(step, count), PaywallCue.line),
+  const PaywallCueBeat(ReceiptTimeline.stampAt, PaywallCue.stamp),
+  const PaywallCueBeat(ReceiptTimeline.peekCueAt, PaywallCue.rise),
+];
 
-/// Whether the card shows the new preview yet, for a change that is
-/// [enter] of the way through: the swap happens while it is tucked away.
-bool receiptShowsNext(double enter) => enter >= 0.5;
+/// How the receipt's stage moves, where it is not the print itself. The
+/// mascot is dropped beside the slot, as the paper drops out of it, and
+/// keeps the plain bob. One preview slides out as the next slides in.
+/// The air is the approved drift until the stamp lands, which throws the
+/// confetti once.
+const HeroMotion receiptMotion = HeroMotion(
+  atmosphere: HeroAtmosphereStyle.confetti,
+  entrance: HeroEntranceStyle.drop,
+  arrival: HeroCardArrival.slideThrough,
+);
+
+/// Which way a new preview travels, for a change the hand sent in
+/// [direction] (1 the next, -1 the previous, 0 the loop's own). The loop
+/// brings each one out from behind the paper, as the print brought the
+/// first, so it reads as -1.
+int receiptCardWay(int direction) => direction == 0 ? -1 : direction;
+
+/// The seconds the confetti reads at clock second [t]: null before the
+/// stamp has landed, when there is none, and then the time since. It is
+/// never zero while it falls, because zero is the frame where every piece
+/// has landed. When nothing may move that landed frame is the one drawn.
+double? receiptConfettiSeconds(double t, {required bool isStill}) {
+  if (isStill) return 0;
+  if (t < ReceiptTimeline.stampLanded) return null;
+  return math.max(0.001, t - ReceiptTimeline.stampLanded);
+}
 
 /// Where everything stands on a stage, for one size and one number of
 /// lines. All boxes are in the stage's own points.
@@ -194,9 +272,11 @@ class ReceiptPlan {
   /// the screen. Its lines take the height the stage can give, between
   /// [rowMin] and [rowMax] each. The mascot and the card stand in the
   /// column to its right, under the close cross, and both give way before
-  /// the paper does.
+  /// the paper does. The card is whole beside the paper, never under it.
+  /// The mascot is as large as the column lets it be and leans [lean]
+  /// points over the paper's edge, in front of it.
   factory ReceiptPlan.of(Size stage, {required int count}) {
-    final paperWidth = (stage.width * 0.61).clamp(210.0, 250.0);
+    final paperWidth = (stage.width * 0.56).clamp(196.0, 226.0);
     final free = stage.height - margin * 2 - slotLap - _fixed;
     final row = count == 0 ? rowMin : (free / count).clamp(rowMin, rowMax);
     final paperHeight = _fixed + row * count;
@@ -212,12 +292,13 @@ class ReceiptPlan {
     );
 
     // The column beside the paper: the mascot over the card.
-    final left = paper.right + 2;
-    final width = stage.width - mascotRight - left;
+    final left = paper.right + cardGap;
+    final right = stage.width - mascotRight;
+    final width = right - left;
     final columnTop = math.max(top, crossRoom);
     final room = paper.bottom - columnTop;
-    var cardEdge = cardMax;
-    var mascot = math.min(width, mascotMax);
+    var cardEdge = math.min(cardMax, width);
+    var mascot = math.min(right - paper.right + lean, mascotMax);
     if (mascot + columnGap + cardEdge > room) {
       mascot = math.max(mascotMin, room - columnGap - cardEdge);
     }
@@ -233,14 +314,16 @@ class ReceiptPlan {
       paper: paper,
       row: row,
       count: count,
+      // A mascot wider than the column keeps the right edge and leans
+      // left, over the paper.
       mascot: Rect.fromLTWH(
-        left + (width - mascot) / 2,
+        mascot > width ? right - mascot : left + (width - mascot) / 2,
         blockTop,
         mascot,
         mascot,
       ),
       card: Rect.fromLTWH(
-        paper.right - cardTucked,
+        left + (width - cardEdge) / 2,
         blockTop + mascot + columnGap,
         cardEdge,
         cardEdge,
@@ -279,19 +362,33 @@ class ReceiptPlan {
   /// The words on the paper start this far in from its edges.
   static const double pad = 14;
 
+  /// A line's tick, and the gap between it and the words.
+  static const double tick = 12;
+  static const double tickGap = 7;
+
+  /// The type of a line, at its largest and at its smallest, and how wide
+  /// one letter of the mono face is against its size.
+  static const double fontMax = 13;
+  static const double fontMin = 9;
+  static const double monoAdvance = 0.602;
+
   /// The column: the close cross's room above it, the gap between the
-  /// mascot and the card, and how close the mascot may come to the edge.
+  /// mascot and the card, and how close the two may come to the edge.
   static const double crossRoom = 46;
   static const double columnGap = 12;
-  static const double mascotRight = 10;
-  static const double mascotMax = 150;
+  static const double mascotRight = 14;
+  static const double mascotMax = 168;
   static const double mascotMin = 72;
 
-  /// The card is a preview at its middle size. This much of it is behind
-  /// the paper.
+  /// How far the mascot may lean over the paper's edge. It is less than
+  /// [pad], so it never covers a word.
+  static const double lean = 10;
+
+  /// The card is a preview at its middle size, this far clear of the
+  /// paper.
   static const double cardMax = 120;
   static const double cardMin = 96;
-  static const double cardTucked = 12;
+  static const double cardGap = 4;
 
   /// The shortest stage a slip of [count] lines fits on.
   static double minHeight(int count) =>
@@ -310,6 +407,19 @@ class ReceiptPlan {
   final int count;
   final Rect mascot;
   final Rect card;
+
+  /// How far the card moves left to be wholly behind the paper.
+  double get cardTravel => card.right - paper.right;
+
+  /// The size of the type every line is set in, for a slip whose longest
+  /// line has [longest] letters: the largest at which that line fits the
+  /// paper, so all the lines are one size. A tight slip caps it lower.
+  double lineFont(int longest) {
+    final cap = row < 30 ? fontMax - 1 : (row < 40 ? fontMax - 0.5 : fontMax);
+    if (longest <= 0) return cap;
+    final room = paper.width - pad * 2 - tick - tickGap;
+    return (room / (longest * monoAdvance)).clamp(fontMin, cap);
+  }
 
   /// How far down the paper the lines start.
   double get rowsTop => lead + header + rule;
