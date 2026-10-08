@@ -55,6 +55,7 @@ User-facing changes to the Crit Alarm app. Versions match `version:` in `pubspec
 - Pick a server draws the two ways an alert reaches your phone, through Crit Alarm Cloud or through your own server, and lights the one you pick.
 - The welcome screen is now three pages. Swipe between them or tap Next, and the last page starts setup. The curl that rings a phone is the third page, so the separate screen for it is gone.
 - The Topics screen has a new look: one card answers whether your alarms will wake you, and your topics sit below it in one list.
+- Critical delivery moved to the top of a topic, onto a dark card next to Crit. It still starts off, and the card says On or Off in big letters.
 
 ### Fixed
 - Crit Alarm now connects by itself once the phone is back online, as the offline card on the connect step always said
