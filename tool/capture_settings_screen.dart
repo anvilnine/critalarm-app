@@ -133,6 +133,7 @@ const _scenes = <_Scene>[
   _Scene('freecap', plan: _Plan.freeAtCap, scrollToEnd: true),
   _Scene('hosted', plan: _Plan.hosted, scrollToEnd: true),
   _Scene('selfhosted', plan: _Plan.selfHosted, scrollToEnd: true),
+  _Scene('selfhostedtop', plan: _Plan.selfHosted),
   _Scene('bottom', scrollToEnd: true),
   _Scene('bottomlook', checks: _lookChecks, scrollToEnd: true),
 ];
