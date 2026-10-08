@@ -27,4 +27,11 @@ abstract interface class HoldingSource {
 
   /// Fires when [state] may have changed. It may fire with no change.
   Listenable get changes;
+
+  /// Done once [state] is current: the first read has landed and no later
+  /// one is still out. Never fails.
+  ///
+  /// Until then [state] may say `notHeld` for something that is held, so
+  /// code that takes something away waits for this first.
+  Future<void> get ready;
 }

@@ -16,6 +16,7 @@ final class FeatureAccess {
     required this._holdings,
     this._table = featureTable,
     this._serverMode,
+    this._serverModeRead,
   }) {
     _last = _decideAll();
     _subscription = _holdings.stream.listen((_) => _announce());
@@ -27,6 +28,36 @@ final class FeatureAccess {
   late final StreamSubscription<Set<Holding>> _subscription;
   late Map<AppFeature, FeatureDecision> _last;
   ServerMode? _serverMode;
+  final Future<void>? _serverModeRead;
+
+  /// Done once the holdings are current and the saved server mode has been
+  /// read. Never fails.
+  ///
+  /// Before that an answer can say "locked" for something that is open:
+  /// a tier not read yet counts as not held, and a mode not read yet
+  /// counts as Crit Alarm Cloud. A screen that only draws a lock can skip
+  /// the wait and listen to [changes]. Code that takes something away, or
+  /// that decides once and does not look again, waits for this first.
+  Future<void> get ready async {
+    await _holdings.ready;
+    try {
+      await _serverModeRead;
+    } on Object catch (_) {
+      // A mode that could not be read stays unknown.
+    }
+  }
+
+  /// [decide], asked once [ready] is done. For a caller that decides once
+  /// and does not listen to [changes], and for one that takes something
+  /// away.
+  Future<FeatureDecision> decideOnceReady(AppFeature feature) async {
+    await ready;
+    return decide(feature);
+  }
+
+  /// [can], asked once [ready] is done. See [decideOnceReady].
+  Future<bool> canOnceReady(AppFeature feature) async =>
+      (await decideOnceReady(feature)).isUsable;
 
   /// The mode last handed to [setServerMode]. Null while it is not known.
   ServerMode? get serverMode => _serverMode;

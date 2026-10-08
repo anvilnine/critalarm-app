@@ -13,10 +13,10 @@ const List<AppFeature> _hostedFeatures = [
   AppFeature.longHistory,
   AppFeature.storageRules,
   AppFeature.appIcons,
+  AppFeature.widgets,
 ];
 
 const List<AppFeature> _proFeatures = [
-  AppFeature.widgets,
   AppFeature.ownSounds,
   AppFeature.alarmScreenStyles,
   AppFeature.wakeUpChallenges,
@@ -82,7 +82,10 @@ void main() {
       pro
         ..set(HoldingState.pending)
         ..set(HoldingState.held);
-      expect(access.decide(AppFeature.widgets), const FeatureDecision.open());
+      expect(
+        access.decide(AppFeature.weeklyCheck),
+        const FeatureDecision.open(),
+      );
     });
 
     test('is open, not confirming, where the server opens the feature', () {
@@ -119,7 +122,7 @@ void main() {
     test("relay mode is a server of the user's own", () {
       final access = build(serverMode: ServerMode.relay);
       expect(access.can(AppFeature.longHistory), isTrue);
-      expect(access.can(AppFeature.widgets), isFalse);
+      expect(access.can(AppFeature.weeklyCheck), isFalse);
     });
 
     test('a new mode changes the answers at once', () {

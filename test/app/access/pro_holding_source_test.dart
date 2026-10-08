@@ -287,17 +287,20 @@ void main() {
     });
 
     test('the developer switch opens the Pro features', () async {
-      expect(access.can(AppFeature.widgets), isFalse);
+      expect(access.can(AppFeature.weeklyCheck), isFalse);
       devSwitch.value = true;
       expect(holdings.holds(Holding.pro), isTrue);
-      expect(access.decide(AppFeature.widgets), const FeatureDecision.open());
+      expect(
+        access.decide(AppFeature.weeklyCheck),
+        const FeatureDecision.open(),
+      );
       await settle();
-      expect(heard, contains(AppFeature.widgets));
+      expect(heard, contains(AppFeature.weeklyCheck));
       expect(heard, isNot(contains(AppFeature.longHistory)));
 
       devSwitch.value = false;
       expect(
-        access.decide(AppFeature.widgets),
+        access.decide(AppFeature.weeklyCheck),
         const FeatureDecision.locked(Holding.pro),
       );
     });

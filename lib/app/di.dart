@@ -603,12 +603,16 @@ Future<void> configureDependencies({
     // What this install holds. One source per thing a person can buy, and
     // the sources are the only readers of the store, the relay's answer and
     // the developer switches.
+    ..registerLazySingleton<HostedHoldingSource>(
+      () => HostedHoldingSource(
+        readIdentity: () => getIt<DeviceIdentityStore>().readOrCreate(),
+        identityChanges: [appAccountIdentityChanges],
+        readStore: buildSkipsPaywall ? null : getIt.get<SubscriptionRepository>,
+      ),
+    )
     ..registerLazySingleton<Holdings>(
       () => Holdings([
-        HostedHoldingSource(
-          readIdentity: () => getIt<DeviceIdentityStore>().readOrCreate(),
-          identityChanges: [appAccountIdentityChanges],
-        ),
+        getIt<HostedHoldingSource>(),
         ProHoldingSource(getIt<ProPackAccess>()),
       ]),
     )
@@ -620,11 +624,16 @@ Future<void> configureDependencies({
       final access = FeatureAccess(
         holdings: getIt<Holdings>(),
         serverMode: sessions.mode.value,
+        // `ready` waits for this, so nothing is taken away from a phone on
+        // its own server before the saved session says so.
+        serverModeRead: sessions.read().then<void>(
+          (_) {},
+          onError: (Object _) {},
+        ),
       );
       sessions.mode.addListener(
         () => access.setServerMode(sessions.mode.value),
       );
-      unawaited(sessions.read().then<void>((_) {}, onError: (Object _) {}));
       return access;
     })
     // A build that skips the store has nothing on sale.

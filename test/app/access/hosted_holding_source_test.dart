@@ -292,7 +292,7 @@ void main() {
       );
       await _settle();
       expect(heard, contains(AppFeature.longHistory));
-      expect(heard, isNot(contains(AppFeature.widgets)));
+      expect(heard, isNot(contains(AppFeature.weeklyCheck)));
 
       devSwitch.value = false;
       expect(
