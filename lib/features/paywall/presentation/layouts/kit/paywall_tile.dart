@@ -20,6 +20,40 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 const Size paywallTilePhone = Size(390, 844);
 const EdgeInsets paywallTilePhoneInsets = EdgeInsets.only(top: 47, bottom: 34);
 
+/// The key of the name a person reads for [layout], in the picker's rows
+/// and under its tiles. The wire key (`PaywallLayoutId.key`) is for routes
+/// and remote values and is never shown.
+String paywallLayoutNameKey(PaywallLayoutId layout) => switch (layout) {
+  PaywallLayoutId.hero => LocaleKeys.paywall_picker_layout_names_hero,
+  PaywallLayoutId.sheet => LocaleKeys.paywall_picker_layout_names_sheet,
+  PaywallLayoutId.proof => LocaleKeys.paywall_picker_layout_names_proof,
+  PaywallLayoutId.bento => LocaleKeys.paywall_picker_layout_names_bento,
+  PaywallLayoutId.reel => LocaleKeys.paywall_picker_layout_names_reel,
+  PaywallLayoutId.stage => LocaleKeys.paywall_picker_layout_names_stage,
+  PaywallLayoutId.sentence => LocaleKeys.paywall_picker_layout_names_sentence,
+  PaywallLayoutId.wipe => LocaleKeys.paywall_picker_layout_names_wipe,
+  PaywallLayoutId.doors => LocaleKeys.paywall_picker_layout_names_doors,
+  PaywallLayoutId.receipt => LocaleKeys.paywall_picker_layout_names_receipt,
+};
+
+/// The key of the name a person reads for [intro]. See
+/// [paywallLayoutNameKey].
+String paywallIntroNameKey(PaywallIntroId intro) => switch (intro) {
+  PaywallIntroId.none => LocaleKeys.paywall_picker_intro_none,
+  PaywallIntroId.falseAlarm =>
+    LocaleKeys.paywall_picker_intro_names_false_alarm,
+  PaywallIntroId.snooze => LocaleKeys.paywall_picker_intro_names_snooze,
+  PaywallIntroId.wakeUp => LocaleKeys.paywall_picker_intro_names_wake_up,
+  PaywallIntroId.curtain => LocaleKeys.paywall_picker_intro_names_curtain,
+  PaywallIntroId.countdown => LocaleKeys.paywall_picker_intro_names_countdown,
+};
+
+/// The names themselves.
+String paywallLayoutName(PaywallLayoutId layout) =>
+    paywallLayoutNameKey(layout).tr();
+String paywallIntroName(PaywallIntroId intro) =>
+    paywallIntroNameKey(intro).tr();
+
 /// A small phone playing one layout, live, to pick it by.
 ///
 /// It is the real layout widget on a made-up buy model, drawn at phone

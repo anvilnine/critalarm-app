@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
@@ -13,6 +14,7 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show BoxParentData;
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 
@@ -31,7 +33,21 @@ class PaywallIntroScope {
     required this.size,
     required this.padding,
     required this.product,
+    this.handle,
   });
+
+  /// What the host knows about the layout under the intro.
+  final PaywallIntroHandle? handle;
+
+  /// Where the layout's own mascot stands once its entrance is done, in
+  /// the intro's coordinates. Null while it is not known, and when the
+  /// layout has none. Read it every frame: the host finds it a little
+  /// after the first one.
+  ///
+  /// An intro's mascot goes there on its way out and is gone by the hand
+  /// over ([paywallIntroLeaveBox]), so the layout's mascot comes up where
+  /// the intro's went down and the two read as one.
+  Rect? get landing => handle?.landing;
 
   /// Seconds since the intro began. A tap moves it on to
   /// [PaywallIntro.skipTo]. Draw every part from it with
@@ -68,6 +84,8 @@ class PaywallIntro {
     double? skipTo,
     this.tone = PaywallTone.canvas,
     this.cue = PaywallEntranceCue.open,
+    this.beats = const [],
+    this.tag,
   }) : skipTo = skipTo ?? handover;
 
   /// The whole length. About 1.5 to 2.5 seconds.
@@ -88,16 +106,102 @@ class PaywallIntro {
   /// The cue played once as the intro starts, in place of the layout's.
   final PaywallEntranceCue cue;
 
+  /// What is heard and felt on the way, in order. See [PaywallIntroBeat].
+  final List<PaywallIntroBeat> beats;
+
+  /// The few words the mascot is left saying once the intro is gone, or
+  /// null for none. The host draws them as a small tag over the layout's
+  /// own mascot for [paywallIntroTagSeconds] from the hand over, so the
+  /// joke still reads on the layout.
+  final String Function()? tag;
+
   final PaywallIntroBuilder builder;
 
   /// Whether the times are in order and the length is one an intro may
   /// have. A test asks this of every registered intro.
-  bool get isSound =>
-      skipTo > 0 &&
-      skipTo <= handover &&
-      handover < seconds &&
-      seconds >= 1 &&
-      seconds <= 3;
+  bool get isSound {
+    var last = 0.0;
+    for (final beat in beats) {
+      if (beat.at < last || beat.at > seconds) return false;
+      last = beat.at;
+    }
+    return skipTo > 0 &&
+        skipTo <= handover &&
+        handover < seconds &&
+        seconds >= 1 &&
+        seconds <= 3;
+  }
+}
+
+/// One moment of an intro that is heard or felt: the second it happens and
+/// what plays then.
+///
+/// [play] is the one call site for that moment: a top level function that
+/// calls a cue and at most one `AppHaptics` tap. The host calls it as the
+/// clock passes [at], never under a `PaywallMuted`, and never for a moment
+/// a tap skipped. Nothing here may sound or feel like an alarm: single
+/// short taps, no run of them, no ring.
+@immutable
+class PaywallIntroBeat {
+  const PaywallIntroBeat(this.at, this.play);
+
+  final double at;
+  final void Function(PaywallCues cues) play;
+}
+
+/// The beats of [intro] the clock passed going from [from] to [to]: after
+/// the first and up to the second.
+List<PaywallIntroBeat> paywallIntroBeatsBetween(
+  PaywallIntro intro,
+  double from,
+  double to,
+) => [
+  for (final beat in intro.beats)
+    if (beat.at > from && beat.at <= to) beat,
+];
+
+/// How long an intro's [PaywallIntro.tag] stays over the layout after the
+/// hand over, the fade at its end included.
+const double paywallIntroTagSeconds = 2.6;
+
+/// How much of the tag shows [sinceHandover] seconds after the hand over,
+/// 0 to 1: it pops in as the layout's mascot does and fades at the end.
+double paywallIntroTagPresence(double sinceHandover) {
+  if (sinceHandover <= 0 || sinceHandover >= paywallIntroTagSeconds) return 0;
+  return math.min(
+    phase(sinceHandover, 0.1, 0.34),
+    1 -
+        phase(
+          sinceHandover,
+          paywallIntroTagSeconds - 0.3,
+          paywallIntroTagSeconds,
+        ),
+  );
+}
+
+/// The smallest face in a layout that counts as its mascot. A face inside
+/// a feature preview is smaller.
+const double paywallIntroLandingMinFace = 64;
+
+/// The box an intro draws its mascot in, [leave] of the way out (0 to 1).
+///
+/// It goes from [from], where the intro had it, down to nothing at the
+/// foot of [landing], which is where the layout's own mascot pops up from.
+/// At one there is nothing left to draw. With no [landing] it goes down to
+/// its own foot.
+Rect paywallIntroLeaveBox({
+  required Rect from,
+  required Rect? landing,
+  required double leave,
+}) {
+  if (leave <= 0) return from;
+  final foot = (landing ?? from).bottomCenter;
+  final eased = Curves.easeInOutCubic.transform(leave.clamp(0, 1).toDouble());
+  return Rect.lerp(
+    from,
+    Rect.fromCenter(center: foot, width: 0, height: 0),
+    eased,
+  )!;
 }
 
 /// The second a tap at [t] moves an intro's clock to: [PaywallIntro.skipTo]
@@ -124,6 +228,10 @@ class PaywallIntroHandle {
   /// Which top corner the layout's close cross is in. The intro's own
   /// cross sits in the same one.
   bool closeOnLeft = false;
+
+  /// Where the layout's mascot stands at rest, in the host's coordinates.
+  /// See [PaywallIntroScope.landing].
+  Rect? landing;
 }
 
 /// Says which intro plays over the layout below. [PaywallIntroHost] puts
@@ -194,7 +302,22 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
   double _skipped = 0;
 
   bool _hasHandedOver = false;
+
+  /// The intro's own layer is gone.
   bool _isOver = false;
+
+  /// Nothing of the intro is left, its tag included, and the clock stops.
+  bool _isDone = false;
+
+  /// The second up to which beats have played, and the second the layout
+  /// was last searched for its mascot.
+  double _heard = -1;
+  double _looked = -1;
+
+  final GlobalKey _layoutKey = GlobalKey();
+
+  /// The layout's mascot, once found.
+  RenderBox? _mascot;
 
   @override
   void initState() {
@@ -215,18 +338,88 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
     final t = _clock.seconds;
     final handsOver = !_hasHandedOver && t >= intro.handover;
     final ends = !_isOver && t >= intro.seconds;
-    if (handsOver && !PaywallMuted.of(context)) {
+    final finishes = !_isDone && t >= _lastSecond(intro);
+    _look(t, intro);
+    if (!PaywallMuted.of(context)) {
+      final cues = getIt<PaywallCues>();
+      for (final beat in paywallIntroBeatsBetween(intro, _heard, t)) {
+        beat.play(cues);
+      }
       // One light tap as the layout takes over. Nothing here vibrates as
       // an alarm does.
-      AppHaptics.selection();
+      if (handsOver) AppHaptics.selection();
     }
-    if (ends) _ticker.stop();
+    _heard = t;
+    if (finishes) _ticker.stop();
     _clock.tell();
-    if (!handsOver && !ends) return;
+    if (!handsOver && !ends && !finishes) return;
     setState(() {
       _hasHandedOver = _hasHandedOver || handsOver;
       _isOver = _isOver || ends;
+      _isDone = _isDone || finishes;
     });
+  }
+
+  /// The second the last of the intro is gone: its own end, or its tag's.
+  double _lastSecond(PaywallIntro intro) => intro.tag == null
+      ? intro.seconds
+      : math.max(intro.seconds, intro.handover + paywallIntroTagSeconds);
+
+  /// Finds where the layout's mascot stands, a few times a second until
+  /// it is found or the hand over has passed.
+  void _look(double t, PaywallIntro intro) {
+    if (_handle.landing != null || t > intro.handover) return;
+    if (t - _looked < 0.12) return;
+    _looked = t;
+    _handle.landing = _findLanding();
+  }
+
+  /// The box of the largest face in the layout, where the layout laid it
+  /// out. Moves the layout paints on top (an entrance, a bob) are left
+  /// out, so this is where the mascot rests.
+  Rect? _findLanding() {
+    final host = context.findRenderObject();
+    final root = _layoutKey.currentContext;
+    if (host is! RenderBox || root is! Element) return null;
+    Element? found;
+    var edge = paywallIntroLandingMinFace;
+    void visit(Element element) {
+      final widget = element.widget;
+      if (widget is FaceWidget && widget.size >= edge) {
+        found = element;
+        edge = widget.size;
+      }
+      element.visitChildren(visit);
+    }
+
+    root.visitChildren(visit);
+    final box = found?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return null;
+    _mascot = box;
+    var offset = Offset.zero;
+    RenderObject? node = box;
+    while (node != null && node != host) {
+      final data = node.parentData;
+      if (data is BoxParentData) offset += data.offset;
+      node = node.parent;
+    }
+    return node == null ? null : offset & box.size;
+  }
+
+  /// Where the layout's mascot is painted now, its entrance and its bob
+  /// included, or null while it is not there at about its full size. The
+  /// tag stands by this, so it is never left pointing at nothing.
+  Rect? _mascotNow() {
+    final box = _mascot;
+    final host = context.findRenderObject();
+    if (box == null || !box.attached || !box.hasSize || host is! RenderBox) {
+      return null;
+    }
+    final now = MatrixUtils.transformRect(
+      box.getTransformTo(host),
+      Offset.zero & box.size,
+    );
+    return now.width < box.size.width * 0.7 ? null : now;
   }
 
   void _skip() {
@@ -237,6 +430,10 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
     if (to == now) return;
     _skipped += to - now;
     _clock.seconds = to;
+    // The moments a tap jumps over are not played. One that falls on the
+    // second it lands on is.
+    _heard = to - 1e-6;
+    _looked = -1;
     _advance();
   }
 
@@ -265,9 +462,10 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
       // Motion was turned off half way: the intro goes at once.
       _hasHandedOver = true;
       _isOver = true;
+      _isDone = true;
     }
     final isOnTop = ModalRoute.of(context)?.isCurrent ?? true;
-    final shouldRun = _intro != null && !_isOver && isOnTop;
+    final shouldRun = _intro != null && !_isDone && isOnTop;
     if (!shouldRun && _ticker.isActive) {
       _banked = _clock.seconds - _skipped;
       _ticker.stop();
@@ -287,6 +485,16 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
   Widget build(BuildContext context) {
     final intro = _intro;
     final isPlaying = intro != null && !_isOver;
+    final layout = context
+        .getInheritedWidgetOfExactType<PaywallRouteInfo>()
+        ?.layout;
+    final tag =
+        intro != null &&
+            !_isDone &&
+            !paywallIntroTaglessLayouts.contains(layout)
+        ? intro.tag
+        : null;
+    final handover = intro?.handover ?? 0;
 
     return PaywallIntroPlay(
       intro: intro == null ? PaywallIntroId.none : widget.intro,
@@ -296,7 +504,7 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            widget.child,
+            KeyedSubtree(key: _layoutKey, child: widget.child),
             if (isPlaying)
               Positioned.fill(
                 child: _IntroLayer(
@@ -307,6 +515,21 @@ class _PaywallIntroHostState extends State<PaywallIntroHost>
                   takesTaps: !_hasHandedOver,
                   onSkip: _skip,
                   onClose: _close,
+                ),
+              ),
+            if (tag != null && _hasHandedOver)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: ExcludeSemantics(
+                    child: PaywallClockBuilder(
+                      clock: _clock,
+                      builder: (context, t, _) => _IntroTagLayer(
+                        text: tag(),
+                        landing: _mascotNow(),
+                        presence: paywallIntroTagPresence(t - handover),
+                      ),
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -366,6 +589,7 @@ class _IntroLayer extends StatelessWidget {
                         size: constraints.biggest,
                         padding: padding,
                         product: product,
+                        handle: handle,
                       ),
                     ),
                   ),
@@ -399,6 +623,127 @@ class _IntroLayer extends StatelessWidget {
       ),
     );
   }
+}
+
+/// What the mascot is left saying, as a small tag by the layout's own
+/// mascot with a tail pointing at it. It takes no room in the layout
+/// and no touch, and it goes after a few seconds.
+class _IntroTagLayer extends StatelessWidget {
+  const _IntroTagLayer({
+    required this.text,
+    required this.landing,
+    required this.presence,
+  });
+
+  final String text;
+  final Rect? landing;
+  final double presence;
+
+  static const double _tail = 6;
+  static const double _gap = 4;
+  static const double _height = 28;
+  static const double _maxWidth = 180;
+  static const double _largestTextScale = 1.3;
+
+  @override
+  Widget build(BuildContext context) {
+    final at = landing;
+    if (at == null || presence <= 0) return const SizedBox.shrink();
+    // At a large text size a layout drops detail to fit, and the air this
+    // tag stands in goes first. The tag is detail too.
+    if (MediaQuery.textScalerOf(context).scale(1) > _largestTextScale) {
+      return const SizedBox.shrink();
+    }
+    final colors = context.appColors;
+    final screen = MediaQuery.sizeOf(context);
+    const room = _gap + _tail + _height;
+    // Over the mascot's head when there is air there, under its foot when
+    // there is not. It never covers the status bar.
+    final isAbove = at.top - room >= MediaQuery.viewPaddingOf(context).top + 2;
+    final top = isAbove ? at.top - room : at.bottom + _gap;
+    final left = (at.center.dx - _maxWidth / 2)
+        .clamp(
+          Spacing.s2,
+          math.max(Spacing.s2, screen.width - _maxWidth - Spacing.s2),
+        )
+        .toDouble();
+    final pop = AppCurves.easeBack.transform(presence);
+    final pill = Container(
+      height: _height,
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.s3),
+      decoration: BoxDecoration(
+        color: colors.onCanvas,
+        borderRadius: BorderRadius.circular(Spacing.s3),
+      ),
+      child: Center(
+        widthFactor: 1,
+        child: Text(
+          text,
+          maxLines: 1,
+          textScaler: TextScaler.noScaling,
+          style: AppTypography.small(
+            colors.canvas,
+          ).copyWith(fontWeight: FontWeight.w700, height: 1.2),
+        ),
+      ),
+    );
+    final tail = CustomPaint(
+      size: const Size(12, _tail),
+      painter: _TagTailPainter(colors.onCanvas, pointsDown: isAbove),
+    );
+
+    // The layout's own scaffold is not above this layer.
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          Positioned(
+            left: left,
+            top: top,
+            width: _maxWidth,
+            height: _height + _tail,
+            child: Opacity(
+              opacity: (presence * 2).clamp(0, 1),
+              child: Transform.scale(
+                scale: 0.6 + 0.4 * pop,
+                alignment: isAbove
+                    ? Alignment.bottomCenter
+                    : Alignment.topCenter,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: isAbove ? [pill, tail] : [tail, pill],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TagTailPainter extends CustomPainter {
+  const _TagTailPainter(this.color, {required this.pointsDown});
+
+  final Color color;
+  final bool pointsDown;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // One point under the tag's edge, so no seam shows between them.
+    final base = pointsDown ? -1.0 : size.height + 1;
+    final tip = pointsDown ? size.height : 0.0;
+    final path = Path()
+      ..moveTo(0, base)
+      ..lineTo(size.width / 2, tip)
+      ..lineTo(size.width, base)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_TagTailPainter old) =>
+      color != old.color || pointsDown != old.pointsDown;
 }
 
 /// The intro's own clock: seconds since it began, moved on by a tap.
