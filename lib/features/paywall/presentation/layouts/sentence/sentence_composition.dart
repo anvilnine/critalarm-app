@@ -4,6 +4,7 @@ import 'package:critalarm/design/design.dart';
 import 'package:critalarm/features/paywall/domain/entities/hosted_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/sentence/sentence_cues.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/sentence/sentence_rules.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -16,6 +17,10 @@ import 'package:flutter/material.dart';
 /// The stage, the pips, the loop and the hand are the kit's. A swipe
 /// across the stage or across the sentence rolls the ending, and a tap on
 /// a name in the row puts that benefit on the stage.
+///
+/// The motion is the sentence's own ([sentenceMotion]): the mascot slides
+/// in over turning rays, the first ending rolls up into the sentence as
+/// the entrance ends, and the mascot hops as each ending after it lands.
 class SentenceComposition extends StatefulWidget {
   const SentenceComposition({required this.scope, super.key});
 
@@ -40,8 +45,10 @@ class _SentenceCompositionState extends State<SentenceComposition> {
   // ticks to do it.
   void _onPlayer() => setState(() {});
 
-  HeroPlayer get _playing =>
-      _player ??= HeroPlayer(clock: scope.clock)..addListener(_onPlayer);
+  HeroPlayer get _playing => _player ??= HeroPlayer(
+    clock: scope.clock,
+    onChange: sentenceRollCue,
+  )..addListener(_onPlayer);
 
   @override
   void dispose() {
@@ -105,83 +112,98 @@ class _SentenceCompositionState extends State<SentenceComposition> {
       bottomGap: Spacing.s1,
     );
 
+    // After an intro the mascot is already there: the entrance starts
+    // part of the way in.
+    final prelude = sentencePreludeFor(followsIntro: scope.followsIntro);
     final player = _playing
       ..clock = scope.clock
-      ..loop = HeroLoop([for (final b in benefits) b.previewId]);
+      ..loop = HeroLoop([
+        for (final b in benefits) b.previewId,
+      ], prelude: prelude);
 
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          HeroLiveStage(
-            player: player,
-            size: Size(scope.size.width, room.stage),
-            label: (frame) => frame.activeIndex >= benefits.length
-                ? null
-                : LocaleKeys.paywall_hero_stage_label.tr(
-                    namedArgs: {
-                      'benefit': heroLineFor(benefits[frame.activeIndex]),
-                    },
-                  ),
-            bleedTop: MediaQuery.viewPaddingOf(context).top,
-          ),
-          SizedBox(
-            height: room.gap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: heroSideInset),
-              child: HeroPips(
-                player: player,
-                count: benefits.length,
-                color: tones.ink,
+    return SentenceMoment(
+      clock: scope.clock,
+      // After an intro this is before the clock starts: the hand over has
+      // its own cue.
+      at: prelude + sentenceFirstRollStart,
+      onReached: sentenceRollCue,
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            HeroLiveStage(
+              player: player,
+              size: Size(scope.size.width, room.stage),
+              label: (frame) => frame.activeIndex >= benefits.length
+                  ? null
+                  : LocaleKeys.paywall_hero_stage_label.tr(
+                      namedArgs: {
+                        'benefit': heroLineFor(benefits[frame.activeIndex]),
+                      },
+                    ),
+              bleedTop: MediaQuery.viewPaddingOf(context).top,
+              motion: sentenceMotion,
+            ),
+            SizedBox(
+              height: room.gap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: heroSideInset),
+                child: HeroPips(
+                  player: player,
+                  count: benefits.length,
+                  color: tones.ink,
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: EdgeInsets.only(
-              left: heroSideInset,
-              right: heroSideInset,
-              bottom: room.under,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                HeroRise(
-                  clock: scope.clock,
-                  index: 0,
-                  // A swipe across the sentence rolls it, as on the stage.
-                  child: HeroTouchArea(
-                    player: player,
-                    child: _Sentence(
+            Padding(
+              padding: EdgeInsets.only(
+                left: heroSideInset,
+                right: heroSideInset,
+                bottom: room.under,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  HeroRise(
+                    clock: scope.clock,
+                    index: 0,
+                    after: prelude,
+                    // A swipe across the sentence rolls it, as on the stage.
+                    child: HeroTouchArea(
                       player: player,
-                      stem: stem,
-                      tails: tails,
-                      stemStyle: stemStyle,
-                      tailStyle: tailStyle,
-                      tailBox: tailBox,
+                      child: _Sentence(
+                        player: player,
+                        stem: stem,
+                        tails: tails,
+                        stemStyle: stemStyle,
+                        tailStyle: tailStyle,
+                        tailBox: tailBox,
+                      ),
                     ),
                   ),
-                ),
-                HeroRise(
-                  clock: scope.clock,
-                  index: 2,
-                  child: SizedBox(
-                    height: _rosterHeight,
-                    child: _Roster(
-                      player: player,
-                      names: names,
-                      said: [for (final b in benefits) b.line],
-                      style: nameStyle,
-                      muted: tones.muted,
+                  HeroRise(
+                    clock: scope.clock,
+                    index: 2,
+                    after: prelude,
+                    child: SizedBox(
+                      height: _rosterHeight,
+                      child: _Roster(
+                        player: player,
+                        names: names,
+                        said: [for (final b in benefits) b.line],
+                        style: nameStyle,
+                        muted: tones.muted,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -189,7 +211,8 @@ class _SentenceCompositionState extends State<SentenceComposition> {
 
 /// The stem, and under it the ending of the turn on the stage. While the
 /// stage changes its picture the old ending rolls out and the new one
-/// rolls in, clipped to the ending's box like a digit on a counter.
+/// rolls in, clipped to the ending's box like a digit on a counter. In the
+/// entrance the first ending rolls in the same way, from below.
 class _Sentence extends StatelessWidget {
   const _Sentence({
     required this.player,
@@ -231,6 +254,11 @@ class _Sentence extends StatelessWidget {
         isChange: before != null && before != now && before < tails.length,
       );
       final leaving = roll.leaving;
+      // The first ending rolls up into its box as the entrance ends.
+      final entrance = t - player.loop.prelude;
+      final first = player.isStill || t >= player.loop.entranceEnd
+          ? (arriving: 0.0, shown: 1.0)
+          : sentenceFirstRollAt(entrance);
       return Semantics(
         header: true,
         label: LocaleKeys.paywall_sentence_sentence_label.tr(
@@ -249,7 +277,11 @@ class _Sentence extends StatelessWidget {
                   children: [
                     if (leaving != null && before != null)
                       _ending(before, leaving, 1 - p),
-                    _ending(now, roll.arriving, leaving == null ? 1 : p),
+                    _ending(
+                      now,
+                      roll.arriving + first.arriving,
+                      (leaving == null ? 1 : p) * first.shown,
+                    ),
                   ],
                 ),
               ),

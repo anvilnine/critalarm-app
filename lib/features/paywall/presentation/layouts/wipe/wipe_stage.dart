@@ -1,3 +1,5 @@
+import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
 import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_clock.dart';
@@ -7,12 +9,25 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_tone
 import 'package:critalarm/features/paywall/presentation/layouts/wipe/wipe_rules.dart';
 import 'package:flutter/material.dart';
 
+/// The divider lands on the mascot at the end of its sweep: one tick and
+/// one light tap, once.
+void wipeLandCue() {
+  AppHaptics.selection();
+  getIt<PaywallCues>().tick();
+}
+
+/// A finger takes hold of the divider: one light tap.
+void wipeGrabCue() => AppHaptics.selection();
+
 /// The kit's stage drawn twice in one box and split by a divider. Left of
 /// it is Free: the same scene with the colour taken out, the preview held
 /// on what Free has, the mascot doubtful. Right of it is the product,
 /// playing as the approved stage does. Both are drawn from one frame in
 /// one arrangement, so they meet exactly wherever the divider stands, and
 /// the mascot is one character with the line across its face.
+///
+/// Bubbles rise on the product's side only. When the mascot leans toward
+/// the product the divider goes with it, so the line stays on its face.
 ///
 /// A sideways drag anywhere on the stage moves the divider. A tap plays
 /// the current turn again, and the loop waits under a finger.
@@ -24,8 +39,12 @@ class WipeStage extends StatefulWidget {
     required this.after,
     required this.label,
     required this.showing,
+    this.lead = 0,
     super.key,
   });
+
+  /// The head start of the sweep after an intro. See `wipeLeadFor`.
+  final double lead;
 
   final HeroPlayer player;
   final Size size;
@@ -60,6 +79,41 @@ class _WipeStageState extends State<WipeStage> {
 
   WipeGrip? _hand;
   double _settle = wipeSettleAlone;
+  late double _before = _player.clock.value;
+  late final bool _isMuted = PaywallMuted.of(context);
+
+  // The landing's cue, on the frame the sweep is home. After an intro the
+  // hand over has its own cue, and a divider the hand holds has not landed.
+  void _onTick() {
+    final clock = _player.clock;
+    final now = clock.value;
+    final landed = wipeReached(_before, now, wipeLandsAt - widget.lead);
+    _before = now;
+    final isOwn = widget.lead == 0 && _hand == null;
+    if (landed && isOwn && !clock.isStill && !_isMuted) wipeLandCue();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _player.clock.addListener(_onTick);
+  }
+
+  @override
+  void didUpdateWidget(WipeStage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final was = oldWidget.player.clock;
+    if (identical(was, _player.clock)) return;
+    was.removeListener(_onTick);
+    _player.clock.addListener(_onTick);
+    _before = _player.clock.value;
+  }
+
+  @override
+  void dispose() {
+    _player.clock.removeListener(_onTick);
+    super.dispose();
+  }
 
   HeroPlayer get _player => widget.player;
 
@@ -68,10 +122,11 @@ class _WipeStageState extends State<WipeStage> {
     settle: _settle,
     grip: _hand,
     isStill: _player.isStill,
+    lead: widget.lead,
   );
 
   void _grab(DragStartDetails details) {
-    AppHaptics.selection();
+    wipeGrabCue();
     setState(() {
       _hand = WipeGrip(
         at: _at(_player.clock.value).clamp(wipeMin, wipeMax),
@@ -131,6 +186,7 @@ class _WipeStageState extends State<WipeStage> {
         size: size,
         label: widget.showing,
         arrange: wipeArrangementFor,
+        motion: wipeMotion,
       );
     }
 
@@ -165,6 +221,12 @@ class _WipeStageState extends State<WipeStage> {
     final fadeFrom = full <= 0 ? 0.0 : (1 - _fade / full).clamp(0.0, 1.0);
     final tail = [tones.ink, tones.ink, tones.ink.withValues(alpha: 0)];
     final tailStops = [0.0, fadeFrom, 1.0];
+    // On the dark canvas the two sides are nearly one black, so the
+    // product's side gets a wash of the yellow. The Free side is drawn
+    // over it and keeps none.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final wash = colors.yellow.withValues(alpha: isDark ? 0.14 : 0);
+    final lead = widget.lead;
 
     return HeroTouchArea(
       player: _player,
@@ -190,16 +252,30 @@ class _WipeStageState extends State<WipeStage> {
               final frame = _player.frameAt(t);
               final seconds = _player.stageSeconds(t);
               final isStill = _player.isStill;
-              final at = _at(t);
-              final x = at * size.width;
+              final home = _at(t);
+              // Home on the mascot, the divider leans with it.
+              final leans = !isStill && (home - _settle).abs() < 1e-6;
+              final x =
+                  home * size.width +
+                  (leans
+                      ? wipeLeanShiftAt(
+                          frame.bob,
+                          mascot: arrangement.mascot.width,
+                        )
+                      : 0);
+              final at = size.width <= 0 ? home : x / size.width;
               // The line and its grip come in as the sweep starts, the
               // tags as it ends.
               final line = isStill || _hand != null
                   ? 1.0
-                  : phase(t, wipeSweepStart - 0.1, wipeSweepStart + 0.1);
+                  : phase(
+                      t + lead,
+                      wipeSweepStart - 0.1,
+                      wipeSweepStart + 0.1,
+                    );
               final tags = isStill || _hand != null
                   ? 1.0
-                  : phase(t, wipeSweepEnd - 0.3, wipeSweepEnd);
+                  : phase(t + lead, wipeSweepEnd - 0.3, wipeSweepEnd);
 
               return Semantics(
                 container: true,
@@ -217,12 +293,34 @@ class _WipeStageState extends State<WipeStage> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
+                        if (isDark)
+                          Positioned(
+                            left: 0,
+                            top: -bleed,
+                            width: size.width,
+                            height: full,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    wash,
+                                    wash,
+                                    wash.withValues(alpha: 0),
+                                  ],
+                                  stops: tailStops,
+                                ),
+                              ),
+                            ),
+                          ),
                         HeroStage(
                           size: size,
                           frame: frame,
                           seconds: seconds,
                           bleedTop: bleed,
                           arrange: wipeArrangementFor,
+                          motion: wipeMotion,
                         ),
                         Positioned(
                           left: 0,
@@ -257,6 +355,10 @@ class _WipeStageState extends State<WipeStage> {
                                             seconds: seconds,
                                             bleedTop: bleed,
                                             arrange: wipeArrangementFor,
+                                            // The disc alone: nothing
+                                            // rises on this side.
+                                            showsShapes: false,
+                                            motion: wipeFreeMotion,
                                           ),
                                         ),
                                       ),

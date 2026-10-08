@@ -1,29 +1,32 @@
 import 'dart:math' as math;
 
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/doors/doors_rules.dart';
+import 'package:critalarm/features/paywall/presentation/layouts/doors/doors_scene.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_hero.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/wipe/wipe_rules.dart';
-import 'package:critalarm/features/paywall/presentation/layouts/wipe/wipe_stage.dart';
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-/// The approved composition with the wipe's stage on top: the stage, the
-/// pips, a headline and the benefits as plain lines, all the kit's parts.
-///
-/// The stage uses the sideways drag for its divider, so a benefit is
-/// chosen by a tap on its line, and by the loop.
-class WipeComposition extends StatefulWidget {
-  const WipeComposition({required this.scope, super.key});
+/// The approved composition with the doorway's stage on top: the stage,
+/// the pips, a headline and the benefits as plain lines, all the kit's
+/// parts on the app's own canvas.
+class DoorsComposition extends StatefulWidget {
+  const DoorsComposition({
+    required this.scope,
+    required this.headline,
+    super.key,
+  });
 
   final PaywallLayoutScope scope;
+  final String headline;
 
   @override
-  State<WipeComposition> createState() => _WipeCompositionState();
+  State<DoorsComposition> createState() => _DoorsCompositionState();
 }
 
-class _WipeCompositionState extends State<WipeComposition> {
+class _DoorsCompositionState extends State<DoorsComposition> {
   HeroPlayer? _player;
 
   PaywallLayoutScope get scope => widget.scope;
@@ -32,8 +35,10 @@ class _WipeCompositionState extends State<WipeComposition> {
   // ticks to do it.
   void _onPlayer() => setState(() {});
 
-  HeroPlayer get _playing =>
-      _player ??= HeroPlayer(clock: scope.clock)..addListener(_onPlayer);
+  HeroPlayer get _playing => _player ??= HeroPlayer(
+    clock: scope.clock,
+    onChange: doorsWidenCue,
+  )..addListener(_onPlayer);
 
   @override
   void dispose() {
@@ -50,19 +55,11 @@ class _WipeCompositionState extends State<WipeComposition> {
     final width = scope.size.width - heroSideInset * 2;
     final benefits = scope.benefits;
 
-    final name = scope.isHosted
-        ? LocaleKeys.paywall_kit_name_hosted.tr()
-        : LocaleKeys.paywall_kit_name_pro.tr();
-    // Without either product the app is the free one.
-    final before = LocaleKeys.paywall_wipe_tag_free.tr();
-    final headline = scope.isHosted
-        ? LocaleKeys.paywall_wipe_headline_hosted.tr()
-        : LocaleKeys.paywall_wipe_headline_pro.tr();
+    final headline = widget.headline;
     final headlineStyle = AppTypography.headline(
       tones.ink,
       fontSize: sizes.headline,
     );
-
     final metrics = HeroLinesMetrics.measure(
       context,
       lines: [for (final b in benefits) heroLineFor(b)],
@@ -85,15 +82,24 @@ class _WipeCompositionState extends State<WipeComposition> {
       gap: sizes.stageGap,
       bottomGap: sizes.bottomGap,
     );
+    final stage = Size(scope.size.width, room.stage);
+    final doors = doorsGeometryFor(stage);
 
-    // After an intro the mascot is already there, so the entrance and the
-    // sweep both start part of the way in.
-    final lead = wipeLeadFor(followsIntro: scope.followsIntro);
+    // The stage and the words come in as the door opens. After an intro
+    // the door is already on its way.
+    final lead = doorsLeadFor(followsIntro: scope.followsIntro);
+    final prelude = DoorsTimeline.prelude - lead;
     final player = _playing
       ..clock = scope.clock
       ..loop = HeroLoop([
         for (final b in benefits) b.previewId,
-      ], prelude: -lead);
+      ], prelude: prelude);
+
+    String? showing(HeroFrame frame) => frame.activeIndex >= lines.length
+        ? null
+        : LocaleKeys.paywall_hero_stage_label.tr(
+            namedArgs: {'benefit': lines[frame.activeIndex]},
+          );
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
@@ -101,21 +107,25 @@ class _WipeCompositionState extends State<WipeComposition> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          WipeStage(
-            player: player,
-            size: Size(scope.size.width, room.stage),
-            before: before,
-            after: name,
-            lead: lead,
-            label: LocaleKeys.paywall_wipe_compare_label.tr(
-              namedArgs: {'before': before, 'name': name},
+          if (doors == null)
+            // No room for a doorway: the approved stage, moving the same
+            // way.
+            HeroLiveStage(
+              player: player,
+              size: stage,
+              label: showing,
+              bleedTop: MediaQuery.viewPaddingOf(context).top,
+              motion: doorsMotion,
+            )
+          else
+            DoorsStage(
+              player: player,
+              size: stage,
+              geometry: doors,
+              count: benefits.length,
+              label: showing,
+              lead: lead,
             ),
-            showing: (frame) => frame.activeIndex >= lines.length
-                ? null
-                : LocaleKeys.paywall_hero_stage_label.tr(
-                    namedArgs: {'benefit': lines[frame.activeIndex]},
-                  ),
-          ),
           SizedBox(
             height: room.gap,
             child: Padding(
@@ -149,7 +159,7 @@ class _WipeCompositionState extends State<WipeComposition> {
                   HeroRise(
                     clock: scope.clock,
                     index: 0,
-                    after: -lead,
+                    after: prelude,
                     child: Semantics(
                       header: true,
                       child: Text(headline, style: headlineStyle),

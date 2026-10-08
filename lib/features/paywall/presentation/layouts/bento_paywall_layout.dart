@@ -13,9 +13,12 @@ import 'package:flutter/material.dart';
 /// one still mark and a short name.
 ///
 /// The benefits live on the board, so there is no list. When the benefit
-/// changes, its small tile and the stage tile trade places. A tap on a
-/// small tile does it, a swipe across the stage does it, and so does the
-/// loop.
+/// changes, its small tile and the stage tile trade places, slowly enough
+/// to see one go up as the other comes down. A tap on a small tile does
+/// it, a swipe across the stage does it, and so does the loop.
+///
+/// The board is laid tile by tile: each small tile drops into place, then
+/// the stage tile, and the mascot drops into that (`bentoMotion`).
 ///
 /// The stage, the mascot, the loop and the hand are the kit's
 /// (`kit/paywall_hero.dart`). A product with one benefit has no board to
@@ -62,8 +65,10 @@ class _BentoCompositionState extends State<_BentoComposition> {
   // clock ticks to do it.
   void _onPlayer() => setState(() {});
 
-  HeroPlayer get _playing =>
-      _player ??= HeroPlayer(clock: scope.clock)..addListener(_onPlayer);
+  HeroPlayer get _playing => _player ??= HeroPlayer(
+    clock: scope.clock,
+    onChange: bentoTradeCue,
+  )..addListener(_onPlayer);
 
   @override
   void dispose() {
@@ -116,11 +121,14 @@ class _BentoCompositionState extends State<_BentoComposition> {
       isCompact: scope.isCompact,
     );
 
+    // After an intro the board is already half laid.
+    final lead = bentoLeadFor(followsIntro: scope.followsIntro);
+    final prelude = bentoStageLands - lead;
     final player = _playing
       ..clock = scope.clock
       ..loop = HeroLoop([
         for (final b in benefits) b.previewId,
-      ], prelude: bentoStageLands);
+      ], prelude: prelude);
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
@@ -168,12 +176,13 @@ class _BentoCompositionState extends State<_BentoComposition> {
               sizes: sizes,
               labelStyle: labelStyle,
               captionStyle: captionStyle,
+              lead: lead,
             ),
             SizedBox(height: plan.gap),
             HeroRise(
               clock: scope.clock,
               index: 1,
-              after: bentoStageLands,
+              after: prelude,
               child: Semantics(
                 header: true,
                 child: Text(headline, style: headlineStyle),

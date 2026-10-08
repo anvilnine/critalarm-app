@@ -1,4 +1,7 @@
+import 'package:critalarm/app/di.dart';
+import 'package:critalarm/core/ui_sound/paywall_cues.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/design_system/haptics.dart';
 import 'package:critalarm/features/paywall/domain/entities/paywall_benefit.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/bento/bento_rules.dart';
 import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_frame.dart';
@@ -7,6 +10,19 @@ import 'package:critalarm/features/paywall/presentation/layouts/kit/paywall_prev
 import 'package:critalarm/gen/locale_keys.g.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+
+/// The stage tile lands on the board: one tick and one light tap, once.
+void bentoLandCue() {
+  AppHaptics.selection();
+  getIt<PaywallCues>().tick();
+}
+
+/// The hand trades a small tile with the stage tile: one tick and one
+/// light tap. The loop trading by itself is silent.
+void bentoTradeCue() {
+  AppHaptics.selection();
+  getIt<PaywallCues>().tick();
+}
 
 /// The short name of [benefit] on a small tile.
 String bentoNameFor(PaywallBenefit benefit) => switch (benefit.id) {
@@ -75,8 +91,12 @@ class BentoBoardView extends StatefulWidget {
     required this.sizes,
     required this.labelStyle,
     required this.captionStyle,
+    this.lead = 0,
     super.key,
   });
+
+  /// The head start of the entrance after an intro. See `bentoLeadFor`.
+  final double lead;
 
   final HeroPlayer player;
   final List<PaywallBenefit> benefits;
@@ -91,8 +111,47 @@ class BentoBoardView extends StatefulWidget {
 
 class _BentoBoardViewState extends State<BentoBoardView> {
   BentoBoard _board = BentoBoard.of(0);
+  late double _before = _player.clock.value;
+  late final bool _isMuted = PaywallMuted.of(context);
 
   HeroPlayer get _player => widget.player;
+
+  // The landing's cue, on the frame the stage tile touches the board.
+  // After an intro the hand over has its own cue.
+  void _onTick() {
+    final clock = _player.clock;
+    final now = clock.value;
+    final landed = bentoReached(
+      _before,
+      now,
+      bentoStageThudAt - widget.lead,
+    );
+    _before = now;
+    final isOwn = widget.lead == 0;
+    if (landed && isOwn && !clock.isStill && !_isMuted) bentoLandCue();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _player.clock.addListener(_onTick);
+  }
+
+  @override
+  void didUpdateWidget(BentoBoardView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final was = oldWidget.player.clock;
+    if (identical(was, _player.clock)) return;
+    was.removeListener(_onTick);
+    _player.clock.addListener(_onTick);
+    _before = _player.clock.value;
+  }
+
+  @override
+  void dispose() {
+    _player.clock.removeListener(_onTick);
+    super.dispose();
+  }
 
   /// The board as [frame] leaves it: the benefit on the stage has traded
   /// places with the one that was there.
@@ -212,8 +271,7 @@ class _BentoBoardViewState extends State<BentoBoardView> {
     final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final slot = board.slotOf(benefit);
-    final isTrading =
-        trade < 1 && (slot == 0 || slot == board.tradedSlot);
+    final isTrading = trade < 1 && (slot == 0 || slot == board.tradedSlot);
     final rect = bentoTileRect(
       board: board,
       plan: plan,
@@ -281,30 +339,20 @@ class _BentoBoardViewState extends State<BentoBoardView> {
       ),
     );
 
-    // The entrance: small tiles land one after another, the stage tile
-    // last and with a pop.
+    // The entrance: the tiles drop onto the board one by one, the small
+    // ones left to right and the stage tile last, each with a bounce.
     if (!_player.isStill && t < _player.loop.entranceEnd) {
-      if (slot == 0) {
-        final land = bentoStageLandAt(t);
-        tile = Opacity(
-          opacity: phase(land, 0, 0.35),
-          child: Transform.scale(
-            scale: 0.88 + 0.12 * AppCurves.easeBack.transform(land),
-            child: tile,
-          ),
-        );
-      } else {
-        final land = AppCurves.easeOut.transform(
-          bentoSmallLandAt(t, slot - 1),
-        );
-        tile = Opacity(
-          opacity: land,
-          child: Transform.translate(
-            offset: Offset(0, 16 * (1 - land)),
-            child: Transform.scale(scale: 0.94 + 0.06 * land, child: tile),
-          ),
-        );
-      }
+      final at = t + widget.lead;
+      final drop = slot == 0
+          ? bentoDropAt(bentoStageLandAt(at), from: bentoStageDropFrom)
+          : bentoDropAt(
+              bentoSmallLandAt(at, slot - 1),
+              from: bentoSmallDropFrom,
+            );
+      tile = Opacity(
+        opacity: drop.opacity,
+        child: Transform.translate(offset: Offset(0, drop.dy), child: tile),
+      );
     }
     return tile;
   }
@@ -371,8 +419,7 @@ class _StageFace extends StatelessWidget {
 
   /// How tall the line's strip is under the stage, for a line [text]
   /// points tall.
-  static double captionHeightFor(double text) =>
-      text + BentoSizes.captionFoot;
+  static double captionHeightFor(double text) => text + BentoSizes.captionFoot;
 
   @override
   Widget build(BuildContext context) {
@@ -391,6 +438,7 @@ class _StageFace extends StatelessWidget {
             pull: pull,
             arrange: bentoArrangementFor,
             tone: PaywallTone.surface,
+            motion: bentoMotion,
           ),
           SizedBox(
             height: caption,
