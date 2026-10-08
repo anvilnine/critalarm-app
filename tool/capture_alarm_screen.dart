@@ -22,6 +22,12 @@
 // clock. So the face's stage and those two lines are left out of the pixel
 // comparison, and the clock is taken out of the text files.
 //
+// The second stage, the acknowledged screen with "At my desk" on it, is
+// captured the same way with
+//   --dart-define=STAGE=acked
+// The alarm is acknowledged through the cubit and the files are named
+// `acked_...`.
+//
 // Developer tool testing mock setup.
 // ignore_for_file: invalid_use_of_visible_for_testing_member
 // Tool prints progress to stdout.
@@ -32,8 +38,10 @@ import 'dart:ui' as ui;
 
 import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/router.dart';
+import 'package:critalarm/app/state/topics_cubit.dart';
 import 'package:critalarm/core/api/mock_server.dart';
 import 'package:critalarm/design/design.dart';
+import 'package:critalarm/features/incidents/presentation/cubits/critical_alarm_cubit.dart';
 import 'package:critalarm/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -46,6 +54,8 @@ import '../test/helpers/load_translations.dart';
 
 const _out = String.fromEnvironment('OUT', defaultValue: 'build/alarm_shots');
 const _against = String.fromEnvironment('AGAINST');
+const _stage = String.fromEnvironment('STAGE', defaultValue: 'ringing');
+const _isAcked = _stage == 'acked';
 
 const _screens = <(String, Size, double, double)>[
   ('390x844', Size(390, 844), 47, 34),
@@ -137,7 +147,8 @@ void main() {
   for (final (sizeName, size, topInset, bottomInset) in _screens) {
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
       for (final scale in [1.0, 1.3]) {
-        final name = 'alarm_${sizeName}_${mode.name}_${scale}x';
+        final name =
+            '${_isAcked ? 'acked' : 'alarm'}_${sizeName}_${mode.name}_${scale}x';
         testWidgets('capture $name', (tester) async {
           final errors = <String>[];
           final oldHandler = FlutterError.onError;
@@ -186,8 +197,12 @@ void main() {
           debugDisableShadows = false;
           try {
             await tester.pumpWidget(
-              BlocProvider<ThemeCubit>.value(
-                value: getIt<ThemeCubit>(),
+              MultiBlocProvider(
+                providers: [
+                  BlocProvider<ThemeCubit>.value(value: getIt<ThemeCubit>()),
+                  // The acknowledged screen reads the desk timer from it.
+                  BlocProvider<TopicsCubit>.value(value: getIt<TopicsCubit>()),
+                ],
                 child: MaterialApp.router(
                   theme: buildLightTheme(),
                   darkTheme: buildDarkTheme(),
@@ -209,6 +224,15 @@ void main() {
             // Past the wait before the announcement.
             await tester.pump(const Duration(milliseconds: 1200));
             await tester.pump();
+            if (_isAcked) {
+              // "I'm up", through the same call the button makes.
+              await tester.runAsync(
+                () => CriticalAlarmCubit.current!.acknowledge(),
+              );
+              for (var i = 0; i < 4; i++) {
+                await tester.pump(const Duration(milliseconds: 200));
+              }
+            }
 
             final tree = _steady(
               tester
@@ -240,10 +264,23 @@ void main() {
                           w is AppSheet ||
                           w is AppButton ||
                           w is Text,
+                      // The wide acknowledged layout fills what is left of
+                      // a viewport, and the walk that leaves offstage
+                      // children out trips over that sliver.
+                      skipOffstage: !_isAcked,
                     )
                     .evaluate()) {
               final widget = element.widget;
-              final rect = tester.getRect(find.byWidget(widget));
+              final Rect rect;
+              if (_isAcked) {
+                // Read off the element, for the same reason.
+                final box = element.renderObject! as RenderBox;
+                // Kept in the tree and never laid out: not on screen.
+                if (!box.hasSize) continue;
+                rect = box.localToGlobal(Offset.zero) & box.size;
+              } else {
+                rect = tester.getRect(find.byWidget(widget));
+              }
               final words = widget is Text ? (widget.data ?? '') : '';
               if (widget is ShufflingRingingFace || _clock.hasMatch(words)) {
                 // Steam and stars are thrown a little past the face's stage.
@@ -317,6 +354,15 @@ void main() {
                           '${image.width}x${image.height}'}',
               );
             });
+            if (_isAcked) {
+              // Past the wait for the follow-up the acknowledge may open,
+              // so no timer outlives the capture.
+              await tester.pump(const Duration(seconds: 2));
+              await tester.runAsync(
+                () => Future<void>.delayed(const Duration(milliseconds: 100)),
+              );
+              await tester.pump(const Duration(seconds: 1));
+            }
             expect(errors, isEmpty, reason: errors.join('\n'));
           } finally {
             semantics.dispose();
