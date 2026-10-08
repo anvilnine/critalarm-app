@@ -39,12 +39,19 @@ test:
 # SCREENS_ONLY=alarm.ringing,home.calm, and only some sizes with
 # SCREENS_DEVICES=social916. TZ is pinned so every clock on a screen reads in
 # the same zone.
+#
+# `make screens STORIES=1` draws the alarm stories and nothing else: the
+# ringing and the answered alarm screen for each story in the tool, at the
+# social size, light and dark, as alarm.ringing.<slug>.png and
+# alarm.acked.<slug>.png. It writes stories.json and leaves manifest.json and
+# every other shot as they are. SCREENS_ONLY narrows it to some of them.
 SCREENS_OUT ?= $(abspath $(dir $(shell git rev-parse --path-format=absolute --git-common-dir))../critalarm-content-pipeline/ui-snapshots)
 screens:
 	@mkdir -p "$(SCREENS_OUT)"
 	TZ=UTC SCREENS_OUT="$(abspath $(SCREENS_OUT))" \
 	SCREENS_ONLY="$(SCREENS_ONLY)" \
 	SCREENS_DEVICES="$(SCREENS_DEVICES)" \
+	SCREENS_STORIES="$(STORIES)" \
 	GIT_SHA="$$(git rev-parse --short HEAD)" \
 	GIT_DIRTY="$$(test -z "$$(git status --porcelain -- lib assets pubspec.yaml)" && echo false || echo true)" \
 	fvm flutter test tool/capture_marketing_screens.dart --reporter=compact
