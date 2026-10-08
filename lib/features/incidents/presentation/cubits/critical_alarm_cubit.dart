@@ -9,6 +9,7 @@ import 'package:critalarm/core/usecase/usecase.dart';
 import 'package:critalarm/design/faces/face_state.dart';
 import 'package:critalarm/design/tokens/colors.dart';
 import 'package:critalarm/features/history/presentation/history_formatting.dart';
+import 'package:critalarm/features/incidents/domain/close_without_server.dart';
 import 'package:critalarm/features/incidents/domain/entities/incident.dart';
 import 'package:critalarm/features/incidents/domain/setup_test_kind.dart';
 import 'package:critalarm/features/incidents/domain/usecases/acknowledge_incident_usecase.dart';
@@ -95,6 +96,12 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
   final SetupTestRing? _setupRing;
 
   final DateTime Function() _now;
+
+  /// Writes a close to the ack queue, to be sent when the server can be
+  /// reached. It is the queue the Done button on a card uses with no
+  /// signal. Null in a test that never needs it, and then a close that
+  /// fails only reports the failure, as it used to.
+  Future<void> Function(String incidentId)? queueClose;
 
   /// The cubit the alarm screen is showing right now, or null when the screen
   /// is not up. The push binding reads it to hand a tapped incident id to the
@@ -275,13 +282,15 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }
     if (incidentId != null && incidentId.isNotEmpty) {
       final result = await _getIncident(incidentId);
-      result.fold(
-        (incident) => _applyIncident(
+      if (isClosed) return;
+      final failure = result.fold<Failure?>((incident) {
+        _applyIncident(
           incident,
           openIncidents: incident.isOpen ? [incident] : const <Incident>[],
-        ),
-        _showFailure,
-      );
+        );
+        return null;
+      }, (failure) => failure);
+      if (failure != null) await _loadFailedFor(incidentId, failure);
       return;
     }
     final result = await _getIncidents(const GetIncidentsParams(state: 'open'));
@@ -295,12 +304,78 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     }, _showFailure);
   }
 
-  void _showFailure(Failure failure) {
+  /// The screen was opened for one incident and the server did not hand
+  /// it over. The person who came here to close it must still be able to.
+  ///
+  /// - The server says it is gone or already moved on (404, 409, 410):
+  ///   there is nothing to close. The card for it goes and the screen says
+  ///   nothing is ringing.
+  /// - The app already holds the incident as acknowledged: the normal
+  ///   acknowledged screen is drawn from that copy, with "At my desk" and
+  ///   whatever that button owes.
+  /// - Otherwise, when this phone is not ringing: the failed screen gets
+  ///   an "At my desk" of its own ([closeUnloaded]).
+  ///
+  /// A phone that is ringing keeps the failed screen it always had, with
+  /// Try again and Stop the noise. Nothing here stands in for "I'm up".
+  Future<void> _loadFailedFor(String incidentId, Failure failure) async {
+    final refusal = serverRefusalFor(failure);
+    if (refusal == ServerRefusal.settled) {
+      await _silence(incidentId, handOverToStatusCard: false);
+      if (isClosed) return;
+      emit(const CriticalAlarmState());
+      return;
+    }
+    if (refusal == ServerRefusal.refused) {
+      _showFailure(failure);
+      return;
+    }
+    final held = _incidents?.state.incidents
+        .where((incident) => incident.id == incidentId)
+        .firstOrNull;
+    if (held != null && held.isAcked) {
+      _applyIncident(held, openIncidents: const <Incident>[]);
+      return;
+    }
+    var isRinging = true;
+    try {
+      isRinging = await _alarm?.isRinging() ?? false;
+    } on Object catch (_) {
+      // Not known, so it is treated as ringing and left alone.
+    }
+    if (isClosed) return;
+    _showFailure(failure, unloadedIncidentId: isRinging ? null : incidentId);
+  }
+
+  /// "At my desk" on the screen of an incident that could not be loaded.
+  ///
+  /// One tap, with no challenge: the phone does not know which topic this
+  /// is, so there is nothing to ask. The card goes, and the close waits in
+  /// the ack queue until the server can be reached. A server that then
+  /// says 404, 409 or 410 ends it there.
+  Future<void> closeUnloaded() async {
+    final incidentId = state.unloadedIncidentId;
+    if (incidentId == null || state.isCloseQueued) return;
+    await _silence(incidentId, handOverToStatusCard: false);
+    try {
+      await queueClose?.call(incidentId);
+    } on Object catch (_) {
+      // The queue could not be written. The button stays for another
+      // try.
+      return;
+    }
+    if (isClosed) return;
+    emit(const CriticalAlarmState(isCloseQueued: true));
+  }
+
+  void _showFailure(Failure failure, {String? unloadedIncidentId}) {
     _stopRingTicker();
     emit(
       CriticalAlarmState(
         status: CriticalAlarmStatus.failure,
-        errorMessage: failure.message,
+        // Never null here: the screen reads it to know the load failed.
+        errorMessage: failure.message ?? '',
+        unloadedIncidentId: unloadedIncidentId,
       ),
     );
   }
@@ -604,33 +679,69 @@ class CriticalAlarmCubit extends Cubit<CriticalAlarmState> {
     await _silence(incidentId, handOverToStatusCard: false);
 
     final result = await _closeIncident(incidentId);
-    result.fold(
-      (closedIncident) {
-        _incidents?.applyIncident(closedIncident);
-        // Same rule as acknowledge: an incident still open takes over, and the
-        // closed screen only appears once nothing is left ringing.
-        final remaining = _newestFirst(
-          state.openIncidents.where((i) => i.id != incidentId),
-        );
-        if (remaining.isNotEmpty) {
-          _applyIncident(remaining.first, openIncidents: remaining);
-        } else {
-          emit(
-            state.copyWith(
-              status: CriticalAlarmStatus.closed,
-              incident: closedIncident,
-              openIncidents: remaining,
-              word: LocaleKeys.critical_alarm_stage_word_closed.tr(),
-              severityMode: SeverityMode.none,
-              faceState: FaceState.calm,
-              isLive: false,
-            ),
-          );
+    if (isClosed) return;
+    final failure = result.fold<Failure?>((closedIncident) {
+      _incidents?.applyIncident(closedIncident);
+      _showClosed(incidentId, closedIncident);
+      return null;
+    }, (failure) => failure);
+    if (failure == null) return;
+
+    // The server did not take the close. The person still said they are
+    // at their desk, and a phone with no signal must not hold them here.
+    final queue = queueClose;
+    final shown = state.incident;
+    if (queue == null || shown == null || shown.id != incidentId) {
+      emit(state.copyWith(errorMessage: failure.message));
+      return;
+    }
+    final closedHere = shown.copyWith(state: IncidentStates.closed);
+    switch (serverRefusalFor(failure)) {
+      case ServerRefusal.settled:
+        // Already closed, or gone. Nothing is left to send.
+        _incidents?.applyIncident(closedHere);
+        _showClosed(incidentId, closedHere);
+      case ServerRefusal.queue:
+        try {
+          await queue(incidentId);
+        } on Object catch (_) {
+          if (isClosed) return;
+          emit(state.copyWith(errorMessage: failure.message));
+          return;
         }
-      },
-      (failure) {
+        if (isClosed) return;
+        _showClosed(incidentId, closedHere, isQueued: true);
+      case ServerRefusal.refused:
         emit(state.copyWith(errorMessage: failure.message));
-      },
+    }
+  }
+
+  /// The closed screen, or the next open incident when one is waiting.
+  /// Same rule as acknowledge: an incident still open takes over, and the
+  /// closed screen only appears once nothing is left ringing.
+  void _showClosed(
+    String incidentId,
+    Incident closedIncident, {
+    bool isQueued = false,
+  }) {
+    final remaining = _newestFirst(
+      state.openIncidents.where((i) => i.id != incidentId),
+    );
+    if (remaining.isNotEmpty) {
+      _applyIncident(remaining.first, openIncidents: remaining);
+      return;
+    }
+    emit(
+      state.copyWith(
+        status: CriticalAlarmStatus.closed,
+        incident: closedIncident,
+        openIncidents: remaining,
+        word: LocaleKeys.critical_alarm_stage_word_closed.tr(),
+        severityMode: SeverityMode.none,
+        faceState: FaceState.calm,
+        isLive: false,
+        isCloseQueued: isQueued,
+      ),
     );
   }
 

@@ -302,6 +302,11 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
         if (!state.isLive && !state.isAcknowledged) {
           final isLoading = state.status == CriticalAlarmStatus.loading;
           final didFail = !isLoading && state.errorMessage != null;
+          // The incident this screen was opened for could not be loaded,
+          // and can still be closed from here.
+          final unloadedId = didFail ? state.unloadedIncidentId : null;
+          // That close is waiting for the server.
+          final isQueued = !isLoading && !didFail && state.isCloseQueued;
 
           content = AppScreenScaffold(
             hasTabBar: false,
@@ -315,15 +320,48 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
             ),
             // The load failing does not stop the phone ringing, so this screen
             // keeps a way out even when it has no incident to acknowledge.
-            bottomBar: didFail
+            bottomBar: isQueued
+                ? AppButton(
+                    label: LocaleKeys.critical_alarm_back_to_topics_button.tr(),
+                    variant: AppButtonVariant.ghost,
+                    isFullWidth: true,
+                    onPressed: () {
+                      AppHaptics.capture();
+                      context.go('/');
+                    },
+                  )
+                : didFail
                 ? Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // With no server to ask, "At my desk" is still here.
+                      // A card's Done button can open the app instead of
+                      // closing, and no signal must not hold a person on
+                      // this screen.
+                      if (unloadedId != null) ...[
+                        AppButton(
+                          label: LocaleKeys.critical_alarm_at_my_desk_button
+                              .tr(),
+                          variant: AppButtonVariant.ghost,
+                          isFullWidth: true,
+                          onPressed: () {
+                            AppHaptics.capture();
+                            unawaited(
+                              context
+                                  .read<CriticalAlarmCubit>()
+                                  .closeUnloaded(),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                       AppButton(
                         label: LocaleKeys.critical_alarm_retry_button.tr(),
                         isFullWidth: true,
                         onPressed: () => unawaited(
-                          context.read<CriticalAlarmCubit>().load(),
+                          context.read<CriticalAlarmCubit>().load(
+                            incidentId: unloadedId,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -350,10 +388,14 @@ class _CriticalAlarmViewState extends State<_CriticalAlarmView> {
                   child: AppEmptyState(
                     title: isLoading
                         ? LocaleKeys.critical_alarm_loading_title.tr()
+                        : isQueued
+                        ? LocaleKeys.critical_alarm_close_queued_title.tr()
                         : didFail
                         ? LocaleKeys.critical_alarm_load_failed_title.tr()
                         : LocaleKeys.critical_alarm_no_alarm_title.tr(),
-                    description: didFail
+                    description: isQueued
+                        ? LocaleKeys.critical_alarm_close_queued_body.tr()
+                        : didFail
                         ? LocaleKeys.critical_alarm_load_failed_body.tr()
                         : isLoading
                         ? ''

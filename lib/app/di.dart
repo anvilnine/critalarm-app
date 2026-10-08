@@ -23,6 +23,7 @@ import 'package:critalarm/core/access/holdings.dart';
 import 'package:critalarm/core/account/account_identity_changes.dart';
 import 'package:critalarm/core/account/plan_changes.dart';
 import 'package:critalarm/core/ack/ack_queue.dart';
+import 'package:critalarm/core/ack/ack_queue_entry.dart';
 import 'package:critalarm/core/alarm/alarm_build_mode.dart';
 import 'package:critalarm/core/alarm/alarm_debug_snapshot.dart';
 import 'package:critalarm/core/alarm/alarm_focus.dart';
@@ -2249,7 +2250,13 @@ Future<void> configureDependencies({
         ),
         getIt<EndSetupTestUsecase>(),
         getIt<SetupTestRing>(),
-      ),
+      )
+        // "At my desk" with no signal: the close waits in the ack queue,
+        // the one the Done button on a card uses.
+        ..queueClose = (incidentId) => getIt<AckQueue>().enqueue(
+          action: AckAction.close,
+          incidentId: incidentId,
+        ),
     )
     ..registerFactory(
       () => LockScreenCubit(
