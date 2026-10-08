@@ -1,6 +1,7 @@
 import 'package:critalarm/core/failures/failure.dart';
 import 'package:critalarm/core/result/result.dart';
 import 'package:critalarm/core/sound/alarm_sound.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/core/sound/sound_import.dart';
 import 'package:critalarm/core/sound/sound_peaks_cache.dart';
@@ -15,11 +16,36 @@ export 'package:critalarm/core/sound/sound_import.dart' show PickedSoundFile;
 /// (`checkPickedSound`, `checkSourceDuration`). By the time this runs the user
 /// has chosen the range, so all that is left is the cut, the waveform and the
 /// save.
+///
+/// Every way in ends here (a picked file, a recording, a file shared in),
+/// so this is the last check that own sounds are open. While they are
+/// locked nothing is cut and nothing is saved.
 class ImportSoundUsecase {
-  ImportSoundUsecase(this._repository, this._host);
+  ImportSoundUsecase(
+    this._repository,
+    this._host, {
+    required this._isLocked,
+  });
+
+  /// The failure message of a save turned away by the lock. The cropper
+  /// opens the paywall for it.
+  static const lockedCode = 'ownSoundsLocked';
 
   final AlarmSoundRepository _repository;
   final SoundHost _host;
+
+  /// Whether own sounds are locked for certain. False while a purchase is
+  /// being confirmed and while the plan could not be read.
+  final Future<bool> Function() _isLocked;
+
+  Future<bool> _locked() async {
+    try {
+      return await _isLocked();
+    } on Object catch (_) {
+      // Nobody knows, so nothing is turned away.
+      return false;
+    }
+  }
 
   Future<AppResult<AlarmSound>> call({
     required PickedSoundFile file,
@@ -27,7 +53,12 @@ class ImportSoundUsecase {
     required Duration start,
     required Duration end,
   }) async {
-    final id = 'user_${DateTime.now().microsecondsSinceEpoch}';
+    if (await _locked()) {
+      return const UnsupportedFailure(
+        message: lockedCode,
+      ).toFailure<AlarmSound>();
+    }
+    final id = '$ownSoundIdPrefix${DateTime.now().microsecondsSinceEpoch}';
     final imported = await _host.importSound(
       sourcePath: file.path,
       id: id,

@@ -2,6 +2,7 @@ import 'package:critalarm/app/di.dart';
 import 'package:critalarm/app/popup_route_tracker.dart';
 import 'package:critalarm/app/route_observer.dart';
 import 'package:critalarm/app/shell/app_shell.dart';
+import 'package:critalarm/core/access/feature_access.dart';
 import 'package:critalarm/core/app_icon/app_icon_host.dart';
 import 'package:critalarm/core/paywall/paywall_build_mode.dart';
 import 'package:critalarm/core/paywall/paywall_intro.dart';
@@ -10,6 +11,7 @@ import 'package:critalarm/core/paywall/paywall_source.dart';
 import 'package:critalarm/core/paywall/paywall_thanks.dart';
 import 'package:critalarm/core/platform/platform_capabilities.dart';
 import 'package:critalarm/core/push/push_deep_link.dart';
+import 'package:critalarm/core/sound/own_sound_rule.dart';
 import 'package:critalarm/core/sound/sound_host.dart';
 import 'package:critalarm/design/ambient/ambient.dart';
 import 'package:critalarm/design/gallery/gallery_screen.dart';
@@ -186,11 +188,16 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     // The cropper for a file the user just picked. The file travels as
     // `extra`, so a refresh on the web or a stray link arrives with none,
     // and the screen goes straight back. It also leaves when the platform
-    // cannot import sounds.
+    // cannot import sounds. While own sounds are locked it never opens: the
+    // sound list does, where every way in opens the paywall.
     GoRoute(
       path: '/sounds/crop',
       parentNavigatorKey: _rootKey,
       name: AppRoute.soundCrop,
+      redirect: (context, state) => ownSoundsRouteRedirect(
+        getIt<FeatureAccess>(),
+        soundList: '/sounds',
+      ),
       pageBuilder: (context, state) {
         final file = state.extra;
         return AmbientPage(
@@ -206,14 +213,18 @@ GoRouter buildRouter({String initialLocation = '/'}) => GoRouter(
     ),
     // The recorder. Once a clip is recorded the same route shows the
     // cropper for it, so back from the cropper lands on the sound list.
-    // Leaves at once where the platform cannot import sounds.
+    // Leaves at once where the platform cannot import sounds, and while
+    // own sounds are locked.
     GoRoute(
       path: '/sounds/record',
       parentNavigatorKey: _rootKey,
       name: AppRoute.soundRecord,
       redirect: (context, state) async =>
           (await getIt<SoundHost>().capabilities()).canImportSounds
-          ? null
+          ? ownSoundsRouteRedirect(
+              getIt<FeatureAccess>(),
+              soundList: '/sounds',
+            )
           : '/sounds',
       pageBuilder: (context, state) => AmbientPage(
         key: state.pageKey,
