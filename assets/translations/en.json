@@ -2089,5 +2089,29 @@
       "key": "Key",
       "lights": "Lights on"
     }
+  },
+  "feature_lock": {
+    "locked": "locked",
+    "try_hint": "Double tap to try",
+    "sell_hint": "Opens {plan}"
+  },
+  "personalize": {
+    "title": "Personalize",
+    "row_subtitle": "Alarm sound, widgets and app icon",
+    "preview_label": "Alarm preview",
+    "preview_hint": "Opens it full screen",
+    "play_label": "Play the alarm sound",
+    "sample_topic": "home-server",
+    "sample_title": "Backup failed",
+    "sample_body": "The nightly backup did not finish.",
+    "sample_tag": "backup",
+    "sound_title": "Sound",
+    "sound_yours": "Yours",
+    "sound_more": "All sounds",
+    "widgets_row": "Widgets",
+    "app_icon_row": "App icon",
+    "try_not_saved": "Not saved",
+    "try_button": "Unlock",
+    "try_confirming": "Confirming your purchase"
   }
 }
