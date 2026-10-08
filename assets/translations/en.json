@@ -2139,9 +2139,9 @@
     },
     "type_alert_title": {
       "name": "Type the alert title",
-      "prompt": "Type the first words",
+      "prompt": "Type the bold words",
       "field_label": "First words of the alert title, {words}. Type them here.",
-      "hint": "Type the bold words. Capitals do not matter."
+      "hint": "Capitals do not matter."
     },
     "ops_math": {
       "name": "Ops math",
@@ -2151,25 +2151,22 @@
       "q_minutes": "How many seconds in {value} minutes?",
       "q_hours": "How many seconds in {value} hours?",
       "q_megabytes": "How many kilobytes in {value} MB?",
-      "hint": "Numbers only.",
       "wrong": "Try the same question again."
     },
     "scratch_card": {
       "name": "Scratch card",
       "prompt": "Scratch, then type the code",
-      "hint_scratch": "Rub the card to reveal the code.",
       "reveal": "Show the code",
       "card_label": "Scratch card hiding a code. Double tap to reveal it.",
       "code_spoken": "Code: {digits}",
       "field_label": "Code: {digits}. Type it here.",
-      "hint_type": "Type the 4 digits.",
       "wrong": "Check the card and try again."
     },
     "shake": {
       "name": "Shake",
       "prompt": "30 shakes or taps",
       "count": "{count} of {target}",
-      "hint_shake": "Shake the phone. Out and back counts as one.",
+      "hint_shake": "Out and back counts as one.",
       "hint_taps": "No shaking needed. Tap {target} times.",
       "tap_instead": "Tap instead",
       "tap": "Tap"
@@ -2190,7 +2187,7 @@
     "own_edit_label": "Edit your look: change photo or colour",
     "own_sheet_title": "Your look",
     "own_private_note": "Your photo stays on this phone.",
-    "own_accent_title": "I'm up button colour",
+    "own_accent_title": "Button colour",
     "own_accent_yellow": "Yellow",
     "own_accent_paper": "Paper",
     "own_accent_orange": "Orange",

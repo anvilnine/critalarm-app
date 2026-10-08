@@ -310,16 +310,10 @@ class _ScratchCardState extends State<_ScratchCard> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // The prompt over the card says to scratch and then type, so no
+        // line under the card says either again.
         _card(context),
-        const SizedBox(height: Spacing.s3),
         if (!_isRevealed) ...[
-          ExcludeSemantics(
-            child: Text(
-              LocaleKeys.challenges_scratch_card_hint_scratch.tr(),
-              textAlign: TextAlign.center,
-              style: hint,
-            ),
-          ),
           if (_isButtonOffered) ...[
             const SizedBox(height: Spacing.s3),
             AppButton(
@@ -330,6 +324,7 @@ class _ScratchCardState extends State<_ScratchCard> {
             ),
           ],
         ] else ...[
+          const SizedBox(height: Spacing.s3),
           Semantics(
             label: LocaleKeys.challenges_scratch_card_field_label.tr(
               namedArgs: {'digits': scratchCodeSpelled(_code)},
@@ -362,7 +357,7 @@ class _ScratchCardState extends State<_ScratchCard> {
                   textInputAction: TextInputAction.done,
                   textAlign: TextAlign.center,
                   // Room for the way out, pinned under the field.
-                  scrollPadding: const EdgeInsets.fromLTRB(20, 120, 20, 120),
+                  scrollPadding: challengeFieldScrollPadding,
                   style: AppTypography.monoBold(colors.ink, fontSize: 24),
                   cursorColor: colors.cobalt,
                   onChanged: _check,
@@ -376,17 +371,17 @@ class _ScratchCardState extends State<_ScratchCard> {
               ),
             ),
           ),
-          const SizedBox(height: Spacing.s2),
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              _wasWrong
-                  ? LocaleKeys.challenges_scratch_card_wrong.tr()
-                  : LocaleKeys.challenges_scratch_card_hint_type.tr(),
-              textAlign: TextAlign.center,
-              style: hint,
+          if (_wasWrong) ...[
+            const SizedBox(height: Spacing.s2),
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                LocaleKeys.challenges_scratch_card_wrong.tr(),
+                textAlign: TextAlign.center,
+                style: hint,
+              ),
             ),
-          ),
+          ],
         ],
       ],
     );

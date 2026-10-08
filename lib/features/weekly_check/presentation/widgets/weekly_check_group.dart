@@ -205,8 +205,8 @@ class _WeeklyCheckGroupState extends State<WeeklyCheckGroup> {
 }
 
 /// The weekly check row while Hosted is not held, on Crit Alarm Cloud: the
-/// title with the locked Hosted badge and one line on what the check does.
-/// A plain row with no face.
+/// title with the locked Hosted badge, and nothing under it. The title
+/// already says what the check does. A plain row with no face.
 ///
 /// The row is a button. The badge and the way to the paywall both come
 /// from the one lock, [AccessLock], which picks the product from the
@@ -233,13 +233,11 @@ class WeeklyCheckLockedRow extends StatelessWidget {
         builder: (context) {
           final scope = FeatureLockScope.maybeOf(context);
           final title = LocaleKeys.weekly_check_title.tr();
-          final line = LocaleKeys.weekly_check_what_line.tr();
           final unlock = scope?.unlock;
           return ReliabilityPlainRow(
             title: title,
             badge: const FeatureLockBadge(staysWhenOpen: true),
-            lines: [line],
-            label: [title, ?scope?.planWord, line].join(', '),
+            label: [title, ?scope?.planWord].join(', '),
             hint: unlock == null
                 ? null
                 : LocaleKeys.weekly_check_locked_hint.tr(),

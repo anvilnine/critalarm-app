@@ -264,6 +264,8 @@ class _ShakeState extends State<_Shake>
           const SizedBox(height: Spacing.s3),
           Semantics(value: counted, child: _tapButton(context, session)),
         ] else ...[
+          // The prompt says to shake. This line adds only how a shake
+          // is counted.
           Text(
             LocaleKeys.challenges_shake_hint_shake.tr(),
             textAlign: TextAlign.center,
