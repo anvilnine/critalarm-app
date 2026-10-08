@@ -29,6 +29,7 @@ export 'pinned_notice_bar.dart';
 export 'preview_button.dart';
 export 'pro_badge.dart';
 export 'radios.dart';
+export 'readiness_pips.dart';
 export 'screen_scaffold.dart';
 export 'scrim.dart';
 export 'scroll_fade.dart';
