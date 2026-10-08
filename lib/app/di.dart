@@ -1679,7 +1679,20 @@ Future<void> configureDependencies({
         getApplicationSupportDirectory,
       ),
     )
-    ..registerLazySingleton(() => OwnAlarmLookKeeper(getIt<OwnLookStore>()))
+    ..registerLazySingleton(
+      () => OwnAlarmLookKeeper(
+        getIt<OwnLookStore>(),
+        // The picture is in memory only while a paid look may ring. With
+        // looks locked it is let go, and decoded again when that changes.
+        mayHold: () => getIt<AlarmStyleGate>().drawsPaidLooks,
+        recheck: [
+          getIt<AlarmStyleGate>().checked,
+          getIt<FeatureAccess>().changes.where(
+            (feature) => feature == AppFeature.alarmScreenStyles,
+          ),
+        ],
+      ),
+    )
     ..registerLazySingleton<OwnPhotoPicker>(PlatformOwnPhotoPicker.new)
     ..registerLazySingleton(
       () => ImportOwnPhotoUsecase(
